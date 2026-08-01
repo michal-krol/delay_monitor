@@ -1,0 +1,7 @@
+{
+  "stations": [
+    { "id": "5100", "name": "Warszawa Centralna" },
+    { "id": "5136", "name": "Kraków Główny" },
+    { "id": "4900", "name": "Wrocław Główny" }
+  ]
+}

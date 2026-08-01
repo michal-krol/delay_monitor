@@ -1,0 +1,72 @@
+{
+  "operations": [
+    {
+      "stationId": "5100",
+      "trainNumber": "12345",
+      "carrier": "PKP Intercity",
+      "category": "EIC",
+      "originStationName": "Warszawa Centralna",
+      "destinationStationName": "Kraków Główny",
+      "stop": {
+        "plannedArrival": null,
+        "actualArrival": null,
+        "plannedDeparture": "2026-08-01T12:15:00+02:00",
+        "actualDeparture": "2026-08-01T12:22:00+02:00",
+        "delayMinutes": 7,
+        "cancelled": false,
+        "platform": "4"
+      }
+    },
+    {
+      "stationId": "5100",
+      "trainNumber": "67890",
+      "carrier": "Koleje Mazowieckie",
+      "category": "REG",
+      "originStationName": "Warszawa Centralna",
+      "destinationStationName": "Skierniewice",
+      "stop": {
+        "plannedArrival": null,
+        "actualArrival": null,
+        "plannedDeparture": "2026-08-01T12:30:00+02:00",
+        "actualDeparture": null,
+        "delayMinutes": null,
+        "cancelled": true,
+        "platform": null
+      }
+    },
+    {
+      "stationId": "5100",
+      "trainNumber": "11111",
+      "carrier": "PKP Intercity",
+      "category": "TLK",
+      "originStationName": "Gdynia Główna",
+      "destinationStationName": "Warszawa Centralna",
+      "stop": {
+        "plannedArrival": "2026-08-01T12:05:00+02:00",
+        "actualArrival": null,
+        "plannedDeparture": null,
+        "actualDeparture": null,
+        "delayMinutes": null,
+        "cancelled": false,
+        "platform": "9"
+      }
+    },
+    {
+      "stationId": "5136",
+      "trainNumber": "12345",
+      "carrier": "PKP Intercity",
+      "category": "EIC",
+      "originStationName": "Warszawa Centralna",
+      "destinationStationName": "Kraków Główny",
+      "stop": {
+        "plannedArrival": "2026-08-01T15:05:00+02:00",
+        "actualArrival": null,
+        "plannedDeparture": null,
+        "actualDeparture": null,
+        "delayMinutes": null,
+        "cancelled": false,
+        "platform": "1"
+      }
+    }
+  ]
+}
