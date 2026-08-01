@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Monitor opóźnień PKP
 
-## Getting Started
+Aplikacja webowa pokazująca opóźnienia pociągów na wybranych stacjach w czasie
+zbliżonym do rzeczywistego. Zapisujesz ulubione stacje, widzisz je razem na
+dashboardzie i rozwijasz dowolną do pełnej tablicy stacyjnej.
 
-First, run the development server:
+Pełny projekt techniczny: [`docs/superpowers/specs/2026-08-01-pkp-opoznienia-design.md`](docs/superpowers/specs/2026-08-01-pkp-opoznienia-design.md).
+
+## Zdobycie klucza API
+
+Zarejestruj się na stronie głównej PKP PLK „Otwarte Dane"
+(`https://pdp-api.plk-sa.pl`) i poproś o poziom **Basic**
+(100 zapytań/godzinę, 1000 zapytań/dobę — to wystarczy). Skopiuj klucz do
+`PKP_API_KEY`.
+
+## Uruchomienie lokalne (tryb mock, bez klucza)
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Bez `PKP_API_KEY` i przy domyślnym `PKP_DATA_SOURCE=auto` aplikacja startuje
+w trybie mock — dane pochodzą z `fixtures/` i mają czasy przesunięte tak, by
+zawsze mieściły się w widocznym oknie. Cała funkcjonalność UI działa bez
+klucza.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Zmienne środowiskowe
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Zmienna | Domyślnie | Opis |
+|---|---|---|
+| `PKP_API_KEY` | brak | Klucz API. Brak → tryb mock |
+| `PKP_DATA_SOURCE` | `auto` | `auto` \| `live` \| `mock`. Jawny override |
+| `POLL_INTERVAL_MS` | `90000` | Interwał pollera |
+| `INTEREST_TTL_MS` | `300000` | Po tym czasie ciszy stacja przestaje być obserwowana |
+| `PORT` | `3000` | Ustawiane przez Railway |
 
-## Learn More
+Skopiuj `.env.example` do `.env.local` i uzupełnij, żeby uruchomić w trybie
+`live` lokalnie.
 
-To learn more about Next.js, take a look at the following resources:
+## Testy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run test
+npm run typecheck
+npm run lint
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Testy nie wymagają sieci ani klucza API.
 
-## Deploy on Vercel
+## Deployment (Railway)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Jeden projekt Railway, dwa środowiska: `main` → produkcja (`live`, prawdziwy
+klucz), `dev` → staging (`mock`, zero zużycia limitu). Railway deployuje
+automatycznie po pushu na podstawie `Dockerfile` (`output: 'standalone'`);
+`railway.json` wskazuje `/api/health` jako healthcheck. GitHub Actions
+(`.github/workflows/ci.yml`) pełni wyłącznie rolę bramki jakości na pull
+requestach — `typecheck`, `lint`, `test`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Uwaga kosztowa: dwa działające kontenery to podwójne zużycie kredytów
+Railway. Warto trzymać `dev` wyłączone i włączać przed większym mergem.
+
+## Limity API i działanie pollera
+
+Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
+(`src/lib/board/poller.ts`) odpytuje PKP co 90s dla wszystkich obserwowanych
+stacji w jednym zapytaniu, usypia po 5 minutach ciszy, budzi się natychmiast
+na pierwsze żądanie, i spowalnia do 5 minut, gdy `X-RateLimit-Daily-Remaining`
+spadnie poniżej 50. Przeglądarka odpytuje własny serwer (`/api/board`) co 30s
+niezależnie od tego rytmu — serwowanie z pamięci nic nie kosztuje.
