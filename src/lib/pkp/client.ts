@@ -1,11 +1,16 @@
 import type { RawRoute, RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 import { normalizeForSearch } from '../search'
+import { createTtlCache } from '../cache'
 
 const BASE_URL = 'https://pdp-api.plk-sa.pl'
 const REQUEST_TIMEOUT_MS = 8000
 const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const SCHEDULES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+// Klucz cache'u rozkładów to posortowany zestaw obserwowanych stacji, więc
+// każda zmiana ulubionych tworzy nowy wpis. Limit trzyma to w ryzach.
+const SCHEDULES_CACHE_MAX_ENTRIES = 64
 
 /**
  * Pozostały budżet zapytań wg nagłówków API. `null` znaczy „nie wiadomo",
@@ -69,7 +74,10 @@ type IndexedStation = { station: Station; normalizedName: string }
 
 export function createLiveClient(apiKey: string): PkpClient {
   let stationListCache: { stations: IndexedStation[]; expiresAt: number } | null = null
-  const schedulesCache = new Map<string, { routes: RawRoute[]; expiresAt: number }>()
+  const schedulesCache = createTtlCache<RawRoute[]>({
+    ttlMs: SCHEDULES_CACHE_TTL_MS,
+    maxEntries: SCHEDULES_CACHE_MAX_ENTRIES,
+  })
 
   async function fetchAllStations(): Promise<IndexedStation[]> {
     if (stationListCache && stationListCache.expiresAt > Date.now()) {
@@ -113,8 +121,8 @@ export function createLiveClient(apiKey: string): PkpClient {
     async getSchedules(stationIds: string[]): Promise<RawRoute[]> {
       const cacheKey = [...stationIds].sort().join(',')
       const cached = schedulesCache.get(cacheKey)
-      if (cached && cached.expiresAt > Date.now()) {
-        return cached.routes
+      if (cached !== undefined) {
+        return cached
       }
 
       const url = `${BASE_URL}/api/v1/schedules?stations=${stationIds.join(',')}`
@@ -124,7 +132,7 @@ export function createLiveClient(apiKey: string): PkpClient {
       }
       const json = await response.json()
       const routes = schedulesResponseSchema.parse(json).routes
-      schedulesCache.set(cacheKey, { routes, expiresAt: Date.now() + SCHEDULES_CACHE_TTL_MS })
+      schedulesCache.set(cacheKey, routes)
       return routes
     },
   }

@@ -13,6 +13,26 @@ async function readFixture<T>(fileName: string): Promise<T> {
   return JSON.parse(raw) as T
 }
 
+/**
+ * Fixture'y są niezmienne przez cały czas życia procesu, a poller sięga po nie
+ * co 90 s. Czytanie i walidacja Zodem przy każdym wywołaniu to czysty koszt —
+ * `getSchedules` otwierało dodatkowo dwa pliki naraz. Parsujemy raz, leniwie.
+ *
+ * Obietnica, nie wartość: równoległe wywołania trafiają w tę samą operację
+ * wejścia/wyjścia zamiast ścigać się o nią.
+ */
+function once<T>(load: () => Promise<T>): () => Promise<T> {
+  let pending: Promise<T> | null = null
+  return () => {
+    pending ??= load()
+    return pending
+  }
+}
+
+const loadStations = once(async () => stationSearchResponseSchema.parse(await readFixture('stations-search.json')))
+const loadOperations = once(async () => operationsResponseSchema.parse(await readFixture('operations.json')))
+const loadSchedules = once(async () => schedulesResponseSchema.parse(await readFixture('schedules.json')))
+
 function shiftTimestamp(value: string | null, offsetMs: number): string | null {
   if (value === null) return null
   return new Date(new Date(value).getTime() + offsetMs).toISOString()
@@ -35,14 +55,14 @@ function rebaseTrains(trains: RawTrainOperation[], now: number): RawTrainOperati
 export function createMockClient(): PkpClient {
   return {
     async searchStations(query: string): Promise<Station[]> {
-      const data = stationSearchResponseSchema.parse(await readFixture('stations-search.json'))
+      const data = await loadStations()
       const normalized = normalizeForSearch(query)
       if (normalized === '') return data.stations
       return data.stations.filter((station) => matchesStationName(station.name, normalized))
     },
 
     async getOperations(stationIds: string[]) {
-      const data = operationsResponseSchema.parse(await readFixture('operations.json'))
+      const data = await loadOperations()
       const requested = new Set(stationIds)
       const filtered = data.trains.filter((train) => train.stations.some((stop) => requested.has(stop.stationId)))
       return {
@@ -53,8 +73,7 @@ export function createMockClient(): PkpClient {
     },
 
     async getSchedules(stationIds: string[]) {
-      const operations = operationsResponseSchema.parse(await readFixture('operations.json'))
-      const schedules = schedulesResponseSchema.parse(await readFixture('schedules.json'))
+      const [operations, schedules] = await Promise.all([loadOperations(), loadSchedules()])
       const requested = new Set(stationIds)
       const relevantTrainIds = new Set(
         operations.trains

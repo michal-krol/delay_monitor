@@ -191,4 +191,25 @@ describe('createLiveClient', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
+
+  it('does not let the schedules cache grow without bound', async () => {
+    // Klucz to zestaw obserwowanych stacji, więc każda zmiana ulubionych
+    // dokładała wpis, którego nic nigdy nie usuwało.
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ routes: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    for (let i = 0; i < 200; i += 1) {
+      await client.getSchedules([`stacja-${i}`])
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(200)
+
+    // Najstarsze zestawy zostały wyeksmitowane, więc trzeba je pobrać ponownie...
+    await client.getSchedules(['stacja-0'])
+    expect(fetchMock).toHaveBeenCalledTimes(201)
+
+    // ...a najświeższe wciąż siedzą w cache'u.
+    await client.getSchedules(['stacja-199'])
+    expect(fetchMock).toHaveBeenCalledTimes(201)
+  })
 })

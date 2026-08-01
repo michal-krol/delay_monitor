@@ -20,10 +20,18 @@ export type PollerConfig = {
   interestTtlMs: number
 }
 
+/**
+ * Poller potrzebuje wyłącznie odczytu nazwy stacji. Węższy typ niż `Map`
+ * pozwala podać cache z eksmisją, a w testach zwykłą mapę.
+ */
+export type StationNameLookup = {
+  get(stationId: string): string | undefined
+}
+
 export type PollerDeps = {
   client: PkpClient
   config: PollerConfig
-  stationNames: Map<string, string>
+  stationNames: StationNameLookup
   now?: () => number
   sleep?: (ms: number) => Promise<void>
   random?: () => number
