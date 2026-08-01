@@ -1,0 +1,75 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
+export type BoardApiRow = {
+  trainNumber: string
+  carrier: string
+  category: string
+  headsign: string
+  plannedAt: string
+  actualAt: string | null
+  delayMinutes: number
+  status: 'onTime' | 'delayed' | 'cancelled' | 'unknown'
+  platform: string | null
+}
+
+export type BoardApiSnapshot = {
+  stationId: string
+  stationName: string
+  departures: BoardApiRow[]
+  arrivals: BoardApiRow[]
+  fetchedAt: string
+  ageMs: number
+}
+
+export type BoardApiResponse = {
+  snapshots: (BoardApiSnapshot | null)[]
+  budget: { hourly: number; daily: number } | undefined
+  status: 'ok' | 'configError' | 'degraded'
+}
+
+const REFRESH_INTERVAL_MS = 30000
+
+export function useBoard(stationIds: string[]) {
+  const [data, setData] = useState<BoardApiResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const key = stationIds.join(',')
+
+  useEffect(() => {
+    if (stationIds.length === 0) {
+      setData(null)
+      return
+    }
+
+    let cancelled = false
+
+    async function fetchBoard(): Promise<void> {
+      try {
+        const response = await fetch(`/api/board?stations=${key}`)
+        if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
+        const json = (await response.json()) as BoardApiResponse
+        if (!cancelled) {
+          setData(json)
+          setError(null)
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Nieznany błąd')
+      }
+    }
+
+    void fetchBoard()
+    const interval = setInterval(() => {
+      if (document.hidden) return
+      void fetchBoard()
+    }, REFRESH_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  return { data, error }
+}
