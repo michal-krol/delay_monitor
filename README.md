@@ -1,38 +1,45 @@
 # Monitor opóźnień PKP
 
+**Wersja 0.9 beta** — funkcjonalnie kompletna, gotowa do testów na żywym kluczu
+API. Lista znanych ograniczeń: [sekcja niżej](#znane-ograniczenia-09-beta).
+
 Aplikacja webowa pokazująca opóźnienia pociągów na wybranych stacjach w czasie
 zbliżonym do rzeczywistego. Zapisujesz ulubione stacje, widzisz je razem na
 dashboardzie i rozwijasz dowolną do pełnej tablicy stacyjnej.
 
-Pełny projekt techniczny: [`docs/superpowers/specs/2026-08-01-pkp-opoznienia-design.md`](docs/superpowers/specs/2026-08-01-pkp-opoznienia-design.md).
+Skala: użytek własny, kilka osób. Bez kont użytkowników, bez bazy danych.
 
 ## Funkcjonalność
 
-- **Dashboard ulubionych** — karty z nazwą stacji, 3 najbliższymi odjazdami,
-  licznikiem opóźnionych pociągów i wiekiem danych. Ładuje się z pamięci
-  serwera, nie z API PKP, więc jest natychmiastowy.
-- **Wyszukiwarka stacji** — combobox z podpowiedziami (debounce 300 ms),
-  pełna obsługa klawiatury (strzałki, Enter, Escape).
+- **Dashboard ulubionych** — karty z nazwą stacji, 3 najbliższymi odjazdami
+  (przewoźnik + logo, relacja, status) i licznikiem opóźnionych pociągów. Nad
+  siatką kart jedna wspólna linijka „Ostatnia aktualizacja". Karty ładują się
+  z pamięci serwera, nie z API PKP, więc pojawiają się natychmiast.
+- **Wyszukiwarka stacji** — combobox z podpowiedziami (debounce 300 ms, od
+  3 znaków, maks. 10 wyników), pełna obsługa klawiatury (strzałki, Enter,
+  Escape).
 - **Pełna tablica stacyjna** — do 20 najbliższych pozycji w oknie 2 godzin,
-  przełącznik odjazdy/przyjazdy, numer peronu, status i wielkość opóźnienia
-  w minutach. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
+  przełącznik odjazdy/przyjazdy, kolumny: pociąg, przewoźnik, kierunek,
+  planowo, peron, status. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
+- **Przewoźnik i kategoria** — dociągane z `/api/v1/schedules` (cache 24 h)
+  i łączone z realizacją po parze `scheduleId-orderId`. Dla pięciu
+  przewoźników (IC, KM, SKM, ŁKA, Leo Express) pokazujemy logo.
 - **Status opóźnienia** — `onTime` / `delayed` / `cancelled` / `unknown`,
   zawsze opisany tekstem (np. „+12 min"), nigdy samym kolorem.
 - **Tryb jasny/ciemny** — automatyczny wg preferencji systemowej, przez
   `next-themes`, bez mignięcia przy ładowaniu.
-- **Ulubione stacje w `localStorage`** — przechowywane lokalnie w
-  przeglądarce, przetrwają odświeżenie strony; brak kont użytkowników.
-- **Tryb mock bez klucza API** — pełna funkcjonalność UI działa od razu po
+- **Ulubione stacje w `localStorage`** — klucz `pkp.favourites.v1`,
+  przechowywane lokalnie w przeglądarce, przetrwają odświeżenie strony.
+- **Tryb mock bez klucza API** — UI działa od razu po
   `npm install && npm run dev`, dane pochodzą z `fixtures/` z czasami
   przesuniętymi względem „teraz".
-- **Odporność na błędy** — UI nigdy nie jest puste: przy awarii API (401,
-  429, 5xx, timeout, błąd walidacji) pokazywane są ostatnie znane dobre
-  dane wraz z ich wiekiem, a nie biały ekran. Baner ostrzegawczy pojawia
-  się tylko przy błędzie konfiguracji (zły/brak klucza).
-- **Dostępność** — tablica jako semantyczny `<table>` z `<caption>` i
-  `scope` na nagłówkach, `aria-live="polite"` tylko na linijce statusu
-  (nie na całej tablicy), widoczny focus, kontrast min. 4.5:1 w obu
-  trybach.
+- **Odporność na błędy** — przy awarii API (401, 429, 5xx, timeout, błąd
+  walidacji) poller zachowuje ostatni znany dobry snapshot i serwuje go dalej
+  zamiast czyścić widok. Baner ostrzegawczy pojawia się tylko przy błędzie
+  konfiguracji (zły/brak klucza — HTTP 401).
+- **Dostępność** — tablica jako semantyczny `<table>` z `<caption>` i `scope`
+  na nagłówkach, `aria-live="polite"` tylko na linijce statusu (nie na całej
+  tablicy), combobox z `aria-expanded`/`aria-activedescendant`, widoczny focus.
 - **Świadomość limitów API** — poller w tle pilnuje budżetu zapytań i sam
   spowalnia się, zanim limit zostanie przekroczony (patrz sekcja niżej).
 
@@ -42,23 +49,59 @@ Pełny projekt techniczny: [`docs/superpowers/specs/2026-08-01-pkp-opoznienia-de
 src/
 ├── app/
 │   ├── api/{board,stations,health}/route.ts   endpointy HTTP
+│   ├── layout.tsx                              ThemeProvider, tło
 │   └── page.tsx                                strona główna
 ├── components/                                 UI (React)
+│   ├── Dashboard, StationCard, FullBoard
+│   ├── StationSearch, EmptyState
+│   └── DelayBadge, CarrierLogo, ConfigErrorBanner
 ├── hooks/                                       useFavourites, useBoard
 └── lib/
     ├── config.ts                                walidacja zmiennych środowiskowych
-    ├── pkp/{client,mock,schema,types}.ts         warstwa danych PKP (live/mock)
-    └── board/{poller,transform,instance}.ts      logika domenowa (czyste funkcje + poller)
-fixtures/          nagrane/ręcznie napisane odpowiedzi API do trybu mock
-docs/superpowers/  projekt techniczny i plan implementacji
+    ├── carriers.ts                              mapa kodów przewoźników → logo
+    ├── pkp/{client,mock,schema,types}.ts        warstwa danych PKP (live/mock)
+    └── board/{poller,transform,instance}.ts     logika domenowa + poller
+fixtures/          ręcznie napisane odpowiedzi API do trybu mock
+public/carriers/   logotypy przewoźników (SVG)
 ```
+
+Zasada: sieć wyłącznie na krawędziach (`lib/pkp/client.ts`), logika w środku
+jako czyste funkcje. Testy nie wymagają ani sieci, ani klucza API.
+
+## Architektura — dwa niezależne rytmy
+
+```
+Przeglądarka  ──co 30 s──▶  /api/board  ──odczyt──▶  snapshot w pamięci
+                                                            ▲
+                                              co 90 s ──────┘
+                                                            │
+                                                      API PKP PLK
+```
+
+Przeglądarka odpytuje własny serwer często, bo to nic nie kosztuje. Poller
+odpytuje PKP rzadko, bo to kosztuje limit. Dziesięciu użytkowników zużywa
+tyle samo budżetu co jeden. Route handler nigdy nie czeka na PKP — czyta
+snapshot z pamięci i zwraca natychmiast.
+
+Aplikacja działa **w jednej replice**. Dwie repliki to dwa pollery i podwójne
+zużycie limitu; skalowanie poziome jest świadomie wykluczone. Stan w pamięci
+ginie przy restarcie — pierwszy użytkownik po deployu czeka jedną rundę
+pollera.
 
 ## Zdobycie klucza API
 
-Zarejestruj się na stronie głównej PKP PLK „Otwarte Dane"
-(`https://pdp-api.plk-sa.pl`) i poproś o poziom **Basic**
+Zarejestruj się w PKP PLK „Otwarte Dane" (`https://pdp-api.plk-sa.pl`,
+dokumentacja pod `/api-documentation`) i poproś o poziom **Basic**
 (100 zapytań/godzinę, 1000 zapytań/dobę — to wystarczy). Skopiuj klucz do
 `PKP_API_KEY`.
+
+Wykorzystywane endpointy:
+
+| Endpoint | Zastosowanie |
+|---|---|
+| `GET /api/v1/operations?stations=<id,id>&withPlanned=true&fullRoutes=true` | Realizacja z opóźnieniami — główne źródło |
+| `GET /api/v1/schedules?stations=<id,id>` | Przewoźnik i kategoria handlowa (cache 24 h) |
+| `GET /api/v1/dictionaries/stations?pageSize=10000` | Słownik stacji pod wyszukiwarkę (cache 24 h, filtrowanie po stronie serwera aplikacji) |
 
 ## Uruchomienie lokalne (tryb mock, bez klucza)
 
@@ -69,8 +112,9 @@ npm run dev
 
 Bez `PKP_API_KEY` i przy domyślnym `PKP_DATA_SOURCE=auto` aplikacja startuje
 w trybie mock — dane pochodzą z `fixtures/` i mają czasy przesunięte tak, by
-zawsze mieściły się w widocznym oknie. Cała funkcjonalność UI działa bez
-klucza.
+zawsze mieściły się w widocznym oknie. Fixture'y są celowo minimalne
+(3 stacje, 3 pociągi) — wystarczają do pracy nad UI, nie odwzorowują
+realnego natężenia ruchu.
 
 ## Zmienne środowiskowe
 
@@ -82,7 +126,8 @@ klucza.
 | `INTEREST_TTL_MS` | `300000` | Po tym czasie ciszy stacja przestaje być obserwowana |
 | `PORT` | `3000` | Ustawiane przez Railway |
 
-Skopiuj `.env.example` do `.env.local` i uzupełnij, żeby uruchomić w trybie
+`PKP_DATA_SOURCE=live` bez `PKP_API_KEY` jest błędem konfiguracji — aplikacja
+nie wstaje. Skopiuj `.env.example` do `.env.local`, żeby uruchomić w trybie
 `live` lokalnie.
 
 ## Testy
@@ -93,7 +138,28 @@ npm run typecheck
 npm run lint
 ```
 
-Testy nie wymagają sieci ani klucza API.
+98 testów (Vitest), bez sieci i bez klucza API. Testy komponentów działają na
+`jsdom` (docblock `// @vitest-environment jsdom`), reszta na środowisku `node`.
+
+## Limity API i działanie pollera
+
+Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
+(`src/lib/board/poller.ts`):
+
+- odpytuje `/operations` co 90 s dla **wszystkich** obserwowanych stacji
+  w jednym zapytaniu,
+- dokłada zapytanie o `/schedules`, ale odpowiedź trzyma w cache 24 h dla
+  danego zestawu stacji, więc w ustabilizowanym stanie kosztuje ono zero,
+- usypia po 5 minutach ciszy (`INTEREST_TTL_MS`) i budzi się natychmiast na
+  pierwsze żądanie,
+- wymuszony przebieg poza harmonogramem jest dławiony do jednego na 45 s
+  (dławik jest pomijany dla stacji, która nie ma jeszcze żadnych danych),
+- spowalnia do 5 minut, gdy `X-RateLimit-Daily-Remaining` spadnie poniżej 50,
+- przy 429 podwaja interwał, maks. do 5 minut; przy 5xx ponawia raz;
+  przy 401 zatrzymuje się i zgłasza błąd konfiguracji.
+
+Przeglądarka odpytuje własny serwer (`/api/board`) co 30 s i **wstrzymuje się,
+gdy karta jest schowana** (`document.hidden`) — dzięki temu poller zasypia sam.
 
 ## Deployment (Railway)
 
@@ -107,11 +173,35 @@ requestach — `typecheck`, `lint`, `test`.
 Uwaga kosztowa: dwa działające kontenery to podwójne zużycie kredytów
 Railway. Warto trzymać `dev` wyłączone i włączać przed większym mergem.
 
-## Limity API i działanie pollera
+## Znane ograniczenia (0.9 beta)
 
-Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
-(`src/lib/board/poller.ts`) odpytuje PKP co 90s dla wszystkich obserwowanych
-stacji w jednym zapytaniu, usypia po 5 minutach ciszy, budzi się natychmiast
-na pierwsze żądanie, i spowalnia do 5 minut, gdy `X-RateLimit-Daily-Remaining`
-spadnie poniżej 50. Przeglądarka odpytuje własny serwer (`/api/board`) co 30s
-niezależnie od tego rytmu — serwowanie z pamięci nic nie kosztuje.
+- **Kolumna „Peron" jest zawsze pusta.** `/operations` nie zwraca numeru
+  peronu w używanym kształcie odpowiedzi; `transform.ts` ustawia
+  `platform: null`, UI pokazuje „—".
+- **„Pociąg" pokazuje `scheduleId-orderId`, nie handlowy numer pociągu.**
+  Identyfikator jest poprawny technicznie (klucz łączenia z rozkładem), ale
+  dla pasażera nieczytelny.
+- **Budżet API i stan `degraded` nie są pokazywane w UI.** `/api/board`
+  zwraca `budget`, `status` i `ageMs`, ale interfejs konsumuje wyłącznie
+  `configError`.
+- **Logo tylko dla 5 przewoźników.** Brakuje m.in. Polregio, Kolei
+  Dolnośląskich, Śląskich i Wielkopolskich — dla nich pokazujemy sam kod.
+- **`/api/stations` nie ma własnej obsługi błędów** — awaria słownika stacji
+  kończy się odpowiedzią 500, a wyszukiwarka po cichu nie pokazuje wyników.
+- **Nie zweryfikowano na żywym kluczu API.** Cała walidacja kształtu
+  odpowiedzi opiera się na dokumentacji i ręcznie napisanych fixture'ach.
+
+## Licencja
+
+Kod: [MIT](LICENSE).
+
+Logotypy przewoźników w `public/carriers/` są znakami towarowymi ich
+właścicieli, nie są objęte licencją MIT i służą wyłącznie identyfikacji
+przewoźnika przy danych o kursowaniu. Dane o ruchu pociągów pochodzą z PKP PLK
+„Otwarte Dane" i podlegają warunkom tego serwisu.
+
+## Poza zakresem
+
+Powiadomienia o opóźnieniach, historia punktualności, mapa pociągów,
+integracja z `/disruptions`, PWA i tryb offline, konta użytkowników,
+synchronizacja ulubionych między urządzeniami, wyszukiwanie połączeń.

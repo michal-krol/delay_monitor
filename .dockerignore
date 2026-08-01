@@ -1,4 +1,15 @@
 node_modules
 .next
 .git
+.github
 coverage
+docs
+.impeccable
+.claude
+.env*
+!.env.example
+*.tsbuildinfo
+README.md
+CHANGELOG.md
+AGENTS.md
+CLAUDE.md
