@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const stationSchema = z
   .object({
-    id: z.string(),
+    id: z.coerce.string(),
     name: z.string(),
   })
   .passthrough()
@@ -27,8 +27,8 @@ const rawStopSchema = z
 
 export const rawOperationSchema = z
   .object({
-    stationId: z.string(),
-    trainNumber: z.string(),
+    stationId: z.coerce.string(),
+    trainNumber: z.coerce.string(),
     carrier: z.string().optional().default('nieznany'),
     category: z.string().optional().default('nieznana'),
     originStationName: z.string().optional().default(''),
