@@ -1,4 +1,4 @@
-import type { RawOperation } from '../pkp/types'
+import type { RawTrainOperation } from '../pkp/types'
 
 export type BoardRow = {
   trainNumber: string
@@ -39,27 +39,24 @@ function computeStatus(cancelled: boolean, actualAt: string | null, delayMinutes
 }
 
 function buildRow(
-  trainNumber: string,
-  carrier: string,
-  category: string,
+  trainId: string,
   headsign: string,
   plannedAt: string,
   actualAt: string | null,
   cancelled: boolean,
-  apiDelay: number | null,
-  platform: string | null
+  apiDelay: number | null
 ): BoardRow {
   const delayMinutes = computeDelayMinutes(plannedAt, actualAt, apiDelay)
   return {
-    trainNumber,
-    carrier,
-    category,
+    trainNumber: trainId,
+    carrier: '',
+    category: '',
     headsign,
     plannedAt,
     actualAt,
     delayMinutes,
     status: computeStatus(cancelled, actualAt, delayMinutes),
-    platform,
+    platform: null,
   }
 }
 
@@ -76,47 +73,53 @@ function sortAndTrim(rows: BoardRow[], now: Date): BoardRow[] {
     .slice(0, MAX_ROWS)
 }
 
+function resolveStationName(stationId: string, stationNames: Record<string, string>): string {
+  return stationNames[stationId] ?? stationId
+}
+
 export function transformOperations(
   stationId: string,
   stationName: string,
-  operations: RawOperation[],
+  trains: RawTrainOperation[],
+  stationNames: Record<string, string>,
   fetchedAt: string,
   now: Date = new Date(fetchedAt)
 ): BoardSnapshot {
   const departures: BoardRow[] = []
   const arrivals: BoardRow[] = []
 
-  for (const op of operations) {
-    const { stop } = op
+  for (const train of trains) {
+    const stops = train.stations
+    const stopIndex = stops.findIndex((stop) => stop.stationId === stationId)
+    if (stopIndex === -1) continue
+
+    const stop = stops[stopIndex]
+    const trainId = `${train.scheduleId}-${train.orderId}`
 
     if (stop.plannedDeparture !== null) {
+      const destination = stops[stops.length - 1]
       departures.push(
         buildRow(
-          op.trainNumber,
-          op.carrier,
-          op.category,
-          op.destinationStationName,
+          trainId,
+          resolveStationName(destination.stationId, stationNames),
           stop.plannedDeparture,
           stop.actualDeparture,
-          stop.cancelled,
-          stop.delayMinutes,
-          stop.platform
+          stop.isCancelled,
+          stop.departureDelayMinutes
         )
       )
     }
 
     if (stop.plannedArrival !== null) {
+      const origin = stops[0]
       arrivals.push(
         buildRow(
-          op.trainNumber,
-          op.carrier,
-          op.category,
-          op.originStationName,
+          trainId,
+          resolveStationName(origin.stationId, stationNames),
           stop.plannedArrival,
           stop.actualArrival,
-          stop.cancelled,
-          stop.delayMinutes,
-          stop.platform
+          stop.isCancelled,
+          stop.arrivalDelayMinutes
         )
       )
     }

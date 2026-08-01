@@ -1,4 +1,4 @@
-import type { RawOperation, Station } from './types'
+import type { RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, stationSearchResponseSchema } from './schema'
 
 const BASE_URL = 'https://pdp-api.plk-sa.pl'
@@ -10,7 +10,8 @@ export type RateLimitBudget = {
 }
 
 export type GetOperationsResult = {
-  operations: RawOperation[]
+  trains: RawTrainOperation[]
+  stationNames: Record<string, string>
   budget: RateLimitBudget
 }
 
@@ -68,7 +69,7 @@ export function createLiveClient(apiKey: string): PkpClient {
       }
       const json = await response.json()
       const parsed = operationsResponseSchema.parse(json)
-      return { operations: parsed.operations, budget: parseBudget(response) }
+      return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response) }
     },
   }
 }

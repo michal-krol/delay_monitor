@@ -1,72 +1,55 @@
 {
-  "operations": [
+  "trains": [
     {
-      "stationId": "5100",
-      "trainNumber": "12345",
-      "carrier": "PKP Intercity",
-      "category": "EIC",
-      "originStationName": "Warszawa Centralna",
-      "destinationStationName": "Kraków Główny",
-      "stop": {
-        "plannedArrival": null,
-        "actualArrival": null,
-        "plannedDeparture": "2026-08-01T12:15:00+02:00",
-        "actualDeparture": "2026-08-01T12:22:00+02:00",
-        "delayMinutes": 7,
-        "cancelled": false,
-        "platform": "4"
-      }
+      "scheduleId": "26",
+      "orderId": "12345",
+      "stations": [
+        {
+          "stationId": "5100",
+          "plannedDeparture": "2026-08-01T12:15:00+02:00",
+          "actualDeparture": "2026-08-01T12:22:00+02:00",
+          "departureDelayMinutes": 7
+        },
+        {
+          "stationId": "5136",
+          "plannedArrival": "2026-08-01T12:50:00+02:00"
+        }
+      ]
     },
     {
-      "stationId": "5100",
-      "trainNumber": "67890",
-      "carrier": "Koleje Mazowieckie",
-      "category": "REG",
-      "originStationName": "Warszawa Centralna",
-      "destinationStationName": "Skierniewice",
-      "stop": {
-        "plannedArrival": null,
-        "actualArrival": null,
-        "plannedDeparture": "2026-08-01T12:30:00+02:00",
-        "actualDeparture": null,
-        "delayMinutes": null,
-        "cancelled": true,
-        "platform": null
-      }
+      "scheduleId": "26",
+      "orderId": "67890",
+      "stations": [
+        {
+          "stationId": "5100",
+          "plannedDeparture": "2026-08-01T12:30:00+02:00",
+          "isCancelled": true
+        },
+        {
+          "stationId": "5136",
+          "plannedArrival": "2026-08-01T13:40:00+02:00",
+          "isCancelled": true
+        }
+      ]
     },
     {
-      "stationId": "5100",
-      "trainNumber": "11111",
-      "carrier": "PKP Intercity",
-      "category": "TLK",
-      "originStationName": "Gdynia Główna",
-      "destinationStationName": "Warszawa Centralna",
-      "stop": {
-        "plannedArrival": "2026-08-01T12:05:00+02:00",
-        "actualArrival": null,
-        "plannedDeparture": null,
-        "actualDeparture": null,
-        "delayMinutes": null,
-        "cancelled": false,
-        "platform": "9"
-      }
-    },
-    {
-      "stationId": "5136",
-      "trainNumber": "12345",
-      "carrier": "PKP Intercity",
-      "category": "EIC",
-      "originStationName": "Warszawa Centralna",
-      "destinationStationName": "Kraków Główny",
-      "stop": {
-        "plannedArrival": "2026-08-01T12:50:00+02:00",
-        "actualArrival": null,
-        "plannedDeparture": null,
-        "actualDeparture": null,
-        "delayMinutes": null,
-        "cancelled": false,
-        "platform": "1"
-      }
+      "scheduleId": "26",
+      "orderId": "11111",
+      "stations": [
+        {
+          "stationId": "4900",
+          "plannedDeparture": "2026-08-01T11:00:00+02:00"
+        },
+        {
+          "stationId": "5100",
+          "plannedArrival": "2026-08-01T12:05:00+02:00"
+        }
+      ]
     }
-  ]
+  ],
+  "stations": {
+    "5100": "Warszawa Centralna",
+    "5136": "Kraków Główny",
+    "4900": "Wrocław Główny"
+  }
 }

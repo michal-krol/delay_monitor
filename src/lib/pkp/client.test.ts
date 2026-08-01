@@ -26,7 +26,7 @@ describe('createLiveClient', () => {
   it('reads the rate-limit budget from response headers', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse(
-        { operations: [] },
+        { trains: [] },
         { 'X-RateLimit-Hourly-Remaining': '42', 'X-RateLimit-Daily-Remaining': '901' }
       )
     )
@@ -39,7 +39,7 @@ describe('createLiveClient', () => {
   })
 
   it('joins multiple station ids into one query and requests withPlanned=true', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ operations: [] }))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
     vi.stubGlobal('fetch', fetchMock)
 
     const client = createLiveClient('secret-key')
@@ -48,6 +48,23 @@ describe('createLiveClient', () => {
     const [url] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('stations=5100,5136')
     expect(String(url)).toContain('withPlanned=true')
+  })
+
+  it('returns the parsed trains list and station name dictionary', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        trains: [{ scheduleId: 25, orderId: 1, stations: [{ stationId: 5100, plannedDeparture: '2026-08-01T12:15:00+02:00' }] }],
+        stations: { '5100': 'Warszawa Centralna' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const result = await client.getOperations(['5100'])
+
+    expect(result.trains).toHaveLength(1)
+    expect(result.trains[0].scheduleId).toBe('25')
+    expect(result.stationNames).toEqual({ '5100': 'Warszawa Centralna' })
   })
 
   it('throws PkpApiError with the response status on a non-ok response', async () => {

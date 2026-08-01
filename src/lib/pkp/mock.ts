@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { PkpClient } from './client'
-import type { RawOperation, Station } from './types'
+import type { RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, stationSearchResponseSchema } from './schema'
 
 const FIXTURES_DIR = path.join(process.cwd(), 'fixtures')
@@ -17,17 +17,17 @@ function shiftTimestamp(value: string | null, offsetMs: number): string | null {
   return new Date(new Date(value).getTime() + offsetMs).toISOString()
 }
 
-function rebaseOperations(operations: RawOperation[], now: number): RawOperation[] {
+function rebaseTrains(trains: RawTrainOperation[], now: number): RawTrainOperation[] {
   const offsetMs = now - FIXTURE_ANCHOR
-  return operations.map((op) => ({
-    ...op,
-    stop: {
-      ...op.stop,
-      plannedArrival: shiftTimestamp(op.stop.plannedArrival, offsetMs),
-      actualArrival: shiftTimestamp(op.stop.actualArrival, offsetMs),
-      plannedDeparture: shiftTimestamp(op.stop.plannedDeparture, offsetMs),
-      actualDeparture: shiftTimestamp(op.stop.actualDeparture, offsetMs),
-    },
+  return trains.map((train) => ({
+    ...train,
+    stations: train.stations.map((stop) => ({
+      ...stop,
+      plannedArrival: shiftTimestamp(stop.plannedArrival, offsetMs),
+      actualArrival: shiftTimestamp(stop.actualArrival, offsetMs),
+      plannedDeparture: shiftTimestamp(stop.plannedDeparture, offsetMs),
+      actualDeparture: shiftTimestamp(stop.actualDeparture, offsetMs),
+    })),
   }))
 }
 
@@ -43,9 +43,10 @@ export function createMockClient(): PkpClient {
     async getOperations(stationIds: string[]) {
       const data = operationsResponseSchema.parse(await readFixture('operations.json'))
       const requested = new Set(stationIds)
-      const filtered = data.operations.filter((op) => requested.has(op.stationId))
+      const filtered = data.trains.filter((train) => train.stations.some((stop) => requested.has(stop.stationId)))
       return {
-        operations: rebaseOperations(filtered, Date.now()),
+        trains: rebaseTrains(filtered, Date.now()),
+        stationNames: data.stations,
         budget: { hourly: 99, daily: 999 },
       }
     },

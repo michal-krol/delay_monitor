@@ -3,22 +3,19 @@ export type Station = {
   name: string
 }
 
-export type RawStop = {
+export type RawOperationStation = {
+  stationId: string
   plannedArrival: string | null
-  actualArrival: string | null
   plannedDeparture: string | null
+  actualArrival: string | null
   actualDeparture: string | null
-  delayMinutes: number | null
-  cancelled: boolean
-  platform: string | null
+  arrivalDelayMinutes: number | null
+  departureDelayMinutes: number | null
+  isCancelled: boolean
 }
 
-export type RawOperation = {
-  stationId: string
-  trainNumber: string
-  carrier: string
-  category: string
-  originStationName: string
-  destinationStationName: string
-  stop: RawStop
+export type RawTrainOperation = {
+  scheduleId: string
+  orderId: string
+  stations: RawOperationStation[]
 }

@@ -2,32 +2,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPoller } from './poller'
 import { PkpApiError } from '../pkp/client'
 import type { PkpClient } from '../pkp/client'
-import type { RawOperation } from '../pkp/types'
+import type { RawTrainOperation } from '../pkp/types'
 
-function makeOperation(stationId: string, trainNumber: string): RawOperation {
+function makeTrain(scheduleId: string, orderId: string, stationId: string): RawTrainOperation {
   return {
-    stationId,
-    trainNumber,
-    carrier: 'PKP Intercity',
-    category: 'EIC',
-    originStationName: 'A',
-    destinationStationName: 'B',
-    stop: {
-      plannedArrival: null,
-      actualArrival: null,
-      plannedDeparture: new Date(Date.now() + 5 * 60000).toISOString(),
-      actualDeparture: null,
-      delayMinutes: null,
-      cancelled: false,
-      platform: null,
-    },
+    scheduleId,
+    orderId,
+    stations: [
+      {
+        stationId,
+        plannedArrival: null,
+        actualArrival: null,
+        plannedDeparture: new Date(Date.now() + 5 * 60000).toISOString(),
+        actualDeparture: null,
+        arrivalDelayMinutes: null,
+        departureDelayMinutes: null,
+        isCancelled: false,
+      },
+    ],
   }
 }
 
 function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
   return {
     searchStations: vi.fn().mockResolvedValue([]),
-    getOperations: vi.fn().mockResolvedValue({ operations: [], budget: { hourly: 99, daily: 999 } }),
+    getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
     ...overrides,
   }
 }
@@ -43,7 +42,7 @@ afterEach(() => {
 
 describe('createPoller', () => {
   it('wakes and fires immediately on the first registerInterest call', async () => {
-    const getOperations = vi.fn().mockResolvedValue({ operations: [], budget: { hourly: 99, daily: 999 } })
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
@@ -55,7 +54,7 @@ describe('createPoller', () => {
   })
 
   it('merges multiple stations into a single request', async () => {
-    const getOperations = vi.fn().mockResolvedValue({ operations: [], budget: { hourly: 99, daily: 999 } })
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
@@ -81,7 +80,7 @@ describe('createPoller', () => {
   })
 
   it('does not fire when the active set is empty', async () => {
-    const getOperations = vi.fn().mockResolvedValue({ operations: [], budget: { hourly: 99, daily: 999 } })
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
@@ -92,7 +91,7 @@ describe('createPoller', () => {
   })
 
   it('respects the 45s throttle on forced runs', async () => {
-    const getOperations = vi.fn().mockResolvedValue({ operations: [], budget: { hourly: 99, daily: 999 } })
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
@@ -108,7 +107,7 @@ describe('createPoller', () => {
   })
 
   it('forces a run once 45s have passed since the last run', async () => {
-    const getOperations = vi.fn().mockResolvedValue({ operations: [], budget: { hourly: 99, daily: 999 } })
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
@@ -125,7 +124,7 @@ describe('createPoller', () => {
   })
 
   it('extends the interval to 5 minutes when daily budget drops below 50', async () => {
-    const getOperations = vi.fn().mockResolvedValue({ operations: [], budget: { hourly: 5, daily: 40 } })
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 5, daily: 40 } })
     const client = makeClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
@@ -140,10 +139,10 @@ describe('createPoller', () => {
   })
 
   it('keeps the previous snapshot when a request fails', async () => {
-    const goodOperations = [makeOperation('5100', '1')]
+    const goodTrains = [makeTrain('25', '1', '5100')]
     const getOperations = vi
       .fn()
-      .mockResolvedValueOnce({ operations: goodOperations, budget: { hourly: 99, daily: 999 } })
+      .mockResolvedValueOnce({ trains: goodTrains, stationNames: { '5100': 'Warszawa Centralna' }, budget: { hourly: 99, daily: 999 } })
       .mockRejectedValueOnce(new PkpApiError('boom', 500))
       .mockRejectedValueOnce(new PkpApiError('boom', 500))
     const client = makeClient({ getOperations })

@@ -93,7 +93,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
           )}
           {rows.map((row) => (
             <tr key={`${row.trainNumber}-${row.plannedAt}`} className="border-b border-gray-100 dark:border-gray-800">
-              <td className="py-2 pr-2">{row.category} {row.trainNumber}</td>
+              <td className="py-2 pr-2">{row.category ? `${row.category} ${row.trainNumber}` : row.trainNumber}</td>
               <td className="py-2 pr-2">{row.headsign}</td>
               <td className="py-2 pr-2">
                 {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}

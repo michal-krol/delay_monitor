@@ -1,6 +1,5 @@
 import type { PkpClient } from '../pkp/client'
 import { PkpApiError } from '../pkp/client'
-import type { RawOperation } from '../pkp/types'
 import { transformOperations, type BoardSnapshot } from './transform'
 
 const FORCE_RUN_THROTTLE_MS = 45000
@@ -38,16 +37,6 @@ async function fetchWithRetry(client: PkpClient, active: string[]) {
     }
     throw err
   }
-}
-
-function groupByStation(operations: RawOperation[]): Map<string, RawOperation[]> {
-  const grouped = new Map<string, RawOperation[]>()
-  for (const op of operations) {
-    const list = grouped.get(op.stationId) ?? []
-    list.push(op)
-    grouped.set(op.stationId, list)
-  }
-  return grouped
 }
 
 export function createPoller(deps: PollerDeps): Poller {
@@ -88,15 +77,15 @@ export function createPoller(deps: PollerDeps): Poller {
       budget = result.budget
       status = 'ok'
       const fetchedAt = new Date(now()).toISOString()
-      const grouped = groupByStation(result.operations)
 
       for (const stationId of active) {
         snapshots.set(
           stationId,
           transformOperations(
             stationId,
-            stationNames.get(stationId) ?? stationId,
-            grouped.get(stationId) ?? [],
+            stationNames.get(stationId) ?? result.stationNames[stationId] ?? stationId,
+            result.trains,
+            result.stationNames,
             fetchedAt
           )
         )

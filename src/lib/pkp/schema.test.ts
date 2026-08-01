@@ -9,42 +9,59 @@ describe('stationSearchResponseSchema', () => {
     expect(result.stations).toEqual([{ id: '5100', name: 'Warszawa Centralna', futureField: 'xyz' }])
   })
 
+  it('coerces a numeric station id to a string (the real API returns integers)', () => {
+    const result = stationSearchResponseSchema.parse({ stations: [{ id: 5100, name: 'Warszawa Centralna' }] })
+    expect(result.stations[0].id).toBe('5100')
+  })
+
   it('rejects a station missing a required field', () => {
     expect(() => stationSearchResponseSchema.parse({ stations: [{ id: '5100' }] })).toThrow()
   })
 })
 
 describe('operationsResponseSchema', () => {
-  it('parses a full operation and defaults missing optional stop fields', () => {
+  it('parses a train with a station stop and defaults missing optional fields', () => {
     const result = operationsResponseSchema.parse({
-      operations: [
+      trains: [
         {
-          stationId: '5100',
-          trainNumber: '12345',
-          carrier: 'PKP Intercity',
-          category: 'EIC',
-          originStationName: 'Warszawa Centralna',
-          destinationStationName: 'Kraków Główny',
-          stop: { plannedDeparture: '2026-08-01T12:15:00+02:00' },
-          unknownTopLevelField: 'should pass through',
+          scheduleId: 25,
+          orderId: 118845,
+          stations: [{ stationId: 5100, plannedDeparture: '2026-08-01T12:15:00+02:00' }],
         },
       ],
+      stations: { '5100': 'Warszawa Centralna' },
     })
-    expect(result.operations[0].stop).toEqual({
+    expect(result.trains[0].scheduleId).toBe('25')
+    expect(result.trains[0].orderId).toBe('118845')
+    expect(result.trains[0].stations[0]).toEqual({
+      stationId: '5100',
       plannedArrival: null,
-      actualArrival: null,
       plannedDeparture: '2026-08-01T12:15:00+02:00',
+      actualArrival: null,
       actualDeparture: null,
-      delayMinutes: null,
-      cancelled: false,
-      platform: null,
+      arrivalDelayMinutes: null,
+      departureDelayMinutes: null,
+      isCancelled: false,
     })
   })
 
-  it('rejects an operation missing trainNumber', () => {
+  it('normalizes a null trains list to an empty array (the real API documents it as nullable)', () => {
+    const result = operationsResponseSchema.parse({ trains: null, stations: null })
+    expect(result.trains).toEqual([])
+    expect(result.stations).toEqual({})
+  })
+
+  it('normalizes a null per-train stations list to an empty array', () => {
+    const result = operationsResponseSchema.parse({
+      trains: [{ scheduleId: 25, orderId: 1, stations: null }],
+    })
+    expect(result.trains[0].stations).toEqual([])
+  })
+
+  it('rejects a train missing scheduleId', () => {
     expect(() =>
       operationsResponseSchema.parse({
-        operations: [{ stationId: '5100', stop: {} }],
+        trains: [{ orderId: 1, stations: [] }],
       })
     ).toThrow()
   })

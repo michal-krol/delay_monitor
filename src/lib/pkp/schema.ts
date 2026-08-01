@@ -13,32 +13,39 @@ export const stationSearchResponseSchema = z
   })
   .passthrough()
 
-const rawStopSchema = z
+const rawOperationStationSchema = z
   .object({
+    stationId: z.coerce.string(),
     plannedArrival: z.string().nullable().optional().default(null),
-    actualArrival: z.string().nullable().optional().default(null),
     plannedDeparture: z.string().nullable().optional().default(null),
+    actualArrival: z.string().nullable().optional().default(null),
     actualDeparture: z.string().nullable().optional().default(null),
-    delayMinutes: z.number().nullable().optional().default(null),
-    cancelled: z.boolean().optional().default(false),
-    platform: z.string().nullable().optional().default(null),
+    arrivalDelayMinutes: z.number().nullable().optional().default(null),
+    departureDelayMinutes: z.number().nullable().optional().default(null),
+    isCancelled: z.boolean().optional().default(false),
   })
   .passthrough()
 
-export const rawOperationSchema = z
+const rawTrainOperationSchema = z
   .object({
-    stationId: z.coerce.string(),
-    trainNumber: z.coerce.string(),
-    carrier: z.string().optional().default('nieznany'),
-    category: z.string().optional().default('nieznana'),
-    originStationName: z.string().optional().default(''),
-    destinationStationName: z.string().optional().default(''),
-    stop: rawStopSchema,
+    scheduleId: z.coerce.string(),
+    orderId: z.coerce.string(),
+    stations: z
+      .array(rawOperationStationSchema)
+      .nullish()
+      .transform((stations) => stations ?? []),
   })
   .passthrough()
 
 export const operationsResponseSchema = z
   .object({
-    operations: z.array(rawOperationSchema),
+    trains: z
+      .array(rawTrainOperationSchema)
+      .nullish()
+      .transform((trains) => trains ?? []),
+    stations: z
+      .record(z.string(), z.string())
+      .nullish()
+      .transform((stations) => stations ?? {}),
   })
   .passthrough()

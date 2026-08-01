@@ -14,19 +14,25 @@ describe('createMockClient', () => {
     expect(results.length).toBeGreaterThanOrEqual(3)
   })
 
-  it('returns only operations for the requested station ids', async () => {
+  it('returns only trains that stop at one of the requested station ids', async () => {
     const client = createMockClient()
     const result = await client.getOperations(['5136'])
-    expect(result.operations.every((op) => op.stationId === '5136')).toBe(true)
-    expect(result.operations.length).toBeGreaterThan(0)
+    expect(result.trains.every((train) => train.stations.some((stop) => stop.stationId === '5136'))).toBe(true)
+    expect(result.trains.length).toBeGreaterThan(0)
+  })
+
+  it('returns the station name dictionary bundled with the fixture', async () => {
+    const client = createMockClient()
+    const result = await client.getOperations(['5100'])
+    expect(result.stationNames['5100']).toBe('Warszawa Centralna')
   })
 
   it('rebases fixture timestamps to be close to now', async () => {
     const client = createMockClient()
     const result = await client.getOperations(['5100'])
-    const departure = result.operations.find((op) => op.stop.plannedDeparture !== null)
-    expect(departure).toBeDefined()
-    const plannedMs = new Date(departure!.stop.plannedDeparture as string).getTime()
+    const stop = result.trains.flatMap((train) => train.stations).find((s) => s.plannedDeparture !== null)
+    expect(stop).toBeDefined()
+    const plannedMs = new Date(stop!.plannedDeparture as string).getTime()
     expect(Math.abs(plannedMs - Date.now())).toBeLessThan(60 * 60 * 1000)
   })
 
