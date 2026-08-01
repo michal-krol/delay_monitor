@@ -1,154 +1,96 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { StationCard } from './StationCard'
+import type { BoardApiSnapshot } from '@/hooks/useBoard'
 
-function jsonResponse(body: unknown) {
-  return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
+function makeSnapshot(overrides: Partial<BoardApiSnapshot> = {}): BoardApiSnapshot {
+  return {
+    stationId: '5100',
+    stationName: 'Warszawa Centralna',
+    departures: [],
+    arrivals: [],
+    fetchedAt: new Date().toISOString(),
+    ageMs: 1000,
+    ...overrides,
+  }
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
-
 describe('StationCard', () => {
-  it('shows the station name and up to 3 departures with delay text (not color-only)', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(() =>
-        jsonResponse({
-          snapshots: [
-            {
-              stationId: '5100',
-              stationName: 'Warszawa Centralna',
-              departures: [
-                { trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1' },
-              ],
-              arrivals: [],
-              fetchedAt: new Date().toISOString(),
-              ageMs: 1000,
-            },
-          ],
-          budget: undefined,
-          status: 'ok',
-        })
-      )
-    )
+  it('shows the station name and up to 3 departures with delay text (not color-only)', () => {
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1' },
+      ],
+    })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" onExpand={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText('Warszawa Centralna')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByText('+5 min')).toBeInTheDocument())
+    expect(screen.getByText('+5 min')).toBeInTheDocument()
   })
 
-  it('shows the carrier logo and full name for a known carrier code', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(() =>
-        jsonResponse({
-          snapshots: [
-            {
-              stationId: '5100',
-              stationName: 'Warszawa Centralna',
-              departures: [
-                { trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
-              ],
-              arrivals: [],
-              fetchedAt: new Date().toISOString(),
-              ageMs: 1000,
-            },
-          ],
-          budget: undefined,
-          status: 'ok',
-        })
-      )
-    )
+  it('shows the carrier logo and full name for a known carrier code', () => {
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+      ],
+    })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" onExpand={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
+    expect(screen.getByText('PKP Intercity')).toBeInTheDocument()
     expect(screen.getByAltText('PKP Intercity')).toBeInTheDocument()
   })
 
-  it('falls back to a generic label when the carrier code is empty', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(() =>
-        jsonResponse({
-          snapshots: [
-            {
-              stationId: '5100',
-              stationName: 'Warszawa Centralna',
-              departures: [
-                { trainNumber: '26-1', carrier: '', category: '', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null },
-              ],
-              arrivals: [],
-              fetchedAt: new Date().toISOString(),
-              ageMs: 1000,
-            },
-          ],
-          budget: undefined,
-          status: 'ok',
-        })
-      )
-    )
+  it('falls back to a generic label when the carrier code is empty', () => {
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '26-1', carrier: '', category: '', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null },
+      ],
+    })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" onExpand={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument())
+    expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument()
   })
 
   it('calls onExpand with the station id and name when clicked', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null], budget: undefined, status: 'ok' })))
     const onExpand = vi.fn()
     const user = userEvent.setup()
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" onExpand={onExpand} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={onExpand} />)
     await user.click(screen.getByRole('button'))
 
     expect(onExpand).toHaveBeenCalledWith({ id: '5100', name: 'Warszawa Centralna' })
   })
 
-  it('shows the empty-station message instead of an error when there are no departures', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(() =>
-        jsonResponse({
-          snapshots: [{ stationId: '5100', stationName: 'X', departures: [], arrivals: [], fetchedAt: new Date().toISOString(), ageMs: 0 }],
-          budget: undefined,
-          status: 'ok',
-        })
-      )
-    )
-
-    render(<StationCard stationId="5100" stationName="X" onExpand={vi.fn()} />)
-    await waitFor(() => expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument())
+  it('shows a loading message when there is no snapshot yet', () => {
+    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={false} onExpand={vi.fn()} />)
+    expect(screen.getByText('Ładowanie…')).toBeInTheDocument()
   })
 
-  it('shows the absolute last-updated date and time instead of a relative age', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(() =>
-        jsonResponse({
-          snapshots: [
-            {
-              stationId: '5100',
-              stationName: 'X',
-              departures: [],
-              arrivals: [],
-              fetchedAt: '2026-08-01T20:24:11.827Z',
-              ageMs: 15000,
-            },
-          ],
-          budget: undefined,
-          status: 'ok',
-        })
-      )
-    )
+  it('shows the empty-station message instead of an error when there are no departures', () => {
+    const snapshot = makeSnapshot({ stationName: 'X', departures: [] })
+    render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
+    expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
+  })
 
-    render(<StationCard stationId="5100" stationName="X" onExpand={vi.fn()} />)
-    await waitFor(() => expect(screen.getByText(/Ostatnia aktualizacja:/)).toBeInTheDocument())
-    expect(screen.queryByText(/temu/)).not.toBeInTheDocument()
+  it('shows an error message without hiding the last known snapshot', () => {
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+      ],
+    })
+    render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={true} configError={false} onExpand={vi.fn()} />)
+    expect(screen.getByText('Błąd pobierania danych')).toBeInTheDocument()
+    expect(screen.getByText('PKP Intercity')).toBeInTheDocument()
+  })
+
+  it('renders a config error banner instead of the card when configError is true', () => {
+    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={true} onExpand={vi.fn()} />)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
   })
 })

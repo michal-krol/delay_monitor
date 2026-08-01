@@ -1,36 +1,26 @@
 'use client'
 
-import { useBoard } from '@/hooks/useBoard'
 import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { CarrierLogo } from './CarrierLogo'
 import { getCarrierInfo } from '@/lib/carriers'
 import type { StationOption } from './StationSearch'
+import type { BoardApiSnapshot } from '@/hooks/useBoard'
 
 type Props = {
   stationId: string
   stationName: string
+  snapshot: BoardApiSnapshot | null
+  error: boolean
+  configError: boolean
   onExpand: (station: StationOption) => void
 }
 
-function formatLastUpdated(fetchedAt: string): string {
-  return new Date(fetchedAt).toLocaleString('pl-PL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
-
-export function StationCard({ stationId, stationName, onExpand }: Props) {
-  const { data, error } = useBoard([stationId])
-  const snapshot = data?.snapshots[0] ?? null
+export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand }: Props) {
   const departures = snapshot?.departures.slice(0, 3) ?? []
   const delayedCount = snapshot?.departures.filter((row) => row.status === 'delayed').length ?? 0
 
-  if (data?.status === 'configError') {
+  if (configError) {
     return <ConfigErrorBanner />
   }
 
@@ -47,15 +37,14 @@ export function StationCard({ stationId, stationName, onExpand }: Props) {
         )}
       </div>
 
-      <p aria-live="polite" className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-        {error
-          ? 'Błąd pobierania danych'
-          : snapshot
-            ? `Ostatnia aktualizacja: ${formatLastUpdated(snapshot.fetchedAt)}`
-            : 'Ładowanie…'}
-      </p>
+      {error && (
+        <p aria-live="polite" className="mt-1 text-xs text-red-600 dark:text-red-400">
+          Błąd pobierania danych
+        </p>
+      )}
 
       <ul className="mt-3 space-y-2">
+        {!snapshot && !error && <li className="text-sm text-gray-500 dark:text-gray-400">Ładowanie…</li>}
         {snapshot && departures.length === 0 && (
           <li className="text-sm text-gray-500 dark:text-gray-400">Brak odjazdów w najbliższych godzinach</li>
         )}
