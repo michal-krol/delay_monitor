@@ -27,6 +27,7 @@ function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
   return {
     searchStations: vi.fn().mockResolvedValue([]),
     getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
+    getSchedules: vi.fn().mockResolvedValue([]),
     ...overrides,
   }
 }
@@ -190,5 +191,44 @@ describe('createPoller', () => {
 
     expect(poller.getStatus()).toBe('configError')
     expect(poller.isAwake()).toBe(false)
+  })
+
+  it('joins schedules onto operations by scheduleId-orderId to fill carrier and category', async () => {
+    const getOperations = vi.fn().mockResolvedValue({
+      trains: [makeTrain('26', '12345', '5100')],
+      stationNames: { '5100': 'Warszawa Centralna' },
+      budget: { hourly: 99, daily: 999 },
+    })
+    const getSchedules = vi
+      .fn()
+      .mockResolvedValue([{ scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' }])
+    const client = makeClient({ getOperations, getSchedules })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const row = poller.getSnapshot('5100')?.departures[0]
+    expect(row?.carrier).toBe('PKP_IC')
+    expect(row?.category).toBe('EIC')
+  })
+
+  it('keeps operations data and status ok even when the schedules fetch fails', async () => {
+    const getOperations = vi.fn().mockResolvedValue({
+      trains: [makeTrain('26', '12345', '5100')],
+      stationNames: { '5100': 'Warszawa Centralna' },
+      budget: { hourly: 99, daily: 999 },
+    })
+    const getSchedules = vi.fn().mockRejectedValue(new PkpApiError('boom', 500))
+    const client = makeClient({ getOperations, getSchedules })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const row = poller.getSnapshot('5100')?.departures[0]
+    expect(row).toBeDefined()
+    expect(row?.carrier).toBe('')
+    expect(poller.getStatus()).toBe('ok')
   })
 })

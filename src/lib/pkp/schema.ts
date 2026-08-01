@@ -52,3 +52,21 @@ export const operationsResponseSchema = z
       .transform((stations) => stations ?? {}),
   })
   .passthrough()
+
+const rawRouteSchema = z
+  .object({
+    scheduleId: z.coerce.string(),
+    orderId: z.coerce.string(),
+    carrierCode: z.string().nullable().optional().default(null),
+    commercialCategorySymbol: z.string().nullable().optional().default(null),
+  })
+  .passthrough()
+
+export const schedulesResponseSchema = z
+  .object({
+    routes: z
+      .array(rawRouteSchema)
+      .nullish()
+      .transform((routes) => routes ?? []),
+  })
+  .passthrough()

@@ -41,4 +41,18 @@ describe('createMockClient', () => {
     const result = await client.getOperations(['5100'])
     expect(result.budget).toEqual({ hourly: 99, daily: 999 })
   })
+
+  it('returns schedules only for trains that stop at the requested stations', async () => {
+    const client = createMockClient()
+    const routes = await client.getSchedules(['5136'])
+    expect(routes.map((route) => route.orderId).sort()).toEqual(['12345', '67890'])
+    expect(routes.every((route) => route.scheduleId === '26')).toBe(true)
+  })
+
+  it('carries carrier and category codes on each route', async () => {
+    const client = createMockClient()
+    const routes = await client.getSchedules(['5100'])
+    const eic = routes.find((route) => route.orderId === '12345')
+    expect(eic).toEqual({ scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' })
+  })
 })

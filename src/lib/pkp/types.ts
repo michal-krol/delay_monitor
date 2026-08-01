@@ -19,3 +19,10 @@ export type RawTrainOperation = {
   orderId: string
   stations: RawOperationStation[]
 }
+
+export type RawRoute = {
+  scheduleId: string
+  orderId: string
+  carrierCode: string | null
+  commercialCategorySymbol: string | null
+}

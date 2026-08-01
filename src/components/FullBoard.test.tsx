@@ -33,7 +33,25 @@ describe('FullBoard', () => {
 
     await waitFor(() => expect(screen.getByText('EIC 1')).toBeInTheDocument())
     expect(screen.getAllByRole('columnheader')[0]).toHaveAttribute('scope', 'col')
+    expect(screen.getByRole('columnheader', { name: 'Przewoźnik' })).toBeInTheDocument()
     expect(screen.queryByText('TLK 2')).not.toBeInTheDocument()
+  })
+
+  it('shows the carrier code, falling back to a dash when empty', async () => {
+    const snapshotWithoutCarrier = {
+      ...SNAPSHOT,
+      departures: [{ ...SNAPSHOT.departures[0], carrier: '' }],
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshotWithoutCarrier], budget: undefined, status: 'ok' }))
+    )
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText('EIC 1')).toBeInTheDocument())
+    const row = screen.getByText('EIC 1').closest('tr')
+    expect(row).toHaveTextContent('—')
   })
 
   it('switches to arrivals when the arrivals tab is clicked', async () => {

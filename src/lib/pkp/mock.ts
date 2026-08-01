@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { PkpClient } from './client'
 import type { RawTrainOperation, Station } from './types'
-import { operationsResponseSchema, stationSearchResponseSchema } from './schema'
+import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 
 const FIXTURES_DIR = path.join(process.cwd(), 'fixtures')
 const FIXTURE_ANCHOR = new Date('2026-08-01T12:00:00+02:00').getTime()
@@ -49,6 +49,18 @@ export function createMockClient(): PkpClient {
         stationNames: data.stations,
         budget: { hourly: 99, daily: 999 },
       }
+    },
+
+    async getSchedules(stationIds: string[]) {
+      const operations = operationsResponseSchema.parse(await readFixture('operations.json'))
+      const schedules = schedulesResponseSchema.parse(await readFixture('schedules.json'))
+      const requested = new Set(stationIds)
+      const relevantTrainIds = new Set(
+        operations.trains
+          .filter((train) => train.stations.some((stop) => requested.has(stop.stationId)))
+          .map((train) => `${train.scheduleId}-${train.orderId}`)
+      )
+      return schedules.routes.filter((route) => relevantTrainIds.has(`${route.scheduleId}-${route.orderId}`))
     },
   }
 }

@@ -117,4 +117,42 @@ describe('createLiveClient', () => {
     await expect(client.getOperations(['5100'])).rejects.toMatchObject({ status: 401 })
     await expect(client.getOperations(['5100'])).rejects.toBeInstanceOf(PkpApiError)
   })
+
+  it('fetches routes for the requested stations and parses carrier/category', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        routes: [{ scheduleId: 25, orderId: 118845, carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' }],
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const routes = await client.getSchedules(['5100', '5136'])
+
+    expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' }])
+    const [url] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/api/v1/schedules?stations=5100,5136')
+  })
+
+  it('caches schedules per station set regardless of id order', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getSchedules(['5100', '5136'])
+    await client.getSchedules(['5136', '5100'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('refetches schedules for a different station set', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ routes: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getSchedules(['5100'])
+    await client.getSchedules(['4900'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })

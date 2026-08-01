@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { operationsResponseSchema, stationSearchResponseSchema } from './schema'
+import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 
 describe('stationSearchResponseSchema', () => {
   it('parses known fields and ignores unknown ones', () => {
@@ -64,5 +64,30 @@ describe('operationsResponseSchema', () => {
         trains: [{ orderId: 1, stations: [] }],
       })
     ).toThrow()
+  })
+})
+
+describe('schedulesResponseSchema', () => {
+  it('parses a route and coerces numeric ids to strings', () => {
+    const result = schedulesResponseSchema.parse({
+      routes: [{ scheduleId: 25, orderId: 118845, carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' }],
+    })
+    expect(result.routes[0]).toEqual({
+      scheduleId: '25',
+      orderId: '118845',
+      carrierCode: 'PKP_IC',
+      commercialCategorySymbol: 'EIC',
+    })
+  })
+
+  it('defaults missing carrier/category fields to null', () => {
+    const result = schedulesResponseSchema.parse({ routes: [{ scheduleId: 25, orderId: 1 }] })
+    expect(result.routes[0].carrierCode).toBeNull()
+    expect(result.routes[0].commercialCategorySymbol).toBeNull()
+  })
+
+  it('normalizes a null routes list to an empty array', () => {
+    const result = schedulesResponseSchema.parse({ routes: null })
+    expect(result.routes).toEqual([])
   })
 })

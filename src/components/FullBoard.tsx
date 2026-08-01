@@ -92,6 +92,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
         <thead>
           <tr className="border-b border-gray-200 dark:border-gray-700">
             <th scope="col" className="py-2 pr-2">Pociąg</th>
+            <th scope="col" className="py-2 pr-2">Przewoźnik</th>
             <th scope="col" className="py-2 pr-2">Kierunek</th>
             <th scope="col" className="py-2 pr-2">Planowo</th>
             <th scope="col" className="py-2 pr-2">Peron</th>
@@ -101,7 +102,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-4 text-center text-gray-500 dark:text-gray-400">
+              <td colSpan={6} className="py-4 text-center text-gray-500 dark:text-gray-400">
                 Brak odjazdów w najbliższych godzinach
               </td>
             </tr>
@@ -109,6 +110,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
           {rows.map((row) => (
             <tr key={`${row.trainNumber}-${row.plannedAt}`} className="border-b border-gray-100 dark:border-gray-800">
               <td className="py-2 pr-2">{row.category ? `${row.category} ${row.trainNumber}` : row.trainNumber}</td>
+              <td className="py-2 pr-2">{row.carrier || '—'}</td>
               <td className="py-2 pr-2">{row.headsign}</td>
               <td className="py-2 pr-2">
                 {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}

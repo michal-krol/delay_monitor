@@ -1,5 +1,6 @@
 import type { PkpClient } from '../pkp/client'
 import { PkpApiError } from '../pkp/client'
+import type { RawRoute } from '../pkp/types'
 import { transformOperations, type BoardSnapshot } from './transform'
 
 const FORCE_RUN_THROTTLE_MS = 45000
@@ -39,6 +40,16 @@ async function fetchWithRetry(client: PkpClient, active: string[]) {
   }
 }
 
+async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promise<Map<string, RawRoute>> {
+  try {
+    const routes = await client.getSchedules(active)
+    return new Map(routes.map((route) => [`${route.scheduleId}-${route.orderId}`, route]))
+  } catch (err) {
+    console.error('Poller: błąd pobierania rozkładu (przewoźnik/kategoria będą puste)', err)
+    return new Map()
+  }
+}
+
 export function createPoller(deps: PollerDeps): Poller {
   const { client, config, stationNames } = deps
   const now = deps.now ?? (() => Date.now())
@@ -73,7 +84,10 @@ export function createPoller(deps: PollerDeps): Poller {
     lastRunAt = now()
 
     try {
-      const result = await fetchWithRetry(client, active)
+      const [result, routesByTrainId] = await Promise.all([
+        fetchWithRetry(client, active),
+        fetchRoutesByTrainId(client, active),
+      ])
       budget = result.budget
       status = 'ok'
       const fetchedAt = new Date(now()).toISOString()
@@ -86,6 +100,7 @@ export function createPoller(deps: PollerDeps): Poller {
             stationNames.get(stationId) ?? result.stationNames[stationId] ?? stationId,
             result.trains,
             result.stationNames,
+            routesByTrainId,
             fetchedAt
           )
         )

@@ -1,9 +1,10 @@
-import type { RawTrainOperation, Station } from './types'
-import { operationsResponseSchema, stationSearchResponseSchema } from './schema'
+import type { RawRoute, RawTrainOperation, Station } from './types'
+import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 
 const BASE_URL = 'https://pdp-api.plk-sa.pl'
 const REQUEST_TIMEOUT_MS = 8000
 const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const SCHEDULES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 export type RateLimitBudget = {
   hourly: number
@@ -19,6 +20,7 @@ export type GetOperationsResult = {
 export interface PkpClient {
   searchStations(query: string): Promise<Station[]>
   getOperations(stationIds: string[]): Promise<GetOperationsResult>
+  getSchedules(stationIds: string[]): Promise<RawRoute[]>
 }
 
 export class PkpApiError extends Error {
@@ -52,6 +54,7 @@ function parseBudget(response: Response): RateLimitBudget {
 
 export function createLiveClient(apiKey: string): PkpClient {
   let stationListCache: { stations: Station[]; expiresAt: number } | null = null
+  const schedulesCache = new Map<string, { routes: RawRoute[]; expiresAt: number }>()
 
   async function fetchAllStations(): Promise<Station[]> {
     if (stationListCache && stationListCache.expiresAt > Date.now()) {
@@ -86,6 +89,24 @@ export function createLiveClient(apiKey: string): PkpClient {
       const json = await response.json()
       const parsed = operationsResponseSchema.parse(json)
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response) }
+    },
+
+    async getSchedules(stationIds: string[]): Promise<RawRoute[]> {
+      const cacheKey = [...stationIds].sort().join(',')
+      const cached = schedulesCache.get(cacheKey)
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.routes
+      }
+
+      const url = `${BASE_URL}/api/v1/schedules?stations=${stationIds.join(',')}`
+      const response = await fetchWithTimeout(url, apiKey)
+      if (!response.ok) {
+        throw new PkpApiError(`Pobranie rozkładu nie powiodło się: ${response.status}`, response.status)
+      }
+      const json = await response.json()
+      const routes = schedulesResponseSchema.parse(json).routes
+      schedulesCache.set(cacheKey, { routes, expiresAt: Date.now() + SCHEDULES_CACHE_TTL_MS })
+      return routes
     },
   }
 }

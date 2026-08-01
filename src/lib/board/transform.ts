@@ -1,4 +1,4 @@
-import type { RawTrainOperation } from '../pkp/types'
+import type { RawRoute, RawTrainOperation } from '../pkp/types'
 
 export type BoardRow = {
   trainNumber: string
@@ -44,13 +44,14 @@ function buildRow(
   plannedAt: string,
   actualAt: string | null,
   cancelled: boolean,
-  apiDelay: number | null
+  apiDelay: number | null,
+  route: RawRoute | undefined
 ): BoardRow {
   const delayMinutes = computeDelayMinutes(plannedAt, actualAt, apiDelay)
   return {
     trainNumber: trainId,
-    carrier: '',
-    category: '',
+    carrier: route?.carrierCode ?? '',
+    category: route?.commercialCategorySymbol ?? '',
     headsign,
     plannedAt,
     actualAt,
@@ -82,6 +83,7 @@ export function transformOperations(
   stationName: string,
   trains: RawTrainOperation[],
   stationNames: Record<string, string>,
+  routesByTrainId: Map<string, RawRoute>,
   fetchedAt: string,
   now: Date = new Date(fetchedAt)
 ): BoardSnapshot {
@@ -95,6 +97,7 @@ export function transformOperations(
 
     const stop = stops[stopIndex]
     const trainId = `${train.scheduleId}-${train.orderId}`
+    const route = routesByTrainId.get(trainId)
 
     if (stop.plannedDeparture !== null) {
       const destination = stops[stops.length - 1]
@@ -105,7 +108,8 @@ export function transformOperations(
           stop.plannedDeparture,
           stop.actualDeparture,
           stop.isCancelled,
-          stop.departureDelayMinutes
+          stop.departureDelayMinutes,
+          route
         )
       )
     }
@@ -119,7 +123,8 @@ export function transformOperations(
           stop.plannedArrival,
           stop.actualArrival,
           stop.isCancelled,
-          stop.arrivalDelayMinutes
+          stop.arrivalDelayMinutes,
+          route
         )
       )
     }

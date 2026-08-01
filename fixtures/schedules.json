@@ -1,0 +1,7 @@
+{
+  "routes": [
+    { "scheduleId": "26", "orderId": "12345", "carrierCode": "PKP_IC", "commercialCategorySymbol": "EIC" },
+    { "scheduleId": "26", "orderId": "67890", "carrierCode": "KM", "commercialCategorySymbol": "REG" },
+    { "scheduleId": "26", "orderId": "11111", "carrierCode": "PKP_IC", "commercialCategorySymbol": "TLK" }
+  ]
+}
