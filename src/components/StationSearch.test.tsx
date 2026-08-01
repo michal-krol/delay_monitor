@@ -24,6 +24,19 @@ describe('StationSearch', () => {
     expect(input).toHaveAttribute('aria-expanded', 'false')
   })
 
+  it('does not search below the 3-character minimum', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('combobox'), 'kr')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('debounces the search request by 300ms', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
     vi.stubGlobal('fetch', fetchMock)

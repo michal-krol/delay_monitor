@@ -13,6 +13,7 @@ type Props = {
 }
 
 const DEBOUNCE_MS = 300
+const MIN_QUERY_LENGTH = 3
 
 export function StationSearch({ onSelect, placeholder }: Props) {
   const [query, setQuery] = useState('')
@@ -24,8 +25,8 @@ export function StationSearch({ onSelect, placeholder }: Props) {
 
   useEffect(() => {
     const trimmed = query.trim()
-    if (trimmed === '') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears stale results when the query is cleared
+    if (trimmed.length < MIN_QUERY_LENGTH) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears stale results when the query is too short
       setOptions([])
       setIsOpen(false)
       return
