@@ -43,7 +43,11 @@ describe('FullBoard', () => {
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByText('EIC 1')).toBeInTheDocument())
-    expect(screen.getByAltText('PKP Intercity')).toBeInTheDocument()
+
+    // Logo jest dekoracyjne (alt=""), bo kod przewoźnika stoi obok jako tekst.
+    const logo = document.querySelector('img[src="/carriers/pkp-ic.svg"]')
+    expect(logo).not.toBeNull()
+    expect(logo).toHaveAttribute('alt', '')
   })
 
   it('shows the carrier code, falling back to a dash when empty', async () => {

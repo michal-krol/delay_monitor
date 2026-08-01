@@ -31,7 +31,7 @@ describe('StationCard', () => {
     expect(screen.getByText('+5 min')).toBeInTheDocument()
   })
 
-  it('shows the carrier logo and full name for a known carrier code', () => {
+  it('shows the carrier name as text and the logo as a decorative image', () => {
     const snapshot = makeSnapshot({
       departures: [
         { trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
@@ -41,7 +41,12 @@ describe('StationCard', () => {
     render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText('PKP Intercity')).toBeInTheDocument()
-    expect(screen.getByAltText('PKP Intercity')).toBeInTheDocument()
+
+    // Logo jest dekoracyjne: nazwa przewoźnika stoi obok jako tekst, więc
+    // opisowy alt kazałby czytnikowi ekranu przeczytać ją dwa razy.
+    const logo = document.querySelector('img[src="/carriers/pkp-ic.svg"]')
+    expect(logo).not.toBeNull()
+    expect(logo).toHaveAttribute('alt', '')
   })
 
   it('falls back to a generic label when the carrier code is empty', () => {
