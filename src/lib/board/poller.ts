@@ -1,11 +1,19 @@
-import type { PkpClient } from '../pkp/client'
+import type { PkpClient, RateLimitBudget } from '../pkp/client'
 import { PkpApiError } from '../pkp/client'
 import type { RawRoute } from '../pkp/types'
 import { transformOperations, type BoardSnapshot } from './transform'
 
 const FORCE_RUN_THROTTLE_MS = 45000
-const LOW_BUDGET_DAILY_THRESHOLD = 50
 const LOW_BUDGET_INTERVAL_MS = 5 * 60 * 1000
+
+// Basic daje 1000 zapytań/dobę i 100/godzinę jednocześnie. Przy interwale 90 s
+// zużywamy ~40/h, więc mniej niż 10 pozostałych w godzinie oznacza, że zaraz
+// dostaniemy 429 — nawet jeśli budżet dobowy jest jeszcze zdrowy.
+const LOW_BUDGET_DAILY_THRESHOLD = 50
+const LOW_BUDGET_HOURLY_THRESHOLD = 10
+
+const RETRY_BASE_DELAY_MS = 500
+const RETRY_JITTER_MS = 1000
 
 export type PollerConfig = {
   pollIntervalMs: number
@@ -17,6 +25,19 @@ export type PollerDeps = {
   config: PollerConfig
   stationNames: Map<string, string>
   now?: () => number
+  sleep?: (ms: number) => Promise<void>
+  random?: () => number
+}
+
+/**
+ * Czy warto zwolnić. Nieznany budżet (null — brak nagłówka w odpowiedzi) nie
+ * jest traktowany jak niski: inaczej API, które przestało odsyłać nagłówki,
+ * na stałe zepchnęłoby poller na interwał awaryjny.
+ */
+function isBudgetLow(budget: RateLimitBudget): boolean {
+  if (budget.daily !== null && budget.daily < LOW_BUDGET_DAILY_THRESHOLD) return true
+  if (budget.hourly !== null && budget.hourly < LOW_BUDGET_HOURLY_THRESHOLD) return true
+  return false
 }
 
 export type PollerStatus = 'ok' | 'configError' | 'degraded'
@@ -24,16 +45,24 @@ export type PollerStatus = 'ok' | 'configError' | 'degraded'
 export type Poller = {
   registerInterest(stationIds: string[]): void
   getSnapshot(stationId: string): BoardSnapshot | undefined
-  getBudget(): { hourly: number; daily: number } | undefined
+  getBudget(): RateLimitBudget | undefined
   getStatus(): PollerStatus
   isAwake(): boolean
 }
 
-async function fetchWithRetry(client: PkpClient, active: string[]) {
+async function fetchWithRetry(
+  client: PkpClient,
+  active: string[],
+  sleep: (ms: number) => Promise<void>,
+  random: () => number
+) {
   try {
     return await client.getOperations(active)
   } catch (err) {
     if (err instanceof PkpApiError && err.status >= 500) {
+      // Odstęp z jitterem: natychmiastowe ponowienie najczęściej trafia w tę
+      // samą awarię po stronie API i zjada drugie zapytanie z limitu.
+      await sleep(RETRY_BASE_DELAY_MS + random() * RETRY_JITTER_MS)
       return client.getOperations(active)
     }
     throw err
@@ -53,13 +82,15 @@ async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promis
 export function createPoller(deps: PollerDeps): Poller {
   const { client, config, stationNames } = deps
   const now = deps.now ?? (() => Date.now())
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+  const random = deps.random ?? Math.random
 
   const interest = new Map<string, number>()
   const snapshots = new Map<string, BoardSnapshot>()
   let timer: ReturnType<typeof setTimeout> | null = null
   let currentIntervalMs = config.pollIntervalMs
   let lastRunAt = 0
-  let budget: { hourly: number; daily: number } | undefined
+  let budget: RateLimitBudget | undefined
   let status: PollerStatus = 'ok'
 
   function pruneInactive(): string[] {
@@ -85,7 +116,7 @@ export function createPoller(deps: PollerDeps): Poller {
 
     try {
       const [result, routesByTrainId] = await Promise.all([
-        fetchWithRetry(client, active),
+        fetchWithRetry(client, active, sleep, random),
         fetchRoutesByTrainId(client, active),
       ])
       budget = result.budget
@@ -106,7 +137,7 @@ export function createPoller(deps: PollerDeps): Poller {
         )
       }
 
-      currentIntervalMs = budget.daily < LOW_BUDGET_DAILY_THRESHOLD ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
+      currentIntervalMs = isBudgetLow(budget) ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
     } catch (err) {
       if (err instanceof PkpApiError && err.status === 401) {
         status = 'configError'

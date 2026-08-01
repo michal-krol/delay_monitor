@@ -25,7 +25,7 @@ export type BoardApiSnapshot = {
 
 export type BoardApiResponse = {
   snapshots: (BoardApiSnapshot | null)[]
-  budget: { hourly: number; daily: number } | undefined
+  budget: { hourly: number | null; daily: number | null } | undefined
   status: 'ok' | 'configError' | 'degraded'
 }
 

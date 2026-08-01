@@ -7,9 +7,13 @@ const REQUEST_TIMEOUT_MS = 8000
 const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const SCHEDULES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Pozostały budżet zapytań wg nagłówków API. `null` znaczy „nie wiadomo",
+ * a nie „zero" — brak nagłówka nie może wyglądać jak wyczerpany limit.
+ */
 export type RateLimitBudget = {
-  hourly: number
-  daily: number
+  hourly: number | null
+  daily: number | null
 }
 
 export type GetOperationsResult = {
@@ -47,10 +51,17 @@ async function fetchWithTimeout(url: string, apiKey: string): Promise<Response> 
   }
 }
 
+function parseRemaining(raw: string | null): number | null {
+  if (raw === null || raw.trim() === '') return null
+  const value = Number(raw)
+  return Number.isFinite(value) ? value : null
+}
+
 function parseBudget(response: Response): RateLimitBudget {
-  const hourly = Number(response.headers.get('X-RateLimit-Hourly-Remaining') ?? '0')
-  const daily = Number(response.headers.get('X-RateLimit-Daily-Remaining') ?? '0')
-  return { hourly, daily }
+  return {
+    hourly: parseRemaining(response.headers.get('X-RateLimit-Hourly-Remaining')),
+    daily: parseRemaining(response.headers.get('X-RateLimit-Daily-Remaining')),
+  }
 }
 
 /** Stacja z nazwą znormalizowaną raz, przy budowaniu cache'u słownika. */

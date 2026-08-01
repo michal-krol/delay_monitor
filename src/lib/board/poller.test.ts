@@ -156,6 +156,79 @@ describe('createPoller', () => {
     expect(getOperations).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps the normal interval when the API sends no rate-limit headers', async () => {
+    // Regresja: brak nagłówka dawał wcześniej daily=0, co natychmiast i na
+    // stałe spychało poller na interwał awaryjny 5 minut.
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: null, daily: null } })
+    const client = makeClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(getOperations).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(90000)
+    expect(getOperations).toHaveBeenCalledTimes(2)
+  })
+
+  it('extends the interval when the hourly budget runs low even if the daily one is healthy', async () => {
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 4, daily: 900 } })
+    const client = makeClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    await vi.advanceTimersByTimeAsync(90000)
+    expect(getOperations).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(210000)
+    expect(getOperations).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits with jitter before retrying a 5xx instead of firing again immediately', async () => {
+    const getOperations = vi
+      .fn()
+      .mockRejectedValueOnce(new PkpApiError('boom', 500))
+      .mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    const client = makeClient({ getOperations })
+    const poller = createPoller({
+      client,
+      config: { pollIntervalMs: 90000, interestTtlMs: 300000 },
+      stationNames: new Map(),
+      sleep,
+      random: () => 0.5,
+    })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(sleep).toHaveBeenCalledTimes(1)
+    expect(sleep).toHaveBeenCalledWith(1000) // 500 bazy + 0.5 * 1000 jittera
+    expect(getOperations).toHaveBeenCalledTimes(2)
+    expect(poller.getStatus()).toBe('ok')
+  })
+
+  it('does not retry a 4xx that is not worth repeating', async () => {
+    const getOperations = vi.fn().mockRejectedValue(new PkpApiError('bad request', 400))
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    const client = makeClient({ getOperations })
+    const poller = createPoller({
+      client,
+      config: { pollIntervalMs: 90000, interestTtlMs: 300000 },
+      stationNames: new Map(),
+      sleep,
+    })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(getOperations).toHaveBeenCalledTimes(1)
+    expect(sleep).not.toHaveBeenCalled()
+    expect(poller.getStatus()).toBe('degraded')
+  })
+
   it('keeps the previous snapshot when a request fails', async () => {
     const goodTrains = [makeTrain('25', '1', '5100')]
     const getOperations = vi
@@ -176,6 +249,9 @@ describe('createPoller', () => {
     expect(goodSnapshot?.departures).toHaveLength(1)
 
     await vi.advanceTimersByTimeAsync(90000)
+    // Ponowienie po 5xx czeka teraz na odstęp z jitterem (500-1500 ms), więc
+    // przebieg domyka się dopiero po dodatkowym przesunięciu zegara.
+    await vi.advanceTimersByTimeAsync(2000)
 
     expect(poller.getSnapshot('5100')).toEqual(goodSnapshot)
     expect(poller.getStatus()).toBe('degraded')

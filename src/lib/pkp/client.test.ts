@@ -79,6 +79,42 @@ describe('createLiveClient', () => {
     expect(result.budget).toEqual({ hourly: 42, daily: 901 })
   })
 
+  it('reports an absent rate-limit header as unknown, not as an exhausted budget', async () => {
+    // Regresja: Number(null ?? '0') dawało 0, więc API bez tych nagłówków
+    // wyglądało jak wyczerpany limit i poller zwalniał do 5 minut na stałe.
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const result = await client.getOperations(['5100'])
+
+    expect(result.budget).toEqual({ hourly: null, daily: null })
+  })
+
+  it('reports an unparsable rate-limit header as unknown', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ trains: [] }, { 'X-RateLimit-Hourly-Remaining': 'brak', 'X-RateLimit-Daily-Remaining': '  ' })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const result = await client.getOperations(['5100'])
+
+    expect(result.budget).toEqual({ hourly: null, daily: null })
+  })
+
+  it('still reports a genuine zero as zero', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ trains: [] }, { 'X-RateLimit-Hourly-Remaining': '0', 'X-RateLimit-Daily-Remaining': '0' })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const result = await client.getOperations(['5100'])
+
+    expect(result.budget).toEqual({ hourly: 0, daily: 0 })
+  })
+
   it('joins multiple station ids into one query and requests withPlanned=true and fullRoutes=true', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
     vi.stubGlobal('fetch', fetchMock)
