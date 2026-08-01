@@ -68,4 +68,30 @@ describe('StationCard', () => {
     render(<StationCard stationId="5100" stationName="X" onExpand={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument())
   })
+
+  it('shows the absolute last-updated date and time instead of a relative age', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        jsonResponse({
+          snapshots: [
+            {
+              stationId: '5100',
+              stationName: 'X',
+              departures: [],
+              arrivals: [],
+              fetchedAt: '2026-08-01T20:24:11.827Z',
+              ageMs: 15000,
+            },
+          ],
+          budget: undefined,
+          status: 'ok',
+        })
+      )
+    )
+
+    render(<StationCard stationId="5100" stationName="X" onExpand={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText(/Ostatnia aktualizacja:/)).toBeInTheDocument())
+    expect(screen.queryByText(/temu/)).not.toBeInTheDocument()
+  })
 })

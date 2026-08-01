@@ -59,4 +59,14 @@ describe('FullBoard', () => {
 
     expect(onToggleFavourite).toHaveBeenCalled()
   })
+
+  it('shows the absolute last-updated date and time instead of a relative age', async () => {
+    const snapshot = { ...SNAPSHOT, fetchedAt: '2026-08-01T20:24:11.827Z' }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshot], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText(/Ostatnia aktualizacja:/)).toBeInTheDocument())
+    expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
+  })
 })

@@ -11,10 +11,15 @@ type Props = {
   onExpand: (station: StationOption) => void
 }
 
-function formatAge(ageMs: number): string {
-  const seconds = Math.floor(ageMs / 1000)
-  if (seconds < 60) return `${seconds}s temu`
-  return `${Math.floor(seconds / 60)}min temu`
+function formatLastUpdated(fetchedAt: string): string {
+  return new Date(fetchedAt).toLocaleString('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
 }
 
 export function StationCard({ stationId, stationName, onExpand }: Props) {
@@ -41,7 +46,11 @@ export function StationCard({ stationId, stationName, onExpand }: Props) {
       </div>
 
       <p aria-live="polite" className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-        {error ? 'Błąd pobierania danych' : snapshot ? `Dane sprzed ${formatAge(snapshot.ageMs)}` : 'Ładowanie…'}
+        {error
+          ? 'Błąd pobierania danych'
+          : snapshot
+            ? `Ostatnia aktualizacja: ${formatLastUpdated(snapshot.fetchedAt)}`
+            : 'Ładowanie…'}
       </p>
 
       <ul className="mt-3 space-y-2">
