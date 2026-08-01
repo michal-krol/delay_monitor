@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { PkpClient } from './client'
 import type { RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
+import { matchesStationName, normalizeForSearch } from '../search'
 
 const FIXTURES_DIR = path.join(process.cwd(), 'fixtures')
 const FIXTURE_ANCHOR = new Date('2026-08-01T12:00:00+02:00').getTime()
@@ -35,9 +36,9 @@ export function createMockClient(): PkpClient {
   return {
     async searchStations(query: string): Promise<Station[]> {
       const data = stationSearchResponseSchema.parse(await readFixture('stations-search.json'))
-      const normalized = query.trim().toLowerCase()
+      const normalized = normalizeForSearch(query)
       if (normalized === '') return data.stations
-      return data.stations.filter((station) => station.name.toLowerCase().includes(normalized))
+      return data.stations.filter((station) => matchesStationName(station.name, normalized))
     },
 
     async getOperations(stationIds: string[]) {

@@ -50,6 +50,61 @@ describe('StationSearch', () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/stations?q=krak'))
   })
 
+  it('tells the user it is searching, then that nothing matched', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('combobox'), 'zzz')
+    await vi.advanceTimersByTimeAsync(300)
+
+    await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Brak stacji o tej nazwie'))
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('distinguishes a failed lookup from an empty result', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ stations: [], error: 'Nie udało się pobrać listy stacji' }), { status: 503 }))
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+
+    await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Nie udało się pobrać listy stacji'))
+  })
+
+  it('shows no message at all below the 3-character minimum', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('combobox'), 'kr')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('closes the list on Escape', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('opens the listbox and calls onSelect when an option is chosen', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
     vi.stubGlobal('fetch', fetchMock)

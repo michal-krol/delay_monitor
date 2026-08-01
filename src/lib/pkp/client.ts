@@ -1,5 +1,6 @@
 import type { RawRoute, RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
+import { normalizeForSearch } from '../search'
 
 const BASE_URL = 'https://pdp-api.plk-sa.pl'
 const REQUEST_TIMEOUT_MS = 8000
@@ -52,11 +53,14 @@ function parseBudget(response: Response): RateLimitBudget {
   return { hourly, daily }
 }
 
+/** Stacja z nazwą znormalizowaną raz, przy budowaniu cache'u słownika. */
+type IndexedStation = { station: Station; normalizedName: string }
+
 export function createLiveClient(apiKey: string): PkpClient {
-  let stationListCache: { stations: Station[]; expiresAt: number } | null = null
+  let stationListCache: { stations: IndexedStation[]; expiresAt: number } | null = null
   const schedulesCache = new Map<string, { routes: RawRoute[]; expiresAt: number }>()
 
-  async function fetchAllStations(): Promise<Station[]> {
+  async function fetchAllStations(): Promise<IndexedStation[]> {
     if (stationListCache && stationListCache.expiresAt > Date.now()) {
       return stationListCache.stations
     }
@@ -67,7 +71,9 @@ export function createLiveClient(apiKey: string): PkpClient {
       throw new PkpApiError(`Pobranie listy stacji nie powiodło się: ${response.status}`, response.status)
     }
     const json = await response.json()
-    const stations = stationSearchResponseSchema.parse(json).stations.filter((station) => station.name !== '')
+    const stations = stationSearchResponseSchema.parse(json).stations
+      .filter((station) => station.name !== '')
+      .map((station) => ({ station, normalizedName: normalizeForSearch(station.name) }))
     stationListCache = { stations, expiresAt: Date.now() + STATION_LIST_CACHE_TTL_MS }
     return stations
   }
@@ -75,9 +81,11 @@ export function createLiveClient(apiKey: string): PkpClient {
   return {
     async searchStations(query: string): Promise<Station[]> {
       const stations = await fetchAllStations()
-      const normalized = query.trim().toLowerCase()
-      if (normalized === '') return stations
-      return stations.filter((station) => station.name.toLowerCase().includes(normalized))
+      const normalized = normalizeForSearch(query)
+      if (normalized === '') return stations.map((entry) => entry.station)
+      return stations
+        .filter((entry) => entry.normalizedName.includes(normalized))
+        .map((entry) => entry.station)
     },
 
     async getOperations(stationIds: string[]): Promise<GetOperationsResult> {

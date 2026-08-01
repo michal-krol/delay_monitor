@@ -24,6 +24,28 @@ describe('GET /api/stations', () => {
     expect(searchStations).toHaveBeenCalledWith('krak')
   })
 
+  it('answers with 503 and an error field instead of throwing when the dictionary fails', async () => {
+    searchStations.mockRejectedValueOnce(new Error('sieć padła'))
+    const { GET } = await import('./route')
+
+    const response = await GET(new Request('http://localhost/api/stations?q=krak'))
+    const body = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(body.stations).toEqual([])
+    expect(body.error).toBe('Nie udało się pobrać listy stacji')
+  })
+
+  it('reports a bad API key as 502 rather than 503', async () => {
+    const { PkpApiError } = await import('@/lib/pkp/client')
+    searchStations.mockRejectedValueOnce(new PkpApiError('zły klucz', 401))
+    const { GET } = await import('./route')
+
+    const response = await GET(new Request('http://localhost/api/stations?q=krak'))
+
+    expect(response.status).toBe(502)
+  })
+
   it('caps the results at 10 suggestions', async () => {
     const manyStations = Array.from({ length: 25 }, (_, i) => ({ id: String(i), name: `Stacja ${i}` }))
     searchStations.mockResolvedValueOnce(manyStations)
