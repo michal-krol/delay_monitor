@@ -6,6 +6,53 @@ dashboardzie i rozwijasz dowolną do pełnej tablicy stacyjnej.
 
 Pełny projekt techniczny: [`docs/superpowers/specs/2026-08-01-pkp-opoznienia-design.md`](docs/superpowers/specs/2026-08-01-pkp-opoznienia-design.md).
 
+## Funkcjonalność
+
+- **Dashboard ulubionych** — karty z nazwą stacji, 3 najbliższymi odjazdami,
+  licznikiem opóźnionych pociągów i wiekiem danych. Ładuje się z pamięci
+  serwera, nie z API PKP, więc jest natychmiastowy.
+- **Wyszukiwarka stacji** — combobox z podpowiedziami (debounce 300 ms),
+  pełna obsługa klawiatury (strzałki, Enter, Escape).
+- **Pełna tablica stacyjna** — do 20 najbliższych pozycji w oknie 2 godzin,
+  przełącznik odjazdy/przyjazdy, numer peronu, status i wielkość opóźnienia
+  w minutach. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
+- **Status opóźnienia** — `onTime` / `delayed` / `cancelled` / `unknown`,
+  zawsze opisany tekstem (np. „+12 min"), nigdy samym kolorem.
+- **Tryb jasny/ciemny** — automatyczny wg preferencji systemowej, przez
+  `next-themes`, bez mignięcia przy ładowaniu.
+- **Ulubione stacje w `localStorage`** — przechowywane lokalnie w
+  przeglądarce, przetrwają odświeżenie strony; brak kont użytkowników.
+- **Tryb mock bez klucza API** — pełna funkcjonalność UI działa od razu po
+  `npm install && npm run dev`, dane pochodzą z `fixtures/` z czasami
+  przesuniętymi względem „teraz".
+- **Odporność na błędy** — UI nigdy nie jest puste: przy awarii API (401,
+  429, 5xx, timeout, błąd walidacji) pokazywane są ostatnie znane dobre
+  dane wraz z ich wiekiem, a nie biały ekran. Baner ostrzegawczy pojawia
+  się tylko przy błędzie konfiguracji (zły/brak klucza).
+- **Dostępność** — tablica jako semantyczny `<table>` z `<caption>` i
+  `scope` na nagłówkach, `aria-live="polite"` tylko na linijce statusu
+  (nie na całej tablicy), widoczny focus, kontrast min. 4.5:1 w obu
+  trybach.
+- **Świadomość limitów API** — poller w tle pilnuje budżetu zapytań i sam
+  spowalnia się, zanim limit zostanie przekroczony (patrz sekcja niżej).
+
+## Struktura projektu
+
+```
+src/
+├── app/
+│   ├── api/{board,stations,health}/route.ts   endpointy HTTP
+│   └── page.tsx                                strona główna
+├── components/                                 UI (React)
+├── hooks/                                       useFavourites, useBoard
+└── lib/
+    ├── config.ts                                walidacja zmiennych środowiskowych
+    ├── pkp/{client,mock,schema,types}.ts         warstwa danych PKP (live/mock)
+    └── board/{poller,transform,instance}.ts      logika domenowa (czyste funkcje + poller)
+fixtures/          nagrane/ręcznie napisane odpowiedzi API do trybu mock
+docs/superpowers/  projekt techniczny i plan implementacji
+```
+
 ## Zdobycie klucza API
 
 Zarejestruj się na stronie głównej PKP PLK „Otwarte Dane"
