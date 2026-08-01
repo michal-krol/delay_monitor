@@ -90,7 +90,23 @@ describe('createPoller', () => {
     expect(poller.isAwake()).toBe(false)
   })
 
-  it('respects the 45s throttle on forced runs', async () => {
+  it('respects the 45s throttle when all requested stations already have data', async () => {
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const client = makeClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(getOperations).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(10000)
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(getOperations).toHaveBeenCalledTimes(1)
+  })
+
+  it('bypasses the throttle immediately when a newly watched station has no data yet', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
@@ -103,10 +119,11 @@ describe('createPoller', () => {
     poller.registerInterest(['5136'])
     await vi.advanceTimersByTimeAsync(0)
 
-    expect(getOperations).toHaveBeenCalledTimes(1)
+    expect(getOperations).toHaveBeenCalledTimes(2)
+    expect(getOperations).toHaveBeenLastCalledWith(['5100', '5136'])
   })
 
-  it('forces a run once 45s have passed since the last run', async () => {
+  it('forces a run once 45s have passed since the last run, even for a station that already has data', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
@@ -116,11 +133,11 @@ describe('createPoller', () => {
     expect(getOperations).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(46000)
-    poller.registerInterest(['5136'])
+    poller.registerInterest(['5100'])
     await vi.advanceTimersByTimeAsync(0)
 
     expect(getOperations).toHaveBeenCalledTimes(2)
-    expect(getOperations).toHaveBeenLastCalledWith(['5100', '5136'])
+    expect(getOperations).toHaveBeenLastCalledWith(['5100'])
   })
 
   it('extends the interval to 5 minutes when daily budget drops below 50', async () => {

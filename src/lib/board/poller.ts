@@ -123,6 +123,7 @@ export function createPoller(deps: PollerDeps): Poller {
     registerInterest(stationIds: string[]): void {
       const wasAsleep = timer === null
       const timestamp = now()
+      const hasStationWithoutData = stationIds.some((stationId) => !snapshots.has(stationId))
 
       for (const stationId of stationIds) {
         interest.set(stationId, timestamp)
@@ -134,7 +135,7 @@ export function createPoller(deps: PollerDeps): Poller {
       }
 
       const sinceLastRun = timestamp - lastRunAt
-      if (sinceLastRun >= FORCE_RUN_THROTTLE_MS) {
+      if (sinceLastRun >= FORCE_RUN_THROTTLE_MS || hasStationWithoutData) {
         if (timer !== null) clearTimeout(timer)
         timer = null
         void runTick()
