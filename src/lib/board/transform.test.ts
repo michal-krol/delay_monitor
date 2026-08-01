@@ -2,7 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { transformOperations } from './transform'
 import type { RawOperation } from '../pkp/types'
 
-function op(overrides: Partial<RawOperation> & { stop: Partial<RawOperation['stop']> }): RawOperation {
+const DEFAULT_STOP: RawOperation['stop'] = {
+  plannedArrival: null,
+  actualArrival: null,
+  plannedDeparture: null,
+  actualDeparture: null,
+  delayMinutes: null,
+  cancelled: false,
+  platform: null,
+}
+
+function op(
+  overrides: Omit<Partial<RawOperation>, 'stop'> & { stop: Partial<RawOperation['stop']> }
+): RawOperation {
   return {
     stationId: '5100',
     trainNumber: '1',
@@ -11,16 +23,7 @@ function op(overrides: Partial<RawOperation> & { stop: Partial<RawOperation['sto
     originStationName: 'A',
     destinationStationName: 'B',
     ...overrides,
-    stop: {
-      plannedArrival: null,
-      actualArrival: null,
-      plannedDeparture: null,
-      actualDeparture: null,
-      delayMinutes: null,
-      cancelled: false,
-      platform: null,
-      ...overrides.stop,
-    },
+    stop: { ...DEFAULT_STOP, ...overrides.stop },
   }
 }
 

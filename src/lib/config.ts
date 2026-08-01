@@ -18,7 +18,7 @@ export type AppConfig = {
   port: number
 }
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+export function loadConfig(env: Record<string, string | undefined> = process.env): AppConfig {
   const parsed = envSchema.parse(env)
 
   if (parsed.PKP_DATA_SOURCE === 'live' && !parsed.PKP_API_KEY) {

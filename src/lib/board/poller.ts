@@ -146,7 +146,7 @@ export function createPoller(deps: PollerDeps): Poller {
 
       const sinceLastRun = timestamp - lastRunAt
       if (sinceLastRun >= FORCE_RUN_THROTTLE_MS) {
-        clearTimeout(timer)
+        if (timer !== null) clearTimeout(timer)
         timer = null
         void runTick()
       }
