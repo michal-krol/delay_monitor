@@ -80,4 +80,83 @@ describe('Dashboard', () => {
     expect(screen.getByText('Kraków Główny')).toBeInTheDocument()
     expect(screen.getAllByText('Ładowanie…')).toHaveLength(1)
   })
+
+  it('matches snapshots to cards by station id, not by array position', async () => {
+    // Serwer odsyła stacje w innej kolejności niż lista ulubionych. Przy
+    // dopasowaniu po indeksie Warszawa dostałaby odjazdy Krakowa.
+    const fetchMock = vi.fn().mockImplementation(() =>
+      jsonResponse({
+        snapshots: [
+          {
+            stationId: '5136',
+            stationName: 'Kraków Główny',
+            departures: [{ trainNumber: '2', carrier: 'KM', category: 'REG', headsign: 'Katowice', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
+            arrivals: [],
+            fetchedAt: '2026-08-01T20:24:11.827Z',
+            ageMs: 0,
+          },
+          {
+            stationId: '5100',
+            stationName: 'Warszawa Centralna',
+            departures: [{ trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
+            arrivals: [],
+            fetchedAt: '2026-08-01T20:24:11.827Z',
+            ageMs: 0,
+          },
+        ],
+        budget: undefined,
+        status: 'ok',
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
+
+    const warsawCard = screen.getByRole('heading', { name: 'Warszawa Centralna' }).closest('article')
+    const krakowCard = screen.getByRole('heading', { name: 'Kraków Główny' }).closest('article')
+
+    expect(warsawCard).toHaveTextContent('PKP Intercity')
+    expect(krakowCard).toHaveTextContent('Koleje Mazowieckie')
+  })
+
+  it('drops stale snapshots for stations that are no longer favourites', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      jsonResponse({
+        snapshots: [
+          {
+            stationId: '5100',
+            stationName: 'Warszawa Centralna',
+            departures: [{ trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
+            arrivals: [],
+            fetchedAt: '2026-08-01T20:24:11.827Z',
+            ageMs: 0,
+          },
+          {
+            stationId: '5136',
+            stationName: 'Kraków Główny',
+            departures: [{ trainNumber: '2', carrier: 'KM', category: 'REG', headsign: 'Katowice', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
+            arrivals: [],
+            fetchedAt: '2026-08-01T20:24:11.827Z',
+            ageMs: 0,
+          },
+        ],
+        budget: undefined,
+        status: 'ok',
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { rerender } = render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
+
+    // Warszawa usunieta z ulubionych; odpowiedz w pamieci wciaz zawiera obie
+    // stacje, bo nowy fetch jeszcze nie wrocil.
+    rerender(<Dashboard favourites={[FAVOURITES[1]]} onExpand={vi.fn()} />)
+
+    const krakowCard = screen.getByRole('heading', { name: 'Kraków Główny' }).closest('article')
+    expect(krakowCard).toHaveTextContent('Koleje Mazowieckie')
+    expect(screen.queryByText('PKP Intercity')).not.toBeInTheDocument()
+  })
 })

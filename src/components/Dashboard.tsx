@@ -25,8 +25,15 @@ export function Dashboard({ favourites, onExpand }: Props) {
   const stationIds = favourites.map((favourite) => favourite.id)
   const { data, error } = useBoard(stationIds)
 
-  const latestFetchedAt = (data?.snapshots ?? [])
-    .filter((snapshot) => snapshot !== null)
+  const received = (data?.snapshots ?? []).filter((snapshot) => snapshot !== null)
+
+  // Łączenie po stationId, nie po pozycji w tablicy. Po zmianie ulubionych
+  // `favourites` aktualizuje się natychmiast, a `data` jeszcze przez jeden cykl
+  // trzyma poprzednią odpowiedź — przy dopasowaniu po indeksie karta pokazałaby
+  // wtedy nazwę jednej stacji z odjazdami innej.
+  const snapshotsById = new Map(received.map((snapshot) => [snapshot.stationId, snapshot]))
+
+  const latestFetchedAt = received
     .map((snapshot) => snapshot.fetchedAt)
     .sort()
     .at(-1)
@@ -44,12 +51,12 @@ export function Dashboard({ favourites, onExpand }: Props) {
             : 'Ładowanie…'}
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {favourites.map((favourite, index) => (
+        {favourites.map((favourite) => (
           <StationCard
             key={favourite.id}
             stationId={favourite.id}
             stationName={favourite.name}
-            snapshot={data?.snapshots[index] ?? null}
+            snapshot={snapshotsById.get(favourite.id) ?? null}
             error={error !== null}
             configError={data?.status === 'configError'}
             onExpand={onExpand}

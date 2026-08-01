@@ -4,6 +4,7 @@ import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { CarrierLogo } from './CarrierLogo'
 import { getCarrierInfo } from '@/lib/carriers'
+import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 
@@ -24,17 +25,18 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
     return <ConfigErrorBanner />
   }
 
+  // Cała kafelka jest klikalna, ale przyciskiem jest wyłącznie przezroczysta
+  // nakładka. Gdyby <button> obejmował treść, byłby to niepoprawny HTML
+  // (przycisk przyjmuje tylko phrasing content), nagłówek zniknąłby z nawigacji
+  // po nagłówkach, a czytnik ekranu przeczytałby całą zawartość karty jako
+  // nazwę przycisku.
   return (
-    <button
-      type="button"
-      onClick={() => onExpand({ id: stationId, name: stationName })}
-      className="glass w-full rounded-2xl p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-    >
+    <article className="glass relative w-full rounded-2xl p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-indigo-500">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">{stationName}</h2>
         {delayedCount > 0 && (
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-            {delayedCount} opóźnionych
+            {delayedCount} {pluralPl(delayedCount, 'opóźniony', 'opóźnione', 'opóźnionych')}
           </span>
         )}
       </div>
@@ -65,6 +67,13 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
           </li>
         ))}
       </ul>
-    </button>
+
+      <button
+        type="button"
+        onClick={() => onExpand({ id: stationId, name: stationName })}
+        aria-label={`Pokaż pełną tablicę: ${stationName}`}
+        className="absolute inset-0 rounded-2xl focus:outline-none"
+      />
+    </article>
   )
 }

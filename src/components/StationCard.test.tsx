@@ -56,6 +56,35 @@ describe('StationCard', () => {
     expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument()
   })
 
+  it('inflects the delayed counter for Polish grammar', () => {
+    const departure = (status: 'delayed' | 'onTime') => ({
+      trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków',
+      plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 5, status, platform: null,
+    })
+
+    const cases: Array<[number, string]> = [
+      [1, '1 opóźniony'],
+      [2, '2 opóźnione'],
+      [5, '5 opóźnionych'],
+    ]
+
+    for (const [count, expected] of cases) {
+      const snapshot = makeSnapshot({ departures: Array.from({ length: count }, () => departure('delayed')) })
+      const { unmount } = render(
+        <StationCard stationId="5100" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />
+      )
+      expect(screen.getByText(expected)).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('keeps the station name as a heading rather than swallowing it into the button', () => {
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={vi.fn()} />)
+
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+    expect(screen.getByRole('button')).toHaveAccessibleName('Pokaż pełną tablicę: Warszawa Centralna')
+  })
+
   it('calls onExpand with the station id and name when clicked', async () => {
     const onExpand = vi.fn()
     const user = userEvent.setup()

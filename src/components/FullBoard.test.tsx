@@ -76,6 +76,21 @@ describe('FullBoard', () => {
     expect(screen.queryByText('EIC 1')).not.toBeInTheDocument()
   })
 
+  it('names the right direction in the empty-board message', async () => {
+    const empty = { ...SNAPSHOT, departures: [], arrivals: [] }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [empty], budget: undefined, status: 'ok' })))
+    const user = userEvent.setup()
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('tab', { name: 'Przyjazdy' }))
+
+    expect(screen.getByText('Brak przyjazdów w najbliższych godzinach')).toBeInTheDocument()
+    expect(screen.queryByText('Brak odjazdów w najbliższych godzinach')).not.toBeInTheDocument()
+  })
+
   it('shows the correct favourite toggle label and calls the handler', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const onToggleFavourite = vi.fn()

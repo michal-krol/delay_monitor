@@ -117,7 +117,9 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             {rows.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-6 text-center text-gray-500 dark:text-gray-400">
-                  Brak odjazdów w najbliższych godzinach
+                  {direction === 'departures'
+                    ? 'Brak odjazdów w najbliższych godzinach'
+                    : 'Brak przyjazdów w najbliższych godzinach'}
                 </td>
               </tr>
             )}
