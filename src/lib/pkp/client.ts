@@ -62,7 +62,7 @@ export function createLiveClient(apiKey: string): PkpClient {
     },
 
     async getOperations(stationIds: string[]): Promise<GetOperationsResult> {
-      const url = `${BASE_URL}/api/v1/operations?stations=${stationIds.join(',')}&withPlanned=true`
+      const url = `${BASE_URL}/api/v1/operations?stations=${stationIds.join(',')}&withPlanned=true&fullRoutes=true`
       const response = await fetchWithTimeout(url, apiKey)
       if (!response.ok) {
         throw new PkpApiError(`Pobranie realizacji nie powiodło się: ${response.status}`, response.status)

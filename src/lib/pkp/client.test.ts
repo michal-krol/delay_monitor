@@ -38,7 +38,7 @@ describe('createLiveClient', () => {
     expect(result.budget).toEqual({ hourly: 42, daily: 901 })
   })
 
-  it('joins multiple station ids into one query and requests withPlanned=true', async () => {
+  it('joins multiple station ids into one query and requests withPlanned=true and fullRoutes=true', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -48,6 +48,7 @@ describe('createLiveClient', () => {
     const [url] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('stations=5100,5136')
     expect(String(url)).toContain('withPlanned=true')
+    expect(String(url)).toContain('fullRoutes=true')
   })
 
   it('returns the parsed trains list and station name dictionary', async () => {
