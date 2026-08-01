@@ -3,6 +3,8 @@
 import { useBoard } from '@/hooks/useBoard'
 import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
+import { CarrierLogo } from './CarrierLogo'
+import { getCarrierInfo } from '@/lib/carriers'
 import type { StationOption } from './StationSearch'
 
 type Props = {
@@ -58,11 +60,17 @@ export function StationCard({ stationId, stationName, onExpand }: Props) {
           <li className="text-sm text-gray-500 dark:text-gray-400">Brak odjazdów w najbliższych godzinach</li>
         )}
         {departures.map((row) => (
-          <li key={`${row.trainNumber}-${row.plannedAt}`} className="flex items-center justify-between text-sm">
-            <span className="text-gray-700 dark:text-gray-300">
+          <li key={`${row.trainNumber}-${row.plannedAt}`} className="text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
+                <CarrierLogo carrierCode={row.carrier} size={16} />
+                <span className="truncate">{getCarrierInfo(row.carrier)?.name ?? (row.carrier || 'Nieznany przewoźnik')}</span>
+              </span>
+              <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
+            </div>
+            <div className="text-gray-500 dark:text-gray-400">
               {row.trainNumber} → {row.headsign}
-            </span>
-            <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
+            </div>
           </li>
         ))}
       </ul>

@@ -42,6 +42,63 @@ describe('StationCard', () => {
     await waitFor(() => expect(screen.getByText('+5 min')).toBeInTheDocument())
   })
 
+  it('shows the carrier logo and full name for a known carrier code', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        jsonResponse({
+          snapshots: [
+            {
+              stationId: '5100',
+              stationName: 'Warszawa Centralna',
+              departures: [
+                { trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+              ],
+              arrivals: [],
+              fetchedAt: new Date().toISOString(),
+              ageMs: 1000,
+            },
+          ],
+          budget: undefined,
+          status: 'ok',
+        })
+      )
+    )
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" onExpand={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
+    expect(screen.getByAltText('PKP Intercity')).toBeInTheDocument()
+  })
+
+  it('falls back to a generic label when the carrier code is empty', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        jsonResponse({
+          snapshots: [
+            {
+              stationId: '5100',
+              stationName: 'Warszawa Centralna',
+              departures: [
+                { trainNumber: '26-1', carrier: '', category: '', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null },
+              ],
+              arrivals: [],
+              fetchedAt: new Date().toISOString(),
+              ageMs: 1000,
+            },
+          ],
+          budget: undefined,
+          status: 'ok',
+        })
+      )
+    )
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" onExpand={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument())
+  })
+
   it('calls onExpand with the station id and name when clicked', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null], budget: undefined, status: 'ok' })))
     const onExpand = vi.fn()

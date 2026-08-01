@@ -37,6 +37,15 @@ describe('FullBoard', () => {
     expect(screen.queryByText('TLK 2')).not.toBeInTheDocument()
   })
 
+  it('shows the carrier logo next to the code for a known carrier', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText('EIC 1')).toBeInTheDocument())
+    expect(screen.getByAltText('PKP Intercity')).toBeInTheDocument()
+  })
+
   it('shows the carrier code, falling back to a dash when empty', async () => {
     const snapshotWithoutCarrier = {
       ...SNAPSHOT,

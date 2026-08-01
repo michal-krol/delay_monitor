@@ -53,6 +53,6 @@ describe('createMockClient', () => {
     const client = createMockClient()
     const routes = await client.getSchedules(['5100'])
     const eic = routes.find((route) => route.orderId === '12345')
-    expect(eic).toEqual({ scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' })
+    expect(eic).toEqual({ scheduleId: '26', orderId: '12345', carrierCode: 'IC', commercialCategorySymbol: 'EIC' })
   })
 })
