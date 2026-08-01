@@ -28,6 +28,9 @@ export function useFavourites() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    // Deliberately deferred to an effect: reading localStorage during render
+    // would produce a client/server markup mismatch on the first paint.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFavourites(readStorage())
     setLoaded(true)
   }, [])

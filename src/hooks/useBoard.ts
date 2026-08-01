@@ -38,6 +38,7 @@ export function useBoard(stationIds: string[]) {
 
   useEffect(() => {
     if (stationIds.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets stale data when the caller stops watching any station
       setData(null)
       return
     }

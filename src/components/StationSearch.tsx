@@ -25,6 +25,7 @@ export function StationSearch({ onSelect, placeholder }: Props) {
   useEffect(() => {
     const trimmed = query.trim()
     if (trimmed === '') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears stale results when the query is cleared
       setOptions([])
       setIsOpen(false)
       return
