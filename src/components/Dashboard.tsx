@@ -33,7 +33,10 @@ export function Dashboard({ favourites, onExpand }: Props) {
 
   return (
     <div>
-      <p aria-live="polite" className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+      <p
+        aria-live="polite"
+        className="glass mb-4 inline-flex rounded-full px-3.5 py-1.5 text-xs text-gray-600 dark:text-gray-300"
+      >
         {error
           ? 'Błąd pobierania danych'
           : latestFetchedAt

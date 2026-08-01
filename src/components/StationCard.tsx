@@ -28,12 +28,14 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
     <button
       type="button"
       onClick={() => onExpand({ id: stationId, name: stationName })}
-      className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
+      className="glass w-full rounded-2xl p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
     >
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{stationName}</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">{stationName}</h2>
         {delayedCount > 0 && (
-          <span className="text-sm text-amber-700 dark:text-amber-300">{delayedCount} opóźnionych</span>
+          <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+            {delayedCount} opóźnionych
+          </span>
         )}
       </div>
 
@@ -43,13 +45,13 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         </p>
       )}
 
-      <ul className="mt-3 space-y-2">
-        {!snapshot && !error && <li className="text-sm text-gray-500 dark:text-gray-400">Ładowanie…</li>}
+      <ul className="mt-4 divide-y divide-black/5 dark:divide-white/5">
+        {!snapshot && !error && <li className="py-2 text-sm text-gray-500 dark:text-gray-400">Ładowanie…</li>}
         {snapshot && departures.length === 0 && (
-          <li className="text-sm text-gray-500 dark:text-gray-400">Brak odjazdów w najbliższych godzinach</li>
+          <li className="py-2 text-sm text-gray-500 dark:text-gray-400">Brak odjazdów w najbliższych godzinach</li>
         )}
         {departures.map((row) => (
-          <li key={`${row.trainNumber}-${row.plannedAt}`} className="text-sm">
+          <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                 <CarrierLogo carrierCode={row.carrier} size={16} />
@@ -57,7 +59,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
               </span>
               <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
             </div>
-            <div className="text-gray-500 dark:text-gray-400">
+            <div className="mt-0.5 text-gray-500 dark:text-gray-400">
               {row.trainNumber} → {row.headsign}
             </div>
           </li>

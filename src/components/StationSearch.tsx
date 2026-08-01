@@ -90,7 +90,7 @@ export function StationSearch({ onSelect, placeholder }: Props) {
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
-        className="w-full rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+        className="glass w-full rounded-xl px-3.5 py-2.5 text-gray-900 placeholder:text-gray-500 outline-none transition focus:ring-2 focus:ring-indigo-500 dark:text-gray-100 dark:placeholder:text-gray-400"
         placeholder={placeholder ?? 'Szukaj stacji…'}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
@@ -100,7 +100,7 @@ export function StationSearch({ onSelect, placeholder }: Props) {
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-10 mt-1 w-full rounded border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
+          className="glass-strong absolute z-10 mt-2 w-full overflow-hidden rounded-xl py-1"
         >
           {options.map((option, index) => (
             <li
@@ -108,8 +108,10 @@ export function StationSearch({ onSelect, placeholder }: Props) {
               id={`${listboxId}-option-${index}`}
               role="option"
               aria-selected={index === activeIndex}
-              className={`cursor-pointer px-3 py-2 ${
-                index === activeIndex ? 'bg-blue-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+              className={`cursor-pointer px-3.5 py-2 text-sm transition ${
+                index === activeIndex
+                  ? 'bg-indigo-500 text-white'
+                  : 'text-gray-800 hover:bg-black/5 dark:text-gray-200 dark:hover:bg-white/10'
               }`}
               onMouseDown={(event) => {
                 event.preventDefault()

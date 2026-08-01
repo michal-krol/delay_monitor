@@ -26,8 +26,8 @@ export default function Page() {
   return (
     <main className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-4xl">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Monitor opóźnień PKP</h1>
+        <div className="glass flex flex-wrap items-center justify-between gap-4 rounded-2xl px-5 py-4">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">Monitor opóźnień PKP</h1>
           <StationSearch onSelect={setExpanded} placeholder="Dodaj stację…" />
         </div>
 
