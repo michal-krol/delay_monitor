@@ -3,7 +3,10 @@ import { z } from 'zod'
 export const stationSchema = z
   .object({
     id: z.coerce.string(),
-    name: z.string(),
+    name: z
+      .string()
+      .nullable()
+      .transform((name) => name ?? ''),
   })
   .passthrough()
 

@@ -10,7 +10,7 @@ afterEach(() => {
 })
 
 describe('createLiveClient', () => {
-  it('sends the X-API-Key header and parses station search results', async () => {
+  it('sends the X-API-Key header and fetches the full station list once', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ stations: [{ id: '5100', name: 'Warszawa Centralna' }] }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -19,8 +19,49 @@ describe('createLiveClient', () => {
 
     expect(results).toEqual([{ id: '5100', name: 'Warszawa Centralna' }])
     const [url, init] = fetchMock.mock.calls[0]
-    expect(String(url)).toContain('/api/v1/dictionaries/stations?search=Warszawa')
+    expect(String(url)).toContain('/api/v1/dictionaries/stations?pageSize=10000')
     expect((init.headers as Record<string, string>)['X-API-Key']).toBe('secret-key')
+  })
+
+  it('filters by substring anywhere in the name, not just the start', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        stations: [
+          { id: '1', name: 'Warszawa Centralna' },
+          { id: '2', name: 'Nowa Warszawa' },
+          { id: '3', name: 'Kraków Główny' },
+        ],
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const results = await client.searchStations('warszawa')
+
+    expect(results.map((station) => station.name)).toEqual(['Warszawa Centralna', 'Nowa Warszawa'])
+  })
+
+  it('fetches the station list only once across multiple searches', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ stations: [{ id: '1', name: 'Warszawa Centralna' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.searchStations('warszawa')
+    await client.searchStations('kraków')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('drops stations with a null name (the API documents the field as nullable)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ stations: [{ id: '1', name: 'Warszawa Centralna' }, { id: '2', name: null }] })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const results = await client.searchStations('')
+
+    expect(results).toEqual([{ id: '1', name: 'Warszawa Centralna' }])
   })
 
   it('reads the rate-limit budget from response headers', async () => {

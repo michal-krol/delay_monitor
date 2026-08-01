@@ -16,22 +16,12 @@ describe('GET /api/stations', () => {
     expect(searchStations).not.toHaveBeenCalled()
   })
 
-  it('searches and caches results for a real query', async () => {
+  it('searches for a real query', async () => {
     const { GET } = await import('./route')
     const response = await GET(new Request('http://localhost/api/stations?q=krak'))
     const body = await response.json()
     expect(body.stations).toEqual([{ id: '5136', name: 'Kraków Główny' }])
     expect(searchStations).toHaveBeenCalledWith('krak')
-  })
-
-  it('serves the second identical query from cache without calling the client again', async () => {
-    const { GET } = await import('./route')
-    await GET(new Request('http://localhost/api/stations?q=krak'))
-    searchStations.mockClear()
-    const response = await GET(new Request('http://localhost/api/stations?q=krak'))
-    const body = await response.json()
-    expect(body.stations).toEqual([{ id: '5136', name: 'Kraków Główny' }])
-    expect(searchStations).not.toHaveBeenCalled()
   })
 
   it('caps the results at 10 suggestions', async () => {

@@ -3,6 +3,7 @@ import { operationsResponseSchema, stationSearchResponseSchema } from './schema'
 
 const BASE_URL = 'https://pdp-api.plk-sa.pl'
 const REQUEST_TIMEOUT_MS = 8000
+const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 export type RateLimitBudget = {
   hourly: number
@@ -50,15 +51,30 @@ function parseBudget(response: Response): RateLimitBudget {
 }
 
 export function createLiveClient(apiKey: string): PkpClient {
+  let stationListCache: { stations: Station[]; expiresAt: number } | null = null
+
+  async function fetchAllStations(): Promise<Station[]> {
+    if (stationListCache && stationListCache.expiresAt > Date.now()) {
+      return stationListCache.stations
+    }
+
+    const url = `${BASE_URL}/api/v1/dictionaries/stations?pageSize=10000`
+    const response = await fetchWithTimeout(url, apiKey)
+    if (!response.ok) {
+      throw new PkpApiError(`Pobranie listy stacji nie powiodło się: ${response.status}`, response.status)
+    }
+    const json = await response.json()
+    const stations = stationSearchResponseSchema.parse(json).stations.filter((station) => station.name !== '')
+    stationListCache = { stations, expiresAt: Date.now() + STATION_LIST_CACHE_TTL_MS }
+    return stations
+  }
+
   return {
     async searchStations(query: string): Promise<Station[]> {
-      const url = `${BASE_URL}/api/v1/dictionaries/stations?search=${encodeURIComponent(query)}`
-      const response = await fetchWithTimeout(url, apiKey)
-      if (!response.ok) {
-        throw new PkpApiError(`Wyszukiwanie stacji nie powiodło się: ${response.status}`, response.status)
-      }
-      const json = await response.json()
-      return stationSearchResponseSchema.parse(json).stations
+      const stations = await fetchAllStations()
+      const normalized = query.trim().toLowerCase()
+      if (normalized === '') return stations
+      return stations.filter((station) => station.name.toLowerCase().includes(normalized))
     },
 
     async getOperations(stationIds: string[]): Promise<GetOperationsResult> {
