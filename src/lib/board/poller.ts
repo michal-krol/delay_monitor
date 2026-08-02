@@ -200,17 +200,6 @@ export function createPoller(deps: PollerDeps): Poller {
     void runTick()
   }
 
-  function wake(forceImmediate: boolean): void {
-    if (timer !== null) return
-
-    if (forceImmediate) {
-      void runTick()
-      return
-    }
-
-    timer = setTimeout(() => void runTick(), currentIntervalMs)
-  }
-
   return {
     registerInterest(stationIds: string[]): void {
       const wasAsleep = timer === null
@@ -223,9 +212,11 @@ export function createPoller(deps: PollerDeps): Poller {
 
       // Obudzenie z uśpienia nie zużywa puli: wymaga 5 minut ciszy, więc nie da
       // się go powtarzać w pętli, a pierwszy użytkownik po przerwie nie powinien
-      // czekać na kolejny przebieg.
+      // czekać na kolejny przebieg. `timer` jest tu zawsze `null` (to definicja
+      // `wasAsleep`), więc zachowanie jest identyczne jak przy zwykłym
+      // wymuszeniu — forceRunNow() obsługuje oba przypadki.
       if (wasAsleep) {
-        wake(true)
+        forceRunNow()
         return
       }
 
