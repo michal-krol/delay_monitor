@@ -56,6 +56,8 @@ export type Poller = {
   getBudget(): RateLimitBudget | undefined
   getStatus(): PollerStatus
   isAwake(): boolean
+  /** Czy poller zwolnił poniżej skonfigurowanego tempa (niski budżet albo 429). */
+  isThrottled(): boolean
 }
 
 async function fetchWithRetry(
@@ -210,6 +212,10 @@ export function createPoller(deps: PollerDeps): Poller {
 
     isAwake(): boolean {
       return timer !== null
+    },
+
+    isThrottled(): boolean {
+      return currentIntervalMs > config.pollIntervalMs
     },
   }
 }

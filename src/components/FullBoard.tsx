@@ -5,6 +5,7 @@ import { useBoard } from '@/hooks/useBoard'
 import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { CarrierLogo } from './CarrierLogo'
+import { BoardStatus } from './BoardStatus'
 
 type Props = {
   stationId: string
@@ -15,17 +16,6 @@ type Props = {
 }
 
 type Direction = 'departures' | 'arrivals'
-
-function formatLastUpdated(fetchedAt: string): string {
-  return new Date(fetchedAt).toLocaleString('pl-PL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
 
 export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, onClose }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
@@ -90,13 +80,9 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
         </button>
       </div>
 
-      <p aria-live="polite" className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-        {error
-          ? 'Błąd pobierania danych'
-          : snapshot
-            ? `Ostatnia aktualizacja: ${formatLastUpdated(snapshot.fetchedAt)}`
-            : 'Ładowanie…'}
-      </p>
+      <div className="mt-3">
+        <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} data={data} error={error !== null} />
+      </div>
 
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left text-sm">

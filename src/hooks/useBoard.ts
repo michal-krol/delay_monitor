@@ -27,6 +27,7 @@ export type BoardApiResponse = {
   snapshots: (BoardApiSnapshot | null)[]
   budget: { hourly: number | null; daily: number | null } | undefined
   status: 'ok' | 'configError' | 'degraded'
+  throttled: boolean
 }
 
 const REFRESH_INTERVAL_MS = 30000

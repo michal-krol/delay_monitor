@@ -229,6 +229,22 @@ describe('createPoller', () => {
     expect(poller.getStatus()).toBe('degraded')
   })
 
+  it('reports throttling only once it actually slowed down', async () => {
+    const getOperations = vi
+      .fn()
+      .mockResolvedValueOnce({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+      .mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 10 } })
+    const client = makeClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.isThrottled()).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(90000)
+    expect(poller.isThrottled()).toBe(true)
+  })
+
   it('keeps the previous snapshot when a request fails', async () => {
     const goodTrains = [makeTrain('25', '1', '5100')]
     const getOperations = vi

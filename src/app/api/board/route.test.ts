@@ -10,6 +10,7 @@ vi.mock('@/lib/board/instance', () => ({
     ),
     getBudget: vi.fn(() => ({ hourly: 90, daily: 950 })),
     getStatus: vi.fn(() => 'ok'),
+    isThrottled: vi.fn(() => false),
   },
 }))
 
@@ -32,5 +33,17 @@ describe('GET /api/board', () => {
     expect(body.snapshots[1]).toBeNull()
     expect(body.budget).toEqual({ hourly: 90, daily: 950 })
     expect(body.status).toBe('ok')
+    expect(body.throttled).toBe(false)
+  })
+
+  it('passes the poller throttling flag through to the client', async () => {
+    const { GET } = await import('./route')
+    const { poller } = await import('@/lib/board/instance')
+    vi.mocked(poller.isThrottled).mockReturnValueOnce(true)
+
+    const response = await GET(new Request('http://localhost/api/board?stations=5100'))
+    const body = await response.json()
+
+    expect(body.throttled).toBe(true)
   })
 })

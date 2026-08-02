@@ -34,5 +34,6 @@ export async function GET(request: Request) {
     snapshots,
     budget: poller.getBudget(),
     status: poller.getStatus(),
+    throttled: poller.isThrottled(),
   })
 }
