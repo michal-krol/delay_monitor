@@ -22,10 +22,11 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   const { data, error } = useBoard([stationId])
   const snapshot = data?.snapshots[0] ?? null
   const rows = snapshot ? snapshot[direction] : []
+  const configError = data?.status === 'configError'
 
   return (
     <section className="glass rounded-2xl p-5">
-      {data?.status === 'configError' && <ConfigErrorBanner />}
+      {configError && <ConfigErrorBanner />}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{stationName}</h2>
@@ -47,97 +48,106 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
         </div>
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Kierunek"
-        className="mt-4 inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={direction === 'departures'}
-          onClick={() => setDirection('departures')}
-          className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-            direction === 'departures'
-              ? 'bg-indigo-500 text-white shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-          }`}
-        >
-          Odjazdy
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={direction === 'arrivals'}
-          onClick={() => setDirection('arrivals')}
-          className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-            direction === 'arrivals'
-              ? 'bg-indigo-500 text-white shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-          }`}
-        >
-          Przyjazdy
-        </button>
-      </div>
+      {/* Baner z błędem konfiguracji nie ma slotu na przycisk, więc nie może
+          całkowicie zastąpić widoku (jak robi StationCard) — FullBoard jest
+          jedynym widokiem na ekranie i użytkownik musiałby stąd wyjść. Ukrywamy
+          więc tylko zależne od danych zakładki/status/tabelę, żeby baner
+          "sprawdź klucz API" nie sąsiadował z wyglądającą na działającą tabelą. */}
+      {!configError && (
+        <>
+          <div
+            role="tablist"
+            aria-label="Kierunek"
+            className="mt-4 inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={direction === 'departures'}
+              onClick={() => setDirection('departures')}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                direction === 'departures'
+                  ? 'bg-indigo-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+              }`}
+            >
+              Odjazdy
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={direction === 'arrivals'}
+              onClick={() => setDirection('arrivals')}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                direction === 'arrivals'
+                  ? 'bg-indigo-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+              }`}
+            >
+              Przyjazdy
+            </button>
+          </div>
 
-      <div className="mt-3">
-        <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} data={data} error={error !== null} />
-      </div>
+          <div className="mt-3">
+            <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} data={data} error={error !== null} />
+          </div>
 
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <caption className="sr-only">
-            {direction === 'departures' ? 'Odjazdy' : 'Przyjazdy'} — {stationName}
-          </caption>
-          <thead>
-            <tr className="border-b border-black/10 dark:border-white/10">
-              <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Pociąg</th>
-              <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Przewoźnik</th>
-              <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Kierunek</th>
-              <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Planowo</th>
-              <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Peron</th>
-              <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-6 text-center text-gray-500 dark:text-gray-400">
-                  {direction === 'departures'
-                    ? 'Brak odjazdów w najbliższych godzinach'
-                    : 'Brak przyjazdów w najbliższych godzinach'}
-                </td>
-              </tr>
-            )}
-            {rows.map((row) => (
-              <tr
-                key={`${row.trainNumber}-${row.plannedAt}`}
-                className="border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5"
-              >
-                <td className="py-2.5 pr-3 whitespace-nowrap text-gray-900 dark:text-gray-100">
-                  {row.category ? `${row.category} ${row.trainNumber}` : row.trainNumber}
-                </td>
-                <td className="py-2.5 pr-3">
-                  <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
-                    <CarrierLogo carrierCode={row.carrier} size={16} />
-                    <span>{row.carrier || '—'}</span>
-                  </span>
-                </td>
-                <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.headsign}</td>
-                {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
-                    równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
-                <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-gray-700 dark:text-gray-300">
-                  {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-                </td>
-                <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.platform ?? '—'}</td>
-                <td className="py-2.5 pr-3">
-                  <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">
+                {direction === 'departures' ? 'Odjazdy' : 'Przyjazdy'} — {stationName}
+              </caption>
+              <thead>
+                <tr className="border-b border-black/10 dark:border-white/10">
+                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Pociąg</th>
+                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Przewoźnik</th>
+                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Kierunek</th>
+                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Planowo</th>
+                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Peron</th>
+                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-gray-500 dark:text-gray-400">
+                      {direction === 'departures'
+                        ? 'Brak odjazdów w najbliższych godzinach'
+                        : 'Brak przyjazdów w najbliższych godzinach'}
+                    </td>
+                  </tr>
+                )}
+                {rows.map((row) => (
+                  <tr
+                    key={`${row.trainNumber}-${row.plannedAt}`}
+                    className="border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5"
+                  >
+                    <td className="py-2.5 pr-3 whitespace-nowrap text-gray-900 dark:text-gray-100">
+                      {row.category ? `${row.category} ${row.trainNumber}` : row.trainNumber}
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                        <CarrierLogo carrierCode={row.carrier} size={16} />
+                        <span>{row.carrier || '—'}</span>
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.headsign}</td>
+                    {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
+                        równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
+                    <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-gray-700 dark:text-gray-300">
+                      {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.platform ?? '—'}</td>
+                    <td className="py-2.5 pr-3">
+                      <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </section>
   )
 }

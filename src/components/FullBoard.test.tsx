@@ -106,6 +106,30 @@ describe('FullBoard', () => {
     expect(onToggleFavourite).toHaveBeenCalled()
   })
 
+  it('hides the tabs and table behind the config-error banner, but keeps a way out', async () => {
+    // Bez tego użytkownik widziałby baner "sprawdź klucz API" razem z wyglądającą
+    // na działającą tabelą (pustą albo, gorzej, ostatnimi dobrymi danymi sprzed
+    // awarii klucza) — mieszanie sygnałów, przed którym ostrzega AGENTS.md.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'configError' }))
+    )
+    const onClose = vi.fn()
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={onClose} />)
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Odjazdy' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Ostatnia aktualizacja/)).not.toBeInTheDocument()
+
+    const closeButton = screen.getByRole('button', { name: 'Zamknij' })
+    await userEvent.setup().click(closeButton)
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('shows the absolute last-updated date and time instead of a relative age', async () => {
     const snapshot = { ...SNAPSHOT, fetchedAt: '2026-08-01T20:24:11.827Z' }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshot], budget: undefined, status: 'ok' })))
