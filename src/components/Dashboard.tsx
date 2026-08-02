@@ -9,9 +9,10 @@ import type { Favourite } from '@/hooks/useFavourites'
 type Props = {
   favourites: Favourite[]
   onExpand: (station: StationOption) => void
+  onRemove: (stationId: string) => void
 }
 
-export function Dashboard({ favourites, onExpand }: Props) {
+export function Dashboard({ favourites, onExpand, onRemove }: Props) {
   const stationIds = favourites.map((favourite) => favourite.id)
   const { data, error } = useBoard(stationIds)
 
@@ -46,6 +47,7 @@ export function Dashboard({ favourites, onExpand }: Props) {
             error={error !== null}
             configError={data?.status === 'configError'}
             onExpand={onExpand}
+            onRemove={() => onRemove(favourite.id)}
           />
         ))}
       </div>

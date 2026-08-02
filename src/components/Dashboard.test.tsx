@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
 
@@ -30,7 +31,7 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} />)
+    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100,5136'))
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -49,7 +50,7 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} />)
+    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
     await waitFor(() => expect(screen.getAllByText(/Ostatnia aktualizacja:/)).toHaveLength(1))
   })
@@ -74,7 +75,7 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} />)
+    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
     expect(screen.getByText('Kraków Główny')).toBeInTheDocument()
@@ -110,7 +111,7 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} />)
+    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
 
@@ -119,6 +120,21 @@ describe('Dashboard', () => {
 
     expect(warsawCard).toHaveTextContent('PKP Intercity')
     expect(krakowCard).toHaveTextContent('Koleje Mazowieckie')
+  })
+
+  it('reports which station the remove button belongs to', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok', throttled: false })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const onRemove = vi.fn()
+    const user = userEvent.setup()
+
+    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={onRemove} />)
+
+    await user.click(screen.getByRole('button', { name: 'Usuń z ulubionych: Kraków Główny' }))
+
+    expect(onRemove).toHaveBeenCalledWith('5136')
   })
 
   it('drops stale snapshots for stations that are no longer favourites', async () => {
@@ -148,12 +164,12 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    const { rerender } = render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} />)
+    const { rerender } = render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
 
     // Warszawa usunieta z ulubionych; odpowiedz w pamieci wciaz zawiera obie
     // stacje, bo nowy fetch jeszcze nie wrocil.
-    rerender(<Dashboard favourites={[FAVOURITES[1]]} onExpand={vi.fn()} />)
+    rerender(<Dashboard favourites={[FAVOURITES[1]]} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
     const krakowCard = screen.getByRole('heading', { name: 'Kraków Główny' }).closest('article')
     expect(krakowCard).toHaveTextContent('Koleje Mazowieckie')

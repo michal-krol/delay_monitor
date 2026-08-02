@@ -14,7 +14,8 @@ Skala: użytek własny, kilka osób. Bez kont użytkowników, bez bazy danych.
 - **Dashboard ulubionych** — karty z nazwą stacji, 3 najbliższymi odjazdami
   (przewoźnik + logo, relacja, status) i licznikiem opóźnionych pociągów. Nad
   siatką kart jedna wspólna linijka „Ostatnia aktualizacja". Karty ładują się
-  z pamięci serwera, nie z API PKP, więc pojawiają się natychmiast.
+  z pamięci serwera, nie z API PKP, więc pojawiają się natychmiast. Stację
+  usuwa się z ulubionych krzyżykiem na kafelce, bez rozwijania tablicy.
 - **Wyszukiwarka stacji** — combobox z podpowiedziami (debounce 300 ms, od
   3 znaków, maks. 10 wyników), pełna obsługa klawiatury (strzałki, Enter,
   Escape). Ignoruje polskie znaki, więc „wroclaw" znajduje „Wrocław Główny".
@@ -203,8 +204,6 @@ Railway. Warto trzymać `dev` wyłączone i włączać przed większym mergem.
   dla pasażera nieczytelny.
 - **Logotypy tylko dla 5 przewoźników.** Pozostali mają samą nazwę — wciąż
   czytelniej niż surowy kod, ale bez znaku graficznego.
-- **Ulubionej stacji nie usuniesz z dashboardu.** Trzeba ją najpierw
-  rozwinąć do pełnej tablicy.
 - **Stan ginie przy restarcie.** Snapshoty i rejestr nazw stacji żyją
   w pamięci procesu; pierwszy użytkownik po deployu czeka jedną rundę pollera.
 

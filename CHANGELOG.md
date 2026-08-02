@@ -17,7 +17,8 @@ danych mock, bez weryfikacji na żywym kluczu API PKP PLK.
   status.
 - Wyszukiwarka stacji — combobox z debounce 300 ms, od 3 znaków, obsługa
   klawiatury (strzałki, Enter, Escape), `aria-activedescendant`.
-- Ulubione stacje w `localStorage` pod kluczem `pkp.favourites.v1`.
+- Ulubione stacje w `localStorage` pod kluczem `pkp.favourites.v1`, usuwane
+  krzyżykiem wprost z kafelki na dashboardzie.
 - Poller w tle (`lib/board/poller.ts`) — jedno zapytanie na wszystkie
   obserwowane stacje co 90 s, usypianie po 5 min ciszy, dławik 45 s na
   wymuszone przebiegi, spowolnienie do 5 min przy niskim budżecie dziennym.

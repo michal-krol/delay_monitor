@@ -45,7 +45,7 @@ export default function Page() {
           </div>
         ) : (
           <div className="mt-6">
-            <Dashboard favourites={favourites} onExpand={setExpanded} />
+            <Dashboard favourites={favourites} onExpand={setExpanded} onRemove={removeFavourite} />
           </div>
         )}
       </div>

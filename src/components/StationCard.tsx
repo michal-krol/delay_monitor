@@ -15,9 +15,10 @@ type Props = {
   error: boolean
   configError: boolean
   onExpand: (station: StationOption) => void
+  onRemove: () => void
 }
 
-export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand }: Props) {
+export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand, onRemove }: Props) {
   const departures = snapshot?.departures.slice(0, 3) ?? []
   const delayedCount = snapshot?.departures.filter((row) => row.status === 'delayed').length ?? 0
 
@@ -34,11 +35,25 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
     <article className="glass relative w-full rounded-2xl p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-indigo-500">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">{stationName}</h2>
-        {delayedCount > 0 && (
-          <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-            {delayedCount} {pluralPl(delayedCount, 'opóźniony', 'opóźnione', 'opóźnionych')}
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {delayedCount > 0 && (
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+              {delayedCount} {pluralPl(delayedCount, 'opóźniony', 'opóźnione', 'opóźnionych')}
+            </span>
+          )}
+          {/* z-10 stawia przycisk nad nakładką rozwijającą tablicę, która
+              w drzewie stoi później i domyślnie przykryłaby go w całości. */}
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Usuń z ulubionych: ${stationName}`}
+            className="relative z-10 grid h-7 w-7 place-items-center rounded-full text-gray-400 transition hover:bg-black/5 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-white/10 dark:hover:text-gray-200"
+          >
+            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {error && (
