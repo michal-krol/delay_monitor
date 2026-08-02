@@ -66,7 +66,12 @@ export function createMockClient(): PkpClient {
 
   // Rozgrzanie w tle: bez tego pierwsze żądanie do /api/board trafia w pusty
   // słownik i przepuszcza wszystko, co w trybie mock byłoby mylące przy testach.
-  void stations()
+  //
+  // .catch() jest tu wyłącznie po to, żeby nieudane parsowanie fixture'a nie
+  // stało się nieobsłużonym odrzuceniem obietnicy — sam błąd i tak trafi do
+  // właściwej obsługi przy pierwszym realnym wywołaniu searchStations/
+  // getOperations, które ponownie sięgnie po tę samą (odrzuconą) obietnicę.
+  void stations().catch(() => {})
 
   return {
     getCachedStationIds(): ReadonlySet<string> | null {
