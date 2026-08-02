@@ -69,6 +69,21 @@ function parseBudget(response: Response): RateLimitBudget {
   }
 }
 
+/**
+ * Identyfikatory stacji pochodzą z parametru URL `/api/board`, czyli spoza
+ * aplikacji. Wklejone surowo do zapytania pozwalałyby dopisać własne parametry
+ * do żądania kierowanego do PKP (`5100&pageSize=5000`) albo uciąć jego resztę
+ * znakiem `#`.
+ *
+ * Kodujemy każdy identyfikator osobno, a przecinek separatora zostawiamy
+ * dosłowny — dokładnie tak, jak wygląda działające dziś zapytanie. Kodowanie
+ * całego łańcucha zamieniłoby przecinki na `%2C` i zmieniło kontrakt z API bez
+ * potrzeby.
+ */
+function encodeStationIds(stationIds: string[]): string {
+  return stationIds.map((id) => encodeURIComponent(id)).join(',')
+}
+
 /** Stacja z nazwą znormalizowaną raz, przy budowaniu cache'u słownika. */
 type IndexedStation = { station: Station; normalizedName: string }
 
@@ -108,7 +123,7 @@ export function createLiveClient(apiKey: string): PkpClient {
     },
 
     async getOperations(stationIds: string[]): Promise<GetOperationsResult> {
-      const url = `${BASE_URL}/api/v1/operations?stations=${stationIds.join(',')}&withPlanned=true&fullRoutes=true`
+      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true&fullRoutes=true`
       const response = await fetchWithTimeout(url, apiKey)
       if (!response.ok) {
         throw new PkpApiError(`Pobranie realizacji nie powiodło się: ${response.status}`, response.status)
@@ -125,7 +140,7 @@ export function createLiveClient(apiKey: string): PkpClient {
         return cached
       }
 
-      const url = `${BASE_URL}/api/v1/schedules?stations=${stationIds.join(',')}`
+      const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}`
       const response = await fetchWithTimeout(url, apiKey)
       if (!response.ok) {
         throw new PkpApiError(`Pobranie rozkładu nie powiodło się: ${response.status}`, response.status)

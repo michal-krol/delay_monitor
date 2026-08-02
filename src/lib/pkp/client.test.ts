@@ -192,6 +192,46 @@ describe('createLiveClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('encodes station ids so they cannot inject extra query parameters', async () => {
+    // Identyfikatory pochodzą z parametru URL /api/board, czyli spoza aplikacji.
+    // Wklejone surowo do zapytania pozwalałyby dopisać własne parametry do
+    // żądania kierowanego do PKP (np. podbić pageSize albo wyłączyć withPlanned).
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getOperations(['5100&pageSize=5000'])
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(url.searchParams.get('pageSize')).toBeNull()
+    expect(url.searchParams.get('stations')).toBe('5100&pageSize=5000')
+    expect(url.searchParams.get('withPlanned')).toBe('true')
+  })
+
+  it('encodes a fragment marker instead of letting it truncate the query', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getOperations(['5100#'])
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(url.hash).toBe('')
+    expect(url.searchParams.get('fullRoutes')).toBe('true')
+  })
+
+  it('encodes station ids on the schedules endpoint too', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getSchedules(['4900&foo=bar'])
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(url.searchParams.get('foo')).toBeNull()
+    expect(url.searchParams.get('stations')).toBe('4900&foo=bar')
+  })
+
   it('does not let the schedules cache grow without bound', async () => {
     // Klucz to zestaw obserwowanych stacji, więc każda zmiana ulubionych
     // dokładała wpis, którego nic nigdy nie usuwało.

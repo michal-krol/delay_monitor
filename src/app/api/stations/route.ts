@@ -4,11 +4,18 @@ import { PkpApiError } from '@/lib/pkp/client'
 
 const MAX_SUGGESTIONS = 10
 
+/**
+ * Żadna nazwa stacji nie jest tak długa, więc dłuższe zapytanie i tak nie ma
+ * czego znaleźć. Odcinamy je, zanim `normalizeForSearch` zacznie rozkładać
+ * (NFD) i alokować kopie wielkiego łańcucha przy każdym żądaniu.
+ */
+const MAX_QUERY_LENGTH = 100
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const query = (searchParams.get('q') ?? '').trim()
 
-  if (query === '') {
+  if (query === '' || query.length > MAX_QUERY_LENGTH) {
     return NextResponse.json({ stations: [] })
   }
 
