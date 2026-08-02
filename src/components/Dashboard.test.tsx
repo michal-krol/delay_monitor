@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
@@ -13,6 +13,13 @@ const FAVOURITES = [
   { id: '5100', name: 'Warszawa Centralna' },
   { id: '5136', name: 'Kraków Główny' },
 ]
+
+/** Karta na dashboardzie znaleziona po nazwie stacji w jej nagłówku. */
+function findCardByHeading(name: string): HTMLElement {
+  const card = screen.getAllByRole('article').find((article) => within(article).queryByRole('heading', { name }))
+  if (!card) throw new Error(`Nie znaleziono karty z nagłówkiem: ${name}`)
+  return card
+}
 
 describe('Dashboard', () => {
   it('fetches both favourites in a single request', async () => {
@@ -74,7 +81,7 @@ describe('Dashboard', () => {
 
     render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
+    expect(await screen.findByText('PKP Intercity')).toBeInTheDocument()
     expect(screen.getByText('Kraków Główny')).toBeInTheDocument()
     expect(screen.getAllByText('Ładowanie…')).toHaveLength(1)
   })
@@ -110,10 +117,10 @@ describe('Dashboard', () => {
 
     render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
+    expect(await screen.findByText('PKP Intercity')).toBeInTheDocument()
 
-    const warsawCard = screen.getByRole('heading', { name: 'Warszawa Centralna' }).closest('article')
-    const krakowCard = screen.getByRole('heading', { name: 'Kraków Główny' }).closest('article')
+    const warsawCard = findCardByHeading('Warszawa Centralna')
+    const krakowCard = findCardByHeading('Kraków Główny')
 
     expect(warsawCard).toHaveTextContent('PKP Intercity')
     expect(krakowCard).toHaveTextContent('Koleje Mazowieckie')
@@ -162,13 +169,13 @@ describe('Dashboard', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const { rerender } = render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
-    await waitFor(() => expect(screen.getByText('PKP Intercity')).toBeInTheDocument())
+    expect(await screen.findByText('PKP Intercity')).toBeInTheDocument()
 
     // Warszawa usunieta z ulubionych; odpowiedz w pamieci wciaz zawiera obie
     // stacje, bo nowy fetch jeszcze nie wrocil.
     rerender(<Dashboard favourites={[FAVOURITES[1]]} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    const krakowCard = screen.getByRole('heading', { name: 'Kraków Główny' }).closest('article')
+    const krakowCard = findCardByHeading('Kraków Główny')
     expect(krakowCard).toHaveTextContent('Koleje Mazowieckie')
     expect(screen.queryByText('PKP Intercity')).not.toBeInTheDocument()
   })

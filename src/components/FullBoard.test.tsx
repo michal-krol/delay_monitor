@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
@@ -28,7 +28,7 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('EIC 1')).toBeInTheDocument())
+    expect(await screen.findByText('EIC 1')).toBeInTheDocument()
     expect(screen.getAllByRole('columnheader')[0]).toHaveAttribute('scope', 'col')
     expect(screen.getByRole('columnheader', { name: 'Przewoźnik' })).toBeInTheDocument()
     expect(screen.queryByText('TLK 2')).not.toBeInTheDocument()
@@ -39,9 +39,12 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('EIC 1')).toBeInTheDocument())
+    expect(await screen.findByText('EIC 1')).toBeInTheDocument()
 
     // Logo jest dekoracyjne (alt=""), bo kod przewoźnika stoi obok jako tekst.
+    // Pusty alt wyklucza obraz z drzewa dostępności, więc getByRole('img', ...)
+    // fizycznie go nie znajdzie — document.querySelector jest tu jedyną opcją.
+    // eslint-disable-next-line testing-library/no-node-access
     const logo = document.querySelector('img[src="/carriers/pkp-ic.svg"]')
     expect(logo).not.toBeNull()
     expect(logo).toHaveAttribute('alt', '')
@@ -59,8 +62,8 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('EIC 1')).toBeInTheDocument())
-    const row = screen.getByText('EIC 1').closest('tr')
+    await screen.findByText('EIC 1')
+    const row = screen.getAllByRole('row').find((r) => within(r).queryByText('EIC 1'))
     expect(row).toHaveTextContent('—')
   })
 
@@ -69,7 +72,7 @@ describe('FullBoard', () => {
     const user = userEvent.setup()
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
-    await waitFor(() => expect(screen.getByText('EIC 1')).toBeInTheDocument())
+    expect(await screen.findByText('EIC 1')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Przyjazdy' }))
 
@@ -84,7 +87,7 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument())
+    expect(await screen.findByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Przyjazdy' }))
 
@@ -115,7 +118,7 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={onClose} />)
 
-    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
 
     expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
@@ -133,7 +136,7 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText(/Ostatnia aktualizacja:/)).toBeInTheDocument())
+    expect(await screen.findByText(/Ostatnia aktualizacja:/)).toBeInTheDocument()
     expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
   })
 })

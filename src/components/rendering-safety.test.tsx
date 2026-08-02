@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
 import { StationCard } from './StationCard'
@@ -67,8 +67,15 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
         />
       )
 
+      // container.querySelector jest tu celowy, nie niedopatrzeniem: `<script>`
+      // i `<iframe>` nie mają użytecznej roli ARIA, więc getByRole nie może ich
+      // znaleźć — to jedyny sposób sprawdzenia, że dane z API nie stały się
+      // prawdziwym znacznikiem HTML.
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
       expect(container.querySelector('script'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
       expect(container.querySelector('iframe'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
       expect(container.querySelector('svg[onload]'), `payload: ${payload}`).toBeNull()
       expect((window as unknown as Record<string, unknown>).__xss, `payload: ${payload}`).toBeUndefined()
 
@@ -95,9 +102,11 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
         />
       )
 
-      await waitFor(() => expect(container.querySelector('tbody tr')).toBeInTheDocument())
+      await screen.findAllByRole('row')
 
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
       expect(container.querySelector('script'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
       expect(container.querySelector('iframe'), `payload: ${payload}`).toBeNull()
       expect((window as unknown as Record<string, unknown>).__xss, `payload: ${payload}`).toBeUndefined()
 

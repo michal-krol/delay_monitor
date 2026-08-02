@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Page from './page'
@@ -33,7 +33,7 @@ describe('Page', () => {
   it('pokazuje stan pusty z wyszukiwarką, gdy nie ma ulubionych', async () => {
     render(<Page />)
 
-    await waitFor(() => expect(screen.getByRole('combobox')).toBeInTheDocument())
+    expect(await screen.findByRole('combobox')).toBeInTheDocument()
     expect(screen.getByText(/Wyszukaj stację/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
@@ -46,7 +46,7 @@ describe('Page', () => {
 
     render(<Page />)
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument())
+    expect(await screen.findByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.queryByText(/Wyszukaj stację/)).not.toBeInTheDocument()
   })
 
@@ -58,7 +58,7 @@ describe('Page', () => {
     const user = userEvent.setup()
 
     render(<Page />)
-    await waitFor(() => expect(screen.getByRole('button', { name: /Pokaż pełną tablicę/ })).toBeInTheDocument())
+    expect(await screen.findByRole('button', { name: /Pokaż pełną tablicę/ })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Pokaż pełną tablicę/ }))
 
@@ -76,7 +76,7 @@ describe('Page', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
     render(<Page />)
-    await waitFor(() => expect(screen.getByRole('combobox')).toBeInTheDocument())
+    expect(await screen.findByRole('combobox')).toBeInTheDocument()
 
     await user.type(screen.getByRole('combobox'), 'krak')
     await vi.advanceTimersByTimeAsync(300)
@@ -101,11 +101,11 @@ describe('Page', () => {
     const user = userEvent.setup()
 
     render(<Page />)
-    await waitFor(() => expect(screen.getByRole('button', { name: /Usuń z ulubionych:/ })).toBeInTheDocument())
+    expect(await screen.findByRole('button', { name: /Usuń z ulubionych:/ })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Usuń z ulubionych:/ }))
 
-    await waitFor(() => expect(screen.getByText(/Wyszukaj stację/)).toBeInTheDocument())
+    expect(await screen.findByText(/Wyszukaj stację/)).toBeInTheDocument()
     expect(JSON.parse(window.localStorage.getItem('pkp.favourites.v1') ?? '[]')).toEqual([])
   })
 })

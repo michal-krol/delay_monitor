@@ -43,7 +43,10 @@ describe('StationCard', () => {
     expect(screen.getByText('PKP Intercity')).toBeInTheDocument()
 
     // Logo jest dekoracyjne: nazwa przewoźnika stoi obok jako tekst, więc
-    // opisowy alt kazałby czytnikowi ekranu przeczytać ją dwa razy.
+    // opisowy alt kazałby czytnikowi ekranu przeczytać ją dwa razy. Pusty alt
+    // wyklucza obraz z drzewa dostępności, więc getByRole('img', ...) go nie
+    // znajdzie — document.querySelector jest tu jedyną opcją.
+    // eslint-disable-next-line testing-library/no-node-access
     const logo = document.querySelector('img[src="/carriers/pkp-ic.svg"]')
     expect(logo).not.toBeNull()
     expect(logo).toHaveAttribute('alt', '')

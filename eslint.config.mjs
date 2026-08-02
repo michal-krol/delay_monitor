@@ -1,10 +1,19 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import testingLibrary from "eslint-plugin-testing-library";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Reguly dla React Testing Library, wylacznie w plikach testowych — lapia
+  // konkretna klase bledow (fireEvent zamiast userEvent, brak await waitFor,
+  // zapytania po roli zamiast testid) automatycznie, zamiast polegac na
+  // przegladzie recznym przy 25 plikach testow.
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    ...testingLibrary.configs["flat/react"],
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
