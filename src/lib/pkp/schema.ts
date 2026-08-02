@@ -1,4 +1,12 @@
 import { z } from 'zod'
+import { normalizeApiTimestamp } from './time'
+
+const apiTimestamp = z
+  .string()
+  .nullable()
+  .optional()
+  .default(null)
+  .transform((value) => (value === null ? null : normalizeApiTimestamp(value)))
 
 export const stationSchema = z
   .object({
@@ -19,10 +27,10 @@ export const stationSearchResponseSchema = z
 const rawOperationStationSchema = z
   .object({
     stationId: z.coerce.string(),
-    plannedArrival: z.string().nullable().optional().default(null),
-    plannedDeparture: z.string().nullable().optional().default(null),
-    actualArrival: z.string().nullable().optional().default(null),
-    actualDeparture: z.string().nullable().optional().default(null),
+    plannedArrival: apiTimestamp,
+    plannedDeparture: apiTimestamp,
+    actualArrival: apiTimestamp,
+    actualDeparture: apiTimestamp,
     arrivalDelayMinutes: z.number().nullable().optional().default(null),
     departureDelayMinutes: z.number().nullable().optional().default(null),
     isCancelled: z.boolean().optional().default(false),

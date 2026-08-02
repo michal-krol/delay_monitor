@@ -45,6 +45,23 @@ describe('operationsResponseSchema', () => {
     })
   })
 
+  it('interprets a timezone-less departure time as Warsaw local time, not UTC', () => {
+    // Zaobserwowane na produkcji: /operations potrafi zwrócić czas bez
+    // oznaczenia strefy. Bez normalizacji new Date() bierze ten ciąg za UTC
+    // na kontenerze, którego strefa procesu to UTC — pociąg, który już
+    // odjechał wg zegara warszawskiego, wygląda jak nadchodzący za chwilę.
+    const result = operationsResponseSchema.parse({
+      trains: [
+        {
+          scheduleId: 25,
+          orderId: 118845,
+          stations: [{ stationId: 5100, plannedDeparture: '2026-08-02T00:33:00' }],
+        },
+      ],
+    })
+    expect(result.trains[0].stations[0].plannedDeparture).toBe('2026-08-01T22:33:00.000Z')
+  })
+
   it('normalizes a null trains list to an empty array (the real API documents it as nullable)', () => {
     const result = operationsResponseSchema.parse({ trains: null, stations: null })
     expect(result.trains).toEqual([])
