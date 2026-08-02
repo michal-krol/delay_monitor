@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { z } from 'zod'
 
 export type Favourite = {
   id: string
@@ -9,11 +10,34 @@ export type Favourite = {
 
 const STORAGE_KEY = 'pkp.favourites.v1'
 
+/**
+ * `localStorage` to wejście spoza aplikacji: treść mogła zostać zapisana przez
+ * starszą wersję, ręcznie zmieniona albo uszkodzona. `JSON.parse(...) as
+ * Favourite[]` niczego nie sprawdzał — asercja typu znika przy kompilacji, więc
+ * `{"a":1}` przechodził dalej jako „lista ulubionych" i wywracał render na
+ * `favourites.map`. Efektem była biała strona, której użytkownik nie ma jak
+ * naprawić bez narzędzi deweloperskich.
+ *
+ * Odsiewamy pojedyncze uszkodzone wpisy zamiast odrzucać całą listę: jeden zły
+ * rekord nie powinien kasować pozostałych ulubionych.
+ */
+const favouriteSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+})
+
 function readStorage(): Favourite[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as Favourite[]
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+
+    return parsed.flatMap((entry) => {
+      const result = favouriteSchema.safeParse(entry)
+      return result.success ? [result.data] : []
+    })
   } catch {
     return []
   }
