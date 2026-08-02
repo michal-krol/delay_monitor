@@ -3,6 +3,56 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.1] — 2026-08-02
+
+Pierwsze wydanie po uruchomieniu na produkcji na prawdziwym kluczu API.
+Zawiera poprawkę błędu, który ujawnił się dopiero tam.
+
+### Naprawione
+
+- **Czasy bez oznaczenia strefy były interpretowane w strefie procesu.**
+  `/operations` potrafi zwrócić `"2026-08-02T00:33:00"` — bez `Z`, bez offsetu.
+  To czas warszawski, ale `new Date()` czyta taki ciąg w strefie procesu:
+  lokalnie (`Europe/Warsaw`) wychodziło przypadkiem dobrze, a w kontenerze na
+  Railway (UTC) każdy pociąg przesuwał się o +2 h. Skutek na produkcji: pociągi,
+  które już odjechały, pokazywały się jako nadchodzące za chwilę.
+
+  Nowe `src/lib/pkp/time.ts` normalizuje cztery pola czasowe na granicy schematu
+  Zod. Przesunięcie CET/CEST liczy `Intl` z jawną strefą `Europe/Warsaw`, a nie
+  strefa procesu, więc wynik nie zależy od tego, gdzie działa kontener.
+  Normalizacja jest idempotentna — fixture'y z jawnym `+02:00` przechodzą bez
+  zmian. Test regresyjny używa dosłownego payloadu z produkcji i pada
+  pod `TZ=UTC`, jeśli normalizacja zniknie.
+
+### Potwierdzone na żywych danych
+
+Rzeczy, które w 0.9.0 były założeniami z dokumentacji:
+
+- Kody przewoźników `IC`, `KM`, `SKM` i `ŁKA` są poprawne — logotypy dla nich
+  faktycznie się pokazują. Pozostałe wpisy w `carriers.ts` nadal zgadywane.
+- Kategorie handlowe są bogatsze niż zakładano (`EIP`, `EC/EIC`, `RE2`, `S3`,
+  `ŁS` i inne). Nie interpretujemy ich, więc nowe wartości niczego nie psują.
+- Kolumna „Peron" faktycznie zawsze pusta — `/operations` nie zwraca tego pola.
+- `trainNumber` to na żywo `2026-424939627`, czyli rok + identyfikator
+  wewnętrzny — nie handlowy numer pociągu.
+- ID stacji w fixture'ach nie odpowiadają żywym (Warszawa Centralna: `5100`
+  w mocku, `33605` na żywo), więc ulubione nie przenoszą się między trybami.
+
+### Zbadane, bez zmian w kodzie
+
+- **Przyczyna opóźnienia** — `/operations` nie ma takiego pola. Dane są
+  w osobnym `/api/v1/disruptions`, złączalnym po `scheduleId` + `orderId`.
+  Odłożone: pokrycie byłoby częściowe (tylko sformalizowane zdarzenia),
+  a endpoint nie da się cache'ować jak `/schedules`, więc kosztowałby trzecie
+  zapytanie na cykl pollera. Szczegóły w README.
+
+### Dokumentacja
+
+- README opisuje stan po wdrożeniu na produkcję, regułę dotyczącą stref czasowych
+  i uzasadnienia decyzji, nie tylko ich efekt.
+- `AGENTS.md` dostał listę niezmienników projektu — rzeczy, które łatwo zepsuć
+  nieświadomie i które nie wynikają wprost z kodu.
+
 ## [0.9.0] — 2026-08-02
 
 Pierwsza wersja funkcjonalnie kompletna. Beta: przetestowana wyłącznie na

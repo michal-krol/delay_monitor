@@ -1,13 +1,15 @@
 # Monitor opóźnień PKP
 
-**Wersja 0.9 beta** — funkcjonalnie kompletna, gotowa do testów na żywym kluczu
-API. Lista znanych ograniczeń: [sekcja niżej](#znane-ograniczenia-09-beta).
+**Wersja 0.9 beta** — działa na produkcji, na prawdziwym kluczu API PKP PLK.
+Lista znanych ograniczeń: [sekcja niżej](#znane-ograniczenia-09-beta).
 
 Aplikacja webowa pokazująca opóźnienia pociągów na wybranych stacjach w czasie
 zbliżonym do rzeczywistego. Zapisujesz ulubione stacje, widzisz je razem na
 dashboardzie i rozwijasz dowolną do pełnej tablicy stacyjnej.
 
-Skala: użytek własny, kilka osób. Bez kont użytkowników, bez bazy danych.
+Skala: użytek własny, kilka osób. Bez kont użytkowników, bez bazy danych. Ta
+skala jest założeniem projektowym, nie tymczasowym uproszczeniem — wynika z niej
+brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
 
 ## Funkcjonalność
 
@@ -26,7 +28,8 @@ Skala: użytek własny, kilka osób. Bez kont użytkowników, bez bazy danych.
   planowo, peron, status. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
 - **Przewoźnik i kategoria** — dociągane z `/api/v1/schedules` (cache 24 h)
   i łączone z realizacją po parze `scheduleId-orderId`. Dla pięciu
-  przewoźników (IC, KM, SKM, ŁKA, Leo Express) pokazujemy logo.
+  przewoźników (IC, KM, SKM, ŁKA, Leo Express) pokazujemy logo, dla reszty
+  samą nazwę.
 - **Status opóźnienia** — `onTime` / `delayed` / `cancelled` / `unknown`,
   zawsze opisany tekstem (np. „+12 min"), nigdy samym kolorem.
 - **Tryb jasny/ciemny** — automatyczny wg preferencji systemowej, przez
@@ -98,6 +101,39 @@ zużycie limitu; skalowanie poziome jest świadomie wykluczone. Stan w pamięci
 ginie przy restarcie — pierwszy użytkownik po deployu czeka jedną rundę
 pollera.
 
+## Czas i strefy — najłatwiejsza rzecz do zepsucia
+
+`/operations` **czasem** zwraca czasy bez oznaczenia strefy — `"2026-08-02T00:33:00"`,
+bez `Z` i bez `+02:00`. To czas zegarowy Warszawy. Dokumentacja tego nie opisuje,
+a ręcznie pisane fixture'y mają jawne `+02:00`, więc problem nie ujawnia się
+w testach ani lokalnie.
+
+`new Date("2026-08-02T00:33:00")` interpretuje taki ciąg w strefie **procesu**.
+Maszyna deweloperska w Polsce ma `Europe/Warsaw`, więc parsuje to przypadkiem
+poprawnie. Kontener `node:24-slim` na Railway chodzi w UTC, więc ten sam kod
+przesuwał każdy pociąg o +2 h latem — pociąg, który już odjechał, wyglądał
+jak nadchodzący za chwilę. Tak to trafiło na produkcję i tak zostało zgłoszone.
+
+Reguła, która z tego wynika:
+
+> Żaden czas z API nie może przejść przez gołe `new Date()`. Wszystkie cztery
+> pola (`plannedArrival`, `plannedDeparture`, `actualArrival`, `actualDeparture`)
+> przechodzą przez `normalizeApiTimestamp()` z `src/lib/pkp/time.ts` — na granicy
+> schematu Zod, więc reszta aplikacji dostaje już wyłącznie poprawny UTC.
+
+Normalizacja jest idempotentna: ciąg z `Z` albo offsetem wraca bez zmian, więc
+fixture'y z `+02:00` nie są przesuwane drugi raz. Przesunięcie CET/CEST liczy
+`Intl` z jawnym `timeZone: 'Europe/Warsaw'`, a nie strefa procesu — dzięki temu
+wynik nie zależy od tego, gdzie działa kontener, i sam obsługuje zmianę czasu.
+
+Test regresyjny w `schema.test.ts` używa dosłownego payloadu z produkcji
+i pada pod `TZ=UTC`, jeśli normalizacja zniknie. Warto uruchamiać pakiet także
+tak, bo to odwzorowuje produkcję:
+
+```bash
+TZ=UTC npm run test
+```
+
 ## Zdobycie klucza API
 
 Zarejestruj się w PKP PLK „Otwarte Dane" (`https://pdp-api.plk-sa.pl`,
@@ -113,6 +149,17 @@ Wykorzystywane endpointy:
 | `GET /api/v1/schedules?stations=<id,id>` | Przewoźnik i kategoria handlowa (cache 24 h) |
 | `GET /api/v1/dictionaries/stations?pageSize=10000` | Słownik stacji pod wyszukiwarkę (cache 24 h, filtrowanie po stronie serwera aplikacji) |
 
+Wyszukiwarka celowo pobiera **cały** słownik stacji raz na dobę zamiast wołać
+API przy każdym wpisanym znaku: jedno zapytanie dziennie zamiast jednego na
+wyszukanie. Przy limicie 100/h to różnica między „działa" a „nie działa".
+
+### Pełny schemat API bez klucza
+
+`https://pdp-api.plk-sa.pl/swagger/v1/swagger.json` jest publiczny — zwraca
+pełny OpenAPI 3.0 (38 ścieżek) bez autoryzacji. To najszybszy sposób sprawdzenia
+kształtu odpowiedzi albo istnienia pola, bez zużywania limitu i bez zgadywania
+z dokumentacji HTML.
+
 ## Uruchomienie lokalne (tryb mock, bez klucza)
 
 ```bash
@@ -125,6 +172,12 @@ w trybie mock — dane pochodzą z `fixtures/` i mają czasy przesunięte tak, b
 zawsze mieściły się w widocznym oknie. Fixture'y są celowo minimalne
 (3 stacje, 3 pociągi) — wystarczają do pracy nad UI, nie odwzorowują
 realnego natężenia ruchu.
+
+**ID stacji w fixture'ach nie są prawdziwe.** Mock ma Warszawę Centralną pod
+`5100`, żywe API pod `33605`. To znaczy, że ulubione zapisane w trybie mock nie
+zadziałają po przełączeniu na `live` (i odwrotnie) — trzeba wyczyścić
+`pkp.favourites.v1` w `localStorage` albo dodać stacje na nowo. Nie jest to
+błąd, tylko konsekwencja ręcznie pisanych fixture'ów.
 
 ## Zmienne środowiskowe
 
@@ -148,8 +201,16 @@ npm run typecheck
 npm run lint
 ```
 
-150 testów (Vitest), bez sieci i bez klucza API. Testy komponentów działają na
-`jsdom` (docblock `// @vitest-environment jsdom`), reszta na środowisku `node`.
+159 testów w 21 plikach (Vitest), bez sieci i bez klucza API. Testy komponentów
+działają na `jsdom` (docblock `// @vitest-environment jsdom`), reszta na
+środowisku `node`.
+
+Warto puścić pakiet również pod `TZ=UTC` — to odwzorowuje strefę kontenera na
+Railway i wyłapuje błędy stref, których lokalna maszyna w Polsce nie pokaże:
+
+```bash
+TZ=UTC npm run test
+```
 
 ## Limity API i działanie pollera
 
@@ -182,30 +243,86 @@ gdy karta jest schowana** (`document.hidden`) — dzięki temu poller zasypia sa
 Jeden projekt Railway, dwa środowiska: `main` → produkcja (`live`, prawdziwy
 klucz), `dev` → staging (`mock`, zero zużycia limitu). Railway deployuje
 automatycznie po pushu na podstawie `Dockerfile` (`output: 'standalone'`);
-`railway.json` wskazuje `/api/health` jako healthcheck. GitHub Actions
-(`.github/workflows/ci.yml`) pełni wyłącznie rolę bramki jakości na pull
-requestach — `typecheck`, `lint`, `test`.
+`railway.json` wskazuje `/api/health` jako healthcheck.
+
+GitHub Actions (`.github/workflows/ci.yml`) uruchamia `typecheck`, `lint`
+i `test` na pull requestach **oraz przy pushu na `main`**. Ten drugi wyzwalacz
+jest istotny: commity trafiają tu bezpośrednio na `main`, z którego deployuje
+Railway — bez tego produkcja nie przechodziłaby przez żadną bramkę.
+
+Kontener runtime nie chodzi jako root (`USER node`), a wersja Node jest zapisana
+raz — w `.nvmrc`, skąd czyta ją zarówno CI, jak i `engines` w `package.json`.
+
+`/api/health` zwraca 200 również wtedy, gdy klucz API jest zły (`pollerStatus:
+"configError"`). To celowe: aplikacja z zepsutym kluczem nadal serwuje ostatnie
+znane dane z pamięci, a restartowanie jej przez healthcheck tylko by zaszkodziło.
+Stan jest widoczny w treści odpowiedzi, więc monitoring może na niego zareagować.
 
 Uwaga kosztowa: dwa działające kontenery to podwójne zużycie kredytów
 Railway. Warto trzymać `dev` wyłączone i włączać przed większym mergem.
 
+## Co potwierdziły żywe dane
+
+Aplikacja chodzi na produkcji na prawdziwym kluczu. Rzeczy, które wcześniej były
+założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
+
+- **Kody przewoźników `IC`, `KM`, `SKM` i `ŁKA` są poprawne** — występują
+  w żywych danych, więc logotypy dla nich faktycznie się pokazują. Reszta wpisów
+  w `src/lib/carriers.ts` (Polregio, Koleje Dolnośląskie/Śląskie/Wielkopolskie,
+  WKD, Arriva i inne) nadal jest zgadywana. Błędny kod jest nieszkodliwy — po
+  prostu nigdy się nie dopasuje i UI pokaże surowy kod.
+- **Kategorie handlowe są bogatsze, niż zakładaliśmy** — `IC`, `EIC`, `EIP`,
+  `EC/EIC`, `RL`, `RE2`, `S3`, `ŁS` i puste. Nie robimy z nimi nic poza
+  wyświetleniem, więc nowa wartość niczego nie psuje.
+- **Czasy potrafią przyjść bez strefy** — patrz [sekcja o strefach](#czas-i-strefy--najłatwiejsza-rzecz-do-zepsucia).
+
 ## Znane ograniczenia (0.9 beta)
 
-- **Nie zweryfikowano na żywym kluczu API.** To najważniejsze ograniczenie
-  tej wersji. Walidacja kształtu odpowiedzi opiera się na dokumentacji
-  i ręcznie napisanych fixture'ach (3 stacje, 3 pociągi). W szczególności
-  kody przewoźników w `src/lib/carriers.ts` są zgadywane — wpis z błędnym
-  kodem jest nieszkodliwy, ale też bezużyteczny.
-- **Kolumna „Peron" jest zawsze pusta.** `/operations` nie zwraca numeru
-  peronu w używanym kształcie odpowiedzi; `transform.ts` ustawia
-  `platform: null`, UI pokazuje „—".
+- **Kolumna „Peron" jest zawsze pusta.** Potwierdzone na żywych danych:
+  `/operations` nie zwraca numeru peronu w używanym kształcie odpowiedzi.
+  `transform.ts` ustawia `platform: null`, UI pokazuje „—". Kolumna została
+  w tablicy, bo pole jest w kontrakcie API i może kiedyś zacząć przychodzić.
 - **„Pociąg" pokazuje `scheduleId-orderId`, nie handlowy numer pociągu.**
-  Identyfikator jest poprawny technicznie (klucz łączenia z rozkładem), ale
-  dla pasażera nieczytelny.
+  Na żywo wygląda to jak `2026-424939627` (rok + identyfikator wewnętrzny) —
+  poprawne technicznie jako klucz łączenia z rozkładem, ale dla pasażera
+  nieczytelne. To najbardziej widoczny brak tej wersji.
+- **Fixture'y nie odwzorowują żywego API.** Inne ID stacji, 3 pociągi zamiast
+  kilkudziesięciu, dwa kody przewoźników zamiast kilkunastu. Nadają się do
+  pracy nad UI, nie do wnioskowania o zachowaniu produkcji.
 - **Logotypy tylko dla 5 przewoźników.** Pozostali mają samą nazwę — wciąż
   czytelniej niż surowy kod, ale bez znaku graficznego.
 - **Stan ginie przy restarcie.** Snapshoty i rejestr nazw stacji żyją
   w pamięci procesu; pierwszy użytkownik po deployu czeka jedną rundę pollera.
+  Świadomy kompromis: alternatywą byłby zewnętrzny magazyn stanu, nieuzasadniony
+  przy tej skali.
+
+## Zbadane i odłożone: przyczyna opóźnienia
+
+Pytanie brzmiało, czy da się pokazać, **dlaczego** pociąg jest opóźniony.
+Odpowiedź na podstawie publicznego schematu OpenAPI:
+
+- `/operations` — którego używamy — **nie ma** żadnego pola z przyczyną.
+  W całym schemacie odpowiedzi nie występuje `reason` ani `cause`.
+- Jest osobny endpoint **`/api/v1/disruptions`** („utrudnienia na liniach
+  kolejowych") zwracający `disruptionTypeCode` (kod tłumaczony przez dołączony
+  słownik `disruptionTypes`), `message` z pełnym opisem oraz `affectedRoutes[]`
+  z parą `scheduleId` + `orderId` — **dokładnie tym samym kluczem**, którego już
+  używamy do złączenia z `/schedules`.
+
+Czyli technicznie to ten sam wzorzec złączenia co obecnie, tylko z trzecim
+źródłem. Odłożone z dwóch powodów:
+
+1. **Pokrycie będzie częściowe.** `/disruptions` to lista sformalizowanych
+   zdarzeń (awarie, roboty, wypadki). Kilkuminutowe opóźnienia operacyjne
+   najpewniej nie mają tam odpowiednika, więc większość wierszy i tak zostałaby
+   bez przyczyny. Rzeczywisty odsetek trafień jest niezmierzony.
+2. **Koszt limitu.** W przeciwieństwie do `/schedules` (cache 24 h, bo trasa
+   i przewoźnik się nie zmieniają) utrudnienia zmieniają się w czasie, więc nie
+   da się ich cache'ować równie agresywnie. To realnie trzecie zapytanie na
+   cykl pollera w systemie, gdzie 100/h już jest ciasne.
+
+Gdyby do tego wracać, kolejność jest taka: najpierw zmierzyć pokrycie na
+żywych danych, potem zdecydować o częstotliwości odpytywania.
 
 ## Licencja
 
@@ -218,6 +335,13 @@ przewoźnika przy danych o kursowaniu. Dane o ruchu pociągów pochodzą z PKP P
 
 ## Poza zakresem
 
-Powiadomienia o opóźnieniach, historia punktualności, mapa pociągów,
-integracja z `/disruptions`, PWA i tryb offline, konta użytkowników,
-synchronizacja ulubionych między urządzeniami, wyszukiwanie połączeń.
+Powiadomienia o opóźnieniach, historia punktualności, mapa pociągów, PWA
+i tryb offline, konta użytkowników, synchronizacja ulubionych między
+urządzeniami, wyszukiwanie połączeń.
+
+Integracja z `/disruptions` jest zbadana i świadomie odłożona — patrz
+[sekcja wyżej](#zbadane-i-odłożone-przyczyna-opóźnienia).
+
+Każde z tych rozszerzeń da się dołożyć bez zmiany architektury. Granicą, której
+nie chcemy przekraczać bez ponownego przemyślenia całości, jest **druga replika**
+— to podwoiłoby zużycie limitu i wymusiło współdzielony magazyn stanu.
