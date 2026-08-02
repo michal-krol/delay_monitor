@@ -3,6 +3,63 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.3] — 2026-08-02
+
+Runda refaktoru i porządków po intensywnym okresie poprawek bezpieczeństwa
+(`client.ts` i `poller.ts` zbierały łatki przyrostowo — 11 i 9 zmian
+w historii). Zweryfikowana metodą: bezpośrednie czytanie „gorących" plików
+plus dwaj niezależni agenci Explore (frontend, tooling/infra), z jawnym
+odrzuceniem części znalezisk jako niepotrzebnych przy tej skali projektu.
+
+### Naprawione
+
+- `FullBoard` renderował baner błędu konfiguracji **razem z** zakładkami,
+  linijką statusu i pełną tabelą pod spodem — mieszanie sygnałów, przed
+  którym ostrzega `AGENTS.md`. Teraz nagłówek (nazwa stacji + „Zamknij")
+  zostaje zawsze, reszta chowa się za baner.
+- `mock.ts` odpalał rozgrzewkę słownika stacji jako „fire and forget" bez
+  `.catch()` — nieudane parsowanie fixture'a stawało się nieobsłużonym
+  odrzuceniem obietnicy zamiast kontrolowanego błędu. Potwierdzone testem
+  nasłuchującym `process.on('unhandledRejection')`.
+- Trzy podatności `high` w `sharp`/`postcss` domknięte poprzednio zostają
+  bez zmian; `@types/node` podniesione z `^20` do `^24`, zgodnie z faktycznym
+  środowiskiem uruchomieniowym (`engines`, `Dockerfile`).
+
+### Zrefaktoryzowane (bez zmiany zachowania)
+
+- `client.ts` — wydzielone `fetchJson()` usuwa potrójną duplikację
+  fetch+obsługa błędu.
+- `poller.ts` — usunięta martwa gałąź `wake(false)`, nigdy niewywoływana.
+- Sześć plików testowych dzieliło identyczną funkcję `jsonResponse()`
+  skopiowaną dosłownie — wydzielona do `src/test-utils/http.ts`.
+- `FullBoard.tsx` — wydzielone lokalne `PillButton` i `TabButton` usuwają
+  zduplikowane bloki JSX w tym samym pliku.
+- `BoardStatus.tsx` — kolor ostrzeżenia (`text-amber-700 dark:text-amber-400`,
+  potrójnie inline) wydzielony do stałej.
+- `EmptyState.tsx` i `page.tsx` miały bit-identyczny `<h1>` tytułu aplikacji
+  w dwóch wzajemnie wykluczających się stanach — wydzielony do `AppTitle`.
+
+### Narzędzia
+
+- Dodany `eslint-plugin-testing-library` (ograniczony do plików testowych).
+  Pierwsze uruchomienie złapało 23 miejsca z `waitFor` + `getBy*` zamiast
+  `findBy*` oraz kilka miejsc z surowym dostępem do DOM tam, gdzie zapytania
+  po roli wystarczały — naprawione. Kilka pozostało z uzasadnionym
+  `eslint-disable`: obraz dekoracyjny (`alt=""`) i test bezpieczeństwa
+  sprawdzający nieobecność `<script>`/`<iframe>` w DOM-ie fizycznie nie da
+  się przepisać na zapytania po roli ARIA.
+
+### Świadomie odrzucone jako niepotrzebne
+
+Memoizacja (`useMemo`/`useCallback`) w drzewie komponentów, różnica tokenu
+koloru amber między dwoma odznakami, domyślna wartość `size` w
+`CarrierLogo`, zmiany w Dockerfile/CI/`next.config.ts`/progu pokrycia
+testów — wszystko sprawdzone i uznane za niewspółmierne do korzyści przy
+tej skali projektu. Szczegóły uzasadnień w historii commitów.
+
+202 testy (bez zmiany liczby — refaktor grupy B nie modyfikował logiki
+testów, tylko sposób zapytań).
+
 ## [0.9.2] — 2026-08-02
 
 Przegląd jakościowy i bezpieczeństwa. Bez zmian funkcjonalnych widocznych dla
