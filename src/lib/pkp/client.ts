@@ -102,11 +102,33 @@ export function createLiveClient(apiKey: string): PkpClient {
     maxEntries: SCHEDULES_CACHE_MAX_ENTRIES,
   })
 
+  /**
+   * Uchwyty na trwające pobrania.
+   *
+   * Cache sprawdzamy przed `await`, a zapisujemy po nim — bez tych uchwytów
+   * równoległe żądania (odświeżenie kilku kart naraz, zimny start, wygaśnięcie
+   * cache'u po dobie) trafiają wszystkie w pustą pamięć i każde odpala własne
+   * pobranie. Osiem równoległych zapytań to osiem pozycji z limitu zamiast
+   * jednej. Kolejni chętni dołączają się do już trwającego pobrania.
+   */
+  let stationListInFlight: Promise<IndexedStation[]> | null = null
+  const schedulesInFlight = new Map<string, Promise<RawRoute[]>>()
+
   async function fetchAllStations(): Promise<IndexedStation[]> {
-    if (stationListCache && stationListCache.expiresAt > Date.now()) {
-      return stationListCache.stations
+    const cached = stationListCache
+    if (cached !== null && cached.expiresAt > Date.now()) {
+      return cached.stations
     }
 
+    if (stationListInFlight === null) {
+      stationListInFlight = loadStationList().finally(() => {
+        stationListInFlight = null
+      })
+    }
+    return stationListInFlight
+  }
+
+  async function loadStationList(): Promise<IndexedStation[]> {
     const url = `${BASE_URL}/api/v1/dictionaries/stations?pageSize=10000`
     const response = await fetchWithTimeout(url, apiKey)
     if (!response.ok) {
@@ -122,6 +144,18 @@ export function createLiveClient(apiKey: string): PkpClient {
       expiresAt: Date.now() + STATION_LIST_CACHE_TTL_MS,
     }
     return stations
+  }
+
+  async function loadSchedules(stationIds: string[], cacheKey: string): Promise<RawRoute[]> {
+    const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}`
+    const response = await fetchWithTimeout(url, apiKey)
+    if (!response.ok) {
+      throw new PkpApiError(`Pobranie rozkładu nie powiodło się: ${response.status}`, response.status)
+    }
+    const json = await response.json()
+    const routes = schedulesResponseSchema.parse(json).routes
+    schedulesCache.set(cacheKey, routes)
+    return routes
   }
 
   return {
@@ -157,15 +191,16 @@ export function createLiveClient(apiKey: string): PkpClient {
         return cached
       }
 
-      const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}`
-      const response = await fetchWithTimeout(url, apiKey)
-      if (!response.ok) {
-        throw new PkpApiError(`Pobranie rozkładu nie powiodło się: ${response.status}`, response.status)
+      const pending = schedulesInFlight.get(cacheKey)
+      if (pending !== undefined) {
+        return pending
       }
-      const json = await response.json()
-      const routes = schedulesResponseSchema.parse(json).routes
-      schedulesCache.set(cacheKey, routes)
-      return routes
+
+      const request = loadSchedules(stationIds, cacheKey).finally(() => {
+        schedulesInFlight.delete(cacheKey)
+      })
+      schedulesInFlight.set(cacheKey, request)
+      return request
     },
   }
 }

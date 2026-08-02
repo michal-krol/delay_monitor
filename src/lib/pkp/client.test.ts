@@ -232,6 +232,42 @@ describe('createLiveClient', () => {
     expect(url.searchParams.get('stations')).toBe('4900&foo=bar')
   })
 
+  it('fetches the station dictionary once even when requests arrive together', async () => {
+    // Cache sprawdzany jest przed await, a zapisywany po nim. Rownolegle zadania
+    // (a tak wlasnie wyglada odswiezenie kilku kart naraz albo zimny start)
+    // trafiaja wszystkie w pusty cache i kazde odpala wlasne pobranie slownika,
+    // zuzywajac po jednym zapytaniu z limitu zamiast jednego lacznie.
+    let inFlight = 0
+    let maxInFlight = 0
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      inFlight -= 1
+      return jsonResponse({ stations: [{ id: '5100', name: 'Warszawa Centralna' }] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await Promise.all(Array.from({ length: 8 }, () => client.searchStations('warszawa')))
+
+    expect(maxInFlight).toBe(1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('fetches a schedules set once even when requests arrive together', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      return jsonResponse({ routes: [] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await Promise.all(Array.from({ length: 8 }, () => client.getSchedules(['5100', '5136'])))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('does not let the schedules cache grow without bound', async () => {
     // Klucz to zestaw obserwowanych stacji, więc każda zmiana ulubionych
     // dokładała wpis, którego nic nigdy nie usuwało.
