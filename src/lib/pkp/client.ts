@@ -64,6 +64,21 @@ async function fetchWithTimeout(url: string, apiKey: string): Promise<Response> 
   }
 }
 
+/**
+ * `fetchWithTimeout` + sprawdzenie statusu + parsowanie JSON-a — dokładnie ten
+ * sam wzorzec powtarzał się w trzech miejscach (słownik stacji, rozkłady,
+ * realizacja). Zwraca też surowy `response`, bo `getOperations` potrzebuje
+ * z niego nagłówków budżetu po odczytaniu ciała.
+ */
+async function fetchJson(url: string, apiKey: string, errorMessage: string): Promise<{ json: unknown; response: Response }> {
+  const response = await fetchWithTimeout(url, apiKey)
+  if (!response.ok) {
+    throw new PkpApiError(`${errorMessage}: ${response.status}`, response.status)
+  }
+  const json = await response.json()
+  return { json, response }
+}
+
 function parseRemaining(raw: string | null): number | null {
   if (raw === null || raw.trim() === '') return null
   const value = Number(raw)
@@ -130,11 +145,7 @@ export function createLiveClient(apiKey: string): PkpClient {
 
   async function loadStationList(): Promise<IndexedStation[]> {
     const url = `${BASE_URL}/api/v1/dictionaries/stations?pageSize=10000`
-    const response = await fetchWithTimeout(url, apiKey)
-    if (!response.ok) {
-      throw new PkpApiError(`Pobranie listy stacji nie powiodło się: ${response.status}`, response.status)
-    }
-    const json = await response.json()
+    const { json } = await fetchJson(url, apiKey, 'Pobranie listy stacji nie powiodło się')
     const stations = stationSearchResponseSchema.parse(json).stations
       .filter((station) => station.name !== '')
       .map((station) => ({ station, normalizedName: normalizeForSearch(station.name) }))
@@ -148,11 +159,7 @@ export function createLiveClient(apiKey: string): PkpClient {
 
   async function loadSchedules(stationIds: string[], cacheKey: string): Promise<RawRoute[]> {
     const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}`
-    const response = await fetchWithTimeout(url, apiKey)
-    if (!response.ok) {
-      throw new PkpApiError(`Pobranie rozkładu nie powiodło się: ${response.status}`, response.status)
-    }
-    const json = await response.json()
+    const { json } = await fetchJson(url, apiKey, 'Pobranie rozkładu nie powiodło się')
     const routes = schedulesResponseSchema.parse(json).routes
     schedulesCache.set(cacheKey, routes)
     return routes
@@ -175,11 +182,7 @@ export function createLiveClient(apiKey: string): PkpClient {
 
     async getOperations(stationIds: string[]): Promise<GetOperationsResult> {
       const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true&fullRoutes=true`
-      const response = await fetchWithTimeout(url, apiKey)
-      if (!response.ok) {
-        throw new PkpApiError(`Pobranie realizacji nie powiodło się: ${response.status}`, response.status)
-      }
-      const json = await response.json()
+      const { json, response } = await fetchJson(url, apiKey, 'Pobranie realizacji nie powiodło się')
       const parsed = operationsResponseSchema.parse(json)
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response) }
     },
