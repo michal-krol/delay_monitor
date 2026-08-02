@@ -40,6 +40,16 @@ użytkownika poza usuwaniem stacji i odpornością na uszkodzone dane lokalne.
   użytkownik nie mógł wyjść bez narzędzi deweloperskich. Walidacja schematem
   Zod, z odsiewaniem pojedynczych złych wpisów zamiast kasowania całej listy.
 
+### Interfejs
+
+- Kolumna „Planowo" w tablicy odjazdów renderowała godziny bez `tabular-nums`,
+  więc cyfry miały proporcjonalne szerokości i kolumna „falowała" przy skanowaniu
+  wzrokiem. Teraz wszystkie komórki godzin mają identyczną szerokość.
+- Krój pisma przeszedł z `Arial, Helvetica` — pozostałości po szablonie
+  `create-next-app`, która przetrwała nawet przebudowę na styl „glass" — na stos
+  systemowy (`system-ui` z fallbackami). Zero kosztu wczytywania, poprawny
+  hinting i lepsze renderowanie polskich znaków diakrytycznych.
+
 ### Testy
 
 - 159 → 199 testów. Doszły pliki dla `DelayBadge` (status nigdy samym kolorem),
