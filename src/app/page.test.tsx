@@ -3,15 +3,12 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Page from './page'
+import { jsonResponse } from '@/test-utils/http'
 
 /**
  * Kompozycja trzech widoków (stan pusty / dashboard / pełna tablica) zawiera
  * jedyną logikę przełączania w aplikacji, a nie miała żadnego testu.
  */
-
-function jsonResponse(body: unknown) {
-  return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
-}
 
 const EMPTY_BOARD = { snapshots: [null, null], budget: undefined, status: 'ok', throttled: false }
 

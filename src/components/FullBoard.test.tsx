@@ -3,10 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
-
-function jsonResponse(body: unknown) {
-  return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
-}
+import { jsonResponse } from '@/test-utils/http'
 
 afterEach(() => {
   vi.unstubAllGlobals()

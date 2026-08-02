@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createLiveClient, PkpApiError } from './client'
-
-function jsonResponse(body: unknown, headers: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), { status: 200, headers })
-}
+import { jsonResponse } from '@/test-utils/http'
 
 afterEach(() => {
   vi.unstubAllGlobals()

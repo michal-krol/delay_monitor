@@ -3,10 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StationSearch } from './StationSearch'
-
-function jsonResponse(body: unknown) {
-  return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
-}
+import { jsonResponse } from '@/test-utils/http'
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })

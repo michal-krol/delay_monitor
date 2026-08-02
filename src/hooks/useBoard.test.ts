@@ -2,10 +2,7 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBoard } from './useBoard'
-
-function jsonResponse(body: unknown) {
-  return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
-}
+import { jsonResponse } from '@/test-utils/http'
 
 beforeEach(() => {
   vi.useFakeTimers()

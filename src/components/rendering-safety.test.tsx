@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
 import { StationCard } from './StationCard'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
+import { jsonResponse } from '@/test-utils/http'
 
 /**
  * Wszystko, co widzi użytkownik, pochodzi z API PKP — czyli z systemu, nad
@@ -22,10 +23,6 @@ const PAYLOADS = [
   'javascript:window.__xss=true',
   '<iframe src="https://example.invalid"></iframe>',
 ]
-
-function jsonResponse(body: unknown) {
-  return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
-}
 
 function snapshotWith(payload: string): BoardApiSnapshot {
   return {
