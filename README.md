@@ -201,9 +201,14 @@ npm run typecheck
 npm run lint
 ```
 
-159 testów w 21 plikach (Vitest), bez sieci i bez klucza API. Testy komponentów
+199 testów w 25 plikach (Vitest), bez sieci i bez klucza API. Testy komponentów
 działają na `jsdom` (docblock `// @vitest-environment jsdom`), reszta na
 środowisku `node`.
+
+Testy bezpieczeństwa są częścią tego samego pakietu — wstrzykiwanie parametrów,
+wyczerpanie budżetu, walidacja wejścia, renderowanie wrogich danych z API,
+uszkodzony `localStorage` i nagłówki odpowiedzi. Każdy z nich został przed
+scaleniem sprawdzony jako padający na kodzie sprzed poprawki.
 
 Warto puścić pakiet również pod `TZ=UTC` — to odwzorowuje strefę kontenera na
 Railway i wyłapuje błędy stref, których lokalna maszyna w Polsce nie pokaże:
@@ -295,6 +300,47 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   w pamięci procesu; pierwszy użytkownik po deployu czeka jedną rundę pollera.
   Świadomy kompromis: alternatywą byłby zewnętrzny magazyn stanu, nieuzasadniony
   przy tej skali.
+
+## Bezpieczeństwo
+
+Aplikacja jest publiczna i bez uwierzytelniania, więc każdy endpoint trzeba
+traktować jak wejście spoza systemu. Obowiązujące zasady:
+
+- **Identyfikatory stacji są walidowane u wejścia** (`/^\d{1,10}$/`, maks. 20 na
+  żądanie, deduplikowane) i **kodowane** przed wstawieniem do zapytania do PKP.
+  Bez tego `stations=5100&pageSize=5000` dopisywał własne parametry do żądania
+  kierowanego do zewnętrznego API.
+- **Budżet zapytań jest chroniony dwuwarstwowo**: route odsiewa identyfikatory
+  spoza zbuforowanego słownika, a poller ogranicza wymuszone przebiegi pulą
+  w oknie kroczącym (10/h). Wcześniej seria żądań o losowe stacje zamieniała się
+  jeden do jednego na zapytania do PKP i pozwalała wyczerpać limit 100/h.
+- **Równoległe żądania nie mnożą zapytań** — pobrania słownika i rozkładów są
+  deduplikowane w locie, więc osiem jednoczesnych wywołań to jedno zapytanie.
+- **Nagłówki bezpieczeństwa** (CSP, `X-Content-Type-Options`, `Referrer-Policy`,
+  `frame-ancestors`, `Permissions-Policy`, HSTS poza dev) ustawia
+  [`next.config.ts`](next.config.ts); `next.config.test.ts` blokuje ich ciche
+  osłabienie. CSP jest pragmatyczna — `'unsafe-inline'` wynika z inline skryptu
+  hydracji Next i skryptu `next-themes`.
+- **`localStorage` jest walidowany schematem Zod.** To wejście spoza aplikacji;
+  uszkodzony wpis nie może wywrócić renderu.
+
+### Świadomie przyjęte ryzyko
+
+- **`/api/health` ujawnia tryb danych** (`live`/`mock`) i stan pollera. To
+  healthcheck Railway i najbardziej użyteczny sygnał diagnostyczny, jaki mamy;
+  informacja, że skonfigurowano prawdziwy klucz, nie przybliża nikogo do jego
+  zdobycia.
+- **`/api/board` zwraca pozostały budżet zapytań.** Konsumuje go interfejs
+  (podpowiedź przy „odświeżanie ograniczone"), a po zamknięciu wektora
+  wyczerpania budżetu sama liczba niewiele daje atakującemu.
+- **CSP dopuszcza `'unsafe-inline'` dla skryptów.** Ścisła polityka wymagałaby
+  nonce'ów per żądanie, czyli middleware i przepięcia obsługi motywu —
+  nieuzasadnione przy tej skali. Pozostałe dyrektywy nadal odcinają obce
+  origin, ramki i wtyczki.
+- **`sharp` i `postcss` są przypięte przez `overrides`.** Nie istnieje wersja
+  Next bez tych podatności (`16.2.12` to najnowsza stabilna), a `npm audit fix`
+  proponuje downgrade do `next@9.3.3`. Wpis w `overrides` należy usunąć, gdy
+  Next zaktualizuje je u siebie.
 
 ## Zbadane i odłożone: przyczyna opóźnienia
 

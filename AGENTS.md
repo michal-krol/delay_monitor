@@ -39,7 +39,25 @@ przy 90 s zużywa ~40/h, więc zapas jest realny, ale nieduży.
   Traktowanie go jako zera raz już zepchnęło poller na stałe na interwał
   awaryjny.
 
-## 3. Jedna replika, stan w pamięci
+## 3. Wejście spoza aplikacji jest zawsze wrogie
+
+Aplikacja jest publiczna i bez uwierzytelniania. Parametry URL, treść
+`localStorage` i odpowiedzi API PKP to dane spoza systemu.
+
+- Identyfikatory stacji: walidacja formatu u wejścia **oraz** kodowanie przed
+  wstawieniem do zapytania do PKP. Jedna warstwa nie wystarczy — bez kodowania
+  `stations=5100&pageSize=5000` dopisywał parametry do cudzego żądania.
+- Nic, co przyszło od klienta, nie może samo decydować, o co pytamy PKP.
+  Nieznane ID nie trafiają do pollera.
+- `localStorage` parsuj schematem, nie asercją typu. `JSON.parse(x) as T`
+  znika przy kompilacji i raz już dało białą stronę przy uszkodzonym wpisie.
+- Cache sprawdzany przed `await` i zapisywany po nim to wyścig: równoległe
+  żądania wykonają pobranie każde z osobna. Deduplikuj żądania w locie.
+
+Nagłówków bezpieczeństwa z `next.config.ts` pilnuje `next.config.test.ts` —
+jeśli osłabiasz politykę, zrób to świadomie i zaktualizuj test.
+
+## 4. Jedna replika, stan w pamięci
 
 Dwie repliki to dwa pollery i podwójne zużycie limitu. Skalowanie poziome jest
 świadomie wykluczone; snapshoty i rejestr nazw stacji żyją w pamięci procesu.
@@ -48,7 +66,7 @@ Nie wprowadzaj założeń wymagających współdzielonego stanu bez zmiany tej d
 Cache w długo żyjącym procesie musi mieć TTL i limit wpisów — użyj
 `createTtlCache()` z `src/lib/cache.ts`, nie gołej `Map`.
 
-## 4. Sieć wyłącznie na krawędziach
+## 5. Sieć wyłącznie na krawędziach
 
 Cały HTTP siedzi w `src/lib/pkp/client.ts`. Logika domenowa (`lib/board/`) to
 czyste funkcje zależne od interfejsu `PkpClient`, nie od implementacji. Dzięki
@@ -57,7 +75,7 @@ temu testy nie potrzebują ani sieci, ani klucza API — i to ma tak zostać.
 Wybór live/mock następuje raz, przy starcie, w `lib/board/instance.ts`. Żaden
 inny moduł nie powinien wiedzieć, skąd pochodzą dane.
 
-## 5. UI nigdy nie jest pusty
+## 6. UI nigdy nie jest pusty
 
 Przy awarii API pokazujemy ostatni znany dobry snapshot wraz z jego wiekiem,
 zamiast czyścić widok. Awaria objawia się rosnącym wiekiem danych, nie białym
@@ -66,7 +84,7 @@ ekranem. Baner błędu jest zarezerwowany dla błędu konfiguracji (401).
 Nie chowaj awarii pod pustym stanem — „brak wyników" i „nie udało się sprawdzić"
 to dwa różne komunikaty.
 
-## 6. Fixture'y nie odwzorowują żywego API
+## 7. Fixture'y nie odwzorowują żywego API
 
 Inne ID stacji (Warszawa Centralna: `5100` w mocku, `33605` na żywo), 3 pociągi
 zamiast kilkudziesięciu, dwa kody przewoźników zamiast kilkunastu. Nadają się do
@@ -80,12 +98,12 @@ curl -s https://pdp-api.plk-sa.pl/swagger/v1/swagger.json
 
 Jest dostępny bez klucza i bez zużycia limitu.
 
-## 7. Katalog `docs/` nie jest publikowany
+## 8. Katalog `docs/` nie jest publikowany
 
 `docs/` (projekt techniczny, plan implementacji) jest w `.gitignore` i celowo
 nie trafia do repozytorium. Nie dodawaj go z powrotem.
 
-## 8. Bramka jakości
+## 9. Bramka jakości
 
 Commity trafiają bezpośrednio na `main`, z którego deployuje Railway. Przed
 oddaniem pracy:

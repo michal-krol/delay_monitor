@@ -232,6 +232,43 @@ describe('createLiveClient', () => {
     expect(url.searchParams.get('stations')).toBe('4900&foo=bar')
   })
 
+  it('aborts a request that hangs past the timeout instead of waiting forever', async () => {
+    // Timeout 8 s jest udokumentowanym zachowaniem, ale nie mial testu. Bez niego
+    // zawieszone polaczenie blokowaloby przebieg pollera bez konca.
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn().mockImplementation(
+        (_url: string, init: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+          })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      const pending = client.getOperations(['5100'])
+      const assertion = expect(pending).rejects.toThrowError(/abort/i)
+
+      await vi.advanceTimersByTimeAsync(8000)
+      await assertion
+
+      const [, init] = fetchMock.mock.calls[0]
+      expect(init.signal.aborted).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('rejects a response whose shape does not match the schema', async () => {
+    // Blad walidacji ma dotrzec do pollera, zeby ten zachowal poprzedni snapshot
+    // zamiast nadpisac go smieciami.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ trains: [{ brakWymaganychPol: true }] })))
+
+    const client = createLiveClient('secret-key')
+
+    await expect(client.getOperations(['5100'])).rejects.toThrow()
+  })
+
   it('fetches the station dictionary once even when requests arrive together', async () => {
     // Cache sprawdzany jest przed await, a zapisywany po nim. Rownolegle zadania
     // (a tak wlasnie wyglada odswiezenie kilku kart naraz albo zimny start)

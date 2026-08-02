@@ -3,6 +3,51 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.2] — 2026-08-02
+
+Przegląd jakościowy i bezpieczeństwa. Bez zmian funkcjonalnych widocznych dla
+użytkownika poza usuwaniem stacji i odpornością na uszkodzone dane lokalne.
+
+### Bezpieczeństwo
+
+- **Wstrzykiwanie parametrów do zapytań do PKP.** Identyfikatory stacji szły
+  z parametru URL prosto do zapytania kierowanego do zewnętrznego API, bez
+  walidacji i bez kodowania. `stations=5100%26pageSize%3D5000` dopisywał własny
+  parametr, a `%23` ucinał resztę zapytania. Teraz walidacja formatu u wejścia
+  i kodowanie każdego identyfikatora osobno.
+- **Wyczerpanie budżetu zapytań przez anonimowego klienta.** Każde nieznane ID
+  omijało dławik pollera i zamieniało się w zapytanie do PKP — 60 żądań dawało
+  60 wywołań. Limit 100/h dało się wyczerpać w ~100 żądaniach. Obrona
+  dwuwarstwowa: odsiewanie ID spoza słownika oraz pula wymuszonych przebiegów
+  w oknie kroczącym.
+- **Zwielokrotnienie zapytań przy równoległych żądaniach.** Cache słownika
+  i rozkładów był sprawdzany przed `await`, a zapisywany po nim; osiem
+  równoległych wywołań dawało osiem zapytań zamiast jednego. Deduplikacja
+  żądań w locie.
+- **Brak limitu liczby stacji** w `/api/board` (maks. 20) oraz **brak limitu
+  długości zapytania** w `/api/stations` (maks. 100 znaków).
+- **Brak nagłówków bezpieczeństwa.** Doszły CSP, `X-Content-Type-Options`,
+  `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` i HSTS poza dev;
+  `X-Powered-By` wyłączony.
+- **Trzy podatności `high` w zależnościach** (`sharp`, `postcss`) domknięte
+  przez `overrides`, bez downgrade'u Next.
+
+### Naprawione
+
+- Uszkodzony wpis w `localStorage` wywracał cały interfejs. `JSON.parse(...) as
+  Favourite[]` niczego nie sprawdzał, więc `{"a":1}` przechodził jako lista
+  ulubionych i `favourites.map` rzucał wyjątkiem — biała strona, z której
+  użytkownik nie mógł wyjść bez narzędzi deweloperskich. Walidacja schematem
+  Zod, z odsiewaniem pojedynczych złych wpisów zamiast kasowania całej listy.
+
+### Testy
+
+- 159 → 199 testów. Doszły pliki dla `DelayBadge` (status nigdy samym kolorem),
+  kompozycji `page.tsx`, bezpieczeństwa renderowania danych z API oraz nagłówków
+  odpowiedzi.
+- Uzupełnione dwie nieprzetestowane ścieżki awarii: timeout żądania (8 s)
+  i odrzucenie odpowiedzi niezgodnej ze schematem.
+
 ## [0.9.1] — 2026-08-02
 
 Pierwsze wydanie po uruchomieniu na produkcji na prawdziwym kluczu API.
