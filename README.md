@@ -17,7 +17,9 @@ Skala: użytek własny, kilka osób. Bez kont użytkowników, bez bazy danych.
   z pamięci serwera, nie z API PKP, więc pojawiają się natychmiast.
 - **Wyszukiwarka stacji** — combobox z podpowiedziami (debounce 300 ms, od
   3 znaków, maks. 10 wyników), pełna obsługa klawiatury (strzałki, Enter,
-  Escape).
+  Escape). Ignoruje polskie znaki, więc „wroclaw" znajduje „Wrocław Główny".
+  Rozróżnia „szukam", „brak stacji o tej nazwie" i „nie udało się pobrać
+  listy" — nie chowa awarii pod pustą listą.
 - **Pełna tablica stacyjna** — do 20 najbliższych pozycji w oknie 2 godzin,
   przełącznik odjazdy/przyjazdy, kolumny: pociąg, przewoźnik, kierunek,
   planowo, peron, status. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
@@ -37,6 +39,10 @@ Skala: użytek własny, kilka osób. Bez kont użytkowników, bez bazy danych.
   walidacji) poller zachowuje ostatni znany dobry snapshot i serwuje go dalej
   zamiast czyścić widok. Baner ostrzegawczy pojawia się tylko przy błędzie
   konfiguracji (zły/brak klucza — HTTP 401).
+- **Widoczny stan danych** — linijka nad tablicą mówi nie tylko, kiedy była
+  ostatnia aktualizacja, ale też gdy dane mają 3+ minuty („dane sprzed 7 min"),
+  gdy API nie odpowiada i gdy odświeżanie zostało ograniczone przez limit
+  zapytań (z pozostałym budżetem dobowym w tooltipie).
 - **Dostępność** — tablica jako semantyczny `<table>` z `<caption>` i `scope`
   na nagłówkach, `aria-live="polite"` tylko na linijce statusu (nie na całej
   tablicy), combobox z `aria-expanded`/`aria-activedescendant`, widoczny focus.
@@ -53,12 +59,15 @@ src/
 │   └── page.tsx                                strona główna
 ├── components/                                 UI (React)
 │   ├── Dashboard, StationCard, FullBoard
-│   ├── StationSearch, EmptyState
+│   ├── StationSearch, EmptyState, BoardStatus
 │   └── DelayBadge, CarrierLogo, ConfigErrorBanner
 ├── hooks/                                       useFavourites, useBoard
 └── lib/
     ├── config.ts                                walidacja zmiennych środowiskowych
-    ├── carriers.ts                              mapa kodów przewoźników → logo
+    ├── carriers.ts                              mapa kodów przewoźników → nazwa/logo
+    ├── cache.ts                                 cache z TTL i limitem wpisów
+    ├── search.ts                                normalizacja nazw stacji
+    ├── plural.ts                                polska odmiana przez liczbę
     ├── pkp/{client,mock,schema,types}.ts        warstwa danych PKP (live/mock)
     └── board/{poller,transform,instance}.ts     logika domenowa + poller
 fixtures/          ręcznie napisane odpowiedzi API do trybu mock
@@ -138,7 +147,7 @@ npm run typecheck
 npm run lint
 ```
 
-98 testów (Vitest), bez sieci i bez klucza API. Testy komponentów działają na
+150 testów (Vitest), bez sieci i bez klucza API. Testy komponentów działają na
 `jsdom` (docblock `// @vitest-environment jsdom`), reszta na środowisku `node`.
 
 ## Limity API i działanie pollera
@@ -154,9 +163,15 @@ Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
   pierwsze żądanie,
 - wymuszony przebieg poza harmonogramem jest dławiony do jednego na 45 s
   (dławik jest pomijany dla stacji, która nie ma jeszcze żadnych danych),
-- spowalnia do 5 minut, gdy `X-RateLimit-Daily-Remaining` spadnie poniżej 50,
-- przy 429 podwaja interwał, maks. do 5 minut; przy 5xx ponawia raz;
-  przy 401 zatrzymuje się i zgłasza błąd konfiguracji.
+- spowalnia do 5 minut, gdy `X-RateLimit-Daily-Remaining` spadnie poniżej 50
+  albo `X-RateLimit-Hourly-Remaining` poniżej 10 (przy 90 s zużywamy ~40/h,
+  więc limit godzinowy da się wyczerpać przy zdrowym dobowym),
+- brak nagłówka z limitem traktuje jako „nie wiadomo", a nie „zero" — inaczej
+  API, które przestało je odsyłać, zepchnęłoby poller na stałe na 5 minut,
+- przy 429 podwaja interwał, maks. do 5 minut; przy 5xx ponawia raz po
+  odstępie z jitterem; przy 401 zatrzymuje się i zgłasza błąd konfiguracji,
+- gdy zwolni, `/api/board` zwraca `throttled: true`, a UI pokazuje
+  „odświeżanie ograniczone".
 
 Przeglądarka odpytuje własny serwer (`/api/board`) co 30 s i **wstrzymuje się,
 gdy karta jest schowana** (`document.hidden`) — dzięki temu poller zasypia sam.
@@ -175,21 +190,23 @@ Railway. Warto trzymać `dev` wyłączone i włączać przed większym mergem.
 
 ## Znane ograniczenia (0.9 beta)
 
+- **Nie zweryfikowano na żywym kluczu API.** To najważniejsze ograniczenie
+  tej wersji. Walidacja kształtu odpowiedzi opiera się na dokumentacji
+  i ręcznie napisanych fixture'ach (3 stacje, 3 pociągi). W szczególności
+  kody przewoźników w `src/lib/carriers.ts` są zgadywane — wpis z błędnym
+  kodem jest nieszkodliwy, ale też bezużyteczny.
 - **Kolumna „Peron" jest zawsze pusta.** `/operations` nie zwraca numeru
   peronu w używanym kształcie odpowiedzi; `transform.ts` ustawia
   `platform: null`, UI pokazuje „—".
 - **„Pociąg" pokazuje `scheduleId-orderId`, nie handlowy numer pociągu.**
   Identyfikator jest poprawny technicznie (klucz łączenia z rozkładem), ale
   dla pasażera nieczytelny.
-- **Budżet API i stan `degraded` nie są pokazywane w UI.** `/api/board`
-  zwraca `budget`, `status` i `ageMs`, ale interfejs konsumuje wyłącznie
-  `configError`.
-- **Logo tylko dla 5 przewoźników.** Brakuje m.in. Polregio, Kolei
-  Dolnośląskich, Śląskich i Wielkopolskich — dla nich pokazujemy sam kod.
-- **`/api/stations` nie ma własnej obsługi błędów** — awaria słownika stacji
-  kończy się odpowiedzią 500, a wyszukiwarka po cichu nie pokazuje wyników.
-- **Nie zweryfikowano na żywym kluczu API.** Cała walidacja kształtu
-  odpowiedzi opiera się na dokumentacji i ręcznie napisanych fixture'ach.
+- **Logotypy tylko dla 5 przewoźników.** Pozostali mają samą nazwę — wciąż
+  czytelniej niż surowy kod, ale bez znaku graficznego.
+- **Ulubionej stacji nie usuniesz z dashboardu.** Trzeba ją najpierw
+  rozwinąć do pełnej tablicy.
+- **Stan ginie przy restarcie.** Snapshoty i rejestr nazw stacji żyją
+  w pamięci procesu; pierwszy użytkownik po deployu czeka jedną rundę pollera.
 
 ## Licencja
 

@@ -38,16 +38,58 @@ danych mock, bez weryfikacji na żywym kluczu API PKP PLK.
 - Wiek danych pokazywany raz globalnie na dashboardzie zamiast osobno na
   każdej kafelce.
 
+- Linijka statusu pokazuje wiek danych, gdy snapshot ma 3+ minuty, oraz
+  informuje, gdy API nie odpowiada lub gdy odświeżanie zostało ograniczone
+  przez limit zapytań. Wcześniej `/api/board` liczył `budget`, `ageMs`
+  i `status: 'degraded'`, a interfejs je ignorował.
+
 ### Naprawione
 
 - Dławik 45 s na wymuszony przebieg pollera jest pomijany dla stacji, która
   nie ma jeszcze żadnych danych — pierwsze wejście na nową stację nie czeka.
+- Brak nagłówka `X-RateLimit-*` był liczony jako zero pozostałych zapytań, co
+  natychmiast i na stałe spychało poller na interwał awaryjny 5 minut.
+- Poller ignorował limit godzinowy; przy 90 s zużywa ~40 zapytań na godzinę,
+  więc dało się wyczerpać limit 100/h przy zdrowym limicie dobowym.
+- Ponowienie po błędzie 5xx szło natychmiast, zwykle prosto w tę samą awarię;
+  teraz czeka z jitterem.
+- `StationCard` opakowywał nagłówek i listę w `<button>` — niepoprawny HTML,
+  przez który nagłówek stacji znikał z nawigacji, a czytnik ekranu odczytywał
+  całą zawartość kafelki jako nazwę przycisku.
+- Dashboard łączył snapshoty z ulubionymi po pozycji w tablicy, więc po
+  usunięciu stacji ze środka listy karta mogła pokazać nazwę jednej stacji
+  z odjazdami innej.
+- Licznik opóźnionych pokazywał „1 opóźnionych" — doszła polska odmiana
+  z obsługą nastek.
+- Pusta tablica na zakładce Przyjazdy informowała o braku odjazdów.
+- `/api/stations` nie miało obsługi błędów: awaria słownika stacji kończyła
+  się nieobsłużonym wyjątkiem i pustym 500.
+- Wyszukiwarka nie znosiła braku polskich znaków („Wroclaw" nie znajdowało
+  „Wrocławia") i po cichu czyściła listę zarówno przy zerze wyników, jak
+  i przy błędzie.
+- `skm.svg` nie miał `viewBox`, więc jako jedyne logo nie skalowało się do
+  zadanej wysokości.
+
+### Wydajność
+
+- Cache rozkładów i rejestr nazw stacji rosły bez ograniczeń przez cały czas
+  życia procesu; oba mają teraz TTL i twardy limit wpisów.
+- Klient mock parsuje fixture'y raz, a nie przy każdym tiku pollera.
+- Logotypy przepuszczone przez SVGO: 57,4 KB → 30,0 KB (−48%). `next/image` zastąpiony
+  zwykłym `<img>`, bo optymalizator Next i tak nie obsługuje SVG.
+- Usunięte nieużywane assety ze scaffoldu `create-next-app`.
 
 ### Znane ograniczenia
 
-Lista w [README](README.md#znane-ograniczenia-09-beta).
+Lista w [README](README.md#znane-ograniczenia-09-beta). Najważniejsze:
+aplikacja nie została jeszcze uruchomiona na żywym kluczu API.
 
 ### Wewnętrzne
 
 - Katalog `docs/` (projekt techniczny i plan implementacji) przestał być
   śledzony przez git — pozostaje lokalnie.
+- CI odpala się także przy pushu na `main`, z którego deployuje Railway;
+  wcześniej bramka jakości działała wyłącznie na pull requestach.
+- Warstwa runtime obrazu Dockera nie chodzi już jako root.
+- Wersja Node zapisana raz, w `.nvmrc`, i czytana stamtąd przez CI.
+- 98 → 150 testów.
