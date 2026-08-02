@@ -124,7 +124,9 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                   </span>
                 </td>
                 <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.headsign}</td>
-                <td className="py-2.5 pr-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
+                {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
+                    równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
+                <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-gray-700 dark:text-gray-300">
                   {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
                 </td>
                 <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.platform ?? '—'}</td>
