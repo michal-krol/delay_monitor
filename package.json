@@ -13,6 +13,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "comment:overrides": "next@16.2.12 to najnowsza stabilna wersja, a zakres podatnosci obejmuje wszystkie wydania - `npm audit fix` proponuje downgrade do next@9.3.3. Zamiast tego wymuszamy bezpieczne wersje zaleznosci przechodnich: sharp (uzywany wylacznie przez optymalizator obrazow Next, ktorego nie uzywamy) i postcss (build-time, Tailwind). Do usuniecia, gdy Next zaktualizuje je u siebie.",
+  "overrides": {
+    "sharp": "^0.35.3",
+    "postcss": "^8.5.25"
+  },
   "dependencies": {
     "next": "16.2.12",
     "next-themes": "^0.4.6",
