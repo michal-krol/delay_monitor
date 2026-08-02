@@ -53,9 +53,28 @@ function rebaseTrains(trains: RawTrainOperation[], now: number): RawTrainOperati
 }
 
 export function createMockClient(): PkpClient {
+  // Odpowiednik cache'u słownika z klienta live: zapełnia się przy pierwszym
+  // odczycie fixture'ów i pozwala `/api/board` odsiać nieznane identyfikatory
+  // bez czekania na wejście/wyjście.
+  let cachedStationIds: ReadonlySet<string> | null = null
+
+  async function stations() {
+    const data = await loadStations()
+    cachedStationIds ??= new Set(data.stations.map((station) => station.id))
+    return data
+  }
+
+  // Rozgrzanie w tle: bez tego pierwsze żądanie do /api/board trafia w pusty
+  // słownik i przepuszcza wszystko, co w trybie mock byłoby mylące przy testach.
+  void stations()
+
   return {
+    getCachedStationIds(): ReadonlySet<string> | null {
+      return cachedStationIds
+    },
+
     async searchStations(query: string): Promise<Station[]> {
-      const data = await loadStations()
+      const data = await stations()
       const normalized = normalizeForSearch(query)
       if (normalized === '') return data.stations
       return data.stations.filter((station) => matchesStationName(station.name, normalized))

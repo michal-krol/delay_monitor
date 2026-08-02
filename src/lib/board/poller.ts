@@ -15,6 +15,20 @@ const LOW_BUDGET_HOURLY_THRESHOLD = 10
 const RETRY_BASE_DELAY_MS = 500
 const RETRY_JITTER_MS = 1000
 
+/**
+ * Stacja bez danych wymusza przebieg poza harmonogramem, żeby pokazać rozkład
+ * od razu po dodaniu do ulubionych. Bez limitu jest to jednak dźwignia: każde
+ * nieznane ID omija dławik 45 s i zamienia się w zapytanie do PKP, więc seria
+ * żądań wyczerpuje limit 100/h i degraduje aplikację dla wszystkich.
+ *
+ * Pula wymuszeń w oknie kroczącym zamyka dźwignię, zostawiając zapas
+ * wielokrotnie wyższy niż realne użycie — użytkownik dodaje kilka stacji, nie
+ * kilkadziesiąt na godzinę. Limit dotyczy **wyłącznie** obejścia dławika;
+ * zwykły rytm (45 s od ostatniego przebiegu) jest już ograniczony sam przez się.
+ */
+const FORCED_RUN_WINDOW_MS = 60 * 60 * 1000
+const MAX_FORCED_RUNS_PER_WINDOW = 10
+
 export type PollerConfig = {
   pollIntervalMs: number
   interestTtlMs: number
@@ -101,6 +115,8 @@ export function createPoller(deps: PollerDeps): Poller {
   let currentIntervalMs = config.pollIntervalMs
   let lastRunAt = 0
   let budget: RateLimitBudget | undefined
+  /** Znaczniki czasu wymuszonych przebiegów w bieżącym oknie kroczącym. */
+  let forcedRunsAt: number[] = []
   let status: PollerStatus = 'ok'
 
   function pruneInactive(): string[] {
@@ -164,6 +180,26 @@ export function createPoller(deps: PollerDeps): Poller {
     timer = setTimeout(() => void runTick(), currentIntervalMs)
   }
 
+  /**
+   * Pobiera jedno wymuszenie z puli okna kroczącego. `false` znaczy, że pula na
+   * to okno jest wyczerpana i żądanie musi poczekać na zwykły przebieg.
+   */
+  function consumeForcedRun(timestamp: number): boolean {
+    const cutoff = timestamp - FORCED_RUN_WINDOW_MS
+    forcedRunsAt = forcedRunsAt.filter((at) => at > cutoff)
+
+    if (forcedRunsAt.length >= MAX_FORCED_RUNS_PER_WINDOW) return false
+
+    forcedRunsAt.push(timestamp)
+    return true
+  }
+
+  function forceRunNow(): void {
+    if (timer !== null) clearTimeout(timer)
+    timer = null
+    void runTick()
+  }
+
   function wake(forceImmediate: boolean): void {
     if (timer !== null) return
 
@@ -185,16 +221,23 @@ export function createPoller(deps: PollerDeps): Poller {
         interest.set(stationId, timestamp)
       }
 
+      // Obudzenie z uśpienia nie zużywa puli: wymaga 5 minut ciszy, więc nie da
+      // się go powtarzać w pętli, a pierwszy użytkownik po przerwie nie powinien
+      // czekać na kolejny przebieg.
       if (wasAsleep) {
         wake(true)
         return
       }
 
       const sinceLastRun = timestamp - lastRunAt
-      if (sinceLastRun >= FORCE_RUN_THROTTLE_MS || hasStationWithoutData) {
-        if (timer !== null) clearTimeout(timer)
-        timer = null
-        void runTick()
+
+      if (sinceLastRun >= FORCE_RUN_THROTTLE_MS) {
+        forceRunNow()
+        return
+      }
+
+      if (hasStationWithoutData && consumeForcedRun(timestamp)) {
+        forceRunNow()
       }
     },
 

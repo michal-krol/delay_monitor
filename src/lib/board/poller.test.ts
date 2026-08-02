@@ -28,6 +28,7 @@ function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
     searchStations: vi.fn().mockResolvedValue([]),
     getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
     getSchedules: vi.fn().mockResolvedValue([]),
+    getCachedStationIds: vi.fn(() => null),
     ...overrides,
   }
 }
@@ -227,6 +228,65 @@ describe('createPoller', () => {
     expect(getOperations).toHaveBeenCalledTimes(1)
     expect(sleep).not.toHaveBeenCalled()
     expect(poller.getStatus()).toBe('degraded')
+  })
+
+  it('caps how many upstream calls a stream of unknown stations can force', async () => {
+    // Kazde nowe ID omijalo dlawik 45 s, wiec seria zadan o kolejne stacje
+    // zamieniala sie 1:1 na zapytania do PKP. Limit 100/h dalo sie w ten sposob
+    // wyczerpac w 100 zadaniach i zdegradowac aplikacje dla wszystkich.
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const client = makeClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    for (let i = 0; i < 60; i += 1) {
+      poller.registerInterest([`station-${i}`])
+      await vi.advanceTimersByTimeAsync(10)
+    }
+
+    // Bez limitu byloby ok. 60 wywolan; z limitem znaczaco mniej.
+    expect(getOperations.mock.calls.length).toBeLessThanOrEqual(12)
+  })
+
+  it('still fetches immediately for the first few new stations', async () => {
+    // Limit nie moze psuc normalnego uzycia: dodanie kilku ulubionych stacji
+    // ma nadal dawac dane od razu, bez czekania na kolejny przebieg.
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const client = makeClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(10)
+    expect(getOperations).toHaveBeenCalledTimes(1)
+
+    poller.registerInterest(['5100', '5136'])
+    await vi.advanceTimersByTimeAsync(10)
+    expect(getOperations).toHaveBeenCalledTimes(2)
+
+    poller.registerInterest(['5100', '5136', '4900'])
+    await vi.advanceTimersByTimeAsync(10)
+    expect(getOperations).toHaveBeenCalledTimes(3)
+  })
+
+  it('lets the forced-run budget recover after the window passes', async () => {
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const client = makeClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    for (let i = 0; i < 40; i += 1) {
+      poller.registerInterest([`a-${i}`])
+      await vi.advanceTimersByTimeAsync(10)
+    }
+    const afterBurst = getOperations.mock.calls.length
+
+    // Po przejsciu okna pula wymuszen odbudowuje sie.
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    const afterIdle = getOperations.mock.calls.length
+
+    poller.registerInterest(['zupelnie-nowa'])
+    await vi.advanceTimersByTimeAsync(10)
+
+    expect(getOperations.mock.calls.length).toBeGreaterThan(afterIdle)
+    expect(afterBurst).toBeLessThanOrEqual(12)
   })
 
   it('reports throttling only once it actually slowed down', async () => {

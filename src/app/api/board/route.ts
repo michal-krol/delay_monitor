@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { poller } from '@/lib/board/instance'
+import { client, poller } from '@/lib/board/instance'
 
 /**
  * Identyfikatory stacji w API PKP są liczbami (schemat sprowadza je do stringów
@@ -50,7 +50,24 @@ export async function GET(request: Request) {
   // wydłużać zapytania do PKP.
   const stationIds = [...new Set(rawIds)]
 
-  poller.registerInterest(stationIds)
+  // Poller odpytuje PKP o to, co mu podamy, więc nieznane identyfikatory nie
+  // mogą do niego trafić — inaczej dowolny klient steruje tym, o co pytamy
+  // zewnętrzne API, i zużywa nasz limit.
+  //
+  // Odsiewamy, zamiast odrzucać całe żądanie: jeden nieaktualny wpis
+  // w ulubionych (np. przeniesiony z trybu mock) nie może wywrócić dashboardu.
+  // Nieznana stacja dostaje w odpowiedzi `null`, dokładnie jak stacja bez danych.
+  //
+  // `getCachedStationIds()` czyta wyłącznie pamięć i nigdy nie wyzwala pobrania,
+  // więc ten handler nadal nie czeka na PKP. Gdy słownik jeszcze nie jest
+  // wczytany, zwraca `null` i walidację pomijamy — świadome „fail-open" na rzecz
+  // dostępności; format, limit liczby i pula wymuszeń w pollerze nadal działają.
+  const knownIds = client.getCachedStationIds()
+  const watchable = knownIds === null ? stationIds : stationIds.filter((id) => knownIds.has(id))
+
+  if (watchable.length > 0) {
+    poller.registerInterest(watchable)
+  }
 
   const now = Date.now()
   const snapshots = stationIds.map((stationId) => {

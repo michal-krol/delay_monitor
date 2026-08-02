@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
+// Domyślnie słownik zna trzy stacje; poszczególne testy podmieniają to,
+// żeby sprawdzić także zimny start (słownik jeszcze niewczytany → null).
+const getCachedStationIds = vi.fn<() => ReadonlySet<string> | null>(
+  () => new Set(['5100', '5136', '4900'])
+)
+
 vi.mock('@/lib/board/instance', () => ({
+  client: { getCachedStationIds: (...args: []) => getCachedStationIds(...args) },
   poller: {
     registerInterest: vi.fn(),
     getSnapshot: vi.fn((id: string) =>
@@ -21,13 +28,15 @@ describe('GET /api/board', () => {
     expect(response.status).toBe(400)
   })
 
-  it('registers interest and returns snapshots with age for known stations, null for unknown', async () => {
+  it('registers interest and returns snapshots with age for stations that have data, null for the rest', async () => {
+    // 5136 jest w slowniku, ale poller nie ma dla niej jeszcze snapshotu —
+    // to inny przypadek niz ID spoza slownika (osobny test nizej).
     const { GET } = await import('./route')
     const { poller } = await import('@/lib/board/instance')
-    const response = await GET(new Request('http://localhost/api/board?stations=5100,9999'))
+    const response = await GET(new Request('http://localhost/api/board?stations=5100,5136'))
     const body = await response.json()
 
-    expect(poller.registerInterest).toHaveBeenCalledWith(['5100', '9999'])
+    expect(poller.registerInterest).toHaveBeenCalledWith(['5100', '5136'])
     expect(body.snapshots[0].stationId).toBe('5100')
     expect(typeof body.snapshots[0].ageMs).toBe('number')
     expect(body.snapshots[1]).toBeNull()
@@ -78,6 +87,50 @@ describe('GET /api/board', () => {
     await GET(new Request('http://localhost/api/board?stations=5100,5100,5100'))
 
     expect(poller.registerInterest).toHaveBeenCalledWith(['5100'])
+  })
+
+  it('never lets the poller watch a station that is not in the dictionary', async () => {
+    // Kazde nieznane ID trafiajace do pollera to potencjalne zapytanie do PKP.
+    // Odrzucamy je u wejscia, zeby atakujacy nie mogl sterowac tym, o co
+    // odpytujemy zewnetrzne API.
+    const { GET } = await import('./route')
+    const { poller } = await import('@/lib/board/instance')
+    vi.mocked(poller.registerInterest).mockClear()
+
+    const response = await GET(new Request('http://localhost/api/board?stations=5100,999999'))
+    const body = await response.json()
+
+    expect(poller.registerInterest).toHaveBeenCalledWith(['5100'])
+    // Nieznana stacja nadal dostaje miejsce w odpowiedzi, tyle ze puste —
+    // jeden nieaktualny wpis w ulubionych nie moze wywrocic calego dashboardu.
+    expect(response.status).toBe(200)
+    expect(body.snapshots).toHaveLength(2)
+    expect(body.snapshots[1]).toBeNull()
+  })
+
+  it('does not call the poller at all when every station is unknown', async () => {
+    const { GET } = await import('./route')
+    const { poller } = await import('@/lib/board/instance')
+    vi.mocked(poller.registerInterest).mockClear()
+
+    const response = await GET(new Request('http://localhost/api/board?stations=888888,999999'))
+
+    expect(poller.registerInterest).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+  })
+
+  it('falls back to trusting the caller while the dictionary is still loading', async () => {
+    // Route handler nigdy nie czeka na PKP, wiec przy zimnym starcie slownika
+    // po prostu go nie ma. Blokowanie wszystkiego byloby gorsze niz przepuszczenie
+    // — pozostale warstwy (format, limit liczby, pula wymuszen) nadal dzialaja.
+    const { GET } = await import('./route')
+    const { poller } = await import('@/lib/board/instance')
+    vi.mocked(poller.registerInterest).mockClear()
+    getCachedStationIds.mockReturnValueOnce(null)
+
+    await GET(new Request('http://localhost/api/board?stations=5100,999999'))
+
+    expect(poller.registerInterest).toHaveBeenCalledWith(['5100', '999999'])
   })
 
   it('passes the poller throttling flag through to the client', async () => {

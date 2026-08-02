@@ -31,6 +31,14 @@ export interface PkpClient {
   searchStations(query: string): Promise<Station[]>
   getOperations(stationIds: string[]): Promise<GetOperationsResult>
   getSchedules(stationIds: string[]): Promise<RawRoute[]>
+  /**
+   * Zbiór znanych ID stacji — **wyłącznie z pamięci**, nigdy nie wyzwala
+   * pobrania. `null` znaczy „słownik nie jest jeszcze wczytany".
+   *
+   * Istnieje po to, żeby `/api/board` mógł odrzucić nieznane identyfikatory,
+   * nie łamiąc zasady, że route handler nigdy nie czeka na PKP.
+   */
+  getCachedStationIds(): ReadonlySet<string> | null
 }
 
 export class PkpApiError extends Error {
@@ -88,7 +96,7 @@ function encodeStationIds(stationIds: string[]): string {
 type IndexedStation = { station: Station; normalizedName: string }
 
 export function createLiveClient(apiKey: string): PkpClient {
-  let stationListCache: { stations: IndexedStation[]; expiresAt: number } | null = null
+  let stationListCache: { stations: IndexedStation[]; ids: ReadonlySet<string>; expiresAt: number } | null = null
   const schedulesCache = createTtlCache<RawRoute[]>({
     ttlMs: SCHEDULES_CACHE_TTL_MS,
     maxEntries: SCHEDULES_CACHE_MAX_ENTRIES,
@@ -108,11 +116,20 @@ export function createLiveClient(apiKey: string): PkpClient {
     const stations = stationSearchResponseSchema.parse(json).stations
       .filter((station) => station.name !== '')
       .map((station) => ({ station, normalizedName: normalizeForSearch(station.name) }))
-    stationListCache = { stations, expiresAt: Date.now() + STATION_LIST_CACHE_TTL_MS }
+    stationListCache = {
+      stations,
+      ids: new Set(stations.map((entry) => entry.station.id)),
+      expiresAt: Date.now() + STATION_LIST_CACHE_TTL_MS,
+    }
     return stations
   }
 
   return {
+    getCachedStationIds(): ReadonlySet<string> | null {
+      if (stationListCache === null || stationListCache.expiresAt <= Date.now()) return null
+      return stationListCache.ids
+    },
+
     async searchStations(query: string): Promise<Station[]> {
       const stations = await fetchAllStations()
       const normalized = normalizeForSearch(query)
