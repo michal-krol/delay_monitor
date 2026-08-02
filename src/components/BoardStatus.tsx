@@ -13,6 +13,9 @@ type Props = {
  */
 const STALE_AFTER_MS = 3 * 60 * 1000
 
+/** Kolor "coś wymaga uwagi, ale nie jest błędem" — dane sprzed chwili, degradacja, throttling. */
+const WARNING_CLASS = 'text-amber-700 dark:text-amber-400'
+
 function formatLastUpdated(fetchedAt: string): string {
   return new Date(fetchedAt).toLocaleString('pl-PL', {
     day: '2-digit',
@@ -66,14 +69,14 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
     <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
       <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
 
-      {isStale && <span className="text-amber-700 dark:text-amber-400">dane sprzed {formatAge(ageMs)}</span>}
+      {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 
       {data?.status === 'degraded' && (
-        <span className="text-amber-700 dark:text-amber-400">API nie odpowiada — pokazujemy ostatnie znane dane</span>
+        <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
       )}
 
       {data?.throttled === true && (
-        <span className="text-amber-700 dark:text-amber-400" title={budgetHint(data)}>
+        <span className={WARNING_CLASS} title={budgetHint(data)}>
           odświeżanie ograniczone
         </span>
       )}
