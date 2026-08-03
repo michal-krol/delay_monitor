@@ -2,11 +2,13 @@ import type { RawRoute, RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 import { normalizeForSearch } from '../search'
 import { createTtlCache } from '../cache'
+import { warsawDateString } from './time'
 
 const BASE_URL = 'https://pdp-api.plk-sa.pl'
 const REQUEST_TIMEOUT_MS = 8000
 const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const SCHEDULES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 // Klucz cache'u rozkładów to posortowany zestaw obserwowanych stacji, więc
 // każda zmiana ulubionych tworzy nowy wpis. Limit trzyma to w ryzach.
@@ -110,7 +112,7 @@ function encodeStationIds(stationIds: string[]): string {
 /** Stacja z nazwą znormalizowaną raz, przy budowaniu cache'u słownika. */
 type IndexedStation = { station: Station; normalizedName: string }
 
-export function createLiveClient(apiKey: string): PkpClient {
+export function createLiveClient(apiKey: string, now: () => Date = () => new Date()): PkpClient {
   let stationListCache: { stations: IndexedStation[]; ids: ReadonlySet<string>; expiresAt: number } | null = null
   const schedulesCache = createTtlCache<RawRoute[]>({
     ttlMs: SCHEDULES_CACHE_TTL_MS,
@@ -157,8 +159,26 @@ export function createLiveClient(apiKey: string): PkpClient {
     return stations
   }
 
+  /**
+   * `/schedules` domyślnie zwraca tylko dzisiejsze kursy (`dateFrom`/`dateTo`
+   * domyślnie = dziś). Pociąg odjeżdżający tuż po północy formalnie kursuje
+   * "jutro" — bez jawnego okna dat taki pociąg nie miał dopasowanej trasy
+   * (pusta nazwa, przewoźnik, peron/tor), mimo że `/operations` już go
+   * pokazywał w widoku 2h naprzód. Jawne żądanie dziś+jutro (wg kalendarza
+   * warszawskiego, nie strefy procesu — patrz `time.ts`) domyka tę lukę bez
+   * dodatkowego zapytania: to wciąż jedno wywołanie `/schedules` na cykl.
+   */
+  function scheduleDateWindow(): { dateFrom: string; dateTo: string } {
+    const instant = now()
+    return {
+      dateFrom: warsawDateString(instant),
+      dateTo: warsawDateString(new Date(instant.getTime() + ONE_DAY_MS)),
+    }
+  }
+
   async function loadSchedules(stationIds: string[], cacheKey: string): Promise<RawRoute[]> {
-    const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}`
+    const { dateFrom, dateTo } = scheduleDateWindow()
+    const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}`
     const { json } = await fetchJson(url, apiKey, 'Pobranie rozkładu nie powiodło się')
     const routes = schedulesResponseSchema.parse(json).routes
     schedulesCache.set(cacheKey, routes)

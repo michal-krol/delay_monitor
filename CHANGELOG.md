@@ -3,6 +3,22 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.6] — 2026-08-03
+
+### Naprawione
+
+- Pociągi odjeżdżające tuż po północy pokazywały surowy identyfikator
+  wewnętrzny zamiast nazwy, pusty przewoźnik i „—" w peronie/torze —
+  zgłoszone na produkcji (Warszawa Centralna, Warszawa Ursus). Przyczyna:
+  `/schedules` domyślnie zwraca kursy tylko z „dzisiaj" (`dateFrom`/`dateTo`),
+  a pociąg po północy formalnie kursuje „jutro" wg tych parametrów, więc
+  `getSchedules()` nigdy nie miał dla niego trasy do dopasowania — mimo że
+  `/operations` już pokazywał go w widoku 2h naprzód. Naprawione przez jawne
+  żądanie okna dziś+jutro wg **kalendarza warszawskiego** (nie strefy procesu
+  — ten sam rodzaj pułapki co przy `normalizeApiTimestamp`, patrz `time.ts`).
+  Wciąż jedno zapytanie do `/schedules` na cykl pollera, zero dodatkowego
+  kosztu budżetu.
+
 ## [0.9.5] — 2026-08-03
 
 Dwie drobne poprawki po pierwszym rzucie oka na 0.9.4.
