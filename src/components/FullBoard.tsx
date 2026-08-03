@@ -104,7 +104,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                   <th scope="col" className="hidden py-2 pr-3 font-medium text-gray-500 dark:text-gray-400 sm:table-cell">Przewoźnik</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Kierunek</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Planowo</th>
-                  <th scope="col" className="hidden py-2 pr-3 font-medium text-gray-500 dark:text-gray-400 sm:table-cell">Peron</th>
+                  <th scope="col" className="hidden py-2 pr-3 font-medium text-gray-500 dark:text-gray-400 sm:table-cell">Peron/Tor</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Status</th>
                 </tr>
               </thead>

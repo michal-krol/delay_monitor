@@ -1,7 +1,34 @@
 {
   "routes": [
-    { "scheduleId": "26", "orderId": "12345", "carrierCode": "IC", "commercialCategorySymbol": "EIC", "name": "EIC Grunwald", "nationalNumber": null },
-    { "scheduleId": "26", "orderId": "67890", "carrierCode": "KM", "commercialCategorySymbol": "REG", "name": null, "nationalNumber": "S1" },
-    { "scheduleId": "26", "orderId": "11111", "carrierCode": "IC", "commercialCategorySymbol": "TLK" }
+    {
+      "scheduleId": "26",
+      "orderId": "12345",
+      "carrierCode": "IC",
+      "commercialCategorySymbol": "EIC",
+      "name": "EIC Grunwald",
+      "nationalNumber": null,
+      "stations": [
+        { "stationId": "5100", "departurePlatform": "4", "departureTrack": "2" },
+        { "stationId": "5136", "arrivalPlatform": "1" }
+      ]
+    },
+    {
+      "scheduleId": "26",
+      "orderId": "67890",
+      "carrierCode": "KM",
+      "commercialCategorySymbol": "REG",
+      "name": null,
+      "nationalNumber": "S1",
+      "stations": []
+    },
+    {
+      "scheduleId": "26",
+      "orderId": "11111",
+      "carrierCode": "IC",
+      "commercialCategorySymbol": "TLK",
+      "stations": [
+        { "stationId": "5100", "arrivalPlatform": "2", "arrivalTrack": "1" }
+      ]
+    }
   ]
 }

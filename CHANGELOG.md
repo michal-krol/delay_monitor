@@ -3,6 +3,23 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.5] — 2026-08-03
+
+Dwie drobne poprawki po pierwszym rzucie oka na 0.9.4.
+
+### Zmienione
+
+- Przełącznik jasny/ciemny przeniesiony z nagłówka (obok nazwy aplikacji) do
+  stałego przycisku w prawym górnym rogu ekranu — widoczny niezależnie od
+  stanu strony (dashboard, pusty stan, pełna tablica) bez duplikowania go
+  w każdym z nich.
+- Kolumna „Peron" w rozwiniętym widoku stacji (`FullBoard`) — zmieniona na
+  „Peron/Tor" i faktycznie wypełniona danymi: `/schedules` (per-stopover
+  `arrivalPlatform`/`arrivalTrack`/`departurePlatform`/`departureTrack`)
+  było już pobierane co cykl pollera, ale aplikacja nie parsowała tych pól —
+  kolumna zawsze pokazywała samo „—". Format: „4/2" gdy znane są oba, sam
+  peron albo „tor 2" gdy tylko jedno z nich. Zero nowych zapytań do PKP.
+
 ## [0.9.4] — 2026-08-03
 
 Runda drobnych poprawek czytelności i UX zgłoszonych po przejrzeniu aplikacji
