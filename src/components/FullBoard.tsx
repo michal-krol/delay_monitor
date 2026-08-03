@@ -101,10 +101,10 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
               <thead>
                 <tr className="border-b border-black/10 dark:border-white/10">
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Pociąg</th>
-                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Przewoźnik</th>
+                  <th scope="col" className="hidden py-2 pr-3 font-medium text-gray-500 dark:text-gray-400 sm:table-cell">Przewoźnik</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Kierunek</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Planowo</th>
-                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Peron</th>
+                  <th scope="col" className="hidden py-2 pr-3 font-medium text-gray-500 dark:text-gray-400 sm:table-cell">Peron</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Status</th>
                 </tr>
               </thead>
@@ -124,9 +124,9 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                     className="border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5"
                   >
                     <td className="py-2.5 pr-3 whitespace-nowrap text-gray-900 dark:text-gray-100">
-                      {row.category ? `${row.category} ${row.trainNumber}` : row.trainNumber}
+                      {row.trainLabel}
                     </td>
-                    <td className="py-2.5 pr-3">
+                    <td className="hidden py-2.5 pr-3 sm:table-cell">
                       <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
                         <CarrierLogo carrierCode={row.carrier} size={16} />
                         <span>{row.carrier || '—'}</span>
@@ -138,7 +138,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                     <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-gray-700 dark:text-gray-300">
                       {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
                     </td>
-                    <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.platform ?? '—'}</td>
+                    <td className="hidden py-2.5 pr-3 text-gray-700 dark:text-gray-300 sm:table-cell">{row.platform ?? '—'}</td>
                     <td className="py-2.5 pr-3">
                       <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
                     </td>

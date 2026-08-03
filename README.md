@@ -1,4 +1,4 @@
-# Monitor opóźnień PKP
+# Monitor opóźnień
 
 **Wersja 0.9 beta** — działa na produkcji, na prawdziwym kluczu API PKP PLK.
 Lista znanych ograniczeń: [sekcja niżej](#znane-ograniczenia-09-beta).
@@ -32,8 +32,9 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
   samą nazwę.
 - **Status opóźnienia** — `onTime` / `delayed` / `cancelled` / `unknown`,
   zawsze opisany tekstem (np. „+12 min"), nigdy samym kolorem.
-- **Tryb jasny/ciemny** — automatyczny wg preferencji systemowej, przez
-  `next-themes`, bez mignięcia przy ładowaniu.
+- **Tryb jasny/ciemny** — domyślnie wg preferencji systemowej, przez
+  `next-themes`, bez mignięcia przy ładowaniu; ręczny przełącznik obok nazwy
+  aplikacji pozwala nadpisać wybór systemu.
 - **Ulubione stacje w `localStorage`** — klucz `pkp.favourites.v1`,
   przechowywane lokalnie w przeglądarce, przetrwają odświeżenie strony.
 - **Tryb mock bez klucza API** — UI działa od razu po
