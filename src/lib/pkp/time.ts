@@ -40,6 +40,16 @@ function warsawOffsetMinutes(instant: Date): number {
  * fixture'ów, które już mają `+02:00`. Ciąg bez strefy jest traktowany jako
  * czas zegarowy Warszawy i konwertowany na prawidłowy UTC.
  */
+/**
+ * Data kalendarzowa (`yyyy-MM-dd`) w strefie Warszawy, niezależnie od strefy
+ * procesu — do parametrów `dateFrom`/`dateTo` w `/schedules`. Lokal `en-CA`
+ * domyślnie formatuje datę jako ISO (`yyyy-MM-dd`), więc nie trzeba składać
+ * ciągu ręcznie z osobnych pól roku/miesiąca/dnia.
+ */
+export function warsawDateString(instant: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: WARSAW_TZ }).format(instant)
+}
+
 export function normalizeApiTimestamp(value: string): string {
   if (HAS_TIMEZONE_DESIGNATOR.test(value)) return value
 

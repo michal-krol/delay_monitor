@@ -229,6 +229,35 @@ describe('createLiveClient', () => {
     expect(url.searchParams.get('stations')).toBe('4900&foo=bar')
   })
 
+  it('requests both today and tomorrow (Warsaw calendar date) so a train departing just after midnight still gets a matching route', async () => {
+    // /schedules domyślnie zwraca tylko dzisiejsze kursy — pociąg odjeżdżający
+    // tuż po północy formalnie kursuje "jutro" i bez tego okna dat nie miałby
+    // dopasowanej trasy (pusta nazwa, przewoźnik, peron/tor), mimo że
+    // /operations już go pokazuje w widoku 2h naprzód. Ten dokładny przypadek
+    // trafił na produkcję.
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key', () => new Date('2026-08-01T23:50:00+02:00'))
+    await client.getSchedules(['5100'])
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(url.searchParams.get('dateFrom')).toBe('2026-08-01')
+    expect(url.searchParams.get('dateTo')).toBe('2026-08-02')
+  })
+
+  it('computes the date window from the Warsaw calendar date, not the process timezone, even mid-afternoon', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key', () => new Date('2026-01-15T10:00:00Z'))
+    await client.getSchedules(['5100'])
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(url.searchParams.get('dateFrom')).toBe('2026-01-15')
+    expect(url.searchParams.get('dateTo')).toBe('2026-01-16')
+  })
+
   it('aborts a request that hangs past the timeout instead of waiting forever', async () => {
     // Timeout 8 s jest udokumentowanym zachowaniem, ale nie mial testu. Bez niego
     // zawieszone polaczenie blokowaloby przebieg pollera bez konca.

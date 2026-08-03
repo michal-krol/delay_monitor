@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeApiTimestamp } from './time'
+import { normalizeApiTimestamp, warsawDateString } from './time'
+
+describe('warsawDateString', () => {
+  it('returns the Warsaw calendar date even when the process/UTC date has not rolled over yet (CEST, UTC+2)', () => {
+    // 23:50 czasu warszawskiego latem to dopiero 21:50 UTC — data wg UTC
+    // byłaby wciąż poprzednim dniem, mimo że w Warszawie already "jutro" za 10 min.
+    expect(warsawDateString(new Date('2026-08-01T21:50:00Z'))).toBe('2026-08-01')
+    expect(warsawDateString(new Date('2026-08-01T22:10:00Z'))).toBe('2026-08-02')
+  })
+
+  it('returns the Warsaw calendar date in winter (CET, UTC+1)', () => {
+    expect(warsawDateString(new Date('2026-01-15T22:30:00Z'))).toBe('2026-01-15')
+    expect(warsawDateString(new Date('2026-01-15T23:30:00Z'))).toBe('2026-01-16')
+  })
+})
 
 describe('normalizeApiTimestamp', () => {
   it('interprets a timezone-less summer timestamp as Warsaw local time (CEST, UTC+2)', () => {
