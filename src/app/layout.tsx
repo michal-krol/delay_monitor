@@ -4,7 +4,7 @@ import { ThemeProvider } from 'next-themes'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Monitor opóźnień PKP',
+  title: 'Monitor opóźnień',
   description: 'Opóźnienia pociągów na wybranych stacjach w czasie zbliżonym do rzeczywistego',
 }
 

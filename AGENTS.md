@@ -4,7 +4,7 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# Monitor opóźnień PKP — niezmienniki projektu
+# Monitor opóźnień — niezmienniki projektu
 
 Rzeczy, które łatwo zepsuć nieświadomie, bo nie widać ich w kodzie w miejscu,
 w którym się pracuje. Pełny opis architektury i uzasadnienia: `README.md`.

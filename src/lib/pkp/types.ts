@@ -25,4 +25,6 @@ export type RawRoute = {
   orderId: string
   carrierCode: string | null
   commercialCategorySymbol: string | null
+  name: string | null
+  nationalNumber: string | null
 }

@@ -7,6 +7,7 @@ import { FullBoard } from '@/components/FullBoard'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { EmptyState } from '@/components/EmptyState'
 import { AppTitle } from '@/components/AppTitle'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Page() {
   const { favourites, loaded, addFavourite, removeFavourite, isFavourite } = useFavourites()
@@ -28,7 +29,10 @@ export default function Page() {
     <main className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-4xl">
         <div className="glass flex flex-wrap items-center justify-between gap-4 rounded-2xl px-5 py-4">
-          <AppTitle />
+          <div className="flex items-center gap-3">
+            <AppTitle />
+            <ThemeToggle />
+          </div>
           <StationSearch onSelect={setExpanded} placeholder="Dodaj stację…" />
         </div>
 

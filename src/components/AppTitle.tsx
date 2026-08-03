@@ -7,7 +7,7 @@
 export function AppTitle() {
   return (
     <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-      Monitor opóźnień PKP
+      Monitor opóźnień
     </h1>
   )
 }

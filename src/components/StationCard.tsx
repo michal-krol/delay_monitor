@@ -77,7 +77,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
               <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
             </div>
             <div className="mt-0.5 text-gray-500 dark:text-gray-400">
-              {row.trainNumber} → {row.headsign}
+              {row.trainLabel} → {row.headsign}
             </div>
           </li>
         ))}

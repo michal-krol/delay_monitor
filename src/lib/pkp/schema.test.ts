@@ -94,6 +94,8 @@ describe('schedulesResponseSchema', () => {
       orderId: '118845',
       carrierCode: 'PKP_IC',
       commercialCategorySymbol: 'EIC',
+      name: null,
+      nationalNumber: null,
     })
   })
 

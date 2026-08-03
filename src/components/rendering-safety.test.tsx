@@ -31,6 +31,7 @@ function snapshotWith(payload: string): BoardApiSnapshot {
     departures: [
       {
         trainNumber: payload,
+        trainLabel: payload,
         carrier: payload,
         category: payload,
         headsign: payload,

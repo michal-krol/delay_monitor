@@ -67,6 +67,8 @@ const rawRouteSchema = z
     orderId: z.coerce.string(),
     carrierCode: z.string().nullable().optional().default(null),
     commercialCategorySymbol: z.string().nullable().optional().default(null),
+    name: z.string().nullable().optional().default(null),
+    nationalNumber: z.string().nullable().optional().default(null),
   })
   .passthrough()
 

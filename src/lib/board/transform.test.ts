@@ -166,7 +166,7 @@ describe('transformOperations', () => {
       train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })]),
     ]
     const routes = new Map<string, RawRoute>([
-      ['26-12345', { scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' }],
+      ['26-12345', { scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null }],
     ])
     const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].carrier).toBe('PKP_IC')
@@ -180,5 +180,33 @@ describe('transformOperations', () => {
     const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].carrier).toBe('')
     expect(snapshot.departures[0].category).toBe('')
+    expect(snapshot.departures[0].trainLabel).toBe('26-99999')
+  })
+
+  it('uses route.name verbatim as trainLabel when present', () => {
+    const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const routes = new Map<string, RawRoute>([
+      ['26-12345', { scheduleId: '26', orderId: '12345', carrierCode: 'IC', commercialCategorySymbol: 'EIC', name: 'EIC Grunwald', nationalNumber: null }],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].trainLabel).toBe('EIC Grunwald')
+  })
+
+  it('combines category and nationalNumber as trainLabel when name is absent', () => {
+    const trains = [train('26', '67890', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const routes = new Map<string, RawRoute>([
+      ['26-67890', { scheduleId: '26', orderId: '67890', carrierCode: 'KM', commercialCategorySymbol: 'REG', name: null, nationalNumber: 'S1' }],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].trainLabel).toBe('REG S1')
+  })
+
+  it('falls back to category + internal id as trainLabel when neither name nor nationalNumber is present', () => {
+    const trains = [train('26', '11111', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const routes = new Map<string, RawRoute>([
+      ['26-11111', { scheduleId: '26', orderId: '11111', carrierCode: 'IC', commercialCategorySymbol: 'TLK', name: null, nationalNumber: null }],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].trainLabel).toBe('TLK 26-11111')
   })
 })

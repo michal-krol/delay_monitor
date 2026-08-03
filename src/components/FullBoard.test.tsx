@@ -13,10 +13,10 @@ const SNAPSHOT = {
   stationId: '5100',
   stationName: 'Warszawa Centralna',
   departures: [
-    { trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+    { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
   ],
   arrivals: [
-    { trainNumber: '2', carrier: 'IC', category: 'TLK', headsign: 'Gdynia', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'unknown', platform: null },
+    { trainNumber: '2', trainLabel: 'TLK 2', carrier: 'IC', category: 'TLK', headsign: 'Gdynia', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'unknown', platform: null },
   ],
   fetchedAt: new Date().toISOString(),
   ageMs: 1000,

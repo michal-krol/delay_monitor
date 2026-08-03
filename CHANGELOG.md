@@ -3,6 +3,38 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.4] — 2026-08-03
+
+Runda drobnych poprawek czytelności i UX zgłoszonych po przejrzeniu aplikacji
+w trybie jasnym.
+
+### Zmienione
+
+- Nazwa aplikacji: „Monitor opóźnień PKP" → „Monitor opóźnień" (tytuł karty,
+  nagłówek, `README.md`, `AGENTS.md`) — monitorujemy też pociągi innych
+  przewoźników niż PKP, więc nazwa własna nie powinna sugerować wyłączności.
+  Odniesienia do rzeczywistego API PKP PLK (zmienne środowiskowe, moduły,
+  klucz `localStorage`, logo przewoźnika) zostają bez zmian — to nie jest
+  nazwa aplikacji, tylko nazwa przewoźnika/API.
+- Kolumna „Pociąg" pokazywała syntetyczny klucz wewnętrzny
+  (`scheduleId-orderId`, np. „26-12345") zamiast realnej nazwy/numeru
+  pociągu — mimo że `/schedules` (już pobierane co cykl pollera) zwraca
+  pola `name` (pełna nazwa, np. „EIC Grunwald") i `nationalNumber`
+  (numer/linia, np. „S1"), o czym schemat Zod dotąd nie wiedział. Kolejność
+  pierwszeństwa: nazwa pociągu → kategoria + numer linii → dawne zachowanie
+  (kategoria + klucz wewnętrzny) jako ostatnia deska ratunku. Zero nowych
+  zapytań do PKP.
+- Tabela w rozwiniętym widoku stacji (`FullBoard`) chowa kolumny
+  „Przewoźnik" i „Peron" poniżej 640px — wcześniej brak breakpointów
+  wymuszał przewijanie w poziomie na telefonie, żeby zobaczyć wszystkie
+  6 kolumn.
+
+### Dodane
+
+- Ręczny przełącznik jasny/ciemny obok nazwy aplikacji. Infrastruktura
+  (`next-themes`, zmienne CSS, `dark:` w komponentach) już istniała —
+  brakowało wyłącznie widocznej kontrolki.
+
 ## [0.9.3] — 2026-08-02
 
 Runda refaktoru i porządków po intensywnym okresie poprawek bezpieczeństwa

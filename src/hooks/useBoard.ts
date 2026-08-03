@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 
 export type BoardApiRow = {
   trainNumber: string
+  trainLabel: string
   carrier: string
   category: string
   headsign: string

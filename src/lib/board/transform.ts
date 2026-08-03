@@ -2,6 +2,7 @@ import type { RawRoute, RawTrainOperation } from '../pkp/types'
 
 export type BoardRow = {
   trainNumber: string
+  trainLabel: string
   carrier: string
   category: string
   headsign: string
@@ -38,6 +39,12 @@ function computeStatus(cancelled: boolean, actualAt: string | null, delayMinutes
   return 'onTime'
 }
 
+function computeTrainLabel(route: RawRoute | undefined, category: string, trainId: string): string {
+  if (route?.name) return route.name
+  if (route?.nationalNumber) return category ? `${category} ${route.nationalNumber}` : route.nationalNumber
+  return category ? `${category} ${trainId}` : trainId
+}
+
 function buildRow(
   trainId: string,
   headsign: string,
@@ -48,10 +55,12 @@ function buildRow(
   route: RawRoute | undefined
 ): BoardRow {
   const delayMinutes = computeDelayMinutes(plannedAt, actualAt, apiDelay)
+  const category = route?.commercialCategorySymbol ?? ''
   return {
     trainNumber: trainId,
+    trainLabel: computeTrainLabel(route, category, trainId),
     carrier: route?.carrierCode ?? '',
-    category: route?.commercialCategorySymbol ?? '',
+    category,
     headsign,
     plannedAt,
     actualAt,
