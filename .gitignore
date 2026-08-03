@@ -23,6 +23,9 @@
 # dokumentacja wewnętrzna (projekt techniczny, plan implementacji) — nie publikujemy
 /docs
 
+# lokalne kopie zapasowe (np. bundle gita sprzed przepisania historii) — nigdy do repo
+/.local-backup
+
 # narzędzia agentowe / lokalne ustawienia edytora
 .impeccable/
 .claude/settings.local.json
