@@ -7,7 +7,13 @@ import { useTheme } from 'next-themes'
  * next-themes zna `resolvedTheme` dopiero po hydratacji (musi odczytać
  * localStorage/media query w przeglądarce) — bez guardu `mounted` pierwszy
  * render po stronie klienta różniłby się od SSR.
+ *
+ * Renderowany raz w layout.tsx jako `fixed` przycisk w rogu ekranu — nie
+ * przy `AppTitle`, żeby był widoczny niezależnie od stanu strony (dashboard,
+ * pusty stan, pełna tablica) bez duplikowania go w każdym z nich.
  */
+const POSITION_CLASSES = 'fixed right-4 top-4 z-50'
+
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -18,7 +24,12 @@ export function ThemeToggle() {
   }, [])
 
   if (!mounted) {
-    return <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-full" />
+    return (
+      <span
+        aria-hidden="true"
+        className={`${POSITION_CLASSES} grid h-9 w-9 place-items-center rounded-full bg-white/60 ring-1 ring-black/10 dark:bg-white/10 dark:ring-white/10`}
+      />
+    )
   }
 
   const isDark = resolvedTheme === 'dark'
@@ -30,7 +41,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={label}
       title={label}
-      className="grid h-7 w-7 place-items-center rounded-full text-gray-500 transition hover:bg-black/5 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-100"
+      className={`${POSITION_CLASSES} grid h-9 w-9 place-items-center rounded-full bg-white/60 text-gray-600 ring-1 ring-black/10 transition hover:bg-white/90 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-white/10 dark:text-gray-300 dark:ring-white/10 dark:hover:bg-white/15 dark:hover:text-gray-100`}
     >
       {isDark ? (
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

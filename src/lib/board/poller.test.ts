@@ -353,7 +353,9 @@ describe('createPoller', () => {
     })
     const getSchedules = vi
       .fn()
-      .mockResolvedValue([{ scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' }])
+      .mockResolvedValue([
+        { scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, stations: [] },
+      ])
     const client = makeClient({ getOperations, getSchedules })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 

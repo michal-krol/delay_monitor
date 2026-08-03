@@ -162,7 +162,7 @@ describe('createLiveClient', () => {
     const client = createLiveClient('secret-key')
     const routes = await client.getSchedules(['5100', '5136'])
 
-    expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null }])
+    expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, stations: [] }])
     const [url] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/api/v1/schedules?stations=5100,5136')
   })

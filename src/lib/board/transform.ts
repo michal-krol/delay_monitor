@@ -1,4 +1,4 @@
-import type { RawRoute, RawTrainOperation } from '../pkp/types'
+import type { RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 
 export type BoardRow = {
   trainNumber: string
@@ -45,6 +45,18 @@ function computeTrainLabel(route: RawRoute | undefined, category: string, trainI
   return category ? `${category} ${trainId}` : trainId
 }
 
+function findRouteStop(route: RawRoute | undefined, stationId: string): RawRouteStop | undefined {
+  return route?.stations.find((stop) => stop.stationId === stationId)
+}
+
+/** „4/2" gdy znane są peron i tor, sam peron albo „tor 2" gdy tylko jedno z nich, `null` gdy nic. */
+function formatPlatform(platform: string | null | undefined, track: string | null | undefined): string | null {
+  if (platform && track) return `${platform}/${track}`
+  if (platform) return platform
+  if (track) return `tor ${track}`
+  return null
+}
+
 function buildRow(
   trainId: string,
   headsign: string,
@@ -52,7 +64,8 @@ function buildRow(
   actualAt: string | null,
   cancelled: boolean,
   apiDelay: number | null,
-  route: RawRoute | undefined
+  route: RawRoute | undefined,
+  platform: string | null
 ): BoardRow {
   const delayMinutes = computeDelayMinutes(plannedAt, actualAt, apiDelay)
   const category = route?.commercialCategorySymbol ?? ''
@@ -66,7 +79,7 @@ function buildRow(
     actualAt,
     delayMinutes,
     status: computeStatus(cancelled, actualAt, delayMinutes),
-    platform: null,
+    platform,
   }
 }
 
@@ -107,6 +120,7 @@ export function transformOperations(
     const stop = stops[stopIndex]
     const trainId = `${train.scheduleId}-${train.orderId}`
     const route = routesByTrainId.get(trainId)
+    const routeStop = findRouteStop(route, stationId)
 
     if (stop.plannedDeparture !== null) {
       const destination = stops[stops.length - 1]
@@ -118,7 +132,8 @@ export function transformOperations(
           stop.actualDeparture,
           stop.isCancelled,
           stop.departureDelayMinutes,
-          route
+          route,
+          formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack)
         )
       )
     }
@@ -133,7 +148,8 @@ export function transformOperations(
           stop.actualArrival,
           stop.isCancelled,
           stop.arrivalDelayMinutes,
-          route
+          route,
+          formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack)
         )
       )
     }

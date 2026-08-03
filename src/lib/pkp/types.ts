@@ -20,6 +20,14 @@ export type RawTrainOperation = {
   stations: RawOperationStation[]
 }
 
+export type RawRouteStop = {
+  stationId: string
+  arrivalPlatform: string | null
+  arrivalTrack: string | null
+  departurePlatform: string | null
+  departureTrack: string | null
+}
+
 export type RawRoute = {
   scheduleId: string
   orderId: string
@@ -27,4 +35,5 @@ export type RawRoute = {
   commercialCategorySymbol: string | null
   name: string | null
   nationalNumber: string | null
+  stations: RawRouteStop[]
 }

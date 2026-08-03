@@ -53,7 +53,18 @@ describe('createMockClient', () => {
     const client = createMockClient()
     const routes = await client.getSchedules(['5100'])
     const eic = routes.find((route) => route.orderId === '12345')
-    expect(eic).toEqual({ scheduleId: '26', orderId: '12345', carrierCode: 'IC', commercialCategorySymbol: 'EIC', name: 'EIC Grunwald', nationalNumber: null })
+    expect(eic).toEqual({
+      scheduleId: '26',
+      orderId: '12345',
+      carrierCode: 'IC',
+      commercialCategorySymbol: 'EIC',
+      name: 'EIC Grunwald',
+      nationalNumber: null,
+      stations: [
+        { stationId: '5100', arrivalPlatform: null, arrivalTrack: null, departurePlatform: '4', departureTrack: '2' },
+        { stationId: '5136', arrivalPlatform: '1', arrivalTrack: null, departurePlatform: null, departureTrack: null },
+      ],
+    })
   })
 
   describe('warm-up robustness', () => {

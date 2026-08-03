@@ -61,6 +61,16 @@ export const operationsResponseSchema = z
   })
   .passthrough()
 
+const rawRouteStopSchema = z
+  .object({
+    stationId: z.coerce.string(),
+    arrivalPlatform: z.string().nullable().optional().default(null),
+    arrivalTrack: z.string().nullable().optional().default(null),
+    departurePlatform: z.string().nullable().optional().default(null),
+    departureTrack: z.string().nullable().optional().default(null),
+  })
+  .passthrough()
+
 const rawRouteSchema = z
   .object({
     scheduleId: z.coerce.string(),
@@ -69,6 +79,10 @@ const rawRouteSchema = z
     commercialCategorySymbol: z.string().nullable().optional().default(null),
     name: z.string().nullable().optional().default(null),
     nationalNumber: z.string().nullable().optional().default(null),
+    stations: z
+      .array(rawRouteStopSchema)
+      .nullish()
+      .transform((stations) => stations ?? []),
   })
   .passthrough()
 

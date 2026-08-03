@@ -96,6 +96,7 @@ describe('schedulesResponseSchema', () => {
       commercialCategorySymbol: 'EIC',
       name: null,
       nationalNumber: null,
+      stations: [],
     })
   })
 
