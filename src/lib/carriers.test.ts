@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { getCarrierInfo } from './carriers'
+import { getCarrierLogo } from './carriers'
 
-describe('getCarrierInfo', () => {
-  it('resolves a known carrier code to its name and logo', () => {
-    const info = getCarrierInfo('IC')
-    expect(info).toEqual({ code: 'IC', name: 'PKP Intercity', logoSrc: '/carriers/pkp-ic.svg' })
+describe('getCarrierLogo', () => {
+  it('resolves a known carrier code to its logo path', () => {
+    expect(getCarrierLogo('IC')).toBe('/carriers/pkp-ic.svg')
   })
 
-  it('returns undefined for an unknown carrier code', () => {
-    expect(getCarrierInfo('UNKNOWN')).toBeUndefined()
+  it('resolves Polregio (PR) to its logo path', () => {
+    expect(getCarrierLogo('PR')).toBe('/carriers/pr.svg')
+  })
+
+  it('returns undefined for a carrier code without a logo', () => {
+    expect(getCarrierLogo('UNKNOWN')).toBeUndefined()
   })
 
   it('returns undefined for an empty carrier code', () => {
-    expect(getCarrierInfo('')).toBeUndefined()
+    expect(getCarrierLogo('')).toBeUndefined()
   })
 })

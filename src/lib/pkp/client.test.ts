@@ -160,11 +160,27 @@ describe('createLiveClient', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const client = createLiveClient('secret-key')
-    const routes = await client.getSchedules(['5100', '5136'])
+    const { routes } = await client.getSchedules(['5100', '5136'])
 
-    expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, stations: [] }])
+    expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', trainOrderId: null, carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, stations: [] }])
     const [url] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/api/v1/schedules?stations=5100,5136')
+  })
+
+  it('bundles dictionaries.carriers from the schedules response as carrierNames, without an extra request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        routes: [],
+        dictionaries: { carriers: { PR: 'POLREGIO S.A.' } },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const { carrierNames } = await client.getSchedules(['5100'])
+
+    expect(carrierNames).toEqual({ PR: 'POLREGIO S.A.' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('caches schedules per station set regardless of id order', async () => {

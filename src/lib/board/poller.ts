@@ -1,7 +1,7 @@
 import type { PkpClient, RateLimitBudget } from '../pkp/client'
 import { PkpApiError } from '../pkp/client'
 import type { RawRoute } from '../pkp/types'
-import { transformOperations, type BoardSnapshot } from './transform'
+import { routeKey, transformOperations, type BoardSnapshot } from './transform'
 
 const FORCE_RUN_THROTTLE_MS = 45000
 const LOW_BUDGET_INTERVAL_MS = 5 * 60 * 1000
@@ -93,13 +93,18 @@ async function fetchWithRetry(
   }
 }
 
-async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promise<Map<string, RawRoute>> {
+type RoutesLookup = { routesByTrainId: Map<string, RawRoute>; carrierNames: Record<string, string> }
+
+async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promise<RoutesLookup> {
   try {
-    const routes = await client.getSchedules(active)
-    return new Map(routes.map((route) => [`${route.scheduleId}-${route.orderId}`, route]))
+    const { routes, carrierNames } = await client.getSchedules(active)
+    const routesByTrainId = new Map(
+      routes.map((route) => [routeKey(route.scheduleId, route.orderId, route.trainOrderId), route])
+    )
+    return { routesByTrainId, carrierNames }
   } catch (err) {
     console.error('Poller: błąd pobierania rozkładu (przewoźnik/kategoria będą puste)', err)
-    return new Map()
+    return { routesByTrainId: new Map(), carrierNames: {} }
   }
 }
 
@@ -141,7 +146,7 @@ export function createPoller(deps: PollerDeps): Poller {
     lastRunAt = now()
 
     try {
-      const [result, routesByTrainId] = await Promise.all([
+      const [result, { routesByTrainId, carrierNames }] = await Promise.all([
         fetchWithRetry(client, active, sleep, random),
         fetchRoutesByTrainId(client, active),
       ])
@@ -158,6 +163,7 @@ export function createPoller(deps: PollerDeps): Poller {
             result.trains,
             result.stationNames,
             routesByTrainId,
+            carrierNames,
             fetchedAt
           )
         )

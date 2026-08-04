@@ -4,12 +4,14 @@ export type BoardRow = {
   trainNumber: string
   trainLabel: string
   carrier: string
+  /** Pełna nazwa przewoźnika ze słownika `dictionaries.carriers` w odpowiedzi `/schedules`, gdy znana. */
+  carrierName: string | null
   category: string
   headsign: string
   plannedAt: string
   actualAt: string | null
   delayMinutes: number
-  status: 'onTime' | 'delayed' | 'cancelled' | 'unknown'
+  status: 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
   platform: string | null
 }
 
@@ -22,6 +24,7 @@ export type BoardSnapshot = {
 }
 
 const VISIBLE_WINDOW_MS = 2 * 60 * 60 * 1000
+const LOOKBACK_WINDOW_MS = 5 * 60 * 1000
 const MAX_ROWS = 20
 
 function computeDelayMinutes(plannedAt: string, actualAt: string | null, apiDelay: number | null): number {
@@ -32,9 +35,14 @@ function computeDelayMinutes(plannedAt: string, actualAt: string | null, apiDela
   return Math.round((actualMs - plannedMs) / 60000)
 }
 
-function computeStatus(cancelled: boolean, actualAt: string | null, delayMinutes: number): BoardRow['status'] {
+function computeStatus(
+  cancelled: boolean,
+  actualAt: string | null,
+  delayMinutes: number,
+  trainStatus: string | null
+): BoardRow['status'] {
   if (cancelled) return 'cancelled'
-  if (actualAt === null) return 'unknown'
+  if (actualAt === null) return trainStatus === 'S' ? 'notStarted' : 'unknown'
   if (delayMinutes >= 1) return 'delayed'
   return 'onTime'
 }
@@ -47,6 +55,17 @@ function computeTrainLabel(route: RawRoute | undefined, category: string, trainI
 
 function findRouteStop(route: RawRoute | undefined, stationId: string): RawRouteStop | undefined {
   return route?.stations.find((stop) => stop.stationId === stationId)
+}
+
+/**
+ * Klucz łączący `/operations` z `/schedules`. `orderId` bywa identyfikatorem
+ * konkretnego przejazdu w `/operations`, a nie wzorca trasy z `/schedules` —
+ * `trainOrderId`, gdy obecny, jest tym wspólnym kluczem po obu stronach
+ * (patrz `RawRoute.trainOrderId`). Sam `scheduleId-orderId` gubił trasę dla
+ * ok. połowy pociągów w danych produkcyjnych.
+ */
+export function routeKey(scheduleId: string, orderId: string, trainOrderId: string | null): string {
+  return `${scheduleId}-${trainOrderId ?? orderId}`
 }
 
 /** „4/2" gdy znane są peron i tor, sam peron albo „tor 2" gdy tylko jedno z nich, `null` gdy nic. */
@@ -65,20 +84,24 @@ function buildRow(
   cancelled: boolean,
   apiDelay: number | null,
   route: RawRoute | undefined,
-  platform: string | null
+  platform: string | null,
+  trainStatus: string | null,
+  carrierNames: Record<string, string>
 ): BoardRow {
   const delayMinutes = computeDelayMinutes(plannedAt, actualAt, apiDelay)
   const category = route?.commercialCategorySymbol ?? ''
+  const carrier = route?.carrierCode ?? ''
   return {
     trainNumber: trainId,
     trainLabel: computeTrainLabel(route, category, trainId),
-    carrier: route?.carrierCode ?? '',
+    carrier,
+    carrierName: carrier ? (carrierNames[carrier] ?? null) : null,
     category,
     headsign,
     plannedAt,
     actualAt,
     delayMinutes,
-    status: computeStatus(cancelled, actualAt, delayMinutes),
+    status: computeStatus(cancelled, actualAt, delayMinutes, trainStatus),
     platform,
   }
 }
@@ -86,7 +109,7 @@ function buildRow(
 function withinWindow(plannedAt: string, now: Date): boolean {
   const plannedMs = new Date(plannedAt).getTime()
   const nowMs = now.getTime()
-  return plannedMs >= nowMs - 60000 && plannedMs <= nowMs + VISIBLE_WINDOW_MS
+  return plannedMs >= nowMs - LOOKBACK_WINDOW_MS && plannedMs <= nowMs + VISIBLE_WINDOW_MS
 }
 
 function sortAndTrim(rows: BoardRow[], now: Date): BoardRow[] {
@@ -106,6 +129,7 @@ export function transformOperations(
   trains: RawTrainOperation[],
   stationNames: Record<string, string>,
   routesByTrainId: Map<string, RawRoute>,
+  carrierNames: Record<string, string>,
   fetchedAt: string,
   now: Date = new Date(fetchedAt)
 ): BoardSnapshot {
@@ -119,7 +143,7 @@ export function transformOperations(
 
     const stop = stops[stopIndex]
     const trainId = `${train.scheduleId}-${train.orderId}`
-    const route = routesByTrainId.get(trainId)
+    const route = routesByTrainId.get(routeKey(train.scheduleId, train.orderId, train.trainOrderId))
     const routeStop = findRouteStop(route, stationId)
 
     if (stop.plannedDeparture !== null) {
@@ -133,7 +157,9 @@ export function transformOperations(
           stop.isCancelled,
           stop.departureDelayMinutes,
           route,
-          formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack)
+          formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack),
+          train.trainStatus,
+          carrierNames
         )
       )
     }
@@ -149,7 +175,9 @@ export function transformOperations(
           stop.isCancelled,
           stop.arrivalDelayMinutes,
           route,
-          formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack)
+          formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack),
+          train.trainStatus,
+          carrierNames
         )
       )
     }

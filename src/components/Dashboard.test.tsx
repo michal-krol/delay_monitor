@@ -66,7 +66,7 @@ describe('Dashboard', () => {
           {
             stationId: '5100',
             stationName: 'Warszawa Centralna',
-            departures: [{ trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' }],
+            departures: [{ trainNumber: '1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' }],
             arrivals: [],
             fetchedAt: '2026-08-01T20:24:11.827Z',
             ageMs: 0,
@@ -95,7 +95,7 @@ describe('Dashboard', () => {
           {
             stationId: '5136',
             stationName: 'Kraków Główny',
-            departures: [{ trainNumber: '2', carrier: 'KM', category: 'REG', headsign: 'Katowice', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
+            departures: [{ trainNumber: '2', carrier: 'KM', carrierName: 'Koleje Mazowieckie', category: 'REG', headsign: 'Katowice', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
             arrivals: [],
             fetchedAt: '2026-08-01T20:24:11.827Z',
             ageMs: 0,
@@ -103,7 +103,7 @@ describe('Dashboard', () => {
           {
             stationId: '5100',
             stationName: 'Warszawa Centralna',
-            departures: [{ trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
+            departures: [{ trainNumber: '1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
             arrivals: [],
             fetchedAt: '2026-08-01T20:24:11.827Z',
             ageMs: 0,
@@ -148,7 +148,7 @@ describe('Dashboard', () => {
           {
             stationId: '5100',
             stationName: 'Warszawa Centralna',
-            departures: [{ trainNumber: '1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
+            departures: [{ trainNumber: '1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
             arrivals: [],
             fetchedAt: '2026-08-01T20:24:11.827Z',
             ageMs: 0,
@@ -156,7 +156,7 @@ describe('Dashboard', () => {
           {
             stationId: '5136',
             stationName: 'Kraków Główny',
-            departures: [{ trainNumber: '2', carrier: 'KM', category: 'REG', headsign: 'Katowice', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
+            departures: [{ trainNumber: '2', carrier: 'KM', carrierName: 'Koleje Mazowieckie', category: 'REG', headsign: 'Katowice', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null }],
             arrivals: [],
             fetchedAt: '2026-08-01T20:24:11.827Z',
             ageMs: 0,

@@ -33,6 +33,7 @@ function snapshotWith(payload: string): BoardApiSnapshot {
         trainNumber: payload,
         trainLabel: payload,
         carrier: payload,
+        carrierName: payload,
         category: payload,
         headsign: payload,
         plannedAt: new Date().toISOString(),

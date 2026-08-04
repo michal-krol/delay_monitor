@@ -3,7 +3,6 @@
 import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { CarrierLogo } from './CarrierLogo'
-import { getCarrierInfo } from '@/lib/carriers'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
@@ -72,7 +71,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                 <CarrierLogo carrierCode={row.carrier} size={16} />
-                <span className="truncate">{getCarrierInfo(row.carrier)?.name ?? (row.carrier || 'Nieznany przewoźnik')}</span>
+                <span className="truncate">{row.carrierName ?? (row.carrier || 'Nieznany przewoźnik')}</span>
               </span>
               <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
             </div>

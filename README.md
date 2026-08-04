@@ -27,9 +27,11 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
   przełącznik odjazdy/przyjazdy, kolumny: pociąg, przewoźnik, kierunek,
   planowo, peron, status. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
 - **Przewoźnik i kategoria** — dociągane z `/api/v1/schedules` (cache 24 h)
-  i łączone z realizacją po parze `scheduleId-orderId`. Dla pięciu
-  przewoźników (IC, KM, SKM, ŁKA, Leo Express) pokazujemy logo, dla reszty
-  samą nazwę.
+  i łączone z realizacją po `trainOrderId` (z fallbackiem na `orderId`,
+  patrz `routeKey()` w `board/transform.ts`). Pełna nazwa przewoźnika
+  pochodzi ze słownika `dictionaries.carriers` dołączonego do tej samej
+  odpowiedzi — bez dodatkowego zapytania. Dla sześciu kodów (IC, KM, SKM,
+  ŁKA, Leo Express/LEO, PR) pokazujemy też logo, dla reszty samą nazwę.
 - **Status opóźnienia** — `onTime` / `delayed` / `cancelled` / `unknown`,
   zawsze opisany tekstem (np. „+12 min"), nigdy samym kolorem.
 - **Tryb jasny/ciemny** — domyślnie wg preferencji systemowej, przez
@@ -69,7 +71,7 @@ src/
 ├── hooks/                                       useFavourites, useBoard
 └── lib/
     ├── config.ts                                walidacja zmiennych środowiskowych
-    ├── carriers.ts                              mapa kodów przewoźników → nazwa/logo
+    ├── carriers.ts                              mapa kodów przewoźników → logo (nazwa: z API)
     ├── cache.ts                                 cache z TTL i limitem wpisów
     ├── search.ts                                normalizacja nazw stacji
     ├── plural.ts                                polska odmiana przez liczbę
@@ -272,11 +274,21 @@ Railway. Warto trzymać `dev` wyłączone i włączać przed większym mergem.
 Aplikacja chodzi na produkcji na prawdziwym kluczu. Rzeczy, które wcześniej były
 założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
 
-- **Kody przewoźników `IC`, `KM`, `SKM` i `ŁKA` są poprawne** — występują
-  w żywych danych, więc logotypy dla nich faktycznie się pokazują. Reszta wpisów
-  w `src/lib/carriers.ts` (Polregio, Koleje Dolnośląskie/Śląskie/Wielkopolskie,
-  WKD, Arriva i inne) nadal jest zgadywana. Błędny kod jest nieszkodliwy — po
-  prostu nigdy się nie dopasuje i UI pokaże surowy kod.
+- **Kody przewoźników `IC`, `KM`, `SKM`, `ŁKA` i `PR` są potwierdzone** na
+  żywym słowniku `/api/v1/dictionaries/carriers` (Warszawa Centralna,
+  2026-08-04) — te logotypy faktycznie się pokazują. Ten sam słownik ujawnił
+  też kody, o których wcześniej nie wiedzieliśmy: `AR` (Arriva RP — nie
+  `ARRIVA`, jak zgadywał wcześniej `src/lib/carriers.ts`), `CARGO`, `LEO`,
+  `ODEG`, `RJ`, `RP`, `SKMT`/`SKM_3M` (SKM Trójmiasto, inny kod niż SKM
+  Warszawa), `SKPL`, `PAR-WOL`. Pełna nazwa przewoźnika nie jest już zgadywana
+  lokalnie — pochodzi wprost z tego słownika (patrz `BoardRow.carrierName`);
+  `carriers.ts` mapuje już tylko kod → logo, dla kodów bez logo UI pokazuje
+  samą nazwę ze słownika.
+- **Dopasowanie `/operations` ↔ `/schedules` po samym `scheduleId-orderId`
+  gubiło trasę dla ok. połowy pociągów w skali dnia** (763 z 1533 na tej samej
+  próbce) — `trainOrderId` z API bywa różny od `orderId` niemal zawsze, a to on
+  jest prawdziwym wspólnym kluczem. Naprawione przez `routeKey()` w
+  `board/transform.ts` (fallback na `orderId`, gdy `trainOrderId` jest `null`).
 - **Kategorie handlowe są bogatsze, niż zakładaliśmy** — `IC`, `EIC`, `EIP`,
   `EC/EIC`, `RL`, `RE2`, `S3`, `ŁS` i puste. Nie robimy z nimi nic poza
   wyświetleniem, więc nowa wartość niczego nie psuje.

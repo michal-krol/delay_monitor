@@ -44,18 +44,26 @@ describe('createMockClient', () => {
 
   it('returns schedules only for trains that stop at the requested stations', async () => {
     const client = createMockClient()
-    const routes = await client.getSchedules(['5136'])
+    const { routes } = await client.getSchedules(['5136'])
     expect(routes.map((route) => route.orderId).sort()).toEqual(['12345', '67890'])
     expect(routes.every((route) => route.scheduleId === '26')).toBe(true)
   })
 
+  it('bundles the carrier name dictionary from the same response', async () => {
+    const client = createMockClient()
+    const { carrierNames } = await client.getSchedules(['5100'])
+    expect(carrierNames.IC).toBe('„PKP Intercity” Spółka Akcyjna')
+    expect(carrierNames.KM).toBe('"Koleje Mazowieckie - KM" sp. z o.o.')
+  })
+
   it('carries carrier and category codes on each route', async () => {
     const client = createMockClient()
-    const routes = await client.getSchedules(['5100'])
+    const { routes } = await client.getSchedules(['5100'])
     const eic = routes.find((route) => route.orderId === '12345')
     expect(eic).toEqual({
       scheduleId: '26',
       orderId: '12345',
+      trainOrderId: null,
       carrierCode: 'IC',
       commercialCategorySymbol: 'EIC',
       name: 'EIC Grunwald',

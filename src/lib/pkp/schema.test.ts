@@ -92,6 +92,7 @@ describe('schedulesResponseSchema', () => {
     expect(result.routes[0]).toEqual({
       scheduleId: '25',
       orderId: '118845',
+      trainOrderId: null,
       carrierCode: 'PKP_IC',
       commercialCategorySymbol: 'EIC',
       name: null,

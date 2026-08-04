@@ -1,4 +1,4 @@
-type Status = 'onTime' | 'delayed' | 'cancelled' | 'unknown'
+type Status = 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
 
 type Props = {
   status: Status
@@ -10,6 +10,7 @@ const LABELS: Record<Status, string> = {
   delayed: 'opóźniony',
   cancelled: 'odwołany',
   unknown: 'brak danych',
+  notStarted: 'jeszcze nie wyjechał',
 }
 
 const STYLES: Record<Status, string> = {
@@ -17,6 +18,7 @@ const STYLES: Record<Status, string> = {
   delayed: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   unknown: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+  notStarted: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
 }
 
 export function DelayBadge({ status, delayMinutes }: Props) {

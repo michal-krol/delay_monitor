@@ -41,6 +41,8 @@ const rawTrainOperationSchema = z
   .object({
     scheduleId: z.coerce.string(),
     orderId: z.coerce.string(),
+    trainOrderId: z.coerce.string().nullable().optional().default(null),
+    trainStatus: z.string().nullable().optional().default(null),
     stations: z
       .array(rawOperationStationSchema)
       .nullish()
@@ -75,6 +77,7 @@ const rawRouteSchema = z
   .object({
     scheduleId: z.coerce.string(),
     orderId: z.coerce.string(),
+    trainOrderId: z.coerce.string().nullable().optional().default(null),
     carrierCode: z.string().nullable().optional().default(null),
     commercialCategorySymbol: z.string().nullable().optional().default(null),
     name: z.string().nullable().optional().default(null),
@@ -92,5 +95,15 @@ export const schedulesResponseSchema = z
       .array(rawRouteSchema)
       .nullish()
       .transform((routes) => routes ?? []),
+    dictionaries: z
+      .object({
+        carriers: z
+          .record(z.string(), z.string())
+          .nullish()
+          .transform((carriers) => carriers ?? {}),
+      })
+      .passthrough()
+      .nullish(),
   })
   .passthrough()
+  .transform((data) => ({ ...data, carrierNames: data.dictionaries?.carriers ?? {} }))

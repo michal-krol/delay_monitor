@@ -21,7 +21,7 @@ describe('StationCard', () => {
   it('shows the station name and up to 3 departures with delay text (not color-only)', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1' },
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1' },
       ],
     })
 
@@ -34,7 +34,7 @@ describe('StationCard', () => {
   it('shows the carrier name as text and the logo as a decorative image', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
       ],
     })
 
@@ -55,7 +55,7 @@ describe('StationCard', () => {
   it('falls back to a generic label when the carrier code is empty', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '26-1', trainLabel: '26-1', carrier: '', category: '', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null },
+        { trainNumber: '26-1', trainLabel: '26-1', carrier: '', carrierName: null, category: '', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null },
       ],
     })
 
@@ -66,7 +66,7 @@ describe('StationCard', () => {
 
   it('inflects the delayed counter for Polish grammar', () => {
     const departure = (status: 'delayed' | 'onTime') => ({
-      trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków',
+      trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków',
       plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 5, status, platform: null,
     })
 
@@ -131,7 +131,7 @@ describe('StationCard', () => {
   it('shows an error message without hiding the last known snapshot', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
       ],
     })
     render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={true} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)

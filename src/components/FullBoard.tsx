@@ -129,7 +129,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                     <td className="hidden py-2.5 pr-3 sm:table-cell">
                       <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
                         <CarrierLogo carrierCode={row.carrier} size={16} />
-                        <span>{row.carrier || '—'}</span>
+                        <span>{row.carrierName ?? (row.carrier || '—')}</span>
                       </span>
                     </td>
                     <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.headsign}</td>

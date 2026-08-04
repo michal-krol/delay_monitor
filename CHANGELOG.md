@@ -3,6 +3,40 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.7] — 2026-08-04
+
+### Naprawione
+
+- Część pociągów pokazywała surowy identyfikator wewnętrzny zamiast nazwy,
+  pusty przewoźnik — na żywych danych (Warszawa Centralna) dotyczyło to ok.
+  połowy pociągów w skali dnia. Przyczyna: dopasowanie `/operations` do
+  `/schedules` po samej parze `scheduleId-orderId`, podczas gdy prawdziwym
+  wspólnym kluczem — gdy obecny — jest `trainOrderId` (dokumentacja API:
+  „obecny tylko gdy różni się od OrderId, np. gdy ten sam wzorzec trasy
+  realizuje kilka odrębnych pociągów"; na żywych danych różnił się niemal
+  zawsze). Naprawione przez `routeKey()` w `board/transform.ts`, używane
+  identycznie po obu stronach dopasowania (`board/poller.ts`). Zero
+  dodatkowego kosztu budżetu — te same dwa zapytania co wcześniej.
+
+### Dodane
+
+- Odjazdy/przyjazdy sprzed maksymalnie 5 minut są teraz nadal widoczne na
+  liście (wcześniej: 1 minuta) — pozwala zobaczyć pociąg, który właśnie
+  odjechał, bez czekania na kolejne odświeżenie.
+- Status „jeszcze nie wyjechał" (`trainStatus=S` z `/operations`, dotąd
+  nieużywane pole) zamiast ogólnego „brak danych" — bez dodatkowego kosztu,
+  pole już przychodziło w każdej odpowiedzi.
+- Logo Polregio (PR) — źródło: Wikimedia Commons, domena publiczna
+  (PD-textlogo), zoptymalizowane SVGO (8.5 KB → 4.8 KB).
+
+### Zmienione
+
+- Pełna nazwa przewoźnika pochodzi teraz ze słownika `dictionaries.carriers`
+  dołączonego do każdej odpowiedzi `/api/v1/schedules` (kod → pełna nazwa
+  prawna, np. „POLREGIO S.A.") zamiast z ręcznie zgadywanej lokalnej listy —
+  bez dodatkowego zapytania, dane już przychodziły w tej samej odpowiedzi.
+  `src/lib/carriers.ts` mapuje już tylko kod → logo.
+
 ## [0.9.6] — 2026-08-03
 
 ### Naprawione

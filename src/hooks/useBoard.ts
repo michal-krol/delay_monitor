@@ -6,12 +6,13 @@ export type BoardApiRow = {
   trainNumber: string
   trainLabel: string
   carrier: string
+  carrierName: string | null
   category: string
   headsign: string
   plannedAt: string
   actualAt: string | null
   delayMinutes: number
-  status: 'onTime' | 'delayed' | 'cancelled' | 'unknown'
+  status: 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
   platform: string | null
 }
 
