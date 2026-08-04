@@ -1,4 +1,4 @@
-import { getCarrierInfo } from '@/lib/carriers'
+import { getCarrierLogo } from '@/lib/carriers'
 
 type Props = {
   carrierCode: string
@@ -14,7 +14,7 @@ type Props = {
  * loading="lazy", które na logo o wysokości 16 px tylko opóźnia render.
  */
 export function CarrierLogo({ carrierCode, size = 16 }: Props) {
-  const logoSrc = getCarrierInfo(carrierCode)?.logoSrc
+  const logoSrc = getCarrierLogo(carrierCode)
   if (logoSrc === undefined) return null
 
   return (

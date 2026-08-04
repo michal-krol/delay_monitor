@@ -21,7 +21,7 @@ describe('StationCard', () => {
   it('shows the station name and up to 3 departures with delay text (not color-only)', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1' },
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1' },
       ],
     })
 
@@ -34,7 +34,7 @@ describe('StationCard', () => {
   it('shows the carrier name as text and the logo as a decorative image', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
       ],
     })
 
@@ -55,7 +55,7 @@ describe('StationCard', () => {
   it('falls back to a generic label when the carrier code is empty', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '26-1', trainLabel: '26-1', carrier: '', category: '', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null },
+        { trainNumber: '26-1', trainLabel: '26-1', carrier: '', carrierName: null, category: '', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null },
       ],
     })
 
@@ -64,10 +64,46 @@ describe('StationCard', () => {
     expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument()
   })
 
+  it('shows the departure time for each of the 3 nearest departures', () => {
+    const plannedAt = new Date(Date.now() + 15 * 60000).toISOString()
+    const expectedTime = new Date(plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt, actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+      ],
+    })
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    expect(screen.getByText(expectedTime)).toBeInTheDocument()
+  })
+
+  it('excludes departures that already passed, keeping only upcoming ones (past ones stay in FullBoard only)', () => {
+    const past = { trainNumber: '1', trainLabel: 'PAST1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() - 2 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1' }
+    const future = { trainNumber: '2', trainLabel: 'FUTURE2', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 10 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1' }
+    const snapshot = makeSnapshot({ departures: [past, future] })
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    const list = screen.getByRole('list')
+    expect(list).toHaveTextContent('FUTURE2')
+    expect(list).not.toHaveTextContent('PAST1')
+  })
+
+  it('shows fewer than 3 upcoming departures rather than backfilling with a past one', () => {
+    const past = { trainNumber: '1', trainLabel: 'PAST1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() - 2 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1' }
+    const snapshot = makeSnapshot({ departures: [past] })
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    expect(screen.queryByText('PAST1')).not.toBeInTheDocument()
+    expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
+  })
+
   it('inflects the delayed counter for Polish grammar', () => {
     const departure = (status: 'delayed' | 'onTime') => ({
-      trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków',
-      plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 5, status, platform: null,
+      trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków',
+      plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 5, status, platform: null,
     })
 
     const cases: Array<[number, string]> = [
@@ -131,7 +167,7 @@ describe('StationCard', () => {
   it('shows an error message without hiding the last known snapshot', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
       ],
     })
     render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={true} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)

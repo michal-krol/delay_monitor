@@ -67,6 +67,41 @@ describe('FullBoard', () => {
     expect(row).toHaveTextContent('—')
   })
 
+  it('keeps the carrier code and full name in separate elements toggled by breakpoint, so mobile can show just the code', async () => {
+    const snapshotWithName = { ...SNAPSHOT, departures: [{ ...SNAPSHOT.departures[0], carrierName: 'PKP Intercity' }] }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshotWithName], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+
+    expect(screen.getByRole('columnheader', { name: 'Przewoźnik' })).not.toHaveClass('hidden')
+
+    const shortCode = screen.getByText('IC')
+    const fullName = screen.getByText('PKP Intercity')
+    expect(shortCode).toHaveClass('sm:hidden')
+    expect(fullName).toHaveClass('hidden', 'sm:inline')
+  })
+
+  it('dims the train name, direction and time for a departure that already passed, but keeps the status badge full color', async () => {
+    const past = { ...SNAPSHOT.departures[0], trainLabel: 'PAST1', plannedAt: new Date(Date.now() - 2 * 60000).toISOString() }
+    const future = { ...SNAPSHOT.departures[0], trainNumber: '2', trainLabel: 'FUTURE2', plannedAt: new Date(Date.now() + 10 * 60000).toISOString() }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [past, future] }], budget: undefined, status: 'ok' }))
+    )
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('PAST1')
+
+    expect(screen.getByText('PAST1')).toHaveClass('text-gray-400')
+    expect(screen.getByText('FUTURE2')).not.toHaveClass('text-gray-400')
+
+    const pastRow = screen.getAllByRole('row').find((r) => within(r).queryByText('PAST1'))
+    const futureRow = screen.getAllByRole('row').find((r) => within(r).queryByText('FUTURE2'))
+    expect(within(pastRow!).getByText('punktualnie')).not.toHaveClass('text-gray-400')
+    expect(within(futureRow!).getByText('punktualnie')).not.toHaveClass('text-gray-400')
+  })
+
   it('switches to arrivals when the arrivals tab is clicked', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()

@@ -8,6 +8,8 @@ function makeTrain(scheduleId: string, orderId: string, stationId: string): RawT
   return {
     scheduleId,
     orderId,
+    trainOrderId: null,
+    trainStatus: null,
     stations: [
       {
         stationId,
@@ -27,7 +29,7 @@ function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
   return {
     searchStations: vi.fn().mockResolvedValue([]),
     getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
-    getSchedules: vi.fn().mockResolvedValue([]),
+    getSchedules: vi.fn().mockResolvedValue({ routes: [], carrierNames: {} }),
     getCachedStationIds: vi.fn(() => null),
     ...overrides,
   }
@@ -351,11 +353,12 @@ describe('createPoller', () => {
       stationNames: { '5100': 'Warszawa Centralna' },
       budget: { hourly: 99, daily: 999 },
     })
-    const getSchedules = vi
-      .fn()
-      .mockResolvedValue([
+    const getSchedules = vi.fn().mockResolvedValue({
+      routes: [
         { scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, stations: [] },
-      ])
+      ],
+      carrierNames: {},
+    })
     const client = makeClient({ getOperations, getSchedules })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
@@ -365,6 +368,73 @@ describe('createPoller', () => {
     const row = poller.getSnapshot('5100')?.departures[0]
     expect(row?.carrier).toBe('PKP_IC')
     expect(row?.category).toBe('EIC')
+  })
+
+  it('resolves headsign from the schedules station dictionary merged with operations\' own (fullRoutes is off on /operations)', async () => {
+    const getOperations = vi.fn().mockResolvedValue({
+      trains: [makeTrain('26', '12345', '5100')],
+      stationNames: { '5100': 'Warszawa Centralna' },
+      budget: { hourly: 99, daily: 999 },
+    })
+    const getSchedules = vi.fn().mockResolvedValue({
+      routes: [
+        {
+          scheduleId: '26',
+          orderId: '12345',
+          trainOrderId: null,
+          carrierCode: 'IC',
+          commercialCategorySymbol: 'EIC',
+          name: null,
+          nationalNumber: null,
+          stations: [
+            { stationId: '5100', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null },
+            { stationId: '5136', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null },
+          ],
+        },
+      ],
+      carrierNames: {},
+      stationNames: { '5136': 'Kraków Główny' },
+    })
+    const client = makeClient({ getOperations, getSchedules })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const row = poller.getSnapshot('5100')?.departures[0]
+    expect(row?.headsign).toBe('Kraków Główny')
+  })
+
+  it('joins schedules onto operations via trainOrderId when the route key differs from scheduleId-orderId', async () => {
+    const getOperations = vi.fn().mockResolvedValue({
+      trains: [{ ...makeTrain('26', '366302732', '5100'), trainOrderId: '12345' }],
+      stationNames: { '5100': 'Warszawa Centralna' },
+      budget: { hourly: 99, daily: 999 },
+    })
+    const getSchedules = vi.fn().mockResolvedValue({
+      routes: [
+        {
+          scheduleId: '26',
+          orderId: '12345',
+          trainOrderId: null,
+          carrierCode: 'IC',
+          commercialCategorySymbol: 'EIC',
+          name: 'KASZUB',
+          nationalNumber: null,
+          stations: [],
+        },
+      ],
+      carrierNames: {},
+    })
+    const client = makeClient({ getOperations, getSchedules })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const row = poller.getSnapshot('5100')?.departures[0]
+    expect(row?.carrier).toBe('IC')
+    expect(row?.trainLabel).toBe('KASZUB')
   })
 
   it('keeps operations data and status ok even when the schedules fetch fails', async () => {

@@ -29,10 +29,22 @@ export type GetOperationsResult = {
   budget: RateLimitBudget
 }
 
+export type GetSchedulesResult = {
+  routes: RawRoute[]
+  /** Kod przewoźnika → pełna nazwa, ze słownika dołączonego do tej samej odpowiedzi (za darmo, bez dodatkowego zapytania). */
+  carrierNames: Record<string, string>
+  /**
+   * ID stacji → nazwa, ze słownika dołączonego do tej samej odpowiedzi.
+   * `/operations` nie ma już własnego pełnego słownika (patrz `fullRoutes`
+   * niżej) — ten zasila „Kierunek" (origin/destination trasy).
+   */
+  stationNames: Record<string, string>
+}
+
 export interface PkpClient {
   searchStations(query: string): Promise<Station[]>
   getOperations(stationIds: string[]): Promise<GetOperationsResult>
-  getSchedules(stationIds: string[]): Promise<RawRoute[]>
+  getSchedules(stationIds: string[]): Promise<GetSchedulesResult>
   /**
    * Zbiór znanych ID stacji — **wyłącznie z pamięci**, nigdy nie wyzwala
    * pobrania. `null` znaczy „słownik nie jest jeszcze wczytany".
@@ -114,7 +126,7 @@ type IndexedStation = { station: Station; normalizedName: string }
 
 export function createLiveClient(apiKey: string, now: () => Date = () => new Date()): PkpClient {
   let stationListCache: { stations: IndexedStation[]; ids: ReadonlySet<string>; expiresAt: number } | null = null
-  const schedulesCache = createTtlCache<RawRoute[]>({
+  const schedulesCache = createTtlCache<GetSchedulesResult>({
     ttlMs: SCHEDULES_CACHE_TTL_MS,
     maxEntries: SCHEDULES_CACHE_MAX_ENTRIES,
   })
@@ -129,7 +141,7 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
    * jednej. Kolejni chętni dołączają się do już trwającego pobrania.
    */
   let stationListInFlight: Promise<IndexedStation[]> | null = null
-  const schedulesInFlight = new Map<string, Promise<RawRoute[]>>()
+  const schedulesInFlight = new Map<string, Promise<GetSchedulesResult>>()
 
   async function fetchAllStations(): Promise<IndexedStation[]> {
     const cached = stationListCache
@@ -176,13 +188,18 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
     }
   }
 
-  async function loadSchedules(stationIds: string[], cacheKey: string): Promise<RawRoute[]> {
+  async function loadSchedules(stationIds: string[], cacheKey: string): Promise<GetSchedulesResult> {
     const { dateFrom, dateTo } = scheduleDateWindow()
-    const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}`
+    // fullRoute=true: /operations celowo NIE dokłada już pełnej trasy (patrz
+    // getOperations niżej) — origin/destination do „Kierunku" idą stąd.
+    // Koszt jednorazowy: /schedules jest cache'owane 24h, w przeciwieństwie do
+    // /operations pobieranego co cykl pollera.
+    const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}&fullRoute=true`
     const { json } = await fetchJson(url, apiKey, 'Pobranie rozkładu nie powiodło się')
-    const routes = schedulesResponseSchema.parse(json).routes
-    schedulesCache.set(cacheKey, routes)
-    return routes
+    const parsed = schedulesResponseSchema.parse(json)
+    const result: GetSchedulesResult = { routes: parsed.routes, carrierNames: parsed.carrierNames, stationNames: parsed.stationNames }
+    schedulesCache.set(cacheKey, result)
+    return result
   }
 
   return {
@@ -201,13 +218,20 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
     },
 
     async getOperations(stationIds: string[]): Promise<GetOperationsResult> {
-      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true&fullRoutes=true`
+      // Świadomie BEZ fullRoutes=true: dokładałoby pełną trasę (śr. 15
+      // przystanków) do KAŻDEGO pociągu, choć transformOperations używa tylko
+      // jednego przystanku na zapytaną stację — 8.6 MB zamiast 680 KB na
+      // żywym pomiarze (Warszawa Centralna), co cykl pollera (~90 s). Origin/
+      // destination do „Kierunku" idą teraz z dopasowanej trasy /schedules
+      // (fullRoute=true tam — patrz loadSchedules — ale cache 24h, nie co 90s).
+      // Nie dopisuj tego z powrotem bez przeliczenia kosztu.
+      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true`
       const { json, response } = await fetchJson(url, apiKey, 'Pobranie realizacji nie powiodło się')
       const parsed = operationsResponseSchema.parse(json)
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response) }
     },
 
-    async getSchedules(stationIds: string[]): Promise<RawRoute[]> {
+    async getSchedules(stationIds: string[]): Promise<GetSchedulesResult> {
       const cacheKey = [...stationIds].sort().join(',')
       const cached = schedulesCache.get(cacheKey)
       if (cached !== undefined) {

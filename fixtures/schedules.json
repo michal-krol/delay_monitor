@@ -30,5 +30,16 @@
         { "stationId": "5100", "arrivalPlatform": "2", "arrivalTrack": "1" }
       ]
     }
-  ]
+  ],
+  "dictionaries": {
+    "carriers": {
+      "IC": "„PKP Intercity” Spółka Akcyjna",
+      "KM": "\"Koleje Mazowieckie - KM\" sp. z o.o."
+    },
+    "stations": {
+      "5100": { "id": 5100, "name": "Warszawa Centralna" },
+      "5136": { "id": 5136, "name": "Kraków Główny" },
+      "4900": { "id": 4900, "name": "Wrocław Główny" }
+    }
+  }
 }

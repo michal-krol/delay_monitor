@@ -1,9 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { CarrierLogo } from './CarrierLogo'
-import { getCarrierInfo } from '@/lib/carriers'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
@@ -19,7 +19,19 @@ type Props = {
 }
 
 export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand, onRemove }: Props) {
-  const departures = snapshot?.departures.slice(0, 3) ?? []
+  // `Date.now()` nie może być wywołane bezpośrednio w renderze (impure). Zamiast
+  // tykającego zegara — świadomie, appka już nie pokazuje relatywnego wieku —
+  // odświeżamy „teraz" przy każdej nowej porcji danych (nowy `snapshot`).
+  const [now, setNow] = useState(0)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Date.now() jest impure i nie może być wołane w renderze; efekt odświeża "teraz" tylko gdy przyjdzie nowy snapshot, nie w pętli
+    setNow(Date.now())
+  }, [snapshot])
+
+  // Kafelek dashboardu pokazuje tylko nadchodzące połączenia — pociągi, które
+  // już odjechały (mieszczące się w oknie 5 minut wstecz z transform.ts),
+  // zostają wyłącznie w pełnej tablicy (FullBoard), gdzie są przygaszone.
+  const departures = (snapshot?.departures.filter((row) => new Date(row.plannedAt).getTime() >= now) ?? []).slice(0, 3)
   const delayedCount = snapshot?.departures.filter((row) => row.status === 'delayed').length ?? 0
 
   if (configError) {
@@ -72,12 +84,15 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                 <CarrierLogo carrierCode={row.carrier} size={16} />
-                <span className="truncate">{getCarrierInfo(row.carrier)?.name ?? (row.carrier || 'Nieznany przewoźnik')}</span>
+                <span className="truncate">{row.carrierName ?? (row.carrier || 'Nieznany przewoźnik')}</span>
               </span>
               <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
             </div>
             <div className="mt-0.5 text-gray-500 dark:text-gray-400">
-              {row.trainLabel} → {row.headsign}
+              <span className="tabular-nums">
+                {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+              </span>{' '}
+              · {row.trainLabel} → {row.headsign ?? '—'}
             </div>
           </li>
         ))}

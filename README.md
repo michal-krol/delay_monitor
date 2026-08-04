@@ -13,8 +13,10 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
 
 ## Funkcjonalność
 
-- **Dashboard ulubionych** — karty z nazwą stacji, 3 najbliższymi odjazdami
-  (przewoźnik + logo, relacja, status) i licznikiem opóźnionych pociągów. Nad
+- **Dashboard ulubionych** — karty z nazwą stacji, 3 najbliższymi
+  **nadchodzącymi** odjazdami (godzina, przewoźnik + logo, relacja, status)
+  i licznikiem opóźnionych pociągów. Pociągi, które już odjechały, na kartach
+  się nie pokazują — zostają wyłącznie w pełnej tablicy (patrz niżej). Nad
   siatką kart jedna wspólna linijka „Ostatnia aktualizacja". Karty ładują się
   z pamięci serwera, nie z API PKP, więc pojawiają się natychmiast. Stację
   usuwa się z ulubionych krzyżykiem na kafelce, bez rozwijania tablicy.
@@ -23,13 +25,19 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
   Escape). Ignoruje polskie znaki, więc „wroclaw" znajduje „Wrocław Główny".
   Rozróżnia „szukam", „brak stacji o tej nazwie" i „nie udało się pobrać
   listy" — nie chowa awarii pod pustą listą.
-- **Pełna tablica stacyjna** — do 20 najbliższych pozycji w oknie 2 godzin,
-  przełącznik odjazdy/przyjazdy, kolumny: pociąg, przewoźnik, kierunek,
-  planowo, peron, status. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
+- **Pełna tablica stacyjna** — do 20 najbliższych pozycji w oknie od 5 minut
+  wstecz do 2 godzin naprzód, przełącznik odjazdy/przyjazdy, kolumny: pociąg,
+  przewoźnik, kierunek, planowo, peron, status. Połączenia sprzed maksymalnie
+  5 minut są nadal widoczne, ale wizualnie przygaszone (plakietka statusu
+  zostaje w pełnym kolorze). Kolumna „Przewoźnik" na wąskim ekranie (poniżej
+  `sm`) pokazuje sam kod (np. „IC"), od `sm` wzwyż pełną nazwę. Dodawanie/
+  usuwanie z ulubionych jednym kliknięciem.
 - **Przewoźnik i kategoria** — dociągane z `/api/v1/schedules` (cache 24 h)
-  i łączone z realizacją po parze `scheduleId-orderId`. Dla pięciu
-  przewoźników (IC, KM, SKM, ŁKA, Leo Express) pokazujemy logo, dla reszty
-  samą nazwę.
+  i łączone z realizacją po `trainOrderId` (z fallbackiem na `orderId`,
+  patrz `routeKey()` w `board/transform.ts`). Pełna nazwa przewoźnika
+  pochodzi ze słownika `dictionaries.carriers` dołączonego do tej samej
+  odpowiedzi — bez dodatkowego zapytania. Dla sześciu kodów (IC, KM, SKM,
+  ŁKA, Leo Express/LEO, PR) pokazujemy też logo, dla reszty samą nazwę.
 - **Status opóźnienia** — `onTime` / `delayed` / `cancelled` / `unknown`,
   zawsze opisany tekstem (np. „+12 min"), nigdy samym kolorem.
 - **Tryb jasny/ciemny** — domyślnie wg preferencji systemowej, przez
@@ -69,7 +77,7 @@ src/
 ├── hooks/                                       useFavourites, useBoard
 └── lib/
     ├── config.ts                                walidacja zmiennych środowiskowych
-    ├── carriers.ts                              mapa kodów przewoźników → nazwa/logo
+    ├── carriers.ts                              mapa kodów przewoźników → logo (nazwa: z API)
     ├── cache.ts                                 cache z TTL i limitem wpisów
     ├── search.ts                                normalizacja nazw stacji
     ├── plural.ts                                polska odmiana przez liczbę
@@ -146,8 +154,8 @@ Wykorzystywane endpointy:
 
 | Endpoint | Zastosowanie |
 |---|---|
-| `GET /api/v1/operations?stations=<id,id>&withPlanned=true&fullRoutes=true` | Realizacja z opóźnieniami — główne źródło |
-| `GET /api/v1/schedules?stations=<id,id>` | Przewoźnik i kategoria handlowa (cache 24 h) |
+| `GET /api/v1/operations?stations=<id,id>&withPlanned=true` | Realizacja z opóźnieniami — główne źródło. Świadomie **bez** `fullRoutes=true` — patrz sekcja o limitach niżej |
+| `GET /api/v1/schedules?stations=<id,id>&fullRoute=true` | Przewoźnik, kategoria handlowa, peron/tor oraz origin/destination trasy do „Kierunku" (cache 24 h). Odpowiedź niesie też słowniki `dictionaries.carriers`/`dictionaries.stations` — pełne nazwy przewoźników i stacji bez dodatkowego zapytania |
 | `GET /api/v1/dictionaries/stations?pageSize=10000` | Słownik stacji pod wyszukiwarkę (cache 24 h, filtrowanie po stronie serwera aplikacji) |
 
 Wyszukiwarka celowo pobiera **cały** słownik stacji raz na dobę zamiast wołać
@@ -202,7 +210,7 @@ npm run typecheck
 npm run lint
 ```
 
-199 testów w 25 plikach (Vitest), bez sieci i bez klucza API. Testy komponentów
+235 testów w 25 plikach (Vitest), bez sieci i bez klucza API. Testy komponentów
 działają na `jsdom` (docblock `// @vitest-environment jsdom`), reszta na
 środowisku `node`.
 
@@ -224,9 +232,18 @@ Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
 (`src/lib/board/poller.ts`):
 
 - odpytuje `/operations` co 90 s dla **wszystkich** obserwowanych stacji
-  w jednym zapytaniu,
-- dokłada zapytanie o `/schedules`, ale odpowiedź trzyma w cache 24 h dla
-  danego zestawu stacji, więc w ustabilizowanym stanie kosztuje ono zero,
+  w jednym zapytaniu, świadomie **bez** `fullRoutes=true` — ten parametr
+  dokładał pełną trasę (śr. 15 przystanków) do każdego pociągu, choć kod
+  używa tylko jednego przystanku na zapytaną stację. Na żywym pomiarze
+  (Warszawa Centralna) to różnica 8.6 MB → 680 KB na **ten sam** request co
+  90 s — bezpośrednia przyczyna sporadycznych błędów odświeżania
+  (`AbortError` z naszego 8 s timeoutu, `ECONNRESET`/`ETIMEDOUT`) obserwowanych
+  w logach produkcyjnych. Origin/destination do „Kierunku" pochodzą teraz
+  z dopasowanej trasy `/schedules` zamiast z `/operations`,
+- dokłada zapytanie o `/schedules` (z `fullRoute=true`, żeby mieć origin/
+  destination do „Kierunku" oraz pełne słowniki nazw), ale odpowiedź trzyma
+  w cache 24 h dla danego zestawu stacji, więc w ustabilizowanym stanie
+  kosztuje ono zero — koszt „pełnej trasy" jest tu jednorazowy, nie co 90 s,
 - usypia po 5 minutach ciszy (`INTEREST_TTL_MS`) i budzi się natychmiast na
   pierwsze żądanie,
 - wymuszony przebieg poza harmonogramem jest dławiony do jednego na 45 s
@@ -272,11 +289,29 @@ Railway. Warto trzymać `dev` wyłączone i włączać przed większym mergem.
 Aplikacja chodzi na produkcji na prawdziwym kluczu. Rzeczy, które wcześniej były
 założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
 
-- **Kody przewoźników `IC`, `KM`, `SKM` i `ŁKA` są poprawne** — występują
-  w żywych danych, więc logotypy dla nich faktycznie się pokazują. Reszta wpisów
-  w `src/lib/carriers.ts` (Polregio, Koleje Dolnośląskie/Śląskie/Wielkopolskie,
-  WKD, Arriva i inne) nadal jest zgadywana. Błędny kod jest nieszkodliwy — po
-  prostu nigdy się nie dopasuje i UI pokaże surowy kod.
+- **Kody przewoźników `IC`, `KM`, `SKM`, `ŁKA` i `PR` są potwierdzone** na
+  żywym słowniku `/api/v1/dictionaries/carriers` (Warszawa Centralna,
+  2026-08-04) — te logotypy faktycznie się pokazują. Ten sam słownik ujawnił
+  też kody, o których wcześniej nie wiedzieliśmy: `AR` (Arriva RP — nie
+  `ARRIVA`, jak zgadywał wcześniej `src/lib/carriers.ts`), `CARGO`, `LEO`,
+  `ODEG`, `RJ`, `RP`, `SKMT`/`SKM_3M` (SKM Trójmiasto, inny kod niż SKM
+  Warszawa), `SKPL`, `PAR-WOL`. Pełna nazwa przewoźnika nie jest już zgadywana
+  lokalnie — pochodzi wprost z tego słownika (patrz `BoardRow.carrierName`);
+  `carriers.ts` mapuje już tylko kod → logo, dla kodów bez logo UI pokazuje
+  samą nazwę ze słownika.
+- **Dopasowanie `/operations` ↔ `/schedules` po samym `scheduleId-orderId`
+  gubiło trasę dla ok. połowy pociągów w skali dnia** (763 z 1533 na tej samej
+  próbce) — `trainOrderId` z API bywa różny od `orderId` niemal zawsze, a to on
+  jest prawdziwym wspólnym kluczem. Naprawione przez `routeKey()` w
+  `board/transform.ts` (fallback na `orderId`, gdy `trainOrderId` jest `null`).
+- **`fullRoutes=true` na `/operations` kosztował 12,7× więcej niż trzeba** —
+  8.6 MB zamiast 680 KB dla tej samej stacji (Warszawa Centralna), na tym
+  samym zapytaniu wykonywanym co 90 s. Powód: parametr dokłada pełną trasę do
+  każdego pociągu, choć kod czyta tylko jeden przystanek. Zgodnie z logami
+  produkcyjnymi to bezpośrednia przyczyna sporadycznych `AbortError`/
+  `ECONNRESET`. Naprawione przez wyłączenie `fullRoutes` na `/operations`
+  i przeniesienie origin/destination na `/schedules` (`fullRoute=true`,
+  cache 24 h — koszt jednorazowy, nie co 90 s).
 - **Kategorie handlowe są bogatsze, niż zakładaliśmy** — `IC`, `EIC`, `EIP`,
   `EC/EIC`, `RL`, `RE2`, `S3`, `ŁS` i puste. Nie robimy z nimi nic poza
   wyświetleniem, więc nowa wartość niczego nie psuje.
@@ -284,19 +319,18 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
 
 ## Znane ograniczenia (0.9 beta)
 
-- **Kolumna „Peron" jest zawsze pusta.** Potwierdzone na żywych danych:
-  `/operations` nie zwraca numeru peronu w używanym kształcie odpowiedzi.
-  `transform.ts` ustawia `platform: null`, UI pokazuje „—". Kolumna została
-  w tablicy, bo pole jest w kontrakcie API i może kiedyś zacząć przychodzić.
-- **„Pociąg" pokazuje `scheduleId-orderId`, nie handlowy numer pociągu.**
-  Na żywo wygląda to jak `2026-424939627` (rok + identyfikator wewnętrzny) —
-  poprawne technicznie jako klucz łączenia z rozkładem, ale dla pasażera
-  nieczytelne. To najbardziej widoczny brak tej wersji.
+- **„Pociąg" i „Kierunek" pokazują `scheduleId-orderId` / „—" dla pociągów bez
+  dopasowanej trasy.** Odkąd dopasowanie `/operations` ↔ `/schedules` uwzględnia
+  `trainOrderId` (patrz wyżej), dotyczy to już tylko mniejszości pociągów —
+  głównie tych spoza widocznego okna. Gdy trasa się nie dopasuje: „Pociąg"
+  pokazuje `scheduleId-orderId` (np. `2026-424939627`), „Kierunek" — „—".
+  Poprawne technicznie (to nadal stabilny klucz), ale dla pasażera nieczytelne.
 - **Fixture'y nie odwzorowują żywego API.** Inne ID stacji, 3 pociągi zamiast
   kilkudziesięciu, dwa kody przewoźników zamiast kilkunastu. Nadają się do
   pracy nad UI, nie do wnioskowania o zachowaniu produkcji.
-- **Logotypy tylko dla 5 przewoźników.** Pozostali mają samą nazwę — wciąż
-  czytelniej niż surowy kod, ale bez znaku graficznego.
+- **Logotypy tylko dla 6 przewoźników** (IC, KM, SKM, ŁKA, Leo Express/LEO, PR).
+  Pozostali mają samą nazwę — wciąż czytelniej niż surowy kod, ale bez znaku
+  graficznego.
 - **Stan ginie przy restarcie.** Snapshoty i rejestr nazw stacji żyją
   w pamięci procesu; pierwszy użytkownik po deployu czeka jedną rundę pollera.
   Świadomy kompromis: alternatywą byłby zewnętrzny magazyn stanu, nieuzasadniony

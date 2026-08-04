@@ -41,6 +41,8 @@ const rawTrainOperationSchema = z
   .object({
     scheduleId: z.coerce.string(),
     orderId: z.coerce.string(),
+    trainOrderId: z.coerce.string().nullable().optional().default(null),
+    trainStatus: z.string().nullable().optional().default(null),
     stations: z
       .array(rawOperationStationSchema)
       .nullish()
@@ -75,6 +77,7 @@ const rawRouteSchema = z
   .object({
     scheduleId: z.coerce.string(),
     orderId: z.coerce.string(),
+    trainOrderId: z.coerce.string().nullable().optional().default(null),
     carrierCode: z.string().nullable().optional().default(null),
     commercialCategorySymbol: z.string().nullable().optional().default(null),
     name: z.string().nullable().optional().default(null),
@@ -92,5 +95,28 @@ export const schedulesResponseSchema = z
       .array(rawRouteSchema)
       .nullish()
       .transform((routes) => routes ?? []),
+    dictionaries: z
+      .object({
+        carriers: z
+          .record(z.string(), z.string())
+          .nullish()
+          .transform((carriers) => carriers ?? {}),
+        stations: z
+          .record(z.string(), z.object({ id: z.coerce.string(), name: z.string() }).passthrough())
+          .nullish()
+          .transform((stations) => stations ?? {}),
+      })
+      .passthrough()
+      .nullish(),
   })
   .passthrough()
+  .transform((data) => ({
+    ...data,
+    carrierNames: data.dictionaries?.carriers ?? {},
+    // Pełny słownik nazw stacji (id -> nazwa) — używany m.in. do rozwiązania
+    // kierunku (origin/destination) na podstawie dopasowanej trasy, patrz
+    // board/transform.ts. Obojętny na parametr fullRoute.
+    stationNames: Object.fromEntries(
+      Object.entries(data.dictionaries?.stations ?? {}).map(([id, station]) => [id, station.name])
+    ),
+  }))

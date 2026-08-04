@@ -17,6 +17,10 @@ export type RawOperationStation = {
 export type RawTrainOperation = {
   scheduleId: string
   orderId: string
+  /** Prawdziwy identyfikator konkretnego przejazdu — patrz `RawRoute.trainOrderId`. */
+  trainOrderId: string | null
+  /** S=NotStarted, P=InProgress, C=Completed, X=Cancelled, Q=PartialCancelled. */
+  trainStatus: string | null
   stations: RawOperationStation[]
 }
 
@@ -31,6 +35,13 @@ export type RawRouteStop = {
 export type RawRoute = {
   scheduleId: string
   orderId: string
+  /**
+   * Identyfikator konkretnego przejazdu — wypełniany przez API tylko gdy
+   * różni się od `orderId` (np. gdy ten sam wzorzec trasy realizuje kilka
+   * odrębnych pociągów). Klucz łączący z `/operations` musi go preferować
+   * nad `orderId`, patrz `routeKey()` w `board/transform.ts`.
+   */
+  trainOrderId: string | null
   carrierCode: string | null
   commercialCategorySymbol: string | null
   name: string | null

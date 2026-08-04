@@ -3,6 +3,67 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.7] — 2026-08-04
+
+### Naprawione
+
+- Część pociągów pokazywała surowy identyfikator wewnętrzny zamiast nazwy,
+  pusty przewoźnik — na żywych danych (Warszawa Centralna) dotyczyło to ok.
+  połowy pociągów w skali dnia. Przyczyna: dopasowanie `/operations` do
+  `/schedules` po samej parze `scheduleId-orderId`, podczas gdy prawdziwym
+  wspólnym kluczem — gdy obecny — jest `trainOrderId` (dokumentacja API:
+  „obecny tylko gdy różni się od OrderId, np. gdy ten sam wzorzec trasy
+  realizuje kilka odrębnych pociągów"; na żywych danych różnił się niemal
+  zawsze). Naprawione przez `routeKey()` w `board/transform.ts`, używane
+  identycznie po obu stronach dopasowania (`board/poller.ts`). Zero
+  dodatkowego kosztu budżetu — te same dwa zapytania co wcześniej.
+
+### Dodane
+
+- Odjazdy/przyjazdy sprzed maksymalnie 5 minut są teraz nadal widoczne na
+  liście (wcześniej: 1 minuta) — pozwala zobaczyć pociąg, który właśnie
+  odjechał, bez czekania na kolejne odświeżenie.
+- Status „jeszcze nie wyjechał" (`trainStatus=S` z `/operations`, dotąd
+  nieużywane pole) zamiast ogólnego „brak danych" — bez dodatkowego kosztu,
+  pole już przychodziło w każdej odpowiedzi.
+- Logo Polregio (PR) — źródło: Wikimedia Commons, domena publiczna
+  (PD-textlogo), zoptymalizowane SVGO (8.5 KB → 4.8 KB).
+- Godzina odjazdu przy każdym z 3 najbliższych połączeń na kafelku stacji
+  (`StationCard`) — wcześniej widoczna tylko w pełnej tablicy (`FullBoard`).
+- Połączenia, których planowy czas już minął (mieszczące się w oknie 5 minut
+  wstecz), są wizualnie przygaszone — nazwa, kierunek i godzina jaśniejszym
+  szarym, żeby odróżnić je od nadchodzących. Plakietka statusu zostaje
+  w pełnym kolorze. Wyłącznie po stronie przeglądarki, porównanie z bieżącym
+  czasem odświeżane przy każdej nowej porcji danych — bez tykającego zegara.
+- Kafelki ulubionych stacji na dashboardzie (`StationCard`) pokazują teraz
+  tylko nadchodzące połączenia — pociągi, które już odjechały (mieszczące się
+  w oknie 5 minut wstecz), zostają wyłącznie w pełnej tablicy (`FullBoard`,
+  przygaszone jak wyżej).
+
+### Zmienione
+
+- Kolumna „Przewoźnik" w pełnej tablicy (`FullBoard`) jest teraz widoczna
+  także poniżej ~640px (wcześniej całkiem ukryta) — na wąskim ekranie pokazuje
+  sam kod przewoźnika (np. „IC"), od `sm` wzwyż pełną nazwę.
+- Pełna nazwa przewoźnika pochodzi teraz ze słownika `dictionaries.carriers`
+  dołączonego do każdej odpowiedzi `/api/v1/schedules` (kod → pełna nazwa
+  prawna, np. „POLREGIO S.A.") zamiast z ręcznie zgadywanej lokalnej listy —
+  bez dodatkowego zapytania, dane już przychodziły w tej samej odpowiedzi.
+  `src/lib/carriers.ts` mapuje już tylko kod → logo.
+- **Optymalizacja pollera — `/operations` już nie prosi o `fullRoutes=true`.**
+  Zgłoszone błędy odświeżania (logi produkcyjne: `AbortError` — nasz własny
+  timeout 8 s; `ECONNRESET`/`ETIMEDOUT` — zerwane połączenie) i „długo trwa"
+  miały wspólną przyczynę: `fullRoutes=true` dokładał pełną trasę (śr. 15
+  przystanków) do KAŻDEGO z ~1500 pociągów na cykl pollera (~90 s), choć kod
+  używał tylko jednego przystanku i pierwszej/ostatniej stacji do „Kierunku".
+  Zmierzone na żywo (Warszawa Centralna): 8.6 MB → 680 KB (12,7× mniej), ten
+  sam request co 90 s. Origin/destination do „Kierunku" teraz z dopasowanej
+  trasy `/schedules` (nowy parametr `fullRoute=true` tam — cache 24h, koszt
+  jednorazowy zamiast co 90 s; 462 KB → 2.4 MB, ale rzadko i cache'owane).
+  Zero wpływu na budżet zapytań/godzinę (reguła nr 2 AGENTS.md) — zmienia się
+  tylko rozmiar, nie liczba zapytań. Gdy żadna trasa się nie dopasuje (rzadki
+  przypadek), „Kierunek" pokazuje „—" zamiast błędnych danych.
+
 ## [0.9.6] — 2026-08-03
 
 ### Naprawione

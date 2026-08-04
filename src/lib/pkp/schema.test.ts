@@ -92,6 +92,7 @@ describe('schedulesResponseSchema', () => {
     expect(result.routes[0]).toEqual({
       scheduleId: '25',
       orderId: '118845',
+      trainOrderId: null,
       carrierCode: 'PKP_IC',
       commercialCategorySymbol: 'EIC',
       name: null,
@@ -109,5 +110,18 @@ describe('schedulesResponseSchema', () => {
   it('normalizes a null routes list to an empty array', () => {
     const result = schedulesResponseSchema.parse({ routes: null })
     expect(result.routes).toEqual([])
+  })
+
+  it('flattens dictionaries.stations (id -> {id, name}) into stationNames (id -> name)', () => {
+    const result = schedulesResponseSchema.parse({
+      routes: [],
+      dictionaries: { stations: { '109': { id: 109, name: 'Szczecin Port Centralny' } } },
+    })
+    expect(result.stationNames).toEqual({ '109': 'Szczecin Port Centralny' })
+  })
+
+  it('defaults stationNames to an empty object when dictionaries is missing', () => {
+    const result = schedulesResponseSchema.parse({ routes: [] })
+    expect(result.stationNames).toEqual({})
   })
 })
