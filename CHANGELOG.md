@@ -35,7 +35,6 @@ Wersjonowanie semantyczne.
   szarym, żeby odróżnić je od nadchodzących. Plakietka statusu zostaje
   w pełnym kolorze. Wyłącznie po stronie przeglądarki, porównanie z bieżącym
   czasem odświeżane przy każdej nowej porcji danych — bez tykającego zegara.
-
 - Kafelki ulubionych stacji na dashboardzie (`StationCard`) pokazują teraz
   tylko nadchodzące połączenia — pociągi, które już odjechały (mieszczące się
   w oknie 5 minut wstecz), zostają wyłącznie w pełnej tablicy (`FullBoard`,
@@ -46,13 +45,11 @@ Wersjonowanie semantyczne.
 - Kolumna „Przewoźnik" w pełnej tablicy (`FullBoard`) jest teraz widoczna
   także poniżej ~640px (wcześniej całkiem ukryta) — na wąskim ekranie pokazuje
   sam kod przewoźnika (np. „IC"), od `sm` wzwyż pełną nazwę.
-
 - Pełna nazwa przewoźnika pochodzi teraz ze słownika `dictionaries.carriers`
   dołączonego do każdej odpowiedzi `/api/v1/schedules` (kod → pełna nazwa
   prawna, np. „POLREGIO S.A.") zamiast z ręcznie zgadywanej lokalnej listy —
   bez dodatkowego zapytania, dane już przychodziły w tej samej odpowiedzi.
   `src/lib/carriers.ts` mapuje już tylko kod → logo.
-
 - **Optymalizacja pollera — `/operations` już nie prosi o `fullRoutes=true`.**
   Zgłoszone błędy odświeżania (logi produkcyjne: `AbortError` — nasz własny
   timeout 8 s; `ECONNRESET`/`ETIMEDOUT` — zerwane połączenie) i „długo trwa"
