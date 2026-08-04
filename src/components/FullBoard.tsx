@@ -114,7 +114,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Przewoźnik</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Kierunek</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Planowo</th>
-                  <th scope="col" className="hidden py-2 pr-3 font-medium text-gray-500 dark:text-gray-400 sm:table-cell">Peron/Tor</th>
+                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Peron/Tor</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Status</th>
                 </tr>
               </thead>
@@ -156,7 +156,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                       <td className={`py-2.5 pr-3 whitespace-nowrap tabular-nums ${secondaryTextClass}`}>
                         {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td className="hidden py-2.5 pr-3 text-gray-700 dark:text-gray-300 sm:table-cell">{row.platform ?? '—'}</td>
+                      <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.platform ?? '—'}</td>
                       <td className="py-2.5 pr-3">
                         <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
                       </td>

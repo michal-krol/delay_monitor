@@ -82,6 +82,15 @@ describe('FullBoard', () => {
     expect(fullName).toHaveClass('hidden', 'sm:inline')
   })
 
+  it('shows the Peron/Tor column on narrow screens too, no longer hidden', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+
+    expect(screen.getByRole('columnheader', { name: 'Peron/Tor' })).not.toHaveClass('hidden')
+  })
+
   it('dims the train name, direction and time for a departure that already passed, but keeps the status badge full color', async () => {
     const past = { ...SNAPSHOT.departures[0], trainLabel: 'PAST1', plannedAt: new Date(Date.now() - 2 * 60000).toISOString() }
     const future = { ...SNAPSHOT.departures[0], trainNumber: '2', trainLabel: 'FUTURE2', plannedAt: new Date(Date.now() + 10 * 60000).toISOString() }

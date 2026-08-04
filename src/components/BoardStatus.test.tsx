@@ -36,6 +36,11 @@ describe('BoardStatus', () => {
     expect(screen.queryByText(/API nie odpowiada/)).not.toBeInTheDocument()
   })
 
+  it('always shows a short plain-language note about how often data refreshes', () => {
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} data={makeData()} error={false} />)
+    expect(screen.getByText('Dane odświeżają się automatycznie co ok. 1,5 minuty.')).toBeInTheDocument()
+  })
+
   it('spells out the data age once the snapshot goes stale', () => {
     render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={7 * 60 * 1000} data={makeData()} error={false} />)
     expect(screen.getByText('dane sprzed 7 min')).toBeInTheDocument()
