@@ -33,6 +33,12 @@ export type GetSchedulesResult = {
   routes: RawRoute[]
   /** Kod przewoźnika → pełna nazwa, ze słownika dołączonego do tej samej odpowiedzi (za darmo, bez dodatkowego zapytania). */
   carrierNames: Record<string, string>
+  /**
+   * ID stacji → nazwa, ze słownika dołączonego do tej samej odpowiedzi.
+   * `/operations` nie ma już własnego pełnego słownika (patrz `fullRoutes`
+   * niżej) — ten zasila „Kierunek" (origin/destination trasy).
+   */
+  stationNames: Record<string, string>
 }
 
 export interface PkpClient {
@@ -184,10 +190,14 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
 
   async function loadSchedules(stationIds: string[], cacheKey: string): Promise<GetSchedulesResult> {
     const { dateFrom, dateTo } = scheduleDateWindow()
-    const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}`
+    // fullRoute=true: /operations celowo NIE dokłada już pełnej trasy (patrz
+    // getOperations niżej) — origin/destination do „Kierunku" idą stąd.
+    // Koszt jednorazowy: /schedules jest cache'owane 24h, w przeciwieństwie do
+    // /operations pobieranego co cykl pollera.
+    const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}&fullRoute=true`
     const { json } = await fetchJson(url, apiKey, 'Pobranie rozkładu nie powiodło się')
     const parsed = schedulesResponseSchema.parse(json)
-    const result: GetSchedulesResult = { routes: parsed.routes, carrierNames: parsed.carrierNames }
+    const result: GetSchedulesResult = { routes: parsed.routes, carrierNames: parsed.carrierNames, stationNames: parsed.stationNames }
     schedulesCache.set(cacheKey, result)
     return result
   }
@@ -208,7 +218,14 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
     },
 
     async getOperations(stationIds: string[]): Promise<GetOperationsResult> {
-      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true&fullRoutes=true`
+      // Świadomie BEZ fullRoutes=true: dokładałoby pełną trasę (śr. 15
+      // przystanków) do KAŻDEGO pociągu, choć transformOperations używa tylko
+      // jednego przystanku na zapytaną stację — 8.6 MB zamiast 680 KB na
+      // żywym pomiarze (Warszawa Centralna), co cykl pollera (~90 s). Origin/
+      // destination do „Kierunku" idą teraz z dopasowanej trasy /schedules
+      // (fullRoute=true tam — patrz loadSchedules — ale cache 24h, nie co 90s).
+      // Nie dopisuj tego z powrotem bez przeliczenia kosztu.
+      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true`
       const { json, response } = await fetchJson(url, apiKey, 'Pobranie realizacji nie powiodło się')
       const parsed = operationsResponseSchema.parse(json)
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response) }

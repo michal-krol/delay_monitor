@@ -105,7 +105,7 @@ export function createMockClient(): PkpClient {
           .map((train) => `${train.scheduleId}-${train.orderId}`)
       )
       const routes = schedules.routes.filter((route) => relevantTrainIds.has(`${route.scheduleId}-${route.orderId}`))
-      return { routes, carrierNames: schedules.carrierNames }
+      return { routes, carrierNames: schedules.carrierNames, stationNames: schedules.stationNames }
     },
   }
 }

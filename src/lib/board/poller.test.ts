@@ -370,6 +370,41 @@ describe('createPoller', () => {
     expect(row?.category).toBe('EIC')
   })
 
+  it('resolves headsign from the schedules station dictionary merged with operations\' own (fullRoutes is off on /operations)', async () => {
+    const getOperations = vi.fn().mockResolvedValue({
+      trains: [makeTrain('26', '12345', '5100')],
+      stationNames: { '5100': 'Warszawa Centralna' },
+      budget: { hourly: 99, daily: 999 },
+    })
+    const getSchedules = vi.fn().mockResolvedValue({
+      routes: [
+        {
+          scheduleId: '26',
+          orderId: '12345',
+          trainOrderId: null,
+          carrierCode: 'IC',
+          commercialCategorySymbol: 'EIC',
+          name: null,
+          nationalNumber: null,
+          stations: [
+            { stationId: '5100', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null },
+            { stationId: '5136', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null },
+          ],
+        },
+      ],
+      carrierNames: {},
+      stationNames: { '5136': 'Kraków Główny' },
+    })
+    const client = makeClient({ getOperations, getSchedules })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const row = poller.getSnapshot('5100')?.departures[0]
+    expect(row?.headsign).toBe('Kraków Główny')
+  })
+
   it('joins schedules onto operations via trainOrderId when the route key differs from scheduleId-orderId', async () => {
     const getOperations = vi.fn().mockResolvedValue({
       trains: [{ ...makeTrain('26', '366302732', '5100'), trainOrderId: '12345' }],

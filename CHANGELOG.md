@@ -36,6 +36,11 @@ Wersjonowanie semantyczne.
   w pełnym kolorze. Wyłącznie po stronie przeglądarki, porównanie z bieżącym
   czasem odświeżane przy każdej nowej porcji danych — bez tykającego zegara.
 
+- Kafelki ulubionych stacji na dashboardzie (`StationCard`) pokazują teraz
+  tylko nadchodzące połączenia — pociągi, które już odjechały (mieszczące się
+  w oknie 5 minut wstecz), zostają wyłącznie w pełnej tablicy (`FullBoard`,
+  przygaszone jak wyżej).
+
 ### Zmienione
 
 - Kolumna „Przewoźnik" w pełnej tablicy (`FullBoard`) jest teraz widoczna
@@ -47,6 +52,20 @@ Wersjonowanie semantyczne.
   prawna, np. „POLREGIO S.A.") zamiast z ręcznie zgadywanej lokalnej listy —
   bez dodatkowego zapytania, dane już przychodziły w tej samej odpowiedzi.
   `src/lib/carriers.ts` mapuje już tylko kod → logo.
+
+- **Optymalizacja pollera — `/operations` już nie prosi o `fullRoutes=true`.**
+  Zgłoszone błędy odświeżania (logi produkcyjne: `AbortError` — nasz własny
+  timeout 8 s; `ECONNRESET`/`ETIMEDOUT` — zerwane połączenie) i „długo trwa"
+  miały wspólną przyczynę: `fullRoutes=true` dokładał pełną trasę (śr. 15
+  przystanków) do KAŻDEGO z ~1500 pociągów na cykl pollera (~90 s), choć kod
+  używał tylko jednego przystanku i pierwszej/ostatniej stacji do „Kierunku".
+  Zmierzone na żywo (Warszawa Centralna): 8.6 MB → 680 KB (12,7× mniej), ten
+  sam request co 90 s. Origin/destination do „Kierunku" teraz z dopasowanej
+  trasy `/schedules` (nowy parametr `fullRoute=true` tam — cache 24h, koszt
+  jednorazowy zamiast co 90 s; 462 KB → 2.4 MB, ale rzadko i cache'owane).
+  Zero wpływu na budżet zapytań/godzinę (reguła nr 2 AGENTS.md) — zmienia się
+  tylko rozmiar, nie liczba zapytań. Gdy żadna trasa się nie dopasuje (rzadki
+  przypadek), „Kierunek" pokazuje „—" zamiast błędnych danych.
 
 ## [0.9.6] — 2026-08-03
 

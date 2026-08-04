@@ -112,7 +112,7 @@ describe('createLiveClient', () => {
     expect(result.budget).toEqual({ hourly: 0, daily: 0 })
   })
 
-  it('joins multiple station ids into one query and requests withPlanned=true and fullRoutes=true', async () => {
+  it('joins multiple station ids into one query and requests withPlanned=true, without fullRoutes', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -122,7 +122,12 @@ describe('createLiveClient', () => {
     const [url] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('stations=5100,5136')
     expect(String(url)).toContain('withPlanned=true')
-    expect(String(url)).toContain('fullRoutes=true')
+    // fullRoutes=true dokładał pełną trasę (śr. 15 przystanków) do każdego
+    // z ~1500 pociągów mimo że używany był tylko jeden przystanek — 8.6 MB
+    // zamiast 680 KB co cykl pollera (zmierzone na żywo, Warszawa Centralna).
+    // Origin/destination („Kierunek") teraz z dopasowanej trasy /schedules
+    // (fullRoute=true tam, ale cache 24h — koszt jednorazowy, nie co 90s).
+    expect(new URL(String(url)).searchParams.has('fullRoutes')).toBe(false)
   })
 
   it('returns the parsed trains list and station name dictionary', async () => {
@@ -165,6 +170,33 @@ describe('createLiveClient', () => {
     expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', trainOrderId: null, carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, stations: [] }])
     const [url] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/api/v1/schedules?stations=5100,5136')
+  })
+
+  it('requests full routes from /schedules, so origin/destination for "Kierunek" are available without fullRoutes on /operations', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getSchedules(['5100'])
+
+    const [url] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('fullRoute=true')
+  })
+
+  it('bundles dictionaries.stations from the schedules response as stationNames, without an extra request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        routes: [],
+        dictionaries: { stations: { '109': { id: 109, name: 'Szczecin Port Centralny' } } },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const { stationNames } = await client.getSchedules(['5100'])
+
+    expect(stationNames).toEqual({ '109': 'Szczecin Port Centralny' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('bundles dictionaries.carriers from the schedules response as carrierNames, without an extra request', async () => {
@@ -230,7 +262,6 @@ describe('createLiveClient', () => {
 
     const url = new URL(String(fetchMock.mock.calls[0][0]))
     expect(url.hash).toBe('')
-    expect(url.searchParams.get('fullRoutes')).toBe('true')
   })
 
   it('encodes station ids on the schedules endpoint too', async () => {

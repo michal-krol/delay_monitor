@@ -90,45 +90,67 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].status).toBe('delayed')
   })
 
-  it('puts a terminus arrival (last stop on the route) only in arrivals, headsign = origin', () => {
-    const trains = [
-      train('25', '1', [
-        stop({ stationId: '5136', plannedDeparture: '2026-08-01T11:00:00+02:00' }),
-        stop({ stationId: '5100', plannedArrival: '2026-08-01T12:10:00+02:00' }),
-      ]),
-    ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+  it('puts a terminus arrival (last stop on the route) only in arrivals, headsign = route origin', () => {
+    // Bez fullRoutes=true /operations niesie już tylko jeden przystanek na
+    // zapytaną stację — origin/destination („Kierunek") pochodzi z
+    // dopasowanej trasy /schedules (fullRoute=true, cache 24h), nie z
+    // train.stations. Patrz client.ts.
+    const trains = [train('25', '1', [stop({ stationId: '5100', plannedArrival: '2026-08-01T12:10:00+02:00' })])]
+    const routes = new Map<string, RawRoute>([
+      [
+        '25-1',
+        route({
+          scheduleId: '25',
+          orderId: '1',
+          stations: [routeStop({ stationId: '5136' }), routeStop({ stationId: '5100' })],
+        }),
+      ],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
     expect(snapshot.arrivals).toHaveLength(1)
     expect(snapshot.arrivals[0].headsign).toBe('Kraków Główny')
     expect(snapshot.departures).toHaveLength(0)
   })
 
-  it('puts an origin departure (first stop on the route) only in departures, headsign = destination', () => {
-    const trains = [
-      train('25', '1', [
-        stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' }),
-        stop({ stationId: '4900', plannedArrival: '2026-08-01T14:00:00+02:00' }),
-      ]),
-    ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+  it('puts an origin departure (first stop on the route) only in departures, headsign = route destination', () => {
+    const trains = [train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const routes = new Map<string, RawRoute>([
+      [
+        '25-1',
+        route({
+          scheduleId: '25',
+          orderId: '1',
+          stations: [routeStop({ stationId: '5100' }), routeStop({ stationId: '4900' })],
+        }),
+      ],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(1)
     expect(snapshot.departures[0].headsign).toBe('Wrocław Główny')
     expect(snapshot.arrivals).toHaveLength(0)
   })
 
-  it('shows an intermediate stop in both departures and arrivals', () => {
+  it('shows an intermediate stop in both departures and arrivals, each with the correct end of the route as headsign', () => {
     const trains = [
       train('25', '1', [
-        stop({ stationId: '5136', plannedDeparture: '2026-08-01T10:00:00+02:00' }),
         stop({
           stationId: '5100',
           plannedArrival: '2026-08-01T12:05:00+02:00',
           plannedDeparture: '2026-08-01T12:10:00+02:00',
         }),
-        stop({ stationId: '4900', plannedArrival: '2026-08-01T14:00:00+02:00' }),
       ]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const routes = new Map<string, RawRoute>([
+      [
+        '25-1',
+        route({
+          scheduleId: '25',
+          orderId: '1',
+          stations: [routeStop({ stationId: '5136' }), routeStop({ stationId: '5100' }), routeStop({ stationId: '4900' })],
+        }),
+      ],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(1)
     expect(snapshot.departures[0].headsign).toBe('Wrocław Główny')
     expect(snapshot.arrivals).toHaveLength(1)
@@ -136,14 +158,28 @@ describe('transformOperations', () => {
   })
 
   it('falls back to the raw station id when the name dictionary is missing an entry', () => {
-    const trains = [
-      train('25', '1', [
-        stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:00:00+02:00' }),
-        stop({ stationId: '9999', plannedArrival: '2026-08-01T13:00:00+02:00' }),
-      ]),
-    ]
-    const snapshot = transformOperations('5100', 'X', trains, {}, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const trains = [train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:00:00+02:00' })])]
+    const routes = new Map<string, RawRoute>([
+      [
+        '25-1',
+        route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: '5100' }), routeStop({ stationId: '9999' })] }),
+      ],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, {}, routes, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].headsign).toBe('9999')
+  })
+
+  it('shows null headsign when no route is matched, letting the UI decide the "—" fallback', () => {
+    const trains = [train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].headsign).toBeNull()
+  })
+
+  it('shows null headsign when the matched route has an empty stations list', () => {
+    const trains = [train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const routes = new Map<string, RawRoute>([['25-1', route({ scheduleId: '25', orderId: '1', stations: [] })]])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].headsign).toBeNull()
   })
 
   it('trusts the API delay value over the computed fallback', () => {

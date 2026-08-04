@@ -56,6 +56,12 @@ describe('createMockClient', () => {
     expect(carrierNames.KM).toBe('"Koleje Mazowieckie - KM" sp. z o.o.')
   })
 
+  it('bundles the station name dictionary from the same response', async () => {
+    const client = createMockClient()
+    const { stationNames } = await client.getSchedules(['5100'])
+    expect(stationNames['5136']).toBe('Kraków Główny')
+  })
+
   it('carries carrier and category codes on each route', async () => {
     const client = createMockClient()
     const { routes } = await client.getSchedules(['5100'])

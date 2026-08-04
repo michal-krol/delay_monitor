@@ -36,7 +36,7 @@ function snapshotWith(payload: string): BoardApiSnapshot {
         carrierName: payload,
         category: payload,
         headsign: payload,
-        plannedAt: new Date().toISOString(),
+        plannedAt: new Date(Date.now() + 5 * 60000).toISOString(),
         actualAt: null,
         delayMinutes: 3,
         status: 'delayed',

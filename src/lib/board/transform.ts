@@ -7,7 +7,12 @@ export type BoardRow = {
   /** Pełna nazwa przewoźnika ze słownika `dictionaries.carriers` w odpowiedzi `/schedules`, gdy znana. */
   carrierName: string | null
   category: string
-  headsign: string
+  /**
+   * Origin (dla przyjazdów) / destination (dla odjazdów) z dopasowanej trasy
+   * `/schedules`. `null`, gdy nie ma dopasowanej trasy — `/operations` już nie
+   * niesie własnej pełnej trasy (patrz `client.ts`, `fullRoutes`).
+   */
+  headsign: string | null
   plannedAt: string
   actualAt: string | null
   delayMinutes: number
@@ -58,6 +63,16 @@ function findRouteStop(route: RawRoute | undefined, stationId: string): RawRoute
 }
 
 /**
+ * Pierwszy/ostatni przystanek dopasowanej trasy — źródło „Kierunku".
+ * `undefined`, gdy nie ma dopasowanej trasy (routeKey) albo jej lista
+ * przystanków jest pusta.
+ */
+function routeTerminus(route: RawRoute | undefined, end: 'first' | 'last'): RawRouteStop | undefined {
+  if (!route || route.stations.length === 0) return undefined
+  return end === 'first' ? route.stations[0] : route.stations[route.stations.length - 1]
+}
+
+/**
  * Klucz łączący `/operations` z `/schedules`. `orderId` bywa identyfikatorem
  * konkretnego przejazdu w `/operations`, a nie wzorca trasy z `/schedules` —
  * `trainOrderId`, gdy obecny, jest tym wspólnym kluczem po obu stronach
@@ -78,7 +93,7 @@ function formatPlatform(platform: string | null | undefined, track: string | nul
 
 function buildRow(
   trainId: string,
-  headsign: string,
+  headsign: string | null,
   plannedAt: string,
   actualAt: string | null,
   cancelled: boolean,
@@ -147,11 +162,11 @@ export function transformOperations(
     const routeStop = findRouteStop(route, stationId)
 
     if (stop.plannedDeparture !== null) {
-      const destination = stops[stops.length - 1]
+      const destination = routeTerminus(route, 'last')
       departures.push(
         buildRow(
           trainId,
-          resolveStationName(destination.stationId, stationNames),
+          destination ? resolveStationName(destination.stationId, stationNames) : null,
           stop.plannedDeparture,
           stop.actualDeparture,
           stop.isCancelled,
@@ -165,11 +180,11 @@ export function transformOperations(
     }
 
     if (stop.plannedArrival !== null) {
-      const origin = stops[0]
+      const origin = routeTerminus(route, 'first')
       arrivals.push(
         buildRow(
           trainId,
-          resolveStationName(origin.stationId, stationNames),
+          origin ? resolveStationName(origin.stationId, stationNames) : null,
           stop.plannedArrival,
           stop.actualArrival,
           stop.isCancelled,

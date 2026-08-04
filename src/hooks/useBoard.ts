@@ -8,7 +8,7 @@ export type BoardApiRow = {
   carrier: string
   carrierName: string | null
   category: string
-  headsign: string
+  headsign: string | null
   plannedAt: string
   actualAt: string | null
   delayMinutes: number

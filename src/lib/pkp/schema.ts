@@ -101,9 +101,22 @@ export const schedulesResponseSchema = z
           .record(z.string(), z.string())
           .nullish()
           .transform((carriers) => carriers ?? {}),
+        stations: z
+          .record(z.string(), z.object({ id: z.coerce.string(), name: z.string() }).passthrough())
+          .nullish()
+          .transform((stations) => stations ?? {}),
       })
       .passthrough()
       .nullish(),
   })
   .passthrough()
-  .transform((data) => ({ ...data, carrierNames: data.dictionaries?.carriers ?? {} }))
+  .transform((data) => ({
+    ...data,
+    carrierNames: data.dictionaries?.carriers ?? {},
+    // Pełny słownik nazw stacji (id -> nazwa) — używany m.in. do rozwiązania
+    // kierunku (origin/destination) na podstawie dopasowanej trasy, patrz
+    // board/transform.ts. Obojętny na parametr fullRoute.
+    stationNames: Object.fromEntries(
+      Object.entries(data.dictionaries?.stations ?? {}).map(([id, station]) => [id, station.name])
+    ),
+  }))

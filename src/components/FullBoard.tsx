@@ -150,7 +150,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                           <span className="hidden sm:inline">{row.carrierName ?? (row.carrier || '—')}</span>
                         </span>
                       </td>
-                      <td className={`py-2.5 pr-3 ${secondaryTextClass}`}>{row.headsign}</td>
+                      <td className={`py-2.5 pr-3 ${secondaryTextClass}`}>{row.headsign ?? '—'}</td>
                       {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
                           równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
                       <td className={`py-2.5 pr-3 whitespace-nowrap tabular-nums ${secondaryTextClass}`}>
