@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { CarrierLogo } from './CarrierLogo'
@@ -20,6 +21,15 @@ type Props = {
 export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand, onRemove }: Props) {
   const departures = snapshot?.departures.slice(0, 3) ?? []
   const delayedCount = snapshot?.departures.filter((row) => row.status === 'delayed').length ?? 0
+
+  // `Date.now()` nie może być wywołane bezpośrednio w renderze (impure). Zamiast
+  // tykającego zegara — świadomie, appka już nie pokazuje relatywnego wieku —
+  // odświeżamy „teraz" przy każdej nowej porcji danych (nowy `snapshot`).
+  const [now, setNow] = useState(0)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Date.now() jest impure i nie może być wołane w renderze; efekt odświeża "teraz" tylko gdy przyjdzie nowy snapshot, nie w pętli
+    setNow(Date.now())
+  }, [snapshot])
 
   if (configError) {
     return <ConfigErrorBanner />
@@ -66,20 +76,28 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         {snapshot && departures.length === 0 && (
           <li className="py-2 text-sm text-gray-500 dark:text-gray-400">Brak odjazdów w najbliższych godzinach</li>
         )}
-        {departures.map((row) => (
-          <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
-                <CarrierLogo carrierCode={row.carrier} size={16} />
-                <span className="truncate">{row.carrierName ?? (row.carrier || 'Nieznany przewoźnik')}</span>
-              </span>
-              <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
-            </div>
-            <div className="mt-0.5 text-gray-500 dark:text-gray-400">
-              {row.trainLabel} → {row.headsign}
-            </div>
-          </li>
-        ))}
+        {departures.map((row) => {
+          // Odjazd, którego planowy czas już minął (mieści się w oknie 5 minut
+          // wstecz z transform.ts) — wizualnie przygaszony, bez zmiany danych/statusu.
+          const isPast = new Date(row.plannedAt).getTime() < now
+          return (
+            <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
+                  <CarrierLogo carrierCode={row.carrier} size={16} />
+                  <span className="truncate">{row.carrierName ?? (row.carrier || 'Nieznany przewoźnik')}</span>
+                </span>
+                <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
+              </div>
+              <div className={`mt-0.5 ${isPast ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}>
+                <span className="tabular-nums">
+                  {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                </span>{' '}
+                · {row.trainLabel} → {row.headsign}
+              </div>
+            </li>
+          )
+        })}
       </ul>
 
       <button

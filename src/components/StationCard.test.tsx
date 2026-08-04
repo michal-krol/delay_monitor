@@ -64,6 +64,39 @@ describe('StationCard', () => {
     expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument()
   })
 
+  it('shows the departure time for each of the 3 nearest departures', () => {
+    const plannedAt = new Date(Date.now() + 15 * 60000).toISOString()
+    const expectedTime = new Date(plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt, actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+      ],
+    })
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    expect(screen.getByText(expectedTime)).toBeInTheDocument()
+  })
+
+  it('dims the time/train/direction line for a departure that already passed, but not the carrier row', () => {
+    const past = { trainNumber: '1', trainLabel: 'PAST1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() - 2 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1' }
+    const future = { trainNumber: '2', trainLabel: 'FUTURE2', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 10 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1' }
+    const snapshot = makeSnapshot({ departures: [past, future] })
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    const items = screen.getAllByRole('listitem')
+    const pastItem = items.find((item) => item.textContent?.includes('PAST1'))
+    const futureItem = items.find((item) => item.textContent?.includes('FUTURE2'))
+    // eslint-disable-next-line testing-library/no-node-access -- druga linia kafelka nie ma własnego, oddzielnego tekstu do wyszukania przez getByText (patrz uwaga w FullBoard.test.tsx)
+    const pastLine = pastItem?.querySelectorAll('div')[1]
+    // eslint-disable-next-line testing-library/no-node-access
+    const futureLine = futureItem?.querySelectorAll('div')[1]
+
+    expect(pastLine).toHaveClass('text-gray-300')
+    expect(futureLine).not.toHaveClass('text-gray-300')
+  })
+
   it('inflects the delayed counter for Polish grammar', () => {
     const departure = (status: 'delayed' | 'onTime') => ({
       trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków',

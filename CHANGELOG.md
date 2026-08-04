@@ -28,8 +28,19 @@ Wersjonowanie semantyczne.
   pole już przychodziło w każdej odpowiedzi.
 - Logo Polregio (PR) — źródło: Wikimedia Commons, domena publiczna
   (PD-textlogo), zoptymalizowane SVGO (8.5 KB → 4.8 KB).
+- Godzina odjazdu przy każdym z 3 najbliższych połączeń na kafelku stacji
+  (`StationCard`) — wcześniej widoczna tylko w pełnej tablicy (`FullBoard`).
+- Połączenia, których planowy czas już minął (mieszczące się w oknie 5 minut
+  wstecz), są wizualnie przygaszone — nazwa, kierunek i godzina jaśniejszym
+  szarym, żeby odróżnić je od nadchodzących. Plakietka statusu zostaje
+  w pełnym kolorze. Wyłącznie po stronie przeglądarki, porównanie z bieżącym
+  czasem odświeżane przy każdej nowej porcji danych — bez tykającego zegara.
 
 ### Zmienione
+
+- Kolumna „Przewoźnik" w pełnej tablicy (`FullBoard`) jest teraz widoczna
+  także poniżej ~640px (wcześniej całkiem ukryta) — na wąskim ekranie pokazuje
+  sam kod przewoźnika (np. „IC"), od `sm` wzwyż pełną nazwę.
 
 - Pełna nazwa przewoźnika pochodzi teraz ze słownika `dictionaries.carriers`
   dołączonego do każdej odpowiedzi `/api/v1/schedules` (kod → pełna nazwa

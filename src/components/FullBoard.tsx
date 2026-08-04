@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
@@ -55,6 +55,16 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   const rows = snapshot ? snapshot[direction] : []
   const configError = data?.status === 'configError'
 
+  // `Date.now()` nie może być wywołane bezpośrednio w renderze (impure). Zamiast
+  // tykającego zegara — świadomie, appka już nie pokazuje relatywnego wieku —
+  // odświeżamy „teraz" przy każdej nowej porcji danych, czyli tak samo często
+  // jak i tak odświeża się lista (`useBoard`, co 30 s).
+  const [now, setNow] = useState(0)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Date.now() jest impure i nie może być wołane w renderze; efekt odświeża "teraz" tylko gdy przyjdą nowe dane, nie w pętli
+    setNow(Date.now())
+  }, [data])
+
   return (
     <section className="glass rounded-2xl p-5">
       {configError && <ConfigErrorBanner />}
@@ -101,7 +111,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
               <thead>
                 <tr className="border-b border-black/10 dark:border-white/10">
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Pociąg</th>
-                  <th scope="col" className="hidden py-2 pr-3 font-medium text-gray-500 dark:text-gray-400 sm:table-cell">Przewoźnik</th>
+                  <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Przewoźnik</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Kierunek</th>
                   <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Planowo</th>
                   <th scope="col" className="hidden py-2 pr-3 font-medium text-gray-500 dark:text-gray-400 sm:table-cell">Peron/Tor</th>
@@ -118,32 +128,41 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                     </td>
                   </tr>
                 )}
-                {rows.map((row) => (
-                  <tr
-                    key={`${row.trainNumber}-${row.plannedAt}`}
-                    className="border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5"
-                  >
-                    <td className="py-2.5 pr-3 whitespace-nowrap text-gray-900 dark:text-gray-100">
-                      {row.trainLabel}
-                    </td>
-                    <td className="hidden py-2.5 pr-3 sm:table-cell">
-                      <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
-                        <CarrierLogo carrierCode={row.carrier} size={16} />
-                        <span>{row.carrierName ?? (row.carrier || '—')}</span>
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.headsign}</td>
-                    {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
-                        równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
-                    <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-gray-700 dark:text-gray-300">
-                      {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td className="hidden py-2.5 pr-3 text-gray-700 dark:text-gray-300 sm:table-cell">{row.platform ?? '—'}</td>
-                    <td className="py-2.5 pr-3">
-                      <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((row) => {
+                  // Pociąg, którego planowy czas już minął (mieści się w oknie
+                  // 5 minut wstecz z transform.ts) — wizualnie przygaszony, żeby
+                  // odróżnić go od nadchodzących, bez zmiany danych/statusu.
+                  const isPast = new Date(row.plannedAt).getTime() < now
+                  const primaryTextClass = isPast ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'
+                  const secondaryTextClass = isPast ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'
+                  return (
+                    <tr
+                      key={`${row.trainNumber}-${row.plannedAt}`}
+                      className="border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5"
+                    >
+                      <td className={`py-2.5 pr-3 whitespace-nowrap ${primaryTextClass}`}>
+                        {row.trainLabel}
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                          <CarrierLogo carrierCode={row.carrier} size={16} />
+                          <span className="sm:hidden">{row.carrier || '—'}</span>
+                          <span className="hidden sm:inline">{row.carrierName ?? (row.carrier || '—')}</span>
+                        </span>
+                      </td>
+                      <td className={`py-2.5 pr-3 ${secondaryTextClass}`}>{row.headsign}</td>
+                      {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
+                          równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
+                      <td className={`py-2.5 pr-3 whitespace-nowrap tabular-nums ${secondaryTextClass}`}>
+                        {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="hidden py-2.5 pr-3 text-gray-700 dark:text-gray-300 sm:table-cell">{row.platform ?? '—'}</td>
+                      <td className="py-2.5 pr-3">
+                        <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
