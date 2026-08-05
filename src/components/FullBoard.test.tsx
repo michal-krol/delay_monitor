@@ -91,7 +91,7 @@ describe('FullBoard', () => {
     expect(screen.getByRole('columnheader', { name: 'Peron/Tor' })).not.toHaveClass('hidden')
   })
 
-  it('dims the train name, direction and time for a departure that already passed, but keeps the status badge full color', async () => {
+  it('dims the whole row -- train name, carrier, direction, time and status badge -- for a departure that already passed', async () => {
     const past = { ...SNAPSHOT.departures[0], trainLabel: 'PAST1', plannedAt: new Date(Date.now() - 2 * 60000).toISOString() }
     const future = { ...SNAPSHOT.departures[0], trainNumber: '2', trainLabel: 'FUTURE2', plannedAt: new Date(Date.now() + 10 * 60000).toISOString() }
     vi.stubGlobal(
@@ -102,13 +102,10 @@ describe('FullBoard', () => {
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
     await screen.findByText('PAST1')
 
-    expect(screen.getByText('PAST1')).toHaveClass('text-gray-400')
-    expect(screen.getByText('FUTURE2')).not.toHaveClass('text-gray-400')
-
     const pastRow = screen.getAllByRole('row').find((r) => within(r).queryByText('PAST1'))
     const futureRow = screen.getAllByRole('row').find((r) => within(r).queryByText('FUTURE2'))
-    expect(within(pastRow!).getByText('punktualnie')).not.toHaveClass('text-gray-400')
-    expect(within(futureRow!).getByText('punktualnie')).not.toHaveClass('text-gray-400')
+    expect(pastRow).toHaveClass('opacity-50')
+    expect(futureRow).not.toHaveClass('opacity-50')
   })
 
   it('switches to arrivals when the arrivals tab is clicked', async () => {
