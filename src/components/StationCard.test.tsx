@@ -31,18 +31,21 @@ describe('StationCard', () => {
     expect(screen.getByText('+5 min')).toBeInTheDocument()
   })
 
-  it('shows the carrier name as text and the logo as a decorative image', () => {
+  it('shows only the short carrier code (not the full legal name) next to the logo, on any viewport', () => {
     const snapshot = makeSnapshot({
       departures: [
-        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: '„PKP Intercity” Spółka Akcyjna', category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
       ],
     })
 
     render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    expect(screen.getByText('PKP Intercity')).toBeInTheDocument()
+    expect(screen.getByText('IC')).toBeInTheDocument()
+    // Kafelek na dashboardzie ma pokazywać wyłącznie skrót — pełna nazwa
+    // prawna była mało przejrzysta w tak wąskim miejscu (zgłoszone przez usera).
+    expect(screen.queryByText('„PKP Intercity” Spółka Akcyjna')).not.toBeInTheDocument()
 
-    // Logo jest dekoracyjne: nazwa przewoźnika stoi obok jako tekst, więc
+    // Logo jest dekoracyjne: kod przewoźnika stoi obok jako tekst, więc
     // opisowy alt kazałby czytnikowi ekranu przeczytać ją dwa razy. Pusty alt
     // wyklucza obraz z drzewa dostępności, więc getByRole('img', ...) go nie
     // znajdzie — document.querySelector jest tu jedyną opcją.
@@ -61,24 +64,7 @@ describe('StationCard', () => {
 
     render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    // Dwa warianty (mobile/desktop) oba spadają na ten sam fallback, gdy
-    // carrier jest pusty — stąd dwa trafienia, nie jedno.
-    expect(screen.getAllByText('Nieznany przewoźnik')).toHaveLength(2)
-  })
-
-  it('keeps the carrier code and full name in separate elements toggled by breakpoint, so mobile can show just the code', () => {
-    const snapshot = makeSnapshot({
-      departures: [
-        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'PR', carrierName: 'POLREGIO S.A.', category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
-      ],
-    })
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
-
-    const shortCode = screen.getByText('PR')
-    const fullName = screen.getByText('POLREGIO S.A.')
-    expect(shortCode).toHaveClass('sm:hidden')
-    expect(fullName).toHaveClass('hidden', 'sm:inline')
+    expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument()
   })
 
   it('shows the departure time for each of the 3 nearest departures', () => {
@@ -213,7 +199,7 @@ describe('StationCard', () => {
     })
     render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={true} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
     expect(screen.getByText('Błąd pobierania danych')).toBeInTheDocument()
-    expect(screen.getByText('PKP Intercity')).toBeInTheDocument()
+    expect(screen.getByText('IC')).toBeInTheDocument()
   })
 
   it('renders a config error banner instead of the card when configError is true', () => {
