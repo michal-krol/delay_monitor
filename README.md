@@ -414,6 +414,11 @@ właścicieli, nie są objęte licencją MIT i służą wyłącznie identyfikacj
 przewoźnika przy danych o kursowaniu. Dane o ruchu pociągów pochodzą z PKP PLK
 „Otwarte Dane" i podlegają warunkom tego serwisu.
 
+Logo Kolei Śląskich (`public/carriers/ks.png`) pochodzi z Wikimedia Commons na
+licencji [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.pl),
+autor: FHrad. Pozostałe logotypy z Wikimedia Commons są na licencji domeny
+publicznej (PD-textlogo/PD).
+
 ## Poza zakresem
 
 Powiadomienia o opóźnieniach, historia punktualności, mapa pociągów, PWA

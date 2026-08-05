@@ -81,7 +81,7 @@ describe('Dashboard', () => {
 
     render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    expect(await screen.findByText('PKP Intercity')).toBeInTheDocument()
+    expect(await screen.findByText('IC')).toBeInTheDocument()
     expect(screen.getByText('Kraków Główny')).toBeInTheDocument()
     expect(screen.getAllByText('Ładowanie…')).toHaveLength(1)
   })
@@ -117,13 +117,13 @@ describe('Dashboard', () => {
 
     render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    expect(await screen.findByText('PKP Intercity')).toBeInTheDocument()
+    expect(await screen.findByText('IC')).toBeInTheDocument()
 
     const warsawCard = findCardByHeading('Warszawa Centralna')
     const krakowCard = findCardByHeading('Kraków Główny')
 
-    expect(warsawCard).toHaveTextContent('PKP Intercity')
-    expect(krakowCard).toHaveTextContent('Koleje Mazowieckie')
+    expect(warsawCard).toHaveTextContent('IC')
+    expect(krakowCard).toHaveTextContent('KM')
   })
 
   it('reports which station the remove button belongs to', async () => {
@@ -169,14 +169,14 @@ describe('Dashboard', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const { rerender } = render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
-    expect(await screen.findByText('PKP Intercity')).toBeInTheDocument()
+    expect(await screen.findByText('IC')).toBeInTheDocument()
 
     // Warszawa usunieta z ulubionych; odpowiedz w pamieci wciaz zawiera obie
     // stacje, bo nowy fetch jeszcze nie wrocil.
     rerender(<Dashboard favourites={[FAVOURITES[1]]} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
     const krakowCard = findCardByHeading('Kraków Główny')
-    expect(krakowCard).toHaveTextContent('Koleje Mazowieckie')
-    expect(screen.queryByText('PKP Intercity')).not.toBeInTheDocument()
+    expect(krakowCard).toHaveTextContent('KM')
+    expect(screen.queryByText('IC')).not.toBeInTheDocument()
   })
 })

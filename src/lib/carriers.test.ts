@@ -10,6 +10,20 @@ describe('getCarrierLogo', () => {
     expect(getCarrierLogo('PR')).toBe('/carriers/pr.svg')
   })
 
+  it.each([
+    ['AR', '/carriers/ar.svg'],
+    ['CARGO', '/carriers/cargo.svg'],
+    ['KMŁ', '/carriers/kml.png'],
+    ['KS', '/carriers/ks.png'],
+    ['KW', '/carriers/kw.svg'],
+    ['ODEG', '/carriers/odeg.svg'],
+    ['RJ', '/carriers/rj.svg'],
+    ['SKMT', '/carriers/skmt.svg'],
+    ['WKD', '/carriers/wkd.svg'],
+  ])('resolves %s to its logo path', (code, expected) => {
+    expect(getCarrierLogo(code)).toBe(expected)
+  })
+
   it('returns undefined for a carrier code without a logo', () => {
     expect(getCarrierLogo('UNKNOWN')).toBeUndefined()
   })

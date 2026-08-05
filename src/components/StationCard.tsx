@@ -84,8 +84,10 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                 <CarrierLogo carrierCode={row.carrier} size={16} />
-                <span className="truncate sm:hidden">{row.carrier || 'Nieznany przewoźnik'}</span>
-                <span className="hidden truncate sm:inline">{row.carrierName ?? (row.carrier || 'Nieznany przewoźnik')}</span>
+                {/* Kafelek jest ciasny nawet na desktopie (siatka do 3 kolumn) — pełna
+                    nazwa prawna przewoźnika ("«PKP Intercity» Spółka Akcyjna") jest tu
+                    zawsze za długa i nieczytelna. Sam skrót, bez przełączania breakpointem. */}
+                <span className="truncate">{row.carrier || 'Nieznany przewoźnik'}</span>
               </span>
               <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
             </div>

@@ -130,17 +130,16 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 )}
                 {rows.map((row) => {
                   // Pociąg, którego planowy czas już minął (mieści się w oknie
-                  // 5 minut wstecz z transform.ts) — wizualnie przygaszony, żeby
-                  // odróżnić go od nadchodzących, bez zmiany danych/statusu.
+                  // 5 minut wstecz z transform.ts) — cały wiersz wizualnie
+                  // przygaszony (łącznie z przewoźnikiem i plakietką statusu),
+                  // żeby odróżnić go od nadchodzących, bez zmiany danych.
                   const isPast = new Date(row.plannedAt).getTime() < now
-                  const primaryTextClass = isPast ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'
-                  const secondaryTextClass = isPast ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'
                   return (
                     <tr
                       key={`${row.trainNumber}-${row.plannedAt}`}
-                      className="border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5"
+                      className={`border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5 ${isPast ? 'opacity-50' : ''}`}
                     >
-                      <td className={`py-2.5 pr-3 whitespace-nowrap ${primaryTextClass}`}>
+                      <td className="py-2.5 pr-3 whitespace-nowrap text-gray-900 dark:text-gray-100">
                         {row.trainLabel}
                       </td>
                       <td className="py-2.5 pr-3">
@@ -150,10 +149,10 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                           <span className="hidden sm:inline">{row.carrierName ?? (row.carrier || '—')}</span>
                         </span>
                       </td>
-                      <td className={`py-2.5 pr-3 ${secondaryTextClass}`}>{row.headsign ?? '—'}</td>
+                      <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.headsign ?? '—'}</td>
                       {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
                           równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
-                      <td className={`py-2.5 pr-3 whitespace-nowrap tabular-nums ${secondaryTextClass}`}>
+                      <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-gray-700 dark:text-gray-300">
                         {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.platform ?? '—'}</td>
