@@ -16,6 +16,19 @@ const CARRIER_LOGOS: Record<string, string> = {
   'Leo Express': '/carriers/leo-express.svg',
   LEO: '/carriers/leo-express.svg',
   PR: '/carriers/pr.svg',
+  AR: '/carriers/ar.svg',
+  CARGO: '/carriers/cargo.svg',
+  // Koleje Małopolskie (KMŁ) i Koleje Śląskie (KS) — logo dostępne na Wikimedia
+  // Commons tylko jako PNG (rastrowe), bez wersji wektorowej. Logo Koleje
+  // Śląskie jest na licencji CC-BY-SA 4.0, autor: FHrad — link do źródła
+  // i licencji w README ("Licencja").
+  KMŁ: '/carriers/kml.png',
+  KS: '/carriers/ks.png',
+  KW: '/carriers/kw.svg',
+  ODEG: '/carriers/odeg.svg',
+  RJ: '/carriers/rj.svg',
+  SKMT: '/carriers/skmt.svg',
+  WKD: '/carriers/wkd.svg',
 }
 
 export function getCarrierLogo(code: string): string | undefined {
