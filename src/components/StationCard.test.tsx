@@ -61,7 +61,24 @@ describe('StationCard', () => {
 
     render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument()
+    // Dwa warianty (mobile/desktop) oba spadają na ten sam fallback, gdy
+    // carrier jest pusty — stąd dwa trafienia, nie jedno.
+    expect(screen.getAllByText('Nieznany przewoźnik')).toHaveLength(2)
+  })
+
+  it('keeps the carrier code and full name in separate elements toggled by breakpoint, so mobile can show just the code', () => {
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'PR', carrierName: 'POLREGIO S.A.', category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+      ],
+    })
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    const shortCode = screen.getByText('PR')
+    const fullName = screen.getByText('POLREGIO S.A.')
+    expect(shortCode).toHaveClass('sm:hidden')
+    expect(fullName).toHaveClass('hidden', 'sm:inline')
   })
 
   it('shows the departure time for each of the 3 nearest departures', () => {
@@ -76,6 +93,30 @@ describe('StationCard', () => {
     render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
     expect(screen.getByText(expectedTime)).toBeInTheDocument()
+  })
+
+  it('shows the platform/track on the tile', () => {
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '4/2' },
+      ],
+    })
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    expect(screen.getByText('Peron/Tor: 4/2')).toBeInTheDocument()
+  })
+
+  it('shows a dash for the platform/track on the tile when unknown', () => {
+    const snapshot = makeSnapshot({
+      departures: [
+        { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null },
+      ],
+    })
+
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    expect(screen.getByText('Peron/Tor: —')).toBeInTheDocument()
   })
 
   it('excludes departures that already passed, keeping only upcoming ones (past ones stay in FullBoard only)', () => {

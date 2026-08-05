@@ -84,7 +84,8 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                 <CarrierLogo carrierCode={row.carrier} size={16} />
-                <span className="truncate">{row.carrierName ?? (row.carrier || 'Nieznany przewoźnik')}</span>
+                <span className="truncate sm:hidden">{row.carrier || 'Nieznany przewoźnik'}</span>
+                <span className="hidden truncate sm:inline">{row.carrierName ?? (row.carrier || 'Nieznany przewoźnik')}</span>
               </span>
               <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
             </div>
@@ -92,7 +93,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
               <span className="tabular-nums">
                 {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
               </span>{' '}
-              · {row.trainLabel} → {row.headsign ?? '—'}
+              · {row.trainLabel} → {row.headsign ?? '—'} · <span>Peron/Tor: {row.platform ?? '—'}</span>
             </div>
           </li>
         ))}

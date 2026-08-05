@@ -68,6 +68,7 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
   return (
     <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
       <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
+      <span>Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
 
       {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 

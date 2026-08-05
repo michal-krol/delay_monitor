@@ -3,6 +3,28 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.8] — 2026-08-04
+
+### Zmienione
+
+- Kafelki stacji na dashboardzie (`StationCard`) na wąskim ekranie pokazują
+  teraz sam kod przewoźnika (np. „PR", „IC") zamiast pełnej nazwy prawnej —
+  ten sam wzorzec co już działał w pełnej tablicy (`FullBoard`). Od `sm`
+  wzwyż nadal pełna nazwa.
+- Kolumna „Peron/Tor" w pełnej tablicy (`FullBoard`) jest teraz widoczna
+  także poniżej ~640px (wcześniej ukryta jak wcześniej „Przewoźnik").
+- Linijka „Ostatnia aktualizacja" (dashboard i pełna tablica, wspólny
+  komponent `BoardStatus`) ma teraz dopisane jedno krótkie zdanie po polsku,
+  bez żargonu: „Dane odświeżają się automatycznie co ok. 1,5 minuty" —
+  wcześniej częstotliwość odświeżania nie była nigdzie wytłumaczona
+  użytkownikowi nietechnicznemu.
+
+### Dodane
+
+- Peron i tor pociągu widoczne teraz też na kafelku stacji (`StationCard`),
+  nie tylko w pełnej tablicy — „Peron/Tor: 4/2" (albo „—", gdy nieznany)
+  w drugiej linii każdego odjazdu.
+
 ## [0.9.7] — 2026-08-04
 
 ### Naprawione
