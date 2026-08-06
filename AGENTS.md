@@ -27,7 +27,26 @@ Uruchamiaj testy także pod `TZ=UTC` — to odwzorowuje produkcję:
 TZ=UTC npm run test
 ```
 
-## 2. Budżet zapytań do API jest zasobem krytycznym
+## 2. Obecność „faktycznego czasu" nie znaczy „już się wydarzyło"
+
+Dla pociągu, który jeszcze nie wyjechał, PKP potrafi wpisać w
+`actualArrival`/`actualDeparture` **kopię** planowego czasu — nawet godzinami
+przed odjazdem, nie tylko tuż po nim (zaobserwowane na produkcji: pociąg
+R1 91342, Koleje Mazowieckie, `trainStatus: "S"`). Kod, który traktuje
+`actualAt !== null` jako dowód realizacji, pokaże taki pociąg jako punktualny
+— dokładnie ten błąd raz już trafił na tablicę główną.
+
+Jedynym wiarygodnym sygnałem jest pole `isConfirmed` („Czy przejazd
+potwierdzony" — opis w swaggerze PKP), sprawdzane **per przystanek**, nie
+per pociąg (`trainStatus`). Cała logika „czy to się już wydarzyło i o ile
+jest opóźnione" żyje w jednym miejscu — `src/lib/board/realization.ts`
+(`resolveStopStatus`, `resolveDelayMinutes`) — używanym zarówno przez tablicę
+(`board/transform.ts`), jak i panel szczegółów połączenia (`board/trainDetail.ts`,
+`ConnectionDetails.tsx`). Nie duplikuj tej logiki w nowym miejscu — to właśnie
+przez dwie niezależne implementacje ten błąd raz już się rozjechał między
+tablicą a panelem szczegółów.
+
+## 3. Budżet zapytań do API jest zasobem krytycznym
 
 Klucz Basic daje 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
 przy 90 s zużywa ~40/h, więc zapas jest realny, ale nieduży.
@@ -38,8 +57,12 @@ przy 90 s zużywa ~40/h, więc zapas jest realny, ale nieduży.
 - Brak nagłówka `X-RateLimit-*` znaczy „nie wiadomo", nigdy „zero".
   Traktowanie go jako zera raz już zepchnęło poller na stałe na interwał
   awaryjny.
+- `/api/train` (szczegóły połączenia) jest **poza cyklem pollera** — realny,
+  synchroniczny fetch do PKP przy każdym kliknięciu w niewidziany wcześniej
+  pociąg, chroniony wyłącznie własnym cache'em 90 s (`createTtlCache()`).
+  Licz jego koszt osobno od budżetu pollera, nie razem z nim.
 
-## 3. Wejście spoza aplikacji jest zawsze wrogie
+## 4. Wejście spoza aplikacji jest zawsze wrogie
 
 Aplikacja jest publiczna i bez uwierzytelniania. Parametry URL, treść
 `localStorage` i odpowiedzi API PKP to dane spoza systemu.
@@ -47,17 +70,26 @@ Aplikacja jest publiczna i bez uwierzytelniania. Parametry URL, treść
 - Identyfikatory stacji: walidacja formatu u wejścia **oraz** kodowanie przed
   wstawieniem do zapytania do PKP. Jedna warstwa nie wystarczy — bez kodowania
   `stations=5100&pageSize=5000` dopisywał parametry do cudzego żądania.
+  Wspólne wzorce walidacji (stacje, `scheduleId`/`orderId`/`operatingDate`)
+  żyją w `src/lib/validation.ts` — nie duplikuj regexów.
 - Nic, co przyszło od klienta, nie może samo decydować, o co pytamy PKP.
   Nieznane ID nie trafiają do pollera.
 - `localStorage` parsuj schematem, nie asercją typu. `JSON.parse(x) as T`
   znika przy kompilacji i raz już dało białą stronę przy uszkodzonym wpisie.
 - Cache sprawdzany przed `await` i zapisywany po nim to wyścig: równoległe
   żądania wykonają pobranie każde z osobna. Deduplikuj żądania w locie.
+- Stan widoku odtwarzany z parametrów URL (`src/lib/urlState.ts` —
+  rozwinięta stacja, zakładka, otwarty panel połączenia) podlega tej samej
+  zasadzie: nieprawidłowy/uszkodzony parametr jest po cichu ignorowany, nigdy
+  nie powoduje awarii renderu. `patchUrlParams()` czyta bieżący
+  `window.location.search` i dopisuje do niego — nie buduje query string od
+  zera, bo więcej niż jeden moduł (`page.tsx`, `FullBoard.tsx`) zapisuje do
+  tego samego URL-a niezależnie.
 
 Nagłówków bezpieczeństwa z `next.config.ts` pilnuje `next.config.test.ts` —
 jeśli osłabiasz politykę, zrób to świadomie i zaktualizuj test.
 
-## 4. Jedna replika, stan w pamięci
+## 5. Jedna replika, stan w pamięci
 
 Dwie repliki to dwa pollery i podwójne zużycie limitu. Skalowanie poziome jest
 świadomie wykluczone; snapshoty i rejestr nazw stacji żyją w pamięci procesu.
@@ -66,7 +98,7 @@ Nie wprowadzaj założeń wymagających współdzielonego stanu bez zmiany tej d
 Cache w długo żyjącym procesie musi mieć TTL i limit wpisów — użyj
 `createTtlCache()` z `src/lib/cache.ts`, nie gołej `Map`.
 
-## 5. Sieć wyłącznie na krawędziach
+## 6. Sieć wyłącznie na krawędziach
 
 Cały HTTP siedzi w `src/lib/pkp/client.ts`. Logika domenowa (`lib/board/`) to
 czyste funkcje zależne od interfejsu `PkpClient`, nie od implementacji. Dzięki
@@ -75,7 +107,7 @@ temu testy nie potrzebują ani sieci, ani klucza API — i to ma tak zostać.
 Wybór live/mock następuje raz, przy starcie, w `lib/board/instance.ts`. Żaden
 inny moduł nie powinien wiedzieć, skąd pochodzą dane.
 
-## 6. UI nigdy nie jest pusty
+## 7. UI nigdy nie jest pusty
 
 Przy awarii API pokazujemy ostatni znany dobry snapshot wraz z jego wiekiem,
 zamiast czyścić widok. Awaria objawia się rosnącym wiekiem danych, nie białym
@@ -84,11 +116,17 @@ ekranem. Baner błędu jest zarezerwowany dla błędu konfiguracji (401).
 Nie chowaj awarii pod pustym stanem — „brak wyników" i „nie udało się sprawdzić"
 to dwa różne komunikaty.
 
-## 7. Fixture'y nie odwzorowują żywego API
+Wyjątek: panel szczegółów połączenia (`/api/train`) **nie ma** snapshotu do
+pokazania przy awarii — to jednorazowy fetch po kliknięciu, nie dane z pollera.
+Pokazuje wtedy jawny komunikat błędu, nie ostatnie znane dane (bo ich nie ma).
 
-Inne ID stacji (Warszawa Centralna: `5100` w mocku, `33605` na żywo), 3 pociągi
-zamiast kilkudziesięciu, dwa kody przewoźników zamiast kilkunastu. Nadają się do
-pracy nad UI — nie do wnioskowania o zachowaniu produkcji.
+## 8. Fixture'y nie odwzorowują skali żywego API
+
+Mock ma **prawdziwe** ID stacji (Warszawa Centralna `33605`, Kraków Główny
+`80416`, Wrocław Główny `60103`, Gdańsk Główny `7500` — te same co na żywo),
+ale to wciąż 8 pociągów zamiast kilkudziesięciu-kilkuset i 6 kodów
+przewoźników zamiast 22. Nadają się do pracy nad UI — nie do wnioskowania
+o rzeczywistym natężeniu ruchu produkcji.
 
 Kształt odpowiedzi sprawdzaj w publicznym schemacie, nie zgaduj z fixture'ów:
 
@@ -98,12 +136,12 @@ curl -s https://pdp-api.plk-sa.pl/swagger/v1/swagger.json
 
 Jest dostępny bez klucza i bez zużycia limitu.
 
-## 8. Katalog `docs/` nie jest publikowany
+## 9. Katalog `docs/` nie jest publikowany
 
 `docs/` (projekt techniczny, plan implementacji) jest w `.gitignore` i celowo
 nie trafia do repozytorium. Nie dodawaj go z powrotem.
 
-## 9. Bramka jakości
+## 10. Bramka jakości
 
 Commity trafiają bezpośrednio na `main`, z którego deployuje Railway. Przed
 oddaniem pracy:

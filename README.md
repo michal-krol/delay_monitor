@@ -61,28 +61,44 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
   tablicy), combobox z `aria-expanded`/`aria-activedescendant`, widoczny focus.
 - **Świadomość limitów API** — poller w tle pilnuje budżetu zapytań i sam
   spowalnia się, zanim limit zostanie przekroczony (patrz sekcja niżej).
+- **Szczegóły połączenia po kliknięciu** — pełna trasa przystanek-po-przystanku
+  (`/api/train`, wołane dopiero po kliknięciu, cache 90 s), z osobno liczonym
+  opóźnieniem dla **każdego** przystanku (nie rozlanym z całego pociągu — patrz
+  `src/lib/board/realization.ts`), peronem/torem gdzie PKP je poda i
+  poprawnym zachowaniem dla pociągów bez dopasowanej trasy oraz długich list
+  (35+ przystanków — przewija się tylko lista, nagłówek panelu zostaje).
+- **Adresowalność i udostępnianie** — rozwinięta stacja, aktywna zakładka
+  i otwarty panel szczegółów są odzwierciedlone w adresie URL
+  (`history.replaceState`, bez `next/navigation`), więc każdy widok da się
+  skopiować jednym linkiem („Kopiuj link" w nagłówku tablicy) i otworzyć od
+  razu w tym samym stanie.
 
 ## Struktura projektu
 
 ```
 src/
 ├── app/
-│   ├── api/{board,stations,health}/route.ts   endpointy HTTP
+│   ├── api/{board,stations,train,health}/route.ts   endpointy HTTP
+│   ├── icon.svg                                 favicon
 │   ├── layout.tsx                              ThemeProvider, tło
 │   └── page.tsx                                strona główna
 ├── components/                                 UI (React)
 │   ├── Dashboard, StationCard, FullBoard
+│   ├── ConnectionDetails                       panel szczegółów połączenia
 │   ├── StationSearch, EmptyState, BoardStatus
 │   └── DelayBadge, CarrierLogo, ConfigErrorBanner
 ├── hooks/                                       useFavourites, useBoard
 └── lib/
     ├── config.ts                                walidacja zmiennych środowiskowych
+    ├── validation.ts                            wspólne wzorce walidacji ID (API + URL)
+    ├── urlState.ts                              stan widoku w adresie URL
     ├── carriers.ts                              mapa kodów przewoźników → logo (nazwa: z API)
     ├── cache.ts                                 cache z TTL i limitem wpisów
     ├── search.ts                                normalizacja nazw stacji
     ├── plural.ts                                polska odmiana przez liczbę
-    ├── pkp/{client,mock,schema,types}.ts        warstwa danych PKP (live/mock)
-    └── board/{poller,transform,instance}.ts     logika domenowa + poller
+    ├── pkp/{client,mock,schema,types,time}.ts   warstwa danych PKP (live/mock)
+    └── board/{poller,transform,trainDetail,realization,instance}.ts
+                                                  logika domenowa + poller
 fixtures/          ręcznie napisane odpowiedzi API do trybu mock
 public/carriers/   logotypy przewoźników (SVG)
 ```
@@ -102,8 +118,15 @@ Przeglądarka  ──co 30 s──▶  /api/board  ──odczyt──▶  snapsh
 
 Przeglądarka odpytuje własny serwer często, bo to nic nie kosztuje. Poller
 odpytuje PKP rzadko, bo to kosztuje limit. Dziesięciu użytkowników zużywa
-tyle samo budżetu co jeden. Route handler nigdy nie czeka na PKP — czyta
+tyle samo budżetu co jeden. `/api/board` nigdy nie czeka na PKP — czyta
 snapshot z pamięci i zwraca natychmiast.
+
+`/api/train` (szczegóły połączenia) to celowy wyjątek od tego wzorca —
+wywoływane dopiero po kliknięciu w wiersz, nie z pollera, więc **realnie
+czeka na PKP** przy pierwszym kliknięciu danego pociągu (potem cache 90 s).
+Uzasadnienie: kliknięcie to zdarzenie rzadkie i jednorazowe, w przeciwieństwie
+do stałego cyklu pollera — nie ma co cache'ować z wyprzedzeniem czegoś, o co
+nikt jeszcze nie zapytał.
 
 Aplikacja działa **w jednej replice**. Dwie repliki to dwa pollery i podwójne
 zużycie limitu; skalowanie poziome jest świadomie wykluczone. Stan w pamięci
@@ -207,7 +230,7 @@ npm run typecheck
 npm run lint
 ```
 
-235 testów w 25 plikach (Vitest), bez sieci i bez klucza API. Testy komponentów
+329 testów w 30 plikach (Vitest), bez sieci i bez klucza API. Testy komponentów
 działają na `jsdom` (docblock `// @vitest-environment jsdom`), reszta na
 środowisku `node`.
 
@@ -257,6 +280,16 @@ Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
 
 Przeglądarka odpytuje własny serwer (`/api/board`) co 30 s i **wstrzymuje się,
 gdy karta jest schowana** (`document.hidden`) — dzięki temu poller zasypia sam.
+
+**`/api/train` (szczegóły połączenia) to osobne, niezależne od pollera źródło
+kosztu.** Każde kliknięcie w niewidziany wcześniej pociąg to do dwóch
+dodatkowych zapytań do PKP (realizacja + trasa), poza cyklem 90 s i poza jego
+throttlingiem/backoffem. Chroni je wyłącznie własny cache — `createTtlCache()`,
+90 s, maks. 200 wpisów — więc wielu użytkowników klikających ten sam pociąg
+w krótkim czasie zużywa limit raz, nie wielokrotnie. Realny użytkownik klika
+pojedyncze pociągi, nie setki na godzinę, więc to nie zagraża budżetowi tak,
+jak zagrażałoby dołożenie zapytania do cyklu pollera — ale to wciąż realne,
+nieujęte w limitach opisanych wyżej zużycie.
 
 ## Deployment (Railway)
 
@@ -313,6 +346,13 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   `EC/EIC`, `RL`, `RE2`, `S3`, `ŁS` i puste. Nie robimy z nimi nic poza
   wyświetleniem, więc nowa wartość niczego nie psuje.
 - **Czasy potrafią przyjść bez strefy** — patrz [sekcja o strefach](#czas-i-strefy--najłatwiejsza-rzecz-do-zepsucia).
+- **Dla pociągu, który jeszcze nie wyjechał, PKP wpisuje w „faktyczny czas"
+  kopię czasu planowego** — nawet godzinami przed odjazdem, nie tylko tuż po
+  nim (zaobserwowane na produkcji: R1 91342, Koleje Mazowieckie). Sama
+  obecność „faktycznego czasu" nigdy więc nie dowodzi, że coś się już
+  wydarzyło — jedynym wiarygodnym sygnałem jest pole `isConfirmed`
+  („Czy przejazd potwierdzony" w swaggerze). Naprawione i ujednolicone
+  w `src/lib/board/realization.ts` — patrz też `AGENTS.md`.
 
 ## Znane ograniczenia (0.9 beta)
 
@@ -333,6 +373,10 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   w pamięci procesu; pierwszy użytkownik po deployu czeka jedną rundę pollera.
   Świadomy kompromis: alternatywą byłby zewnętrzny magazyn stanu, nieuzasadniony
   przy tej skali.
+- **Panel szczegółów połączenia nie ma gwarancji świeżości poza cache 90 s.**
+  Kliknięcie w pociąg, który w międzyczasie zniknął z rozkładu PKP (rzadkie),
+  zwróci 404 zamiast ostatnich znanych danych — w przeciwieństwie do tablicy
+  głównej, panel nie ma „ostatniego dobrego snapshotu" do pokazania.
 
 ## Bezpieczeństwo
 
@@ -342,7 +386,11 @@ traktować jak wejście spoza systemu. Obowiązujące zasady:
 - **Identyfikatory stacji są walidowane u wejścia** (`/^\d{1,10}$/`, maks. 20 na
   żądanie, deduplikowane) i **kodowane** przed wstawieniem do zapytania do PKP.
   Bez tego `stations=5100&pageSize=5000` dopisywał własne parametry do żądania
-  kierowanego do zewnętrznego API.
+  kierowanego do zewnętrznego API. Ten sam wzorzec (`src/lib/validation.ts`)
+  waliduje `scheduleId`/`orderId`/`operatingDate` w `/api/train` — również
+  wtedy, gdy pochodzą z parametrów URL (odtwarzanie widoku z linku), nie tylko
+  z kliknięcia w tablicy. Nieprawidłowa wartość jest po cichu ignorowana
+  (URL) albo odrzucana bez echa (API) — nigdy nie trafia do zapytania do PKP.
 - **Budżet zapytań jest chroniony dwuwarstwowo**: route odsiewa identyfikatory
   spoza zbuforowanego słownika, a poller ogranicza wymuszone przebiegi pulą
   w oknie kroczącym (10/h). Wcześniej seria żądań o losowe stacje zamieniała się
