@@ -79,6 +79,32 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].status).toBe('notStarted')
   })
 
+  it('marks a trainStatus S train as notStarted even when the API echoes plannedDeparture into actualDeparture', () => {
+    // Zaobserwowane na produkcji (pociąg R1 91342, KM): dla trainStatus S PKP
+    // wypełnia actualArrival/actualDeparture kopią planowego czasu -- nawet
+    // dla przystanków godzinami w przyszłości, nie tylko tuż po planowym
+    // odjeździe. `actualAt !== null` przestaje więc być wiarygodnym sygnałem
+    // "już się wydarzyło": pociąg, który jeszcze nie wyjechał, wyglądał jak
+    // punktualny (opóźnienie liczone z identycznych planned/actual wychodzi 0).
+    const trains = [
+      train(
+        '25',
+        '1',
+        [
+          stop({
+            stationId: '5100',
+            plannedDeparture: '2026-08-01T12:10:00+02:00',
+            actualDeparture: '2026-08-01T12:10:00+02:00',
+          }),
+        ],
+        null,
+        'S'
+      ),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].status).toBe('notStarted')
+  })
+
   it('computes delay across midnight using full dates, not time-of-day', () => {
     const trains = [
       train('25', '1', [

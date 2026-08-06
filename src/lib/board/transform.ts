@@ -51,7 +51,14 @@ function computeStatus(
   trainStatus: string | null
 ): BoardRow['status'] {
   if (cancelled) return 'cancelled'
-  if (actualAt === null) return trainStatus === 'S' ? 'notStarted' : 'unknown'
+  // trainStatus S sprawdzane przed actualAt: dla pociągu, który jeszcze nie
+  // wyjechał, PKP potrafi wypełnić actualArrival/actualDeparture kopią
+  // planowego czasu -- nawet godzinami naprzód, nie tylko tuż po odjeździe
+  // (zaobserwowane na produkcji). `actualAt !== null` samo w sobie nie znaczy
+  // więc "already happened"; bez tej kolejności taki pociąg wyglądał jak
+  // punktualny, bo odjęcie identycznych planned/actual dawało opóźnienie 0.
+  if (trainStatus === 'S') return 'notStarted'
+  if (actualAt === null) return 'unknown'
   if (delayMinutes >= 1) return 'delayed'
   return 'onTime'
 }
