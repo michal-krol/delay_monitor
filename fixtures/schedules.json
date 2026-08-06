@@ -1,20 +1,59 @@
 {
   "routes": [
     {
-      "scheduleId": "26",
+      "scheduleId": "2026",
       "orderId": "12345",
+      "trainOrderId": null,
       "carrierCode": "IC",
       "commercialCategorySymbol": "EIC",
       "name": "EIC Grunwald",
       "nationalNumber": null,
       "stations": [
-        { "stationId": "5100", "departurePlatform": "4", "departureTrack": "2" },
-        { "stationId": "5136", "arrivalPlatform": "1" }
+        {
+          "stationId": "7500",
+          "departurePlatform": "3",
+          "departureTrack": "1",
+          "departureTime": "11:00:00"
+        },
+        {
+          "stationId": "7112",
+          "arrivalTime": "11:20:00",
+          "departureTime": "11:22:00"
+        },
+        {
+          "stationId": "7872",
+          "arrivalTime": "11:35:00",
+          "departureTime": "11:37:00"
+        },
+        {
+          "stationId": "21808",
+          "arrivalTime": "12:00:00",
+          "departureTime": "12:02:00"
+        },
+        {
+          "stationId": "22442",
+          "arrivalTime": "12:20:00",
+          "departureTime": "12:22:00"
+        },
+        {
+          "stationId": "38653",
+          "arrivalPlatform": "2",
+          "departurePlatform": "2",
+          "arrivalTime": "13:10:00",
+          "departureTime": "13:12:00"
+        },
+        {
+          "stationId": "33605",
+          "arrivalPlatform": "4",
+          "arrivalTrack": "2",
+          "arrivalTime": "13:20:00"
+        }
       ]
     },
     {
-      "scheduleId": "26",
+      "scheduleId": "2026",
       "orderId": "67890",
+      "trainOrderId": null,
       "carrierCode": "KM",
       "commercialCategorySymbol": "REG",
       "name": null,
@@ -22,24 +61,271 @@
       "stations": []
     },
     {
-      "scheduleId": "26",
+      "scheduleId": "2026",
       "orderId": "11111",
+      "trainOrderId": null,
       "carrierCode": "IC",
       "commercialCategorySymbol": "TLK",
+      "name": "SUDETY",
+      "nationalNumber": null,
       "stations": [
-        { "stationId": "5100", "arrivalPlatform": "2", "arrivalTrack": "1" }
+        {
+          "stationId": "60103",
+          "departurePlatform": "5",
+          "departureTrack": "3",
+          "departureTime": "11:00:00"
+        },
+        {
+          "stationId": "60608",
+          "arrivalTime": "11:35:00",
+          "departureTime": "11:37:00"
+        },
+        {
+          "stationId": "62653",
+          "arrivalTime": "12:25:00",
+          "departureTime": "12:27:00"
+        },
+        {
+          "stationId": "33506",
+          "arrivalTime": "13:40:00",
+          "departureTime": "13:42:00"
+        },
+        {
+          "stationId": "33605",
+          "arrivalPlatform": "1",
+          "arrivalTrack": "1",
+          "arrivalTime": "13:50:00"
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "22222",
+      "trainOrderId": null,
+      "carrierCode": "PR",
+      "commercialCategorySymbol": "REG",
+      "name": null,
+      "nationalNumber": "63104",
+      "stations": [
+        {
+          "stationId": "80416",
+          "departurePlatform": "2",
+          "departureTrack": "1",
+          "departureTime": "10:30:00"
+        },
+        {
+          "stationId": "73312",
+          "arrivalTime": "11:15:00",
+          "departureTime": "11:17:00"
+        },
+        {
+          "stationId": "62653",
+          "arrivalTime": "12:00:00",
+          "departureTime": "12:02:00"
+        },
+        {
+          "stationId": "33605",
+          "arrivalPlatform": "3",
+          "arrivalTime": "13:45:00"
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "33333",
+      "trainOrderId": null,
+      "carrierCode": "KS",
+      "commercialCategorySymbol": "REG",
+      "name": null,
+      "nationalNumber": "67210",
+      "stations": [
+        {
+          "stationId": "73312",
+          "departurePlatform": "1",
+          "departureTime": "12:50:00"
+        },
+        {
+          "stationId": "62653",
+          "arrivalTime": "13:20:00",
+          "departureTime": "13:22:00"
+        },
+        {
+          "stationId": "80416",
+          "arrivalPlatform": "2",
+          "arrivalTime": "14:00:00"
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "44444",
+      "trainOrderId": null,
+      "carrierCode": "ŁKA",
+      "commercialCategorySymbol": "REG",
+      "name": null,
+      "nationalNumber": "82101",
+      "stations": [
+        {
+          "stationId": "46458",
+          "departurePlatform": "4",
+          "departureTime": "11:40:00"
+        },
+        {
+          "stationId": "33506",
+          "arrivalTime": "12:50:00",
+          "departureTime": "12:52:00"
+        },
+        {
+          "stationId": "33605",
+          "arrivalPlatform": "2",
+          "arrivalTime": "13:00:00"
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "55555",
+      "trainOrderId": null,
+      "carrierCode": "SKM",
+      "commercialCategorySymbol": "REG",
+      "name": null,
+      "nationalNumber": "800123",
+      "stations": [
+        {
+          "stationId": "7500",
+          "departurePlatform": "1",
+          "departureTime": "12:10:00"
+        },
+        {
+          "stationId": "7112",
+          "arrivalTime": "12:30:00",
+          "departureTime": "12:32:00"
+        },
+        {
+          "stationId": "7872",
+          "arrivalPlatform": "1",
+          "arrivalTime": "12:50:00"
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "66666",
+      "trainOrderId": null,
+      "carrierCode": "IC",
+      "commercialCategorySymbol": "TLK",
+      "name": "POMORZANIN",
+      "nationalNumber": null,
+      "stations": [
+        {
+          "stationId": "30601",
+          "departurePlatform": "3",
+          "departureTrack": "2",
+          "departureTime": "11:50:00"
+        },
+        {
+          "stationId": "18408",
+          "arrivalTime": "12:35:00",
+          "departureTime": "12:37:00"
+        },
+        {
+          "stationId": "19703",
+          "arrivalPlatform": "1",
+          "departurePlatform": "1",
+          "arrivalTime": "13:05:00",
+          "departureTime": "13:07:00"
+        },
+        {
+          "stationId": "33605",
+          "arrivalPlatform": "6",
+          "arrivalTrack": "4",
+          "arrivalTime": "14:30:00"
+        }
       ]
     }
   ],
   "dictionaries": {
     "carriers": {
       "IC": "„PKP Intercity” Spółka Akcyjna",
-      "KM": "\"Koleje Mazowieckie - KM\" sp. z o.o."
+      "KM": "\"Koleje Mazowieckie - KM\" sp. z o.o.",
+      "PR": "POLREGIO S.A.",
+      "KS": "Koleje Śląskie sp. z o.o.",
+      "ŁKA": "„Łódzka Kolej Aglomeracyjna” sp. z o.o.",
+      "SKM": "Szybka Kolej Miejska"
     },
     "stations": {
-      "5100": { "id": 5100, "name": "Warszawa Centralna" },
-      "5136": { "id": 5136, "name": "Kraków Główny" },
-      "4900": { "id": 4900, "name": "Wrocław Główny" }
+      "7112": {
+        "id": 7112,
+        "name": "Tczew"
+      },
+      "7500": {
+        "id": 7500,
+        "name": "Gdańsk Główny"
+      },
+      "7872": {
+        "id": 7872,
+        "name": "Malbork"
+      },
+      "18408": {
+        "id": 18408,
+        "name": "Bydgoszcz Główna"
+      },
+      "19703": {
+        "id": 19703,
+        "name": "Toruń Główny"
+      },
+      "21808": {
+        "id": 21808,
+        "name": "Iława Główna"
+      },
+      "22442": {
+        "id": 22442,
+        "name": "Działdowo"
+      },
+      "30601": {
+        "id": 30601,
+        "name": "Poznań Główny"
+      },
+      "32201": {
+        "id": 32201,
+        "name": "Kutno"
+      },
+      "33506": {
+        "id": 33506,
+        "name": "Warszawa Zachodnia"
+      },
+      "33605": {
+        "id": 33605,
+        "name": "Warszawa Centralna"
+      },
+      "38653": {
+        "id": 38653,
+        "name": "Warszawa Wschodnia"
+      },
+      "46458": {
+        "id": 46458,
+        "name": "Łódź Fabryczna"
+      },
+      "60103": {
+        "id": 60103,
+        "name": "Wrocław Główny"
+      },
+      "60608": {
+        "id": 60608,
+        "name": "Opole Główne"
+      },
+      "62653": {
+        "id": 62653,
+        "name": "Częstochowa"
+      },
+      "73312": {
+        "id": 73312,
+        "name": "Katowice"
+      },
+      "80416": {
+        "id": 80416,
+        "name": "Kraków Główny"
+      }
     }
   }
 }

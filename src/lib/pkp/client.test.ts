@@ -398,4 +398,115 @@ describe('createLiveClient', () => {
     await client.getSchedules(['stacja-199'])
     expect(fetchMock).toHaveBeenCalledTimes(201)
   })
+
+  describe('getTrainDetail', () => {
+    function stubTrainDetailFetch(overrides: {
+      operation?: () => Promise<Response>
+      route?: () => Promise<Response>
+      stations?: () => Promise<Response>
+    }) {
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        const href = String(url)
+        if (href.includes('/operations/train/')) {
+          return (
+            overrides.operation?.() ??
+            jsonResponse({
+              scheduleId: 2026,
+              orderId: 12345,
+              operatingDate: '2026-08-01',
+              trainStatus: 'P',
+              stations: [{ stationId: 33605, plannedDeparture: '2026-08-01T12:00:00+02:00' }],
+            })
+          )
+        }
+        if (href.includes('/schedules/route/')) {
+          return (
+            overrides.route?.() ??
+            jsonResponse({
+              scheduleId: 2026,
+              orderId: 12345,
+              carrierCode: 'IC',
+              commercialCategorySymbol: 'EIC',
+              stations: [{ stationId: 33605, departurePlatform: '4' }],
+            })
+          )
+        }
+        // /dictionaries/stations — słownik nazw dla stopStationNames
+        return (
+          overrides.stations?.() ??
+          jsonResponse({ stations: [{ id: 33605, name: 'Warszawa Centralna' }] })
+        )
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+    }
+
+    it('fetches the realized operation, the scheduled route, and the station name dictionary, merging into one result', async () => {
+      const fetchMock = stubTrainDetailFetch({})
+
+      const client = createLiveClient('secret-key')
+      const result = await client.getTrainDetail('2026', '12345', '2026-08-01')
+
+      expect(result.operation.scheduleId).toBe('2026')
+      expect(result.operation.stations).toHaveLength(1)
+      expect(result.route).toEqual({
+        scheduleId: '2026',
+        orderId: '12345',
+        trainOrderId: null,
+        carrierCode: 'IC',
+        commercialCategorySymbol: 'EIC',
+        name: null,
+        nationalNumber: null,
+        stations: [
+          {
+            stationId: '33605',
+            arrivalPlatform: null,
+            arrivalTrack: null,
+            departurePlatform: '4',
+            departureTrack: null,
+            arrivalTime: null,
+            departureTime: null,
+            arrivalDay: null,
+            departureDay: null,
+          },
+        ],
+      })
+      expect(result.stationNames).toEqual({ '33605': 'Warszawa Centralna' })
+
+      const operationUrl = fetchMock.mock.calls.find(([url]) => String(url).includes('/operations/train/'))?.[0]
+      const routeUrl = fetchMock.mock.calls.find(([url]) => String(url).includes('/schedules/route/'))?.[0]
+      expect(String(operationUrl)).toContain('/api/v1/operations/train/2026/12345/2026-08-01')
+      expect(String(routeUrl)).toContain('/api/v1/schedules/route/2026/12345')
+    })
+
+    it('returns a null route (not an error) when no scheduled route matches the operation', async () => {
+      // Mniejszość pociągów nie ma dopasowanej trasy (patrz README, "Znane
+      // ograniczenia") — realizacja i tak musi się pokazać, tylko bez peronu/toru.
+      stubTrainDetailFetch({ route: () => Promise.resolve(new Response('not found', { status: 404 })) })
+
+      const client = createLiveClient('secret-key')
+      const result = await client.getTrainDetail('2026', '12345', '2026-08-01')
+
+      expect(result.route).toBeNull()
+    })
+
+    it('propagates a failure to fetch the realization, even when the route succeeds', async () => {
+      stubTrainDetailFetch({ operation: () => Promise.resolve(new Response('not found', { status: 404 })) })
+
+      const client = createLiveClient('secret-key')
+
+      await expect(client.getTrainDetail('2026', '12345', '2026-08-01')).rejects.toMatchObject({ status: 404 })
+    })
+
+    it('encodes the path segments so they cannot inject extra path/query into the PKP request', async () => {
+      const fetchMock = stubTrainDetailFetch({})
+
+      const client = createLiveClient('secret-key')
+      await client.getTrainDetail('2026', '1', '2026-08-01/../../secrets')
+
+      const operationUrl = fetchMock.mock.calls.find(([url]) => String(url).includes('/operations/train/'))?.[0]
+      expect(String(operationUrl)).not.toContain('/../')
+      expect(String(operationUrl)).toContain(encodeURIComponent('2026-08-01/../../secrets'))
+    })
+  })
 })

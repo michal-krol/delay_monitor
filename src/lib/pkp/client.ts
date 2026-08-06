@@ -1,5 +1,11 @@
 import type { RawRoute, RawTrainOperation, Station } from './types'
-import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
+import {
+  operationsResponseSchema,
+  rawRouteSchema,
+  rawTrainOperationSchema,
+  schedulesResponseSchema,
+  stationSearchResponseSchema,
+} from './schema'
 import { normalizeForSearch } from '../search'
 import { createTtlCache } from '../cache'
 import { warsawDateString } from './time'
@@ -41,10 +47,35 @@ export type GetSchedulesResult = {
   stationNames: Record<string, string>
 }
 
+export type TrainDetailResult = {
+  /** Realizacja: pełna lista przystanków z planowymi/faktycznymi czasami. */
+  operation: RawTrainOperation
+  /**
+   * Trasa rozkładowa: peron/tor/kategoria per przystanek. `null`, gdy nie ma
+   * dopasowanej trasy (patrz „Znane ograniczenia" w README — dotyczy mniejszości
+   * pociągów) — realizacja i tak zostaje pokazana, tylko bez peronu/toru.
+   */
+  route: RawRoute | null
+  /**
+   * ID stacji → nazwa, dla każdego przystanku z `operation.stations`. Ani
+   * `/operations/train/...`, ani `/schedules/route/...` nie niosą nazw stacji
+   * (tylko ID) — źródłem jest pełny słownik stacji (ten sam co `searchStations`
+   * w live, fixture `operations.json` w mock), nie wynik samego zapytania.
+   */
+  stationNames: Record<string, string>
+}
+
 export interface PkpClient {
   searchStations(query: string): Promise<Station[]>
   getOperations(stationIds: string[]): Promise<GetOperationsResult>
   getSchedules(stationIds: string[]): Promise<GetSchedulesResult>
+  /**
+   * Szczegóły jednego przejazdu — wywoływane dopiero po kliknięciu w wiersz
+   * na tablicy, nigdy z pollera. `scheduleId`/`orderId`/`operatingDate` muszą
+   * pochodzić z już zwalidowanego `BoardRow` (patrz `/api/train`), nie wprost
+   * od klienta.
+   */
+  getTrainDetail(scheduleId: string, orderId: string, operatingDate: string): Promise<TrainDetailResult>
   /**
    * Zbiór znanych ID stacji — **wyłącznie z pamięci**, nigdy nie wyzwala
    * pobrania. `null` znaczy „słownik nie jest jeszcze wczytany".
@@ -248,6 +279,37 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
       })
       schedulesInFlight.set(cacheKey, request)
       return request
+    },
+
+    async getTrainDetail(scheduleId: string, orderId: string, operatingDate: string): Promise<TrainDetailResult> {
+      // Oba segmenty ścieżki kodowane osobno z tego samego powodu co ID stacji
+      // w encodeStationIds(): scheduleId/orderId/operatingDate trafiają tu już
+      // po walidacji formatu w /api/train, ale kodowanie to druga, niezależna
+      // warstwa — patrz AGENTS.md #3.
+      const operationUrl = `${BASE_URL}/api/v1/operations/train/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}/${encodeURIComponent(operatingDate)}`
+      const routeUrl = `${BASE_URL}/api/v1/schedules/route/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}`
+
+      // Trasa rozkładowa może nie istnieć dla mniejszości pociągów (patrz
+      // „Znane ograniczenia" w README) — to nie powód, żeby nie pokazać
+      // realizacji. Stąd allSettled zamiast Promise.all: brak trasy to `null`,
+      // nie odrzucenie całego żądania.
+      const [operationResult, routeResult] = await Promise.allSettled([
+        fetchJson(operationUrl, apiKey, 'Pobranie szczegółów przejazdu nie powiodło się'),
+        fetchJson(routeUrl, apiKey, 'Pobranie trasy pociągu nie powiodło się'),
+      ])
+
+      if (operationResult.status === 'rejected') throw operationResult.reason
+
+      const operation = rawTrainOperationSchema.parse(operationResult.value.json)
+      const route = routeResult.status === 'fulfilled' ? rawRouteSchema.parse(routeResult.value.json) : null
+
+      // Ani odpowiedź realizacji, ani trasy nie niosą nazw stacji — tylko ID.
+      // Pełny słownik stacji jest już cache'owany 24h dla searchStations, więc
+      // to nie jest dodatkowe zapytanie poza pierwszym rozgrzaniem.
+      const allStations = await fetchAllStations()
+      const stationNames = Object.fromEntries(allStations.map((entry) => [entry.station.id, entry.station.name]))
+
+      return { operation, route, stationNames }
     },
   }
 }

@@ -9,6 +9,7 @@ function makeTrain(scheduleId: string, orderId: string, stationId: string): RawT
     scheduleId,
     orderId,
     trainOrderId: null,
+    operatingDate: '2026-08-01',
     trainStatus: null,
     stations: [
       {
@@ -20,6 +21,7 @@ function makeTrain(scheduleId: string, orderId: string, stationId: string): RawT
         arrivalDelayMinutes: null,
         departureDelayMinutes: null,
         isCancelled: false,
+        isConfirmed: false,
       },
     ],
   }
@@ -30,6 +32,7 @@ function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
     searchStations: vi.fn().mockResolvedValue([]),
     getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
     getSchedules: vi.fn().mockResolvedValue({ routes: [], carrierNames: {} }),
+    getTrainDetail: vi.fn(),
     getCachedStationIds: vi.fn(() => null),
     ...overrides,
   }

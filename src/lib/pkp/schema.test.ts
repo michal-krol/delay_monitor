@@ -42,6 +42,7 @@ describe('operationsResponseSchema', () => {
       arrivalDelayMinutes: null,
       departureDelayMinutes: null,
       isCancelled: false,
+      isConfirmed: false,
     })
   })
 

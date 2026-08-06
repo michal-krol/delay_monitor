@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 
 export type BoardApiRow = {
+  scheduleId: string
+  orderId: string
+  operatingDate: string
   trainNumber: string
   trainLabel: string
   carrier: string

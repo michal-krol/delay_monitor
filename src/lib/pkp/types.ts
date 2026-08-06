@@ -12,6 +12,7 @@ export type RawOperationStation = {
   arrivalDelayMinutes: number | null
   departureDelayMinutes: number | null
   isCancelled: boolean
+  isConfirmed: boolean
 }
 
 export type RawTrainOperation = {
@@ -19,6 +20,8 @@ export type RawTrainOperation = {
   orderId: string
   /** Prawdziwy identyfikator konkretnego przejazdu — patrz `RawRoute.trainOrderId`. */
   trainOrderId: string | null
+  /** Data kursowania (yyyy-MM-dd) — klucz trzeci (obok scheduleId/orderId) potrzebny do `/operations/train/...`. */
+  operatingDate: string | null
   /** S=NotStarted, P=InProgress, C=Completed, X=Cancelled, Q=PartialCancelled. */
   trainStatus: string | null
   stations: RawOperationStation[]
@@ -30,6 +33,11 @@ export type RawRouteStop = {
   arrivalTrack: string | null
   departurePlatform: string | null
   departureTrack: string | null
+  /** Planowy czas (HH:mm:ss, lokalny warszawski) — patrz komentarz w `schema.ts`. */
+  arrivalTime: string | null
+  departureTime: string | null
+  arrivalDay: number | null
+  departureDay: number | null
 }
 
 export type RawRoute = {

@@ -178,15 +178,12 @@ npm run dev
 
 Bez `PKP_API_KEY` i przy domyślnym `PKP_DATA_SOURCE=auto` aplikacja startuje
 w trybie mock — dane pochodzą z `fixtures/` i mają czasy przesunięte tak, by
-zawsze mieściły się w widocznym oknie. Fixture'y są celowo minimalne
-(3 stacje, 3 pociągi) — wystarczają do pracy nad UI, nie odwzorowują
+zawsze mieściły się w widocznym oknie. Fixture'y używają prawdziwych ID stacji
+(Warszawa Centralna `33605`, Kraków Główny `80416`, Wrocław Główny `60103`,
+Gdańsk Główny `7500` — te same co na żywo), więc ulubione zapisane w trybie
+mock działają też po przełączeniu na `live`. Są jednak celowo małe (4 stacje,
+8 pociągów, 6 przewoźników) — wystarczają do pracy nad UI, nie odwzorowują
 realnego natężenia ruchu.
-
-**ID stacji w fixture'ach nie są prawdziwe.** Mock ma Warszawę Centralną pod
-`5100`, żywe API pod `33605`. To znaczy, że ulubione zapisane w trybie mock nie
-zadziałają po przełączeniu na `live` (i odwrotnie) — trzeba wyczyścić
-`pkp.favourites.v1` w `localStorage` albo dodać stacje na nowo. Nie jest to
-błąd, tylko konsekwencja ręcznie pisanych fixture'ów.
 
 ## Zmienne środowiskowe
 
@@ -325,9 +322,10 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   głównie tych spoza widocznego okna. Gdy trasa się nie dopasuje: „Pociąg"
   pokazuje `scheduleId-orderId` (np. `2026-424939627`), „Kierunek" — „—".
   Poprawne technicznie (to nadal stabilny klucz), ale dla pasażera nieczytelne.
-- **Fixture'y nie odwzorowują żywego API.** Inne ID stacji, 3 pociągi zamiast
-  kilkudziesięciu, dwa kody przewoźników zamiast kilkunastu. Nadają się do
-  pracy nad UI, nie do wnioskowania o zachowaniu produkcji.
+- **Fixture'y nie odwzorowują skali żywego API.** Używają prawdziwych ID stacji,
+  ale to wciąż 8 pociągów zamiast kilkudziesięciu-kilkuset i 6 kodów
+  przewoźników zamiast 22. Nadają się do pracy nad UI, nie do wnioskowania
+  o rzeczywistym natężeniu ruchu.
 - **Logotypy tylko dla 6 przewoźników** (IC, KM, SKM, ŁKA, Leo Express/LEO, PR).
   Pozostali mają samą nazwę — wciąż czytelniej niż surowy kod, ale bez znaku
   graficznego.

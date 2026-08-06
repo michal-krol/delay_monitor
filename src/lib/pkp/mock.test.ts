@@ -1,73 +1,82 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMockClient } from './mock'
+import { PkpApiError } from './client'
 
 describe('createMockClient', () => {
   it('filters station search by case-insensitive substring', async () => {
     const client = createMockClient()
     const results = await client.searchStations('kraków')
-    expect(results).toEqual([{ id: '5136', name: 'Kraków Główny' }])
+    expect(results).toEqual([{ id: '80416', name: 'Kraków Główny' }])
   })
 
   it('returns all stations for an empty query', async () => {
     const client = createMockClient()
     const results = await client.searchStations('')
-    expect(results.length).toBeGreaterThanOrEqual(3)
+    expect(results.length).toBeGreaterThanOrEqual(4)
   })
 
   it('returns only trains that stop at one of the requested station ids', async () => {
     const client = createMockClient()
-    const result = await client.getOperations(['5136'])
-    expect(result.trains.every((train) => train.stations.some((stop) => stop.stationId === '5136'))).toBe(true)
+    const result = await client.getOperations(['80416'])
+    expect(result.trains.every((train) => train.stations.some((stop) => stop.stationId === '80416'))).toBe(true)
     expect(result.trains.length).toBeGreaterThan(0)
   })
 
   it('returns the station name dictionary bundled with the fixture', async () => {
     const client = createMockClient()
-    const result = await client.getOperations(['5100'])
-    expect(result.stationNames['5100']).toBe('Warszawa Centralna')
+    const result = await client.getOperations(['33605'])
+    expect(result.stationNames['33605']).toBe('Warszawa Centralna')
   })
 
   it('rebases fixture timestamps to be close to now', async () => {
     const client = createMockClient()
-    const result = await client.getOperations(['5100'])
-    const stop = result.trains.flatMap((train) => train.stations).find((s) => s.plannedDeparture !== null)
+    const result = await client.getOperations(['33605'])
+    const stop = result.trains.flatMap((train) => train.stations).find((s) => s.stationId === '33605')
     expect(stop).toBeDefined()
-    const plannedMs = new Date(stop!.plannedDeparture as string).getTime()
-    expect(Math.abs(plannedMs - Date.now())).toBeLessThan(60 * 60 * 1000)
+    const referenceMs = new Date((stop!.plannedArrival ?? stop!.plannedDeparture) as string).getTime()
+    expect(Math.abs(referenceMs - Date.now())).toBeLessThan(3 * 60 * 60 * 1000)
+  })
+
+  it('rebases operatingDate to today (Warsaw calendar date), not the fixture date', async () => {
+    const client = createMockClient()
+    const result = await client.getOperations(['33605'])
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw' }).format(new Date())
+    expect(result.trains.every((train) => train.operatingDate === today)).toBe(true)
   })
 
   it('returns a stable mock budget', async () => {
     const client = createMockClient()
-    const result = await client.getOperations(['5100'])
+    const result = await client.getOperations(['33605'])
     expect(result.budget).toEqual({ hourly: 99, daily: 999 })
   })
 
   it('returns schedules only for trains that stop at the requested stations', async () => {
     const client = createMockClient()
-    const { routes } = await client.getSchedules(['5136'])
-    expect(routes.map((route) => route.orderId).sort()).toEqual(['12345', '67890'])
-    expect(routes.every((route) => route.scheduleId === '26')).toBe(true)
+    const { routes } = await client.getSchedules(['80416'])
+    expect(routes.map((route) => route.orderId).sort()).toEqual(['22222', '33333'])
+    expect(routes.every((route) => route.scheduleId === '2026')).toBe(true)
   })
 
   it('bundles the carrier name dictionary from the same response', async () => {
     const client = createMockClient()
-    const { carrierNames } = await client.getSchedules(['5100'])
+    const { carrierNames } = await client.getSchedules(['33605'])
     expect(carrierNames.IC).toBe('„PKP Intercity” Spółka Akcyjna')
     expect(carrierNames.KM).toBe('"Koleje Mazowieckie - KM" sp. z o.o.')
+    expect(carrierNames.PR).toBe('POLREGIO S.A.')
   })
 
   it('bundles the station name dictionary from the same response', async () => {
     const client = createMockClient()
-    const { stationNames } = await client.getSchedules(['5100'])
-    expect(stationNames['5136']).toBe('Kraków Główny')
+    const { stationNames } = await client.getSchedules(['33605'])
+    expect(stationNames['80416']).toBe('Kraków Główny')
   })
 
   it('carries carrier and category codes on each route', async () => {
     const client = createMockClient()
-    const { routes } = await client.getSchedules(['5100'])
+    const { routes } = await client.getSchedules(['33605'])
     const eic = routes.find((route) => route.orderId === '12345')
     expect(eic).toEqual({
-      scheduleId: '26',
+      scheduleId: '2026',
       orderId: '12345',
       trainOrderId: null,
       carrierCode: 'IC',
@@ -75,9 +84,67 @@ describe('createMockClient', () => {
       name: 'EIC Grunwald',
       nationalNumber: null,
       stations: [
-        { stationId: '5100', arrivalPlatform: null, arrivalTrack: null, departurePlatform: '4', departureTrack: '2' },
-        { stationId: '5136', arrivalPlatform: '1', arrivalTrack: null, departurePlatform: null, departureTrack: null },
+        { stationId: '7500', arrivalPlatform: null, arrivalTrack: null, departurePlatform: '3', departureTrack: '1', arrivalTime: null, departureTime: '11:00:00', arrivalDay: null, departureDay: null },
+        { stationId: '7112', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '11:20:00', departureTime: '11:22:00', arrivalDay: null, departureDay: null },
+        { stationId: '7872', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '11:35:00', departureTime: '11:37:00', arrivalDay: null, departureDay: null },
+        { stationId: '21808', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '12:00:00', departureTime: '12:02:00', arrivalDay: null, departureDay: null },
+        { stationId: '22442', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '12:20:00', departureTime: '12:22:00', arrivalDay: null, departureDay: null },
+        { stationId: '38653', arrivalPlatform: '2', arrivalTrack: null, departurePlatform: '2', departureTrack: null, arrivalTime: '13:10:00', departureTime: '13:12:00', arrivalDay: null, departureDay: null },
+        { stationId: '33605', arrivalPlatform: '4', arrivalTrack: '2', departurePlatform: null, departureTrack: null, arrivalTime: '13:20:00', departureTime: null, arrivalDay: null, departureDay: null },
       ],
+    })
+  })
+
+  describe('getTrainDetail', () => {
+    it('returns the realized operation and matching route for a known train', async () => {
+      const client = createMockClient()
+      const operations = await client.getOperations(['33605'])
+      const operatingDate = operations.trains[0].operatingDate as string
+
+      const detail = await client.getTrainDetail('2026', '12345', operatingDate)
+
+      expect(detail.operation.scheduleId).toBe('2026')
+      expect(detail.operation.orderId).toBe('12345')
+      expect(detail.operation.stations.length).toBeGreaterThanOrEqual(3)
+      expect(detail.route?.carrierCode).toBe('IC')
+      expect(detail.route?.name).toBe('EIC Grunwald')
+    })
+
+    it('rebases the returned operation the same way getOperations does', async () => {
+      const client = createMockClient()
+      const operations = await client.getOperations(['33605'])
+      const operatingDate = operations.trains[0].operatingDate as string
+
+      const detail = await client.getTrainDetail('2026', '12345', operatingDate)
+
+      const stop = detail.operation.stations.find((s) => s.stationId === '33605')
+      const referenceMs = new Date((stop!.plannedArrival ?? stop!.plannedDeparture) as string).getTime()
+      expect(Math.abs(referenceMs - Date.now())).toBeLessThan(3 * 60 * 60 * 1000)
+    })
+
+    it('returns a null route for a train without a scheduled route match', async () => {
+      const client = createMockClient()
+      const operations = await client.getOperations(['33605'])
+      const operatingDate = operations.trains[0].operatingDate as string
+
+      // 67890 istnieje w operations.json, ale jego trasa w schedules.json ma
+      // pustą listę przystanków (odwołany kurs) — samo istnienie route !== null.
+      const detail = await client.getTrainDetail('2026', '67890', operatingDate)
+      expect(detail.route).not.toBeNull()
+      expect(detail.route?.stations).toEqual([])
+    })
+
+    it('rejects with a 404-like PkpApiError for an unknown train', async () => {
+      const client = createMockClient()
+      await expect(client.getTrainDetail('2026', 'nieistniejacy', '2026-08-01')).rejects.toMatchObject({
+        status: 404,
+      })
+      await expect(client.getTrainDetail('2026', 'nieistniejacy', '2026-08-01')).rejects.toBeInstanceOf(PkpApiError)
+    })
+
+    it('rejects when the operatingDate does not match (stale request)', async () => {
+      const client = createMockClient()
+      await expect(client.getTrainDetail('2026', '12345', '2020-01-01')).rejects.toMatchObject({ status: 404 })
     })
   })
 

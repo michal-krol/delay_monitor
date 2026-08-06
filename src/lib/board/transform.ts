@@ -1,6 +1,10 @@
 import type { RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 
 export type BoardRow = {
+  /** Klucz do `/api/train` — identyfikuje realizację pociągu, nie wzorzec trasy. */
+  scheduleId: string
+  orderId: string
+  operatingDate: string
   trainNumber: string
   trainLabel: string
   carrier: string
@@ -84,7 +88,7 @@ export function routeKey(scheduleId: string, orderId: string, trainOrderId: stri
 }
 
 /** „4/2" gdy znane są peron i tor, sam peron albo „tor 2" gdy tylko jedno z nich, `null` gdy nic. */
-function formatPlatform(platform: string | null | undefined, track: string | null | undefined): string | null {
+export function formatPlatform(platform: string | null | undefined, track: string | null | undefined): string | null {
   if (platform && track) return `${platform}/${track}`
   if (platform) return platform
   if (track) return `tor ${track}`
@@ -92,6 +96,9 @@ function formatPlatform(platform: string | null | undefined, track: string | nul
 }
 
 function buildRow(
+  scheduleId: string,
+  orderId: string,
+  operatingDate: string | null,
   trainId: string,
   headsign: string | null,
   plannedAt: string,
@@ -107,6 +114,11 @@ function buildRow(
   const category = route?.commercialCategorySymbol ?? ''
   const carrier = route?.carrierCode ?? ''
   return {
+    scheduleId,
+    orderId,
+    // Puste, gdy API nie podało operatingDate — /api/train odrzuci taki klucz
+    // przy walidacji wejścia, a UI nie pokaże przycisku szczegółów (patrz FullBoard).
+    operatingDate: operatingDate ?? '',
     trainNumber: trainId,
     trainLabel: computeTrainLabel(route, category, trainId),
     carrier,
@@ -165,6 +177,9 @@ export function transformOperations(
       const destination = routeTerminus(route, 'last')
       departures.push(
         buildRow(
+          train.scheduleId,
+          train.orderId,
+          train.operatingDate,
           trainId,
           destination ? resolveStationName(destination.stationId, stationNames) : null,
           stop.plannedDeparture,
@@ -183,6 +198,9 @@ export function transformOperations(
       const origin = routeTerminus(route, 'first')
       arrivals.push(
         buildRow(
+          train.scheduleId,
+          train.orderId,
+          train.operatingDate,
           trainId,
           origin ? resolveStationName(origin.stationId, stationNames) : null,
           stop.plannedArrival,

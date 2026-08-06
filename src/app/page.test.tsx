@@ -14,6 +14,7 @@ const EMPTY_BOARD = { snapshots: [null, null], budget: undefined, status: 'ok', 
 
 beforeEach(() => {
   window.localStorage.clear()
+  window.history.replaceState(null, '', '/')
   vi.stubGlobal(
     'fetch',
     vi.fn().mockImplementation((url: string) =>
@@ -107,5 +108,41 @@ describe('Page', () => {
 
     expect(await screen.findByText(/Wyszukaj stację/)).toBeInTheDocument()
     expect(JSON.parse(window.localStorage.getItem('pkp.favourites.v1') ?? '[]')).toEqual([])
+  })
+
+  it('odtwarza rozwiniętą stację wprost z linku (?station=&name=), bez klikania kafelki', async () => {
+    window.history.pushState({}, '', '/?station=5100&name=Warszawa+Centralna')
+
+    render(<Page />)
+
+    expect(await screen.findByRole('tab', { name: 'Odjazdy' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+  })
+
+  it('ignoruje uszkodzony parametr station w linku zamiast padać', async () => {
+    window.history.pushState({}, '', '/?station=abc%3B%20DROP&name=Zla')
+
+    render(<Page />)
+
+    expect(await screen.findByRole('combobox')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Odjazdy' })).not.toBeInTheDocument()
+  })
+
+  it('zapisuje stację w URL po rozwinięciu i usuwa ją po zamknięciu', async () => {
+    window.localStorage.setItem(
+      'pkp.favourites.v1',
+      JSON.stringify([{ id: '5100', name: 'Warszawa Centralna' }])
+    )
+    const user = userEvent.setup()
+
+    render(<Page />)
+    await user.click(await screen.findByRole('button', { name: /Pokaż pełną tablicę/ }))
+
+    expect(window.location.search).toContain('station=5100')
+    expect(window.location.search).toContain('name=Warszawa')
+
+    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
+
+    expect(window.location.search).not.toContain('station=')
   })
 })
