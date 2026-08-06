@@ -3,6 +3,70 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [0.9.9] — 2026-08-06
+
+### Dodane
+
+- **Szczegóły połączenia po kliknięciu w wiersz tablicy** — pełna trasa
+  przystanek-po-przystanku (`/api/train`, wołane dopiero po kliknięciu,
+  cache 90 s), z opóźnieniem liczonym osobno dla każdego przystanku (nie
+  rozlanym z całego pociągu), peronem/torem gdzie PKP je poda, poprawną
+  obsługą pociągów bez dopasowanej trasy i długich list (35+ przystanków —
+  przewija się tylko lista, nagłówek panelu zostaje przypięty).
+- **Adresowalność i udostępnianie** — rozwinięta stacja, aktywna zakładka
+  i otwarty panel szczegółów są teraz odzwierciedlone w adresie URL
+  (`history.replaceState`, bez zależności od routera Next), z przyciskiem
+  „Kopiuj link" w nagłówku tablicy.
+- Ikona aplikacji (favicon) — prosty SVG pociągu zamiast domyślnej ikony
+  create-next-app.
+
+### Zmienione
+
+- **Fixture'y mocka odświeżone na realistyczne dane.** Prawdziwe ID i nazwy
+  stacji (zweryfikowane na żywym API i aktualnym schemacie OpenAPI —
+  wcześniej fikcyjne, np. Warszawa Centralna `5100` zamiast `33605`), 8
+  pociągów zamiast 3 (opóźniony, odwołany, częściowo odwołany, jeszcze
+  niewyjechany, zakończony), 6 przewoźników zamiast 2.
+
+### Naprawione
+
+- **Tablica główna pokazywała pociąg, który jeszcze nie wyjechał, jako
+  punktualny.** PKP potrafi wpisać w pole „faktyczny czas" kopię czasu
+  planowego dla pociągu ze statusem „jeszcze niewyjechał", nawet godzinami
+  przed odjazdem — nie tylko tuż po nim (zaobserwowane na produkcji: R1
+  91342, Koleje Mazowieckie). Naprawione i uogólnione: logika „czy to się
+  już wydarzyło" opiera się teraz wyłącznie na polu `isConfirmed` per
+  przystanek — tym samym sygnale, którego od początku poprawnie używał
+  panel szczegółów połączenia — więc chroni każdy status pociągu (w tym
+  częściowo odwołany, `Q`), nie tylko dosłowne dopasowanie `trainStatus=S`.
+
+### Zrefaktoryzowane (bez zmiany zachowania)
+
+- **Ujednolicona logika statusu/opóźnienia połączenia między tablicą
+  a panelem szczegółów** — wcześniej dwie niezależne implementacje tej samej
+  reguły, które już raz się rozjechały (patrz „Naprawione" wyżej). Teraz
+  jeden współdzielony moduł, `src/lib/board/realization.ts`
+  (`resolveStopStatus`, `resolveDelayMinutes`), używany przez
+  `board/transform.ts`, `board/trainDetail.ts` i `ConnectionDetails.tsx`.
+- Wspólne wzorce walidacji identyfikatorów (stacje, `scheduleId`/`orderId`/
+  `operatingDate`) wydzielone do `src/lib/validation.ts`, re-używane przez
+  route handlery i odtwarzanie stanu z URL.
+
+### Testy
+
+- Pełna macierz `isCancelled × isConfirmed × opóźnienie` dla nowego modułu
+  `realization.ts`, w tym dokładnie odtworzony przypadek produkcyjny.
+- Nowy test dla pociągu częściowo odwołanego (`Q`) z mieszanką przystanków
+  odwołanych i niepotwierdzonych-ale-nieodwołanych.
+- Nowe asercje na renderowany status panelu szczegółów dla niepotwierdzonego
+  i odwołanego przystanku — fixture testowy je już miał, ale nic wcześniej
+  nie sprawdzało wyniku.
+
+### Dokumentacja
+
+- README i AGENTS.md zaktualizowane o szczegóły połączenia, udostępnianie
+  linkiem i nową regułę o pułapce `isConfirmed` kontra „faktyczny czas".
+
 ## [0.9.8] — 2026-08-04
 
 ### Zmienione

@@ -1,4 +1,5 @@
 import type { RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
+import { resolveDelayMinutes, resolveStopStatus, type RealizationStatus } from './realization'
 
 export type BoardRow = {
   /** Klucz do `/api/train` — identyfikuje realizację pociągu, nie wzorzec trasy. */
@@ -19,8 +20,9 @@ export type BoardRow = {
   headsign: string | null
   plannedAt: string
   actualAt: string | null
-  delayMinutes: number
-  status: 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
+  /** `null`, gdy przystanek nie jest jeszcze potwierdzony (`isConfirmed: false`) — patrz `realization.ts`. */
+  delayMinutes: number | null
+  status: RealizationStatus
   platform: string | null
 }
 
@@ -35,26 +37,6 @@ export type BoardSnapshot = {
 const VISIBLE_WINDOW_MS = 2 * 60 * 60 * 1000
 const LOOKBACK_WINDOW_MS = 5 * 60 * 1000
 const MAX_ROWS = 20
-
-function computeDelayMinutes(plannedAt: string, actualAt: string | null, apiDelay: number | null): number {
-  if (apiDelay !== null) return apiDelay
-  if (actualAt === null) return 0
-  const plannedMs = new Date(plannedAt).getTime()
-  const actualMs = new Date(actualAt).getTime()
-  return Math.round((actualMs - plannedMs) / 60000)
-}
-
-function computeStatus(
-  cancelled: boolean,
-  actualAt: string | null,
-  delayMinutes: number,
-  trainStatus: string | null
-): BoardRow['status'] {
-  if (cancelled) return 'cancelled'
-  if (actualAt === null) return trainStatus === 'S' ? 'notStarted' : 'unknown'
-  if (delayMinutes >= 1) return 'delayed'
-  return 'onTime'
-}
 
 function computeTrainLabel(route: RawRoute | undefined, category: string, trainId: string): string {
   if (route?.name) return route.name
@@ -104,13 +86,13 @@ function buildRow(
   plannedAt: string,
   actualAt: string | null,
   cancelled: boolean,
+  isConfirmed: boolean,
   apiDelay: number | null,
   route: RawRoute | undefined,
   platform: string | null,
-  trainStatus: string | null,
   carrierNames: Record<string, string>
 ): BoardRow {
-  const delayMinutes = computeDelayMinutes(plannedAt, actualAt, apiDelay)
+  const delayMinutes = resolveDelayMinutes(apiDelay, isConfirmed, plannedAt, actualAt)
   const category = route?.commercialCategorySymbol ?? ''
   const carrier = route?.carrierCode ?? ''
   return {
@@ -128,7 +110,7 @@ function buildRow(
     plannedAt,
     actualAt,
     delayMinutes,
-    status: computeStatus(cancelled, actualAt, delayMinutes, trainStatus),
+    status: resolveStopStatus({ isCancelled: cancelled, isConfirmed, delayMinutes }),
     platform,
   }
 }
@@ -185,10 +167,10 @@ export function transformOperations(
           stop.plannedDeparture,
           stop.actualDeparture,
           stop.isCancelled,
+          stop.isConfirmed,
           stop.departureDelayMinutes,
           route,
           formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack),
-          train.trainStatus,
           carrierNames
         )
       )
@@ -206,10 +188,10 @@ export function transformOperations(
           stop.plannedArrival,
           stop.actualArrival,
           stop.isCancelled,
+          stop.isConfirmed,
           stop.arrivalDelayMinutes,
           route,
           formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack),
-          train.trainStatus,
           carrierNames
         )
       )

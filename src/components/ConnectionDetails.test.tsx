@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConnectionDetails } from './ConnectionDetails'
@@ -215,5 +215,44 @@ describe('ConnectionDetails', () => {
     await user.click(await screen.findByText('EIC Grunwald'))
 
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('renders "jeszcze nie wyjechał" for the unconfirmed stop, not a false "punktualnie"', async () => {
+    // Fixture RESPONSE ma to od początku (Warszawa Centralna, isConfirmed:
+    // false) -- ale do teraz nic nie sprawdzało, co się dla niej faktycznie
+    // renderuje. To dokładnie ta klasa błędu, którą naprawiliśmy na tablicy.
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+    render(
+      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
+    )
+
+    const stationName = await screen.findByText('Warszawa Centralna')
+    // eslint-disable-next-line testing-library/no-node-access -- najbliższy <li> to cały wiersz przystanku, potrzebny żeby ograniczyć zapytanie do TEGO przystanku
+    const row = stationName.closest('li')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('jeszcze nie wyjechał')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('punktualnie')).not.toBeInTheDocument()
+  })
+
+  it('renders "odwołany" for a cancelled stop', async () => {
+    const response = {
+      ...RESPONSE,
+      stops: [
+        { ...RESPONSE.stops[0], isCancelled: true, isConfirmed: false, departureDelayMinutes: null },
+        RESPONSE.stops[1],
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+    render(
+      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
+    )
+
+    const stationName = await screen.findByText('Gdańsk Główny')
+    // eslint-disable-next-line testing-library/no-node-access -- j.w., ograniczenie zapytania do wiersza tego przystanku
+    const row = stationName.closest('li')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('odwołany')).toBeInTheDocument()
   })
 })

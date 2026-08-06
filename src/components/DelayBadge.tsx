@@ -2,7 +2,8 @@ type Status = 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
 
 type Props = {
   status: Status
-  delayMinutes: number
+  /** Czytane tylko przy `status === 'delayed'`, gdzie zawsze jest realną wartością. */
+  delayMinutes: number | null
 }
 
 const LABELS: Record<Status, string> = {

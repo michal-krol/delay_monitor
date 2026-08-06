@@ -14,7 +14,8 @@ export type BoardApiRow = {
   headsign: string | null
   plannedAt: string
   actualAt: string | null
-  delayMinutes: number
+  /** `null`, gdy przystanek nie jest jeszcze potwierdzony (`status` będzie wtedy `notStarted`). */
+  delayMinutes: number | null
   status: 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
   platform: string | null
 }

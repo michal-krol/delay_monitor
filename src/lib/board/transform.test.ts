@@ -65,10 +65,22 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].status).toBe('cancelled')
   })
 
-  it('marks a train with no real-time data as unknown', () => {
+  it('marks an unconfirmed stop as notStarted, with a null (not 0) delay -- isConfirmed is the only signal that matters', () => {
     const trains = [train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
     const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].status).toBe('notStarted')
+    expect(snapshot.departures[0].delayMinutes).toBeNull()
+  })
+
+  it('marks a confirmed stop with no resolvable delay as unknown', () => {
+    // "unknown" po refaktorze znaczy wyłącznie "potwierdzone, ale bez danych
+    // do policzenia opóźnienia" -- nie "jeszcze nieznane, może się nie wydarzyło".
+    const trains = [
+      train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00', isConfirmed: true })]),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].status).toBe('unknown')
+    expect(snapshot.departures[0].delayMinutes).toBeNull()
   })
 
   it('marks a train with trainStatus S (not started) as notStarted instead of unknown', () => {
@@ -79,6 +91,86 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].status).toBe('notStarted')
   })
 
+  it('marks a trainStatus S train as notStarted even when the API echoes plannedDeparture into actualDeparture', () => {
+    // Zaobserwowane na produkcji (pociąg R1 91342, KM): dla trainStatus S PKP
+    // wypełnia actualArrival/actualDeparture kopią planowego czasu -- nawet
+    // dla przystanków godzinami w przyszłości, nie tylko tuż po planowym
+    // odjeździe. `actualAt !== null` przestaje więc być wiarygodnym sygnałem
+    // "już się wydarzyło": pociąg, który jeszcze nie wyjechał, wyglądał jak
+    // punktualny (opóźnienie liczone z identycznych planned/actual wychodzi 0).
+    const trains = [
+      train(
+        '25',
+        '1',
+        [
+          stop({
+            stationId: '5100',
+            plannedDeparture: '2026-08-01T12:10:00+02:00',
+            actualDeparture: '2026-08-01T12:10:00+02:00',
+          }),
+        ],
+        null,
+        'S'
+      ),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].status).toBe('notStarted')
+  })
+
+  it('marks a not-yet-reached, non-cancelled stop of a partially-cancelled (Q) train as notStarted, not onTime', () => {
+    // Węższa łatka (trainStatus === 'S') nie chroniłaby tego przypadku --
+    // Q nigdy nie było sprawdzane. Tylko isConfirmed per przystanek chroni
+    // każdy trainStatus jednakowo, nie tylko S.
+    const trains = [
+      train(
+        '25',
+        '1',
+        [
+          stop({
+            stationId: '5100',
+            plannedDeparture: '2026-08-01T12:10:00+02:00',
+            actualDeparture: '2026-08-01T12:10:00+02:00',
+            isCancelled: false,
+            isConfirmed: false,
+          }),
+        ],
+        null,
+        'Q'
+      ),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].status).toBe('notStarted')
+  })
+
+  it('marks a cancelled stop of a partially-cancelled (Q) train as cancelled, and a confirmed stop of the same train as delayed', () => {
+    const cancelledStop = train(
+      '25',
+      '1',
+      [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00', isCancelled: true })],
+      null,
+      'Q'
+    )
+    const confirmedStop = train(
+      '25',
+      '2',
+      [
+        stop({
+          stationId: '5100',
+          plannedDeparture: '2026-08-01T12:10:00+02:00',
+          actualDeparture: '2026-08-01T12:13:00+02:00',
+          isConfirmed: true,
+        }),
+      ],
+      null,
+      'Q'
+    )
+    const cancelledSnapshot = transformOperations('5100', 'X', [cancelledStop], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const confirmedSnapshot = transformOperations('5100', 'X', [confirmedStop], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(cancelledSnapshot.departures[0].status).toBe('cancelled')
+    expect(confirmedSnapshot.departures[0].status).toBe('delayed')
+    expect(confirmedSnapshot.departures[0].delayMinutes).toBe(3)
+  })
+
   it('computes delay across midnight using full dates, not time-of-day', () => {
     const trains = [
       train('25', '1', [
@@ -86,6 +178,7 @@ describe('transformOperations', () => {
           stationId: '5100',
           plannedDeparture: '2026-08-01T23:58:00+02:00',
           actualDeparture: '2026-08-02T00:04:00+02:00',
+          isConfirmed: true,
         }),
       ]),
     ]
@@ -195,6 +288,7 @@ describe('transformOperations', () => {
           plannedDeparture: '2026-08-01T12:10:00+02:00',
           actualDeparture: '2026-08-01T12:20:00+02:00',
           departureDelayMinutes: 3,
+          isConfirmed: true,
         }),
       ]),
     ]
