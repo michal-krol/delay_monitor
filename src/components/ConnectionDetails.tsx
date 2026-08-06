@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { DelayBadge } from './DelayBadge'
+import { resolveStopStatus } from '@/lib/board/realization'
 
 type TrainDetailApiStop = {
   stationId: string
@@ -39,22 +40,14 @@ type Props = {
 type Status = 'loading' | 'error' | 'ready'
 
 /**
- * Ta sama logika co `computeStatus` w `board/transform.ts`, ale per przystanek
- * — tam decyduje `trainStatus` całego pociągu, tu `isConfirmed` tego jednego
- * przystanku. Różnica: tu opóźnienie bywa `null` (brak dopasowanej trasy albo
- * planu dla tej strony przystanku — patrz `trainDetail.ts`), a `null` to co
- * innego niż punktualnie — pokazujemy to jawnie, zamiast fałszywie zielonego „punktualnie".
+ * Jeden "przystanek" w tym widoku łączy przyjazd i odjazd — tu, i tylko tu,
+ * trzeba wybrać, którym opóźnieniem się kierować (odjazdowe pierwsze: to ono
+ * decyduje, czy podróż stąd dalej rusza planowo). Sam wynik "czy to się już
+ * wydarzyło" idzie do współdzielonego `resolveStopStatus` — ta sama funkcja
+ * co w `board/transform.ts`, żeby te dwa widoki nie mogły się już rozjechać.
  */
-function stopStatus(stop: TrainDetailApiStop): 'onTime' | 'delayed' | 'cancelled' | 'notStarted' | 'unknown' {
-  if (stop.isCancelled) return 'cancelled'
-  if (!stop.isConfirmed) return 'notStarted'
-  const delay = stop.departureDelayMinutes ?? stop.arrivalDelayMinutes
-  if (delay === null) return 'unknown'
-  return delay >= 1 ? 'delayed' : 'onTime'
-}
-
-function stopDelayMinutes(stop: TrainDetailApiStop): number {
-  return stop.departureDelayMinutes ?? stop.arrivalDelayMinutes ?? 0
+function stopDelayMinutes(stop: TrainDetailApiStop): number | null {
+  return stop.departureDelayMinutes ?? stop.arrivalDelayMinutes
 }
 
 function formatTime(value: string | null): string | null {
@@ -173,7 +166,14 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     >
                       {stop.stationName}
                     </span>
-                    <DelayBadge status={stopStatus(stop)} delayMinutes={stopDelayMinutes(stop)} />
+                    <DelayBadge
+                      status={resolveStopStatus({
+                        isCancelled: stop.isCancelled,
+                        isConfirmed: stop.isConfirmed,
+                        delayMinutes: stopDelayMinutes(stop),
+                      })}
+                      delayMinutes={stopDelayMinutes(stop)}
+                    />
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
                     {hasArrival && <span>Przyjazd {arrival}</span>}

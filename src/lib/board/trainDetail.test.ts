@@ -161,4 +161,25 @@ describe('buildTrainDetailStops', () => {
 
     expect(stop.platform).toBe('2/2')
   })
+
+  it('never computes a delay for an unconfirmed stop, even when actual genuinely differs from planned', () => {
+    // isConfirmed jest teraz sprawdzane przed jakimkolwiek liczeniem --
+    // wcześniej ta funkcja liczyła opóźnienie niezależnie od isConfirmed
+    // i tylko UI (ConnectionDetails) je ukrywał. Ta luka jest teraz zamknięta
+    // na tym samym poziomie, co board/transform.ts.
+    const stops = [
+      realizedStop({
+        stationId: 'A',
+        actualDeparture: '2026-08-01T10:20:00+02:00',
+        isConfirmed: false,
+      }),
+    ]
+    const routeStops = [routeStop({ stationId: 'A', departureTime: '10:00:00' })]
+
+    const [stop] = buildTrainDetailStops(operation(stops), route(routeStops), {})
+
+    expect(stop.plannedDeparture).toBe('2026-08-01T08:00:00.000Z')
+    expect(stop.actualDeparture).toBe('2026-08-01T10:20:00+02:00')
+    expect(stop.departureDelayMinutes).toBeNull()
+  })
 })

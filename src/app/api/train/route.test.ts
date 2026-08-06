@@ -184,6 +184,47 @@ describe('GET /api/train', () => {
     expect(body.stops[2].platform).toBe('2/1')
   })
 
+  it('reports null delay (not a fabricated 0) for an unconfirmed stop whose actual time echoes the plan -- the real shape of a not-yet-started (trainStatus S) train on live', async () => {
+    // Zaobserwowane na produkcji (R1 91342, KM): dla trainStatus S PKP nie ma
+    // pól isConfirmed/*DelayMinutes na przystanku w ogóle, a actualDeparture
+    // jest identyczne z planowym czasem trasy. /api/train (przez
+    // buildTrainDetailStops) nie może dać się na to nabrać.
+    getTrainDetail.mockResolvedValueOnce({
+      operation: {
+        scheduleId: '2026',
+        orderId: '8',
+        trainOrderId: null,
+        operatingDate: '2026-08-06',
+        trainStatus: 'S',
+        stations: [
+          { stationId: 'A', plannedArrival: null, actualArrival: null, plannedDeparture: null, actualDeparture: '2026-08-06T17:54:00', arrivalDelayMinutes: null, departureDelayMinutes: null, isCancelled: false, isConfirmed: false },
+        ],
+      },
+      route: {
+        scheduleId: '2026',
+        orderId: '8',
+        trainOrderId: null,
+        carrierCode: 'KM',
+        commercialCategorySymbol: 'R1',
+        name: null,
+        nationalNumber: '91342',
+        stations: [
+          { stationId: 'A', arrivalPlatform: null, arrivalTrack: null, departurePlatform: '1', departureTrack: '4', arrivalTime: null, departureTime: '19:54:00', arrivalDay: null, departureDay: null },
+        ],
+      },
+      stationNames: { A: 'Grodzisk Mazowiecki' },
+    })
+    const { GET } = await import('./route')
+
+    const response = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=8&operatingDate=2026-08-06'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.stops[0].isConfirmed).toBe(false)
+    expect(body.stops[0].departureDelayMinutes).toBeNull()
+    expect(body.stops[0].arrivalDelayMinutes).toBeNull()
+  })
+
   it('caches a successful response for the same train key, without a second upstream call', async () => {
     getTrainDetail.mockClear()
     stubDetail()

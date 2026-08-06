@@ -1,6 +1,7 @@
 import type { RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 import { combineWarsawDateAndTime } from '../pkp/time'
 import { formatPlatform } from './transform'
+import { resolveDelayMinutes } from './realization'
 
 export type TrainDetailStop = {
   stationId: string
@@ -43,12 +44,6 @@ function resolvePlannedTime(
   return combineWarsawDateAndTime(operatingDate, time ?? null, dayOffset ?? null)
 }
 
-function resolveDelayMinutes(apiDelay: number | null, planned: string | null, actual: string | null): number | null {
-  if (apiDelay !== null) return apiDelay
-  if (planned === null || actual === null) return null
-  return Math.round((new Date(actual).getTime() - new Date(planned).getTime()) / 60000)
-}
-
 /**
  * Łączy realizację (`operation`, czasy faktyczne) z trasą rozkładową (`route`,
  * czasy planowe + peron/tor) w pełną, przystanek-po-przystanku listę do panelu
@@ -74,10 +69,10 @@ export function buildTrainDetailStops(
       stationName: stationNames[stop.stationId] ?? stop.stationId,
       plannedArrival,
       actualArrival: stop.actualArrival,
-      arrivalDelayMinutes: resolveDelayMinutes(stop.arrivalDelayMinutes, plannedArrival, stop.actualArrival),
+      arrivalDelayMinutes: resolveDelayMinutes(stop.arrivalDelayMinutes, stop.isConfirmed, plannedArrival, stop.actualArrival),
       plannedDeparture,
       actualDeparture: stop.actualDeparture,
-      departureDelayMinutes: resolveDelayMinutes(stop.departureDelayMinutes, plannedDeparture, stop.actualDeparture),
+      departureDelayMinutes: resolveDelayMinutes(stop.departureDelayMinutes, stop.isConfirmed, plannedDeparture, stop.actualDeparture),
       isCancelled: stop.isCancelled,
       isConfirmed: stop.isConfirmed,
       // Odjazdowy peron/tor pierwszy — to ten, przy którym pasażer czeka, żeby

@@ -146,6 +146,22 @@ describe('createMockClient', () => {
       const client = createMockClient()
       await expect(client.getTrainDetail('2026', '12345', '2020-01-01')).rejects.toMatchObject({ status: 404 })
     })
+
+    it('returns an unconfirmed, not-yet-departed shape for the S-status train (33333), same as a real not-started train on live', async () => {
+      // Jedyny test wywołujący getTrainDetail dla tego konkretnego pociągu --
+      // wcześniej nic nie sprawdzało panelu szczegółów dla przypadku S.
+      const client = createMockClient()
+      const operations = await client.getOperations(['80416'])
+      const train33333 = operations.trains.find((t) => t.orderId === '33333')
+      expect(train33333).toBeDefined()
+
+      const detail = await client.getTrainDetail('2026', '33333', train33333!.operatingDate as string)
+
+      expect(detail.operation.trainStatus).toBe('S')
+      for (const stop of detail.operation.stations) {
+        expect(stop.isConfirmed).toBe(false)
+      }
+    })
   })
 
   describe('warm-up robustness', () => {

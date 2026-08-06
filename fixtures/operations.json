@@ -183,16 +183,20 @@
       "stations": [
         {
           "stationId": "73312",
-          "plannedDeparture": "2026-08-01T12:50:00+02:00"
+          "plannedDeparture": "2026-08-01T12:50:00+02:00",
+          "actualDeparture": "2026-08-01T12:50:00+02:00"
         },
         {
           "stationId": "62653",
           "plannedArrival": "2026-08-01T13:20:00+02:00",
-          "plannedDeparture": "2026-08-01T13:22:00+02:00"
+          "actualArrival": "2026-08-01T13:20:00+02:00",
+          "plannedDeparture": "2026-08-01T13:22:00+02:00",
+          "actualDeparture": "2026-08-01T13:22:00+02:00"
         },
         {
           "stationId": "80416",
-          "plannedArrival": "2026-08-01T14:00:00+02:00"
+          "plannedArrival": "2026-08-01T14:00:00+02:00",
+          "actualArrival": "2026-08-01T14:00:00+02:00"
         }
       ]
     },
