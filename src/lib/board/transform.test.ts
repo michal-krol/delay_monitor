@@ -11,6 +11,7 @@ function stop(overrides: Partial<RawOperationStation> & { stationId: string }): 
     arrivalDelayMinutes: null,
     departureDelayMinutes: null,
     isCancelled: false,
+    isConfirmed: false,
     ...overrides,
   }
 }
@@ -22,7 +23,7 @@ function train(
   trainOrderId: string | null = null,
   trainStatus: string | null = null
 ): RawTrainOperation {
-  return { scheduleId, orderId, trainOrderId, trainStatus, stations }
+  return { scheduleId, orderId, trainOrderId, operatingDate: '2026-08-01', trainStatus, stations }
 }
 
 function routeStop(overrides: Partial<RawRouteStop> & { stationId: string }): RawRouteStop {
@@ -31,6 +32,10 @@ function routeStop(overrides: Partial<RawRouteStop> & { stationId: string }): Ra
     arrivalTrack: null,
     departurePlatform: null,
     departureTrack: null,
+    arrivalTime: null,
+    departureTime: null,
+    arrivalDay: null,
+    departureDay: null,
     ...overrides,
   }
 }

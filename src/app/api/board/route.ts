@@ -1,13 +1,6 @@
 import { NextResponse } from 'next/server'
 import { client, poller } from '@/lib/board/instance'
-
-/**
- * Identyfikatory stacji w API PKP są liczbami (schemat sprowadza je do stringów
- * przez `z.coerce.string()`). Trzymamy się tego formatu ściśle: identyfikator
- * trafia do zapytania kierowanego do PKP, więc wszystko poza cyframi to albo
- * pomyłka, albo próba wstrzyknięcia parametrów.
- */
-const STATION_ID_PATTERN = /^\d{1,10}$/
+import { STATION_ID_PATTERN } from '@/lib/validation'
 
 /**
  * Górny limit obserwowanych stacji na żądanie. Realny użytkownik ma ich kilka;

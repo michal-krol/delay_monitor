@@ -7,16 +7,45 @@ import { jsonResponse } from '@/test-utils/http'
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  window.history.replaceState(null, '', '/')
 })
 
 const SNAPSHOT = {
   stationId: '5100',
   stationName: 'Warszawa Centralna',
   departures: [
-    { trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', category: 'EIC', headsign: 'Kraków', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1' },
+    {
+      scheduleId: '2026',
+      orderId: '12345',
+      operatingDate: '2026-08-01',
+      trainNumber: '1',
+      trainLabel: 'EIC 1',
+      carrier: 'IC',
+      category: 'EIC',
+      headsign: 'Kraków',
+      plannedAt: new Date().toISOString(),
+      actualAt: null,
+      delayMinutes: 0,
+      status: 'onTime',
+      platform: '1',
+    },
   ],
   arrivals: [
-    { trainNumber: '2', trainLabel: 'TLK 2', carrier: 'IC', category: 'TLK', headsign: 'Gdynia', plannedAt: new Date().toISOString(), actualAt: null, delayMinutes: 0, status: 'unknown', platform: null },
+    {
+      scheduleId: '2026',
+      orderId: '67890',
+      operatingDate: '2026-08-01',
+      trainNumber: '2',
+      trainLabel: 'TLK 2',
+      carrier: 'IC',
+      category: 'TLK',
+      headsign: 'Gdynia',
+      plannedAt: new Date().toISOString(),
+      actualAt: null,
+      delayMinutes: 0,
+      status: 'unknown',
+      platform: null,
+    },
   ],
   fetchedAt: new Date().toISOString(),
   ageMs: 1000,
@@ -179,5 +208,171 @@ describe('FullBoard', () => {
 
     expect(await screen.findByText(/Ostatnia aktualizacja:/)).toBeInTheDocument()
     expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
+  })
+
+  it('opens the connection-details panel for the clicked train, requesting its scheduleId/orderId/operatingDate', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      const href = String(url)
+      if (href.startsWith('/api/train')) {
+        return jsonResponse({
+          scheduleId: '2026',
+          orderId: '12345',
+          operatingDate: '2026-08-01',
+          trainStatus: 'P',
+          carrierCode: 'IC',
+          category: 'EIC',
+          routeName: 'EIC Grunwald',
+          stops: [
+            {
+              stationId: '33605',
+              stationName: 'Warszawa Centralna',
+              plannedArrival: null,
+              actualArrival: null,
+              arrivalDelayMinutes: null,
+              plannedDeparture: '2026-08-01T12:00:00.000Z',
+              actualDeparture: '2026-08-01T12:00:00.000Z',
+              departureDelayMinutes: 0,
+              isCancelled: false,
+              isConfirmed: true,
+              platform: '4/2',
+            },
+          ],
+        })
+      }
+      return jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await user.click(await screen.findByRole('button', { name: 'EIC 1' }))
+
+    expect(await screen.findByText('EIC Grunwald')).toBeInTheDocument()
+    const trainDetailCall = fetchMock.mock.calls.find(([url]) => String(url).startsWith('/api/train'))
+    expect(trainDetailCall).toBeDefined()
+    const requestedUrl = new URL(String(trainDetailCall![0]), 'http://localhost')
+    expect(requestedUrl.searchParams.get('scheduleId')).toBe('2026')
+    expect(requestedUrl.searchParams.get('orderId')).toBe('12345')
+    expect(requestedUrl.searchParams.get('operatingDate')).toBe('2026-08-01')
+  })
+
+  it('does not make the row clickable when operatingDate is missing', async () => {
+    const rowWithoutDate = { ...SNAPSHOT.departures[0], operatingDate: '' }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [rowWithoutDate] }], budget: undefined, status: 'ok' }))
+    )
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+
+    expect(screen.queryByRole('button', { name: 'EIC 1' })).not.toBeInTheDocument()
+  })
+
+  it('restores the tab and opens the connection panel straight from the URL, without a click', async () => {
+    window.history.pushState({}, '', '/?tab=arrivals&scheduleId=2026&orderId=67890&operatingDate=2026-08-01')
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (String(url).startsWith('/api/train')) {
+        return jsonResponse({
+          scheduleId: '2026',
+          orderId: '67890',
+          operatingDate: '2026-08-01',
+          trainStatus: 'P',
+          carrierCode: 'IC',
+          category: 'TLK',
+          routeName: 'Odtworzone z linku',
+          stops: [],
+        })
+      }
+      return jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+
+    // Zakładka Przyjazdy aktywna od razu -- TLK 2 widoczne, EIC 1 (odjazdy) nie.
+    expect(await screen.findByText('TLK 2')).toBeInTheDocument()
+    expect(screen.queryByText('EIC 1')).not.toBeInTheDocument()
+    // Panel szczegółów otwarty od razu, bez klikania.
+    expect(await screen.findByText('Odtworzone z linku')).toBeInTheDocument()
+  })
+
+  it('ignores a malformed connection key in the URL instead of opening a broken panel', async () => {
+    window.history.pushState({}, '', "/?scheduleId=2026&orderId=1%3B%20DROP&operatingDate=2026-08-01")
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+
+    await screen.findByText('EIC 1')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('writes the tab and connection key to the URL, and clears them when the panel/board closes', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (String(url).startsWith('/api/train')) {
+        return jsonResponse({
+          scheduleId: '2026',
+          orderId: '12345',
+          operatingDate: '2026-08-01',
+          trainStatus: 'P',
+          carrierCode: 'IC',
+          category: 'EIC',
+          routeName: 'EIC Grunwald',
+          stops: [],
+        })
+      }
+      return jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+
+    const { unmount } = render(
+      <FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={onClose} />
+    )
+    await user.click(await screen.findByRole('tab', { name: 'Przyjazdy' }))
+    expect(window.location.search).toContain('tab=arrivals')
+
+    await user.click(await screen.findByRole('tab', { name: 'Odjazdy' }))
+    await user.click(await screen.findByRole('button', { name: 'EIC 1' }))
+    await screen.findByText('EIC Grunwald')
+    expect(window.location.search).toContain('scheduleId=2026')
+    expect(window.location.search).toContain('orderId=12345')
+
+    // Odmontowanie tablicy (odpowiednik kliknięcia "Zamknij" w page.tsx) musi
+    // wyczyścić te parametry -- inaczej kolejna, inna stacja odziedziczyłaby
+    // to samo otwarte połączenie z URL-a.
+    unmount()
+    expect(window.location.search).not.toContain('scheduleId')
+    expect(window.location.search).not.toContain('tab=')
+  })
+
+  it('copies the current URL to the clipboard and shows a confirmation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    // Po `userEvent.setup()`, nie przed -- ono samo ustawia własną atrapę
+    // `navigator.clipboard` (na potrzeby symulacji kopiuj/wklej), więc
+    // wcześniejsze przypisanie zostałoby nadpisane.
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+    await user.click(screen.getByRole('button', { name: 'Kopiuj link' }))
+
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+    expect(await screen.findByRole('status')).toHaveTextContent('Skopiowano link')
+  })
+
+  it('shows a manual-copy hint instead of failing silently when the Clipboard API is unavailable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+    const user = userEvent.setup()
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+    await user.click(screen.getByRole('button', { name: 'Kopiuj link' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/link w pasku adresu/)
   })
 })

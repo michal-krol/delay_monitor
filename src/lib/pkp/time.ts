@@ -62,3 +62,27 @@ export function normalizeApiTimestamp(value: string): string {
   const offsetMinutes = warsawOffsetMinutes(asIfUtc)
   return new Date(asIfUtc.getTime() - offsetMinutes * 60000).toISOString()
 }
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
+
+/** `dateStr` (yyyy-MM-dd) przesunięty o `days` dni. Czysta arytmetyka kalendarzowa w UTC-południe — bez ryzyka przesunięcia strefy przy zaokrąglaniu do doby. */
+function shiftDateString(dateStr: string, days: number): string {
+  const shifted = new Date(`${dateStr}T00:00:00Z`).getTime() + days * ONE_DAY_MS
+  return new Date(shifted).toISOString().slice(0, 10)
+}
+
+/**
+ * Składa planowy czas przystanku z `/schedules/route/...` (`operatingDate` +
+ * `arrivalTime`/`departureTime` w formacie HH:mm:ss, lokalnie warszawskie) na
+ * poprawny UTC ISO string. `dayOffset` (pole `arrivalDay`/`departureDay` z API)
+ * przesuwa datę, gdy przystanek wypada po północy względem dnia kursowania —
+ * bez tego pociąg jadący przez północ miałby planowy czas cofnięty o dobę.
+ *
+ * `time === null` (przystanek bez tej strony rozkładu, np. stacja końcowa bez
+ * odjazdu) zwraca `null` — nie ma czego składać.
+ */
+export function combineWarsawDateAndTime(operatingDate: string, time: string | null, dayOffset: number | null): string | null {
+  if (time === null) return null
+  const date = dayOffset && dayOffset !== 0 ? shiftDateString(operatingDate, dayOffset) : operatingDate
+  return normalizeApiTimestamp(`${date}T${time}`)
+}

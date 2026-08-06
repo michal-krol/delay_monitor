@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { PkpClient } from './client'
+import { PkpApiError, type PkpClient, type TrainDetailResult } from './client'
 import type { RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 import { matchesStationName, normalizeForSearch } from '../search'
+import { warsawDateString } from './time'
 
 const FIXTURES_DIR = path.join(process.cwd(), 'fixtures')
 const FIXTURE_ANCHOR = new Date('2026-08-01T12:00:00+02:00').getTime()
@@ -40,8 +41,15 @@ function shiftTimestamp(value: string | null, offsetMs: number): string | null {
 
 function rebaseTrains(trains: RawTrainOperation[], now: number): RawTrainOperation[] {
   const offsetMs = now - FIXTURE_ANCHOR
+  // operatingDate to kalendarzowa data kursowania (yyyy-MM-dd wg Warszawy), nie
+  // znacznik czasu — nie da się jej przesunąć o offsetMs jak plannedArrival itp.
+  // Fixture ma sztywną datę z sierpnia 2026, więc podmieniamy ją na dzisiejszą,
+  // żeby `/operations/train/{scheduleId}/{orderId}/{operatingDate}` w trybie
+  // mock zawsze dostawał wiarygodną datę.
+  const operatingDate = warsawDateString(new Date(now))
   return trains.map((train) => ({
     ...train,
+    operatingDate,
     stations: train.stations.map((stop) => ({
       ...stop,
       plannedArrival: shiftTimestamp(stop.plannedArrival, offsetMs),
@@ -106,6 +114,23 @@ export function createMockClient(): PkpClient {
       )
       const routes = schedules.routes.filter((route) => relevantTrainIds.has(`${route.scheduleId}-${route.orderId}`))
       return { routes, carrierNames: schedules.carrierNames, stationNames: schedules.stationNames }
+    },
+
+    async getTrainDetail(scheduleId: string, orderId: string, operatingDate: string): Promise<TrainDetailResult> {
+      const [operations, schedules] = await Promise.all([loadOperations(), loadSchedules()])
+      const match = operations.trains.find((train) => train.scheduleId === scheduleId && train.orderId === orderId)
+      if (!match) throw new PkpApiError('Nie znaleziono przejazdu', 404)
+
+      const [operation] = rebaseTrains([match], Date.now())
+      // Fixture ma zawsze dzisiejszą operatingDate (patrz rebaseTrains) — inna
+      // data znaczy nieaktualne żądanie, tak jak na żywo 404 dla nieistniejącego kursu.
+      if (operation.operatingDate !== operatingDate) throw new PkpApiError('Nie znaleziono przejazdu', 404)
+
+      const route = schedules.routes.find((r) => r.scheduleId === scheduleId && r.orderId === orderId) ?? null
+      // `operations.json` niesie słownik nazw dla wszystkich stacji użytych
+      // w fixture'ach (nie tylko tych 4 z stations-search.json, które są
+      // wyłącznie na potrzeby wyszukiwarki ulubionych) — to właściwe źródło.
+      return { operation, route, stationNames: operations.stations }
     },
   }
 }

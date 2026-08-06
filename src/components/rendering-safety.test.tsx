@@ -30,6 +30,9 @@ function snapshotWith(payload: string): BoardApiSnapshot {
     stationName: payload,
     departures: [
       {
+        scheduleId: '1',
+        orderId: '1',
+        operatingDate: '2026-08-01',
         trainNumber: payload,
         trainLabel: payload,
         carrier: payload,

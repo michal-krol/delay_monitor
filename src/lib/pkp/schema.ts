@@ -34,14 +34,19 @@ const rawOperationStationSchema = z
     arrivalDelayMinutes: z.number().nullable().optional().default(null),
     departureDelayMinutes: z.number().nullable().optional().default(null),
     isCancelled: z.boolean().optional().default(false),
+    /** Czy realizacja tego przystanku jest potwierdzona, czy to wciąż plan. Używane w panelu szczegółów połączenia. */
+    isConfirmed: z.boolean().optional().default(false),
   })
   .passthrough()
 
-const rawTrainOperationSchema = z
+/** Kształt jednego pociągu z `/operations` — ten sam co odpowiedź `/operations/train/{scheduleId}/{orderId}/{operatingDate}` (patrz `getTrainDetail` w `client.ts`). */
+export const rawTrainOperationSchema = z
   .object({
     scheduleId: z.coerce.string(),
     orderId: z.coerce.string(),
     trainOrderId: z.coerce.string().nullable().optional().default(null),
+    /** Data kursowania (yyyy-MM-dd) — wymagana przez `/operations/train/{scheduleId}/{orderId}/{operatingDate}`. */
+    operatingDate: z.string().nullable().optional().default(null),
     trainStatus: z.string().nullable().optional().default(null),
     stations: z
       .array(rawOperationStationSchema)
@@ -70,10 +75,23 @@ const rawRouteStopSchema = z
     arrivalTrack: z.string().nullable().optional().default(null),
     departurePlatform: z.string().nullable().optional().default(null),
     departureTrack: z.string().nullable().optional().default(null),
+    /**
+     * Planowy czas (HH:mm:ss, lokalny warszawski) — jedyne źródło planu dla
+     * pojedynczego przystanku. `/operations/train/{scheduleId}/{orderId}/{operatingDate}`
+     * (realizacja) nie niesie planowych czasów ani opóźnienia per przystanek,
+     * tylko faktyczne — stwierdzone bezpośrednio na żywym API, nie w dokumentacji.
+     * Patrz `buildTrainDetailStops` w `board/trainDetail.ts`.
+     */
+    arrivalTime: z.string().nullable().optional().default(null),
+    departureTime: z.string().nullable().optional().default(null),
+    /** Przesunięcie dnia względem `operatingDate`, gdy przystanek wypada po północy. `null`/brak = ten sam dzień. */
+    arrivalDay: z.number().int().nullable().optional().default(null),
+    departureDay: z.number().int().nullable().optional().default(null),
   })
   .passthrough()
 
-const rawRouteSchema = z
+/** Kształt jednej trasy z `/schedules` — ten sam co odpowiedź `/schedules/route/{scheduleId}/{orderId}` (patrz `getTrainDetail` w `client.ts`). */
+export const rawRouteSchema = z
   .object({
     scheduleId: z.coerce.string(),
     orderId: z.coerce.string(),

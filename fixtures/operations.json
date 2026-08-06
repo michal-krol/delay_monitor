@@ -1,55 +1,320 @@
 {
   "trains": [
     {
-      "scheduleId": "26",
+      "scheduleId": "2026",
       "orderId": "12345",
+      "trainOrderId": null,
+      "operatingDate": "2026-08-01",
+      "trainStatus": "P",
       "stations": [
         {
-          "stationId": "5100",
-          "plannedDeparture": "2026-08-01T12:15:00+02:00",
-          "actualDeparture": "2026-08-01T12:22:00+02:00",
-          "departureDelayMinutes": 7
+          "stationId": "7500",
+          "plannedDeparture": "2026-08-01T11:00:00+02:00",
+          "actualDeparture": "2026-08-01T11:00:00+02:00",
+          "isConfirmed": true
         },
         {
-          "stationId": "5136",
-          "plannedArrival": "2026-08-01T12:50:00+02:00"
+          "stationId": "7112",
+          "plannedArrival": "2026-08-01T11:20:00+02:00",
+          "actualArrival": "2026-08-01T11:20:00+02:00",
+          "plannedDeparture": "2026-08-01T11:22:00+02:00",
+          "actualDeparture": "2026-08-01T11:22:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "7872",
+          "plannedArrival": "2026-08-01T11:35:00+02:00",
+          "actualArrival": "2026-08-01T11:35:00+02:00",
+          "plannedDeparture": "2026-08-01T11:37:00+02:00",
+          "actualDeparture": "2026-08-01T11:37:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "21808",
+          "plannedArrival": "2026-08-01T12:00:00+02:00",
+          "actualArrival": "2026-08-01T12:04:00+02:00",
+          "plannedDeparture": "2026-08-01T12:02:00+02:00",
+          "actualDeparture": "2026-08-01T12:07:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "22442",
+          "plannedArrival": "2026-08-01T12:20:00+02:00",
+          "actualArrival": "2026-08-01T12:27:00+02:00",
+          "plannedDeparture": "2026-08-01T12:22:00+02:00",
+          "actualDeparture": "2026-08-01T12:30:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "38653",
+          "plannedArrival": "2026-08-01T13:10:00+02:00",
+          "actualArrival": "2026-08-01T13:20:00+02:00",
+          "plannedDeparture": "2026-08-01T13:12:00+02:00",
+          "actualDeparture": "2026-08-01T13:23:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "33605",
+          "plannedArrival": "2026-08-01T13:20:00+02:00",
+          "actualArrival": "2026-08-01T13:32:00+02:00",
+          "isConfirmed": true
         }
       ]
     },
     {
-      "scheduleId": "26",
+      "scheduleId": "2026",
       "orderId": "67890",
+      "trainOrderId": null,
+      "operatingDate": "2026-08-01",
+      "trainStatus": "X",
       "stations": [
         {
-          "stationId": "5100",
+          "stationId": "33605",
           "plannedDeparture": "2026-08-01T12:30:00+02:00",
           "isCancelled": true
         },
         {
-          "stationId": "5136",
-          "plannedArrival": "2026-08-01T13:40:00+02:00",
+          "stationId": "33506",
+          "plannedArrival": "2026-08-01T12:35:00+02:00",
+          "plannedDeparture": "2026-08-01T12:37:00+02:00",
+          "isCancelled": true
+        },
+        {
+          "stationId": "32201",
+          "plannedArrival": "2026-08-01T13:30:00+02:00",
           "isCancelled": true
         }
       ]
     },
     {
-      "scheduleId": "26",
+      "scheduleId": "2026",
       "orderId": "11111",
+      "trainOrderId": null,
+      "operatingDate": "2026-08-01",
+      "trainStatus": "P",
       "stations": [
         {
-          "stationId": "4900",
-          "plannedDeparture": "2026-08-01T11:00:00+02:00"
+          "stationId": "60103",
+          "plannedDeparture": "2026-08-01T11:00:00+02:00",
+          "actualDeparture": "2026-08-01T11:00:00+02:00",
+          "isConfirmed": true
         },
         {
-          "stationId": "5100",
-          "plannedArrival": "2026-08-01T12:05:00+02:00"
+          "stationId": "60608",
+          "plannedArrival": "2026-08-01T11:35:00+02:00",
+          "actualArrival": "2026-08-01T11:35:00+02:00",
+          "plannedDeparture": "2026-08-01T11:37:00+02:00",
+          "actualDeparture": "2026-08-01T11:37:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "62653",
+          "plannedArrival": "2026-08-01T12:25:00+02:00",
+          "actualArrival": "2026-08-01T12:25:00+02:00",
+          "plannedDeparture": "2026-08-01T12:27:00+02:00",
+          "actualDeparture": "2026-08-01T12:27:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "33506",
+          "plannedArrival": "2026-08-01T13:40:00+02:00",
+          "actualArrival": "2026-08-01T13:40:00+02:00",
+          "plannedDeparture": "2026-08-01T13:42:00+02:00",
+          "actualDeparture": "2026-08-01T13:42:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "33605",
+          "plannedArrival": "2026-08-01T13:50:00+02:00",
+          "actualArrival": "2026-08-01T13:50:00+02:00",
+          "isConfirmed": true
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "22222",
+      "trainOrderId": null,
+      "operatingDate": "2026-08-01",
+      "trainStatus": "P",
+      "stations": [
+        {
+          "stationId": "80416",
+          "plannedDeparture": "2026-08-01T10:30:00+02:00",
+          "actualDeparture": "2026-08-01T10:33:00+02:00",
+          "departureDelayMinutes": 3,
+          "isConfirmed": true
+        },
+        {
+          "stationId": "73312",
+          "plannedArrival": "2026-08-01T11:15:00+02:00",
+          "actualArrival": "2026-08-01T11:18:00+02:00",
+          "arrivalDelayMinutes": 3,
+          "plannedDeparture": "2026-08-01T11:17:00+02:00",
+          "actualDeparture": "2026-08-01T11:20:00+02:00",
+          "departureDelayMinutes": 3,
+          "isConfirmed": true
+        },
+        {
+          "stationId": "62653",
+          "plannedArrival": "2026-08-01T12:00:00+02:00",
+          "actualArrival": "2026-08-01T12:03:00+02:00",
+          "arrivalDelayMinutes": 3,
+          "plannedDeparture": "2026-08-01T12:02:00+02:00",
+          "actualDeparture": "2026-08-01T12:05:00+02:00",
+          "departureDelayMinutes": 3,
+          "isConfirmed": true
+        },
+        {
+          "stationId": "33605",
+          "plannedArrival": "2026-08-01T13:45:00+02:00",
+          "actualArrival": "2026-08-01T13:48:00+02:00",
+          "arrivalDelayMinutes": 3,
+          "isConfirmed": true
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "33333",
+      "trainOrderId": null,
+      "operatingDate": "2026-08-01",
+      "trainStatus": "S",
+      "stations": [
+        {
+          "stationId": "73312",
+          "plannedDeparture": "2026-08-01T12:50:00+02:00"
+        },
+        {
+          "stationId": "62653",
+          "plannedArrival": "2026-08-01T13:20:00+02:00",
+          "plannedDeparture": "2026-08-01T13:22:00+02:00"
+        },
+        {
+          "stationId": "80416",
+          "plannedArrival": "2026-08-01T14:00:00+02:00"
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "44444",
+      "trainOrderId": null,
+      "operatingDate": "2026-08-01",
+      "trainStatus": "P",
+      "stations": [
+        {
+          "stationId": "46458",
+          "plannedDeparture": "2026-08-01T11:40:00+02:00",
+          "actualDeparture": "2026-08-01T12:05:00+02:00",
+          "departureDelayMinutes": 25,
+          "isConfirmed": true
+        },
+        {
+          "stationId": "33506",
+          "plannedArrival": "2026-08-01T12:50:00+02:00",
+          "actualArrival": "2026-08-01T13:15:00+02:00",
+          "arrivalDelayMinutes": 25,
+          "plannedDeparture": "2026-08-01T12:52:00+02:00",
+          "actualDeparture": "2026-08-01T13:17:00+02:00",
+          "departureDelayMinutes": 25,
+          "isConfirmed": true
+        },
+        {
+          "stationId": "33605",
+          "plannedArrival": "2026-08-01T13:00:00+02:00",
+          "actualArrival": "2026-08-01T13:25:00+02:00",
+          "arrivalDelayMinutes": 25,
+          "isConfirmed": true
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "55555",
+      "trainOrderId": null,
+      "operatingDate": "2026-08-01",
+      "trainStatus": "C",
+      "stations": [
+        {
+          "stationId": "7500",
+          "plannedDeparture": "2026-08-01T12:10:00+02:00",
+          "actualDeparture": "2026-08-01T12:10:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "7112",
+          "plannedArrival": "2026-08-01T12:30:00+02:00",
+          "actualArrival": "2026-08-01T12:30:00+02:00",
+          "plannedDeparture": "2026-08-01T12:32:00+02:00",
+          "actualDeparture": "2026-08-01T12:32:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "7872",
+          "plannedArrival": "2026-08-01T12:50:00+02:00",
+          "actualArrival": "2026-08-01T12:50:00+02:00",
+          "isConfirmed": true
+        }
+      ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "66666",
+      "trainOrderId": null,
+      "operatingDate": "2026-08-01",
+      "trainStatus": "Q",
+      "stations": [
+        {
+          "stationId": "30601",
+          "plannedDeparture": "2026-08-01T11:50:00+02:00",
+          "actualDeparture": "2026-08-01T11:50:00+02:00",
+          "isConfirmed": true
+        },
+        {
+          "stationId": "18408",
+          "plannedArrival": "2026-08-01T12:35:00+02:00",
+          "plannedDeparture": "2026-08-01T12:37:00+02:00",
+          "isCancelled": true
+        },
+        {
+          "stationId": "19703",
+          "plannedArrival": "2026-08-01T13:05:00+02:00",
+          "actualArrival": "2026-08-01T13:10:00+02:00",
+          "arrivalDelayMinutes": 5,
+          "plannedDeparture": "2026-08-01T13:07:00+02:00",
+          "actualDeparture": "2026-08-01T13:12:00+02:00",
+          "departureDelayMinutes": 5,
+          "isConfirmed": true
+        },
+        {
+          "stationId": "33605",
+          "plannedArrival": "2026-08-01T14:30:00+02:00",
+          "actualArrival": "2026-08-01T14:35:00+02:00",
+          "arrivalDelayMinutes": 5,
+          "isConfirmed": true
         }
       ]
     }
   ],
   "stations": {
-    "5100": "Warszawa Centralna",
-    "5136": "Kraków Główny",
-    "4900": "Wrocław Główny"
+    "7112": "Tczew",
+    "7500": "Gdańsk Główny",
+    "7872": "Malbork",
+    "18408": "Bydgoszcz Główna",
+    "19703": "Toruń Główny",
+    "21808": "Iława Główna",
+    "22442": "Działdowo",
+    "30601": "Poznań Główny",
+    "32201": "Kutno",
+    "33506": "Warszawa Zachodnia",
+    "33605": "Warszawa Centralna",
+    "38653": "Warszawa Wschodnia",
+    "46458": "Łódź Fabryczna",
+    "60103": "Wrocław Główny",
+    "60608": "Opole Główne",
+    "62653": "Częstochowa",
+    "73312": "Katowice",
+    "80416": "Kraków Główny"
   }
 }
