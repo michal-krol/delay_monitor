@@ -15,6 +15,14 @@ export type TrainDetailStop = {
   isCancelled: boolean
   isConfirmed: boolean
   platform: string | null
+  /**
+   * Czy jakikolwiek wcześniejszy przystanek na tej trasie (wcześniejszy w
+   * `operation.stations`, czyli po kolejności przejazdu) miał już
+   * `isConfirmed: true` — pociąg więc wyjechał, nawet jeśli jeszcze nie
+   * dotarł do tego przystanku. Pozwala `resolveStopStatus` odróżnić "w
+   * trasie" od "jeszcze nie wyjechał w ogóle" (patrz `realization.ts`).
+   */
+  hasTrainStarted: boolean
 }
 
 function findRouteStop(route: RawRoute | null, stationId: string): RawRouteStop | undefined {
@@ -58,13 +66,19 @@ export function buildTrainDetailStops(
   route: RawRoute | null,
   stationNames: Record<string, string>
 ): TrainDetailStop[] {
+  // Akumulator "czy jakiś wcześniejszy przystanek już potwierdzony" -- czytany
+  // PRZED uwzględnieniem bieżącego przystanku, więc pierwszy potwierdzony
+  // przystanek na trasie sam dostaje `hasTrainStarted: false` (to on jest
+  // dowodem wyjazdu, nie dowodem, że coś wcześniej już się wydarzyło).
+  let hasTrainStarted = false
+
   return operation.stations.map((stop) => {
     const routeStop = findRouteStop(route, stop.stationId)
 
     const plannedArrival = resolvePlannedTime(stop.plannedArrival, operation.operatingDate, routeStop?.arrivalTime, routeStop?.arrivalDay)
     const plannedDeparture = resolvePlannedTime(stop.plannedDeparture, operation.operatingDate, routeStop?.departureTime, routeStop?.departureDay)
 
-    return {
+    const result: TrainDetailStop = {
       stationId: stop.stationId,
       stationName: stationNames[stop.stationId] ?? stop.stationId,
       plannedArrival,
@@ -81,6 +95,10 @@ export function buildTrainDetailStops(
         routeStop?.departurePlatform ?? routeStop?.arrivalPlatform,
         routeStop?.departureTrack ?? routeStop?.arrivalTrack
       ),
+      hasTrainStarted,
     }
+
+    if (stop.isConfirmed) hasTrainStarted = true
+    return result
   })
 }

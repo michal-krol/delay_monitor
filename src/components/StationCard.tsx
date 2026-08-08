@@ -19,10 +19,13 @@ type Props = {
 }
 
 export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand, onRemove }: Props) {
-  // `Date.now()` nie może być wywołane bezpośrednio w renderze (impure). Zamiast
-  // tykającego zegara — świadomie, appka już nie pokazuje relatywnego wieku —
-  // odświeżamy „teraz" przy każdej nowej porcji danych (nowy `snapshot`).
-  const [now, setNow] = useState(0)
+  // `Date.now()` w leniwym inicjalizatorze `useState` woła się raz, przy
+  // montowaniu — bez tranzjentnego `now === 0` na pierwszym renderze, przez
+  // który filtr niżej na chwilę przepuszczał każdy wiersz, łącznie z tymi,
+  // które faktycznie już się wydarzyły. Świadomie bez tykającego zegara —
+  // appka już nie pokazuje relatywnego wieku — odświeżamy „teraz" tylko przy
+  // każdej nowej porcji danych (nowy `snapshot`).
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Date.now() jest impure i nie może być wołane w renderze; efekt odświeża "teraz" tylko gdy przyjdzie nowy snapshot, nie w pętli
     setNow(Date.now())

@@ -15,15 +15,24 @@
  * jest jedynym wiarygodnym sygnałem i działa dla każdego `trainStatus`
  * (`S`, `Q`, `P`, ...), nie tylko dla całopociągowego `S`.
  */
-export type RealizationStatus = 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
+export type RealizationStatus = 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted' | 'enRoute'
 
 export function resolveStopStatus(params: {
   isCancelled: boolean
   isConfirmed: boolean
   delayMinutes: number | null
+  /**
+   * Czy pociąg minął już (potwierdzony) jakiś wcześniejszy przystanek na
+   * trasie, mimo że ten konkretny jeszcze nie jest potwierdzony. Domyślnie
+   * `false` — `board/transform.ts` nie ma widoczności na przystanki spoza
+   * zapytanej stacji (patrz `client.ts`, `fullRoutes`), więc dla tablicy ten
+   * przypadek zawsze wychodzi jako `notStarted`, tak jak dziś. Tylko
+   * `board/trainDetail.ts`, który zna pełną trasę pociągu, przekazuje `true`.
+   */
+  hasTrainStarted?: boolean
 }): RealizationStatus {
   if (params.isCancelled) return 'cancelled'
-  if (!params.isConfirmed) return 'notStarted'
+  if (!params.isConfirmed) return params.hasTrainStarted ? 'enRoute' : 'notStarted'
   if (params.delayMinutes === null) return 'unknown'
   return params.delayMinutes >= 1 ? 'delayed' : 'onTime'
 }

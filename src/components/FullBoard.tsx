@@ -278,7 +278,11 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                         </td>
                         <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.platform ?? '—'}</td>
                         <td className="py-2.5 pr-3">
-                          <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
+                          <DelayBadge
+                            status={row.status}
+                            delayMinutes={row.delayMinutes}
+                            direction={direction === 'arrivals' ? 'arrival' : 'departure'}
+                          />
                         </td>
                       </tr>
                     )

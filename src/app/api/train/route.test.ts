@@ -92,6 +92,7 @@ describe('GET /api/train', () => {
         isCancelled: false,
         isConfirmed: true,
         platform: '4/2',
+        hasTrainStarted: false,
       },
     ])
   })
