@@ -128,12 +128,17 @@ function buildRow(
   route: RawRoute | undefined,
   platform: string | null,
   carrierNames: Record<string, string>,
-  hasTrainStarted: boolean,
+  hasTrainStartedFromTrainStatus: boolean,
   upstreamStop: RawOperationStation | undefined
 ): BoardRow {
   const delayMinutes = resolveDelayMinutes(apiDelay, isConfirmed, plannedAt, actualAt)
   const category = route?.commercialCategorySymbol ?? ''
   const carrier = route?.carrierCode ?? ''
+  // trainStatus bywa `S` nawet dla pociągu jadącego od godzin (inny
+  // scheduleId/orderId per odcinek trasy) -- potwierdzony poprzedni
+  // przystanek jest silniejszym dowodem "już wyjechał" niż samo trainStatus.
+  const upstreamConfirmed = upstreamStop !== undefined && !upstreamStop.isCancelled && upstreamStop.isConfirmed
+  const hasTrainStarted = hasTrainStartedFromTrainStatus || upstreamConfirmed
   const status = resolveStopStatus({ isCancelled: cancelled, isConfirmed, delayMinutes, hasTrainStarted })
   return {
     scheduleId,

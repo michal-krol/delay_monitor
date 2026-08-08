@@ -1,5 +1,4 @@
 import type { RawOperationStation, RawRoute, RawTrainOperation } from '../pkp/types'
-import { hasTrainStartedFromStatus } from './realization'
 import { routeKey } from './routeKey'
 
 /**
@@ -50,9 +49,19 @@ export function findPrecedingStationId(route: RawRoute | undefined, stationId: s
   return route.stations[idx - 1].stationId
 }
 
-/** Czy ten przystanek jest kandydatem do estymaty -- dokładnie te same dwa warunki co gałąź `enRoute` w `resolveStopStatus()`. */
-function isEnRouteCandidate(stop: RawOperationStation, trainStatus: string | null): boolean {
-  return !stop.isCancelled && !stop.isConfirmed && hasTrainStartedFromStatus(trainStatus)
+/**
+ * Czy ten przystanek jest kandydatem do estymaty. Świadomie BEZ
+ * `hasTrainStartedFromStatus(trainStatus)` -- to pole bywa `S` (nie
+ * wyjechał) nawet dla pociągu jadącego od godzin (np. inny scheduleId/orderId
+ * per odcinek trasy), więc użycie go jako bramki tutaj kasowałoby szansę na
+ * odkrycie, że poprzedni przystanek jest już potwierdzony. `isConfirmed` per
+ * przystanek jest jedynym w pełni zaufanym sygnałem (AGENTS.md #2) -- więc
+ * pytamy o stację poprzednią zawsze, gdy jest co najmniej jedna wcześniejsza
+ * na trasie (patrz `findPrecedingStationId` w wywołującym), a `trainStatus`
+ * zostaje tylko jako tańszy, dodatkowy sygnał w `transform.ts`.
+ */
+function isEnRouteCandidate(stop: RawOperationStation): boolean {
+  return !stop.isCancelled && !stop.isConfirmed
 }
 
 type Candidate = { upstreamStationId: string; plannedAt: string }
@@ -89,7 +98,7 @@ export function collectUpstreamCandidates(
 
     for (const train of trains) {
       const stop = train.stations.find((s) => s.stationId === stationId)
-      if (!stop || !isEnRouteCandidate(stop, train.trainStatus)) continue
+      if (!stop || !isEnRouteCandidate(stop)) continue
 
       const route = routesByTrainId.get(routeKey(train.scheduleId, train.orderId, train.trainOrderId))
       const upstreamStationId = findPrecedingStationId(route, stationId)

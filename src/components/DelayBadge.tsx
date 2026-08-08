@@ -50,7 +50,9 @@ const STYLES: Record<RealizationStatus, string> = {
 export function DelayBadge({ status, delayMinutes, direction = 'departure', estimatedDelayMinutes = null }: Props) {
   const hasEstimate = status === 'enRoute' && estimatedDelayMinutes !== null
   const text = hasEstimate
-    ? `w trasie, ~+${estimatedDelayMinutes} min`
+    ? estimatedDelayMinutes >= 1
+      ? `w trasie, ~+${estimatedDelayMinutes} min`
+      : 'w trasie, punktualnie'
     : status === 'delayed'
       ? `+${delayMinutes} min`
       : status === 'notStarted' && direction === 'arrival'

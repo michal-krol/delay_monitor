@@ -112,11 +112,16 @@ describe('collectUpstreamCandidates', () => {
     expect(collectUpstreamCandidates(['B'], trains, routes)).toEqual(new Set())
   })
 
-  it('ignores a train that has not started yet (trainStatus S), even if unconfirmed', () => {
+  it('still checks upstream even when trainStatus is S -- it can be stale/differently-scoped for a train that has genuinely started elsewhere', () => {
+    // Np. MEDUZA (Kołobrzeg->Warszawa->Kraków): odcinek za Warszawą bywa
+    // osobnym scheduleId/orderId z własnym trainStatus 'S', mimo że pociąg
+    // fizycznie jedzie od godzin. isConfirmed przystanku poprzedniego jest
+    // jedynym w pełni zaufanym dowodem (AGENTS.md #2) -- trainStatus nie
+    // powinien blokować samo ZAPYTANIE o niego.
     const trains = [train('1', '1', [stop({ stationId: 'B', plannedDeparture: '2026-08-01T12:00:00Z' })], 'S')]
     const routes = routesMap(route('1', '1', ['A', 'B', 'C']))
 
-    expect(collectUpstreamCandidates(['B'], trains, routes)).toEqual(new Set())
+    expect(collectUpstreamCandidates(['B'], trains, routes)).toEqual(new Set(['A']))
   })
 
   it('skips a stop with no matched route -- nothing to walk back on', () => {

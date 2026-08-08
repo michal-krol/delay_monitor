@@ -173,6 +173,56 @@ describe('transformOperations', () => {
       expect(snapshot.departures[0].estimatedDelayMinutes).toBe(30)
     })
 
+    it('is enRoute with an estimate even when trainStatus is S -- a confirmed upstream stop is stronger proof than trainStatus', () => {
+      // MEDUZA (Kołobrzeg->Warszawa->Kraków): trainStatus 'S' na tym odcinku
+      // nie znaczy "pociąg nie jedzie" -- Bydgoszcz Leśna już potwierdzona
+      // udowadnia, że wyjechał, niezależnie od tego, co mówi trainStatus.
+      const trains = [
+        train(
+          '25',
+          '1',
+          [
+            stop({
+              stationId: 'upstream',
+              plannedDeparture: '2026-08-01T11:30:00+02:00',
+              actualDeparture: '2026-08-01T12:00:00+02:00',
+              isConfirmed: true,
+            }),
+            stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00', isConfirmed: false }),
+          ],
+          null,
+          'S'
+        ),
+      ]
+      const routes = new Map<string, RawRoute>([
+        ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
+      ])
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      expect(snapshot.departures[0].status).toBe('enRoute')
+      expect(snapshot.departures[0].estimatedDelayMinutes).toBe(30)
+    })
+
+    it('stays notStarted when trainStatus is S and the upstream stop is also unconfirmed -- genuinely has not started anywhere', () => {
+      const trains = [
+        train(
+          '25',
+          '1',
+          [
+            stop({ stationId: 'upstream', plannedDeparture: '2026-08-01T11:30:00+02:00', isConfirmed: false }),
+            stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00', isConfirmed: false }),
+          ],
+          null,
+          'S'
+        ),
+      ]
+      const routes = new Map<string, RawRoute>([
+        ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
+      ])
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      expect(snapshot.departures[0].status).toBe('notStarted')
+      expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
+    })
+
     it('is null when the preceding stop was not included in this fetch (aux station not tracked yet)', () => {
       const trains = [
         train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00', isConfirmed: false })], null, 'P'),

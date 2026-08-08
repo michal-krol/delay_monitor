@@ -86,6 +86,16 @@ describe('DelayBadge', () => {
     expect(badge.getAttribute('title')).toMatch(/potwierdzonej stacji/i)
   })
 
+  it('enRoute z estymatą 0 (lub ujemną) pokazuje "punktualnie", nie mylące "~+0 min"', () => {
+    const { unmount: unmount1 } = render(<DelayBadge status="enRoute" delayMinutes={null} estimatedDelayMinutes={0} />)
+    expect(screen.getByText('w trasie, punktualnie')).toHaveAttribute('title')
+    unmount1()
+
+    const { unmount: unmount2 } = render(<DelayBadge status="enRoute" delayMinutes={null} estimatedDelayMinutes={-2} />)
+    expect(screen.getByText('w trasie, punktualnie')).toBeInTheDocument()
+    unmount2()
+  })
+
   it('enRoute bez estymaty (domyślnie albo jawne null) wygląda jak dziś -- samo "w trasie", bez tooltipa', () => {
     const { unmount: unmount1 } = render(<DelayBadge status="enRoute" delayMinutes={null} />)
     const badge1 = screen.getByText('w trasie')
