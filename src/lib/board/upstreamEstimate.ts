@@ -4,21 +4,32 @@ import { routeKey } from './routeKey'
 
 /**
  * Ile najbliższych "w trasie" połączeń per stacja per kierunek dostaje
- * estymatę opóźnienia — tyle samo, ile dashboard i tak pokazuje jako
- * pierwsze (patrz `StationCard.tsx`, `.slice(0, 3)`). Ograniczone świadomie:
- * to jest liczba dodatkowych stacji "pomocniczych" dokładanych do TEGO
- * SAMEGO zapytania `/operations`, więc rozmiar odpowiedzi rośnie liniowo
- * z tą liczbą, nie eksploduje jak `fullRoutes=true` (patrz `client.ts`).
+ * estymatę opóźnienia — dobrane pod NAJSZERSZY widok, w którym się to
+ * pokazuje: pełną tablicę stacji (`FullBoard.tsx`), pokazującą do
+ * `MAX_ROWS` (`transform.ts`) połączeń w przód. Kafelek dashboardu
+ * (`StationCard.tsx`, `.slice(0, 3)`) i tak pokazuje tylko podzbiór tych
+ * samych, najbliższych połączeń, więc nic na tym nie traci przy węższym
+ * limicie — ale odwrotnie (limit dobrany pod kafelek) zostawiał większość
+ * połączeń widocznych na pełnej tablicy bez żadnej szansy na estymatę,
+ * niezależnie od tego, jak długo by się czekało (zaobserwowane na żywo:
+ * Warszawa Zachodnia, 5 połączeń "w trasie" widocznych, tylko 3 miały w
+ * ogóle szansę na liczbę). Ograniczone świadomie: to jest liczba
+ * dodatkowych stacji "pomocniczych" dokładanych do TEGO SAMEGO zapytania
+ * `/operations`, więc rozmiar odpowiedzi rośnie liniowo z tą liczbą, nie
+ * eksploduje jak `fullRoutes=true` (patrz `client.ts`).
  */
-export const UPSTREAM_CANDIDATE_LIMIT = 3
+export const UPSTREAM_CANDIDATE_LIMIT = 10
 
 /**
  * Twardy sufit łącznej liczby stacji pomocniczych na cykl, niezależny od
  * tego, ile stacji jest akurat obserwowanych naraz — zabezpieczenie przed
  * patologicznym wzrostem (dużo ulubionych stacji × dużo pociągów "w trasie"
- * jednocześnie), nie normalny tryb pracy.
+ * jednocześnie), nie normalny tryb pracy. Podniesiony razem z
+ * `UPSTREAM_CANDIDATE_LIMIT` (10 zamiast 3 na kierunek) — jedna obserwowana
+ * stacja to teraz do 20 stacji pomocniczych zamiast 6, więc dwie stacje
+ * naraz już zbliżałyby się do starego sufitu 40.
  */
-export const MAX_AUX_STATIONS = 40
+export const MAX_AUX_STATIONS = 80
 
 /**
  * Stacja bezpośrednio PRZED `stationId` na trasie `route` — źródło danych do

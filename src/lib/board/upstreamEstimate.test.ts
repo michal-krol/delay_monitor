@@ -155,7 +155,8 @@ describe('collectUpstreamCandidates', () => {
 
     expect(result.size).toBe(UPSTREAM_CANDIDATE_LIMIT)
     // Najbliższe w czasie (najmniejsze i) wygrywają.
-    expect(result).toEqual(new Set(['upstream-0', 'upstream-1', 'upstream-2']))
+    const expected = Array.from({ length: UPSTREAM_CANDIDATE_LIMIT }, (_, i) => `upstream-${i}`)
+    expect(result).toEqual(new Set(expected))
   })
 
   it('tracks departures and arrivals independently -- both can contribute up to the limit', () => {
