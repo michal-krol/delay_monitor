@@ -25,21 +25,32 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
   Escape). Ignoruje polskie znaki, więc „wroclaw" znajduje „Wrocław Główny".
   Rozróżnia „szukam", „brak stacji o tej nazwie" i „nie udało się pobrać
   listy" — nie chowa awarii pod pustą listą.
-- **Pełna tablica stacyjna** — do 20 najbliższych pozycji w oknie od 5 minut
-  wstecz do 2 godzin naprzód, przełącznik odjazdy/przyjazdy, kolumny: pociąg,
-  przewoźnik, kierunek, planowo, peron, status. Połączenia sprzed maksymalnie
-  5 minut są nadal widoczne, ale wizualnie przygaszone (plakietka statusu
-  zostaje w pełnym kolorze). Kolumna „Przewoźnik" na wąskim ekranie (poniżej
-  `sm`) pokazuje sam kod (np. „IC"), od `sm` wzwyż pełną nazwę. Dodawanie/
-  usuwanie z ulubionych jednym kliknięciem.
+- **Pełna tablica stacyjna** — do 10 najbliższych pozycji w oknie od 5 minut
+  wstecz do 1 godziny naprzód (który warunek pierwszy), przełącznik odjazdy/
+  przyjazdy, kolumny: pociąg, przewoźnik, kierunek, planowo, peron, status.
+  Połączenia sprzed maksymalnie 5 minut są nadal widoczne, ale wizualnie
+  przygaszone (plakietka statusu zostaje w pełnym kolorze). Kolumna
+  „Przewoźnik" na wąskim ekranie (poniżej `sm`) pokazuje sam kod (np. „IC"),
+  od `sm` wzwyż pełną nazwę. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
 - **Przewoźnik i kategoria** — dociągane z `/api/v1/schedules` (cache 24 h)
   i łączone z realizacją po `trainOrderId` (z fallbackiem na `orderId`,
   patrz `routeKey()` w `board/transform.ts`). Pełna nazwa przewoźnika
   pochodzi ze słownika `dictionaries.carriers` dołączonego do tej samej
   odpowiedzi — bez dodatkowego zapytania. Dla sześciu kodów (IC, KM, SKM,
   ŁKA, Leo Express/LEO, PR) pokazujemy też logo, dla reszty samą nazwę.
-- **Status opóźnienia** — `onTime` / `delayed` / `cancelled` / `unknown`,
-  zawsze opisany tekstem (np. „+12 min"), nigdy samym kolorem.
+- **Status opóźnienia** — `onTime` / `delayed` / `cancelled` / `unknown` /
+  `notStarted` / `enRoute`, zawsze opisany tekstem (np. „+12 min"), nigdy
+  samym kolorem. `notStarted` brzmi inaczej dla odjazdu ("jeszcze nie
+  wyjechał") niż dla przyjazdu ("jeszcze nie przyjechał"). `enRoute` ("w
+  trasie") to pociąg, który już ruszył gdzieś na trasie (wolny sygnał z
+  całopociągowego `trainStatus`), ale nie dotarł jeszcze tutaj — gdy da się
+  to policzyć, dostaje też szacunek opóźnienia ze stacji bezpośrednio przed
+  ("w trasie, ~+30 min", z zastrzeżeniem w tooltipie, że to estymata, nie
+  potwierdzony fakt). Estymata liczona jest niemal bez dodatkowego kosztu:
+  poller dokłada do tego samego zapytania `/operations` pojedynczą stację
+  poprzednią dla najbliższych połączeń „w trasie" (patrz
+  `src/lib/board/upstreamEstimate.ts`), zamiast włączać kosztowne
+  `fullRoutes=true` dla wszystkich pociągów.
 - **Tryb jasny/ciemny** — domyślnie wg preferencji systemowej, przez
   `next-themes`, bez mignięcia przy ładowaniu; ręczny przełącznik obok nazwy
   aplikacji pozwala nadpisać wybór systemu.

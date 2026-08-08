@@ -92,7 +92,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
                     zawsze za długa i nieczytelna. Sam skrót, bez przełączania breakpointem. */}
                 <span className="truncate">{row.carrier || 'Nieznany przewoźnik'}</span>
               </span>
-              <DelayBadge status={row.status} delayMinutes={row.delayMinutes} />
+              <DelayBadge status={row.status} delayMinutes={row.delayMinutes} estimatedDelayMinutes={row.estimatedDelayMinutes} />
             </div>
             <div className="mt-0.5 text-gray-500 dark:text-gray-400">
               <span className="tabular-nums">

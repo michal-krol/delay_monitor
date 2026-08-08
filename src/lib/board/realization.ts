@@ -22,12 +22,14 @@ export function resolveStopStatus(params: {
   isConfirmed: boolean
   delayMinutes: number | null
   /**
-   * Czy pociąg minął już (potwierdzony) jakiś wcześniejszy przystanek na
-   * trasie, mimo że ten konkretny jeszcze nie jest potwierdzony. Domyślnie
-   * `false` — `board/transform.ts` nie ma widoczności na przystanki spoza
-   * zapytanej stacji (patrz `client.ts`, `fullRoutes`), więc dla tablicy ten
-   * przypadek zawsze wychodzi jako `notStarted`, tak jak dziś. Tylko
-   * `board/trainDetail.ts`, który zna pełną trasę pociągu, przekazuje `true`.
+   * Czy pociąg już ruszył w trasę, mimo że ten konkretny przystanek jeszcze
+   * nie jest potwierdzony. Domyślnie `false`. Dwa niezależne źródła tego
+   * sygnału, w zależności od tego, co widzi wywołujący:
+   * `board/trainDetail.ts` zna pełną trasę pociągu i przekazuje `true`, gdy
+   * jakikolwiek wcześniejszy przystanek jest potwierdzony; `board/transform.ts`
+   * nie ma tej widoczności (patrz `client.ts`, `fullRoutes`), więc korzysta
+   * z `hasTrainStartedFromStatus()` niżej — całopociągowego `trainStatus`,
+   * który i tak przychodzi za darmo w każdej odpowiedzi `/operations`.
    */
   hasTrainStarted?: boolean
 }): RealizationStatus {
@@ -35,6 +37,27 @@ export function resolveStopStatus(params: {
   if (!params.isConfirmed) return params.hasTrainStarted ? 'enRoute' : 'notStarted'
   if (params.delayMinutes === null) return 'unknown'
   return params.delayMinutes >= 1 ? 'delayed' : 'onTime'
+}
+
+/**
+ * Czy pociąg jako całość już wyjechał z pierwszego przystanku swojej trasy —
+ * wyłącznie do pytania „czy w ogóle ruszył", NIE do pytania „czy TEN
+ * przystanek się wydarzył" (do tego służy `isConfirmed`, per przystanek —
+ * patrz nagłówek pliku i `resolveStopStatus`). To rozróżnienie ma znaczenie:
+ * `trainStatus` bywa nieaktualny albo mylący na poziomie pojedynczego
+ * przystanku (stąd ten sam `trainStatus: 'S'` obserwowany razem z
+ * `actualDeparture` będącym kopią planu — patrz nagłówek pliku), ale na
+ * poziomie całego pociągu `P`/`C` wiarygodnie znaczy „coś na tej trasie już
+ * się potwierdziło, gdzieś".
+ *
+ * Świadomie BEZ `Q` (PartialCancelled): częściowe odwołanie może być znane
+ * z góry, zanim pociąg w ogóle wyjechał z pierwszego przystanku — w
+ * przeciwieństwie do `P`, samo `Q` nie dowodzi, że cokolwiek już się
+ * wydarzyło (patrz `transform.test.ts`, przypadek Q + niepotwierdzony
+ * przystanek).
+ */
+export function hasTrainStartedFromStatus(trainStatus: string | null): boolean {
+  return trainStatus === 'P' || trainStatus === 'C'
 }
 
 /**
