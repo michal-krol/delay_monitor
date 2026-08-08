@@ -42,6 +42,14 @@ per pociąg (`trainStatus`). Cała logika „czy to się już wydarzyło i o ile
 jest opóźnione" żyje w jednym miejscu — `src/lib/board/realization.ts`
 (`resolveStopStatus`, `resolveDelayMinutes`) — używanym zarówno przez tablicę
 (`board/transform.ts`), jak i panel szczegółów połączenia (`board/trainDetail.ts`,
+
+**Wyjątek, żeby nie przeoczyć przy czytaniu kodu:** `hasTrainStartedFromStatus()`
+w tym samym pliku *świadomie* czyta `trainStatus` (`P`/`C`) — ale wyłącznie do
+pytania „czy pociąg jako całość gdzieś już ruszył", żeby na tablicy zamiast
+mylącego „jeszcze nie wyjechał" pokazać „w trasie" dla pociągu, który już jedzie,
+tylko jeszcze nie dotarł do obserwowanej stacji. To nie jest per-przystankowe
+pytanie „czy TEN przystanek się wydarzył" (do tego nadal wyłącznie `isConfirmed`)
+i nie zmienia sposobu liczenia opóźnienia — nie łam tego rozróżnienia.
 `ConnectionDetails.tsx`). Nie duplikuj tej logiki w nowym miejscu — to właśnie
 przez dwie niezależne implementacje ten błąd raz już się rozjechał między
 tablicą a panelem szczegółów.
