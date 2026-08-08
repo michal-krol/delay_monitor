@@ -115,17 +115,34 @@ function buildRow(
   }
 }
 
-function withinWindow(plannedAt: string, now: Date): boolean {
+function isPast(plannedAt: string, now: Date): boolean {
   const plannedMs = new Date(plannedAt).getTime()
   const nowMs = now.getTime()
-  return plannedMs >= nowMs - LOOKBACK_WINDOW_MS && plannedMs <= nowMs + VISIBLE_WINDOW_MS
+  return plannedMs < nowMs && plannedMs >= nowMs - LOOKBACK_WINDOW_MS
 }
 
+function isUpcoming(plannedAt: string, now: Date): boolean {
+  const plannedMs = new Date(plannedAt).getTime()
+  const nowMs = now.getTime()
+  return plannedMs >= nowMs && plannedMs <= nowMs + VISIBLE_WINDOW_MS
+}
+
+function byPlannedAt(a: BoardRow, b: BoardRow): number {
+  return new Date(a.plannedAt).getTime() - new Date(b.plannedAt).getTime()
+}
+
+/**
+ * Przeszłość (do 5 min wstecz) i przyszłość (do 20 połączeń, max 2h w przód)
+ * mają osobne budżety, nie jeden wspólny limit — inaczej garstka właśnie
+ * minionych połączeń zajmowałaby miejsce należne nadchodzącym w limicie 20.
+ */
 function sortAndTrim(rows: BoardRow[], now: Date): BoardRow[] {
-  return rows
-    .filter((row) => withinWindow(row.plannedAt, now))
-    .sort((a, b) => new Date(a.plannedAt).getTime() - new Date(b.plannedAt).getTime())
+  const past = rows.filter((row) => isPast(row.plannedAt, now)).sort(byPlannedAt)
+  const upcoming = rows
+    .filter((row) => isUpcoming(row.plannedAt, now))
+    .sort(byPlannedAt)
     .slice(0, MAX_ROWS)
+  return [...past, ...upcoming]
 }
 
 function resolveStationName(stationId: string, stationNames: Record<string, string>): string {

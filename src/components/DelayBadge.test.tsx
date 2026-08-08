@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { DelayBadge } from './DelayBadge'
 
-const STATUSES = ['onTime', 'delayed', 'cancelled', 'unknown'] as const
+const STATUSES = ['onTime', 'delayed', 'cancelled', 'unknown', 'notStarted', 'enRoute'] as const
 
 describe('DelayBadge', () => {
   it('opisuje każdy status tekstem, nigdy samym kolorem', () => {
@@ -28,6 +28,8 @@ describe('DelayBadge', () => {
       onTime: 'punktualnie',
       cancelled: 'odwołany',
       unknown: 'brak danych',
+      notStarted: 'jeszcze nie wyjechał',
+      enRoute: 'w trasie',
     }
 
     for (const [status, label] of Object.entries(expected)) {
@@ -39,10 +41,40 @@ describe('DelayBadge', () => {
 
   it('nie pokazuje minut przy statusach, w których nie mają sensu', () => {
     // Odwołany pociąg z "+5 min" bylby mylacy — opoznienie dotyczy tylko delayed.
-    for (const status of ['onTime', 'cancelled', 'unknown'] as const) {
+    for (const status of ['onTime', 'cancelled', 'unknown', 'notStarted', 'enRoute'] as const) {
       const { container, unmount } = render(<DelayBadge status={status} delayMinutes={5} />)
       expect(container.textContent, `status ${status}`).not.toContain('5 min')
       unmount()
+    }
+  })
+
+  it('notStarted brzmi jak odjazd domyślnie, i jak przyjazd, gdy direction="arrival"', () => {
+    const { unmount: unmount1 } = render(<DelayBadge status="notStarted" delayMinutes={null} />)
+    expect(screen.getByText('jeszcze nie wyjechał')).toBeInTheDocument()
+    unmount1()
+
+    const { unmount: unmount2 } = render(<DelayBadge status="notStarted" delayMinutes={null} direction="departure" />)
+    expect(screen.getByText('jeszcze nie wyjechał')).toBeInTheDocument()
+    unmount2()
+
+    const { unmount: unmount3 } = render(<DelayBadge status="notStarted" delayMinutes={null} direction="arrival" />)
+    expect(screen.getByText('jeszcze nie przyjechał')).toBeInTheDocument()
+    unmount3()
+  })
+
+  it('direction nie zmienia brzmienia statusów innych niż notStarted', () => {
+    for (const status of ['onTime', 'delayed', 'cancelled', 'unknown', 'enRoute'] as const) {
+      const { unmount: unmountDeparture, container: departureContainer } = render(
+        <DelayBadge status={status} delayMinutes={5} direction="departure" />
+      )
+      const departureText = departureContainer.textContent
+      unmountDeparture()
+
+      const { unmount: unmountArrival, container: arrivalContainer } = render(
+        <DelayBadge status={status} delayMinutes={5} direction="arrival" />
+      )
+      expect(arrivalContainer.textContent, `status ${status}`).toBe(departureText)
+      unmountArrival()
     }
   })
 

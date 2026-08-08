@@ -32,6 +32,28 @@ describe('resolveStopStatus', () => {
     expect(resolveStopStatus({ isCancelled: false, isConfirmed: true, delayMinutes: 1 })).toBe('delayed')
     expect(resolveStopStatus({ isCancelled: false, isConfirmed: true, delayMinutes: 25 })).toBe('delayed')
   })
+
+  it('an unconfirmed stop defaults to notStarted when hasTrainStarted is omitted', () => {
+    expect(resolveStopStatus({ isCancelled: false, isConfirmed: false, delayMinutes: null })).toBe('notStarted')
+  })
+
+  it('an unconfirmed stop is enRoute when the train already left an earlier stop', () => {
+    expect(
+      resolveStopStatus({ isCancelled: false, isConfirmed: false, delayMinutes: null, hasTrainStarted: true })
+    ).toBe('enRoute')
+  })
+
+  it('an unconfirmed stop stays notStarted when hasTrainStarted is explicitly false', () => {
+    expect(
+      resolveStopStatus({ isCancelled: false, isConfirmed: false, delayMinutes: null, hasTrainStarted: false })
+    ).toBe('notStarted')
+  })
+
+  it('cancelled wins over hasTrainStarted too', () => {
+    expect(
+      resolveStopStatus({ isCancelled: true, isConfirmed: false, delayMinutes: null, hasTrainStarted: true })
+    ).toBe('cancelled')
+  })
 })
 
 describe('resolveDelayMinutes', () => {

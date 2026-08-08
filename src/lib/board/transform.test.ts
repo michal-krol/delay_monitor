@@ -329,6 +329,27 @@ describe('transformOperations', () => {
     expect(snapshot.departures).toHaveLength(0)
   })
 
+  it('gives past and upcoming connections independent budgets -- past ones do not eat into the 20-upcoming cap', () => {
+    const pastTrains = Array.from({ length: 3 }, (_, i) =>
+      train(`past-${i}`, '1', [
+        stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() - (i + 1) * 60000).toISOString() }),
+      ])
+    )
+    const futureTrains = Array.from({ length: 25 }, (_, i) =>
+      train(`future-${i}`, '1', [
+        stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() + (i + 1) * 60000).toISOString() }),
+      ])
+    )
+    const snapshot = transformOperations('5100', 'X', [...pastTrains, ...futureTrains], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+
+    // 3 przeszłe (bez limitu liczbowego, tylko okno 5 min) + 20 nadchodzących
+    // (limit), a nie 20 łącznie z przeszłymi zajmującymi część tego limitu.
+    expect(snapshot.departures).toHaveLength(23)
+    // Rosnąco po czasie -- najdawniej miniony (past-2, 3 min wstecz) pierwszy.
+    expect(snapshot.departures.slice(0, 3).map((row) => row.trainNumber)).toEqual(['past-2-1', 'past-1-1', 'past-0-1'])
+    expect(snapshot.departures.slice(3)).toHaveLength(20)
+  })
+
   it('excludes departures more than 2 hours in the future', () => {
     const trains = [
       train('25', '1', [

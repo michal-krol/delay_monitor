@@ -3,20 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { DelayBadge } from './DelayBadge'
 import { resolveStopStatus } from '@/lib/board/realization'
-
-type TrainDetailApiStop = {
-  stationId: string
-  stationName: string
-  plannedArrival: string | null
-  actualArrival: string | null
-  arrivalDelayMinutes: number | null
-  plannedDeparture: string | null
-  actualDeparture: string | null
-  departureDelayMinutes: number | null
-  isCancelled: boolean
-  isConfirmed: boolean
-  platform: string | null
-}
+import type { TrainDetailStop } from '@/lib/board/trainDetail'
 
 type TrainDetailApiResponse = {
   scheduleId: string
@@ -26,7 +13,7 @@ type TrainDetailApiResponse = {
   carrierCode: string | null
   category: string | null
   routeName: string | null
-  stops: TrainDetailApiStop[]
+  stops: TrainDetailStop[]
 }
 
 type Props = {
@@ -46,7 +33,7 @@ type Status = 'loading' | 'error' | 'ready'
  * wydarzyło" idzie do współdzielonego `resolveStopStatus` — ta sama funkcja
  * co w `board/transform.ts`, żeby te dwa widoki nie mogły się już rozjechać.
  */
-function stopDelayMinutes(stop: TrainDetailApiStop): number | null {
+function stopDelayMinutes(stop: TrainDetailStop): number | null {
   return stop.departureDelayMinutes ?? stop.arrivalDelayMinutes
 }
 
@@ -171,6 +158,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                         isCancelled: stop.isCancelled,
                         isConfirmed: stop.isConfirmed,
                         delayMinutes: stopDelayMinutes(stop),
+                        hasTrainStarted: stop.hasTrainStarted,
                       })}
                       delayMinutes={stopDelayMinutes(stop)}
                     />

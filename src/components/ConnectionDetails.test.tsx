@@ -30,6 +30,7 @@ const RESPONSE = {
       isCancelled: false,
       isConfirmed: true,
       platform: '3/1',
+      hasTrainStarted: false,
     },
     {
       stationId: '33605',
@@ -43,6 +44,9 @@ const RESPONSE = {
       isCancelled: false,
       isConfirmed: false,
       platform: null,
+      // Poprzedni przystanek (Gdańsk) jest już potwierdzony -- pociąg jest w
+      // trasie, tylko jeszcze nie dotarł do Warszawy.
+      hasTrainStarted: true,
     },
   ],
 }
@@ -217,10 +221,10 @@ describe('ConnectionDetails', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('renders "jeszcze nie wyjechał" for the unconfirmed stop, not a false "punktualnie"', async () => {
-    // Fixture RESPONSE ma to od początku (Warszawa Centralna, isConfirmed:
-    // false) -- ale do teraz nic nie sprawdzało, co się dla niej faktycznie
-    // renderuje. To dokładnie ta klasa błędu, którą naprawiliśmy na tablicy.
+  it('renders "w trasie" for an unconfirmed stop once an earlier stop is already confirmed', async () => {
+    // Fixture RESPONSE ma to od początku (Gdańsk potwierdzony, Warszawa
+    // Centralna jeszcze nie) -- pociąg już wyjechał z Gdańska, więc Warszawa
+    // powinna dostać "w trasie", nie mylące "jeszcze nie wyjechał".
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
 
     render(
@@ -231,8 +235,31 @@ describe('ConnectionDetails', () => {
     // eslint-disable-next-line testing-library/no-node-access -- najbliższy <li> to cały wiersz przystanku, potrzebny żeby ograniczyć zapytanie do TEGO przystanku
     const row = stationName.closest('li')
     expect(row).not.toBeNull()
-    expect(within(row as HTMLElement).getByText('jeszcze nie wyjechał')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('w trasie')).toBeInTheDocument()
     expect(within(row as HTMLElement).queryByText('punktualnie')).not.toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('jeszcze nie wyjechał')).not.toBeInTheDocument()
+  })
+
+  it('renders "jeszcze nie wyjechał" when the whole train has not left any stop yet', async () => {
+    const response = {
+      ...RESPONSE,
+      stops: [
+        { ...RESPONSE.stops[0], isConfirmed: false, actualDeparture: null, departureDelayMinutes: null, hasTrainStarted: false },
+        { ...RESPONSE.stops[1], hasTrainStarted: false },
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+    render(
+      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
+    )
+
+    const stationName = await screen.findByText('Warszawa Centralna')
+    // eslint-disable-next-line testing-library/no-node-access -- j.w., ograniczenie zapytania do wiersza tego przystanku
+    const row = stationName.closest('li')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('jeszcze nie wyjechał')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('w trasie')).not.toBeInTheDocument()
   })
 
   it('renders "odwołany" for a cancelled stop', async () => {

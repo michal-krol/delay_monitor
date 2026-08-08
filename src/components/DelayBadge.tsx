@@ -1,28 +1,49 @@
-type Status = 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
+import type { RealizationStatus } from '@/lib/board/realization'
 
 type Props = {
-  status: Status
+  status: RealizationStatus
   /** Czytane tylko przy `status === 'delayed'`, gdzie zawsze jest realną wartością. */
   delayMinutes: number | null
+  /**
+   * Kierunek zdarzenia, którego dotyczy ten wiersz — decyduje tylko o
+   * brzmieniu etykiety `notStarted` ("jeszcze nie wyjechał" dla odjazdu vs
+   * "jeszcze nie przyjechał" dla przyjazdu). Domyślnie `'departure'`, bo
+   * większość wywołań (np. panel szczegółów połączenia, gdzie jeden wiersz
+   * łączy przyjazd i odjazd) nie ma jednoznacznego pojedynczego kierunku.
+   */
+  direction?: 'departure' | 'arrival'
 }
 
-const LABELS: Record<Status, string> = {
+const LABELS: Record<RealizationStatus, string> = {
   onTime: 'punktualnie',
   delayed: 'opóźniony',
   cancelled: 'odwołany',
   unknown: 'brak danych',
   notStarted: 'jeszcze nie wyjechał',
+  enRoute: 'w trasie',
 }
 
-const STYLES: Record<Status, string> = {
+const ARRIVAL_NOT_STARTED_LABEL = 'jeszcze nie przyjechał'
+
+const STYLES: Record<RealizationStatus, string> = {
   onTime: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   delayed: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   unknown: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-  notStarted: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+  // Odróżnialne od `unknown` (brak danych) i `enRoute` (już jedzie) —
+  // wcześniej `notStarted` dzielił identyczny szary styl z `unknown`, co
+  // współtworzyło wrażenie, że tablica "nie ma żadnych danych" zamiast
+  // uczciwie pokazywać "to jeszcze się nie wydarzyło".
+  notStarted: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200',
+  enRoute: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
 }
 
-export function DelayBadge({ status, delayMinutes }: Props) {
-  const text = status === 'delayed' ? `+${delayMinutes} min` : LABELS[status]
+export function DelayBadge({ status, delayMinutes, direction = 'departure' }: Props) {
+  const text =
+    status === 'delayed'
+      ? `+${delayMinutes} min`
+      : status === 'notStarted' && direction === 'arrival'
+        ? ARRIVAL_NOT_STARTED_LABEL
+        : LABELS[status]
   return <span className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${STYLES[status]}`}>{text}</span>
 }

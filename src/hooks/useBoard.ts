@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { RealizationStatus } from '@/lib/board/realization'
 
 export type BoardApiRow = {
   scheduleId: string
@@ -16,7 +17,7 @@ export type BoardApiRow = {
   actualAt: string | null
   /** `null`, gdy przystanek nie jest jeszcze potwierdzony (`status` będzie wtedy `notStarted`). */
   delayMinutes: number | null
-  status: 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted'
+  status: RealizationStatus
   platform: string | null
 }
 

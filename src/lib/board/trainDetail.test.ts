@@ -182,4 +182,47 @@ describe('buildTrainDetailStops', () => {
     expect(stop.actualDeparture).toBe('2026-08-01T10:20:00+02:00')
     expect(stop.departureDelayMinutes).toBeNull()
   })
+
+  describe('hasTrainStarted', () => {
+    it('is false for every stop when the train has not left any stop yet', () => {
+      const stops = [
+        realizedStop({ stationId: 'A', isConfirmed: false }),
+        realizedStop({ stationId: 'B', isConfirmed: false }),
+        realizedStop({ stationId: 'C', isConfirmed: false }),
+      ]
+
+      const result = buildTrainDetailStops(operation(stops), null, {})
+
+      expect(result.map((s) => s.hasTrainStarted)).toEqual([false, false, false])
+    })
+
+    it('is true only for stops after the first confirmed one, not for the confirmed stop itself', () => {
+      const stops = [
+        realizedStop({ stationId: 'A', isConfirmed: true }),
+        realizedStop({ stationId: 'B', isConfirmed: true }),
+        realizedStop({ stationId: 'C', isConfirmed: false }),
+        realizedStop({ stationId: 'D', isConfirmed: false }),
+      ]
+
+      const result = buildTrainDetailStops(operation(stops), null, {})
+
+      expect(result.map((s) => [s.stationId, s.hasTrainStarted])).toEqual([
+        ['A', false],
+        ['B', true],
+        ['C', true],
+        ['D', true],
+      ])
+    })
+
+    it('stays true even once the train stops being confirmed again later (no un-starting)', () => {
+      const stops = [
+        realizedStop({ stationId: 'A', isConfirmed: true }),
+        realizedStop({ stationId: 'B', isConfirmed: false }),
+      ]
+
+      const result = buildTrainDetailStops(operation(stops), null, {})
+
+      expect(result[1].hasTrainStarted).toBe(true)
+    })
+  })
 })
