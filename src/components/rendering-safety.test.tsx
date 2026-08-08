@@ -44,6 +44,7 @@ function snapshotWith(payload: string): BoardApiSnapshot {
         delayMinutes: 3,
         status: 'delayed',
         platform: payload,
+        estimatedDelayMinutes: null,
       },
     ],
     arrivals: [],

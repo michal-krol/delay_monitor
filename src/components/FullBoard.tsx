@@ -282,6 +282,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                             status={row.status}
                             delayMinutes={row.delayMinutes}
                             direction={direction === 'arrivals' ? 'arrival' : 'departure'}
+                            estimatedDelayMinutes={row.estimatedDelayMinutes}
                           />
                         </td>
                       </tr>

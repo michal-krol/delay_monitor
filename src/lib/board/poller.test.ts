@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPoller } from './poller'
 import { PkpApiError } from '../pkp/client'
 import type { PkpClient } from '../pkp/client'
-import type { RawTrainOperation } from '../pkp/types'
+import type { RawRoute, RawTrainOperation } from '../pkp/types'
+import { MAX_AUX_STATIONS } from './upstreamEstimate'
 
 function makeTrain(scheduleId: string, orderId: string, stationId: string): RawTrainOperation {
   return {
@@ -24,6 +25,63 @@ function makeTrain(scheduleId: string, orderId: string, stationId: string): RawT
         isConfirmed: false,
       },
     ],
+  }
+}
+
+/** Pociąg "w trasie" na `stationId`: `trainStatus` w drodze, ten przystanek jeszcze niepotwierdzony. */
+function makeEnRouteTrain(scheduleId: string, orderId: string, stationId: string): RawTrainOperation {
+  return {
+    scheduleId,
+    orderId,
+    trainOrderId: null,
+    operatingDate: '2026-08-01',
+    trainStatus: 'P',
+    stations: [
+      {
+        stationId,
+        plannedArrival: null,
+        actualArrival: null,
+        plannedDeparture: new Date(Date.now() + 5 * 60000).toISOString(),
+        actualDeparture: null,
+        arrivalDelayMinutes: null,
+        departureDelayMinutes: null,
+        isCancelled: false,
+        isConfirmed: false,
+      },
+    ],
+  }
+}
+
+/** Ta sama realizacja co `makeEnRouteTrain`, ale z tym przystankiem już potwierdzonym. */
+function makeConfirmedTrain(scheduleId: string, orderId: string, stationId: string): RawTrainOperation {
+  const t = makeEnRouteTrain(scheduleId, orderId, stationId)
+  return { ...t, stations: [{ ...t.stations[0], isConfirmed: true, actualDeparture: t.stations[0].plannedDeparture }] }
+}
+
+function routeStop(stationId: string) {
+  return {
+    stationId,
+    arrivalPlatform: null,
+    arrivalTrack: null,
+    departurePlatform: null,
+    departureTrack: null,
+    arrivalTime: null,
+    departureTime: null,
+    arrivalDay: null,
+    departureDay: null,
+  }
+}
+
+function routeWithUpstream(scheduleId: string, orderId: string, upstreamStationId: string, stationId: string): RawRoute {
+  return {
+    scheduleId,
+    orderId,
+    trainOrderId: null,
+    carrierCode: null,
+    commercialCategorySymbol: null,
+    name: null,
+    nationalNumber: null,
+    stations: [routeStop(upstreamStationId), routeStop(stationId)],
   }
 }
 
@@ -457,5 +515,140 @@ describe('createPoller', () => {
     expect(row).toBeDefined()
     expect(row?.carrier).toBe('')
     expect(poller.getStatus()).toBe('ok')
+  })
+
+  describe('upstream (aux) stations for the enRoute delay estimate', () => {
+    it('adds the upstream station to /operations starting the tick AFTER discovering an enRoute connection, not the same tick', async () => {
+      const getOperations = vi.fn().mockResolvedValue({
+        trains: [makeEnRouteTrain('25', '1', '5100')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      })
+      const getSchedules = vi.fn().mockResolvedValue({
+        routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
+        carrierNames: {},
+      })
+      const client = makeClient({ getOperations, getSchedules })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+      expect(getOperations).toHaveBeenNthCalledWith(1, ['5100'])
+
+      await vi.advanceTimersByTimeAsync(90000)
+      expect(getOperations).toHaveBeenNthCalledWith(2, ['5100', 'upstream'])
+    })
+
+    it('keeps /schedules querying only real stations, even once an aux station is being tracked (stable 24h cache key)', async () => {
+      const getOperations = vi.fn().mockResolvedValue({
+        trains: [makeEnRouteTrain('25', '1', '5100')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      })
+      const getSchedules = vi.fn().mockResolvedValue({
+        routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
+        carrierNames: {},
+      })
+      const client = makeClient({ getOperations, getSchedules })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(90000)
+
+      expect(getSchedules).toHaveBeenNthCalledWith(1, ['5100'])
+      expect(getSchedules).toHaveBeenNthCalledWith(2, ['5100'])
+    })
+
+    it('never exposes a snapshot for the aux (upstream) station -- it is not something anyone asked to watch', async () => {
+      const getOperations = vi.fn().mockResolvedValue({
+        trains: [makeEnRouteTrain('25', '1', '5100')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      })
+      const getSchedules = vi.fn().mockResolvedValue({
+        routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
+        carrierNames: {},
+      })
+      const client = makeClient({ getOperations, getSchedules })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(90000)
+
+      expect(poller.getSnapshot('upstream')).toBeUndefined()
+    })
+
+    it('drops the upstream station from /operations once the tracked stop becomes confirmed', async () => {
+      const getOperations = vi
+        .fn()
+        .mockResolvedValueOnce({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+        .mockResolvedValueOnce({ trains: [makeConfirmedTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+        .mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+      const getSchedules = vi.fn().mockResolvedValue({
+        routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
+        carrierNames: {},
+      })
+      const client = makeClient({ getOperations, getSchedules })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0) // tick 1: discovers enRoute -> upstream
+      await vi.advanceTimersByTimeAsync(90000) // tick 2: uses upstream, but this train is now confirmed
+      expect(getOperations).toHaveBeenNthCalledWith(2, ['5100', 'upstream'])
+
+      await vi.advanceTimersByTimeAsync(90000) // tick 3: nothing enRoute anymore
+      expect(getOperations).toHaveBeenNthCalledWith(3, ['5100'])
+    })
+
+    it('clears aux stations when interest TTL-expires to empty, regardless of what it held', async () => {
+      const getOperations = vi.fn().mockResolvedValue({
+        trains: [makeEnRouteTrain('25', '1', '5100')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      })
+      const getSchedules = vi.fn().mockResolvedValue({
+        routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
+        carrierNames: {},
+      })
+      const client = makeClient({ getOperations, getSchedules })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(90000)
+      expect(getOperations).toHaveBeenNthCalledWith(2, ['5100', 'upstream'])
+
+      // Cisza dłuższa niż interestTtlMs -- poller usypia, '5100' i jego stacja
+      // pomocnicza znikają.
+      await vi.advanceTimersByTimeAsync(300000)
+      expect(poller.isAwake()).toBe(false)
+
+      // Zupełnie inna stacja, niepowiązana z 'upstream' -- nie powinna go odziedziczyć.
+      poller.registerInterest(['9999'])
+      await vi.advanceTimersByTimeAsync(0)
+      expect(getOperations).toHaveBeenLastCalledWith(['9999'])
+    })
+
+    it('keeps the aux station count within MAX_AUX_STATIONS even with many concurrent enRoute connections', async () => {
+      const stationCount = MAX_AUX_STATIONS + 10
+      const stationIds = Array.from({ length: stationCount }, (_, i) => `station-${i}`)
+      const trains = stationIds.map((stationId, i) => makeEnRouteTrain(String(i), '1', stationId))
+      const routes = stationIds.map((stationId, i) => routeWithUpstream(String(i), '1', `upstream-${i}`, stationId))
+
+      const getOperations = vi.fn().mockResolvedValue({ trains, stationNames: {}, budget: { hourly: 99, daily: 999 } })
+      const getSchedules = vi.fn().mockResolvedValue({ routes, carrierNames: {} })
+      const client = makeClient({ getOperations, getSchedules })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(stationIds)
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(90000)
+
+      const secondCallStations = getOperations.mock.calls[1][0] as string[]
+      const auxCount = secondCallStations.length - stationCount
+      expect(auxCount).toBeLessThanOrEqual(MAX_AUX_STATIONS)
+    })
   })
 })

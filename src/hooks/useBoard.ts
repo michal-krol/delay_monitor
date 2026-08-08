@@ -19,6 +19,8 @@ export type BoardApiRow = {
   delayMinutes: number | null
   status: RealizationStatus
   platform: string | null
+  /** Szacunek (nie fakt) ze stacji poprzedniej -- tylko przy `status === 'enRoute'`. Patrz `board/transform.ts`. */
+  estimatedDelayMinutes: number | null
 }
 
 export type BoardApiSnapshot = {

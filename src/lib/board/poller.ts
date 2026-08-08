@@ -2,6 +2,7 @@ import type { PkpClient, RateLimitBudget } from '../pkp/client'
 import { PkpApiError } from '../pkp/client'
 import type { RawRoute } from '../pkp/types'
 import { routeKey, transformOperations, type BoardSnapshot } from './transform'
+import { collectUpstreamCandidates } from './upstreamEstimate'
 
 const FORCE_RUN_THROTTLE_MS = 45000
 const LOW_BUDGET_INTERVAL_MS = 5 * 60 * 1000
@@ -121,6 +122,16 @@ export function createPoller(deps: PollerDeps): Poller {
 
   const interest = new Map<string, number>()
   const snapshots = new Map<string, BoardSnapshot>()
+  /**
+   * Stacje "pomocnicze" -- dokładane do `/operations` obok prawdziwie
+   * obserwowanych (`interest`), żeby liczyć estymatę opóźnienia dla
+   * połączeń "w trasie" (patrz `upstreamEstimate.ts`). Świadomie POZA
+   * `interest`: nie mają budzić pollera same z siebie, nie dostają
+   * własnego `snapshots.set(...)`, nie przechodzą przez `/api/board`'s
+   * limit 20 stacji -- to wyłącznie wewnętrzny dodatek do zapytania
+   * `/operations`, przeliczany od zera po każdym udanym cyklu.
+   */
+  let auxStationIds: ReadonlySet<string> = new Set()
   let timer: ReturnType<typeof setTimeout> | null = null
   let currentIntervalMs = config.pollIntervalMs
   let lastRunAt = 0
@@ -141,19 +152,28 @@ export function createPoller(deps: PollerDeps): Poller {
   }
 
   async function runTick(): Promise<void> {
-    const active = pruneInactive()
+    const realActive = pruneInactive()
 
-    if (active.length === 0) {
+    if (realActive.length === 0) {
+      // Zasypianie czyści też stacje pomocnicze -- nie ma po co je nieść
+      // dalej, skoro nic realnie obserwowanego nie zostało.
+      auxStationIds = new Set()
       timer = null
       return
     }
 
     lastRunAt = now()
+    // /schedules pyta wyłącznie o realne stacje -- klucz cache'u 24h
+    // (`schedulesCache`, patrz `client.ts`) musi być stabilny, więc migające
+    // stacje pomocnicze NIE mogą do niego trafić, inaczej cache chybiałby
+    // niemal co cykl. /operations pyta o realne ORAZ pomocnicze naraz --
+    // nadal jedno zapytanie, tylko z kilkoma dodatkowymi ID.
+    const operationsStationIds = [...new Set([...realActive, ...auxStationIds])]
 
     try {
       const [result, { routesByTrainId, carrierNames, scheduleStationNames }] = await Promise.all([
-        fetchWithRetry(client, active, sleep, random),
-        fetchRoutesByTrainId(client, active),
+        fetchWithRetry(client, operationsStationIds, sleep, random),
+        fetchRoutesByTrainId(client, realActive),
       ])
       budget = result.budget
       status = 'ok'
@@ -164,7 +184,7 @@ export function createPoller(deps: PollerDeps): Poller {
       // idzie na wierzch jako świeższe dla samej zapytanej stacji.
       const mergedStationNames = { ...scheduleStationNames, ...result.stationNames }
 
-      for (const stationId of active) {
+      for (const stationId of realActive) {
         snapshots.set(
           stationId,
           transformOperations(
@@ -178,6 +198,11 @@ export function createPoller(deps: PollerDeps): Poller {
           )
         )
       }
+
+      // Przeliczone od zera z wyniku TEGO cyklu -- jak tylko śledzony
+      // przystanek się potwierdzi (albo zniknie), jego stacja pomocnicza
+      // sama wypada z następnego zapytania, bez osobnego wygaszania.
+      auxStationIds = collectUpstreamCandidates(realActive, result.trains, routesByTrainId)
 
       currentIntervalMs = isBudgetLow(budget) ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
     } catch (err) {

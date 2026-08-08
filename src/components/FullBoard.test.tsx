@@ -168,6 +168,22 @@ describe('FullBoard', () => {
     expect(screen.queryByText('jeszcze nie wyjechał')).not.toBeInTheDocument()
   })
 
+  it('shows the estimated delay for an enRoute connection, and plain "w trasie" when there is no estimate yet', async () => {
+    const enRouteSnapshot = {
+      ...SNAPSHOT,
+      departures: [
+        { ...SNAPSHOT.departures[0], trainLabel: 'WITH_ESTIMATE', status: 'enRoute', delayMinutes: null, estimatedDelayMinutes: 30 },
+        { ...SNAPSHOT.departures[0], trainNumber: '99', trainLabel: 'NO_ESTIMATE', status: 'enRoute', delayMinutes: null, estimatedDelayMinutes: null },
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [enRouteSnapshot], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+
+    expect(await screen.findByText('w trasie, ~+30 min')).toBeInTheDocument()
+    expect(screen.getByText('w trasie')).toBeInTheDocument()
+  })
+
   it('names the right direction in the empty-board message', async () => {
     const empty = { ...SNAPSHOT, departures: [], arrivals: [] }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [empty], budget: undefined, status: 'ok' })))

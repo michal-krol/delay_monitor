@@ -12,6 +12,12 @@ type Props = {
    * łączy przyjazd i odjazd) nie ma jednoznacznego pojedynczego kierunku.
    */
   direction?: 'departure' | 'arrival'
+  /**
+   * Szacunek opóźnienia liczony ze stacji poprzedniej — czytany tylko przy
+   * `status === 'enRoute'`. `null`/pominięte: samo "w trasie", bez liczby
+   * (patrz `board/transform.ts`, `estimatedDelayMinutes`).
+   */
+  estimatedDelayMinutes?: number | null
 }
 
 const LABELS: Record<RealizationStatus, string> = {
@@ -24,6 +30,9 @@ const LABELS: Record<RealizationStatus, string> = {
 }
 
 const ARRIVAL_NOT_STARTED_LABEL = 'jeszcze nie przyjechał'
+
+const ESTIMATE_TOOLTIP =
+  'Szacunek na podstawie ostatniej potwierdzonej stacji — może się różnić od faktycznego opóźnienia tutaj.'
 
 const STYLES: Record<RealizationStatus, string> = {
   onTime: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
@@ -38,12 +47,21 @@ const STYLES: Record<RealizationStatus, string> = {
   enRoute: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
 }
 
-export function DelayBadge({ status, delayMinutes, direction = 'departure' }: Props) {
-  const text =
-    status === 'delayed'
+export function DelayBadge({ status, delayMinutes, direction = 'departure', estimatedDelayMinutes = null }: Props) {
+  const hasEstimate = status === 'enRoute' && estimatedDelayMinutes !== null
+  const text = hasEstimate
+    ? `w trasie, ~+${estimatedDelayMinutes} min`
+    : status === 'delayed'
       ? `+${delayMinutes} min`
       : status === 'notStarted' && direction === 'arrival'
         ? ARRIVAL_NOT_STARTED_LABEL
         : LABELS[status]
-  return <span className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${STYLES[status]}`}>{text}</span>
+  return (
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${STYLES[status]}`}
+      title={hasEstimate ? ESTIMATE_TOOLTIP : undefined}
+    >
+      {text}
+    </span>
+  )
 }

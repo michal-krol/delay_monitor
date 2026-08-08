@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveDelayMinutes, resolveStopStatus } from './realization'
+import { hasTrainStartedFromStatus, resolveDelayMinutes, resolveStopStatus } from './realization'
 
 describe('resolveStopStatus', () => {
   it('cancelled wins over everything else, even a confirmed on-time delay', () => {
@@ -84,5 +84,22 @@ describe('resolveDelayMinutes', () => {
   it('is null when confirmed but either side of the comparison is missing', () => {
     expect(resolveDelayMinutes(null, true, null, '2026-08-01T10:00:00Z')).toBeNull()
     expect(resolveDelayMinutes(null, true, '2026-08-01T10:00:00Z', null)).toBeNull()
+  })
+})
+
+describe('hasTrainStartedFromStatus', () => {
+  it('is true for InProgress and Completed', () => {
+    expect(hasTrainStartedFromStatus('P')).toBe(true)
+    expect(hasTrainStartedFromStatus('C')).toBe(true)
+  })
+
+  it('is false for NotStarted, PartialCancelled, an unrecognised value, and null', () => {
+    // PartialCancelled (Q) jest świadomie wykluczone -- może być znane z góry,
+    // zanim pociąg w ogóle wyjechał (patrz komentarz w realization.ts).
+    expect(hasTrainStartedFromStatus('S')).toBe(false)
+    expect(hasTrainStartedFromStatus('Q')).toBe(false)
+    expect(hasTrainStartedFromStatus('X')).toBe(false)
+    expect(hasTrainStartedFromStatus('something-new-from-a-future-api-version')).toBe(false)
+    expect(hasTrainStartedFromStatus(null)).toBe(false)
   })
 })

@@ -1,5 +1,9 @@
-import type { RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
-import { resolveDelayMinutes, resolveStopStatus, type RealizationStatus } from './realization'
+import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
+import { hasTrainStartedFromStatus, resolveDelayMinutes, resolveStopStatus, type RealizationStatus } from './realization'
+import { routeKey } from './routeKey'
+import { findPrecedingStationId } from './upstreamEstimate'
+
+export { routeKey } from './routeKey'
 
 export type BoardRow = {
   /** Klucz do `/api/train` — identyfikuje realizację pociągu, nie wzorzec trasy. */
@@ -24,6 +28,13 @@ export type BoardRow = {
   delayMinutes: number | null
   status: RealizationStatus
   platform: string | null
+  /**
+   * Szacunek, nie fakt — opóźnienie ze stacji bezpośrednio PRZED tą, o ile
+   * jest już potwierdzone. Wyłącznie przy `status === 'enRoute'`, inaczej
+   * zawsze `null`. Nigdy nie zastępuje ani nie wpływa na `delayMinutes`
+   * (który jest faktem o TYM przystanku) — patrz `upstreamEstimate.ts`.
+   */
+  estimatedDelayMinutes: number | null
 }
 
 export type BoardSnapshot = {
@@ -34,9 +45,9 @@ export type BoardSnapshot = {
   fetchedAt: string
 }
 
-const VISIBLE_WINDOW_MS = 2 * 60 * 60 * 1000
+const VISIBLE_WINDOW_MS = 60 * 60 * 1000
 const LOOKBACK_WINDOW_MS = 5 * 60 * 1000
-const MAX_ROWS = 20
+const MAX_ROWS = 10
 
 function computeTrainLabel(route: RawRoute | undefined, category: string, trainId: string): string {
   if (route?.name) return route.name
@@ -58,23 +69,49 @@ function routeTerminus(route: RawRoute | undefined, end: 'first' | 'last'): RawR
   return end === 'first' ? route.stations[0] : route.stations[route.stations.length - 1]
 }
 
-/**
- * Klucz łączący `/operations` z `/schedules`. `orderId` bywa identyfikatorem
- * konkretnego przejazdu w `/operations`, a nie wzorca trasy z `/schedules` —
- * `trainOrderId`, gdy obecny, jest tym wspólnym kluczem po obu stronach
- * (patrz `RawRoute.trainOrderId`). Sam `scheduleId-orderId` gubił trasę dla
- * ok. połowy pociągów w danych produkcyjnych.
- */
-export function routeKey(scheduleId: string, orderId: string, trainOrderId: string | null): string {
-  return `${scheduleId}-${trainOrderId ?? orderId}`
-}
-
 /** „4/2" gdy znane są peron i tor, sam peron albo „tor 2" gdy tylko jedno z nich, `null` gdy nic. */
 export function formatPlatform(platform: string | null | undefined, track: string | null | undefined): string | null {
   if (platform && track) return `${platform}/${track}`
   if (platform) return platform
   if (track) return `tor ${track}`
   return null
+}
+
+/**
+ * Realizacja stacji bezpośrednio przed `stationId` na trasie -- o ile trasa
+ * jest dopasowana I ta stacja poprzednia akurat znalazła się w tym samym
+ * zapytaniu `/operations` (patrz `poller.ts`, stacje "pomocnicze" dokładane
+ * z opóźnieniem jednego cyklu). `undefined`, gdy któregokolwiek z tych
+ * warunków brakuje -- wtedy po prostu nie ma z czego liczyć estymaty.
+ */
+function findUpstreamStop(
+  route: RawRoute | undefined,
+  stationId: string,
+  stops: RawOperationStation[]
+): RawOperationStation | undefined {
+  const upstreamStationId = findPrecedingStationId(route, stationId)
+  if (upstreamStationId === null) return undefined
+  return stops.find((stop) => stop.stationId === upstreamStationId)
+}
+
+/**
+ * Szacunek "prawdopodobnie tyle samo, co na poprzednim przystanku" --
+ * wyłącznie gdy TEN przystanek jest jeszcze niepotwierdzony (`enRoute`) i
+ * poprzedni jest już potwierdzony i nieodwołany. Odjazdowe opóźnienie
+ * pierwsze -- ten sam porządek co `stopDelayMinutes()` w
+ * `ConnectionDetails.tsx`: to ono decyduje, czy dalsza podróż rusza planowo.
+ */
+function estimateDelayFromUpstream(
+  status: RealizationStatus,
+  upstreamStop: RawOperationStation | undefined
+): number | null {
+  if (status !== 'enRoute' || !upstreamStop || upstreamStop.isCancelled || !upstreamStop.isConfirmed) return null
+  return resolveDelayMinutes(
+    upstreamStop.departureDelayMinutes ?? upstreamStop.arrivalDelayMinutes,
+    upstreamStop.isConfirmed,
+    upstreamStop.plannedDeparture ?? upstreamStop.plannedArrival,
+    upstreamStop.actualDeparture ?? upstreamStop.actualArrival
+  )
 }
 
 function buildRow(
@@ -90,11 +127,14 @@ function buildRow(
   apiDelay: number | null,
   route: RawRoute | undefined,
   platform: string | null,
-  carrierNames: Record<string, string>
+  carrierNames: Record<string, string>,
+  hasTrainStarted: boolean,
+  upstreamStop: RawOperationStation | undefined
 ): BoardRow {
   const delayMinutes = resolveDelayMinutes(apiDelay, isConfirmed, plannedAt, actualAt)
   const category = route?.commercialCategorySymbol ?? ''
   const carrier = route?.carrierCode ?? ''
+  const status = resolveStopStatus({ isCancelled: cancelled, isConfirmed, delayMinutes, hasTrainStarted })
   return {
     scheduleId,
     orderId,
@@ -110,8 +150,9 @@ function buildRow(
     plannedAt,
     actualAt,
     delayMinutes,
-    status: resolveStopStatus({ isCancelled: cancelled, isConfirmed, delayMinutes }),
+    status,
     platform,
+    estimatedDelayMinutes: estimateDelayFromUpstream(status, upstreamStop),
   }
 }
 
@@ -132,9 +173,9 @@ function byPlannedAt(a: BoardRow, b: BoardRow): number {
 }
 
 /**
- * Przeszłość (do 5 min wstecz) i przyszłość (do 20 połączeń, max 2h w przód)
+ * Przeszłość (do 5 min wstecz) i przyszłość (do 10 połączeń, max 1h w przód)
  * mają osobne budżety, nie jeden wspólny limit — inaczej garstka właśnie
- * minionych połączeń zajmowałaby miejsce należne nadchodzącym w limicie 20.
+ * minionych połączeń zajmowałaby miejsce należne nadchodzącym w limicie 10.
  */
 function sortAndTrim(rows: BoardRow[], now: Date): BoardRow[] {
   const past = rows.filter((row) => isPast(row.plannedAt, now)).sort(byPlannedAt)
@@ -171,6 +212,14 @@ export function transformOperations(
     const trainId = `${train.scheduleId}-${train.orderId}`
     const route = routesByTrainId.get(routeKey(train.scheduleId, train.orderId, train.trainOrderId))
     const routeStop = findRouteStop(route, stationId)
+    // Całopociągowy trainStatus przychodzi za darmo w każdej odpowiedzi
+    // /operations (patrz realization.ts) -- pozwala pokazać "w trasie" zamiast
+    // mylącego "jeszcze nie wyjechał" dla pociągu, który już ruszył gdzieś
+    // indziej na trasie, ale jeszcze nie dotarł/nie odjechał z TEJ stacji.
+    const hasTrainStarted = hasTrainStartedFromStatus(train.trainStatus)
+    // Ta sama stacja poprzednia obsługuje i odjazd, i przyjazd na TEJ stacji
+    // -- to jeden i ten sam punkt na trasie, dwa różne zdarzenia w nim.
+    const upstreamStop = findUpstreamStop(route, stationId, stops)
 
     if (stop.plannedDeparture !== null) {
       const destination = routeTerminus(route, 'last')
@@ -188,7 +237,9 @@ export function transformOperations(
           stop.departureDelayMinutes,
           route,
           formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack),
-          carrierNames
+          carrierNames,
+          hasTrainStarted,
+          upstreamStop
         )
       )
     }
@@ -209,7 +260,9 @@ export function transformOperations(
           stop.arrivalDelayMinutes,
           route,
           formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack),
-          carrierNames
+          carrierNames,
+          hasTrainStarted,
+          upstreamStop
         )
       )
     }
