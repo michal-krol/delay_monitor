@@ -40,6 +40,18 @@ export type BoardApiResponse = {
 }
 
 const REFRESH_INTERVAL_MS = 30000
+/**
+ * Zamiast czekać pełne 30s na pierwsze dane po zimnym starcie (poller
+ * budzi się async, `/api/board` nigdy na niego nie czeka -- patrz
+ * `route.ts`), dopytujemy szybciej, dopóki snapshot jest jeszcze `null`.
+ * Realny fetch z PKP zwykle kończy się w 1-3s, więc te kilka prób zwykle
+ * wystarczy; potem wracamy do normalnego tempa.
+ */
+const FAST_RETRY_DELAYS_MS = [1000, 2000, 4000]
+
+function stillLoading(json: BoardApiResponse): boolean {
+  return json.status === 'ok' && json.snapshots.some((snapshot) => snapshot === null)
+}
 
 export function useBoard(stationIds: string[]) {
   const [data, setData] = useState<BoardApiResponse | null>(null)
@@ -54,8 +66,22 @@ export function useBoard(stationIds: string[]) {
     }
 
     let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    let fastRetryIndex = 0
 
-    async function fetchBoard(): Promise<void> {
+    // `respectHidden`: pierwsze wywołanie zawsze pobiera dane, nawet gdy
+    // karta jest akurat ukryta (tak zachowywał się poprzedni kod: `fetchBoard()`
+    // na starcie było bezwarunkowe) -- tylko KOLEJNE, zaplanowane odpytania
+    // pomijają fetch, gdy karta jest schowana.
+    async function tick(respectHidden: boolean): Promise<void> {
+      if (cancelled) return
+
+      if (respectHidden && document.hidden) {
+        timer = setTimeout(() => void tick(true), REFRESH_INTERVAL_MS)
+        return
+      }
+
+      let loading = false
       try {
         const response = await fetch(`/api/board?stations=${key}`)
         if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
@@ -64,20 +90,21 @@ export function useBoard(stationIds: string[]) {
           setData(json)
           setError(null)
         }
+        loading = stillLoading(json)
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Nieznany błąd')
       }
+      if (cancelled) return
+
+      const delay = loading && fastRetryIndex < FAST_RETRY_DELAYS_MS.length ? FAST_RETRY_DELAYS_MS[fastRetryIndex++] : REFRESH_INTERVAL_MS
+      timer = setTimeout(() => void tick(true), delay)
     }
 
-    void fetchBoard()
-    const interval = setInterval(() => {
-      if (document.hidden) return
-      void fetchBoard()
-    }, REFRESH_INTERVAL_MS)
+    void tick(false)
 
     return () => {
       cancelled = true
-      clearInterval(interval)
+      clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
