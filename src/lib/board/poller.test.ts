@@ -155,6 +155,33 @@ describe('createPoller', () => {
     expect(poller.isAwake()).toBe(false)
   })
 
+  it('does not start a second concurrent fetch while one is already in flight', async () => {
+    // `timer` jest `null` przez cały czas trwania runTick(), nie tylko
+    // podczas snu -- registerInterest() wywołane w trakcie trwającego
+    // zapytania widziałoby wasAsleep i wystrzeliwało drugi fetch bez
+    // ochrony tickInFlight.
+    let resolveFetch: (value: { trains: never[]; stationNames: object; budget: { hourly: number; daily: number } }) => void
+    const pending = new Promise((resolve) => {
+      resolveFetch = resolve
+    })
+    const getOperations = vi.fn().mockReturnValue(pending)
+    const client = makeClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(getOperations).toHaveBeenCalledTimes(1)
+
+    // Wciąż w locie (timer nadal null) -- to wywołanie nie powinno dodać drugiego fetcha.
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(getOperations).toHaveBeenCalledTimes(1)
+
+    resolveFetch!({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.isAwake()).toBe(true)
+  })
+
   it('respects the 45s throttle when all requested stations already have data', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })

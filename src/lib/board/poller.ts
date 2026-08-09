@@ -132,6 +132,14 @@ export function createPoller(deps: PollerDeps): Poller {
    * `/operations`, przeliczany od zera po każdym udanym cyklu.
    */
   let auxStationIds: ReadonlySet<string> = new Set()
+  /**
+   * `timer` jest `null` przez CAŁY czas trwania `runTick()` (nie tylko
+   * podczas snu), bo jest resetowany na starcie i ustawiany dopiero po
+   * `await` na końcu -- więc `registerInterest()` wywołane w trakcie
+   * trwającego zapytania widziałoby `wasAsleep` i wystrzeliwało drugi,
+   * równoległy fetch do PKP. Ta flaga to blokuje.
+   */
+  let tickInFlight = false
   let timer: ReturnType<typeof setTimeout> | null = null
   let currentIntervalMs = config.pollIntervalMs
   let lastRunAt = 0
@@ -152,6 +160,16 @@ export function createPoller(deps: PollerDeps): Poller {
   }
 
   async function runTick(): Promise<void> {
+    if (tickInFlight) return
+    tickInFlight = true
+    try {
+      await runTickBody()
+    } finally {
+      tickInFlight = false
+    }
+  }
+
+  async function runTickBody(): Promise<void> {
     const realActive = pruneInactive()
 
     if (realActive.length === 0) {
