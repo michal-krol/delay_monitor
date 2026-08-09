@@ -235,7 +235,7 @@ describe('transformOperations', () => {
       expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
     })
 
-    it('is null (no recursion) when the preceding stop is itself unconfirmed', () => {
+    it('is null when every stop within reach (whole route, here) is unconfirmed', () => {
       const trains = [
         train(
           '25',
@@ -253,6 +253,49 @@ describe('transformOperations', () => {
       ])
       const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
+    })
+
+    it('reaches past a couple of unconfirmed stops to find a confirmed one further back (S3 10556 scenario)', () => {
+      // Warszawa Wschodnia (1 wstecz) i Warszawa Targówek (2 wstecz) jeszcze
+      // niepotwierdzone -- typowe na gęstej linii SKM -- ale Warszawa Praga
+      // (3 wstecz) już jest, więc stąd powinna wziąć się estymata.
+      const trains = [
+        train(
+          '25',
+          '1',
+          [
+            stop({
+              stationId: 'praga',
+              plannedDeparture: new Date(NOW.getTime() - 16 * 60000).toISOString(),
+              actualDeparture: new Date(NOW.getTime() - 15 * 60000).toISOString(),
+              isConfirmed: true,
+            }),
+            stop({ stationId: 'targowek', plannedDeparture: new Date(NOW.getTime() - 12 * 60000).toISOString(), isConfirmed: false }),
+            stop({ stationId: 'wschodnia', plannedDeparture: new Date(NOW.getTime() - 8 * 60000).toISOString(), isConfirmed: false }),
+            stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() + 1 * 60000).toISOString(), isConfirmed: false }),
+          ],
+          null,
+          'S'
+        ),
+      ]
+      const routes = new Map<string, RawRoute>([
+        [
+          '25-1',
+          route({
+            scheduleId: '25',
+            orderId: '1',
+            stations: [
+              routeStop({ stationId: 'praga' }),
+              routeStop({ stationId: 'targowek' }),
+              routeStop({ stationId: 'wschodnia' }),
+              routeStop({ stationId: '5100' }),
+            ],
+          }),
+        ],
+      ])
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      expect(snapshot.departures[0].status).toBe('enRoute')
+      expect(snapshot.departures[0].estimatedDelayMinutes).toBe(1)
     })
 
     it('is null when the preceding stop is cancelled -- not a meaningful basis for an estimate', () => {

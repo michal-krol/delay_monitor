@@ -1,7 +1,7 @@
 import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 import { hasTrainStartedFromStatus, resolveDelayMinutes, resolveStopStatus, type RealizationStatus } from './realization'
 import { routeKey } from './routeKey'
-import { findPrecedingStationId } from './upstreamEstimate'
+import { findPrecedingStationIds, UPSTREAM_LOOKBACK_HOPS } from './upstreamEstimate'
 
 export { routeKey } from './routeKey'
 
@@ -78,34 +78,40 @@ export function formatPlatform(platform: string | null | undefined, track: strin
 }
 
 /**
- * Realizacja stacji bezpośrednio przed `stationId` na trasie -- o ile trasa
- * jest dopasowana I ta stacja poprzednia akurat znalazła się w tym samym
- * zapytaniu `/operations` (patrz `poller.ts`, stacje "pomocnicze" dokładane
- * z opóźnieniem jednego cyklu). `undefined`, gdy któregokolwiek z tych
- * warunków brakuje -- wtedy po prostu nie ma z czego liczyć estymaty.
+ * Realizacje do `UPSTREAM_LOOKBACK_HOPS` stacji przed `stationId` na trasie,
+ * od najbliższej -- ograniczone do tych, które akurat znalazły się w tym
+ * samym zapytaniu `/operations` (patrz `poller.ts`, stacje "pomocnicze"
+ * dokładane z opóźnieniem jednego cyklu). Pusta lista, gdy nie ma
+ * dopasowanej trasy albo żadna z nich nie została dociągnięta -- wtedy po
+ * prostu nie ma z czego liczyć estymaty.
  */
-function findUpstreamStop(
+function findUpstreamStops(
   route: RawRoute | undefined,
   stationId: string,
   stops: RawOperationStation[]
-): RawOperationStation | undefined {
-  const upstreamStationId = findPrecedingStationId(route, stationId)
-  if (upstreamStationId === null) return undefined
-  return stops.find((stop) => stop.stationId === upstreamStationId)
+): RawOperationStation[] {
+  return findPrecedingStationIds(route, stationId, UPSTREAM_LOOKBACK_HOPS)
+    .map((id) => stops.find((stop) => stop.stationId === id))
+    .filter((stop): stop is RawOperationStation => stop !== undefined)
+}
+
+function isUsableUpstream(stop: RawOperationStation): boolean {
+  return !stop.isCancelled && stop.isConfirmed
 }
 
 /**
- * Szacunek "prawdopodobnie tyle samo, co na poprzednim przystanku" --
- * wyłącznie gdy TEN przystanek jest jeszcze niepotwierdzony (`enRoute`) i
- * poprzedni jest już potwierdzony i nieodwołany. Odjazdowe opóźnienie
- * pierwsze -- ten sam porządek co `stopDelayMinutes()` w
- * `ConnectionDetails.tsx`: to ono decyduje, czy dalsza podróż rusza planowo.
+ * Szacunek "prawdopodobnie tyle samo, co na niedawnym przystanku" --
+ * wyłącznie gdy TEN przystanek jest jeszcze niepotwierdzony (`enRoute`),
+ * liczony z NAJBLIŻSZEGO potwierdzonego i nieodwołanego przystanku wstecz
+ * (pierwszego trafienia w `upstreamStops`, które jest już posortowane od
+ * najbliższego). Odjazdowe opóźnienie pierwsze -- ten sam porządek co
+ * `stopDelayMinutes()` w `ConnectionDetails.tsx`: to ono decyduje, czy
+ * dalsza podróż rusza planowo.
  */
-function estimateDelayFromUpstream(
-  status: RealizationStatus,
-  upstreamStop: RawOperationStation | undefined
-): number | null {
-  if (status !== 'enRoute' || !upstreamStop || upstreamStop.isCancelled || !upstreamStop.isConfirmed) return null
+function estimateDelayFromUpstream(status: RealizationStatus, upstreamStops: RawOperationStation[]): number | null {
+  if (status !== 'enRoute') return null
+  const upstreamStop = upstreamStops.find(isUsableUpstream)
+  if (!upstreamStop) return null
   return resolveDelayMinutes(
     upstreamStop.departureDelayMinutes ?? upstreamStop.arrivalDelayMinutes,
     upstreamStop.isConfirmed,
@@ -129,16 +135,16 @@ function buildRow(
   platform: string | null,
   carrierNames: Record<string, string>,
   hasTrainStartedFromTrainStatus: boolean,
-  upstreamStop: RawOperationStation | undefined
+  upstreamStops: RawOperationStation[]
 ): BoardRow {
   const delayMinutes = resolveDelayMinutes(apiDelay, isConfirmed, plannedAt, actualAt)
   const category = route?.commercialCategorySymbol ?? ''
   const carrier = route?.carrierCode ?? ''
   // trainStatus bywa `S` nawet dla pociągu jadącego od godzin (inny
-  // scheduleId/orderId per odcinek trasy) -- potwierdzony poprzedni
-  // przystanek jest silniejszym dowodem "już wyjechał" niż samo trainStatus.
-  const upstreamConfirmed = upstreamStop !== undefined && !upstreamStop.isCancelled && upstreamStop.isConfirmed
-  const hasTrainStarted = hasTrainStartedFromTrainStatus || upstreamConfirmed
+  // scheduleId/orderId per odcinek trasy, albo po prostu spóźnione
+  // potwierdzenie na gęstej linii) -- którykolwiek z niedawnych przystanków
+  // potwierdzony jest silniejszym dowodem "już wyjechał" niż samo trainStatus.
+  const hasTrainStarted = hasTrainStartedFromTrainStatus || upstreamStops.some(isUsableUpstream)
   const status = resolveStopStatus({ isCancelled: cancelled, isConfirmed, delayMinutes, hasTrainStarted })
   return {
     scheduleId,
@@ -157,7 +163,7 @@ function buildRow(
     delayMinutes,
     status,
     platform,
-    estimatedDelayMinutes: estimateDelayFromUpstream(status, upstreamStop),
+    estimatedDelayMinutes: estimateDelayFromUpstream(status, upstreamStops),
   }
 }
 
@@ -224,7 +230,7 @@ export function transformOperations(
     const hasTrainStarted = hasTrainStartedFromStatus(train.trainStatus)
     // Ta sama stacja poprzednia obsługuje i odjazd, i przyjazd na TEJ stacji
     // -- to jeden i ten sam punkt na trasie, dwa różne zdarzenia w nim.
-    const upstreamStop = findUpstreamStop(route, stationId, stops)
+    const upstreamStops = findUpstreamStops(route, stationId, stops)
 
     if (stop.plannedDeparture !== null) {
       const destination = routeTerminus(route, 'last')
@@ -244,7 +250,7 @@ export function transformOperations(
           formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack),
           carrierNames,
           hasTrainStarted,
-          upstreamStop
+          upstreamStops
         )
       )
     }
@@ -267,7 +273,7 @@ export function transformOperations(
           formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack),
           carrierNames,
           hasTrainStarted,
-          upstreamStop
+          upstreamStops
         )
       )
     }

@@ -20,33 +20,45 @@ import { routeKey } from './routeKey'
 export const UPSTREAM_CANDIDATE_LIMIT = 10
 
 /**
- * Twardy sufit łącznej liczby stacji pomocniczych na cykl, niezależny od
- * tego, ile stacji jest akurat obserwowanych naraz — zabezpieczenie przed
- * patologicznym wzrostem (dużo ulubionych stacji × dużo pociągów "w trasie"
- * jednocześnie), nie normalny tryb pracy. Podniesiony razem z
- * `UPSTREAM_CANDIDATE_LIMIT` (10 zamiast 3 na kierunek) — jedna obserwowana
- * stacja to teraz do 20 stacji pomocniczych zamiast 6, więc dwie stacje
- * naraz już zbliżałyby się do starego sufitu 40.
+ * Ile przystanków wstecz sprawdzamy szukając potwierdzonego, nie tylko
+ * bezpośrednio poprzedni. Na gęstych liniach (SKM co 3-4 min) potwierdzenie
+ * z PKP potrafi spóźnić się o kilka minut naraz -- czyli o KILKA kolejnych
+ * przystanków, nie jeden (zaobserwowane na żywo: S3 10556, przystanek
+ * bezpośrednio przed obserwowaną stacją jeszcze niepotwierdzony, trzy wstecz
+ * już tak). Wciąż tylko więcej ID w TYM SAMYM zapytaniu `/operations`, nie
+ * `fullRoutes=true` ani zapytanie per pociąg jak w `trainDetail.ts`.
  */
-export const MAX_AUX_STATIONS = 80
+export const UPSTREAM_LOOKBACK_HOPS = 5
 
 /**
- * Stacja bezpośrednio PRZED `stationId` na trasie `route` — źródło danych do
- * estymaty "prawdopodobnie tyle samo opóźnienia, co na poprzednim
- * przystanku". `null`, gdy nie ma dopasowanej trasy, `stationId` jest
- * pierwszym przystankiem (nie ma niczego wcześniej) albo w ogóle nie
- * występuje na tej trasie.
+ * Twardy sufit łącznej liczby stacji pomocniczych na cykl, niezależny od
+ * tego, ile stacji jest akurat obserwowanych naraz — zabezpieczenie przed
+ * patologicznym wzrostem, nie normalny tryb pracy. Podniesiony razem z
+ * `UPSTREAM_LOOKBACK_HOPS` (do 5 przystanków wstecz na kandydata zamiast 1).
+ */
+export const MAX_AUX_STATIONS = 150
+
+/**
+ * Do `limit` stacji PRZED `stationId` na trasie `route`, od najbliższej —
+ * źródło danych do estymaty "prawdopodobnie tyle samo opóźnienia, co na
+ * niedawnym przystanku". Pusta lista, gdy nie ma dopasowanej trasy,
+ * `stationId` jest pierwszym przystankiem (nie ma niczego wcześniej) albo
+ * w ogóle nie występuje na tej trasie.
  *
  * Stacja występująca na trasie dwa razy (pętla) rozwiązuje się względem
  * PIERWSZEGO wystąpienia — ta sama, już istniejąca granica co
  * `findRouteStop()` w `transform.ts` (peron/tor mają dokładnie to samo
  * ograniczenie); nieodkrywana tu na nowo, tylko odziedziczona.
  */
-export function findPrecedingStationId(route: RawRoute | undefined, stationId: string): string | null {
-  if (!route) return null
+export function findPrecedingStationIds(route: RawRoute | undefined, stationId: string, limit: number): string[] {
+  if (!route) return []
   const idx = route.stations.findIndex((stop) => stop.stationId === stationId)
-  if (idx <= 0) return null
-  return route.stations[idx - 1].stationId
+  if (idx <= 0) return []
+  const start = Math.max(0, idx - limit)
+  return route.stations
+    .slice(start, idx)
+    .map((stop) => stop.stationId)
+    .reverse()
 }
 
 /**
@@ -64,7 +76,7 @@ function isEnRouteCandidate(stop: RawOperationStation): boolean {
   return !stop.isCancelled && !stop.isConfirmed
 }
 
-type Candidate = { upstreamStationId: string; plannedAt: string }
+type Candidate = { upstreamStationIds: string[]; plannedAt: string }
 
 function nearest(candidates: Candidate[], limit: number): Candidate[] {
   return [...candidates]
@@ -75,10 +87,10 @@ function nearest(candidates: Candidate[], limit: number): Candidate[] {
 /**
  * Dla każdej obserwowanej stacji: najbliższe (max `UPSTREAM_CANDIDATE_LIMIT`
  * per kierunek) połączenia "w trasie" bez potwierdzonego przystanku tutaj —
- * i stacja bezpośrednio przed nimi na trasie, żeby dołączyć ją do
- * NASTĘPNEGO zapytania `/operations` (ten sam cykl nie wystarczy: dopiero
- * poznajemy, o co pytać). Stacje już i tak obserwowane (`stationIds`) są
- * pomijane -- ich dane i tak przyjdą, nie trzeba ich dokładać jako "pomocnicze".
+ * i do `UPSTREAM_LOOKBACK_HOPS` stacji przed nimi na trasie, żeby dołączyć
+ * je do NASTĘPNEGO zapytania `/operations` (ten sam cykl nie wystarczy:
+ * dopiero poznajemy, o co pytać). Stacje już i tak obserwowane (`stationIds`)
+ * są pomijane -- ich dane i tak przyjdą, nie trzeba ich dokładać jako "pomocnicze".
  *
  * Czysta funkcja nad tym, co `runTick()` w `poller.ts` już ma z bieżącego
  * cyklu (`result.trains`, `routesByTrainId`) -- zero dodatkowego zapytania do
@@ -101,15 +113,21 @@ export function collectUpstreamCandidates(
       if (!stop || !isEnRouteCandidate(stop)) continue
 
       const route = routesByTrainId.get(routeKey(train.scheduleId, train.orderId, train.trainOrderId))
-      const upstreamStationId = findPrecedingStationId(route, stationId)
-      if (upstreamStationId === null || alreadyObserved.has(upstreamStationId)) continue
+      const upstreamStationIds = findPrecedingStationIds(route, stationId, UPSTREAM_LOOKBACK_HOPS).filter(
+        (id) => !alreadyObserved.has(id)
+      )
+      if (upstreamStationIds.length === 0) continue
 
-      if (stop.plannedDeparture !== null) departureCandidates.push({ upstreamStationId, plannedAt: stop.plannedDeparture })
-      if (stop.plannedArrival !== null) arrivalCandidates.push({ upstreamStationId, plannedAt: stop.plannedArrival })
+      if (stop.plannedDeparture !== null) departureCandidates.push({ upstreamStationIds, plannedAt: stop.plannedDeparture })
+      if (stop.plannedArrival !== null) arrivalCandidates.push({ upstreamStationIds, plannedAt: stop.plannedArrival })
     }
 
-    for (const candidate of nearest(departureCandidates, UPSTREAM_CANDIDATE_LIMIT)) result.add(candidate.upstreamStationId)
-    for (const candidate of nearest(arrivalCandidates, UPSTREAM_CANDIDATE_LIMIT)) result.add(candidate.upstreamStationId)
+    for (const candidate of nearest(departureCandidates, UPSTREAM_CANDIDATE_LIMIT)) {
+      for (const id of candidate.upstreamStationIds) result.add(id)
+    }
+    for (const candidate of nearest(arrivalCandidates, UPSTREAM_CANDIDATE_LIMIT)) {
+      for (const id of candidate.upstreamStationIds) result.add(id)
+    }
 
     if (result.size >= MAX_AUX_STATIONS) break
   }
