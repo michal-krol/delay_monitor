@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { collectUpstreamCandidates, findPrecedingStationId, MAX_AUX_STATIONS, UPSTREAM_CANDIDATE_LIMIT } from './upstreamEstimate'
+import {
+  collectUpstreamCandidates,
+  findPrecedingStationIds,
+  MAX_AUX_STATIONS,
+  UPSTREAM_CANDIDATE_LIMIT,
+  UPSTREAM_LOOKBACK_HOPS,
+} from './upstreamEstimate'
 import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 
 function stop(overrides: Partial<RawOperationStation> & { stationId: string }): RawOperationStation {
@@ -57,30 +63,40 @@ function routesMap(...routes: RawRoute[]): Map<string, RawRoute> {
   return new Map(routes.map((r) => [`${r.scheduleId}-${r.orderId}`, r]))
 }
 
-describe('findPrecedingStationId', () => {
-  it('returns the station right before the given one', () => {
+describe('findPrecedingStationIds', () => {
+  it('returns the station right before the given one, closest first, when limit is 1', () => {
     const r = route('1', '1', ['A', 'B', 'C'])
-    expect(findPrecedingStationId(r, 'B')).toBe('A')
-    expect(findPrecedingStationId(r, 'C')).toBe('B')
+    expect(findPrecedingStationIds(r, 'B', 1)).toEqual(['A'])
+    expect(findPrecedingStationIds(r, 'C', 1)).toEqual(['B'])
   })
 
-  it('returns null for the first station on the route (nothing before it)', () => {
-    const r = route('1', '1', ['A', 'B', 'C'])
-    expect(findPrecedingStationId(r, 'A')).toBeNull()
+  it('returns up to `limit` stations, closest first', () => {
+    const r = route('1', '1', ['A', 'B', 'C', 'D', 'E'])
+    expect(findPrecedingStationIds(r, 'E', 3)).toEqual(['D', 'C', 'B'])
   })
 
-  it('returns null when the station is not on the route at all', () => {
+  it('stops at the start of the route when limit exceeds how many stations precede it', () => {
     const r = route('1', '1', ['A', 'B', 'C'])
-    expect(findPrecedingStationId(r, 'Z')).toBeNull()
+    expect(findPrecedingStationIds(r, 'C', 5)).toEqual(['B', 'A'])
   })
 
-  it('returns null when there is no matched route', () => {
-    expect(findPrecedingStationId(undefined, 'A')).toBeNull()
+  it('returns an empty list for the first station on the route (nothing before it)', () => {
+    const r = route('1', '1', ['A', 'B', 'C'])
+    expect(findPrecedingStationIds(r, 'A', 5)).toEqual([])
+  })
+
+  it('returns an empty list when the station is not on the route at all', () => {
+    const r = route('1', '1', ['A', 'B', 'C'])
+    expect(findPrecedingStationIds(r, 'Z', 5)).toEqual([])
+  })
+
+  it('returns an empty list when there is no matched route', () => {
+    expect(findPrecedingStationIds(undefined, 'A', 5)).toEqual([])
   })
 
   it('resolves against the first occurrence when a station appears twice (loop line)', () => {
     const r = route('1', '1', ['A', 'B', 'A', 'C'])
-    expect(findPrecedingStationId(r, 'A')).toBeNull()
+    expect(findPrecedingStationIds(r, 'A', 5)).toEqual([])
   })
 })
 
@@ -92,6 +108,21 @@ describe('collectUpstreamCandidates', () => {
     const result = collectUpstreamCandidates(['B'], trains, routes)
 
     expect(result).toEqual(new Set(['A']))
+  })
+
+  it('collects UPSTREAM_LOOKBACK_HOPS stations back, not just the immediate predecessor', () => {
+    // Scenariusz S3 10556: przystanek bezpośrednio przed obserwowaną stacją
+    // sam jeszcze nie jest potwierdzony (typowe na gęstej linii) -- trzeba
+    // sięgnąć dalej wstecz, nie tylko o jeden.
+    const stationIds = Array.from({ length: UPSTREAM_LOOKBACK_HOPS + 2 }, (_, i) => `S${i}`)
+    const trains = [train('1', '1', [stop({ stationId: 'target', plannedDeparture: '2026-08-01T12:00:00Z' })])]
+    const routes = routesMap(route('1', '1', [...stationIds, 'target']))
+
+    const result = collectUpstreamCandidates(['target'], trains, routes)
+
+    // Najbliższe UPSTREAM_LOOKBACK_HOPS stacje przed "target", nie wszystkie.
+    const expected = stationIds.slice(-UPSTREAM_LOOKBACK_HOPS)
+    expect(result).toEqual(new Set(expected))
   })
 
   it('ignores a confirmed stop -- nothing to estimate, it already has real data', () => {
