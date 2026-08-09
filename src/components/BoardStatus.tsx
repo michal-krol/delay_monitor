@@ -46,19 +46,24 @@ function budgetHint(data: BoardApiResponse | null): string | undefined {
  * aria-live="polite" celowo obejmuje wyłącznie ten fragment, nie tabelę —
  * inaczej czytnik ekranu odczytywałby całą tablicę przy każdym odświeżeniu.
  */
+/** Statyczny fakt o tempie odświeżania -- ma być widoczny zawsze, niezależnie od stanu ładowania/błędu. */
+const REFRESH_HINT = <span>Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
+
 export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
   if (error) {
     return (
-      <p aria-live="polite" className="text-xs text-red-600 dark:text-red-400">
-        Błąd pobierania danych
+      <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-red-600 dark:text-red-400">Błąd pobierania danych</span>
+        {REFRESH_HINT}
       </p>
     )
   }
 
   if (fetchedAt === undefined) {
     return (
-      <p aria-live="polite" className="text-xs text-gray-500 dark:text-gray-400">
-        Ładowanie…
+      <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+        <span>Ładowanie…</span>
+        {REFRESH_HINT}
       </p>
     )
   }
@@ -68,7 +73,7 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
   return (
     <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
       <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
-      <span>Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
+      {REFRESH_HINT}
 
       {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 

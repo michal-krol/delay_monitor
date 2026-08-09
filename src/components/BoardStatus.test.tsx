@@ -27,6 +27,16 @@ describe('BoardStatus', () => {
     expect(screen.getByText('Błąd pobierania danych')).toBeInTheDocument()
   })
 
+  it('shows the refresh-cadence note even while still loading, not just once data has arrived', () => {
+    render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={false} />)
+    expect(screen.getByText('Dane odświeżają się automatycznie co ok. 1,5 minuty.')).toBeInTheDocument()
+  })
+
+  it('shows the refresh-cadence note even during a fetch error', () => {
+    render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={true} />)
+    expect(screen.getByText('Dane odświeżają się automatycznie co ok. 1,5 minuty.')).toBeInTheDocument()
+  })
+
   it('shows the absolute last-updated timestamp when everything is healthy', () => {
     render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} data={makeData()} error={false} />)
 
