@@ -3,11 +3,12 @@ name: CI
 on:
   pull_request:
     branches: [main, dev]
-  # Railway deployuje z main po każdym pushu, a commity trafiają tam
-  # bezpośrednio, nie przez pull requesty. Bez tego wyzwalacza produkcja nie
-  # przechodziłaby przez żadną bramkę jakości.
+  # Railway deployuje z main (produkcja) i dev (staging) po każdym pushu,
+  # a commity trafiają tam bezpośrednio, nie przez pull requesty. Bez tego
+  # wyzwalacza żadna z dwóch gałęzi nie przechodziłaby przez żadną bramkę
+  # jakości przed wdrożeniem.
   push:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
   quality:

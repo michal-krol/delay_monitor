@@ -305,14 +305,16 @@ nieujęte w limitach opisanych wyżej zużycie.
 ## Deployment (Railway)
 
 Jeden projekt Railway, dwa środowiska: `main` → produkcja (`live`, prawdziwy
-klucz), `dev` → staging (`mock`, zero zużycia limitu). Railway deployuje
+klucz), `dev` → staging (`live`, **osobny, drugi klucz PKP** — niezależny
+budżet 100/h + 1000/dobę od produkcyjnego, nie mock). Railway deployuje
 automatycznie po pushu na podstawie `Dockerfile` (`output: 'standalone'`);
 `railway.json` wskazuje `/api/health` jako healthcheck.
 
 GitHub Actions (`.github/workflows/ci.yml`) uruchamia `typecheck`, `lint`
-i `test` na pull requestach **oraz przy pushu na `main`**. Ten drugi wyzwalacz
-jest istotny: commity trafiają tu bezpośrednio na `main`, z którego deployuje
-Railway — bez tego produkcja nie przechodziłaby przez żadną bramkę.
+i `test` na pull requestach **oraz przy pushu na `main` i `dev`**. Ten drugi
+wyzwalacz jest istotny: commity trafiają tu bezpośrednio na obie gałęzie, z
+których deployuje Railway — bez tego żadne z dwóch środowisk nie
+przechodziłoby przez żadną bramkę.
 
 Kontener runtime nie chodzi jako root (`USER node`), a wersja Node jest zapisana
 raz — w `.nvmrc`, skąd czyta ją zarówno CI, jak i `engines` w `package.json`.
@@ -322,8 +324,11 @@ raz — w `.nvmrc`, skąd czyta ją zarówno CI, jak i `engines` w `package.json
 znane dane z pamięci, a restartowanie jej przez healthcheck tylko by zaszkodziło.
 Stan jest widoczny w treści odpowiedzi, więc monitoring może na niego zareagować.
 
-Uwaga kosztowa: dwa działające kontenery to podwójne zużycie kredytów
-Railway. Warto trzymać `dev` wyłączone i włączać przed większym mergem.
+Uwaga kosztowa: dwa działające kontenery to podwójne zużycie kredytów Railway.
+Serwis `dev` ma włączony App Sleep (usypia po 10 min bezczynności, budzi się
+na pierwsze żądanie, zero kosztu obliczeniowego w spoczynku) — appka i tak ma
+już wzorzec na "świeży start bez danych" (`FAST_RETRY_DELAYS_MS` w
+`useBoard.ts`), więc budzenie po uśpieniu nie wygląda inaczej niż zimny start.
 
 ## Co potwierdziły żywe dane
 
