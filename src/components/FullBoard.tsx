@@ -9,6 +9,7 @@ import { BoardStatus } from './BoardStatus'
 import { ConnectionDetails } from './ConnectionDetails'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
+import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 
 type Props = {
   stationId: string
@@ -73,15 +74,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   const rows = snapshot ? snapshot[direction] : []
   const configError = data?.status === 'configError'
 
-  // `Date.now()` nie może być wywołane bezpośrednio w renderze (impure). Zamiast
-  // tykającego zegara — świadomie, appka już nie pokazuje relatywnego wieku —
-  // odświeżamy „teraz" przy każdej nowej porcji danych, czyli tak samo często
-  // jak i tak odświeża się lista (`useBoard`, co 30 s).
-  const [now, setNow] = useState(0)
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Date.now() jest impure i nie może być wołane w renderze; efekt odświeża "teraz" tylko gdy przyjdą nowe dane, nie w pętli
-    setNow(Date.now())
-  }, [data])
+  const now = useSnapshotNow(data)
 
   // Odtworzenie zakładki i otwartego panelu z linku — raz, po zamontowaniu
   // (patrz identyczny wzorzec i uzasadnienie w page.tsx). Nieprawidłowy/

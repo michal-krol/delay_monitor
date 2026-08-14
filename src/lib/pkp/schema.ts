@@ -1,6 +1,15 @@
 import { z } from 'zod'
 import { normalizeApiTimestamp } from './time'
 
+/**
+ * ID PKP bywa liczbą lub stringiem w odpowiedzi API, więc wymaga koercji —
+ * ale `z.coerce.string()` koerciuje też `null` do stringa `"null"`
+ * (`String(null) === "null"`), zamiast go odrzucić. Jawny `z.union` nie ma
+ * tej dziury: `null` nie pasuje do żadnej gałęzi, więc parsowanie pada, jak
+ * przy każdym innym brakującym/błędnym ID na tej granicy zaufania (AGENTS.md #4).
+ */
+const idString = z.union([z.string(), z.number()]).transform(String)
+
 const apiTimestamp = z
   .string()
   .nullable()
@@ -10,7 +19,7 @@ const apiTimestamp = z
 
 export const stationSchema = z
   .object({
-    id: z.coerce.string(),
+    id: idString,
     name: z
       .string()
       .nullable()
@@ -26,7 +35,7 @@ export const stationSearchResponseSchema = z
 
 const rawOperationStationSchema = z
   .object({
-    stationId: z.coerce.string(),
+    stationId: idString,
     plannedArrival: apiTimestamp,
     plannedDeparture: apiTimestamp,
     actualArrival: apiTimestamp,
@@ -42,8 +51,8 @@ const rawOperationStationSchema = z
 /** Kształt jednego pociągu z `/operations` — ten sam co odpowiedź `/operations/train/{scheduleId}/{orderId}/{operatingDate}` (patrz `getTrainDetail` w `client.ts`). */
 export const rawTrainOperationSchema = z
   .object({
-    scheduleId: z.coerce.string(),
-    orderId: z.coerce.string(),
+    scheduleId: idString,
+    orderId: idString,
     trainOrderId: z.coerce.string().nullable().optional().default(null),
     /** Data kursowania (yyyy-MM-dd) — wymagana przez `/operations/train/{scheduleId}/{orderId}/{operatingDate}`. */
     operatingDate: z.string().nullable().optional().default(null),
@@ -70,7 +79,7 @@ export const operationsResponseSchema = z
 
 const rawRouteStopSchema = z
   .object({
-    stationId: z.coerce.string(),
+    stationId: idString,
     arrivalPlatform: z.string().nullable().optional().default(null),
     arrivalTrack: z.string().nullable().optional().default(null),
     departurePlatform: z.string().nullable().optional().default(null),
@@ -93,8 +102,8 @@ const rawRouteStopSchema = z
 /** Kształt jednej trasy z `/schedules` — ten sam co odpowiedź `/schedules/route/{scheduleId}/{orderId}` (patrz `getTrainDetail` w `client.ts`). */
 export const rawRouteSchema = z
   .object({
-    scheduleId: z.coerce.string(),
-    orderId: z.coerce.string(),
+    scheduleId: idString,
+    orderId: idString,
     trainOrderId: z.coerce.string().nullable().optional().default(null),
     carrierCode: z.string().nullable().optional().default(null),
     commercialCategorySymbol: z.string().nullable().optional().default(null),
@@ -120,7 +129,7 @@ export const schedulesResponseSchema = z
           .nullish()
           .transform((carriers) => carriers ?? {}),
         stations: z
-          .record(z.string(), z.object({ id: z.coerce.string(), name: z.string() }).passthrough())
+          .record(z.string(), z.object({ id: idString, name: z.string() }).passthrough())
           .nullish()
           .transform((stations) => stations ?? {}),
       })

@@ -93,6 +93,7 @@ describe('GET /api/train', () => {
         isConfirmed: true,
         platform: '4/2',
         hasTrainStarted: false,
+        estimatedDelayMinutes: null,
       },
     ])
   })
@@ -234,6 +235,28 @@ describe('GET /api/train', () => {
     const first = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=6&operatingDate=2026-08-01'))
     const second = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=6&operatingDate=2026-08-01'))
 
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect(getTrainDetail).toHaveBeenCalledTimes(1)
+  })
+
+  it('deduplicates two concurrent requests for the same never-before-seen train instead of firing two upstream calls', async () => {
+    getTrainDetail.mockClear()
+    let resolveDetail: (value: unknown) => void = () => {}
+    getTrainDetail.mockReturnValueOnce(new Promise((resolve) => { resolveDetail = resolve }))
+    const { GET } = await import('./route')
+
+    const request = () => GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=9&operatingDate=2026-08-01'))
+    const firstPromise = request()
+    const secondPromise = request()
+
+    resolveDetail({
+      operation: { scheduleId: '2026', orderId: '9', trainOrderId: null, operatingDate: '2026-08-01', trainStatus: 'P', stations: [] },
+      route: null,
+      stationNames: {},
+    })
+
+    const [first, second] = await Promise.all([firstPromise, secondPromise])
     expect(first.status).toBe(200)
     expect(second.status).toBe(200)
     expect(getTrainDetail).toHaveBeenCalledTimes(1)

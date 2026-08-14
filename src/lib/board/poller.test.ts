@@ -277,46 +277,21 @@ describe('createPoller', () => {
     expect(getOperations).toHaveBeenCalledTimes(2)
   })
 
-  it('waits with jitter before retrying a 5xx instead of firing again immediately', async () => {
-    const getOperations = vi
-      .fn()
-      .mockRejectedValueOnce(new PkpApiError('boom', 500))
-      .mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const sleep = vi.fn().mockResolvedValue(undefined)
+  it('trusts the client for retry resilience instead of retrying getOperations itself', async () => {
+    // Ponowienie po 5xx żyje teraz w `client.ts` (`fetchJsonWithRetry`),
+    // wspólne dla wszystkich zapytań do PKP -- nie tylko `getOperations`, jak
+    // wcześniej ten sam mechanizm ręcznie owinięty tu, w pollerze. Poller woła
+    // `client.getOperations()` dokładnie raz na przebieg i ufa, że klient sam
+    // sobie poradzi z przejściową awarią; patrz `client.test.ts` dla testów
+    // samego ponowienia.
+    const getOperations = vi.fn().mockRejectedValue(new PkpApiError('boom', 500))
     const client = makeClient({ getOperations })
-    const poller = createPoller({
-      client,
-      config: { pollIntervalMs: 90000, interestTtlMs: 300000 },
-      stationNames: new Map(),
-      sleep,
-      random: () => 0.5,
-    })
-
-    poller.registerInterest(['5100'])
-    await vi.advanceTimersByTimeAsync(0)
-
-    expect(sleep).toHaveBeenCalledTimes(1)
-    expect(sleep).toHaveBeenCalledWith(1000) // 500 bazy + 0.5 * 1000 jittera
-    expect(getOperations).toHaveBeenCalledTimes(2)
-    expect(poller.getStatus()).toBe('ok')
-  })
-
-  it('does not retry a 4xx that is not worth repeating', async () => {
-    const getOperations = vi.fn().mockRejectedValue(new PkpApiError('bad request', 400))
-    const sleep = vi.fn().mockResolvedValue(undefined)
-    const client = makeClient({ getOperations })
-    const poller = createPoller({
-      client,
-      config: { pollIntervalMs: 90000, interestTtlMs: 300000 },
-      stationNames: new Map(),
-      sleep,
-    })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
     await vi.advanceTimersByTimeAsync(0)
 
     expect(getOperations).toHaveBeenCalledTimes(1)
-    expect(sleep).not.toHaveBeenCalled()
     expect(poller.getStatus()).toBe('degraded')
   })
 
@@ -335,6 +310,28 @@ describe('createPoller', () => {
 
     // Bez limitu byloby ok. 60 wywolan; z limitem znaczaco mniej.
     expect(getOperations.mock.calls.length).toBeLessThanOrEqual(12)
+  })
+
+  it('caps the number of simultaneously watched stations, evicting the oldest first', async () => {
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const client = makeClient({ getOperations })
+    const poller = createPoller({
+      client,
+      config: { pollIntervalMs: 90000, interestTtlMs: 300000, maxWatchedStations: 3 },
+      stationNames: new Map(),
+    })
+
+    poller.registerInterest(['a', 'b', 'c'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Poczekaj, aż dławik 45 s minie, żeby kolejna rejestracja wywołała realny przebieg.
+    await vi.advanceTimersByTimeAsync(45000)
+    poller.registerInterest(['d'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const lastCallStations = getOperations.mock.calls[getOperations.mock.calls.length - 1][0] as string[]
+    expect(lastCallStations).not.toContain('a') // najstarsza, wyeksmitowana przy pełnej pojemności
+    expect(lastCallStations).toEqual(expect.arrayContaining(['b', 'c', 'd']))
   })
 
   it('still fetches immediately for the first few new stations', async () => {
@@ -401,7 +398,6 @@ describe('createPoller', () => {
       .fn()
       .mockResolvedValueOnce({ trains: goodTrains, stationNames: { '5100': 'Warszawa Centralna' }, budget: { hourly: 99, daily: 999 } })
       .mockRejectedValueOnce(new PkpApiError('boom', 500))
-      .mockRejectedValueOnce(new PkpApiError('boom', 500))
     const client = makeClient({ getOperations })
     const poller = createPoller({
       client,
@@ -415,9 +411,6 @@ describe('createPoller', () => {
     expect(goodSnapshot?.departures).toHaveLength(1)
 
     await vi.advanceTimersByTimeAsync(90000)
-    // Ponowienie po 5xx czeka teraz na odstęp z jitterem (500-1500 ms), więc
-    // przebieg domyka się dopiero po dodatkowym przesunięciu zegara.
-    await vi.advanceTimersByTimeAsync(2000)
 
     expect(poller.getSnapshot('5100')).toEqual(goodSnapshot)
     expect(poller.getStatus()).toBe('degraded')

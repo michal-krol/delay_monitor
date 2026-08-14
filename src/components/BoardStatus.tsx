@@ -50,16 +50,21 @@ function budgetHint(data: BoardApiResponse | null): string | undefined {
 const REFRESH_HINT = <span>Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
 
 export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
-  if (error) {
-    return (
-      <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-        <span className="text-red-600 dark:text-red-400">Błąd pobierania danych</span>
-        {REFRESH_HINT}
-      </p>
-    )
-  }
-
+  // Baner błędu zastępuje CAŁĄ linijkę statusu tylko, gdy nie ma jeszcze
+  // żadnego znanego snapshotu do pokazania -- inaczej ukrywałby wiek danych,
+  // które w tle nadal są widoczne w tabeli (patrz AGENTS.md #7: awaria ma być
+  // rosnącym wiekiem danych, nie pustym/zablokowanym widokiem). Gdy fetchedAt
+  // już jest znany, błąd bieżącego odświeżenia dokłada się jako kolejny chip
+  // obok wieku danych, nie zamiast niego.
   if (fetchedAt === undefined) {
+    if (error) {
+      return (
+        <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-red-600 dark:text-red-400">Błąd pobierania danych</span>
+          {REFRESH_HINT}
+        </p>
+      )
+    }
     return (
       <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
         <span>Ładowanie…</span>
@@ -74,6 +79,8 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
     <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
       <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
       {REFRESH_HINT}
+
+      {error && <span className="text-red-600 dark:text-red-400">Błąd ostatniego odświeżenia</span>}
 
       {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 

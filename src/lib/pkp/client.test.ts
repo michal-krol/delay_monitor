@@ -156,6 +156,61 @@ describe('createLiveClient', () => {
     await expect(client.getOperations(['5100'])).rejects.toBeInstanceOf(PkpApiError)
   })
 
+  it('waits with jitter before retrying once on a 5xx, then succeeds', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('boom', { status: 500 }))
+      .mockResolvedValueOnce(jsonResponse({ trains: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const sleep = vi.fn().mockResolvedValue(undefined)
+
+    const client = createLiveClient('secret-key', () => new Date(), sleep, () => 0.5)
+    const result = await client.getOperations(['5100'])
+
+    expect(result.trains).toEqual([])
+    expect(sleep).toHaveBeenCalledTimes(1)
+    expect(sleep).toHaveBeenCalledWith(1000) // 500 bazy + 0.5 * 1000 jittera
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a 4xx that is not worth repeating', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('bad request', { status: 400 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const sleep = vi.fn().mockResolvedValue(undefined)
+
+    const client = createLiveClient('secret-key', () => new Date(), sleep)
+    await expect(client.getOperations(['5100'])).rejects.toMatchObject({ status: 400 })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(sleep).not.toHaveBeenCalled()
+  })
+
+  it('gives every PKP endpoint the same retry resilience, not just getOperations', async () => {
+    // Wcześniej ponowienie żyło tylko wokół getOperations w pollerze --
+    // getTrainDetail (wołane z /api/train) nie miało żadnego. Teraz to
+    // wspólny wrapper w fetchJsonWithRetry, więc getTrainDetail też korzysta.
+    // Kolejność wywołań fetch jest deterministyczna: operationUrl i routeUrl
+    // odpalają się synchronicznie w tej kolejności (Promise.allSettled), więc
+    // ewentualne ponowienie operationUrl trafia dopiero jako trzecie wywołanie.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('boom', { status: 503 })) // 1: operationUrl, pierwsza próba
+      .mockResolvedValueOnce(new Response('not found', { status: 404 })) // 2: routeUrl (brak trasy to normalny przypadek, bez retry)
+      .mockResolvedValueOnce(
+        jsonResponse({ scheduleId: '2026', orderId: '1', trainOrderId: null, operatingDate: '2026-08-01', trainStatus: 'P', stations: [] })
+      ) // 3: operationUrl, ponowienie
+      .mockResolvedValue(jsonResponse({ stations: [] })) // 4+: słownik stacji (fetchAllStations)
+    vi.stubGlobal('fetch', fetchMock)
+    const sleep = vi.fn().mockResolvedValue(undefined)
+
+    const client = createLiveClient('secret-key', () => new Date(), sleep, () => 0)
+    const detail = await client.getTrainDetail('2026', '1', '2026-08-01')
+
+    expect(detail.operation.scheduleId).toBe('2026')
+    expect(detail.route).toBeNull()
+    expect(sleep).toHaveBeenCalledTimes(1)
+  })
+
   it('fetches routes for the requested stations and parses carrier/category', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({

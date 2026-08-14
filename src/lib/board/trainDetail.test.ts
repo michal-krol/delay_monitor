@@ -80,6 +80,38 @@ describe('buildTrainDetailStops', () => {
     ])
   })
 
+  it('estimates the delay of an en-route stop from the nearest earlier confirmed stop, matching what the board shows for the same stop', () => {
+    const stops: RawOperationStation[] = [
+      realizedStop({ stationId: 'A', actualDeparture: '2026-08-01T10:06:00+02:00' }), // plan 10:00 -> +6 min, potwierdzony
+      realizedStop({ stationId: 'B', isConfirmed: false }), // jeszcze w trasie, plan dopiero
+    ]
+    const routeStops: RawRouteStop[] = [
+      routeStop({ stationId: 'A', departureTime: '10:00:00' }),
+      routeStop({ stationId: 'B', arrivalTime: '10:20:00' }),
+    ]
+
+    const result = buildTrainDetailStops(operation(stops), route(routeStops), {})
+
+    expect(result[0].estimatedDelayMinutes).toBeNull() // potwierdzony przystanek ma fakt (departureDelayMinutes), nie szacunek
+    expect(result[1].estimatedDelayMinutes).toBe(6)
+  })
+
+  it("never uses a cancelled stop's delay as the estimate source for a later en-route stop", () => {
+    const stops: RawOperationStation[] = [
+      realizedStop({ stationId: 'A', isCancelled: true, isConfirmed: true, departureDelayMinutes: 20 }),
+      realizedStop({ stationId: 'B', isConfirmed: false }),
+    ]
+
+    const result = buildTrainDetailStops(operation(stops), null, {})
+
+    expect(result[1].estimatedDelayMinutes).toBeNull()
+  })
+
+  it('never estimates a delay before the train has started at all', () => {
+    const result = buildTrainDetailStops(operation([realizedStop({ stationId: 'A', isConfirmed: false })]), null, {})
+    expect(result[0].estimatedDelayMinutes).toBeNull()
+  })
+
   it('resolves planned times from the route (operatingDate + arrivalTime/departureTime), not just actuals', () => {
     const stops = [realizedStop({ stationId: 'A', actualDeparture: '2026-08-01T10:07:00+02:00' })]
     const routeStops = [routeStop({ stationId: 'A', departureTime: '10:00:00' })]

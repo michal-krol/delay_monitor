@@ -16,6 +16,17 @@ const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const SCHEDULES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Odstęp z jitterem przed jedynym ponowieniem po 5xx -- natychmiastowe
+ * ponowienie najczęściej trafia w tę samą awarię po stronie API i zjada drugie
+ * zapytanie z limitu na nic. Świadomie w `fetchJsonWithRetry` (niżej), nie w
+ * pojedynczym call-site jak wcześniej w `poller.ts` -- każde wywołanie PKP
+ * (słownik stacji, rozkłady, realizacja, szczegóły przejazdu) ma dostawać tę
+ * samą odporność, nie tylko to, które akurat ktoś owinął ręcznie.
+ */
+const RETRY_BASE_DELAY_MS = 500
+const RETRY_JITTER_MS = 1000
+
 // Klucz cache'u rozkładów to posortowany zestaw obserwowanych stacji, więc
 // każda zmiana ulubionych tworzy nowy wpis. Limit trzyma to w ryzach.
 const SCHEDULES_CACHE_MAX_ENTRIES = 64
@@ -155,7 +166,12 @@ function encodeStationIds(stationIds: string[]): string {
 /** Stacja z nazwą znormalizowaną raz, przy budowaniu cache'u słownika. */
 type IndexedStation = { station: Station; normalizedName: string }
 
-export function createLiveClient(apiKey: string, now: () => Date = () => new Date()): PkpClient {
+export function createLiveClient(
+  apiKey: string,
+  now: () => Date = () => new Date(),
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  random: () => number = Math.random
+): PkpClient {
   let stationListCache: { stations: IndexedStation[]; ids: ReadonlySet<string>; expiresAt: number } | null = null
   const schedulesCache = createTtlCache<GetSchedulesResult>({
     ttlMs: SCHEDULES_CACHE_TTL_MS,
@@ -174,6 +190,26 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
   let stationListInFlight: Promise<IndexedStation[]> | null = null
   const schedulesInFlight = new Map<string, Promise<GetSchedulesResult>>()
 
+  /**
+   * `fetchJson` + jedno ponowienie na 5xx, z odstępem i jitterem. Wcześniej
+   * to ponowienie żyło tylko wokół `getOperations` w `poller.ts` -- `/schedules`
+   * miał inną (catch-i-degraduj), a `getTrainDetail` (patrz `/api/train`) nie
+   * miał żadnej. Jeden wspólny wrapper na poziomie `fetchJson` daje tę samą
+   * odporność każdemu zapytaniu do PKP, nie tylko temu, które akurat ktoś
+   * owinął ręcznie.
+   */
+  async function fetchJsonWithRetry(url: string, key: string, errorMessage: string): Promise<{ json: unknown; response: Response }> {
+    try {
+      return await fetchJson(url, key, errorMessage)
+    } catch (err) {
+      if (err instanceof PkpApiError && err.status >= 500) {
+        await sleep(RETRY_BASE_DELAY_MS + random() * RETRY_JITTER_MS)
+        return fetchJson(url, key, errorMessage)
+      }
+      throw err
+    }
+  }
+
   async function fetchAllStations(): Promise<IndexedStation[]> {
     const cached = stationListCache
     if (cached !== null && cached.expiresAt > Date.now()) {
@@ -190,7 +226,7 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
 
   async function loadStationList(): Promise<IndexedStation[]> {
     const url = `${BASE_URL}/api/v1/dictionaries/stations?pageSize=10000`
-    const { json } = await fetchJson(url, apiKey, 'Pobranie listy stacji nie powiodło się')
+    const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie listy stacji nie powiodło się')
     const stations = stationSearchResponseSchema.parse(json).stations
       .filter((station) => station.name !== '')
       .map((station) => ({ station, normalizedName: normalizeForSearch(station.name) }))
@@ -226,7 +262,7 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
     // Koszt jednorazowy: /schedules jest cache'owane 24h, w przeciwieństwie do
     // /operations pobieranego co cykl pollera.
     const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}&fullRoute=true`
-    const { json } = await fetchJson(url, apiKey, 'Pobranie rozkładu nie powiodło się')
+    const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie rozkładu nie powiodło się')
     const parsed = schedulesResponseSchema.parse(json)
     const result: GetSchedulesResult = { routes: parsed.routes, carrierNames: parsed.carrierNames, stationNames: parsed.stationNames }
     schedulesCache.set(cacheKey, result)
@@ -257,7 +293,7 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
       // (fullRoute=true tam — patrz loadSchedules — ale cache 24h, nie co 90s).
       // Nie dopisuj tego z powrotem bez przeliczenia kosztu.
       const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true`
-      const { json, response } = await fetchJson(url, apiKey, 'Pobranie realizacji nie powiodło się')
+      const { json, response } = await fetchJsonWithRetry(url, apiKey, 'Pobranie realizacji nie powiodło się')
       const parsed = operationsResponseSchema.parse(json)
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response) }
     },
@@ -294,8 +330,8 @@ export function createLiveClient(apiKey: string, now: () => Date = () => new Dat
       // realizacji. Stąd allSettled zamiast Promise.all: brak trasy to `null`,
       // nie odrzucenie całego żądania.
       const [operationResult, routeResult] = await Promise.allSettled([
-        fetchJson(operationUrl, apiKey, 'Pobranie szczegółów przejazdu nie powiodło się'),
-        fetchJson(routeUrl, apiKey, 'Pobranie trasy pociągu nie powiodło się'),
+        fetchJsonWithRetry(operationUrl, apiKey, 'Pobranie szczegółów przejazdu nie powiodło się'),
+        fetchJsonWithRetry(routeUrl, apiKey, 'Pobranie trasy pociągu nie powiodło się'),
       ])
 
       if (operationResult.status === 'rejected') throw operationResult.reason

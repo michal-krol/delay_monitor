@@ -84,6 +84,27 @@ describe('ConnectionDetails', () => {
     expect(url.searchParams.get('operatingDate')).toBe('2026-08-01')
   })
 
+  it('shows the en-route delay estimate for an unconfirmed stop, the same as the board would for the same stop', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        jsonResponse({
+          ...RESPONSE,
+          stops: [
+            { ...RESPONSE.stops[0], estimatedDelayMinutes: null },
+            { ...RESPONSE.stops[1], estimatedDelayMinutes: 6 },
+          ],
+        })
+      )
+    )
+
+    render(
+      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
+    )
+
+    expect(await screen.findByText('w trasie, ~+6 min')).toBeInTheDocument()
+  })
+
   it('falls back to the board row label while the route name is not yet known', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(() => {})))
 

@@ -17,6 +17,10 @@ describe('stationSearchResponseSchema', () => {
   it('rejects a station missing a required field', () => {
     expect(() => stationSearchResponseSchema.parse({ stations: [{ id: '5100' }] })).toThrow()
   })
+
+  it('rejects an explicit null id instead of coercing it to the string "null"', () => {
+    expect(() => stationSearchResponseSchema.parse({ stations: [{ id: null, name: 'X' }] })).toThrow()
+  })
 })
 
 describe('operationsResponseSchema', () => {
@@ -80,6 +84,19 @@ describe('operationsResponseSchema', () => {
     expect(() =>
       operationsResponseSchema.parse({
         trains: [{ orderId: 1, stations: [] }],
+      })
+    ).toThrow()
+  })
+
+  it('rejects an explicit null scheduleId or stationId instead of coercing to the string "null"', () => {
+    expect(() =>
+      operationsResponseSchema.parse({
+        trains: [{ scheduleId: null, orderId: 1, stations: [] }],
+      })
+    ).toThrow()
+    expect(() =>
+      operationsResponseSchema.parse({
+        trains: [{ scheduleId: 25, orderId: 1, stations: [{ stationId: null, plannedDeparture: '2026-08-01T12:15:00+02:00' }] }],
       })
     ).toThrow()
   })

@@ -102,30 +102,46 @@ export function collectUpstreamCandidates(
   routesByTrainId: Map<string, RawRoute>
 ): Set<string> {
   const alreadyObserved = new Set(stationIds)
+  const stationIdSet = alreadyObserved
   const result = new Set<string>()
 
-  for (const stationId of stationIds) {
-    const departureCandidates: Candidate[] = []
-    const arrivalCandidates: Candidate[] = []
+  // Jeden przebieg po `trains` zamiast osobnego pełnego skanu na każdą
+  // obserwowaną stację (`stationIds.length` × `trains.length` wcześniej) --
+  // ta sama odpowiedź, bo `nearest()` niżej i tak sortuje kandydatów w całości
+  // przed ucięciem do limitu, więc kolejność zbierania (po pociągu, nie po
+  // stacji) nic nie zmienia w wyniku.
+  const departureCandidatesByStation = new Map<string, Candidate[]>()
+  const arrivalCandidatesByStation = new Map<string, Candidate[]>()
 
-    for (const train of trains) {
-      const stop = train.stations.find((s) => s.stationId === stationId)
-      if (!stop || !isEnRouteCandidate(stop)) continue
+  for (const train of trains) {
+    const route = routesByTrainId.get(routeKey(train.scheduleId, train.orderId, train.trainOrderId))
 
-      const route = routesByTrainId.get(routeKey(train.scheduleId, train.orderId, train.trainOrderId))
-      const upstreamStationIds = findPrecedingStationIds(route, stationId, UPSTREAM_LOOKBACK_HOPS).filter(
+    for (const stop of train.stations) {
+      if (!stationIdSet.has(stop.stationId) || !isEnRouteCandidate(stop)) continue
+
+      const upstreamStationIds = findPrecedingStationIds(route, stop.stationId, UPSTREAM_LOOKBACK_HOPS).filter(
         (id) => !alreadyObserved.has(id)
       )
       if (upstreamStationIds.length === 0) continue
 
-      if (stop.plannedDeparture !== null) departureCandidates.push({ upstreamStationIds, plannedAt: stop.plannedDeparture })
-      if (stop.plannedArrival !== null) arrivalCandidates.push({ upstreamStationIds, plannedAt: stop.plannedArrival })
+      if (stop.plannedDeparture !== null) {
+        const list = departureCandidatesByStation.get(stop.stationId) ?? []
+        list.push({ upstreamStationIds, plannedAt: stop.plannedDeparture })
+        departureCandidatesByStation.set(stop.stationId, list)
+      }
+      if (stop.plannedArrival !== null) {
+        const list = arrivalCandidatesByStation.get(stop.stationId) ?? []
+        list.push({ upstreamStationIds, plannedAt: stop.plannedArrival })
+        arrivalCandidatesByStation.set(stop.stationId, list)
+      }
     }
+  }
 
-    for (const candidate of nearest(departureCandidates, UPSTREAM_CANDIDATE_LIMIT)) {
+  for (const stationId of stationIds) {
+    for (const candidate of nearest(departureCandidatesByStation.get(stationId) ?? [], UPSTREAM_CANDIDATE_LIMIT)) {
       for (const id of candidate.upstreamStationIds) result.add(id)
     }
-    for (const candidate of nearest(arrivalCandidates, UPSTREAM_CANDIDATE_LIMIT)) {
+    for (const candidate of nearest(arrivalCandidatesByStation.get(stationId) ?? [], UPSTREAM_CANDIDATE_LIMIT)) {
       for (const id of candidate.upstreamStationIds) result.add(id)
     }
 

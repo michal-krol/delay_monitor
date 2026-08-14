@@ -161,6 +161,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                         hasTrainStarted: stop.hasTrainStarted,
                       })}
                       delayMinutes={stopDelayMinutes(stop)}
+                      estimatedDelayMinutes={stop.estimatedDelayMinutes}
                     />
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">

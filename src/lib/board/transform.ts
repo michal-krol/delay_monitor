@@ -120,23 +120,33 @@ function estimateDelayFromUpstream(status: RealizationStatus, upstreamStops: Raw
   )
 }
 
-function buildRow(
-  scheduleId: string,
-  orderId: string,
-  operatingDate: string | null,
-  trainId: string,
-  headsign: string | null,
-  plannedAt: string,
-  actualAt: string | null,
-  cancelled: boolean,
-  isConfirmed: boolean,
-  apiDelay: number | null,
-  route: RawRoute | undefined,
-  platform: string | null,
-  carrierNames: Record<string, string>,
-  hasTrainStartedFromTrainStatus: boolean,
+/** Kontekst wspólny dla obu kierunków (przyjazd/odjazd) TEGO SAMEGO przystanku -- identyczny w obu wywołaniach `buildRow` w `transformOperations`. */
+type TrainStopContext = {
+  scheduleId: string
+  orderId: string
+  operatingDate: string | null
+  trainId: string
+  cancelled: boolean
+  isConfirmed: boolean
+  route: RawRoute | undefined
+  carrierNames: Record<string, string>
+  hasTrainStartedFromTrainStatus: boolean
   upstreamStops: RawOperationStation[]
-): BoardRow {
+}
+
+/** To, co faktycznie różni się między przyjazdem a odjazdem TEGO SAMEGO przystanku. */
+type DirectionInput = {
+  headsign: string | null
+  plannedAt: string
+  actualAt: string | null
+  apiDelay: number | null
+  platform: string | null
+}
+
+function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRow {
+  const { scheduleId, orderId, operatingDate, trainId, cancelled, isConfirmed, route, carrierNames, hasTrainStartedFromTrainStatus, upstreamStops } = context
+  const { headsign, plannedAt, actualAt, apiDelay, platform } = direction
+
   const delayMinutes = resolveDelayMinutes(apiDelay, isConfirmed, plannedAt, actualAt)
   const category = route?.commercialCategorySymbol ?? ''
   const carrier = route?.carrierCode ?? ''
@@ -231,50 +241,42 @@ export function transformOperations(
     // Ta sama stacja poprzednia obsługuje i odjazd, i przyjazd na TEJ stacji
     // -- to jeden i ten sam punkt na trasie, dwa różne zdarzenia w nim.
     const upstreamStops = findUpstreamStops(route, stationId, stops)
+    const context: TrainStopContext = {
+      scheduleId: train.scheduleId,
+      orderId: train.orderId,
+      operatingDate: train.operatingDate,
+      trainId,
+      cancelled: stop.isCancelled,
+      isConfirmed: stop.isConfirmed,
+      route,
+      carrierNames,
+      hasTrainStartedFromTrainStatus: hasTrainStarted,
+      upstreamStops,
+    }
 
     if (stop.plannedDeparture !== null) {
       const destination = routeTerminus(route, 'last')
       departures.push(
-        buildRow(
-          train.scheduleId,
-          train.orderId,
-          train.operatingDate,
-          trainId,
-          destination ? resolveStationName(destination.stationId, stationNames) : null,
-          stop.plannedDeparture,
-          stop.actualDeparture,
-          stop.isCancelled,
-          stop.isConfirmed,
-          stop.departureDelayMinutes,
-          route,
-          formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack),
-          carrierNames,
-          hasTrainStarted,
-          upstreamStops
-        )
+        buildRow(context, {
+          headsign: destination ? resolveStationName(destination.stationId, stationNames) : null,
+          plannedAt: stop.plannedDeparture,
+          actualAt: stop.actualDeparture,
+          apiDelay: stop.departureDelayMinutes,
+          platform: formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack),
+        })
       )
     }
 
     if (stop.plannedArrival !== null) {
       const origin = routeTerminus(route, 'first')
       arrivals.push(
-        buildRow(
-          train.scheduleId,
-          train.orderId,
-          train.operatingDate,
-          trainId,
-          origin ? resolveStationName(origin.stationId, stationNames) : null,
-          stop.plannedArrival,
-          stop.actualArrival,
-          stop.isCancelled,
-          stop.isConfirmed,
-          stop.arrivalDelayMinutes,
-          route,
-          formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack),
-          carrierNames,
-          hasTrainStarted,
-          upstreamStops
-        )
+        buildRow(context, {
+          headsign: origin ? resolveStationName(origin.stationId, stationNames) : null,
+          plannedAt: stop.plannedArrival,
+          actualAt: stop.actualArrival,
+          apiDelay: stop.arrivalDelayMinutes,
+          platform: formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack),
+        })
       )
     }
   }

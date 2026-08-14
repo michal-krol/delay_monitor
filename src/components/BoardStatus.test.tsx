@@ -86,6 +86,15 @@ describe('BoardStatus', () => {
     expect(chip).toHaveAttribute('title', 'Pozostało 41 zapytań do API na dobę')
   })
 
+  it('keeps showing the last-updated timestamp and data age when a later refresh fails, instead of blanking out to the error banner', () => {
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={7 * 60 * 1000} data={makeData()} error={true} />)
+
+    expect(screen.getByText(/Ostatnia aktualizacja:/)).toBeInTheDocument()
+    expect(screen.getByText('dane sprzed 7 min')).toBeInTheDocument()
+    expect(screen.getByText('Błąd ostatniego odświeżenia')).toBeInTheDocument()
+    expect(screen.queryByText('Błąd pobierania danych')).not.toBeInTheDocument()
+  })
+
   it('omits the budget tooltip when the API did not report a budget', () => {
     render(
       <BoardStatus

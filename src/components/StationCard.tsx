@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { CarrierLogo } from './CarrierLogo'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
+import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 
 type Props = {
   stationId: string
@@ -19,17 +19,7 @@ type Props = {
 }
 
 export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand, onRemove }: Props) {
-  // `Date.now()` w leniwym inicjalizatorze `useState` woła się raz, przy
-  // montowaniu — bez tranzjentnego `now === 0` na pierwszym renderze, przez
-  // który filtr niżej na chwilę przepuszczał każdy wiersz, łącznie z tymi,
-  // które faktycznie już się wydarzyły. Świadomie bez tykającego zegara —
-  // appka już nie pokazuje relatywnego wieku — odświeżamy „teraz" tylko przy
-  // każdej nowej porcji danych (nowy `snapshot`).
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Date.now() jest impure i nie może być wołane w renderze; efekt odświeża "teraz" tylko gdy przyjdzie nowy snapshot, nie w pętli
-    setNow(Date.now())
-  }, [snapshot])
+  const now = useSnapshotNow(snapshot)
 
   // Kafelek dashboardu pokazuje tylko nadchodzące połączenia — pociągi, które
   // już odjechały (mieszczące się w oknie 5 minut wstecz z transform.ts),

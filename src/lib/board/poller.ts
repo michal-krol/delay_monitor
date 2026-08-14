@@ -13,9 +13,6 @@ const LOW_BUDGET_INTERVAL_MS = 5 * 60 * 1000
 const LOW_BUDGET_DAILY_THRESHOLD = 50
 const LOW_BUDGET_HOURLY_THRESHOLD = 10
 
-const RETRY_BASE_DELAY_MS = 500
-const RETRY_JITTER_MS = 1000
-
 /**
  * Stacja bez danych wymusza przebieg poza harmonogramem, żeby pokazać rozkład
  * od razu po dodaniu do ulubionych. Bez limitu jest to jednak dźwignia: każde
@@ -30,9 +27,22 @@ const RETRY_JITTER_MS = 1000
 const FORCED_RUN_WINDOW_MS = 60 * 60 * 1000
 const MAX_FORCED_RUNS_PER_WINDOW = 10
 
+/**
+ * Domyślny twardy sufit liczby jednocześnie obserwowanych stacji w `interest`/
+ * `snapshots`. TTL (`interestTtlMs`) sam ogranicza CZAS życia wpisu, ale nie
+ * jego LICZBĘ w tym oknie -- bez tego seria żądań o różne, tylko poprawnie
+ * sformatowane ID stacji (walidacja formatu w `/api/board` nie sprawdza, że
+ * stacja naprawdę istnieje) rosłaby bez ograniczenia przez całe okno TTL
+ * (AGENTS.md #5: cache musi mieć TTL I limit wpisów, nie gołą `Map`). Margines
+ * wielokrotnie wyższy niż realna liczba stacji w sieci PKP (rzędu tysięcy).
+ */
+const DEFAULT_MAX_WATCHED_STATIONS = 5000
+
 export type PollerConfig = {
   pollIntervalMs: number
   interestTtlMs: number
+  /** Nadpisanie `DEFAULT_MAX_WATCHED_STATIONS` -- głównie po to, żeby test mógł sprawdzić limit bez tysięcy wywołań. */
+  maxWatchedStations?: number
 }
 
 /**
@@ -48,8 +58,6 @@ export type PollerDeps = {
   config: PollerConfig
   stationNames: StationNameLookup
   now?: () => number
-  sleep?: (ms: number) => Promise<void>
-  random?: () => number
 }
 
 /**
@@ -75,25 +83,6 @@ export type Poller = {
   isThrottled(): boolean
 }
 
-async function fetchWithRetry(
-  client: PkpClient,
-  active: string[],
-  sleep: (ms: number) => Promise<void>,
-  random: () => number
-) {
-  try {
-    return await client.getOperations(active)
-  } catch (err) {
-    if (err instanceof PkpApiError && err.status >= 500) {
-      // Odstęp z jitterem: natychmiastowe ponowienie najczęściej trafia w tę
-      // samą awarię po stronie API i zjada drugie zapytanie z limitu.
-      await sleep(RETRY_BASE_DELAY_MS + random() * RETRY_JITTER_MS)
-      return client.getOperations(active)
-    }
-    throw err
-  }
-}
-
 type RoutesLookup = {
   routesByTrainId: Map<string, RawRoute>
   carrierNames: Record<string, string>
@@ -117,8 +106,7 @@ async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promis
 export function createPoller(deps: PollerDeps): Poller {
   const { client, config, stationNames } = deps
   const now = deps.now ?? (() => Date.now())
-  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
-  const random = deps.random ?? Math.random
+  const maxWatchedStations = config.maxWatchedStations ?? DEFAULT_MAX_WATCHED_STATIONS
 
   const interest = new Map<string, number>()
   const snapshots = new Map<string, BoardSnapshot>()
@@ -190,7 +178,7 @@ export function createPoller(deps: PollerDeps): Poller {
 
     try {
       const [result, { routesByTrainId, carrierNames, scheduleStationNames }] = await Promise.all([
-        fetchWithRetry(client, operationsStationIds, sleep, random),
+        client.getOperations(operationsStationIds),
         fetchRoutesByTrainId(client, realActive),
       ])
       budget = result.budget
@@ -266,6 +254,17 @@ export function createPoller(deps: PollerDeps): Poller {
       const hasStationWithoutData = stationIds.some((stationId) => !snapshots.has(stationId))
 
       for (const stationId of stationIds) {
+        // Eksmisja tylko dla faktycznie nowej stacji przy pełnej pojemności --
+        // odświeżenie już obserwowanej nigdy nie powiększa `interest`, więc nie
+        // ma czego eksmitować. FIFO po kolejności wstawienia (`Map` zachowuje ją
+        // z definicji), nie LRU -- ten sam kompromis co `createTtlCache()`.
+        if (!interest.has(stationId) && interest.size >= maxWatchedStations) {
+          const oldest = interest.keys().next()
+          if (oldest.done === false) {
+            interest.delete(oldest.value)
+            snapshots.delete(oldest.value)
+          }
+        }
         interest.set(stationId, timestamp)
       }
 

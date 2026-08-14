@@ -1,6 +1,29 @@
 import type { NextConfig } from "next";
+import { execSync } from "node:child_process";
+import pkg from "./package.json";
 
 const isDev = process.env.NODE_ENV === "development";
+
+/**
+ * Gałąź, z której właśnie budujemy -- widoczna w UI (patrz AppTitle.tsx), żeby
+ * odróżnić lokalny `dev` od produkcyjnego `main` na pierwszy rzut oka.
+ *
+ * Railway ustawia `RAILWAY_GIT_BRANCH` automatycznie z podłączonej gałęzi
+ * GitHub, zarówno przy buildzie, jak i w runtime -- to źródło ma pierwszeństwo,
+ * bo `.git` jest świadomie poza kontekstem builda Dockera (`.dockerignore`),
+ * więc `git rev-parse` tam by się nie powiódł. Lokalnie (`npm run dev`/`build`)
+ * `.git` jest obecne, więc spada się na nie. Wartość jest zamrożona przy
+ * starcie/buildzie, nie na żywo w runtime -- restart po zmianie gałęzi jest
+ * normalnym elementem tego workflow, nie warto tego komplikować.
+ */
+function detectGitBranch(): string {
+  if (process.env.RAILWAY_GIT_BRANCH) return process.env.RAILWAY_GIT_BRANCH;
+  try {
+    return execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
+  } catch {
+    return "unknown";
+  }
+}
 
 /**
  * CSP pragmatyczna, nie ścisła — świadoma decyzja.
@@ -52,6 +75,14 @@ const nextConfig: NextConfig = {
   // Domyślnie Next ogłasza się nagłówkiem X-Powered-By. Nie ma powodu ułatwiać
   // dopasowania podatności do wersji frameworka.
   poweredByHeader: false,
+
+  // Wpisane tu trafiają do bundla klienta bez względu na prefiks (patrz
+  // node_modules/next/dist/docs/.../env.md) -- NEXT_PUBLIC_ tu tylko dla
+  // czytelności, nie funkcjonalnie wymagany. Wartości zamrożone przy buildzie.
+  env: {
+    NEXT_PUBLIC_APP_VERSION: pkg.version,
+    NEXT_PUBLIC_APP_BRANCH: detectGitBranch(),
+  },
 
   async headers() {
     return [

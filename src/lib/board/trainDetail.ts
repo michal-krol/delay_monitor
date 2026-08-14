@@ -1,7 +1,7 @@
 import type { RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 import { combineWarsawDateAndTime } from '../pkp/time'
 import { formatPlatform } from './transform'
-import { resolveDelayMinutes } from './realization'
+import { resolveDelayMinutes, resolveStopStatus } from './realization'
 
 export type TrainDetailStop = {
   stationId: string
@@ -23,6 +23,18 @@ export type TrainDetailStop = {
    * trasie" od "jeszcze nie wyjechał w ogóle" (patrz `realization.ts`).
    */
   hasTrainStarted: boolean
+  /**
+   * Szacunek, nie fakt — opóźnienie z najbliższego wcześniejszego
+   * potwierdzonego, nieodwołanego przystanku TEJ SAMEJ trasy, czytany tylko
+   * gdy ten przystanek jest jeszcze `enRoute` (patrz `resolveStopStatus`).
+   * Ten sam pomysł co `estimatedDelayMinutes` w `board/transform.ts`, tylko
+   * prościej: tu mamy już pełną, uporządkowaną listę przystanków TEGO
+   * pociągu, więc "najbliższy wcześniejszy potwierdzony" to po prostu
+   * ostatni napotkany podczas przejścia listy, bez szukania trasy/stacji
+   * pomocniczych. Nigdy nie zastępuje ani nie wpływa na `arrivalDelayMinutes`/
+   * `departureDelayMinutes`.
+   */
+  estimatedDelayMinutes: number | null
 }
 
 function findRouteStop(route: RawRoute | null, stationId: string): RawRouteStop | undefined {
@@ -71,22 +83,34 @@ export function buildTrainDetailStops(
   // przystanek na trasie sam dostaje `hasTrainStarted: false` (to on jest
   // dowodem wyjazdu, nie dowodem, że coś wcześniej już się wydarzyło).
   let hasTrainStarted = false
+  // Opóźnienie z najbliższego wcześniejszego potwierdzonego, nieodwołanego
+  // przystanku -- źródło `estimatedDelayMinutes` niżej. Odjazdowe pierwsze,
+  // ten sam porządek co `stopDelayMinutes()` w `ConnectionDetails.tsx`.
+  let lastConfirmedDelayMinutes: number | null = null
 
   return operation.stations.map((stop) => {
     const routeStop = findRouteStop(route, stop.stationId)
 
     const plannedArrival = resolvePlannedTime(stop.plannedArrival, operation.operatingDate, routeStop?.arrivalTime, routeStop?.arrivalDay)
     const plannedDeparture = resolvePlannedTime(stop.plannedDeparture, operation.operatingDate, routeStop?.departureTime, routeStop?.departureDay)
+    const arrivalDelayMinutes = resolveDelayMinutes(stop.arrivalDelayMinutes, stop.isConfirmed, plannedArrival, stop.actualArrival)
+    const departureDelayMinutes = resolveDelayMinutes(stop.departureDelayMinutes, stop.isConfirmed, plannedDeparture, stop.actualDeparture)
+    const status = resolveStopStatus({
+      isCancelled: stop.isCancelled,
+      isConfirmed: stop.isConfirmed,
+      delayMinutes: departureDelayMinutes ?? arrivalDelayMinutes,
+      hasTrainStarted,
+    })
 
     const result: TrainDetailStop = {
       stationId: stop.stationId,
       stationName: stationNames[stop.stationId] ?? stop.stationId,
       plannedArrival,
       actualArrival: stop.actualArrival,
-      arrivalDelayMinutes: resolveDelayMinutes(stop.arrivalDelayMinutes, stop.isConfirmed, plannedArrival, stop.actualArrival),
+      arrivalDelayMinutes,
       plannedDeparture,
       actualDeparture: stop.actualDeparture,
-      departureDelayMinutes: resolveDelayMinutes(stop.departureDelayMinutes, stop.isConfirmed, plannedDeparture, stop.actualDeparture),
+      departureDelayMinutes,
       isCancelled: stop.isCancelled,
       isConfirmed: stop.isConfirmed,
       // Odjazdowy peron/tor pierwszy — to ten, przy którym pasażer czeka, żeby
@@ -96,9 +120,11 @@ export function buildTrainDetailStops(
         routeStop?.departureTrack ?? routeStop?.arrivalTrack
       ),
       hasTrainStarted,
+      estimatedDelayMinutes: status === 'enRoute' ? lastConfirmedDelayMinutes : null,
     }
 
     if (stop.isConfirmed) hasTrainStarted = true
+    if (!stop.isCancelled && stop.isConfirmed) lastConfirmedDelayMinutes = departureDelayMinutes ?? arrivalDelayMinutes
     return result
   })
 }

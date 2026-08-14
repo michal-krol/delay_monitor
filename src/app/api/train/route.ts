@@ -32,6 +32,31 @@ export type TrainDetailApiResponse = {
 
 const cache = createTtlCache<TrainDetailApiResponse>({ ttlMs: CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
 
+/**
+ * Cache sprawdzany przed `await`, zapisywany po nim — bez uchwytów na trwające
+ * pobrania równoległe kliknięcia w ten sam, jeszcze niewidziany pociąg (albo
+ * kilku użytkowników klikających go w tym samym momencie) trafiają wszystkie
+ * w pustą pamięć, każde odpalając własne pobranie z PKP (AGENTS.md #4) — ten
+ * sam wzorzec co `schedulesInFlight` w `client.ts`.
+ */
+const inFlight = new Map<string, Promise<TrainDetailApiResponse>>()
+
+async function loadTrainDetail(scheduleId: string, orderId: string, operatingDate: string): Promise<TrainDetailApiResponse> {
+  const detail = await client.getTrainDetail(scheduleId, orderId, operatingDate)
+  const stops: TrainDetailStop[] = buildTrainDetailStops(detail.operation, detail.route, detail.stationNames)
+
+  return {
+    scheduleId: detail.operation.scheduleId,
+    orderId: detail.operation.orderId,
+    operatingDate,
+    trainStatus: detail.operation.trainStatus,
+    carrierCode: detail.route?.carrierCode ?? null,
+    category: detail.route?.commercialCategorySymbol ?? null,
+    routeName: detail.route?.name ?? null,
+    stops,
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const scheduleId = searchParams.get('scheduleId')
@@ -53,9 +78,17 @@ export async function GET(request: Request) {
     return NextResponse.json(cached)
   }
 
-  let detail
   try {
-    detail = await client.getTrainDetail(scheduleId, orderId, operatingDate)
+    let pending = inFlight.get(cacheKey)
+    if (pending === undefined) {
+      pending = loadTrainDetail(scheduleId, orderId, operatingDate).finally(() => {
+        inFlight.delete(cacheKey)
+      })
+      inFlight.set(cacheKey, pending)
+    }
+    const response = await pending
+    cache.set(cacheKey, response)
+    return NextResponse.json(response)
   } catch (err) {
     if (err instanceof PkpApiError) {
       if (err.status === 404) {
@@ -68,20 +101,4 @@ export async function GET(request: Request) {
     console.error('Błąd pobierania szczegółów połączenia', err)
     return NextResponse.json({ error: 'Nieoczekiwany błąd' }, { status: 500 })
   }
-
-  const stops: TrainDetailStop[] = buildTrainDetailStops(detail.operation, detail.route, detail.stationNames)
-
-  const response: TrainDetailApiResponse = {
-    scheduleId: detail.operation.scheduleId,
-    orderId: detail.operation.orderId,
-    operatingDate,
-    trainStatus: detail.operation.trainStatus,
-    carrierCode: detail.route?.carrierCode ?? null,
-    category: detail.route?.commercialCategorySymbol ?? null,
-    routeName: detail.route?.name ?? null,
-    stops,
-  }
-
-  cache.set(cacheKey, response)
-  return NextResponse.json(response)
 }
