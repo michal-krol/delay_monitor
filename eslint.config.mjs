@@ -14,6 +14,13 @@ const eslintConfig = defineConfig([
     files: ["**/*.test.ts", "**/*.test.tsx"],
     ...testingLibrary.configs["flat/react"],
   },
+  {
+    files: ["src/components/icons.test.tsx"],
+    rules: {
+      "testing-library/no-container": "off",
+      "testing-library/no-node-access": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
