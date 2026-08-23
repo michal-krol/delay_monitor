@@ -8,20 +8,24 @@ const isDev = process.env.NODE_ENV === "development";
  * Gałąź, z której właśnie budujemy -- widoczna w UI (patrz AppTitle.tsx), żeby
  * odróżnić lokalny `dev` od produkcyjnego `main` na pierwszy rzut oka.
  *
- * Railway ustawia `RAILWAY_GIT_BRANCH` automatycznie z podłączonej gałęzi
- * GitHub, zarówno przy buildzie, jak i w runtime -- to źródło ma pierwszeństwo,
- * bo `.git` jest świadomie poza kontekstem builda Dockera (`.dockerignore`),
- * więc `git rev-parse` tam by się nie powiódł. Lokalnie (`npm run dev`/`build`)
- * `.git` jest obecne, więc spada się na nie. Wartość jest zamrożona przy
- * starcie/buildzie, nie na żywo w runtime -- restart po zmianie gałęzi jest
- * normalnym elementem tego workflow, nie warto tego komplikować.
+ * `RAILWAY_GIT_BRANCH` jest dostępne TYLKO, gdy deploy naprawdę wyzwolił push
+ * na GitHubie (dokumentacja Railway: "provided if the deploy originated from
+ * a GitHub trigger") -- ręczny redeploy albo zatwierdzenie staged changes
+ * (tak powstał pierwszy build środowiska `development`) tego nie liczy, więc
+ * zmienna bywa pusta nawet na Railway. `.git` jest też świadomie poza
+ * kontekstem builda Dockera (`.dockerignore`), więc `git rev-parse` w
+ * kontenerze zawsze pada. Stąd trzeci poziom: `RAILWAY_ENVIRONMENT_NAME`,
+ * które Railway wstawia do KAŻDEGO builda bezwarunkowo (production/development)
+ * -- mniej precyzyjne niż nazwa gałęzi, ale nigdy puste na Railway. Lokalnie
+ * (`npm run dev`/`build`) `.git` jest obecne, więc drugi poziom i tak wystarcza.
+ * Wartość zamrożona przy starcie/buildzie, nie na żywo w runtime.
  */
 function detectGitBranch(): string {
   if (process.env.RAILWAY_GIT_BRANCH) return process.env.RAILWAY_GIT_BRANCH;
   try {
     return execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
   } catch {
-    return "unknown";
+    return process.env.RAILWAY_ENVIRONMENT_NAME ?? "unknown";
   }
 }
 
