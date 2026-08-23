@@ -48,16 +48,16 @@
    plakietka nie zależy od tła strony (decyzja #8). Jedyne źródło kolorów
    statusu w całej aplikacji — DelayBadge i tylko DelayBadge je konsumuje. */
 :root {
-  --status-onTime-bg: #16a34a;
-  --status-onTime-fg: #f0fdf4;
-  --status-delayed-bg: #ea580c;
-  --status-delayed-fg: #fff7ed;
+  --status-onTime-bg: #15803d;
+  --status-onTime-fg: #ffffff;
+  --status-delayed-bg: #c2410c;
+  --status-delayed-fg: #ffffff;
   --status-cancelled-bg: #e11d48;
-  --status-cancelled-fg: #fff1f2;
+  --status-cancelled-fg: #ffffff;
   --status-unknown-bg: #334155;
   --status-unknown-fg: #e2e8f0;
-  --status-notStarted-bg: #0284c7;
-  --status-notStarted-fg: #f0f9ff;
+  --status-notStarted-bg: #0369a1;
+  --status-notStarted-fg: #ffffff;
   --status-enRoute-bg: #4f46e5;
   --status-enRoute-fg: #eef2ff;
   --accent-gradient: linear-gradient(135deg, #38bdf8, #6366f1);
