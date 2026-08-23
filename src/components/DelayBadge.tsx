@@ -34,17 +34,19 @@ const ARRIVAL_NOT_STARTED_LABEL = 'jeszcze nie przyjechał'
 const ESTIMATE_TOOLTIP =
   'Szacunek na podstawie ostatniej potwierdzonej stacji — może się różnić od faktycznego opóźnienia tutaj.'
 
-const STYLES: Record<RealizationStatus, string> = {
-  onTime: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  delayed: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  unknown: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-  // Odróżnialne od `unknown` (brak danych) i `enRoute` (już jedzie) —
-  // wcześniej `notStarted` dzielił identyczny szary styl z `unknown`, co
-  // współtworzyło wrażenie, że tablica "nie ma żadnych danych" zamiast
-  // uczciwie pokazywać "to jeszcze się nie wydarzyło".
-  notStarted: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200',
-  enRoute: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+// Nasycone plakietki z tokenów CSS (src/app/globals.css) — ta sama para
+// kolorów w obu motywach, patrz task 1.1. `notStarted` odróżnialny od
+// `unknown` (brak danych) i `enRoute` (już jedzie) — wcześniej dzielił
+// identyczny szary styl z `unknown`, co współtworzyło wrażenie, że tablica
+// "nie ma żadnych danych" zamiast uczciwie pokazywać "to jeszcze się nie
+// wydarzyło".
+const TOKENS: Record<RealizationStatus, { bg: string; fg: string }> = {
+  onTime: { bg: 'var(--status-onTime-bg)', fg: 'var(--status-onTime-fg)' },
+  delayed: { bg: 'var(--status-delayed-bg)', fg: 'var(--status-delayed-fg)' },
+  cancelled: { bg: 'var(--status-cancelled-bg)', fg: 'var(--status-cancelled-fg)' },
+  unknown: { bg: 'var(--status-unknown-bg)', fg: 'var(--status-unknown-fg)' },
+  notStarted: { bg: 'var(--status-notStarted-bg)', fg: 'var(--status-notStarted-fg)' },
+  enRoute: { bg: 'var(--status-enRoute-bg)', fg: 'var(--status-enRoute-fg)' },
 }
 
 export function DelayBadge({ status, delayMinutes, direction = 'departure', estimatedDelayMinutes = null }: Props) {
@@ -60,7 +62,8 @@ export function DelayBadge({ status, delayMinutes, direction = 'departure', esti
         : LABELS[status]
   return (
     <span
-      className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${STYLES[status]}`}
+      className="rounded-full px-2.5 py-0.5 text-sm font-semibold"
+      style={{ backgroundColor: TOKENS[status].bg, color: TOKENS[status].fg }}
       title={hasEstimate ? ESTIMATE_TOOLTIP : undefined}
     >
       {text}

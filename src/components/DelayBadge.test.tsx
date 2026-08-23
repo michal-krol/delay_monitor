@@ -114,15 +114,22 @@ describe('DelayBadge', () => {
     expect(screen.queryByText(/~\+30/)).not.toBeInTheDocument()
   })
 
-  it('rozróżnia statusy również kolorem, jako dodatek do tekstu', () => {
+  it('rozróżnia statusy również kolorem (inline style z tokenów), jako dodatek do tekstu', () => {
     // Kolor jest wzmocnieniem, nie jedynym nosnikiem — ale ma faktycznie rozrozniac.
-    const classes = STATUSES.map((status) => {
+    const markup = STATUSES.map((status) => {
       const { container, unmount } = render(<DelayBadge status={status} delayMinutes={1} />)
-      const className = container.firstElementChild?.className ?? ''
+      const html = container.firstElementChild?.outerHTML ?? ''
       unmount()
-      return className
+      return html
     })
 
-    expect(new Set(classes).size).toBe(STATUSES.length)
+    expect(new Set(markup).size).toBe(STATUSES.length)
+  })
+
+  it('używa nasyconych plakietek z tokenów CSS, tych samych w obu motywach', () => {
+    const { container } = render(<DelayBadge status="delayed" delayMinutes={5} />)
+    const html = container.firstElementChild?.outerHTML ?? ''
+    expect(html).toContain('var(--status-delayed-bg)')
+    expect(html).toContain('var(--status-delayed-fg)')
   })
 })
