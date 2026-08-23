@@ -116,14 +116,27 @@ describe('DelayBadge', () => {
 
   it('rozróżnia statusy również kolorem (inline style z tokenów), jako dodatek do tekstu', () => {
     // Kolor jest wzmocnieniem, nie jedynym nosnikiem — ale ma faktycznie rozrozniac.
-    const markup = STATUSES.map((status) => {
-      const { container, unmount } = render(<DelayBadge status={status} delayMinutes={1} />)
-      const html = container.firstElementChild?.outerHTML ?? ''
+    // Uwaga: to musi sprawdzać kolor, nie tekst — teksty i tak różnią się per
+    // status (LABELS), więc porównanie oparte na tekście (np. outerHTML) nigdy
+    // by nie wykryło regresji koloru, np. notStarted przypadkiem dzielącego
+    // token z unknown (dokładnie ten historyczny błąd, patrz komentarz przy TOKENS).
+    const textByStatus: Record<(typeof STATUSES)[number], string> = {
+      onTime: 'punktualnie',
+      delayed: '+1 min',
+      cancelled: 'odwołany',
+      unknown: 'brak danych',
+      notStarted: 'jeszcze nie wyjechał',
+      enRoute: 'w trasie',
+    }
+
+    const backgrounds = STATUSES.map((status) => {
+      const { unmount } = render(<DelayBadge status={status} delayMinutes={1} />)
+      const bg = screen.getByText(textByStatus[status]).style.backgroundColor
       unmount()
-      return html
+      return bg
     })
 
-    expect(new Set(markup).size).toBe(STATUSES.length)
+    expect(new Set(backgrounds).size).toBe(STATUSES.length)
   })
 
   it('używa nasyconych plakietek z tokenów CSS, tych samych w obu motywach', () => {
