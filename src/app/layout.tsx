@@ -1,8 +1,15 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { Manrope } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import './globals.css'
+
+const manrope = Manrope({
+  subsets: ['latin', 'latin-ext'], // latin-ext = polskie znaki diakrytyczne (ą ć ę ł ń ó ś ź ż)
+  weight: ['700', '800'],
+  variable: '--font-manrope',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Monitor opóźnień',
@@ -11,10 +18,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pl" suppressHydrationWarning>
-      <body className="min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(99,102,241,0.14),transparent)] dark:bg-slate-950 dark:bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(99,102,241,0.30),transparent)]">
+    <html lang="pl" suppressHydrationWarning className={manrope.variable}>
+      <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <ThemeToggle />
           {children}
         </ThemeProvider>
       </body>

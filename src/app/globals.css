@@ -3,23 +3,79 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --foreground: #171717;
+  /* Jasny motyw — równie "śmiały" jak ciemny: nasycone akcenty, widoczne
+     poświaty, nie wyciszony pastel sprzed redesignu. */
+  --bg-gradient:
+    radial-gradient(1100px 600px at 85% -10%, rgba(56, 189, 248, 0.16), transparent 60%),
+    radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.14), transparent 55%),
+    linear-gradient(180deg, #f6f7fc 0%, #eef0f8 100%);
   --surface: rgba(255, 255, 255, 0.72);
   --surface-strong: rgba(255, 255, 255, 0.88);
   --surface-border: rgba(15, 23, 42, 0.08);
-  --surface-shadow: 0 8px 30px rgba(15, 23, 42, 0.07);
+  --surface-shadow: 0 8px 30px rgba(15, 23, 42, 0.1);
+  --sidebar-bg: rgba(255, 255, 255, 0.75);
+  --sidebar-border: rgba(15, 23, 42, 0.06);
+  --foreground: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --nav-active-bg: linear-gradient(90deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.14));
+  --nav-active-ring: rgba(59, 130, 246, 0.35);
+  --nav-active-text: #1d4ed8;
+  --row-hover: rgba(15, 23, 42, 0.035);
 }
 
 .dark {
-  --foreground: #ededed;
-  --surface: rgba(30, 33, 44, 0.55);
-  --surface-strong: rgba(30, 33, 44, 0.75);
-  --surface-border: rgba(255, 255, 255, 0.09);
-  --surface-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --bg-gradient:
+    radial-gradient(1100px 600px at 85% -10%, rgba(56, 189, 248, 0.1), transparent 60%),
+    radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.1), transparent 55%),
+    linear-gradient(180deg, #0a0f1c 0%, #070b14 100%);
+  --surface: rgba(15, 23, 42, 0.55);
+  --surface-strong: rgba(15, 23, 42, 0.75);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --surface-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --sidebar-bg: rgba(6, 10, 20, 0.6);
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --foreground: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --nav-active-bg: linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.1));
+  --nav-active-ring: rgba(125, 211, 252, 0.25);
+  --nav-active-text: #f1f5f9;
+  --row-hover: rgba(255, 255, 255, 0.035);
+}
+
+/* Statusy: identyczne wartości w obu motywach — samowystarczalna, nasycona
+   plakietka nie zależy od tła strony (decyzja #8). Jedyne źródło kolorów
+   statusu w całej aplikacji — DelayBadge i tylko DelayBadge je konsumuje. */
+:root {
+  --status-onTime-bg: #16a34a;
+  --status-onTime-fg: #f0fdf4;
+  --status-delayed-bg: #ea580c;
+  --status-delayed-fg: #fff7ed;
+  --status-cancelled-bg: #e11d48;
+  --status-cancelled-fg: #fff1f2;
+  --status-unknown-bg: #334155;
+  --status-unknown-fg: #e2e8f0;
+  --status-notStarted-bg: #0284c7;
+  --status-notStarted-fg: #f0f9ff;
+  --status-enRoute-bg: #4f46e5;
+  --status-enRoute-fg: #eef2ff;
+  --accent-gradient: linear-gradient(135deg, #38bdf8, #6366f1);
 }
 
 @theme inline {
   --color-foreground: var(--foreground);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-status-on-time: var(--status-onTime-bg);
+  --color-status-delayed: var(--status-delayed-bg);
+  --color-status-cancelled: var(--status-cancelled-bg);
+  --color-status-unknown: var(--status-unknown-bg);
+  --color-status-not-started: var(--status-notStarted-bg);
+  --color-status-en-route: var(--status-enRoute-bg);
+  --font-heading: var(--font-manrope), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 @utility glass {
@@ -38,12 +94,17 @@
   box-shadow: var(--surface-shadow);
 }
 
+/* Poświata na elementach hero (decyzja #11) — parametr koloru przez CSS var,
+   ustawiany inline per użycie (np. style={{ '--glow-color': '...' }}). */
+@utility glow-ring {
+  box-shadow:
+    var(--surface-shadow),
+    0 0 26px var(--glow-color, transparent);
+}
+
 body {
   color: var(--foreground);
-  /* Krój natywny dla systemu użytkownika zamiast Arial/Helvetica, które zostały
-     tu po szablonie create-next-app. Zero kosztu wczytywania, poprawny hinting
-     i lepsze renderowanie polskich znaków diakrytycznych niż w metrycznych
-     zamiennikach Arial na Linuksie. */
+  background: var(--bg-gradient);
   font-family:
     system-ui,
     -apple-system,
