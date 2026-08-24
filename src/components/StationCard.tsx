@@ -8,6 +8,7 @@ import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { CSSProperties } from 'react'
+import type { RealizationStatus } from '@/lib/board/realization'
 
 type Props = {
   stationId: string
@@ -21,7 +22,7 @@ type Props = {
 
 // Kolor obwódki/poświaty karty wg statusu najbliższego odjazdu (decyzja #11
 // w globals.css — `glow-ring` czyta `--glow-color` z inline style).
-const GLOW_COLOR: Record<string, string> = {
+const GLOW_COLOR: Record<RealizationStatus, string> = {
   onTime: 'rgba(22,163,74,0.16)',
   delayed: 'rgba(234,88,12,0.2)',
   cancelled: 'rgba(225,29,72,0.2)',
@@ -29,7 +30,7 @@ const GLOW_COLOR: Record<string, string> = {
   notStarted: 'rgba(2,132,199,0.14)',
   unknown: 'rgba(51,65,85,0.1)',
 }
-const BORDER_COLOR: Record<string, string> = {
+const BORDER_COLOR: Record<RealizationStatus, string> = {
   onTime: 'rgba(22,163,74,0.4)',
   delayed: 'rgba(234,88,12,0.45)',
   cancelled: 'rgba(225,29,72,0.45)',
