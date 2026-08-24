@@ -1,9 +1,20 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
 import { jsonResponse } from '@/test-utils/http'
+
+// Szczegóły połączenia mają teraz własną trasę (`/polaczenie/...`) — klik w
+// wiersz nawiguje przez `router.push`, zamiast otwierać panel w miejscu.
+const push = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push }),
+}))
+
+beforeEach(() => {
+  push.mockClear()
+})
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -244,50 +255,14 @@ describe('FullBoard', () => {
     expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
   })
 
-  it('opens the connection-details panel for the clicked train, requesting its scheduleId/orderId/operatingDate', async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string) => {
-      const href = String(url)
-      if (href.startsWith('/api/train')) {
-        return jsonResponse({
-          scheduleId: '2026',
-          orderId: '12345',
-          operatingDate: '2026-08-01',
-          trainStatus: 'P',
-          carrierCode: 'IC',
-          category: 'EIC',
-          routeName: 'EIC Grunwald',
-          stops: [
-            {
-              stationId: '33605',
-              stationName: 'Warszawa Centralna',
-              plannedArrival: null,
-              actualArrival: null,
-              arrivalDelayMinutes: null,
-              plannedDeparture: '2026-08-01T12:00:00.000Z',
-              actualDeparture: '2026-08-01T12:00:00.000Z',
-              departureDelayMinutes: 0,
-              isCancelled: false,
-              isConfirmed: true,
-              platform: '4/2',
-            },
-          ],
-        })
-      }
-      return jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })
-    })
-    vi.stubGlobal('fetch', fetchMock)
+  it('navigates to the connection-details route for the clicked train, carrying its scheduleId/orderId/operatingDate and label', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
     await user.click(await screen.findByRole('button', { name: 'EIC 1' }))
 
-    expect(await screen.findByText('EIC Grunwald')).toBeInTheDocument()
-    const trainDetailCall = fetchMock.mock.calls.find(([url]) => String(url).startsWith('/api/train'))
-    expect(trainDetailCall).toBeDefined()
-    const requestedUrl = new URL(String(trainDetailCall![0]), 'http://localhost')
-    expect(requestedUrl.searchParams.get('scheduleId')).toBe('2026')
-    expect(requestedUrl.searchParams.get('orderId')).toBe('12345')
-    expect(requestedUrl.searchParams.get('operatingDate')).toBe('2026-08-01')
+    expect(push).toHaveBeenCalledWith('/polaczenie/2026/12345/2026-08-01?train=EIC%201')
   })
 
   it('does not make the row clickable when operatingDate is missing', async () => {
@@ -303,61 +278,19 @@ describe('FullBoard', () => {
     expect(screen.queryByRole('button', { name: 'EIC 1' })).not.toBeInTheDocument()
   })
 
-  it('restores the tab and opens the connection panel straight from the URL, without a click', async () => {
-    window.history.pushState({}, '', '/?tab=arrivals&scheduleId=2026&orderId=67890&operatingDate=2026-08-01')
-    const fetchMock = vi.fn().mockImplementation((url: string) => {
-      if (String(url).startsWith('/api/train')) {
-        return jsonResponse({
-          scheduleId: '2026',
-          orderId: '67890',
-          operatingDate: '2026-08-01',
-          trainStatus: 'P',
-          carrierCode: 'IC',
-          category: 'TLK',
-          routeName: 'Odtworzone z linku',
-          stops: [],
-        })
-      }
-      return jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })
-    })
-    vi.stubGlobal('fetch', fetchMock)
+  it('restores the tab straight from the URL, without a click', async () => {
+    window.history.pushState({}, '', '/?tab=arrivals')
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
 
     // Zakładka Przyjazdy aktywna od razu -- TLK 2 widoczne, EIC 1 (odjazdy) nie.
     expect(await screen.findByText('TLK 2')).toBeInTheDocument()
     expect(screen.queryByText('EIC 1')).not.toBeInTheDocument()
-    // Panel szczegółów otwarty od razu, bez klikania.
-    expect(await screen.findByText('Odtworzone z linku')).toBeInTheDocument()
   })
 
-  it('ignores a malformed connection key in the URL instead of opening a broken panel', async () => {
-    window.history.pushState({}, '', "/?scheduleId=2026&orderId=1%3B%20DROP&operatingDate=2026-08-01")
+  it('writes the tab to the URL, and clears it when the board closes', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
-
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
-
-    await screen.findByText('EIC 1')
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('writes the tab and connection key to the URL, and clears them when the panel/board closes', async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string) => {
-      if (String(url).startsWith('/api/train')) {
-        return jsonResponse({
-          scheduleId: '2026',
-          orderId: '12345',
-          operatingDate: '2026-08-01',
-          trainStatus: 'P',
-          carrierCode: 'IC',
-          category: 'EIC',
-          routeName: 'EIC Grunwald',
-          stops: [],
-        })
-      }
-      return jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })
-    })
-    vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
     const onClose = vi.fn()
 
@@ -367,17 +300,10 @@ describe('FullBoard', () => {
     await user.click(await screen.findByRole('tab', { name: 'Przyjazdy' }))
     expect(window.location.search).toContain('tab=arrivals')
 
-    await user.click(await screen.findByRole('tab', { name: 'Odjazdy' }))
-    await user.click(await screen.findByRole('button', { name: 'EIC 1' }))
-    await screen.findByText('EIC Grunwald')
-    expect(window.location.search).toContain('scheduleId=2026')
-    expect(window.location.search).toContain('orderId=12345')
-
     // Odmontowanie tablicy (odpowiednik kliknięcia "Zamknij" w page.tsx) musi
-    // wyczyścić te parametry -- inaczej kolejna, inna stacja odziedziczyłaby
-    // to samo otwarte połączenie z URL-a.
+    // wyczyścić `tab` -- inaczej kolejna, inna stacja odziedziczyłaby zakładkę
+    // sprzed zamknięcia.
     unmount()
-    expect(window.location.search).not.toContain('scheduleId')
     expect(window.location.search).not.toContain('tab=')
   })
 

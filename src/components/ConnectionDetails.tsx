@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DelayBadge } from './DelayBadge'
-import { resolveStopStatus } from '@/lib/board/realization'
+import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import type { TrainDetailStop } from '@/lib/board/trainDetail'
 
 type TrainDetailApiResponse = {
@@ -21,7 +21,6 @@ type Props = {
   orderId: string
   operatingDate: string
   trainLabel: string
-  onClose: () => void
 }
 
 type Status = 'loading' | 'error' | 'ready'
@@ -42,11 +41,30 @@ function formatTime(value: string | null): string | null {
   return new Date(value).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
 }
 
-export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLabel, onClose }: Props) {
+// Kolor znacznika/odcinka toru per status — te same pary kolor/token co
+// `DelayBadge` (src/app/globals.css, decyzja #1.1), żeby stepper i plakietka
+// obok nigdy nie mogły pokazać dwóch różnych kolorów dla tego samego statusu.
+const STOP_COLOR: Record<RealizationStatus, string> = {
+  onTime: 'var(--status-onTime-bg)',
+  delayed: 'var(--status-delayed-bg)',
+  cancelled: 'var(--status-cancelled-bg)',
+  unknown: 'var(--status-unknown-bg)',
+  notStarted: 'var(--status-notStarted-bg)',
+  enRoute: 'var(--status-enRoute-bg)',
+}
+
+/** Pola, których nie ma w API PKP — nigdy zmyślonej wartości, zawsze jawne "niedostępne". */
+function UnavailableField() {
+  return (
+    <span className="text-text-muted italic" title="Niedostępne w danych PKP">
+      niedostępne
+    </span>
+  )
+}
+
+export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLabel }: Props) {
   const [status, setStatus] = useState<Status>('loading')
   const [data, setData] = useState<TrainDetailApiResponse | null>(null)
-  const titleId = useId()
-  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -72,64 +90,79 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
     }
   }, [scheduleId, orderId, operatingDate])
 
-  useEffect(() => {
-    panelRef.current?.focus()
-
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  // Status per przystanek, policzony raz z `resolveStopStatus` — jedyne źródło
+  // koloru zarówno dla `DelayBadge` w wierszu, jak i dla znacznika/odcinka
+  // toru w stepperze niżej. Żadnej drugiej, równoległej logiki.
+  const stopStatuses =
+    status === 'ready' && data !== null
+      ? data.stops.map((stop) =>
+          resolveStopStatus({
+            isCancelled: stop.isCancelled,
+            isConfirmed: stop.isConfirmed,
+            delayMinutes: stopDelayMinutes(stop),
+            hasTrainStarted: stop.hasTrainStarted,
+          })
+        )
+      : []
 
   return (
-    <div
-      data-testid="connection-details-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      {/* max-h + flex-col: nagłówek (tytuł, licznik, Zamknij) ma stały rozmiar
-          i zawsze zostaje widoczny; przewija się tylko lista przystanków niżej
-          (flex-1 overflow-y-auto) — trasa potrafi mieć 30-40 stacji. */}
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        className="glass-strong flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl outline-none"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 p-5 pb-3">
-          <div>
-            <h2 id={titleId} className="text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-              {data?.routeName ?? trainLabel}
-            </h2>
-            {status === 'ready' && data !== null && (
-              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{data.stops.length} przystanków</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-full bg-white/60 px-3.5 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-black/10 transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/15"
-          >
-            Zamknij
-          </button>
-        </div>
-
-        {status === 'loading' && (
-          <p className="px-5 pb-5 text-sm text-gray-500 dark:text-gray-400">Wczytywanie trasy…</p>
-        )}
-
-        {status === 'error' && (
-          <p role="alert" className="px-5 pb-5 text-sm text-red-700 dark:text-red-300">
-            Nie udało się pobrać szczegółów połączenia.
-          </p>
-        )}
-
+    <div className="flex flex-col gap-6">
+      <div className="glass rounded-2xl p-5">
+        <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">
+          {data?.routeName ?? trainLabel}
+        </h1>
         {status === 'ready' && data !== null && (
-          <ol className="flex-1 space-y-0 overflow-y-auto px-5 pb-5">
+          <p className="mt-0.5 text-sm text-text-muted">{data.stops.length} przystanków</p>
+        )}
+      </div>
+
+      {status === 'loading' && <p className="text-sm text-text-muted">Wczytywanie trasy…</p>}
+
+      {status === 'error' && (
+        <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+          Nie udało się pobrać szczegółów połączenia.
+        </p>
+      )}
+
+      {status === 'ready' && data !== null && (
+        <>
+          <section className="glass rounded-2xl p-5">
+            <h2 className="text-sm font-semibold text-text-secondary">Informacje o połączeniu</h2>
+            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-text-muted">Przewoźnik</dt>
+                <dd className="mt-0.5 font-medium text-foreground">{data.carrierCode ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-text-muted">Kategoria</dt>
+                <dd className="mt-0.5 font-medium text-foreground">{data.category ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-text-muted">Tabor</dt>
+                <dd className="mt-0.5">
+                  <UnavailableField />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-text-muted">Prędkość</dt>
+                <dd className="mt-0.5">
+                  <UnavailableField />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-text-muted">Długość składu</dt>
+                <dd className="mt-0.5">
+                  <UnavailableField />
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          {/* Pionowy stepper: kolumna znacznika ma `flex-direction: column`, więc
+              każdy wiersz sam rysuje swój odcinek "szyny" do następnego przystanku
+              (kropka = status TEGO przystanku, odcinek pod nią = status NASTĘPNEGO —
+              to on informuje, jak wygląda dalsza podróż tym odcinkiem trasy). */}
+          <ol className="glass rounded-2xl p-5">
             {data.stops.map((stop, index) => {
               // Oparte na fakcie przyjazdu/odjazdu (planowym LUB faktycznym), nie
               // tylko planowym — pociąg bez dopasowanej trasy (patrz trainDetail.ts)
@@ -140,41 +173,51 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               const isTerminus = !hasArrival || !hasDeparture
               const arrival = formatTime(stop.actualArrival ?? stop.plannedArrival)
               const departure = formatTime(stop.actualDeparture ?? stop.plannedDeparture)
+              const isLast = index === data.stops.length - 1
+              const thisStatus = stopStatuses[index]
+              const nextStatus = stopStatuses[index + 1]
+
               return (
-                <li
-                  key={stop.stationId}
-                  className={`border-l-2 border-black/10 py-2.5 pl-4 dark:border-white/10 ${
-                    index === data.stops.length - 1 ? '' : 'border-b border-b-black/5 dark:border-b-white/5'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                <li key={stop.stationId} className="flex gap-4">
+                  <div className="flex flex-col items-center">
                     <span
-                      className={`font-medium text-gray-900 dark:text-gray-100 ${isTerminus ? '' : 'text-sm'}`}
-                    >
-                      {stop.stationName}
-                    </span>
-                    <DelayBadge
-                      status={resolveStopStatus({
-                        isCancelled: stop.isCancelled,
-                        isConfirmed: stop.isConfirmed,
-                        delayMinutes: stopDelayMinutes(stop),
-                        hasTrainStarted: stop.hasTrainStarted,
-                      })}
-                      delayMinutes={stopDelayMinutes(stop)}
-                      estimatedDelayMinutes={stop.estimatedDelayMinutes}
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: STOP_COLOR[thisStatus] }}
+                      aria-hidden="true"
                     />
+                    {!isLast && (
+                      <span
+                        className="mt-1 w-0.5 flex-1"
+                        style={{ backgroundColor: STOP_COLOR[nextStatus] }}
+                        aria-hidden="true"
+                      />
+                    )}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
-                    {hasArrival && <span>Przyjazd {arrival}</span>}
-                    {hasDeparture && <span>Odjazd {departure}</span>}
-                    {stop.platform !== null && <span>Peron/tor {stop.platform}</span>}
+                  <div className={`min-w-0 flex-1 ${isLast ? 'pb-0' : 'pb-5'}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span
+                        className={`font-medium text-gray-900 dark:text-gray-100 ${isTerminus ? '' : 'text-sm'}`}
+                      >
+                        {stop.stationName}
+                      </span>
+                      <DelayBadge
+                        status={thisStatus}
+                        delayMinutes={stopDelayMinutes(stop)}
+                        estimatedDelayMinutes={stop.estimatedDelayMinutes}
+                      />
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+                      {hasArrival && <span>Przyjazd {arrival}</span>}
+                      {hasDeparture && <span>Odjazd {departure}</span>}
+                      {stop.platform !== null && <span>Peron/tor {stop.platform}</span>}
+                    </div>
                   </div>
                 </li>
               )
             })}
           </ol>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }

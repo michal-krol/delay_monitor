@@ -8,11 +8,19 @@ type HeaderVariant = {
   subtitle: string
   backHref?: never
   backLabel?: never
+  onBack?: never
 }
 
+/**
+ * `backHref` jest opcjonalny: strona-trasa (np. `/polaczenie/...`) nie zawsze
+ * zna adres strony-źródła (mogła to być zakładka Odjazdy albo Przyjazdy pełnej
+ * tablicy) — wtedy podaje `onBack`, żeby cofnąć przez `router.back()` zamiast
+ * nawigować do stałego `href`. Gdy oba są podane, `onBack` wygrywa.
+ */
 type BackVariant = {
-  backHref: string
   backLabel: string
+  backHref?: string
+  onBack?: () => void
   title?: never
   subtitle?: never
 }
@@ -20,13 +28,23 @@ type BackVariant = {
 type Props = HeaderVariant | BackVariant
 
 export function TopBar(props: Props) {
+  const isBackVariant = 'backLabel' in props && props.backLabel !== undefined
+  const backLinkClassName = 'flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-foreground'
+
   return (
     <div className="flex items-center justify-between gap-4">
-      {'backHref' in props && props.backHref !== undefined ? (
-        <Link href={props.backHref} className="flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-foreground">
-          <ArrowLeftIcon size={16} />
-          {props.backLabel}
-        </Link>
+      {isBackVariant ? (
+        'onBack' in props && props.onBack !== undefined ? (
+          <button type="button" onClick={props.onBack} className={backLinkClassName}>
+            <ArrowLeftIcon size={16} />
+            {props.backLabel}
+          </button>
+        ) : (
+          <Link href={props.backHref ?? '#'} className={backLinkClassName}>
+            <ArrowLeftIcon size={16} />
+            {props.backLabel}
+          </Link>
+        )
       ) : (
         <div>
           <h1 className="font-heading text-2xl font-extrabold tracking-tight">{props.title}</h1>

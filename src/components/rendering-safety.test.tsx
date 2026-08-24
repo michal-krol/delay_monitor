@@ -6,6 +6,12 @@ import { StationCard } from './StationCard'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { jsonResponse } from '@/test-utils/http'
 
+// FullBoard nawiguje do szczegółów połączenia przez `useRouter()` (Task 3.1) —
+// bez mocka renderowanie poza App Routerem rzuca "expected app router to be mounted".
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
 /**
  * Wszystko, co widzi użytkownik, pochodzi z API PKP — czyli z systemu, nad
  * którym nie mamy kontroli. Gdyby kiedykolwiek zwrócił nazwę stacji albo

@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConnectionDetails } from './ConnectionDetails'
 import { jsonResponse } from '@/test-utils/http'
@@ -55,9 +54,7 @@ describe('ConnectionDetails', () => {
   it('shows a loading state, then the full stop list once data arrives', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     expect(screen.getByText('Wczytywanie trasy…')).toBeInTheDocument()
 
@@ -72,9 +69,7 @@ describe('ConnectionDetails', () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse(RESPONSE))
     vi.stubGlobal('fetch', fetchMock)
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
     await screen.findByText('Gdańsk Główny')
 
     const url = new URL(String(fetchMock.mock.calls[0][0]), 'http://localhost')
@@ -98,9 +93,7 @@ describe('ConnectionDetails', () => {
       )
     )
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     expect(await screen.findByText('w trasie, ~+6 min')).toBeInTheDocument()
   })
@@ -108,9 +101,7 @@ describe('ConnectionDetails', () => {
   it('falls back to the board row label while the route name is not yet known', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(() => {})))
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     expect(screen.getByRole('heading', { name: 'EIC 1' })).toBeInTheDocument()
   })
@@ -118,53 +109,9 @@ describe('ConnectionDetails', () => {
   it('shows an error message when the fetch fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('boom', { status: 500 })))
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się pobrać szczegółów połączenia.')
-  })
-
-  it('calls onClose when the close button is clicked', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
-    const user = userEvent.setup()
-    const onClose = vi.fn()
-
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={onClose} />
-    )
-    await screen.findByText('Gdańsk Główny')
-    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
-
-    expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  it('calls onClose when clicking the backdrop outside the panel', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
-    const user = userEvent.setup()
-    const onClose = vi.fn()
-
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={onClose} />
-    )
-    await screen.findByText('Gdańsk Główny')
-    await user.click(screen.getByTestId('connection-details-backdrop'))
-
-    expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  it('calls onClose on Escape', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
-    const user = userEvent.setup()
-    const onClose = vi.fn()
-
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={onClose} />
-    )
-    await screen.findByText('Gdańsk Główny')
-    await user.keyboard('{Escape}')
-
-    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('shows "brak danych" (not a false "punktualnie") for a confirmed stop whose delay could not be determined', async () => {
@@ -191,9 +138,7 @@ describe('ConnectionDetails', () => {
     }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     expect(await screen.findByText('brak danych')).toBeInTheDocument()
     expect(screen.queryByText('punktualnie')).not.toBeInTheDocument()
@@ -202,44 +147,9 @@ describe('ConnectionDetails', () => {
   it('shows the total number of stops', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     expect(await screen.findByText('2 przystanków')).toBeInTheDocument()
-  })
-
-  it('keeps only the stop list scrollable, not the header with the close button, for long routes', async () => {
-    const manyStops = Array.from({ length: 35 }, (_, i) => ({
-      ...RESPONSE.stops[0],
-      stationId: String(i),
-      stationName: `Stacja ${i}`,
-    }))
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ ...RESPONSE, stops: manyStops })))
-
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
-    await screen.findByText('Stacja 0')
-
-    expect(screen.getByText('35 przystanków')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Zamknij' })).toBeVisible()
-    // eslint-disable-next-line testing-library/no-node-access -- sprawdzamy konkretnie, że to lista przystanków (a nie panel) ma klasę przewijania
-    const list = document.querySelector('ol')
-    expect(list).toHaveClass('overflow-y-auto')
-  })
-
-  it('does not close when clicking inside the panel itself', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
-    const user = userEvent.setup()
-    const onClose = vi.fn()
-
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={onClose} />
-    )
-    await user.click(await screen.findByText('EIC Grunwald'))
-
-    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('renders "w trasie" for an unconfirmed stop once an earlier stop is already confirmed', async () => {
@@ -248,9 +158,7 @@ describe('ConnectionDetails', () => {
     // powinna dostać "w trasie", nie mylące "jeszcze nie wyjechał".
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     const stationName = await screen.findByText('Warszawa Centralna')
     // eslint-disable-next-line testing-library/no-node-access -- najbliższy <li> to cały wiersz przystanku, potrzebny żeby ograniczyć zapytanie do TEGO przystanku
@@ -271,9 +179,7 @@ describe('ConnectionDetails', () => {
     }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     const stationName = await screen.findByText('Warszawa Centralna')
     // eslint-disable-next-line testing-library/no-node-access -- j.w., ograniczenie zapytania do wiersza tego przystanku
@@ -293,14 +199,23 @@ describe('ConnectionDetails', () => {
     }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
 
-    render(
-      <ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" onClose={vi.fn()} />
-    )
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     const stationName = await screen.findByText('Gdańsk Główny')
     // eslint-disable-next-line testing-library/no-node-access -- j.w., ograniczenie zapytania do wiersza tego przystanku
     const row = stationName.closest('li')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('odwołany')).toBeInTheDocument()
+  })
+
+  it('shows an explicit "niedostępne" for fields the API does not provide, never a fabricated value', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Gdańsk Główny')
+
+    const unavailable = screen.getAllByText('niedostępne')
+    expect(unavailable).toHaveLength(3) // Tabor, Prędkość, Długość składu
+    unavailable.forEach((el) => expect(el).toHaveAttribute('title', 'Niedostępne w danych PKP'))
   })
 })
