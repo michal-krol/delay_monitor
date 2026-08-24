@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { Sidebar } from './Sidebar'
 
@@ -34,11 +34,11 @@ describe('Sidebar', () => {
   it('przycisk zwijania przełącza szerokość sidebara', async () => {
     const { container } = render(<Sidebar activeItem="pulpit" />)
     const toggle = screen.getByRole('button', { name: /zwiń|rozwiń/i })
-    // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- <aside> nie ma dedykowanej roli ARIA, to jedyny sposób odnaleźć go i sprawdzić data-collapsed
+    // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- potrzebujemy węzła <aside>, żeby sprawdzić atrybut data-collapsed (getByRole('complementary') dałby ten sam element, ale nie atrybut wprost)
     const aside = container.querySelector('aside')
     expect(aside).toHaveAttribute('data-collapsed', 'false')
 
-    toggle.click()
+    fireEvent.click(toggle)
 
     expect(aside).toHaveAttribute('data-collapsed', 'true')
   })

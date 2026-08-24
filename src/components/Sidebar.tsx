@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { flushSync } from 'react-dom'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { useTheme } from 'next-themes'
 import {
@@ -74,7 +73,7 @@ export function Sidebar({ activeItem }: Props) {
         </div>
         <button
           type="button"
-          onClick={() => flushSync(toggle)}
+          onClick={toggle}
           aria-label={collapsed ? 'Rozwiń pasek boczny' : 'Zwiń pasek boczny'}
           className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
         >
