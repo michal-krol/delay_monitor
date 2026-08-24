@@ -102,6 +102,18 @@
     0 0 26px var(--glow-color, transparent);
 }
 
+/* card-hover: nie jako `@utility` — Tailwind v4 odrzuca pseudoklasę w nazwie
+   utility ("`@utility card-hover:hover` defines an invalid utility name",
+   zweryfikowane przy `npm run build`). Zwykłe reguły CSS przechodzą bez zmian. */
+.card-hover {
+  transition:
+    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+}
+
 body {
   color: var(--foreground);
   background: var(--bg-gradient);

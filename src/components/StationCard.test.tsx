@@ -209,4 +209,19 @@ describe('StationCard', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
+
+  it('oznacza kartę statusem najbliższego odjazdu przez data-status, do kolorowania obwódki', () => {
+    const snapshot = makeSnapshot({
+      departures: [
+        { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1', estimatedDelayMinutes: null },
+      ],
+    })
+
+    const { container } = render(
+      <StationCard stationId="1" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />
+    )
+
+    // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+    expect(container.querySelector('article')).toHaveAttribute('data-status', 'delayed')
+  })
 })

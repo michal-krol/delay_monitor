@@ -7,6 +7,7 @@ import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
+import type { CSSProperties } from 'react'
 
 type Props = {
   stationId: string
@@ -18,6 +19,25 @@ type Props = {
   onRemove: () => void
 }
 
+// Kolor obwódki/poświaty karty wg statusu najbliższego odjazdu (decyzja #11
+// w globals.css — `glow-ring` czyta `--glow-color` z inline style).
+const GLOW_COLOR: Record<string, string> = {
+  onTime: 'rgba(22,163,74,0.16)',
+  delayed: 'rgba(234,88,12,0.2)',
+  cancelled: 'rgba(225,29,72,0.2)',
+  enRoute: 'rgba(79,70,229,0.16)',
+  notStarted: 'rgba(2,132,199,0.14)',
+  unknown: 'rgba(51,65,85,0.1)',
+}
+const BORDER_COLOR: Record<string, string> = {
+  onTime: 'rgba(22,163,74,0.4)',
+  delayed: 'rgba(234,88,12,0.45)',
+  cancelled: 'rgba(225,29,72,0.45)',
+  enRoute: 'rgba(79,70,229,0.4)',
+  notStarted: 'rgba(2,132,199,0.35)',
+  unknown: 'var(--surface-border)',
+}
+
 export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand, onRemove }: Props) {
   const now = useSnapshotNow(snapshot)
 
@@ -26,6 +46,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
   // zostają wyłącznie w pełnej tablicy (FullBoard), gdzie są przygaszone.
   const departures = (snapshot?.departures.filter((row) => new Date(row.plannedAt).getTime() >= now) ?? []).slice(0, 3)
   const delayedCount = snapshot?.departures.filter((row) => row.status === 'delayed').length ?? 0
+  const leadStatus = departures[0]?.status ?? 'unknown'
 
   if (configError) {
     return <ConfigErrorBanner />
@@ -37,7 +58,16 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
   // po nagłówkach, a czytnik ekranu przeczytałby całą zawartość karty jako
   // nazwę przycisku.
   return (
-    <article className="glass relative w-full rounded-2xl p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-indigo-500">
+    <article
+      data-status={leadStatus}
+      className="glow-ring card-hover relative w-full overflow-hidden rounded-2xl border p-5 text-left transition duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
+      style={
+        {
+          borderColor: BORDER_COLOR[leadStatus],
+          '--glow-color': GLOW_COLOR[leadStatus],
+        } as CSSProperties
+      }
+    >
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">{stationName}</h2>
         <div className="flex shrink-0 items-center gap-2">
