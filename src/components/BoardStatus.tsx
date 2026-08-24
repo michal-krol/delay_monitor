@@ -14,7 +14,7 @@ type Props = {
 const STALE_AFTER_MS = 3 * 60 * 1000
 
 /** Kolor "coś wymaga uwagi, ale nie jest błędem" — dane sprzed chwili, degradacja, throttling. */
-const WARNING_STYLE = { color: 'var(--status-delayed-bg)' }
+const WARNING_CLASS = 'text-amber-700 dark:text-amber-400'
 
 function formatLastUpdated(fetchedAt: string): string {
   return new Date(fetchedAt).toLocaleString('pl-PL', {
@@ -60,7 +60,7 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
     if (error) {
       return (
         <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          <span style={{ color: 'var(--status-cancelled-bg)' }}>Błąd pobierania danych</span>
+          <span className="text-red-600 dark:text-red-400">Błąd pobierania danych</span>
           {REFRESH_HINT}
         </p>
       )
@@ -80,16 +80,16 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
       <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
       {REFRESH_HINT}
 
-      {error && <span style={{ color: 'var(--status-cancelled-bg)' }}>Błąd ostatniego odświeżenia</span>}
+      {error && <span className="text-red-600 dark:text-red-400">Błąd ostatniego odświeżenia</span>}
 
-      {isStale && <span style={WARNING_STYLE}>dane sprzed {formatAge(ageMs)}</span>}
+      {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 
       {data?.status === 'degraded' && (
-        <span style={WARNING_STYLE}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
+        <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
       )}
 
       {data?.throttled === true && (
-        <span style={WARNING_STYLE} title={budgetHint(data)}>
+        <span className={WARNING_CLASS} title={budgetHint(data)}>
           odświeżanie ograniczone
         </span>
       )}

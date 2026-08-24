@@ -8,21 +8,19 @@ vi.mock('next-themes', () => ({
 }))
 
 describe('Sidebar', () => {
-  it('renderuje aktywne linki do Pulpitu i Odjazdów/Przyjazdów', () => {
+  it('renderuje aktywny link do Pulpitu', () => {
     render(<Sidebar activeItem="pulpit" />)
     expect(screen.getByRole('link', { name: 'Pulpit' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).toBeInTheDocument()
   })
 
   it('podświetla bieżącą pozycję przez aria-current', () => {
     render(<Sidebar activeItem="pulpit" />)
     expect(screen.getByRole('link', { name: 'Pulpit' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).not.toHaveAttribute('aria-current')
   })
 
-  it('Trasy/Mapa/Ustawienia/Powiadomienia są nieaktywne — brak href, aria-disabled', () => {
+  it('Odjazdy/Przyjazdy/Trasy/Mapa/Ustawienia/Powiadomienia są nieaktywne — brak href, aria-disabled', () => {
     render(<Sidebar activeItem="pulpit" />)
-    for (const label of ['Trasy', 'Mapa', 'Ustawienia', 'Powiadomienia']) {
+    for (const label of ['Odjazdy / Przyjazdy', 'Trasy', 'Mapa', 'Ustawienia', 'Powiadomienia']) {
       // eslint-disable-next-line testing-library/no-node-access -- najbliższy element z aria-disabled to cały wiersz pozycji nawigacji
       const item = screen.getByText(label).closest('[aria-disabled]')
       expect(item).toHaveAttribute('aria-disabled', 'true')

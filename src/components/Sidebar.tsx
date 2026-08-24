@@ -28,7 +28,7 @@ type NavItem =
 
 const NAV_ITEMS: NavItem[] = [
   { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
-  { kind: 'active', key: 'odjazdy', href: '/odjazdy', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
+  { kind: 'disabled', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
   { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
   { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
   { kind: 'disabled', label: 'Trasy', icon: RouteIcon },
@@ -91,6 +91,7 @@ export function Sidebar({ activeItem }: Props) {
                 key={item.key}
                 href={item.href}
                 aria-current={isActive ? 'page' : undefined}
+                aria-label={item.label}
                 className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary transition"
                 style={
                   isActive
@@ -107,6 +108,7 @@ export function Sidebar({ activeItem }: Props) {
             <div
               key={item.label}
               aria-disabled="true"
+              aria-label={item.label}
               title="Wkrótce"
               className="flex cursor-not-allowed items-center justify-between gap-3 rounded-[10px] px-3 py-2.5 text-sm text-text-muted opacity-50"
             >
@@ -123,6 +125,7 @@ export function Sidebar({ activeItem }: Props) {
         <button
           type="button"
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
+          aria-label="Przełącz tryb ciemny"
           className="flex items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-sm text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           <span className="flex items-center gap-2">
