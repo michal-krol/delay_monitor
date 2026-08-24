@@ -40,7 +40,7 @@ function PillButton({ onClick, children }: { onClick: () => void; children: Reac
     <button
       type="button"
       onClick={onClick}
-      className="rounded-full bg-white/60 px-3.5 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-black/10 transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/15"
+      className="rounded-full bg-white/60 px-3.5 py-1.5 text-sm font-medium text-text-secondary ring-1 ring-black/10 transition hover:bg-white/90 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-white/10 dark:ring-white/10 dark:hover:bg-white/15"
     >
       {children}
     </button>
@@ -55,9 +55,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
       aria-selected={active}
       onClick={onClick}
       className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-        active
-          ? 'bg-indigo-500 text-white shadow-sm'
-          : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+        active ? 'bg-indigo-600 text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
       }`}
     >
       {children}
@@ -145,10 +143,10 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
         {configError && <ConfigErrorBanner />}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{stationName}</h2>
+          <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">{stationName}</h2>
           <div className="flex flex-wrap items-center gap-2">
             {copyStatus !== 'idle' && (
-              <span role="status" className="text-sm text-gray-500 dark:text-gray-400">
+              <span role="status" className="text-sm text-text-secondary">
                 {copyStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
               </span>
             )}
@@ -191,18 +189,18 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 </caption>
                 <thead>
                   <tr className="border-b border-black/10 dark:border-white/10">
-                    <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Pociąg</th>
-                    <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Przewoźnik</th>
-                    <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Kierunek</th>
-                    <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Planowo</th>
-                    <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Peron/Tor</th>
-                    <th scope="col" className="py-2 pr-3 font-medium text-gray-500 dark:text-gray-400">Status</th>
+                    <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Pociąg</th>
+                    <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Przewoźnik</th>
+                    <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Kierunek</th>
+                    <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Planowo</th>
+                    <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Peron/Tor</th>
+                    <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={6} className="py-6 text-center text-text-muted">
                         {direction === 'departures'
                           ? 'Brak odjazdów w najbliższych godzinach'
                           : 'Brak przyjazdów w najbliższych godzinach'}
@@ -239,10 +237,11 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                       // przez prawdziwy <button> na etykiecie pociągu.
                       <tr
                         key={`${row.trainNumber}-${row.plannedAt}`}
+                        data-past={isPast || undefined}
                         className={`border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5 ${isPast ? 'opacity-50' : ''} ${canOpenDetails ? 'cursor-pointer' : ''}`}
                         onClick={canOpenDetails ? openDetails : undefined}
                       >
-                        <td className="py-2.5 pr-3 whitespace-nowrap text-gray-900 dark:text-gray-100">
+                        <td className="py-2.5 pr-3 whitespace-nowrap text-foreground">
                           {canOpenDetails ? (
                             <button
                               type="button"
@@ -257,19 +256,19 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                           )}
                         </td>
                         <td className="py-2.5 pr-3">
-                          <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                          <span className="inline-flex items-center gap-1.5 text-text-secondary">
                             <CarrierLogo carrierCode={row.carrier} size={16} />
                             <span className="sm:hidden">{row.carrier || '—'}</span>
                             <span className="hidden sm:inline">{row.carrierName ?? (row.carrier || '—')}</span>
                           </span>
                         </td>
-                        <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.headsign ?? '—'}</td>
+                        <td className="py-2.5 pr-3 text-text-secondary">{row.headsign ?? '—'}</td>
                         {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
                             równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
-                        <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-gray-700 dark:text-gray-300">
+                        <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-text-secondary">
                           {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">{row.platform ?? '—'}</td>
+                        <td className="py-2.5 pr-3 text-text-secondary">{row.platform ?? '—'}</td>
                         <td className="py-2.5 pr-3">
                           <DelayBadge
                             status={row.status}
