@@ -34,10 +34,10 @@ export function Dashboard({ favourites, onExpand, onRemove }: Props) {
 
   return (
     <div>
-      <div className="glass mb-4 inline-flex rounded-full px-3.5 py-1.5">
+      <div className="glass mb-5 inline-flex rounded-full px-3.5 py-1.5">
         <BoardStatus fetchedAt={freshest?.fetchedAt} ageMs={freshest?.ageMs} data={data} error={error !== null} />
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {favourites.map((favourite) => (
           <StationCard
             key={favourite.id}

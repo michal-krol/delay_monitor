@@ -1,12 +1,20 @@
 'use client'
 
 /**
- * Stan widoku w adresie URL — bez `next/navigation`. Appka ma jedną trasę i
- * nic po stronie serwera nie zależy od parametrów zapytania, więc pełny router
- * Next byłby nieuzasadnioną zależnością (i wymagałby mockowania go w testach,
- * których dziś nie ma). `history.replaceState`, nie `pushState`: zwykłe
- * klikanie po appce nie ma zaśmiecać historii cofania przeglądarki — URL
- * odzwierciedla *aktualny* widok, nie każdy krok do niego.
+ * Historyczny mechanizm stanu widoku w URL-u, sprzed przejścia na
+ * `next/navigation` (decyzja #4 w redesignie dashboardu — prawdziwe trasy
+ * zamiast jednej strony ze stanem `expanded`). Użycie na trasie `/`
+ * (`?station=&name=` w starym `src/app/page.tsx`) zniknęło razem z tamtym
+ * plikiem. `FullBoard.tsx` wciąż importuje `readUrlParam`/`patchUrlParams`
+ * (`?tab=&scheduleId=&orderId=&operatingDate=`), ale ten komponent nie jest
+ * już osadzony w żadnej trasie do czasu PR 2 (`/odjazdy/[stationId]`) —
+ * PR 2/PR 3 sięgną tam po `useSearchParams`/`useRouter` bezpośrednio, bo to
+ * naturalny idiom przy prawdziwym routingu, nie po ten moduł.
+ *
+ * Do usunięcia, gdy PR 2 potwierdzi, że `FullBoard.tsx` (i jego zależność od
+ * tego modułu) faktycznie znika, a nie zostaje przepisany na nową trasę.
+ * Zostaje na razie, żeby nie usuwać czegoś, co kolejny PR może jeszcze
+ * wykorzystać.
  */
 
 /** `null`, gdy wywołane poza przeglądarką (SSR) — parametry URL nie istnieją, dopóki nie ma `window`. */

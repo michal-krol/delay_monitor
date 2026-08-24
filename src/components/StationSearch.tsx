@@ -119,7 +119,7 @@ export function StationSearch({ onSelect, placeholder }: Props) {
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
-        className="glass w-full rounded-xl px-3.5 py-2.5 text-gray-900 placeholder:text-gray-500 outline-none transition focus:ring-2 focus:ring-indigo-500 dark:text-gray-100 dark:placeholder:text-gray-400"
+        className="glass w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500"
         placeholder={placeholder ?? 'Szukaj stacji…'}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
@@ -129,7 +129,7 @@ export function StationSearch({ onSelect, placeholder }: Props) {
         <p
           role="status"
           className={`glass-strong absolute z-10 mt-2 w-full rounded-xl px-3.5 py-2 text-sm ${
-            status === 'error' ? 'text-red-700 dark:text-red-300' : 'text-gray-600 dark:text-gray-300'
+            status === 'error' ? 'text-red-700 dark:text-red-300' : 'text-text-secondary'
           }`}
         >
           {message}
@@ -148,10 +148,9 @@ export function StationSearch({ onSelect, placeholder }: Props) {
               role="option"
               aria-selected={index === activeIndex}
               className={`cursor-pointer px-3.5 py-2 text-sm transition ${
-                index === activeIndex
-                  ? 'bg-indigo-500 text-white'
-                  : 'text-gray-800 hover:bg-black/5 dark:text-gray-200 dark:hover:bg-white/10'
+                index === activeIndex ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
               }`}
+              style={index === activeIndex ? { background: 'var(--accent-gradient)' } : undefined}
               onMouseDown={(event) => {
                 event.preventDefault()
                 selectOption(option)
