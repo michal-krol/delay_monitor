@@ -18,7 +18,7 @@ type Props = {
   onClose: () => void
 }
 
-type Direction = 'departures' | 'arrivals'
+export type Direction = 'departures' | 'arrivals'
 
 /** "Dodaj/Usuń z ulubionych" i "Zamknij" mają identyczny wygląd — jedyna różnica to treść i akcja. Eksportowany do reużycia w `FocusedStation`. */
 export function PillButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
@@ -33,7 +33,8 @@ export function PillButton({ onClick, children }: { onClick: () => void; childre
   )
 }
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+/** Eksportowany do reużycia w `FocusedStation` — te same zakładki Odjazdy/Przyjazdy. */
+export function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
