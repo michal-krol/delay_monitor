@@ -1,13 +1,56 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from './Sidebar'
 
 vi.mock('next-themes', () => ({
   useTheme: () => ({ resolvedTheme: 'light', setTheme: vi.fn() }),
 }))
 
+beforeEach(() => {
+  // useSidebarCollapsed persists to real localStorage — a test that toggles
+  // collapse (like the one below) would otherwise leak collapsed=true into
+  // every test that runs after it in this file.
+  window.localStorage.clear()
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 describe('Sidebar', () => {
+  it('pokazuje wersję i środowisko pod nazwą aplikacji — "main" jako czytelne "prod"', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.2.3')
+    vi.stubEnv('NEXT_PUBLIC_APP_BRANCH', 'main')
+
+    render(<Sidebar activeItem="pulpit" />)
+
+    expect(screen.getByText('v1.2.3 · prod')).toBeInTheDocument()
+  })
+
+  it('pokazuje "dev" bez zmian, i nieznaną gałąź tak jak jest', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.2.3')
+    vi.stubEnv('NEXT_PUBLIC_APP_BRANCH', 'dev')
+    const { unmount } = render(<Sidebar activeItem="pulpit" />)
+    expect(screen.getByText('v1.2.3 · dev')).toBeInTheDocument()
+    unmount()
+
+    vi.stubEnv('NEXT_PUBLIC_APP_BRANCH', 'claude/some-feature')
+    render(<Sidebar activeItem="pulpit" />)
+    expect(screen.getByText('v1.2.3 · claude/some-feature')).toBeInTheDocument()
+  })
+
+  it('chowa wersję/środowisko razem z nazwą aplikacji, gdy sidebar jest zwinięty', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.2.3')
+    vi.stubEnv('NEXT_PUBLIC_APP_BRANCH', 'dev')
+    render(<Sidebar activeItem="pulpit" />)
+
+    fireEvent.click(screen.getByRole('button', { name: /zwiń|rozwiń/i }))
+
+    expect(screen.queryByText('v1.2.3 · dev')).not.toBeInTheDocument()
+    expect(screen.queryByText('Monitor opóźnień')).not.toBeInTheDocument()
+  })
+
   it('renderuje aktywny link do Pulpitu', () => {
     render(<Sidebar activeItem="pulpit" />)
     expect(screen.getByRole('link', { name: 'Pulpit' })).toBeInTheDocument()

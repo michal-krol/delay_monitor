@@ -22,6 +22,18 @@ type Props = {
   activeItem: ActiveItem
 }
 
+/**
+ * `NEXT_PUBLIC_APP_BRANCH` (patrz `next.config.ts`) niesie surową nazwę gałęzi
+ * builda — przydatną deweloperowi, ale "main" nic nie mówi użytkownikowi o tym,
+ * że patrzy na produkcję. Etykieta tylko do wyświetlenia, nie zmienia samej
+ * zmiennej ani logiki wykrywania gałęzi.
+ */
+function environmentLabel(branch: string): string {
+  if (branch === 'main') return 'prod'
+  if (branch === 'dev') return 'dev'
+  return branch
+}
+
 type NavItem =
   | { kind: 'active'; key: ActiveItem; href: string; label: string; icon: typeof HomeIcon }
   | { kind: 'disabled'; label: string; icon: typeof HomeIcon; badge?: number }
@@ -68,6 +80,9 @@ export function Sidebar({ activeItem }: Props) {
           {!collapsed && (
             <div className="min-w-0">
               <div className="font-heading truncate text-[15px] font-bold">Monitor opóźnień</div>
+              <div className="truncate text-[11px] text-text-muted">
+                v{process.env.NEXT_PUBLIC_APP_VERSION} · {environmentLabel(process.env.NEXT_PUBLIC_APP_BRANCH ?? '')}
+              </div>
             </div>
           )}
         </div>
