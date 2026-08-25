@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
 import { jsonResponse } from '@/test-utils/http'
 
+// BoardTable (rendered via FocusedStation in the focused branch) navigates via useRouter().
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -41,7 +46,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId={null}
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
@@ -69,7 +73,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId={null}
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
@@ -103,7 +106,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId={null}
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
@@ -148,7 +150,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId={null}
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
@@ -176,7 +177,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={onRemove}
         focusedStationId={null}
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
@@ -219,7 +219,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId={null}
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
@@ -233,7 +232,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId={null}
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
@@ -262,7 +260,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId="5136"
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
@@ -276,10 +273,9 @@ describe('Dashboard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('"Zobacz wszystkie" i "Zamknij" w trybie ogniskowym wołają odpowiednie callbacki', async () => {
+  it('"Zamknij" w trybie ogniskowym woła onCloseFocus', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok', throttled: false }))
     vi.stubGlobal('fetch', fetchMock)
-    const onSeeAll = vi.fn()
     const onCloseFocus = vi.fn()
     const user = userEvent.setup()
 
@@ -289,13 +285,13 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId="5136"
-        onSeeAll={onSeeAll}
         onCloseFocus={onCloseFocus}
       />
     )
 
-    await user.click(screen.getByRole('button', { name: 'Zobacz wszystkie' }))
-    expect(onSeeAll).toHaveBeenCalledWith({ id: '5136', name: 'Kraków Główny' })
+    // "Zobacz wszystkie" nie istnieje już w trybie ogniskowym -- tabela w
+    // miejscu jest już tą samą listą, którą dawniej pokazywał ten przycisk.
+    expect(screen.queryByRole('button', { name: 'Zobacz wszystkie' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Zamknij' }))
     expect(onCloseFocus).toHaveBeenCalledTimes(1)
@@ -311,7 +307,6 @@ describe('Dashboard', () => {
         onExpand={vi.fn()}
         onRemove={vi.fn()}
         focusedStationId="999999999"
-        onSeeAll={vi.fn()}
         onCloseFocus={vi.fn()}
       />
     )
