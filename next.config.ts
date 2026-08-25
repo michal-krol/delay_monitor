@@ -12,13 +12,19 @@ const isDev = process.env.NODE_ENV === "development";
  * na GitHubie (dokumentacja Railway: "provided if the deploy originated from
  * a GitHub trigger") -- ręczny redeploy albo zatwierdzenie staged changes
  * (tak powstał pierwszy build środowiska `development`) tego nie liczy, więc
- * zmienna bywa pusta nawet na Railway. `.git` jest też świadomie poza
- * kontekstem builda Dockera (`.dockerignore`), więc `git rev-parse` w
- * kontenerze zawsze pada. Stąd trzeci poziom: `RAILWAY_ENVIRONMENT_NAME`,
- * które Railway wstawia do KAŻDEGO builda bezwarunkowo (production/development)
- * -- mniej precyzyjne niż nazwa gałęzi, ale nigdy puste na Railway. Lokalnie
- * (`npm run dev`/`build`) `.git` jest obecne, więc drugi poziom i tak wystarcza.
- * Wartość zamrożona przy starcie/buildzie, nie na żywo w runtime.
+ * zmienna bywa pusta nawet na Railway. Musi też być jawnie zadeklarowana jako
+ * `ARG` w Dockerfile (etap `builder`) -- Railway "dostarcza" swoje zmienne do
+ * builda, ale izolacja Dockera i tak je blokuje bez ARG (docs.railway.com/
+ * builds/dockerfiles#using-variables-at-build-time); bez tego ta gałąź kodu
+ * była martwa na produkcji i UI pokazywało "unknown", mimo że deploy
+ * faktycznie przyszedł z pusha. `git rev-parse` to zapasowy, lokalny sposób
+ * (`node:24-slim` w kontenerze Railway nie ma w ogóle binarki `git` -- ta
+ * gałąź nigdy nie zadziała w Dockerze, tylko przy `npm run dev`/`build` na
+ * maszynie dewelopera). Stąd trzeci poziom: `RAILWAY_ENVIRONMENT_NAME`
+ * (też wymaga ARG w Dockerfile), które Railway wstawia do KAŻDEGO builda
+ * bezwarunkowo (production/development) -- mniej precyzyjne niż nazwa
+ * gałęzi, ale nigdy puste na Railway. Wartość zamrożona przy starcie/buildzie,
+ * nie na żywo w runtime.
  */
 function detectGitBranch(): string {
   if (process.env.RAILWAY_GIT_BRANCH) return process.env.RAILWAY_GIT_BRANCH;
