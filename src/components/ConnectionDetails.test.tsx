@@ -208,6 +208,69 @@ describe('ConnectionDetails', () => {
     expect(within(row as HTMLElement).getByText('odwołany')).toBeInTheDocument()
   })
 
+  it('never shows a raw actual time for an unconfirmed stop, only the planned one -- actual can be a PKP artifact (e.g. off by a whole day)', async () => {
+    // Czas o innej porze dnia niż plan, żeby dało się jednoznacznie sprawdzić
+    // po tekście, który z dwóch czasów faktycznie trafił na ekran (przykład z
+    // audytu -- dokładna wielokrotność doby -- ma tę samą porę dnia co plan,
+    // więc sam tekst wyglądałby identycznie niezależnie od tego, czy błąd
+    // istnieje; to osobno pokrywają testy `trainDetail.test.ts`).
+    const response = {
+      ...RESPONSE,
+      stops: [
+        {
+          ...RESPONSE.stops[1],
+          isConfirmed: false,
+          plannedArrival: '2026-08-01T05:55:00.000Z',
+          actualArrival: '2026-08-01T20:15:00.000Z',
+        },
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Warszawa Centralna')
+
+    const plannedTime = new Date('2026-08-01T05:55:00.000Z').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const actualTime = new Date('2026-08-01T20:15:00.000Z').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    expect(screen.getByText(`Przyjazd ${plannedTime}`)).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(actualTime))).not.toBeInTheDocument()
+  })
+
+  it('shows a predicted arrival time in italics, with a caveat tooltip, when PKP projects one for an unconfirmed stop', async () => {
+    const response = {
+      ...RESPONSE,
+      stops: [
+        {
+          ...RESPONSE.stops[1],
+          isConfirmed: false,
+          plannedArrival: '2026-08-01T21:29:30.000Z',
+          predictedArrival: '2026-08-01T22:01:30.000Z',
+        },
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Warszawa Centralna')
+
+    const predictedTime = new Date('2026-08-01T22:01:30.000Z').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const predictedLabel = screen.getByText(`(przewidywany: ${predictedTime})`)
+    expect(predictedLabel).toHaveClass('italic')
+    expect(predictedLabel).toHaveAttribute('title', expect.stringContaining('Przewidywana godzina'))
+  })
+
+  it('shows no predicted-time addendum when the API omits the field, only the plain planned/actual time', async () => {
+    // RESPONSE fixture nie ma w ogóle pola predictedArrival/predictedDeparture
+    // (brakujący klucz, nie null) -- nie może wywalić renderu ani pokazać "Invalid Date".
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Gdańsk Główny')
+
+    expect(screen.queryByText(/przewidywany/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+  })
+
   it('shows an explicit "niedostępne" for fields the API does not provide, never a fabricated value', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
 
