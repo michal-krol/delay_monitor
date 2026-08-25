@@ -103,6 +103,8 @@ describe('GET /api/train', () => {
         departureDelayMinutes: 7,
         isCancelled: false,
         isConfirmed: true,
+        predictedArrival: null,
+        predictedDeparture: null,
         platform: '4/2',
         hasTrainStarted: false,
         estimatedDelayMinutes: null,

@@ -215,6 +215,60 @@ describe('buildTrainDetailStops', () => {
     expect(stop.departureDelayMinutes).toBeNull()
   })
 
+  describe('predictedArrival/predictedDeparture', () => {
+    // Zaobserwowane na żywym API (audyt, 4 stacje, ~7300 pociągów): PKP czasem
+    // wpisuje w `actualArrival`/`actualDeparture` niepotwierdzonego przystanku
+    // realną, samodzielnie przeliczoną projekcję (dokładny przykład produkcyjny
+    // niżej: pociąg 2026/583770053, stacja Gdańsk Główny 7500), a czasem wartość
+    // przesuniętą o dokładną wielokrotność doby -- artefakt, nie przewidywanie.
+    it('treats actual as a genuine predicted time when it differs from plan by a plausible, sub-day amount', () => {
+      const stops = [
+        realizedStop({ stationId: '7500', isConfirmed: false, actualArrival: '2026-08-26T00:01:30+02:00', actualDeparture: '2026-08-26T00:03:30+02:00' }),
+      ]
+      const routeStops = [routeStop({ stationId: '7500', arrivalTime: '23:29:30', departureTime: '23:32:30' })]
+
+      const [stop] = buildTrainDetailStops(operation(stops, '2026-08-25'), route(routeStops), {})
+
+      expect(stop.predictedArrival).toBe('2026-08-26T00:01:30+02:00')
+      expect(stop.predictedDeparture).toBe('2026-08-26T00:03:30+02:00')
+    })
+
+    it('ignores actual when it differs from plan by an exact day multiple -- the known PKP artifact, not a real prediction', () => {
+      const stops = [realizedStop({ stationId: 'A', isConfirmed: false, actualArrival: '2026-08-27T05:55:00+02:00' })]
+      const routeStops = [routeStop({ stationId: 'A', arrivalTime: '05:55:00' })]
+
+      const [stop] = buildTrainDetailStops(operation(stops, '2026-08-25'), route(routeStops), {})
+
+      expect(stop.predictedArrival).toBeNull()
+    })
+
+    it('ignores actual when it exactly equals plan -- no prediction to show, same guard as the day-multiple case', () => {
+      const stops = [realizedStop({ stationId: 'A', isConfirmed: false, actualArrival: '2026-08-25T05:55:00+02:00' })]
+      const routeStops = [routeStop({ stationId: 'A', arrivalTime: '05:55:00' })]
+
+      const [stop] = buildTrainDetailStops(operation(stops, '2026-08-25'), route(routeStops), {})
+
+      expect(stop.predictedArrival).toBeNull()
+    })
+
+    it('is always null once the stop is confirmed -- a fact never needs a prediction alongside it', () => {
+      const stops = [realizedStop({ stationId: 'A', isConfirmed: true, actualArrival: '2026-08-26T05:55:00+02:00' })]
+      const routeStops = [routeStop({ stationId: 'A', arrivalTime: '05:55:00' })]
+
+      const [stop] = buildTrainDetailStops(operation(stops, '2026-08-25'), route(routeStops), {})
+
+      expect(stop.predictedArrival).toBeNull()
+    })
+
+    it('is null when there is no planned time to compare against (no route match)', () => {
+      const stops = [realizedStop({ stationId: 'A', isConfirmed: false, actualArrival: '2026-08-26T05:55:00+02:00' })]
+
+      const [stop] = buildTrainDetailStops(operation(stops, '2026-08-25'), null, {})
+
+      expect(stop.predictedArrival).toBeNull()
+    })
+  })
+
   describe('hasTrainStarted', () => {
     it('is false for every stop when the train has not left any stop yet', () => {
       const stops = [

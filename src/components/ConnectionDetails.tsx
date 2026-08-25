@@ -55,6 +55,9 @@ const STOP_COLOR: Record<RealizationStatus, string> = {
   enRoute: 'var(--status-enRoute-bg)',
 }
 
+/** Ten sam wzorzec zastrzeżenia co `ESTIMATE_TOOLTIP` w `DelayBadge.tsx` — inne źródło (godzina wprost z PKP dla TEGO przystanku), ta sama ostrożność. */
+const PREDICTED_TIME_TOOLTIP = 'Przewidywana godzina na podstawie danych PKP dla tego przystanku — może się różnić od faktycznej.'
+
 /** Pola, których nie ma w API PKP — nigdy zmyślonej wartości, zawsze jawne "niedostępne". */
 function UnavailableField() {
   return (
@@ -173,8 +176,19 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               const hasArrival = stop.plannedArrival !== null || stop.actualArrival !== null
               const hasDeparture = stop.plannedDeparture !== null || stop.actualDeparture !== null
               const isTerminus = !hasArrival || !hasDeparture
-              const arrival = formatTime(stop.actualArrival ?? stop.plannedArrival)
-              const departure = formatTime(stop.actualDeparture ?? stop.plannedDeparture)
+              // `actualArrival`/`actualDeparture` bez `isConfirmed` nie dowodzi
+              // realizacji (patrz AGENTS.md/realization.ts) -- ta sama zasada
+              // dotyczy wyboru CZASU DO WYŚWIETLENIA, nie tylko liczenia statusu.
+              // Niepotwierdzony przystanek pokazuje więc zawsze plan, nigdy
+              // surowe `actual` (które PKP bywa, że ustawia na wartość przesuniętą
+              // o całą dobę dla przystanków daleko w przyszłości).
+              const arrival = formatTime(stop.isConfirmed && stop.actualArrival !== null ? stop.actualArrival : stop.plannedArrival)
+              const departure = formatTime(stop.isConfirmed && stop.actualDeparture !== null ? stop.actualDeparture : stop.plannedDeparture)
+              // `?? null`, nie samo `stop.predictedArrival` -- odpowiedź API zawsze
+              // niesie to pole, ale starsze/ręczne fixture'y w testach mogą go nie
+              // mieć wcale (brakujący klucz to `undefined`, nie `null`).
+              const predictedArrival = formatTime(stop.predictedArrival ?? null)
+              const predictedDeparture = formatTime(stop.predictedDeparture ?? null)
               const isLast = index === data.stops.length - 1
               const thisStatus = stopStatuses[index]
               const nextStatus = stopStatuses[index + 1]
@@ -209,8 +223,28 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                       />
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
-                      {hasArrival && <span>Przyjazd {arrival}</span>}
-                      {hasDeparture && <span>Odjazd {departure}</span>}
+                      {hasArrival && (
+                        <span>
+                          Przyjazd {arrival}
+                          {predictedArrival !== null && (
+                            <span className="italic" title={PREDICTED_TIME_TOOLTIP}>
+                              {' '}
+                              (przewidywany: {predictedArrival})
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {hasDeparture && (
+                        <span>
+                          Odjazd {departure}
+                          {predictedDeparture !== null && (
+                            <span className="italic" title={PREDICTED_TIME_TOOLTIP}>
+                              {' '}
+                              (przewidywany: {predictedDeparture})
+                            </span>
+                          )}
+                        </span>
+                      )}
                       {stop.platform !== null && <span>Peron/tor {stop.platform}</span>}
                     </div>
                   </div>
