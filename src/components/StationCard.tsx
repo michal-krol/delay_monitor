@@ -1,8 +1,7 @@
 'use client'
 
-import { DelayBadge } from './DelayBadge'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
-import { CarrierLogo } from './CarrierLogo'
+import { BoardRowList } from './BoardRowList'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
@@ -98,32 +97,12 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         </p>
       )}
 
-      <ul className="mt-4 divide-y divide-black/5 dark:divide-white/5">
-        {!snapshot && !error && <li className="py-2 text-sm text-gray-500 dark:text-gray-400">Ładowanie…</li>}
-        {snapshot && departures.length === 0 && (
-          <li className="py-2 text-sm text-gray-500 dark:text-gray-400">Brak odjazdów w najbliższych godzinach</li>
-        )}
-        {departures.map((row) => (
-          <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
-                <CarrierLogo carrierCode={row.carrier} size={16} />
-                {/* Kafelek jest ciasny nawet na desktopie (siatka do 3 kolumn) — pełna
-                    nazwa prawna przewoźnika ("«PKP Intercity» Spółka Akcyjna") jest tu
-                    zawsze za długa i nieczytelna. Sam skrót, bez przełączania breakpointem. */}
-                <span className="truncate">{row.carrier || 'Nieznany przewoźnik'}</span>
-              </span>
-              <DelayBadge status={row.status} delayMinutes={row.delayMinutes} estimatedDelayMinutes={row.estimatedDelayMinutes} />
-            </div>
-            <div className="mt-0.5 text-gray-500 dark:text-gray-400">
-              <span className="tabular-nums">
-                {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-              </span>{' '}
-              · {row.trainLabel} → {row.headsign ?? '—'} · <span>Peron/Tor: {row.platform ?? '—'}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <BoardRowList
+        rows={departures}
+        loading={!snapshot && !error}
+        showEmpty={snapshot !== null && departures.length === 0}
+        emptyMessage="Brak odjazdów w najbliższych godzinach"
+      />
 
       <button
         type="button"

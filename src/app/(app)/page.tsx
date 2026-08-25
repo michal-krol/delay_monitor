@@ -1,19 +1,46 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useFavourites } from '@/hooks/useFavourites'
 import { Dashboard } from '@/components/Dashboard'
 import { EmptyState } from '@/components/EmptyState'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { Sidebar } from '@/components/Sidebar'
 import { TopBar } from '@/components/TopBar'
+import { STATION_ID_PATTERN } from '@/lib/validation'
 
+// `/` nie ma dynamicznego segmentu, więc build próbuje ją prerenderować
+// statycznie -- useSearchParams() wymaga wtedy granicy <Suspense> (inaczej
+// błąd "missing-suspense-with-csr-bailout"), inaczej niż na /odjazdy/[stationId],
+// gdzie sam dynamiczny segment już wyklucza prerender. Fallback `null` to
+// dokładnie to, co strona i tak pokazywała wcześniej przez `!loaded`.
 export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <PulpitPage />
+    </Suspense>
+  )
+}
+
+function PulpitPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { favourites, loaded, removeFavourite } = useFavourites()
+
+  const rawFocus = searchParams.get('focus')
+  const focusedStationId = rawFocus && STATION_ID_PATTERN.test(rawFocus) ? rawFocus : null
 
   function goToBoard(station: StationOption): void {
     router.push(`/odjazdy/${station.id}?name=${encodeURIComponent(station.name)}`)
+  }
+
+  function setFocus(station: StationOption): void {
+    router.push(`/?focus=${station.id}`)
+  }
+
+  function clearFocus(): void {
+    router.push('/')
   }
 
   if (!loaded) return null
@@ -28,7 +55,14 @@ export default function Page() {
         {favourites.length === 0 ? (
           <EmptyState />
         ) : (
-          <Dashboard favourites={favourites} onExpand={goToBoard} onRemove={removeFavourite} />
+          <Dashboard
+            favourites={favourites}
+            onExpand={setFocus}
+            onRemove={removeFavourite}
+            focusedStationId={focusedStationId}
+            onSeeAll={goToBoard}
+            onCloseFocus={clearFocus}
+          />
         )}
       </main>
     </>
