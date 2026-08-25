@@ -14,7 +14,9 @@ const RESPONSE = {
   operatingDate: '2026-08-01',
   trainStatus: 'P',
   carrierCode: 'IC',
+  carrierName: '„PKP Intercity” Spółka Akcyjna',
   category: 'EIC',
+  categoryName: 'Express InterCity',
   routeName: 'EIC Grunwald',
   stops: [
     {
@@ -63,6 +65,30 @@ describe('ConnectionDetails', () => {
     expect(screen.getByText('EIC Grunwald')).toBeInTheDocument()
     expect(screen.getByText('+7 min')).toBeInTheDocument()
     expect(screen.getByText('Peron/tor 3/1')).toBeInTheDocument()
+  })
+
+  it('shows the resolved carrier/category name instead of the raw code, when known', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Gdańsk Główny')
+
+    expect(screen.getByText('„PKP Intercity” Spółka Akcyjna')).toBeInTheDocument()
+    expect(screen.getByText('Express InterCity')).toBeInTheDocument()
+    expect(screen.queryByText('IC')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the raw carrier/category code when the name dictionary has no match', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => jsonResponse({ ...RESPONSE, carrierName: null, categoryName: null }))
+    )
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Gdańsk Główny')
+
+    expect(screen.getByText('IC')).toBeInTheDocument()
+    expect(screen.getByText('EIC')).toBeInTheDocument()
   })
 
   it('requests the exact scheduleId/orderId/operatingDate it was given', async () => {

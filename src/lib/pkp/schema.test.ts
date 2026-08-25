@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
+import {
+  carriersResponseSchema,
+  commercialCategoriesResponseSchema,
+  operationsResponseSchema,
+  schedulesResponseSchema,
+  stationSearchResponseSchema,
+} from './schema'
 
 describe('stationSearchResponseSchema', () => {
   it('parses known fields and ignores unknown ones', () => {
@@ -141,5 +147,67 @@ describe('schedulesResponseSchema', () => {
   it('defaults stationNames to an empty object when dictionaries is missing', () => {
     const result = schedulesResponseSchema.parse({ routes: [] })
     expect(result.stationNames).toEqual({})
+  })
+})
+
+describe('carriersResponseSchema', () => {
+  it('builds a code -> name map from the carriers list', () => {
+    const result = carriersResponseSchema.parse({
+      carriers: [
+        { code: 'IC', name: '„PKP Intercity” Spółka Akcyjna', validFrom: '1999-01-01T00:00:00', validTo: '2999-12-31T00:00:00' },
+        { code: 'KM', name: '"Koleje Mazowieckie - KM" sp. z o.o.' },
+      ],
+    })
+    expect(result.carrierNames).toEqual({
+      IC: '„PKP Intercity” Spółka Akcyjna',
+      KM: '"Koleje Mazowieckie - KM" sp. z o.o.',
+    })
+  })
+
+  it('skips entries with a null code or null name instead of poisoning the map with "null" keys', () => {
+    const result = carriersResponseSchema.parse({
+      carriers: [
+        { code: null, name: 'Bez kodu' },
+        { code: 'X', name: null },
+        { code: 'IC', name: 'PKP Intercity' },
+      ],
+    })
+    expect(result.carrierNames).toEqual({ IC: 'PKP Intercity' })
+  })
+
+  it('normalizes a null carriers list to an empty map', () => {
+    const result = carriersResponseSchema.parse({ carriers: null })
+    expect(result.carrierNames).toEqual({})
+  })
+})
+
+describe('commercialCategoriesResponseSchema', () => {
+  it('keys the name map by carrierCode|code, because the same code means different things per carrier', () => {
+    const result = commercialCategoriesResponseSchema.parse({
+      commercialCategories: [
+        { code: 'Ex', name: 'Express', carrierCode: 'IC', speedCategoryCode: 'SZ' },
+        { code: 'Ex', name: 'LEO Express', carrierCode: 'LEO', speedCategoryCode: 'DA' },
+      ],
+    })
+    expect(result.categoryNames).toEqual({
+      'IC|Ex': 'Express',
+      'LEO|Ex': 'LEO Express',
+    })
+  })
+
+  it('skips entries with a null code or null name', () => {
+    const result = commercialCategoriesResponseSchema.parse({
+      commercialCategories: [
+        { code: null, name: 'Bez kodu', carrierCode: 'IC' },
+        { code: 'EIC', name: null, carrierCode: 'IC' },
+        { code: 'EIC', name: 'Express InterCity', carrierCode: 'IC' },
+      ],
+    })
+    expect(result.categoryNames).toEqual({ 'IC|EIC': 'Express InterCity' })
+  })
+
+  it('normalizes a null commercialCategories list to an empty map', () => {
+    const result = commercialCategoriesResponseSchema.parse({ commercialCategories: null })
+    expect(result.categoryNames).toEqual({})
   })
 })

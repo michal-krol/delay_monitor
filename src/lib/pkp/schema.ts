@@ -116,6 +116,51 @@ export const rawRouteSchema = z
   })
   .passthrough()
 
+export const carriersResponseSchema = z
+  .object({
+    carriers: z
+      .array(z.object({ code: z.string().nullable(), name: z.string().nullable() }).passthrough())
+      .nullish()
+      .transform((carriers) => carriers ?? []),
+  })
+  .passthrough()
+  .transform((data) => ({
+    carrierNames: Object.fromEntries(
+      data.carriers
+        .filter((carrier): carrier is { code: string; name: string } => carrier.code !== null && carrier.name !== null)
+        .map((carrier) => [carrier.code, carrier.name])
+    ),
+  }))
+
+/**
+ * Kod kategorii handlowej sam w sobie jest niejednoznaczny między
+ * przewoźnikami (np. "Ex" = "Express" u IC, ale co innego u LEO Express) --
+ * stąd klucz mapy to `carrierCode|code`, nie sam `code`.
+ */
+export const commercialCategoriesResponseSchema = z
+  .object({
+    commercialCategories: z
+      .array(
+        z
+          .object({
+            code: z.string().nullable(),
+            name: z.string().nullable(),
+            carrierCode: z.string().nullable(),
+          })
+          .passthrough()
+      )
+      .nullish()
+      .transform((categories) => categories ?? []),
+  })
+  .passthrough()
+  .transform((data) => ({
+    categoryNames: Object.fromEntries(
+      data.commercialCategories
+        .filter((category): category is { code: string; name: string; carrierCode: string | null } => category.code !== null && category.name !== null)
+        .map((category) => [`${category.carrierCode ?? ''}|${category.code}`, category.name])
+    ),
+  }))
+
 export const schedulesResponseSchema = z
   .object({
     routes: z

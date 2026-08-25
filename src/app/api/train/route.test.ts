@@ -2,10 +2,18 @@ import { describe, expect, it, vi } from 'vitest'
 import { PkpApiError } from '@/lib/pkp/client'
 
 const getTrainDetail = vi.fn()
+const getNameDictionaries = vi.fn()
 
 vi.mock('@/lib/board/instance', () => ({
-  client: { getTrainDetail: (...args: [string, string, string]) => getTrainDetail(...args) },
+  client: {
+    getTrainDetail: (...args: [string, string, string]) => getTrainDetail(...args),
+    getNameDictionaries: () => getNameDictionaries(),
+  },
 }))
+
+// Domyślnie puste słowniki -- testy, którym zależy na konkretnych nazwach,
+// nadpisują to przez getNameDictionaries.mockResolvedValueOnce(...).
+getNameDictionaries.mockResolvedValue({ carrierNames: {}, categoryNames: {} })
 
 function stubDetail(overrides: Partial<Parameters<typeof getTrainDetail.mockResolvedValueOnce>[0]> = {}) {
   getTrainDetail.mockResolvedValueOnce({
@@ -78,6 +86,10 @@ describe('GET /api/train', () => {
 
     expect(response.status).toBe(200)
     expect(body.carrierCode).toBe('IC')
+    // Domyślny mock getNameDictionaries() zwraca puste słowniki -- brak
+    // dopasowania degraduje do null, nie do awarii ani do echo surowego kodu.
+    expect(body.carrierName).toBeNull()
+    expect(body.categoryName).toBeNull()
     expect(body.routeName).toBe('EIC Grunwald')
     expect(body.stops).toEqual([
       {
@@ -96,6 +108,43 @@ describe('GET /api/train', () => {
         estimatedDelayMinutes: null,
       },
     ])
+  })
+
+  it('resolves carrierName/categoryName when the name dictionary has a matching entry', async () => {
+    getTrainDetail.mockResolvedValueOnce({
+      operation: {
+        scheduleId: '2026',
+        orderId: '10',
+        trainOrderId: null,
+        operatingDate: '2026-08-01',
+        trainStatus: 'P',
+        stations: [],
+      },
+      route: {
+        scheduleId: '2026',
+        orderId: '10',
+        trainOrderId: null,
+        carrierCode: 'IC',
+        commercialCategorySymbol: 'EIC',
+        name: 'EIC Grunwald',
+        nationalNumber: null,
+        stations: [],
+      },
+      stationNames: {},
+    })
+    // Kod kategorii jest niejednoznaczny bez przewoźnika (patrz schema.ts) --
+    // dopasowanie musi trafić po kluczu carrierCode|category, nie samym kodzie.
+    getNameDictionaries.mockResolvedValueOnce({
+      carrierNames: { IC: '„PKP Intercity” Spółka Akcyjna' },
+      categoryNames: { 'IC|EIC': 'Express InterCity', 'KM|EIC': 'coś zupełnie innego' },
+    })
+    const { GET } = await import('./route')
+
+    const response = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=10&operatingDate=2026-08-01'))
+    const body = await response.json()
+
+    expect(body.carrierName).toBe('„PKP Intercity” Spółka Akcyjna')
+    expect(body.categoryName).toBe('Express InterCity')
   })
 
   it('still returns stops (without platform/track) when there is no matching route', async () => {
