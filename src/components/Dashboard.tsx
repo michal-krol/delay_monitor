@@ -12,11 +12,10 @@ type Props = {
   onExpand: (station: StationOption) => void
   onRemove: (stationId: string) => void
   focusedStationId: string | null
-  onSeeAll: (station: StationOption) => void
   onCloseFocus: () => void
 }
 
-export function Dashboard({ favourites, onExpand, onRemove, focusedStationId, onSeeAll, onCloseFocus }: Props) {
+export function Dashboard({ favourites, onExpand, onRemove, focusedStationId, onCloseFocus }: Props) {
   const stationIds = favourites.map((favourite) => favourite.id)
   const { data, error } = useBoard(stationIds)
 
@@ -49,9 +48,7 @@ export function Dashboard({ favourites, onExpand, onRemove, focusedStationId, on
         <FocusedStation
           stationName={focused.name}
           snapshot={snapshotsById.get(focused.id) ?? null}
-          error={error !== null}
           configError={data?.status === 'configError'}
-          onSeeAll={() => onSeeAll({ id: focused.id, name: focused.name })}
           onClose={onCloseFocus}
         />
       ) : (

@@ -56,9 +56,11 @@ describe('Page (Pulpit)', () => {
     searchParamsSeed = 'focus=33605'
     render(<Page />)
 
-    expect(screen.getByRole('button', { name: 'Zobacz wszystkie' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Zamknij' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Pokaż pełną tablicę:/ })).not.toBeInTheDocument()
+    // "Zobacz wszystkie" nie istnieje już -- widok ogniskowy pokazuje w
+    // miejscu dokładnie tę samą tablicę, którą dawniej odsłaniał ten przycisk.
+    expect(screen.queryByRole('button', { name: 'Zobacz wszystkie' })).not.toBeInTheDocument()
   })
 
   it('wraca po cichu do siatki, gdy ?focus= jest nieprawidłowe lub nieznane', () => {
@@ -72,16 +74,6 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
     expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
-  })
-
-  it('"Zobacz wszystkie" w widoku ogniskowym nawiguje do pełnej tablicy', async () => {
-    searchParamsSeed = 'focus=33605'
-    render(<Page />)
-    const user = userEvent.setup()
-
-    await user.click(screen.getByRole('button', { name: 'Zobacz wszystkie' }))
-
-    expect(push).toHaveBeenCalledWith('/odjazdy/33605?name=Warszawa%20Centralna')
   })
 
   it('"Zamknij" w widoku ogniskowym wraca do /', async () => {

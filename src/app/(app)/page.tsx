@@ -60,7 +60,6 @@ function PulpitPage() {
             onExpand={setFocus}
             onRemove={removeFavourite}
             focusedStationId={focusedStationId}
-            onSeeAll={goToBoard}
             onCloseFocus={clearFocus}
           />
         )}
