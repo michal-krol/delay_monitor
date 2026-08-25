@@ -8,8 +8,11 @@ import type { Favourite } from '@/hooks/useFavourites'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
+// Mutable seed read once per `render(<Page />)` — set per-test before rendering.
+let searchParamsSeed = ''
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
+  useSearchParams: () => new URLSearchParams(searchParamsSeed),
 }))
 
 // Mutable seed read once per `render(<Page />)` (fresh component tree per
@@ -38,15 +41,57 @@ vi.mock('@/hooks/useBoard', () => ({
 describe('Page (Pulpit)', () => {
   beforeEach(() => {
     push.mockClear()
+    searchParamsSeed = ''
     initialFavourites = [{ id: '33605', name: 'Warszawa Centralna' }]
   })
 
-  it('klik w kartę stacji nawiguje do /odjazdy/[stationId], nie ustawia lokalnego stanu', async () => {
+  it('klik w kartę stacji ustawia focus w URL-u, nie nawiguje od razu do /odjazdy', async () => {
     render(<Page />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Pokaż pełną tablicę: Warszawa Centralna/ }))
-    // encodeURIComponent (not form-encoding) is the contract — spaces become %20, not '+'.
+    expect(push).toHaveBeenCalledWith('/?focus=33605')
+  })
+
+  it('renderuje widok ogniskowy, gdy ?focus= wskazuje na przypiętą stację', () => {
+    searchParamsSeed = 'focus=33605'
+    render(<Page />)
+
+    expect(screen.getByRole('button', { name: 'Zobacz wszystkie' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Zamknij' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Pokaż pełną tablicę:/ })).not.toBeInTheDocument()
+  })
+
+  it('wraca po cichu do siatki, gdy ?focus= jest nieprawidłowe lub nieznane', () => {
+    searchParamsSeed = 'focus=abc'
+    const { unmount } = render(<Page />)
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
+    unmount()
+
+    searchParamsSeed = 'focus=999999999'
+    render(<Page />)
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
+  })
+
+  it('"Zobacz wszystkie" w widoku ogniskowym nawiguje do pełnej tablicy', async () => {
+    searchParamsSeed = 'focus=33605'
+    render(<Page />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Zobacz wszystkie' }))
+
     expect(push).toHaveBeenCalledWith('/odjazdy/33605?name=Warszawa%20Centralna')
+  })
+
+  it('"Zamknij" w widoku ogniskowym wraca do /', async () => {
+    searchParamsSeed = 'focus=33605'
+    render(<Page />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
+
+    expect(push).toHaveBeenCalledWith('/')
   })
 
   it('pokazuje stan pusty z wyszukiwarką, gdy nie ma ulubionych', () => {

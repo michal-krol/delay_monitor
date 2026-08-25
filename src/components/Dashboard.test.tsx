@@ -35,7 +35,16 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId={null}
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100,5136'))
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -54,7 +63,16 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId={null}
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
 
     await waitFor(() => expect(screen.getAllByText(/Ostatnia aktualizacja:/)).toHaveLength(1))
   })
@@ -79,7 +97,16 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId={null}
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
 
     expect(await screen.findByText('IC')).toBeInTheDocument()
     expect(screen.getByText('Kraków Główny')).toBeInTheDocument()
@@ -115,7 +142,16 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId={null}
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
 
     expect(await screen.findByText('IC')).toBeInTheDocument()
 
@@ -134,7 +170,16 @@ describe('Dashboard', () => {
     const onRemove = vi.fn()
     const user = userEvent.setup()
 
-    render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={onRemove} />)
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={onRemove}
+        focusedStationId={null}
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
 
     await user.click(screen.getByRole('button', { name: 'Usuń z ulubionych: Kraków Główny' }))
 
@@ -168,15 +213,111 @@ describe('Dashboard', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    const { rerender } = render(<Dashboard favourites={FAVOURITES} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    const { rerender } = render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId={null}
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
     expect(await screen.findByText('IC')).toBeInTheDocument()
 
     // Warszawa usunieta z ulubionych; odpowiedz w pamieci wciaz zawiera obie
     // stacje, bo nowy fetch jeszcze nie wrocil.
-    rerender(<Dashboard favourites={[FAVOURITES[1]]} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    rerender(
+      <Dashboard
+        favourites={[FAVOURITES[1]]}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId={null}
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
 
     const krakowCard = findCardByHeading('Kraków Główny')
     expect(krakowCard).toHaveTextContent('KM')
     expect(screen.queryByText('IC')).not.toBeInTheDocument()
+  })
+
+  it('w trybie ogniskowym pokazuje tylko wskazaną stację i nie robi drugiego zapytania', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      jsonResponse({
+        snapshots: [
+          { stationId: '5100', stationName: 'Warszawa Centralna', departures: [], arrivals: [], fetchedAt: '2026-08-01T20:24:11.827Z', ageMs: 0 },
+          { stationId: '5136', stationName: 'Kraków Główny', departures: [], arrivals: [], fetchedAt: '2026-08-01T20:24:11.827Z', ageMs: 0 },
+        ],
+        budget: undefined,
+        status: 'ok',
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId="5136"
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Kraków Główny' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Warszawa Centralna' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    // Ten sam pojedynczy fetch po wszystkich ulubionych co w trybie siatki —
+    // tryb ogniskowy nie ma dociągać danych osobno.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100,5136'))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('"Zobacz wszystkie" i "Zamknij" w trybie ogniskowym wołają odpowiednie callbacki', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok', throttled: false }))
+    vi.stubGlobal('fetch', fetchMock)
+    const onSeeAll = vi.fn()
+    const onCloseFocus = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId="5136"
+        onSeeAll={onSeeAll}
+        onCloseFocus={onCloseFocus}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Zobacz wszystkie' }))
+    expect(onSeeAll).toHaveBeenCalledWith({ id: '5136', name: 'Kraków Główny' })
+
+    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
+    expect(onCloseFocus).toHaveBeenCalledTimes(1)
+  })
+
+  it('wraca do siatki, gdy focusedStationId nie pasuje do żadnej ulubionej stacji', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok', throttled: false }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId="999999999"
+        onSeeAll={vi.fn()}
+        onCloseFocus={vi.fn()}
+      />
+    )
+
+    expect(screen.getAllByRole('article')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
   })
 })

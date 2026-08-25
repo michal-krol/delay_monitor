@@ -20,8 +20,8 @@ type Props = {
 
 type Direction = 'departures' | 'arrivals'
 
-/** "Dodaj/Usuń z ulubionych" i "Zamknij" mają identyczny wygląd — jedyna różnica to treść i akcja. */
-function PillButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+/** "Dodaj/Usuń z ulubionych" i "Zamknij" mają identyczny wygląd — jedyna różnica to treść i akcja. Eksportowany do reużycia w `FocusedStation`. */
+export function PillButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
