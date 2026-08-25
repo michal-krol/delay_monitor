@@ -564,4 +564,58 @@ describe('createLiveClient', () => {
       expect(String(operationUrl)).toContain(encodeURIComponent('2026-08-01/../../secrets'))
     })
   })
+
+  describe('getNameDictionaries', () => {
+    function stubDictionaryFetch(): ReturnType<typeof vi.fn> {
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (String(url).includes('/dictionaries/carriers')) {
+          return jsonResponse({ carriers: [{ code: 'IC', name: 'PKP Intercity' }] })
+        }
+        if (String(url).includes('/dictionaries/commercial-categories')) {
+          return jsonResponse({ commercialCategories: [{ code: 'EIC', name: 'Express InterCity', carrierCode: 'IC' }] })
+        }
+        throw new Error(`unexpected URL in test: ${url}`)
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+    }
+
+    it('fetches both public dictionaries without the X-API-Key header', async () => {
+      // Weryfikowane na żywo (docs/pkp-api-slowniki-statusy.md #1): wysłanie
+      // klucza na te endpointy mimo że są publiczne przełącza żądanie z
+      // darmowej puli limitów na tę samą pulę 100/h co /operations.
+      const fetchMock = stubDictionaryFetch()
+
+      const client = createLiveClient('secret-key')
+      await client.getNameDictionaries()
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      for (const [url, init] of fetchMock.mock.calls) {
+        expect(String(url)).toMatch(/\/dictionaries\/(carriers|commercial-categories)$/)
+        expect(init.headers).toEqual({})
+      }
+    })
+
+    it('builds carrierNames and categoryNames (keyed by carrierCode|code) from the two responses', async () => {
+      stubDictionaryFetch()
+
+      const client = createLiveClient('secret-key')
+      const result = await client.getNameDictionaries()
+
+      expect(result).toEqual({
+        carrierNames: { IC: 'PKP Intercity' },
+        categoryNames: { 'IC|EIC': 'Express InterCity' },
+      })
+    })
+
+    it('fetches the dictionaries only once across multiple calls', async () => {
+      const fetchMock = stubDictionaryFetch()
+
+      const client = createLiveClient('secret-key')
+      await client.getNameDictionaries()
+      await client.getNameDictionaries()
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+  })
 })

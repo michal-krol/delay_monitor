@@ -91,6 +91,7 @@ function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
     getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
     getSchedules: vi.fn().mockResolvedValue({ routes: [], carrierNames: {} }),
     getTrainDetail: vi.fn(),
+    getNameDictionaries: vi.fn().mockResolvedValue({ carrierNames: {}, categoryNames: {} }),
     getCachedStationIds: vi.fn(() => null),
     ...overrides,
   }

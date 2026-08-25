@@ -71,6 +71,15 @@ describe('createMockClient', () => {
     expect(stationNames['80416']).toBe('Kraków Główny')
   })
 
+  it('resolves name dictionaries for carrier/category codes used in the fixtures', async () => {
+    const client = createMockClient()
+    const { carrierNames, categoryNames } = await client.getNameDictionaries()
+
+    // Sam słownik przewoźników co getSchedules() -- nie duplikowany osobno.
+    expect(carrierNames.IC).toBe('„PKP Intercity” Spółka Akcyjna')
+    expect(categoryNames['IC|EIC']).toBe('Express InterCity')
+  })
+
   it('carries carrier and category codes on each route', async () => {
     const client = createMockClient()
     const { routes } = await client.getSchedules(['33605'])

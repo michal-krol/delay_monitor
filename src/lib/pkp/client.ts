@@ -1,5 +1,7 @@
 import type { RawRoute, RawTrainOperation, Station } from './types'
 import {
+  carriersResponseSchema,
+  commercialCategoriesResponseSchema,
   operationsResponseSchema,
   rawRouteSchema,
   rawTrainOperationSchema,
@@ -15,6 +17,8 @@ const REQUEST_TIMEOUT_MS = 8000
 const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const SCHEDULES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
+/** Przewoźnicy/kategorie zmieniają się rzadko (patrz `validFrom`/`validTo` w odpowiedzi przewoźników) -- ta sama długość co słownik stacji. */
+const NAME_DICTIONARIES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 /**
  * Odstęp z jitterem przed jedynym ponowieniem po 5xx -- natychmiastowe
@@ -58,6 +62,13 @@ export type GetSchedulesResult = {
   stationNames: Record<string, string>
 }
 
+export type NameDictionaries = {
+  /** Kod przewoźnika -> pełna nazwa. */
+  carrierNames: Record<string, string>
+  /** Klucz `carrierCode|code` -> pełna nazwa kategorii handlowej (patrz `commercialCategoriesResponseSchema`). */
+  categoryNames: Record<string, string>
+}
+
 export type TrainDetailResult = {
   /** Realizacja: pełna lista przystanków z planowymi/faktycznymi czasami. */
   operation: RawTrainOperation
@@ -88,6 +99,16 @@ export interface PkpClient {
    */
   getTrainDetail(scheduleId: string, orderId: string, operatingDate: string): Promise<TrainDetailResult>
   /**
+   * Pełne nazwy przewoźników i kategorii handlowych, dla panelu szczegółów
+   * połączenia (`/api/train`) -- w przeciwieństwie do `getSchedules()` ten
+   * endpoint nie dostaje ich "za darmo" przy okazji innego zapytania.
+   * `/dictionaries/carriers` i `/dictionaries/commercial-categories` są
+   * publiczne (bez klucza) -- zweryfikowane na żywo (patrz
+   * `docs/pkp-api-slowniki-statusy.md` #1), więc to nie kosztuje budżetu
+   * klucza Basic. Cache'owane długo, bo dane zmieniają się rzadko.
+   */
+  getNameDictionaries(): Promise<NameDictionaries>
+  /**
    * Zbiór znanych ID stacji — **wyłącznie z pamięci**, nigdy nie wyzwala
    * pobrania. `null` znaczy „słownik nie jest jeszcze wczytany".
    *
@@ -107,12 +128,19 @@ export class PkpApiError extends Error {
   }
 }
 
-async function fetchWithTimeout(url: string, apiKey: string): Promise<Response> {
+/**
+ * `apiKey: null` pomija nagłówek `X-API-Key` -- używane przez
+ * `getNameDictionaries()`: te dwa endpointy są publiczne, a wysłanie klucza
+ * mimo to (zweryfikowane na żywo) przełącza żądanie z darmowej, anonimowej
+ * puli limitów na tę samą pulę 100/h co `/operations` -- dokładnie ten koszt,
+ * którego to wywołanie ma unikać.
+ */
+async function fetchWithTimeout(url: string, apiKey: string | null): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
     return await fetch(url, {
-      headers: { 'X-API-Key': apiKey },
+      headers: apiKey === null ? {} : { 'X-API-Key': apiKey },
       signal: controller.signal,
     })
   } finally {
@@ -126,7 +154,7 @@ async function fetchWithTimeout(url: string, apiKey: string): Promise<Response> 
  * realizacja). Zwraca też surowy `response`, bo `getOperations` potrzebuje
  * z niego nagłówków budżetu po odczytaniu ciała.
  */
-async function fetchJson(url: string, apiKey: string, errorMessage: string): Promise<{ json: unknown; response: Response }> {
+async function fetchJson(url: string, apiKey: string | null, errorMessage: string): Promise<{ json: unknown; response: Response }> {
   const response = await fetchWithTimeout(url, apiKey)
   if (!response.ok) {
     throw new PkpApiError(`${errorMessage}: ${response.status}`, response.status)
@@ -177,6 +205,10 @@ export function createLiveClient(
     ttlMs: SCHEDULES_CACHE_TTL_MS,
     maxEntries: SCHEDULES_CACHE_MAX_ENTRIES,
   })
+  // Ten sam wzorzec co stationListCache/stationListInFlight -- jeden blob,
+  // nie klucz-po-kluczu, więc zwykły TtlCache (klucz -> wartość) tu nie pasuje.
+  let nameDictionariesCache: { value: NameDictionaries; expiresAt: number } | null = null
+  let nameDictionariesInFlight: Promise<NameDictionaries> | null = null
 
   /**
    * Uchwyty na trwające pobrania.
@@ -198,7 +230,7 @@ export function createLiveClient(
    * odporność każdemu zapytaniu do PKP, nie tylko temu, które akurat ktoś
    * owinął ręcznie.
    */
-  async function fetchJsonWithRetry(url: string, key: string, errorMessage: string): Promise<{ json: unknown; response: Response }> {
+  async function fetchJsonWithRetry(url: string, key: string | null, errorMessage: string): Promise<{ json: unknown; response: Response }> {
     try {
       return await fetchJson(url, key, errorMessage)
     } catch (err) {
@@ -236,6 +268,23 @@ export function createLiveClient(
       expiresAt: Date.now() + STATION_LIST_CACHE_TTL_MS,
     }
     return stations
+  }
+
+  async function loadNameDictionaries(): Promise<NameDictionaries> {
+    const [carriers, categories] = await Promise.all([
+      fetchJsonWithRetry(`${BASE_URL}/api/v1/dictionaries/carriers`, null, 'Pobranie słownika przewoźników nie powiodło się'),
+      fetchJsonWithRetry(
+        `${BASE_URL}/api/v1/dictionaries/commercial-categories`,
+        null,
+        'Pobranie słownika kategorii handlowych nie powiodło się'
+      ),
+    ])
+    const value: NameDictionaries = {
+      carrierNames: carriersResponseSchema.parse(carriers.json).carrierNames,
+      categoryNames: commercialCategoriesResponseSchema.parse(categories.json).categoryNames,
+    }
+    nameDictionariesCache = { value, expiresAt: Date.now() + NAME_DICTIONARIES_CACHE_TTL_MS }
+    return value
   }
 
   /**
@@ -346,6 +395,20 @@ export function createLiveClient(
       const stationNames = Object.fromEntries(allStations.map((entry) => [entry.station.id, entry.station.name]))
 
       return { operation, route, stationNames }
+    },
+
+    async getNameDictionaries(): Promise<NameDictionaries> {
+      const cached = nameDictionariesCache
+      if (cached !== null && cached.expiresAt > Date.now()) {
+        return cached.value
+      }
+
+      if (nameDictionariesInFlight === null) {
+        nameDictionariesInFlight = loadNameDictionaries().finally(() => {
+          nameDictionariesInFlight = null
+        })
+      }
+      return nameDictionariesInFlight
     },
   }
 }

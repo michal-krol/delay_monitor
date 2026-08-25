@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { PkpApiError, type PkpClient, type TrainDetailResult } from './client'
+import { PkpApiError, type NameDictionaries, type PkpClient, type TrainDetailResult } from './client'
 import type { RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 import { matchesStationName, normalizeForSearch } from '../search'
@@ -8,6 +8,24 @@ import { warsawDateString } from './time'
 
 const FIXTURES_DIR = path.join(process.cwd(), 'fixtures')
 const FIXTURE_ANCHOR = new Date('2026-08-01T12:00:00+02:00').getTime()
+
+/**
+ * Nazwy kategorii handlowych dla kombinacji przewoźnik+kod użytych w
+ * `fixtures/schedules.json` -- nie ma osobnego fixture'a dla
+ * `/dictionaries/commercial-categories` (za mało danych, żeby był tego
+ * wart). "REG" to symbol wymyślony na potrzeby fixture'a (nie istnieje w
+ * prawdziwym słowniku PKP, patrz `docs/pkp-api-slowniki-statusy.md` #1) --
+ * stąd generyczna nazwa zamiast prawdziwej.
+ */
+const MOCK_CATEGORY_NAMES: Record<string, string> = {
+  'IC|EIC': 'Express InterCity',
+  'IC|TLK': 'Twoje Linie Kolejowe',
+  'KM|REG': 'Pociąg regionalny',
+  'PR|REG': 'Pociąg regionalny',
+  'KS|REG': 'Pociąg regionalny',
+  'ŁKA|REG': 'Pociąg regionalny',
+  'SKM|REG': 'Pociąg regionalny',
+}
 
 async function readFixture<T>(fileName: string): Promise<T> {
   const raw = await readFile(path.join(FIXTURES_DIR, fileName), 'utf-8')
@@ -131,6 +149,13 @@ export function createMockClient(): PkpClient {
       // w fixture'ach (nie tylko tych 4 z stations-search.json, które są
       // wyłącznie na potrzeby wyszukiwarki ulubionych) — to właściwe źródło.
       return { operation, route, stationNames: operations.stations }
+    },
+
+    async getNameDictionaries(): Promise<NameDictionaries> {
+      // Przewoźnicy: ten sam słownik co getSchedules() już zwraca za darmo --
+      // nie ma powodu go duplikować osobnym fixture'em.
+      const schedules = await loadSchedules()
+      return { carrierNames: schedules.carrierNames, categoryNames: MOCK_CATEGORY_NAMES }
     },
   }
 }

@@ -11,7 +11,9 @@ type TrainDetailApiResponse = {
   operatingDate: string
   trainStatus: string | null
   carrierCode: string | null
+  carrierName: string | null
   category: string | null
+  categoryName: string | null
   routeName: string | null
   stops: TrainDetailStop[]
 }
@@ -131,11 +133,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
               <div>
                 <dt className="text-text-muted">Przewoźnik</dt>
-                <dd className="mt-0.5 font-medium text-foreground">{data.carrierCode ?? '—'}</dd>
+                <dd className="mt-0.5 font-medium text-foreground">{data.carrierName ?? data.carrierCode ?? '—'}</dd>
               </div>
               <div>
                 <dt className="text-text-muted">Kategoria</dt>
-                <dd className="mt-0.5 font-medium text-foreground">{data.category ?? '—'}</dd>
+                <dd className="mt-0.5 font-medium text-foreground">{data.categoryName ?? data.category ?? '—'}</dd>
               </div>
               <div>
                 <dt className="text-text-muted">Tabor</dt>

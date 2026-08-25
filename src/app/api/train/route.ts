@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { client } from '@/lib/board/instance'
-import { PkpApiError } from '@/lib/pkp/client'
+import { PkpApiError, type NameDictionaries } from '@/lib/pkp/client'
 import { buildTrainDetailStops, type TrainDetailStop } from '@/lib/board/trainDetail'
 import { createTtlCache } from '@/lib/cache'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
@@ -25,7 +25,11 @@ export type TrainDetailApiResponse = {
   operatingDate: string
   trainStatus: string | null
   carrierCode: string | null
+  /** Pełna nazwa przewoźnika, gdy słownik ją zna (patrz `client.getNameDictionaries()`) -- `null` gdy nieznana, appka pokazuje wtedy surowy `carrierCode`. */
+  carrierName: string | null
   category: string | null
+  /** jw., dla kategorii -- rozwiązywane po kluczu `carrierCode|category`, bo sam kod kategorii jest niejednoznaczny między przewoźnikami. */
+  categoryName: string | null
   routeName: string | null
   stops: TrainDetailStop[]
 }
@@ -42,16 +46,29 @@ const cache = createTtlCache<TrainDetailApiResponse>({ ttlMs: CACHE_TTL_MS, maxE
 const inFlight = new Map<string, Promise<TrainDetailApiResponse>>()
 
 async function loadTrainDetail(scheduleId: string, orderId: string, operatingDate: string): Promise<TrainDetailApiResponse> {
-  const detail = await client.getTrainDetail(scheduleId, orderId, operatingDate)
+  // Niezależne od getTrainDetail() -- słowniki nazw są cache'owane osobno w
+  // kliencie (24h) i nie zależą od tego konkretnego przejazdu. Wzbogacenie,
+  // nie rdzeń odpowiedzi: gdy zawiedzie, panel ma nadal działać z surowymi
+  // kodami zamiast pełnych nazw, nie zwracać błędu za coś pobocznego.
+  const [detail, names] = await Promise.all([
+    client.getTrainDetail(scheduleId, orderId, operatingDate),
+    client.getNameDictionaries().catch((): NameDictionaries => ({ carrierNames: {}, categoryNames: {} })),
+  ])
   const stops: TrainDetailStop[] = buildTrainDetailStops(detail.operation, detail.route, detail.stationNames)
+
+  const carrierCode = detail.route?.carrierCode ?? null
+  const category = detail.route?.commercialCategorySymbol ?? null
 
   return {
     scheduleId: detail.operation.scheduleId,
     orderId: detail.operation.orderId,
     operatingDate,
     trainStatus: detail.operation.trainStatus,
-    carrierCode: detail.route?.carrierCode ?? null,
-    category: detail.route?.commercialCategorySymbol ?? null,
+    carrierCode,
+    carrierName: carrierCode !== null ? (names.carrierNames[carrierCode] ?? null) : null,
+    category,
+    categoryName:
+      carrierCode !== null && category !== null ? (names.categoryNames[`${carrierCode}|${category}`] ?? null) : null,
     routeName: detail.route?.name ?? null,
     stops,
   }
