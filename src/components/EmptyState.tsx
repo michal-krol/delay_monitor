@@ -3,7 +3,7 @@ import { AppTitle } from './AppTitle'
 import { TrainIcon } from './icons'
 
 type Props = {
-  children: ReactNode
+  children?: ReactNode
 }
 
 export function EmptyState({ children }: Props) {
@@ -24,7 +24,7 @@ export function EmptyState({ children }: Props) {
       <p className="-mt-2 text-sm text-text-muted">
         Wyszukaj stację, aby dodać ją do ulubionych i śledzić opóźnienia.
       </p>
-      <div className="w-full">{children}</div>
+      {children !== undefined && <div className="w-full">{children}</div>}
     </div>
   )
 }

@@ -23,11 +23,10 @@ export default function Page() {
       <Sidebar activeItem="pulpit" />
       <main className="flex min-w-0 flex-1 flex-col gap-6 px-8 py-7">
         <TopBar title="Pulpit" subtitle="Twoje ulubione stacje i najbliższe odjazdy" />
+        <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />
 
         {favourites.length === 0 ? (
-          <EmptyState>
-            <StationSearch onSelect={goToBoard} />
-          </EmptyState>
+          <EmptyState />
         ) : (
           <Dashboard favourites={favourites} onExpand={goToBoard} onRemove={removeFavourite} />
         )}

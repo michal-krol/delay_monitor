@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 import type { Favourite } from '@/hooks/useFavourites'
+import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -72,5 +73,34 @@ describe('Page (Pulpit)', () => {
 
     expect(await screen.findByText(/Wyszukaj stację/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
+  })
+
+  it('wyszukiwarka stacji jest dostępna także wtedy, gdy dashboard ma już ulubione stacje', async () => {
+    render(<Page />)
+
+    const search = screen.getByRole('combobox')
+    expect(search).toBeInTheDocument()
+    // Karta ulubionej stacji nadal widoczna obok wyszukiwarki — to dodatkowe
+    // pole, nie zamiennik dashboardu.
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+  })
+
+  it('wybranie stacji z wyszukiwarki nawiguje do jej tablicy, niezależnie od tego czy dashboard był pusty czy nie', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<Page />)
+
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+    await user.click(await screen.findByRole('option', { name: 'Kraków Główny' }))
+
+    // encodeURIComponent (not form-encoding) — spaces become %20, same contract as the card click.
+    expect(push).toHaveBeenCalledWith('/odjazdy/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
+
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 })
