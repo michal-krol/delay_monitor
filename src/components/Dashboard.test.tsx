@@ -297,6 +297,28 @@ describe('Dashboard', () => {
     expect(onCloseFocus).toHaveBeenCalledTimes(1)
   })
 
+  it('przekazuje configError do FocusedStation w trybie ogniskowym', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      jsonResponse({ snapshots: [null, null], budget: undefined, status: 'configError' })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <Dashboard
+        favourites={FAVOURITES}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+        focusedStationId="5136"
+        onCloseFocus={vi.fn()}
+      />
+    )
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Odjazdy' })).not.toBeInTheDocument()
+    // Nagłówek (Zamknij) zostaje użyteczny mimo błędu konfiguracji.
+    expect(screen.getByRole('button', { name: 'Zamknij' })).toBeInTheDocument()
+  })
+
   it('wraca do siatki, gdy focusedStationId nie pasuje do żadnej ulubionej stacji', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok', throttled: false }))
     vi.stubGlobal('fetch', fetchMock)

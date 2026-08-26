@@ -42,7 +42,7 @@ export function FocusedStation({ stationName, snapshot, configError, onClose }: 
             </TabButton>
           </div>
 
-          <BoardTable stationName={stationName} direction={direction} rows={snapshot?.[direction] ?? []} now={now} />
+          <BoardTable stationName={stationName} direction={direction} rows={snapshot?.[direction] ?? []} now={now} loading={snapshot === null} />
         </>
       )}
     </section>

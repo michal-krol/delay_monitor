@@ -210,7 +210,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   <div className={`min-w-0 flex-1 ${isLast ? 'pb-0' : 'pb-5'}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span
-                        className={`font-medium text-gray-900 dark:text-gray-100 ${isTerminus ? '' : 'text-sm'}`}
+                        className={`font-medium text-foreground ${isTerminus ? '' : 'text-sm'}`}
                       >
                         {stop.stationName}
                       </span>
@@ -220,7 +220,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                         estimatedDelayMinutes={stop.estimatedDelayMinutes}
                       />
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
                       {hasArrival && (
                         <span>
                           Przyjazd {arrival}

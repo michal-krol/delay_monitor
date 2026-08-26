@@ -707,6 +707,22 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].platform).toBe('4')
   })
 
+  it('shows "tor N" when only the track is known, not the platform', () => {
+    const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const routes = new Map<string, RawRoute>([
+      [
+        '26-12345',
+        route({
+          scheduleId: '26',
+          orderId: '12345',
+          stations: [routeStop({ stationId: '5100', departureTrack: '2' })],
+        }),
+      ],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].platform).toBe('tor 2')
+  })
+
   it('uses arrival platform/track for arrivals and departure platform/track for departures at the same stop', () => {
     const trains = [
       train('26', '12345', [
