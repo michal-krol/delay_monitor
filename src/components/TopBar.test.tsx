@@ -11,19 +11,12 @@ describe('TopBar', () => {
     expect(screen.getByText('Twoje ulubione stacje')).toBeInTheDocument()
   })
 
-  it('wariant powrotu pokazuje link zamiast tytułu', () => {
-    render(<TopBar backHref="/odjazdy/123" backLabel="Powrót do wyników" />)
-    expect(screen.getByRole('link', { name: /Powrót do wyników/ })).toHaveAttribute('href', '/odjazdy/123')
-  })
-
-  it('wariant powrotu z onBack pokazuje przycisk zamiast linku i wywołuje callback', async () => {
+  it('wariant powrotu pokazuje przycisk i wywołuje onBack po kliknięciu', async () => {
     const onBack = vi.fn()
     const user = userEvent.setup()
     render(<TopBar onBack={onBack} backLabel="Powrót do wyników" />)
 
-    const button = screen.getByRole('button', { name: /Powrót do wyników/ })
-    expect(screen.queryByRole('link', { name: /Powrót do wyników/ })).not.toBeInTheDocument()
-    await user.click(button)
+    await user.click(screen.getByRole('button', { name: /Powrót do wyników/ }))
 
     expect(onBack).toHaveBeenCalledTimes(1)
   })

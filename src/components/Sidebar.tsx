@@ -16,10 +16,13 @@ import {
   ChevronRightIcon,
 } from './icons'
 
-type ActiveItem = 'pulpit' | 'odjazdy'
+type ActiveItem = 'pulpit'
 
 type Props = {
-  activeItem: ActiveItem
+  // Opcjonalny -- jedyny prawdziwy wpis nawigacji to "Pulpit"; reszta jest
+  // `kind: 'disabled'` (patrz NAV_ITEMS niżej), więc strony bez odpowiednika
+  // w menu (np. /odjazdy/[stationId], /polaczenie/...) nie mają czego podświetlić.
+  activeItem?: ActiveItem
 }
 
 /**

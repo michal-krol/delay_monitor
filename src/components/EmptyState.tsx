@@ -1,12 +1,7 @@
-import type { ReactNode } from 'react'
 import { AppTitle } from './AppTitle'
 import { TrainIcon } from './icons'
 
-type Props = {
-  children?: ReactNode
-}
-
-export function EmptyState({ children }: Props) {
+export function EmptyState() {
   return (
     <div className="glass mx-auto mt-16 flex max-w-md flex-col items-center gap-5 rounded-3xl px-8 py-12 text-center">
       <div
@@ -24,7 +19,6 @@ export function EmptyState({ children }: Props) {
       <p className="-mt-2 text-sm text-text-muted">
         Wyszukaj stację, aby dodać ją do ulubionych i śledzić opóźnienia.
       </p>
-      {children !== undefined && <div className="w-full">{children}</div>}
     </div>
   )
 }

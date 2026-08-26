@@ -47,7 +47,7 @@ export type RawRoute = {
    * Identyfikator konkretnego przejazdu — wypełniany przez API tylko gdy
    * różni się od `orderId` (np. gdy ten sam wzorzec trasy realizuje kilka
    * odrębnych pociągów). Klucz łączący z `/operations` musi go preferować
-   * nad `orderId`, patrz `routeKey()` w `board/transform.ts`.
+   * nad `orderId`, patrz `routeKey()` w `board/routeKey.ts`.
    */
   trainOrderId: string | null
   carrierCode: string | null

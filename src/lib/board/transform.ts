@@ -55,7 +55,8 @@ function computeTrainLabel(route: RawRoute | undefined, category: string, trainI
   return category ? `${category} ${trainId}` : trainId
 }
 
-function findRouteStop(route: RawRoute | undefined, stationId: string): RawRouteStop | undefined {
+/** Współdzielone z `trainDetail.ts` -- oba szukają tego samego przystanku na trasie rozkładowej. */
+export function findRouteStop(route: RawRoute | null | undefined, stationId: string): RawRouteStop | undefined {
   return route?.stations.find((stop) => stop.stationId === stationId)
 }
 

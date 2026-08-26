@@ -35,7 +35,7 @@ export default function Page() {
 
   return (
     <>
-      <Sidebar activeItem="odjazdy" />
+      <Sidebar />
       <main className="flex min-w-0 flex-1 flex-col gap-6 px-8 py-7">
         <FullBoard
           stationId={stationId}

@@ -1,6 +1,6 @@
-import type { RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
+import type { RawRoute, RawTrainOperation } from '../pkp/types'
 import { combineWarsawDateAndTime } from '../pkp/time'
-import { formatPlatform } from './transform'
+import { findRouteStop, formatPlatform } from './transform'
 import { resolveDelayMinutes, resolveStopStatus } from './realization'
 
 export type TrainDetailStop = {
@@ -73,18 +73,18 @@ function isNearDayMultiple(diffMs: number): boolean {
  * konkretny endpoint, `/operations/train/...`, w ogóle ich nie niesie,
  * stwierdzone bezpośrednio na żywym API), więc jedynym dostępnym sygnałem
  * "to nie jest ten sam artefakt co doba przesunięcia" jest sama różnica
- * czasu -- ale zweryfikowana empirycznie jako równoważna polu opóźnienia
- * tam, gdzie oba źródła były dostępne jednocześnie (patrz plik planu audytu).
+ * czasu -- zweryfikowane bezpośrednio na żywym API (`/operations?withPlanned=true`,
+ * które NIESIE pole opóźnienia): w całej sprawdzonej próbce obecność pola
+ * opóźnienia i "różnica nie jest wielokrotnością doby" występowały zawsze
+ * razem, nigdy osobno -- stąd sama różnica czasu jest tu wystarczającym,
+ * równoważnym sygnałem, mimo że ten konkretny endpoint pola opóźnienia
+ * w ogóle nie niesie.
  */
 function resolvePredictedTime(plannedAt: string | null, actualAt: string | null, isConfirmed: boolean): string | null {
   if (isConfirmed || plannedAt === null || actualAt === null) return null
   const diffMs = new Date(actualAt).getTime() - new Date(plannedAt).getTime()
   if (isNearDayMultiple(diffMs)) return null
   return actualAt
-}
-
-function findRouteStop(route: RawRoute | null, stationId: string): RawRouteStop | undefined {
-  return route?.stations.find((stop) => stop.stationId === stationId)
 }
 
 /**
