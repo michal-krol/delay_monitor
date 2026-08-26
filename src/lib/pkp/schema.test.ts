@@ -4,6 +4,7 @@ import {
   commercialCategoriesResponseSchema,
   dailyRoutesResponseSchema,
   disruptionsCountResponseSchema,
+  disruptionsResponseSchema,
   operationsResponseSchema,
   operationsStatisticsResponseSchema,
   schedulesResponseSchema,
@@ -252,6 +253,56 @@ describe('disruptionsCountResponseSchema', () => {
 
   it('treats a missing disruptions list as zero, not an error', () => {
     expect(disruptionsCountResponseSchema.parse({ disruptions: null })).toBe(0)
+  })
+})
+
+describe('disruptionsResponseSchema', () => {
+  it('parses a disruption with affectedRoutes, coercing numeric ids to strings', () => {
+    const result = disruptionsResponseSchema.parse({
+      disruptions: [
+        {
+          disruptionId: 1,
+          message: 'utr_40',
+          affectedRoutes: [{ scheduleId: 2026, orderId: 12345, operatingDate: '2026-08-26', stationId: 7500, sequenceNumber: 1 }],
+        },
+      ],
+      disruptionTypes: { utr_40: 'Awaria sieci trakcyjnej' },
+    })
+    expect(result.disruptions).toEqual([
+      {
+        disruptionId: 1,
+        message: 'utr_40',
+        affectedRoutes: [{ scheduleId: '2026', orderId: '12345', operatingDate: '2026-08-26', stationId: '7500', sequenceNumber: 1 }],
+      },
+    ])
+    expect(result.disruptionTypes).toEqual({ utr_40: 'Awaria sieci trakcyjnej' })
+  })
+
+  it('defaults disruptions to an empty array when null or missing', () => {
+    expect(disruptionsResponseSchema.parse({ disruptions: null }).disruptions).toEqual([])
+    expect(disruptionsResponseSchema.parse({}).disruptions).toEqual([])
+  })
+
+  it('defaults disruptionTypes to an empty object when null or missing', () => {
+    expect(disruptionsResponseSchema.parse({ disruptionTypes: null }).disruptionTypes).toEqual({})
+    expect(disruptionsResponseSchema.parse({}).disruptionTypes).toEqual({})
+  })
+
+  it('defaults a disruption missing affectedRoutes to an empty array', () => {
+    const result = disruptionsResponseSchema.parse({ disruptions: [{ disruptionId: 1, message: null }] })
+    expect(result.disruptions[0].affectedRoutes).toEqual([])
+  })
+
+  it('keeps message as null instead of coercing it to a string', () => {
+    const result = disruptionsResponseSchema.parse({ disruptions: [{ disruptionId: 1, message: null, affectedRoutes: [] }] })
+    expect(result.disruptions[0].message).toBeNull()
+  })
+
+  it('ignores undocumented fields like disruptionTypeCode without failing to parse', () => {
+    const result = disruptionsResponseSchema.parse({
+      disruptions: [{ disruptionId: 1, message: null, disruptionTypeCode: null, startStationId: null, endStationId: null, affectedRoutes: [] }],
+    })
+    expect(result.disruptions[0].disruptionId).toBe(1)
   })
 })
 

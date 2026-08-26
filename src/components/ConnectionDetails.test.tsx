@@ -333,4 +333,27 @@ describe('ConnectionDetails', () => {
     expect(unavailable).toHaveLength(3) // Tabor, Prędkość, Długość składu
     unavailable.forEach((el) => expect(el).toHaveAttribute('title', 'Niedostępne w danych PKP'))
   })
+
+  it('shows a disruption disclosure with the decoded message on a stop that has one', async () => {
+    const withDisruption = {
+      ...RESPONSE,
+      stops: [{ ...RESPONSE.stops[0], disruptionMessages: ['Awaria sieci trakcyjnej'] }, RESPONSE.stops[1]],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(withDisruption)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Gdańsk Główny')
+
+    expect(screen.getByText('Utrudnienie')).toBeInTheDocument()
+    expect(screen.getByText('Awaria sieci trakcyjnej')).toBeInTheDocument()
+  })
+
+  it('shows no disruption disclosure on a stop without disruptionMessages (existing shape, field absent)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Gdańsk Główny')
+
+    expect(screen.queryByText('Utrudnienie')).not.toBeInTheDocument()
+  })
 })

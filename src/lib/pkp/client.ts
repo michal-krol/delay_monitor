@@ -1,9 +1,10 @@
-import type { RawRoute, RawTrainOperation, Station } from './types'
+import type { RawDisruption, RawRoute, RawTrainOperation, Station } from './types'
 import {
   carriersResponseSchema,
   commercialCategoriesResponseSchema,
   dailyRoutesResponseSchema,
   disruptionsCountResponseSchema,
+  disruptionsResponseSchema,
   operationsResponseSchema,
   operationsStatisticsResponseSchema,
   rawRouteSchema,
@@ -20,6 +21,17 @@ const REQUEST_TIMEOUT_MS = 8000
 const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const SCHEDULES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
+/**
+ * W przeciwieństwie do /schedules (24h — trasa/przewoźnik się nie zmieniają),
+ * utrudnienia zmieniają się w czasie. Zmierzone empirycznie na żywym API
+ * (2026-08-26): 36/36 dzisiejszych disruptionId istniało już wczoraj, tylko
+ * 2/38 zniknęło — dane żyją w skali dni, nie minut. 15 min to nadwyżka
+ * ostrożności (łapie nagłe zdarzenia w ciągu dnia), nie wymóg zmienności.
+ */
+const DISRUPTIONS_CACHE_TTL_MS = 15 * 60 * 1000
+// Klucz dzieli przestrzeń ze stacjami pollera (rzadkie zestawy) i z /api/train
+// (per-pociąg zestawy stacji) -- szerszy niż SCHEDULES (64) na tę drugą oś.
+const DISRUPTIONS_CACHE_MAX_ENTRIES = 200
 /** Przewoźnicy/kategorie zmieniają się rzadko (patrz `validFrom`/`validTo` w odpowiedzi przewoźników) -- ta sama długość co słownik stacji. */
 const NAME_DICTIONARIES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -85,6 +97,12 @@ export type NameDictionaries = {
   categoryNames: Record<string, string>
 }
 
+export type GetDisruptionsResult = {
+  disruptions: RawDisruption[]
+  /** Kod utrudnienia -> tekst, dołączony w tej samej odpowiedzi (dictionaries=true) bez dodatkowego zapytania. */
+  disruptionTypes: Record<string, string>
+}
+
 export type TrainDetailResult = {
   /** Realizacja: pełna lista przystanków z planowymi/faktycznymi czasami. */
   operation: RawTrainOperation
@@ -148,6 +166,15 @@ export interface PkpClient {
   getDailyCarrierCounts(date: string): Promise<Record<string, number>>
   /** Liczba zgłoszonych utrudnień w całym kraju w danym oknie dat — tylko licznik, nie treść (patrz `disruptionsCountResponseSchema`). */
   getDisruptionCount(dateFrom: string, dateTo: string): Promise<number>
+  /**
+   * Pełna treść utrudnień dla podanych stacji — w przeciwieństwie do
+   * `getDisruptionCount()` (tylko licznik, bez filtra stacji). `dateFrom`/
+   * `dateTo` domyślnie = to samo okno co `/schedules` (dziś+jutro wg
+   * kalendarza warszawskiego); `/api/train` przekazuje jawnie samo
+   * `operatingDate` tego jednego przejazdu. Cache 15 min, osobny od
+   * `getSchedules()` — patrz `DISRUPTIONS_CACHE_TTL_MS`.
+   */
+  getDisruptions(stationIds: string[], dateFrom?: string, dateTo?: string): Promise<GetDisruptionsResult>
 }
 
 export class PkpApiError extends Error {
@@ -237,6 +264,10 @@ export function createLiveClient(
     ttlMs: SCHEDULES_CACHE_TTL_MS,
     maxEntries: SCHEDULES_CACHE_MAX_ENTRIES,
   })
+  const disruptionsCache = createTtlCache<GetDisruptionsResult>({
+    ttlMs: DISRUPTIONS_CACHE_TTL_MS,
+    maxEntries: DISRUPTIONS_CACHE_MAX_ENTRIES,
+  })
   // Ten sam wzorzec co stationListCache/stationListInFlight -- jeden blob,
   // nie klucz-po-kluczu, więc zwykły TtlCache (klucz -> wartość) tu nie pasuje.
   let nameDictionariesCache: { value: NameDictionaries; expiresAt: number } | null = null
@@ -253,6 +284,7 @@ export function createLiveClient(
    */
   let stationListInFlight: Promise<IndexedStation[]> | null = null
   const schedulesInFlight = new Map<string, Promise<GetSchedulesResult>>()
+  const disruptionsInFlight = new Map<string, Promise<GetDisruptionsResult>>()
 
   /**
    * `fetchJson` + jedno ponowienie na 5xx, z odstępem i jitterem. Wcześniej
@@ -352,6 +384,15 @@ export function createLiveClient(
       stationNames: parsed.stationNames,
     }
     schedulesCache.set(cacheKey, result)
+    return result
+  }
+
+  async function loadDisruptions(stationIds: string[], dateFrom: string, dateTo: string, cacheKey: string): Promise<GetDisruptionsResult> {
+    const url = `${BASE_URL}/api/v1/disruptions?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}&dictionaries=true`
+    const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie utrudnień nie powiodło się')
+    const parsed = disruptionsResponseSchema.parse(json)
+    const result: GetDisruptionsResult = { disruptions: parsed.disruptions, disruptionTypes: parsed.disruptionTypes }
+    disruptionsCache.set(cacheKey, result)
     return result
   }
 
@@ -471,6 +512,26 @@ export function createLiveClient(
       const url = `${BASE_URL}/api/v1/disruptions?dateFrom=${encodeURIComponent(dateFrom)}&dateTo=${encodeURIComponent(dateTo)}`
       const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie liczby utrudnień nie powiodło się')
       return disruptionsCountResponseSchema.parse(json)
+    },
+
+    async getDisruptions(stationIds: string[], dateFrom?: string, dateTo?: string): Promise<GetDisruptionsResult> {
+      const window = dateFrom !== undefined && dateTo !== undefined ? { dateFrom, dateTo } : scheduleDateWindow()
+      const cacheKey = `${[...stationIds].sort().join(',')}|${window.dateFrom}|${window.dateTo}`
+      const cached = disruptionsCache.get(cacheKey)
+      if (cached !== undefined) {
+        return cached
+      }
+
+      const pending = disruptionsInFlight.get(cacheKey)
+      if (pending !== undefined) {
+        return pending
+      }
+
+      const request = loadDisruptions(stationIds, window.dateFrom, window.dateTo, cacheKey).finally(() => {
+        disruptionsInFlight.delete(cacheKey)
+      })
+      disruptionsInFlight.set(cacheKey, request)
+      return request
     },
   }
 }

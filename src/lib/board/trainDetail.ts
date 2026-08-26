@@ -1,7 +1,8 @@
-import type { RawRoute, RawTrainOperation } from '../pkp/types'
+import type { RawDisruption, RawRoute, RawTrainOperation } from '../pkp/types'
 import { combineWarsawDateAndTime } from '../pkp/time'
 import { findRouteStop, formatPlatform } from './transform'
 import { resolveDelayMinutes, resolveStopStatus } from './realization'
+import { findStopDisruptionMessages } from './disruptions'
 
 export type TrainDetailStop = {
   stationId: string
@@ -52,6 +53,8 @@ export type TrainDetailStop = {
    */
   predictedArrival: string | null
   predictedDeparture: string | null
+  /** Zdekodowane treści utrudnień obejmujących ten przystanek tego przejazdu -- [] gdy brak. Patrz `board/disruptions.ts`. */
+  disruptionMessages: string[]
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -124,7 +127,9 @@ function resolvePlannedTime(
 export function buildTrainDetailStops(
   operation: RawTrainOperation,
   route: RawRoute | null,
-  stationNames: Record<string, string>
+  stationNames: Record<string, string>,
+  disruptions: RawDisruption[] = [],
+  disruptionTypes: Record<string, string> = {}
 ): TrainDetailStop[] {
   // Akumulator "czy jakiś wcześniejszy przystanek już potwierdzony" -- czytany
   // PRZED uwzględnieniem bieżącego przystanku, więc pierwszy potwierdzony
@@ -174,6 +179,10 @@ export function buildTrainDetailStops(
       hasTrainStarted,
       estimatedDelayMinutes: status === 'enRoute' ? lastConfirmedDelayMinutes : null,
       stopTypeName: routeStop?.stopTypeName ?? null,
+      disruptionMessages:
+        operation.operatingDate === null
+          ? []
+          : findStopDisruptionMessages(disruptions, disruptionTypes, operation.scheduleId, operation.orderId, operation.operatingDate, stop.stationId),
     }
 
     if (stop.isConfirmed) hasTrainStarted = true

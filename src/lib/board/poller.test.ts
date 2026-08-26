@@ -96,6 +96,7 @@ function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
     getOperationsStatistics: vi.fn(),
     getDailyCarrierCounts: vi.fn(),
     getDisruptionCount: vi.fn(),
+    getDisruptions: vi.fn().mockResolvedValue({ disruptions: [], disruptionTypes: {} }),
     ...overrides,
   }
 }
@@ -539,6 +540,62 @@ describe('createPoller', () => {
     expect(row).toBeDefined()
     expect(row?.carrier).toBe('')
     expect(poller.getStatus()).toBe('ok')
+  })
+
+  describe('disruptions', () => {
+    it('marks a row hasDisruption when getDisruptions returns a matching affectedRoute', async () => {
+      const getOperations = vi.fn().mockResolvedValue({
+        trains: [makeTrain('26', '12345', '5100')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      })
+      const getDisruptions = vi.fn().mockResolvedValue({
+        disruptions: [{ disruptionId: 1, message: 'utr_40', affectedRoutes: [{ scheduleId: '26', orderId: '12345', operatingDate: '2026-08-01', stationId: '5100' }] }],
+        disruptionTypes: { utr_40: 'Awaria sieci trakcyjnej' },
+      })
+      const client = makeClient({ getOperations, getDisruptions })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(poller.getSnapshot('5100')?.departures[0]?.hasDisruption).toBe(true)
+    })
+
+    it('calls getDisruptions with the real active stations, not the aux stations added to /operations', async () => {
+      const getOperations = vi.fn().mockResolvedValue({
+        trains: [makeTrain('26', '12345', '5100')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      })
+      const getDisruptions = vi.fn().mockResolvedValue({ disruptions: [], disruptionTypes: {} })
+      const client = makeClient({ getOperations, getDisruptions })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(getDisruptions).toHaveBeenCalledWith(['5100'])
+    })
+
+    it('degrades gracefully when getDisruptions rejects -- rest of the tick still succeeds, status stays ok', async () => {
+      const getOperations = vi.fn().mockResolvedValue({
+        trains: [makeTrain('26', '12345', '5100')],
+        stationNames: { '5100': 'Warszawa Centralna' },
+        budget: { hourly: 99, daily: 999 },
+      })
+      const getDisruptions = vi.fn().mockRejectedValue(new PkpApiError('boom', 500))
+      const client = makeClient({ getOperations, getDisruptions })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+
+      const row = poller.getSnapshot('5100')?.departures[0]
+      expect(row).toBeDefined()
+      expect(row?.hasDisruption).toBe(false)
+      expect(poller.getStatus()).toBe('ok')
+    })
   })
 
   describe('upstream (aux) stations for the enRoute delay estimate', () => {

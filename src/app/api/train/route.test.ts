@@ -3,17 +3,22 @@ import { PkpApiError } from '@/lib/pkp/client'
 
 const getTrainDetail = vi.fn()
 const getNameDictionaries = vi.fn()
+const getDisruptions = vi.fn()
 
 vi.mock('@/lib/board/instance', () => ({
   client: {
     getTrainDetail: (...args: [string, string, string]) => getTrainDetail(...args),
     getNameDictionaries: () => getNameDictionaries(),
+    getDisruptions: (...args: [string[], string?, string?]) => getDisruptions(...args),
   },
 }))
 
 // Domyślnie puste słowniki -- testy, którym zależy na konkretnych nazwach,
 // nadpisują to przez getNameDictionaries.mockResolvedValueOnce(...).
 getNameDictionaries.mockResolvedValue({ carrierNames: {}, categoryNames: {} })
+// Domyślnie brak utrudnień -- testy, którym na tym zależy, nadpisują przez
+// getDisruptions.mockResolvedValueOnce(...).
+getDisruptions.mockResolvedValue({ disruptions: [], disruptionTypes: {} })
 
 function stubDetail(overrides: Partial<Parameters<typeof getTrainDetail.mockResolvedValueOnce>[0]> = {}) {
   getTrainDetail.mockResolvedValueOnce({
@@ -109,6 +114,7 @@ describe('GET /api/train', () => {
         hasTrainStarted: false,
         estimatedDelayMinutes: null,
         stopTypeName: null,
+        disruptionMessages: [],
       },
     ])
   })
@@ -312,5 +318,54 @@ describe('GET /api/train', () => {
     expect(first.status).toBe(200)
     expect(second.status).toBe(200)
     expect(getTrainDetail).toHaveBeenCalledTimes(1)
+  })
+
+  describe('utrudnienia', () => {
+    it('carries the decoded disruption message on the matching stop', async () => {
+      stubDetail({
+        operation: {
+          scheduleId: '2026',
+          orderId: '20',
+          trainOrderId: null,
+          operatingDate: '2026-08-01',
+          trainStatus: 'P',
+          stations: [
+            { stationId: '33605', plannedArrival: null, actualArrival: null, plannedDeparture: '2026-08-01T12:00:00.000Z', actualDeparture: '2026-08-01T12:07:00.000Z', arrivalDelayMinutes: null, departureDelayMinutes: 7, isCancelled: false, isConfirmed: true },
+          ],
+        },
+      })
+      getDisruptions.mockResolvedValueOnce({
+        disruptions: [{ disruptionId: 1, message: 'utr_40', affectedRoutes: [{ scheduleId: '2026', orderId: '20', operatingDate: '2026-08-01', stationId: '33605' }] }],
+        disruptionTypes: { utr_40: 'Awaria sieci trakcyjnej' },
+      })
+      const { GET } = await import('./route')
+
+      const response = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=20&operatingDate=2026-08-01'))
+      const body = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(body.stops[0].disruptionMessages).toEqual(['Awaria sieci trakcyjnej'])
+    })
+
+    it('requests disruptions for this train\'s own stations, scoped to just this operatingDate (not the default today+tomorrow window)', async () => {
+      stubDetail()
+      const { GET } = await import('./route')
+
+      await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=21&operatingDate=2026-08-01'))
+
+      expect(getDisruptions).toHaveBeenCalledWith(['33605'], '2026-08-01', '2026-08-01')
+    })
+
+    it('still returns 200 with plain stops (no disruption indicators) when getDisruptions fails', async () => {
+      stubDetail()
+      getDisruptions.mockRejectedValueOnce(new PkpApiError('boom', 500))
+      const { GET } = await import('./route')
+
+      const response = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=22&operatingDate=2026-08-01'))
+      const body = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(body.stops[0].disruptionMessages).toEqual([])
+    })
   })
 })

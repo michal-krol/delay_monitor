@@ -1,7 +1,8 @@
 import type { PkpClient, RateLimitBudget } from '../pkp/client'
 import { PkpApiError } from '../pkp/client'
-import type { RawRoute } from '../pkp/types'
+import type { RawDisruption, RawRoute } from '../pkp/types'
 import { routeKey, transformOperations, type BoardSnapshot } from './transform'
+import { indexDisruptedTrains } from './disruptions'
 import { collectUpstreamCandidates } from './upstreamEstimate'
 
 const FORCE_RUN_THROTTLE_MS = 45000
@@ -104,6 +105,16 @@ async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promis
   }
 }
 
+/** Awaria pobrania utrudnień to wzbogacenie, nie rdzeń ticka -- degraduje łagodnie do braku badge'y, reszta cyklu działa dalej. */
+async function fetchDisruptions(client: PkpClient, active: string[]): Promise<RawDisruption[]> {
+  try {
+    return (await client.getDisruptions(active)).disruptions
+  } catch (err) {
+    console.error('Poller: błąd pobierania utrudnień (badge będzie niedostępny)', err)
+    return []
+  }
+}
+
 export function createPoller(deps: PollerDeps): Poller {
   const { client, config, stationNames } = deps
   const now = deps.now ?? (() => Date.now())
@@ -178,11 +189,13 @@ export function createPoller(deps: PollerDeps): Poller {
     const operationsStationIds = [...new Set([...realActive, ...auxStationIds])]
 
     try {
-      const [result, { routesByTrainId, carrierNames, categoryNames, scheduleStationNames }] = await Promise.all([
+      const [result, { routesByTrainId, carrierNames, categoryNames, scheduleStationNames }, disruptions] = await Promise.all([
         client.getOperations(operationsStationIds),
         fetchRoutesByTrainId(client, realActive),
+        fetchDisruptions(client, realActive),
       ])
       budget = result.budget
+      const disruptedTrains = indexDisruptedTrains(disruptions)
       status = 'ok'
       const fetchedAt = new Date(now()).toISOString()
 
@@ -203,7 +216,8 @@ export function createPoller(deps: PollerDeps): Poller {
             carrierNames,
             fetchedAt,
             new Date(fetchedAt),
-            categoryNames
+            categoryNames,
+            disruptedTrains
           )
         )
       }

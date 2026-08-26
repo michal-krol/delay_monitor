@@ -1,8 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { PkpApiError, type NameDictionaries, type OperationsStatistics, type PkpClient, type TrainDetailResult } from './client'
+import {
+  PkpApiError,
+  type GetDisruptionsResult,
+  type NameDictionaries,
+  type OperationsStatistics,
+  type PkpClient,
+  type TrainDetailResult,
+} from './client'
 import type { RawTrainOperation, Station } from './types'
-import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
+import { disruptionsResponseSchema, operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 import { matchesStationName, normalizeForSearch } from '../search'
 import { warsawDateString } from './time'
 
@@ -51,6 +58,7 @@ function once<T>(load: () => Promise<T>): () => Promise<T> {
 const loadStations = once(async () => stationSearchResponseSchema.parse(await readFixture('stations-search.json')))
 const loadOperations = once(async () => operationsResponseSchema.parse(await readFixture('operations.json')))
 const loadSchedules = once(async () => schedulesResponseSchema.parse(await readFixture('schedules.json')))
+const loadDisruptions = once(async () => disruptionsResponseSchema.parse(await readFixture('disruptions.json')))
 
 function shiftTimestamp(value: string | null, offsetMs: number): string | null {
   if (value === null) return null
@@ -192,9 +200,26 @@ export function createMockClient(): PkpClient {
     },
 
     async getDisruptionCount(): Promise<number> {
-      // Brak fixture'a dla /disruptions (patrz README, sekcja "Zbadane i
-      // odłożone") -- zero jest tu poprawnym, nie udawanym wynikiem.
+      // Osobna funkcjonalność (widżet "stan sieci", networkStats.ts) --
+      // celowo nie licz z tego samego fixture'a co getDisruptions() niżej,
+      // to nie było w zakresie tej zmiany i nie ma testu blokującego to zachowanie.
       return 0
+    },
+
+    async getDisruptions(stationIds: string[]): Promise<GetDisruptionsResult> {
+      const data = await loadDisruptions()
+      const requested = new Set(stationIds)
+      // operatingDate to kalendarzowa data kursowania, ten sam powód co w
+      // rebaseTrains() -- fixture ma sztywną datę z sierpnia 2026, podmieniana
+      // na dzisiejszą, żeby dalej pasowała do zrebase'owanych pociągów.
+      const operatingDate = warsawDateString(new Date())
+      const disruptions = data.disruptions
+        .filter((disruption) => disruption.affectedRoutes.some((route) => requested.has(route.stationId)))
+        .map((disruption) => ({
+          ...disruption,
+          affectedRoutes: disruption.affectedRoutes.map((route) => ({ ...route, operatingDate })),
+        }))
+      return { disruptions, disruptionTypes: data.disruptionTypes }
     },
   }
 }

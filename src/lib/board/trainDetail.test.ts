@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildTrainDetailStops } from './trainDetail'
-import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
+import type { RawDisruption, RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 
 /** Realizacja bez planu/opóźnienia — dokładnie taki kształt, jaki naprawdę zwraca `/operations/train/{scheduleId}/{orderId}/{operatingDate}` na żywo (stwierdzone bezpośrednio na API, nie w dokumentacji). */
 function realizedStop(overrides: Partial<RawOperationStation> & { stationId: string }): RawOperationStation {
@@ -309,6 +309,36 @@ describe('buildTrainDetailStops', () => {
       const result = buildTrainDetailStops(operation(stops), null, {})
 
       expect(result[1].hasTrainStarted).toBe(true)
+    })
+  })
+
+  describe('disruptionMessages', () => {
+    function affectedRoute(stationId: string) {
+      return { scheduleId: '2026', orderId: '1', operatingDate: '2026-08-01', stationId }
+    }
+
+    it('carries the decoded message on the exact matching stop only', () => {
+      const stops = [realizedStop({ stationId: 'A' }), realizedStop({ stationId: 'B' })]
+      const disruptions: RawDisruption[] = [{ disruptionId: 1, message: 'utr_40', affectedRoutes: [affectedRoute('A')] }]
+      const disruptionTypes = { utr_40: 'Awaria sieci trakcyjnej' }
+
+      const result = buildTrainDetailStops(operation(stops), null, {}, disruptions, disruptionTypes)
+
+      expect(result[0].disruptionMessages).toEqual(['Awaria sieci trakcyjnej'])
+      expect(result[1].disruptionMessages).toEqual([])
+    })
+
+    it('defaults to an empty array when disruptions/disruptionTypes are omitted', () => {
+      const stops = [realizedStop({ stationId: 'A' })]
+      const result = buildTrainDetailStops(operation(stops), null, {})
+      expect(result[0].disruptionMessages).toEqual([])
+    })
+
+    it('is empty when operatingDate is null (nothing to match affectedRoutes against)', () => {
+      const stops = [realizedStop({ stationId: 'A' })]
+      const disruptions: RawDisruption[] = [{ disruptionId: 1, message: 'utr_40', affectedRoutes: [affectedRoute('A')] }]
+      const result = buildTrainDetailStops(operation(stops, null), null, {}, disruptions, { utr_40: 'Awaria sieci trakcyjnej' })
+      expect(result[0].disruptionMessages).toEqual([])
     })
   })
 })

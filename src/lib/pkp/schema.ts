@@ -240,3 +240,48 @@ export const disruptionsCountResponseSchema = z
   })
   .passthrough()
   .transform((data) => data.disruptions.length)
+
+const disruptionAffectedRouteSchema = z
+  .object({
+    scheduleId: idString,
+    orderId: idString,
+    operatingDate: z.string(),
+    stationId: idString,
+  })
+  .passthrough()
+
+/**
+ * `disruptionTypeCode`/`startStationId`/`endStationId` z dokumentacji OpenAPI
+ * świadomie pominięte — zweryfikowane na żywych danych (36 rekordów, 4 duże
+ * stacje, 2026-08-26) jako zawsze null/nieobecne. Nie buduj na nich logiki
+ * dopasowania, patrz `board/disruptions.ts`.
+ */
+const rawDisruptionSchema = z
+  .object({
+    disruptionId: z.coerce.number(),
+    message: z.string().nullable().optional().default(null),
+    affectedRoutes: z
+      .array(disruptionAffectedRouteSchema)
+      .nullish()
+      .transform((routes) => routes ?? []),
+  })
+  .passthrough()
+
+/**
+ * `/api/v1/disruptions` (pełny kształt, w przeciwieństwie do
+ * `disruptionsCountResponseSchema` wyżej) — patrz `getDisruptions()` w
+ * `client.ts`. Zawsze wołane z `dictionaries=true`, więc `disruptionTypes`
+ * jedzie w tej samej odpowiedzi bez dodatkowego zapytania.
+ */
+export const disruptionsResponseSchema = z
+  .object({
+    disruptions: z
+      .array(rawDisruptionSchema)
+      .nullish()
+      .transform((disruptions) => disruptions ?? []),
+    disruptionTypes: z
+      .record(z.string(), z.string())
+      .nullish()
+      .transform((types) => types ?? {}),
+  })
+  .passthrough()

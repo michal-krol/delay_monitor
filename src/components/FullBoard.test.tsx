@@ -1,5 +1,5 @@
 ﻿// @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
@@ -334,5 +334,46 @@ describe('FullBoard', () => {
     await user.click(screen.getByRole('button', { name: 'Kopiuj link' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent(/link w pasku adresu/)
+  })
+
+  it('shows a disruption indicator on a row flagged hasDisruption, not on a plain row', async () => {
+    const disrupted = { ...SNAPSHOT.departures[0], hasDisruption: true }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [disrupted] }], budget: undefined, status: 'ok' }))
+    )
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+
+    expect(screen.getByTitle('Utrudnienie na trasie')).toBeInTheDocument()
+  })
+
+  it('does not show a disruption indicator when hasDisruption is absent (existing rows predating this field)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+
+    expect(screen.queryByTitle('Utrudnienie na trasie')).not.toBeInTheDocument()
+  })
+
+  it('offers a status legend next to the "Status" column header, revealed on focus, covering all six statuses', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+
+    const legendButton = screen.getByRole('button', { name: 'Legenda statusów' })
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    fireEvent.focus(legendButton)
+
+    const legendPanel = screen.getByRole('tooltip')
+    // Zawężone do panelu legendy -- "punktualnie" istnieje też osobno w
+    // plakietce statusu wiersza (SNAPSHOT ma status "onTime").
+    for (const label of ['punktualnie', 'opóźniony', 'odwołany', 'brak danych', 'jeszcze nie wyjechał / nie przyjechał', 'w trasie']) {
+      expect(within(legendPanel).getByText(label)).toBeInTheDocument()
+    }
   })
 })

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { DelayBadge } from './DelayBadge'
+import { AlertCircleIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import type { TrainDetailStop } from '@/lib/board/trainDetail'
 
@@ -258,6 +259,19 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                       )}
                       {stop.platform !== null && <span>Peron/tor {stop.platform}</span>}
                     </div>
+                    {/* `?? []`, nie gołe `.length` -- odpowiedź API zawsze niesie to
+                        pole, ale starsze/ręczne literały w testach mogą go nie mieć
+                        wcale (brakujący klucz to `undefined`), ten sam wzorzec
+                        obrony co `predictedArrival` wyżej. */}
+                    {(stop.disruptionMessages ?? []).length > 0 && (
+                      <details className="mt-1.5">
+                        <summary className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                          <AlertCircleIcon size={12} />
+                          Utrudnienie
+                        </summary>
+                        <p className="mt-1.5 text-xs text-text-secondary">{stop.disruptionMessages!.join(' ')}</p>
+                      </details>
+                    )}
                   </div>
                 </li>
               )

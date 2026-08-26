@@ -224,4 +224,34 @@ describe('createMockClient', () => {
       await expect(client.searchStations('warszawa')).rejects.toThrow('fixture uszkodzony')
     })
   })
+
+  describe('getDisruptions', () => {
+    it('decodes a dictionary-code message for the matching train (station 7500, train 12345)', async () => {
+      const client = createMockClient()
+      const result = await client.getDisruptions(['7500'])
+      expect(result.disruptionTypes.utr_40).toBe('Awaria sieci trakcyjnej')
+      expect(result.disruptions.some((d) => d.message === 'utr_40' && d.affectedRoutes.some((r) => r.orderId === '12345'))).toBe(true)
+    })
+
+    it('returns the already-rendered PKP text verbatim for the other fixture train (station 80416, train 22222)', async () => {
+      const client = createMockClient()
+      const result = await client.getDisruptions(['80416'])
+      const disruption = result.disruptions.find((d) => d.affectedRoutes.some((r) => r.orderId === '22222'))
+      expect(disruption?.message).toBe('Na odcinku od stacji Kraków Główny do stacji Katowice pociąg kursuje z opóźnieniem z powodu prac na sieci trakcyjnej.')
+    })
+
+    it('returns no disruptions for a station with none in the fixture', async () => {
+      const client = createMockClient()
+      const result = await client.getDisruptions(['60103'])
+      expect(result.disruptions).toEqual([])
+    })
+
+    it('rebases affectedRoutes.operatingDate to today (Warsaw calendar date), matching the rebased train', async () => {
+      const client = createMockClient()
+      const result = await client.getDisruptions(['7500'])
+      const { warsawDateString } = await import('./time')
+      const today = warsawDateString(new Date())
+      expect(result.disruptions.every((d) => d.affectedRoutes.every((r) => r.operatingDate === today))).toBe(true)
+    })
+  })
 })

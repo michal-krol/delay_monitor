@@ -22,6 +22,13 @@ export type BoardApiRow = {
   platform: string | null
   /** Szacunek (nie fakt) ze stacji poprzedniej -- tylko przy `status === 'enRoute'`. Patrz `board/transform.ts`. */
   estimatedDelayMinutes: number | null
+  /**
+   * Czy cały przejazd (dowolna stacja trasy) jest objęty utrudnieniem -- patrz
+   * `board/disruptions.ts`. Opcjonalne (nie `boolean`), ten sam powód co
+   * `RawRouteStop.stopTypeId?` w `pkp/types.ts`: liczne literały tego typu w
+   * testach powstałych przed tym polem nie muszą się teraz o nim uczyć.
+   */
+  hasDisruption?: boolean
 }
 
 export type BoardApiSnapshot = {

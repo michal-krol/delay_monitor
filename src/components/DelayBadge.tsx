@@ -20,7 +20,8 @@ type Props = {
   estimatedDelayMinutes?: number | null
 }
 
-const LABELS: Record<RealizationStatus, string> = {
+/** Wyeksportowane, żeby legenda statusów (`BoardTable.tsx`) mogła reużyć te same etykiety zamiast duplikować je osobno. */
+export const LABELS: Record<RealizationStatus, string> = {
   onTime: 'punktualnie',
   delayed: 'opóźniony',
   cancelled: 'odwołany',
@@ -40,7 +41,8 @@ const ESTIMATE_TOOLTIP =
 // identyczny szary styl z `unknown`, co współtworzyło wrażenie, że tablica
 // "nie ma żadnych danych" zamiast uczciwie pokazywać "to jeszcze się nie
 // wydarzyło".
-const TOKENS: Record<RealizationStatus, { bg: string; fg: string }> = {
+/** Wyeksportowane z tego samego powodu co `LABELS` wyżej -- jedno źródło prawdy dla kolorów, żeby legenda nigdy nie mogła rozjechać się z faktycznymi plakietkami. */
+export const TOKENS: Record<RealizationStatus, { bg: string; fg: string }> = {
   onTime: { bg: 'var(--status-onTime-bg)', fg: 'var(--status-onTime-fg)' },
   delayed: { bg: 'var(--status-delayed-bg)', fg: 'var(--status-delayed-fg)' },
   cancelled: { bg: 'var(--status-cancelled-bg)', fg: 'var(--status-cancelled-fg)' },

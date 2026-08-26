@@ -1,0 +1,23 @@
+{
+  "disruptions": [
+    {
+      "disruptionId": 9001,
+      "message": "utr_40",
+      "affectedRoutes": [
+        { "scheduleId": "2026", "orderId": "12345", "operatingDate": "2026-08-01", "stationId": "7500", "sequenceNumber": 1 },
+        { "scheduleId": "2026", "orderId": "12345", "operatingDate": "2026-08-01", "stationId": "7112", "sequenceNumber": 2 }
+      ]
+    },
+    {
+      "disruptionId": 9002,
+      "message": "Na odcinku od stacji Kraków Główny do stacji Katowice pociąg kursuje z opóźnieniem z powodu prac na sieci trakcyjnej.",
+      "affectedRoutes": [
+        { "scheduleId": "2026", "orderId": "22222", "operatingDate": "2026-08-01", "stationId": "80416", "sequenceNumber": 1 },
+        { "scheduleId": "2026", "orderId": "22222", "operatingDate": "2026-08-01", "stationId": "73312", "sequenceNumber": 2 }
+      ]
+    }
+  ],
+  "disruptionTypes": {
+    "utr_40": "Awaria sieci trakcyjnej"
+  }
+}

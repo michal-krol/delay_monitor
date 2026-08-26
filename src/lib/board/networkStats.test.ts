@@ -26,6 +26,7 @@ function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
     getOperationsStatistics: vi.fn().mockResolvedValue(makeStats()),
     getDailyCarrierCounts: vi.fn().mockResolvedValue({ IC: 10, KM: 5, PR: 3, KS: 1 }),
     getDisruptionCount: vi.fn().mockResolvedValue(4),
+    getDisruptions: vi.fn().mockResolvedValue({ disruptions: [], disruptionTypes: {} }),
     ...overrides,
   }
 }

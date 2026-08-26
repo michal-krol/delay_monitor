@@ -669,4 +669,109 @@ describe('createLiveClient', () => {
       expect(String(fetchMock.mock.calls[0][0])).not.toContain('stations=')
     })
   })
+
+  describe('getDisruptions', () => {
+    it('requests disruptions for the given stations with dictionaries always included', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse({
+          disruptions: [{ disruptionId: 1, message: 'utr_40', affectedRoutes: [] }],
+          disruptionTypes: { utr_40: 'Awaria sieci trakcyjnej' },
+        })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key', () => new Date('2026-08-26T10:00:00+02:00'))
+      const result = await client.getDisruptions(['33605', '80416'])
+
+      const url = new URL(String(fetchMock.mock.calls[0][0]))
+      expect(url.searchParams.get('stations')).toBe('33605,80416')
+      expect(url.searchParams.get('dictionaries')).toBe('true')
+      expect(result.disruptions).toEqual([{ disruptionId: 1, message: 'utr_40', affectedRoutes: [] }])
+      expect(result.disruptionTypes).toEqual({ utr_40: 'Awaria sieci trakcyjnej' })
+    })
+
+    it('defaults to today and tomorrow (Warsaw calendar), same window as /schedules, when no dates are given', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ disruptions: [], disruptionTypes: {} }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key', () => new Date('2026-08-26T10:00:00+02:00'))
+      await client.getDisruptions(['33605'])
+
+      const url = new URL(String(fetchMock.mock.calls[0][0]))
+      expect(url.searchParams.get('dateFrom')).toBe('2026-08-26')
+      expect(url.searchParams.get('dateTo')).toBe('2026-08-27')
+    })
+
+    it('uses an explicit dateFrom/dateTo instead of the default window (used by /api/train for one operatingDate)', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ disruptions: [], disruptionTypes: {} }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      await client.getDisruptions(['33605'], '2026-08-01', '2026-08-01')
+
+      const url = new URL(String(fetchMock.mock.calls[0][0]))
+      expect(url.searchParams.get('dateFrom')).toBe('2026-08-01')
+      expect(url.searchParams.get('dateTo')).toBe('2026-08-01')
+    })
+
+    it('encodes station ids so they cannot inject extra query parameters', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ disruptions: [], disruptionTypes: {} }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      await client.getDisruptions(['5100&pageSize=5000'])
+
+      const url = new URL(String(fetchMock.mock.calls[0][0]))
+      expect(url.searchParams.get('pageSize')).toBeNull()
+      expect(url.searchParams.get('stations')).toBe('5100&pageSize=5000')
+    })
+
+    it('caches disruptions per station set and date window regardless of station id order', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ disruptions: [], disruptionTypes: {} }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      await client.getDisruptions(['33605', '80416'])
+      await client.getDisruptions(['80416', '33605'])
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('refetches after the 15-minute cache expires', async () => {
+      vi.useFakeTimers()
+      try {
+        const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ disruptions: [], disruptionTypes: {} }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        // now() celowo stałe, niezależne od zegara fake-timerów, którym
+        // podlega cache -- inaczej przesunięcie o 15 min mogłoby przekroczyć
+        // północ i zmienić dateFrom/dateTo (czyli klucz cache'u), fałszując
+        // test samego TTL.
+        const client = createLiveClient('secret-key', () => new Date('2026-08-26T10:00:00+02:00'))
+        await client.getDisruptions(['33605'])
+        await vi.advanceTimersByTimeAsync(15 * 60 * 1000 - 1)
+        await client.getDisruptions(['33605'])
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(2)
+        await client.getDisruptions(['33605'])
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('fetches a disruptions set once even when requests arrive together', async () => {
+      const fetchMock = vi.fn().mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        return jsonResponse({ disruptions: [], disruptionTypes: {} })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      await Promise.all(Array.from({ length: 8 }, () => client.getDisruptions(['33605'])))
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+  })
 })

@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { client } from '@/lib/board/instance'
-import { PkpApiError, type NameDictionaries } from '@/lib/pkp/client'
+import { PkpApiError, type GetDisruptionsResult, type NameDictionaries } from '@/lib/pkp/client'
 import { buildTrainDetailStops, type TrainDetailStop } from '@/lib/board/trainDetail'
 import { createTtlCache } from '@/lib/cache'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
+
+const EMPTY_DISRUPTIONS: GetDisruptionsResult = { disruptions: [], disruptionTypes: {} }
 
 /**
  * `scheduleId`/`orderId` nie są ID stacji, ale mają ten sam kształt (liczba,
@@ -54,7 +56,25 @@ async function loadTrainDetail(scheduleId: string, orderId: string, operatingDat
     client.getTrainDetail(scheduleId, orderId, operatingDate),
     client.getNameDictionaries().catch((): NameDictionaries => ({ carrierNames: {}, categoryNames: {} })),
   ])
-  const stops: TrainDetailStop[] = buildTrainDetailStops(detail.operation, detail.route, detail.stationNames)
+
+  // Wzbogacenie, nie rdzeń odpowiedzi -- ten sam duch co getNameDictionaries()
+  // wyżej: awaria pobrania utrudnień ma zostawić panel działający bez
+  // wskaźników, nie zwracać błędu za coś pobocznego. Stacje TEGO pociągu,
+  // zawężone do samego operatingDate -- osobna linia budżetu od pollera
+  // (AGENTS.md #3), nie domyślne okno dziś+jutro.
+  const stationIds = [...new Set(detail.operation.stations.map((stop) => stop.stationId))]
+  const disruptionsResult =
+    stationIds.length > 0
+      ? await client.getDisruptions(stationIds, operatingDate, operatingDate).catch((): GetDisruptionsResult => EMPTY_DISRUPTIONS)
+      : EMPTY_DISRUPTIONS
+
+  const stops: TrainDetailStop[] = buildTrainDetailStops(
+    detail.operation,
+    detail.route,
+    detail.stationNames,
+    disruptionsResult.disruptions,
+    disruptionsResult.disruptionTypes
+  )
 
   const carrierCode = detail.route?.carrierCode ?? null
   const category = detail.route?.commercialCategorySymbol ?? null

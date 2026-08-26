@@ -197,3 +197,15 @@ export function AlertCircleIcon(props: IconProps) {
     props
   )
 }
+
+/** "?" w kółku -- świadomie inny glif niż `AlertCircleIcon` (zarezerwowany dla wskaźnika utrudnienia), żeby dwa różne znaczenia nie dzieliły jednej ikony na tym samym ekranie. */
+export function HelpCircleIcon(props: IconProps) {
+  return base(
+    <>
+      <circle cx="10" cy="10" r="7.5" stroke="currentColor" />
+      <path d="M7.8 8.2a2.2 2.2 0 1 1 3.6 1.7c-.7.6-1.2 1-1.2 1.9" stroke="currentColor" />
+      <path d="M10 14.2v.1" stroke="currentColor" strokeWidth={2} />
+    </>,
+    props
+  )
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { transformOperations } from './transform'
+import { disruptionTrainKey } from './disruptions'
 import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 
 function stop(overrides: Partial<RawOperationStation> & { stationId: string }): RawOperationStation {
@@ -794,5 +795,25 @@ describe('transformOperations', () => {
     const routes = new Map<string, RawRoute>([['26-12345', route({ scheduleId: '26', orderId: '12345' })]])
     const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].platform).toBeNull()
+  })
+
+  it('marks hasDisruption true when the train (scheduleId+orderId+operatingDate) is in the disrupted set', () => {
+    const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const disrupted = new Set([disruptionTrainKey('26', '12345', '2026-08-01')])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, disrupted)
+    expect(snapshot.departures[0].hasDisruption).toBe(true)
+  })
+
+  it('marks hasDisruption false when scheduleId/orderId match but operatingDate does not', () => {
+    const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const disrupted = new Set([disruptionTrainKey('26', '12345', '2026-08-02')])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, disrupted)
+    expect(snapshot.departures[0].hasDisruption).toBe(false)
+  })
+
+  it('defaults hasDisruption to false when the disrupted-trains set is omitted', () => {
+    const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].hasDisruption).toBe(false)
   })
 })

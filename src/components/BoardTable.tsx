@@ -1,12 +1,65 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { DelayBadge } from './DelayBadge'
+import { DelayBadge, LABELS, TOKENS } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
-import { ChevronRightIcon } from './icons'
+import { AlertCircleIcon, ChevronRightIcon, HelpCircleIcon } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
+
+/** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
+const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
+  onTime: 'Przyjazd/odjazd potwierdzony, bez opóźnienia.',
+  delayed: 'Przyjazd/odjazd potwierdzony, z opóźnieniem od 1 minuty.',
+  cancelled: 'Ten przystanek został odwołany.',
+  unknown: 'Przystanek potwierdzony, ale nie da się wyliczyć opóźnienia.',
+  notStarted: 'Przystanek jeszcze niepotwierdzony, a pociąg jako całość jeszcze nie ruszył.',
+  enRoute: 'Przystanek jeszcze niepotwierdzony, ale pociąg już wyjechał z wcześniejszego miejsca na trasie.',
+}
+
+/** Kolejność wpisów w legendzie -- ta sama co w `resolveStopStatus()`, nie kolejność zależna od `Object.keys`. */
+const STATUS_ORDER: RealizationStatus[] = ['onTime', 'delayed', 'cancelled', 'unknown', 'notStarted', 'enRoute']
+
+function StatusLegend() {
+  // Prawdziwy stan (nie czysty CSS :hover), żeby panel istniał w DOM
+  // wyłącznie gdy otwarty -- inaczej etykiety statusów w legendzie
+  // (identyczne z tekstem plakietek na wierszach, celowo -- jedno źródło
+  // prawdziwy `LABELS`) kolidowałyby z zapytaniami `getByText` na wierszach.
+  const [open, setOpen] = useState(false)
+  return (
+    <span
+      className="relative ml-1 inline-flex"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+    >
+      <button type="button" aria-label="Legenda statusów" className="cursor-help text-text-muted">
+        <HelpCircleIcon size={13} />
+      </button>
+      {open && (
+        <span role="tooltip" className="absolute right-0 top-full z-10 mt-1 w-64 rounded-2xl border border-black/10 bg-background p-3 text-xs text-text-secondary shadow-lg dark:border-white/10">
+          <ul className="flex flex-col gap-2">
+            {STATUS_ORDER.map((status) => (
+              <li key={status} className="flex gap-2">
+                <span className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: TOKENS[status].bg }} />
+                <span>
+                  <span className="font-semibold text-text-primary">
+                    {status === 'notStarted' ? 'jeszcze nie wyjechał / nie przyjechał' : LABELS[status]}
+                  </span>
+                  <br />
+                  {STATUS_DESCRIPTIONS[status]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </span>
+      )}
+    </span>
+  )
+}
 
 // Delikatne podbarwienie wiersza dla statusów wymagających uwagi — z makiety
 // (`FullBoard.dc.html`). Niezależne od `--status-*-bg` (te są zastrzeżone
@@ -48,7 +101,10 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
             <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Kierunek</th>
             <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Planowo</th>
             <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Peron/Tor</th>
-            <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Status</th>
+            <th scope="col" className="py-2 pr-3 font-medium text-text-muted">
+              Status
+              <StatusLegend />
+            </th>
             <th scope="col" className="py-2 pr-1"><span className="sr-only">Szczegóły</span></th>
           </tr>
         </thead>
@@ -139,7 +195,14 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                   />
                 </td>
                 <td className="py-2.5 pr-1 text-text-muted">
-                  {canOpenDetails && <ChevronRightIcon size={14} />}
+                  <span className="inline-flex items-center gap-1">
+                    {row.hasDisruption === true && (
+                      <span title="Utrudnienie na trasie" className="text-amber-600 dark:text-amber-400">
+                        <AlertCircleIcon size={14} />
+                      </span>
+                    )}
+                    {canOpenDetails && <ChevronRightIcon size={14} />}
+                  </span>
                 </td>
               </tr>
             )

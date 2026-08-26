@@ -65,3 +65,21 @@ export type RawRoute = {
   nationalNumber: string | null
   stations: RawRouteStop[]
 }
+
+export type DisruptionAffectedRoute = {
+  scheduleId: string
+  orderId: string
+  operatingDate: string
+  stationId: string
+}
+
+/**
+ * `disruptionTypeCode`/`startStationId`/`endStationId` z dokumentacji OpenAPI
+ * świadomie pominięte — zweryfikowane na żywych danych jako zawsze
+ * null/nieobecne. Patrz `board/disruptions.ts`.
+ */
+export type RawDisruption = {
+  disruptionId: number
+  message: string | null
+  affectedRoutes: DisruptionAffectedRoute[]
+}

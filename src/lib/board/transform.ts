@@ -1,5 +1,6 @@
 import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 import { hasTrainStartedFromStatus, resolveDelayMinutes, resolveStopStatus, type RealizationStatus } from './realization'
+import { disruptionTrainKey } from './disruptions'
 import { routeKey } from './routeKey'
 import { findPrecedingStationIds, UPSTREAM_LOOKBACK_HOPS } from './upstreamEstimate'
 
@@ -37,6 +38,8 @@ export type BoardRow = {
    * (który jest faktem o TYM przystanku) — patrz `upstreamEstimate.ts`.
    */
   estimatedDelayMinutes: number | null
+  /** Czy CAŁY przejazd (dowolna stacja trasy) jest objęty utrudnieniem -- patrz `board/disruptions.ts`. Samo flagowanie, treść dopiero w panelu szczegółów (`/api/train`). */
+  hasDisruption: boolean
 }
 
 export type BoardSnapshot = {
@@ -136,6 +139,7 @@ type TrainStopContext = {
   categoryNames: Record<string, string>
   hasTrainStartedFromTrainStatus: boolean
   upstreamStops: RawOperationStation[]
+  hasDisruption: boolean
 }
 
 /** To, co faktycznie różni się między przyjazdem a odjazdem TEGO SAMEGO przystanku. */
@@ -148,7 +152,7 @@ type DirectionInput = {
 }
 
 function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRow {
-  const { scheduleId, orderId, operatingDate, trainId, cancelled, isConfirmed, route, carrierNames, categoryNames, hasTrainStartedFromTrainStatus, upstreamStops } = context
+  const { scheduleId, orderId, operatingDate, trainId, cancelled, isConfirmed, route, carrierNames, categoryNames, hasTrainStartedFromTrainStatus, upstreamStops, hasDisruption } = context
   const { headsign, plannedAt, actualAt, apiDelay, platform } = direction
 
   const delayMinutes = resolveDelayMinutes(apiDelay, isConfirmed, plannedAt, actualAt)
@@ -179,6 +183,7 @@ function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRo
     status,
     platform,
     estimatedDelayMinutes: estimateDelayFromUpstream(status, upstreamStops),
+    hasDisruption,
   }
 }
 
@@ -228,7 +233,9 @@ export function transformOperations(
   // Ostatni, opcjonalny parametr (nie obok carrierNames) świadomie -- ten sam
   // wzorzec słownika co carrierNames, ale dodany później, żeby nie przestawiać
   // pozycji fetchedAt/now w kilkudziesięciu miejscach w transform.test.ts.
-  categoryNames: Record<string, string> = {}
+  categoryNames: Record<string, string> = {},
+  /** Klucze `disruptionTrainKey()` pociągów dotkniętych utrudnieniem -- ten sam trailing-optional wzorzec co `categoryNames` wyżej. */
+  disruptedTrains: ReadonlySet<string> = new Set()
 ): BoardSnapshot {
   const departures: BoardRow[] = []
   const arrivals: BoardRow[] = []
@@ -250,6 +257,7 @@ export function transformOperations(
     // Ta sama stacja poprzednia obsługuje i odjazd, i przyjazd na TEJ stacji
     // -- to jeden i ten sam punkt na trasie, dwa różne zdarzenia w nim.
     const upstreamStops = findUpstreamStops(route, stationId, stops)
+    const hasDisruption = train.operatingDate !== null && disruptedTrains.has(disruptionTrainKey(train.scheduleId, train.orderId, train.operatingDate))
     const context: TrainStopContext = {
       scheduleId: train.scheduleId,
       orderId: train.orderId,
@@ -262,6 +270,7 @@ export function transformOperations(
       categoryNames,
       hasTrainStartedFromTrainStatus: hasTrainStarted,
       upstreamStops,
+      hasDisruption,
     }
 
     if (stop.plannedDeparture !== null) {
