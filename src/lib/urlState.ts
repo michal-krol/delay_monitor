@@ -5,16 +5,14 @@
  * `next/navigation` (decyzja #4 w redesignie dashboardu — prawdziwe trasy
  * zamiast jednej strony ze stanem `expanded`). Użycie na trasie `/`
  * (`?station=&name=` w starym `src/app/page.tsx`) zniknęło razem z tamtym
- * plikiem. `FullBoard.tsx` wciąż importuje `readUrlParam`/`patchUrlParams`
- * (`?tab=&scheduleId=&orderId=&operatingDate=`), ale ten komponent nie jest
- * już osadzony w żadnej trasie do czasu PR 2 (`/odjazdy/[stationId]`) —
- * PR 2/PR 3 sięgną tam po `useSearchParams`/`useRouter` bezpośrednio, bo to
- * naturalny idiom przy prawdziwym routingu, nie po ten moduł.
+ * plikiem. `FullBoard.tsx` wciąż importuje `readUrlParam`/`patchUrlParams`,
+ * ale już tylko dla jednego parametru (`?tab=`) — szczegóły połączenia mają
+ * od dawna własną trasę (`/polaczenie/...`), więc `scheduleId`/`orderId`/
+ * `operatingDate` nie przechodzą już przez ten moduł.
  *
- * Do usunięcia, gdy PR 2 potwierdzi, że `FullBoard.tsx` (i jego zależność od
- * tego modułu) faktycznie znika, a nie zostaje przepisany na nową trasę.
- * Zostaje na razie, żeby nie usuwać czegoś, co kolejny PR może jeszcze
- * wykorzystać.
+ * Do usunięcia, gdy `FullBoard.tsx` przejdzie na `useSearchParams`/`useRouter`
+ * bezpośrednio dla `tab` (wzorem `?focus=` w `src/app/(app)/page.tsx`) —
+ * osobna, świadoma zmiana, nie przy okazji drobnych porządków.
  */
 
 /** `null`, gdy wywołane poza przeglądarką (SSR) — parametry URL nie istnieją, dopóki nie ma `window`. */

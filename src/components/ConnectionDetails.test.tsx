@@ -285,6 +285,32 @@ describe('ConnectionDetails', () => {
     expect(predictedLabel).toHaveAttribute('title', expect.stringContaining('Przewidywana godzina'))
   })
 
+  it('shows a predicted departure time in italics, with a caveat tooltip, when PKP projects one for an unconfirmed stop', async () => {
+    const response = {
+      ...RESPONSE,
+      stops: [
+        {
+          ...RESPONSE.stops[0],
+          isConfirmed: false,
+          plannedDeparture: '2026-08-01T09:00:00.000Z',
+          actualDeparture: null,
+          departureDelayMinutes: null,
+          predictedDeparture: '2026-08-01T09:20:00.000Z',
+        },
+        RESPONSE.stops[1],
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await screen.findByText('Gdańsk Główny')
+
+    const predictedTime = new Date('2026-08-01T09:20:00.000Z').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const predictedLabel = screen.getByText(`(przewidywany: ${predictedTime})`)
+    expect(predictedLabel).toHaveClass('italic')
+    expect(predictedLabel).toHaveAttribute('title', expect.stringContaining('Przewidywana godzina'))
+  })
+
   it('shows no predicted-time addendum when the API omits the field, only the plain planned/actual time', async () => {
     // RESPONSE fixture nie ma w ogóle pola predictedArrival/predictedDeparture
     // (brakujący klucz, nie null) -- nie może wywalić renderu ani pokazać "Invalid Date".

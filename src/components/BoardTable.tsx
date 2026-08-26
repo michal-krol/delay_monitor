@@ -11,6 +11,8 @@ type Props = {
   direction: Direction
   rows: BoardApiRow[]
   now: number
+  /** Brak snapshotu jeszcze, nie brak połączeń -- bez tego "Brak odjazdów..." i "Ładowanie…" nad tabelą (BoardStatus) potrafiły się pokazać jednocześnie. */
+  loading: boolean
 }
 
 /**
@@ -19,7 +21,7 @@ type Props = {
  * (np. `Dashboard`'s wspólny `useBoard` dla wszystkich ulubionych), bez
  * ryzyka drugiego, niezależnego zapytania do pollera.
  */
-export function BoardTable({ stationName, direction, rows, now }: Props) {
+export function BoardTable({ stationName, direction, rows, now, loading }: Props) {
   const router = useRouter()
 
   return (
@@ -42,9 +44,11 @@ export function BoardTable({ stationName, direction, rows, now }: Props) {
           {rows.length === 0 && (
             <tr>
               <td colSpan={6} className="py-6 text-center text-text-muted">
-                {direction === 'departures'
-                  ? 'Brak odjazdów w najbliższych godzinach'
-                  : 'Brak przyjazdów w najbliższych godzinach'}
+                {loading
+                  ? 'Ładowanie…'
+                  : direction === 'departures'
+                    ? 'Brak odjazdów w najbliższych godzinach'
+                    : 'Brak przyjazdów w najbliższych godzinach'}
               </td>
             </tr>
           )}

@@ -147,7 +147,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
               <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} data={data} error={error !== null} />
             </div>
 
-            <BoardTable stationName={stationName} direction={direction} rows={rows} now={now} />
+            <BoardTable stationName={stationName} direction={direction} rows={rows} now={now} loading={snapshot === null && error === null} />
           </>
         )}
       </section>

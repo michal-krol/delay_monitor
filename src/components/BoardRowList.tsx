@@ -10,16 +10,16 @@ type Props = {
   emptyMessage: string
 }
 
-/** Wydzielone z `StationCard` — ten sam wiersz połączenia używany też przez `FocusedStation`. */
+/** Wydzielone ze `StationCard` — skrócona lista połączeń na kafelku Pulpitu. */
 export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) {
   return (
     <ul className="mt-4 divide-y divide-black/5 dark:divide-white/5">
-      {loading && <li className="py-2 text-sm text-gray-500 dark:text-gray-400">Ładowanie…</li>}
-      {showEmpty && <li className="py-2 text-sm text-gray-500 dark:text-gray-400">{emptyMessage}</li>}
+      {loading && <li className="py-2 text-sm text-text-muted">Ładowanie…</li>}
+      {showEmpty && <li className="py-2 text-sm text-text-muted">{emptyMessage}</li>}
       {rows.map((row) => (
         <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
+            <span className="flex min-w-0 items-center gap-1.5 font-medium text-text-secondary">
               <CarrierLogo carrierCode={row.carrier} size={16} />
               {/* Kafelek jest ciasny nawet na desktopie (siatka do 3 kolumn) — pełna
                   nazwa prawna przewoźnika ("«PKP Intercity» Spółka Akcyjna") jest tu
@@ -28,7 +28,7 @@ export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) 
             </span>
             <DelayBadge status={row.status} delayMinutes={row.delayMinutes} estimatedDelayMinutes={row.estimatedDelayMinutes} />
           </div>
-          <div className="mt-0.5 text-gray-500 dark:text-gray-400">
+          <div className="mt-0.5 text-text-muted">
             <span className="tabular-nums">
               {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
             </span>{' '}

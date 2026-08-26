@@ -36,7 +36,7 @@ describe('FocusedStation', () => {
     expect(screen.getByRole('tab', { name: 'Przyjazdy' })).toHaveAttribute('aria-selected', 'false')
   })
 
-  it('renders the same table as the full board -- columnheaders, carrier logo, click-through to connection details', async () => {
+  it('renders a full table -- columnheaders, carrier logo, click-through to connection details', async () => {
     const departure = { scheduleId: '2026', orderId: '12345', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
     const snapshot = makeSnapshot({ departures: [departure] })
     const user = userEvent.setup()
@@ -79,7 +79,7 @@ describe('FocusedStation', () => {
     expect(row).toHaveClass('opacity-50')
   })
 
-  it('shows more than 5 upcoming rows, unlike the old abbreviated card view', () => {
+  it('shows all upcoming rows, not just the nearest few', () => {
     const departures = Array.from({ length: 8 }, (_, i) => ({
       scheduleId: String(i), orderId: String(i), operatingDate: '2026-08-01', trainNumber: String(i), trainLabel: `EIC ${i}`,
       carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + (i + 1) * 60000).toISOString(),
@@ -94,10 +94,11 @@ describe('FocusedStation', () => {
     }
   })
 
-  it('shows the empty-board message when there is no snapshot yet, just like the full board', () => {
+  it('shows a loading message, not "brak odjazdów", when there is no snapshot yet', () => {
     render(<FocusedStation stationName="Warszawa Centralna" snapshot={null} configError={false} onClose={vi.fn()} />)
 
-    expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
+    expect(screen.getByText('Ładowanie…')).toBeInTheDocument()
+    expect(screen.queryByText('Brak odjazdów w najbliższych godzinach')).not.toBeInTheDocument()
   })
 
   it('shows an empty message per active tab', async () => {
