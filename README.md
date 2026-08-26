@@ -351,7 +351,17 @@ Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
 - przy 429 podwaja interwał, maks. do 5 minut; przy 5xx ponawia raz po
   odstępie z jitterem; przy 401 zatrzymuje się i zgłasza błąd konfiguracji,
 - gdy zwolni, `/api/board` zwraca `throttled: true`, a UI pokazuje
-  „odświeżanie ograniczone".
+  „odświeżanie ograniczone",
+- świeżo obserwowana stacja (pierwszy `registerInterest()`, brak
+  wcześniejszego snapshotu) nie ma jeszcze stacji „pomocniczych" do estymacji
+  — `auxStationIds` liczy się z wyniku TEGO cyklu na potrzeby NASTĘPNEGO
+  (patrz `upstreamEstimate.ts`). Zaobserwowane na żywo: pociąg naprawdę już
+  jadący, ale bez potwierdzonego przystanku na tej świeżej stacji, pokazywał
+  się jako „jeszcze nie wyjechał" nawet kilka minut, dopóki zwykły cykl (90 s)
+  nie dogonił. Poller wykrywa ten przypadek (nowa stacja + kandydaci
+  pomocniczy odkryci w tym cyklu + zdrowy budżet) i planuje jeden szybki
+  przebieg ~2 s później zamiast czekać na pełny interwał — nie zapętla się,
+  bo od następnego cyklu ta stacja ma już snapshot.
 
 Przeglądarka odpytuje własny serwer (`/api/board`) co 30 s i **wstrzymuje się,
 gdy karta jest schowana** (`document.hidden`) — dzięki temu poller zasypia sam.
@@ -449,6 +459,12 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   m.in. wpis, którego `code` to dosłownie `"Leo Express"` (pełna nazwa, nie
   skrót) obok właściwego kodu `LEO` — API nie gwarantuje więc krótkiego,
   jednolitego formatu `code`, mimo że większość wpisów go ma.
+- **Świeżo obserwowana stacja przez chwilę pokazywała jadące pociągi jako
+  „jeszcze nie wyjechał"** — zgłoszone przez użytkownika na stagingu i
+  odtworzone bezpośrednio (`/api/board?stations=33506` dla pociągu RL 93146,
+  potwierdzonego jako „w trasie" przez `/api/train` w tym samym momencie),
+  samo się naprawiało po 2-3 zwykłych cyklach pollera. Przyczyna i poprawka —
+  patrz sekcja „Limity API i działanie pollera" wyżej.
 - **`isConfirmed`-echo (patrz wyżej) nie odtworzył się na świeżej, dużej
   próbce** — zero przypadków `isConfirmed=false` z niepustym `actualArrival`/
   `actualDeparture` na 6882 pociągach z 2026-08-26. Zgodne z opisem w

@@ -219,6 +219,57 @@ describe('createPoller', () => {
     expect(getOperations).toHaveBeenLastCalledWith(['5100', '5136'])
   })
 
+  it('schedules a fast follow-up when a newly watched station reveals upstream aux candidates', async () => {
+    // Odtwarza błąd zaobserwowany na żywo (staging): stacja obserwowana po
+    // raz pierwszy nie ma jeszcze stacji pomocniczych, więc pociąg naprawdę
+    // już jadący (en-route, niepotwierdzony na TEJ stacji) pokazywał się jako
+    // "jeszcze nie wyjechał" aż do następnego zwykłego cyklu (pełne 90 s).
+    const train = makeEnRouteTrain('26', '1', '5100')
+    const getOperations = vi.fn().mockResolvedValue({ trains: [train], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const getSchedules = vi.fn().mockResolvedValue({ routes: [routeWithUpstream('26', '1', '4900', '5100')], carrierNames: {} })
+    const client = makeClient({ getOperations, getSchedules })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(getOperations).toHaveBeenCalledTimes(1)
+    expect(getOperations).toHaveBeenLastCalledWith(['5100'])
+
+    // Zwykły interwał (90 s) jeszcze nie minął, ale odkryliśmy kandydata
+    // pomocniczego ('4900') dla świeżo obserwowanej '5100' -- powinno wymusić
+    // szybkie powtórzenie znacznie wcześniej niż pełny interwał.
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(getOperations).toHaveBeenCalledTimes(2)
+    expect(getOperations).toHaveBeenLastCalledWith(['5100', '4900'])
+
+    // I nie zapętla się -- trzeci przebieg czeka już na pełny, zwykły interwał.
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(getOperations).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not schedule a fast follow-up for a station that already had a snapshot', async () => {
+    const train = makeEnRouteTrain('26', '1', '5100')
+    const getOperations = vi.fn().mockResolvedValue({ trains: [train], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const getSchedules = vi.fn().mockResolvedValue({ routes: [routeWithUpstream('26', '1', '4900', '5100')], carrierNames: {} })
+    const client = makeClient({ getOperations, getSchedules })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(2000) // pochłania sam fast follow-up z pierwszego cyklu
+    expect(getOperations).toHaveBeenCalledTimes(2)
+
+    // Ta sama stacja rejestrowana ponownie znacznie później (poza dławikiem
+    // 45 s) -- ma już snapshot, więc kolejny fast follow-up jej nie dotyczy.
+    await vi.advanceTimersByTimeAsync(50000)
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(getOperations).toHaveBeenCalledTimes(3)
+
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(getOperations).toHaveBeenCalledTimes(3) // brak dodatkowego szybkiego powtórzenia
+  })
+
   it('forces a run once 45s have passed since the last run, even for a station that already has data', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makeClient({ getOperations })
