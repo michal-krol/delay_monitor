@@ -2,19 +2,7 @@
 
 import Link from 'next/link'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
-import { useTheme } from 'next-themes'
-import {
-  HomeIcon,
-  ListIcon,
-  StarIcon,
-  BellIcon,
-  RouteIcon,
-  MapIcon,
-  SettingsIcon,
-  SunIcon,
-  MoonIcon,
-  ChevronRightIcon,
-} from './icons'
+import { HomeIcon, ListIcon, StarIcon, BellIcon, RouteIcon, MapIcon, SettingsIcon, ChevronRightIcon } from './icons'
 
 type ActiveItem = 'pulpit'
 
@@ -53,8 +41,6 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar({ activeItem }: Props) {
   const { collapsed, toggle } = useSidebarCollapsed()
-  const { resolvedTheme, setTheme } = useTheme()
-  const isDark = resolvedTheme === 'dark'
 
   return (
     <aside
@@ -138,32 +124,6 @@ export function Sidebar({ activeItem }: Props) {
           )
         })}
       </nav>
-
-      <div className="mt-auto flex flex-col gap-2.5">
-        <button
-          type="button"
-          onClick={() => setTheme(isDark ? 'light' : 'dark')}
-          aria-label="Przełącz tryb ciemny"
-          className="flex items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-sm text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-        >
-          <span className="flex items-center gap-2">
-            {isDark ? <MoonIcon size={15} /> : <SunIcon size={15} />}
-            {!collapsed && 'Tryb ciemny'}
-          </span>
-          {!collapsed && (
-            <span
-              aria-hidden="true"
-              className="relative h-[19px] w-[34px] rounded-full transition"
-              style={{ background: isDark ? 'var(--accent-gradient)' : 'var(--surface-border)' }}
-            >
-              <span
-                className="absolute top-[2px] h-[15px] w-[15px] rounded-full bg-white shadow transition-all"
-                style={{ left: isDark ? '17px' : '2px' }}
-              />
-            </span>
-          )}
-        </button>
-      </div>
     </aside>
   )
 }

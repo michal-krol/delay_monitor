@@ -5,6 +5,7 @@ import { useBoard } from '@/hooks/useBoard'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable } from './BoardTable'
+import { ThemeToggle } from './ThemeToggle'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 
@@ -120,6 +121,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             </PillButton>
             <PillButton onClick={() => void copyLink()}>Kopiuj link</PillButton>
             <PillButton onClick={onClose}>Zamknij</PillButton>
+            <ThemeToggle />
           </div>
         </div>
 

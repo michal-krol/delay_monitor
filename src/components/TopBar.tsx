@@ -1,6 +1,7 @@
 'use client'
 
 import { ArrowLeftIcon, BellIcon } from './icons'
+import { ThemeToggle } from './ThemeToggle'
 
 type HeaderVariant = {
   title: string
@@ -42,14 +43,17 @@ export function TopBar(props: Props) {
         </div>
       )}
 
-      <button
-        type="button"
-        aria-label="Powiadomienia"
-        className="relative grid h-9 w-9 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-        style={{ borderColor: 'var(--surface-border)' }}
-      >
-        <BellIcon size={15} />
-      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        <ThemeToggle />
+        <button
+          type="button"
+          aria-label="Powiadomienia"
+          className="relative grid h-9 w-9 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+          style={{ borderColor: 'var(--surface-border)' }}
+        >
+          <BellIcon size={15} />
+        </button>
+      </div>
     </div>
   )
 }
