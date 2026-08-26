@@ -8,6 +8,22 @@ import { collectUpstreamCandidates } from './upstreamEstimate'
 const FORCE_RUN_THROTTLE_MS = 45000
 const LOW_BUDGET_INTERVAL_MS = 5 * 60 * 1000
 
+/**
+ * Stacja obserwowana po raz pierwszy w tym cyklu nie ma jeszcze żadnych
+ * stacji "pomocniczych" do estymacji (`auxStationIds` liczy się z wyniku
+ * TEGO cyklu, na potrzeby NASTĘPNEGO — patrz `collectUpstreamCandidates`).
+ * Pociąg naprawdę już jadący, ale bez potwierdzonego przystanku na świeżo
+ * dodanej stacji ani wiarygodnego `trainStatus` z tego akurat zapytania,
+ * przez to pokazywał się jako "jeszcze nie wyjechał" nawet kilka minut —
+ * zaobserwowane na żywo (staging), samo się naprawiało dopiero po 2-3
+ * zwykłych cyklach. Zamiast czekać pełny interwał, gdy ten cykl faktycznie
+ * odkrył nowe stacje pomocnicze dla świeżo dodanej stacji, planujemy
+ * kolejny przebieg dużo szybciej -- **raz**, bo od następnego cyklu ta
+ * stacja nie jest już "nowo obserwowana" (ma już snapshot), więc warunek
+ * poniżej sam się nie powtórzy.
+ */
+const NEW_STATION_FOLLOWUP_DELAY_MS = 2000
+
 // Basic daje 1000 zapytań/dobę i 100/godzinę jednocześnie. Przy interwale 90 s
 // zużywamy ~40/h, więc mniej niż 10 pozostałych w godzinie oznacza, że zaraz
 // dostaniemy 429 — nawet jeśli budżet dobowy jest jeszcze zdrowy.
@@ -180,6 +196,12 @@ export function createPoller(deps: PollerDeps): Poller {
       return
     }
 
+    // Zanim `snapshots.set(...)` niżej je nadpisze -- stacje, które w tym
+    // cyklu dostają swój PIERWSZY snapshot. To one mogą skorzystać na
+    // szybszym powtórzeniu, patrz `NEW_STATION_FOLLOWUP_DELAY_MS`.
+    const newlyObserved = realActive.filter((stationId) => !snapshots.has(stationId))
+    let scheduleFollowUp = false
+
     lastRunAt = now()
     // /schedules pyta wyłącznie o realne stacje -- klucz cache'u 24h
     // (`schedulesCache`, patrz `client.ts`) musi być stabilny, więc migające
@@ -227,7 +249,11 @@ export function createPoller(deps: PollerDeps): Poller {
       // sama wypada z następnego zapytania, bez osobnego wygaszania.
       auxStationIds = collectUpstreamCandidates(realActive, result.trains, routesByTrainId)
 
-      currentIntervalMs = isBudgetLow(budget) ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
+      const budgetLow = isBudgetLow(budget)
+      currentIntervalMs = budgetLow ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
+      // Patrz `NEW_STATION_FOLLOWUP_DELAY_MS` -- tylko gdy ten cykl faktycznie
+      // odkrył stacje pomocnicze DLA świeżo dodanej stacji, i budżet na to pozwala.
+      scheduleFollowUp = newlyObserved.length > 0 && auxStationIds.size > 0 && !budgetLow
     } catch (err) {
       if (err instanceof PkpApiError && err.status === 401) {
         status = 'configError'
@@ -241,7 +267,7 @@ export function createPoller(deps: PollerDeps): Poller {
       console.error('Poller: błąd pobierania operacji', err)
     }
 
-    timer = setTimeout(() => void runTick(), currentIntervalMs)
+    timer = setTimeout(() => void runTick(), scheduleFollowUp ? NEW_STATION_FOLLOWUP_DELAY_MS : currentIntervalMs)
   }
 
   /**
