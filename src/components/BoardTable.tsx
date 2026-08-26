@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { DelayBadge, LABELS, TOKENS } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
@@ -28,19 +29,32 @@ function StatusLegend() {
   // (identyczne z tekstem plakietek na wierszach, celowo -- jedno źródło
   // prawdziwy `LABELS`) kolidowałyby z zapytaniami `getByText` na wierszach.
   const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(null)
+  const anchorRef = useRef<HTMLSpanElement>(null)
+
+  function show(): void {
+    const rect = anchorRef.current?.getBoundingClientRect()
+    if (rect) setPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    setOpen(true)
+  }
+
   return (
-    <span
-      className="relative ml-1 inline-flex"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-    >
+    <span ref={anchorRef} className="relative ml-1 inline-flex" onMouseEnter={show} onMouseLeave={() => setOpen(false)} onFocus={show} onBlur={() => setOpen(false)}>
       <button type="button" aria-label="Legenda statusów" className="cursor-help text-text-muted">
         <HelpCircleIcon size={13} />
       </button>
-      {open && (
-        <span role="tooltip" className="absolute right-0 top-full z-10 mt-1 w-64 rounded-2xl border border-black/10 bg-background p-3 text-xs text-text-secondary shadow-lg dark:border-white/10">
+      {/* Portal do <body> -- rodzic tabeli ma `overflow-x-auto`, co wymusza
+          (spec. CSS Overflow) `overflow-y: auto` na tym samym elemencie i
+          obcina wszystko, co z niego wystaje, gdy tabela jest krótka (mało
+          wierszy). `position: fixed` liczone z getBoundingClientRect() w
+          show() całkowicie omija to ograniczenie, zamiast próbować zgadywać
+          z-index/stacking w obrębie tabeli. */}
+      {open && position !== null && createPortal(
+        <span
+          role="tooltip"
+          className="glass-strong fixed z-50 w-64 rounded-2xl p-3 text-xs text-text-secondary"
+          style={{ top: position.top, right: position.right, boxShadow: 'var(--surface-shadow), 0 0 24px rgba(99,102,241,0.28)' }}
+        >
           <ul className="flex flex-col gap-2">
             {STATUS_ORDER.map((status) => (
               <li key={status} className="flex gap-2">
@@ -55,7 +69,8 @@ function StatusLegend() {
               </li>
             ))}
           </ul>
-        </span>
+        </span>,
+        document.body
       )}
     </span>
   )
