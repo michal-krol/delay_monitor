@@ -196,9 +196,15 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               return (
                 <li key={stop.stationId} className="flex gap-4">
                   <div className="flex flex-col items-center">
+                    {/* Halo z makiety na przystanku "w trasie" -- jedyny status
+                        odpowiadający pojęciu "tu jesteśmy teraz" z makiety
+                        (`ConnectionDetails.dc.html`), stąd jedyny, który je dostaje. */}
                     <span
-                      className="h-3 w-3 shrink-0 rounded-full"
-                      style={{ backgroundColor: STOP_COLOR[thisStatus] }}
+                      className={`h-3 w-3 shrink-0 rounded-full ${thisStatus === 'enRoute' ? 'breathe' : ''}`}
+                      style={{
+                        backgroundColor: STOP_COLOR[thisStatus],
+                        boxShadow: thisStatus === 'enRoute' ? '0 0 10px rgba(79,70,229,0.7)' : undefined,
+                      }}
                       aria-hidden="true"
                     />
                     {!isLast && (

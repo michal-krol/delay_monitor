@@ -5,7 +5,7 @@ export function EmptyState() {
   return (
     <div className="glass mx-auto mt-16 flex max-w-md flex-col items-center gap-5 rounded-3xl px-8 py-12 text-center">
       <div
-        className="grid h-16 w-16 place-items-center rounded-2xl text-white shadow-lg"
+        className="float ring-pulse grid h-16 w-16 place-items-center rounded-2xl text-white shadow-lg"
         style={{ background: 'var(--accent-gradient)' }}
       >
         <TrainIcon size={30} />

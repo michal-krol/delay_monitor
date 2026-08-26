@@ -3,8 +3,19 @@
 import { useRouter } from 'next/navigation'
 import { DelayBadge } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
+import { ChevronRightIcon } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
+import type { RealizationStatus } from '@/lib/board/realization'
+
+// Delikatne podbarwienie wiersza dla statusów wymagających uwagi — z makiety
+// (`FullBoard.dc.html`). Niezależne od `--status-*-bg` (te są zastrzeżone
+// wyłącznie dla `DelayBadge`, patrz decyzja #8 w globals.css) — to osobna,
+// dużo bardziej przezroczysta warstwa czysto dekoracyjna.
+const ROW_TINT: Partial<Record<RealizationStatus, string>> = {
+  delayed: 'rgba(234,88,12,0.05)',
+  cancelled: 'rgba(225,29,72,0.05)',
+}
 
 type Props = {
   stationName: string
@@ -38,12 +49,13 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
             <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Planowo</th>
             <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Peron/Tor</th>
             <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Status</th>
+            <th scope="col" className="py-2 pr-1"><span className="sr-only">Szczegóły</span></th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={6} className="py-6 text-center text-text-muted">
+              <td colSpan={7} className="py-6 text-center text-text-muted">
                 {loading
                   ? 'Ładowanie…'
                   : direction === 'departures'
@@ -83,6 +95,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                 key={`${row.trainNumber}-${row.plannedAt}`}
                 data-past={isPast || undefined}
                 className={`border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5 ${isPast ? 'opacity-50' : ''} ${canOpenDetails ? 'cursor-pointer' : ''}`}
+                style={!isPast ? { backgroundColor: ROW_TINT[row.status] } : undefined}
                 onClick={canOpenDetails ? openDetails : undefined}
               >
                 <td className="py-2.5 pr-3 whitespace-nowrap text-foreground">
@@ -119,6 +132,9 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                     direction={direction === 'arrivals' ? 'arrival' : 'departure'}
                     estimatedDelayMinutes={row.estimatedDelayMinutes}
                   />
+                </td>
+                <td className="py-2.5 pr-1 text-text-muted">
+                  {canOpenDetails && <ChevronRightIcon size={14} />}
                 </td>
               </tr>
             )

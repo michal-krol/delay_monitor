@@ -114,6 +114,72 @@
   transform: translateY(-3px);
 }
 
+/* Mikroanimacje z makiety Claude Design ("Czy dojadę? — Makieta dashboardu",
+   artboardy Main/EmptyState/ErrorStates) — przeniesione 1:1 co do wartości. */
+@keyframes pulseGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(99, 102, 241, 0.1),
+      0 0 14px rgba(99, 102, 241, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(99, 102, 241, 0.18),
+      0 0 28px rgba(99, 102, 241, 0.85);
+  }
+}
+@utility live-pulse {
+  animation: pulseGlow 2.6s ease-in-out infinite;
+}
+
+@keyframes softBreathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+@utility breathe {
+  animation: softBreathe 2.6s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@utility float {
+  animation: floatIcon 3.6s ease-in-out infinite;
+}
+
+@keyframes ringPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(56, 189, 248, 0);
+  }
+}
+/* Nie jako `::after` w `@utility` (Tailwind v4 nie generuje pseudoelementów
+   z inline stylem tła nadrzędnika) — zwykła reguła, tak jak `.card-hover`. */
+.ring-pulse {
+  position: relative;
+}
+.ring-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: ringPulse 2.4s ease-out infinite;
+}
+
 body {
   color: var(--foreground);
   background: var(--bg-gradient);
