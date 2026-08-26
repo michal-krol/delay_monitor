@@ -189,19 +189,83 @@ Wykorzystywane endpointy:
 | Endpoint | Zastosowanie |
 |---|---|
 | `GET /api/v1/operations?stations=<id,id>&withPlanned=true` | Realizacja z opóźnieniami — główne źródło. Świadomie **bez** `fullRoutes=true` — patrz sekcja o limitach niżej |
+| `GET /api/v1/operations/train/{scheduleId}/{orderId}/{operatingDate}` | Realizacja pojedynczego pociągu dla panelu szczegółów połączenia (`/api/train`). Nie niesie planowych czasów ani opóźnień — tylko `actualArrival`/`actualDeparture`/`isConfirmed` — **zweryfikowane A/B, `withPlanned=true` nie ma tu żadnego efektu** (w przeciwieństwie do `/operations` niżej, gdzie działa poprawnie). Planowy czas w panelu szczegółów pochodzi wyłącznie z `/schedules/route/{...}` + `combineWarsawDateAndTime()` w `trainDetail.ts` |
 | `GET /api/v1/schedules?stations=<id,id>&fullRoute=true` | Przewoźnik, kategoria handlowa, peron/tor oraz origin/destination trasy do „Kierunku" (cache 24 h). Odpowiedź niesie też słowniki `dictionaries.carriers`/`dictionaries.stations` — pełne nazwy przewoźników i stacji bez dodatkowego zapytania |
+| `GET /api/v1/schedules/route/{scheduleId}/{orderId}` | Planowa trasa pojedynczego pociągu (peron/tor/czasy) dla panelu szczegółów połączenia — wywoływane równolegle z `/operations/train/...` |
 | `GET /api/v1/dictionaries/stations?pageSize=10000` | Słownik stacji pod wyszukiwarkę (cache 24 h, filtrowanie po stronie serwera aplikacji) |
+| `GET /api/v1/dictionaries/carriers` | Pełne nazwy przewoźników po kodzie (cache 24 h, wołane bez klucza — pula anonimowa, patrz niżej) |
+| `GET /api/v1/dictionaries/commercial-categories` | Pełne nazwy kategorii handlowych po parze (kod, kod przewoźnika) — ta sama kategoria (np. `A`) ma różne znaczenie u różnych przewoźników (cache 24 h, też bez klucza) |
 
 Wyszukiwarka celowo pobiera **cały** słownik stacji raz na dobę zamiast wołać
 API przy każdym wpisanym znaku: jedno zapytanie dziennie zamiast jednego na
 wyszukanie. Przy limicie 100/h to różnica między „działa" a „nie działa".
 
+**Uwaga o puli anonimowej:** `dictionaries/carriers` i `dictionaries/
+commercial-categories` są wołane bez `X-API-Key`, żeby nie obciążać własnego
+budżetu — ale to wystawia je na **współdzieloną, globalną** pulę limitu, którą
+zużywa też inny, nieznany nam ruch. Na żywo zaobserwowano tę pulę w okolicach
+80/100 zapytań/h przy pierwszym sprawdzeniu, mimo że to była pierwsza nasza
+prośba w tej godzinie — czyli budżet ten nie jest naszą własnością i nie da się
+go monitorować przez nagłówki odpowiedzi z tego samego przewidywalności co
+klucz. Oba słowniki są cache'owane 24 h, więc w praktyce ryzyko jest małe, ale
+to świadomy kompromis, nie oczywistość.
+
 ### Pełny schemat API bez klucza
 
 `https://pdp-api.plk-sa.pl/swagger/v1/swagger.json` jest publiczny — zwraca
-pełny OpenAPI 3.0 (38 ścieżek) bez autoryzacji. To najszybszy sposób sprawdzenia
-kształtu odpowiedzi albo istnienia pola, bez zużywania limitu i bez zgadywania
+pełny OpenAPI 3.0 (**38 ścieżek**, z czego 9 to zarządzanie własnym kluczem
+[`ApiKey/*`] i 5 to statyczna treść prawna [`Privacy/*`, `Terms/*`] — 24
+ścieżki niosą realne dane kolejowe). To najszybszy sposób sprawdzenia kształtu
+odpowiedzi albo istnienia pola, bez zużywania limitu i bez zgadywania
 z dokumentacji HTML.
+
+### Inne endpointy API (poznane, nieużywane)
+
+Zweryfikowane na żywo (2026-08-26), świadomie nieużywane dziś:
+
+- **Warianty `shortened`** (`/operations/shortened`, `/schedules/shortened`,
+  `/schedules/route/{id}/{id}/shortened`, `/disruptions/shortened`) —
+  identyczne dane, skrócone nazwy pól (`scheduleId` → `sid`), zdekodowane przez
+  `/api/v1/fields/{endpoint}`. **Pierwszy pomiar na zdekompresowanym tekście
+  z `fetch()` (3,03 MB → 1,74 MB, −42%) był mylący** — PLK API zwraca
+  `Content-Encoding: gzip`, a Node negocjuje i zdejmuje kompresję
+  transparentnie, więc to nie był realny transfer sieciowy. Po ponownym
+  zmierzeniu na realnie skompresowanych (gzip, poziom 6) danych: `/operations`
+  274 KB → 252 KB (**−8,2%**), `/schedules` 895 KB → 785 KB (**−12,3%**) —
+  bo skrócone nazwy pól to i tak wielokrotnie powtarzające się ciągi, które
+  gzip kompresuje niemal do zera. **Świadomie nie wdrożone** — 8-12% nie
+  uzasadnia drugiego, równoległego schematu Zod i ryzyka cichego rozjazdu,
+  gdyby PLK kiedyś zmieniło skróty pól.
+- **`GET /api/v1/data-version`** — trzy GUID-y (`dataVersion`,
+  `schedulesVersion`, `operationsVersion`) + timestamp, rozważane jako tani
+  sygnał "czy `/schedules` się zmieniło" zamiast ślepego cache'u 24h (13 MB
+  za każdym odświeżeniem). **Zbadane i odrzucone**: sprawdzone trzykrotnie
+  w jednej sesji (odstępy ~105 min i ~60 min) — za każdym razem wszystkie
+  trzy GUID-y się zmieniły (3/3). Strukturalne porównanie `/schedules`
+  między dwiema wersjami pokazało różnicę wyłącznie w polu
+  `connections[].id` (losowo przydzielany identyfikator struktury łączenia
+  składów, którego nie parsujemy) — platforma/tor/godzina/przewoźnik/
+  kategoria identyczne. Token rotuje szybciej niż nasz 24h cache i reaguje
+  na szum w nieużywanym polu, nie na realną zmianę rozkładu — sprawdzenie
+  wersji nigdy nie zaoszczędziłoby pełnego pobrania, tylko dodałoby
+  zapytanie. Niewdrożone.
+- **`GET /api/v1/operations/statistics?date=`** — zagregowane liczniki statusów
+  (`notStarted`/`inProgress`/`completed`/`cancelled`/`partialCancelled`) dla
+  całego dnia, bez pobierania listy pociągów. Mógłby zasilić wskaźnik „stan
+  sieci" — nieużywane, bo appka nie ma dziś takiego widoku.
+- **`GET /api/v1/schedules/routes/{date}`** — lekka (650 KB dla całego kraju,
+  bez przystanków) lista wszystkich tras na dany dzień. Nieużywane — appka
+  zawsze filtruje po stacjach, nie potrzebuje globalnej listy.
+- **`GET /api/v1/schedules?fromStations=&toStations=`** — zapytanie trasowe
+  origin→destination (potwierdzone na żywo: `Warszawa Centralna → Kraków
+  Główny` zwróciło 47 bezpośrednich połączeń). Przydatne dla ewentualnego
+  „wyszukiwania połączeń" — dziś świadomie poza zakresem (patrz sekcja „Poza
+  zakresem" niżej).
+- **`GET /api/v1/dictionaries/stop-types`** i **`GET /api/v1/dictionaries/
+  cities`** — typ przystanku (tylko wsiadanie/wysiadanie) i agregacja stacji
+  po mieście. Nieużywane, brak dziś funkcji, która by z tego korzystała.
+- **`/disruptions`** — zbadane i świadomie odłożone, patrz [sekcja niżej]
+  (#zbadane-i-odłożone-przyczyna-opóźnienia).
 
 ## Uruchomienie lokalne (tryb mock, bez klucza)
 
@@ -369,6 +433,36 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   wydarzyło — jedynym wiarygodnym sygnałem jest pole `isConfirmed`
   („Czy przejazd potwierdzony" w swaggerze). Naprawione i ujednolicone
   w `src/lib/board/realization.ts` — patrz też `AGENTS.md`.
+- **Dokumentacja `trainStatus` w samym API jest wewnętrznie sprzeczna.**
+  `GET /api/v1/fields/operations` zwraca dwa opisy tego samego pola w jednej
+  odpowiedzi: słownik `trainStatuses` mówi `S=NotStarted, P=InProgress,
+  C=Completed, X=Cancelled, Q=PartialCancelled`, a opis pola `tr[].s` w tej
+  samej odpowiedzi mówi `S=Scheduled, N=NotStarted, P=InProgress, C=Completed,
+  F=Finished, X=Cancelled` — inne znaczenie `S`, dodatkowe kody `N`/`F`, brak
+  `Q`. Na żywej próbce (6882 pociągi, 4 stacje, 2026-08-26) wystąpiły
+  wyłącznie `C`/`S`/`X`/`P` — zero `N` i `F` — więc kod aplikacji
+  (`hasTrainStartedFromStatus()` w `src/lib/board/realization.ts`, czytający
+  `S/P/C/X/Q` ze słownika `trainStatuses`) jest zgodny z **poprawnym** z tych
+  dwóch opisów. Warto o tym pamiętać, gdyby ktoś kiedyś „poprawiał" kod na
+  podstawie opisu pola zamiast słownika.
+- **Kod przewoźnika bywa niestandardowy.** `/dictionaries/carriers` zwraca
+  m.in. wpis, którego `code` to dosłownie `"Leo Express"` (pełna nazwa, nie
+  skrót) obok właściwego kodu `LEO` — API nie gwarantuje więc krótkiego,
+  jednolitego formatu `code`, mimo że większość wpisów go ma.
+- **`isConfirmed`-echo (patrz wyżej) nie odtworzył się na świeżej, dużej
+  próbce** — zero przypadków `isConfirmed=false` z niepustym `actualArrival`/
+  `actualDeparture` na 6882 pociągach z 2026-08-26. Zgodne z opisem w
+  `AGENTS.md` jako rzadki, obserwowany przypadek brzegowy, nie codzienność —
+  logika obronna w `realization.ts` zostaje.
+- **Warianty `shortened` niosą identyczne dane, o połowę mniejsze** — patrz
+  [tabela endpointów wyżej](#zdobycie-klucza-api). Niewykorzystane dziś.
+- **Powtórzone identyczne zapytania o `/dictionaries/stations` nie zmieniały
+  `X-RateLimit-Hourly-Remaining`, podczas gdy przeplecione z nimi zapytania
+  o `/operations` dekrementowały licznik normalnie** — sugeruje cache po
+  stronie PKP albo osobną pulę dla tego endpointu. Nie w pełni potwierdzone
+  (wymagałoby obserwacji przez całą godzinę), ale dobra wiadomość kosztowo.
+  Oficjalny poziom klucza potwierdzony przez `GET /api/v1/apikey/info`:
+  **Basic, 100/h, 1000/dobę** — zgodnie z dokumentacją wyżej.
 
 ## Znane ograniczenia (0.9 beta)
 
@@ -447,13 +541,13 @@ Odpowiedź na podstawie publicznego schematu OpenAPI:
 - `/operations` — którego używamy — **nie ma** żadnego pola z przyczyną.
   W całym schemacie odpowiedzi nie występuje `reason` ani `cause`.
 - Jest osobny endpoint **`/api/v1/disruptions`** („utrudnienia na liniach
-  kolejowych") zwracający `disruptionTypeCode` (kod tłumaczony przez dołączony
-  słownik `disruptionTypes`), `message` z pełnym opisem oraz `affectedRoutes[]`
-  z parą `scheduleId` + `orderId` — **dokładnie tym samym kluczem**, którego już
-  używamy do złączenia z `/schedules`.
+  kolejowych") zwracający `affectedRoutes[]` z parą `scheduleId` + `orderId`
+  — **dokładnie tym samym kluczem**, którego już używamy do złączenia
+  z `/schedules`.
 
 Czyli technicznie to ten sam wzorzec złączenia co obecnie, tylko z trzecim
-źródłem. Odłożone z dwóch powodów:
+źródłem. Odłożone z trzech powodów, ostatni potwierdzony na żywo
+(2026-08-26, 32 utrudnienia dla 4 stacji):
 
 1. **Pokrycie będzie częściowe.** `/disruptions` to lista sformalizowanych
    zdarzeń (awarie, roboty, wypadki). Kilkuminutowe opóźnienia operacyjne
@@ -463,6 +557,16 @@ Czyli technicznie to ten sam wzorzec złączenia co obecnie, tylko z trzecim
    i przewoźnik się nie zmieniają) utrudnienia zmieniają się w czasie, więc nie
    da się ich cache'ować równie agresywnie. To realnie trzecie zapytanie na
    cykl pollera w systemie, gdzie 100/h już jest ciasne.
+3. **`message` nie jest gotowym tekstem.** Na żywych danych `message` to
+   klucz słownikowy (np. `"utr_40"`), dekodowany przez towarzyszący słownik
+   `disruptionTypes` (np. `utr_30` → „Strajk”) — a dokumentacja pola
+   (`/api/v1/fields/disruptions`) opisuje osobne pola `disruptionTypeCode`/
+   `startStationId`/`endStationId`, które **w praktyce nie występują** na
+   żadnym z 32 sprawdzonych rekordów. Część wartości w słowniku
+   `disruptionTypes` to dodatkowo szablony z placeholderami (`{stacja_
+   poczatkowa}`, `{stacja_koncowa}`) bez pól do ich podstawienia w samym
+   wpisie — więc pełne, czytelne zdanie wymagałoby więcej pracy niż samo
+   złączenie po kluczu.
 
 Gdyby do tego wracać, kolejność jest taka: najpierw zmierzyć pokrycie na
 żywych danych, potem zdecydować o częstotliwości odpytywania.

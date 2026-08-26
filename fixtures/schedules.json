@@ -23,7 +23,9 @@
         {
           "stationId": "7872",
           "arrivalTime": "11:35:00",
-          "departureTime": "11:37:00"
+          "departureTime": "11:37:00",
+          "stopTypeId": 2,
+          "stopTypeName": "tylko dla wysiadających"
         },
         {
           "stationId": "21808",
@@ -252,6 +254,11 @@
       "KS": "Koleje Śląskie sp. z o.o.",
       "ŁKA": "„Łódzka Kolej Aglomeracyjna” sp. z o.o.",
       "SKM": "Szybka Kolej Miejska"
+    },
+    "commercialCategories": {
+      "EIC": "Express InterCity",
+      "TLK": "Twoje Linie Kolejowe",
+      "REG": "Pociąg regionalny"
     },
     "stations": {
       "7112": {

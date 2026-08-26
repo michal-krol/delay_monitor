@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   carriersResponseSchema,
   commercialCategoriesResponseSchema,
+  dailyRoutesResponseSchema,
+  disruptionsCountResponseSchema,
   operationsResponseSchema,
+  operationsStatisticsResponseSchema,
   schedulesResponseSchema,
   stationSearchResponseSchema,
 } from './schema'
@@ -209,5 +212,69 @@ describe('commercialCategoriesResponseSchema', () => {
   it('normalizes a null commercialCategories list to an empty map', () => {
     const result = commercialCategoriesResponseSchema.parse({ commercialCategories: null })
     expect(result.categoryNames).toEqual({})
+  })
+})
+
+describe('operationsStatisticsResponseSchema', () => {
+  it('parses the nationwide status counters', () => {
+    const result = operationsStatisticsResponseSchema.parse({
+      generatedAt: '2026-08-26T19:53:29Z',
+      totalTrains: 7256,
+      notStarted: 1690,
+      inProgress: 723,
+      completed: 4803,
+      cancelled: 15,
+      partialCancelled: 25,
+    })
+    expect(result.totalTrains).toBe(7256)
+    expect(result.partialCancelled).toBe(25)
+  })
+})
+
+describe('dailyRoutesResponseSchema', () => {
+  it('reads carrierCode from each route (other fields pass through unvalidated)', () => {
+    const result = dailyRoutesResponseSchema.parse({
+      routes: [{ scheduleId: '2026', orderId: '1', carrierCode: 'IC', name: 'WITKACY' }, { carrierCode: null }],
+    })
+    expect(result.routes.map((route) => route.carrierCode)).toEqual(['IC', null])
+  })
+
+  it('normalizes a null routes list to an empty array', () => {
+    const result = dailyRoutesResponseSchema.parse({ routes: null })
+    expect(result.routes).toEqual([])
+  })
+})
+
+describe('disruptionsCountResponseSchema', () => {
+  it('reduces the response to just the count', () => {
+    expect(disruptionsCountResponseSchema.parse({ disruptions: [{}, {}, {}] })).toBe(3)
+  })
+
+  it('treats a missing disruptions list as zero, not an error', () => {
+    expect(disruptionsCountResponseSchema.parse({ disruptions: null })).toBe(0)
+  })
+})
+
+describe('schedulesResponseSchema stop type', () => {
+  it('parses stopTypeId/stopTypeName when present on a route stop', () => {
+    const result = schedulesResponseSchema.parse({
+      routes: [
+        {
+          scheduleId: '1',
+          orderId: '1',
+          stations: [{ stationId: '5100', stopTypeId: 2, stopTypeName: 'tylko dla wysiadających' }],
+        },
+      ],
+    })
+    expect(result.routes[0].stations[0].stopTypeId).toBe(2)
+    expect(result.routes[0].stations[0].stopTypeName).toBe('tylko dla wysiadających')
+  })
+
+  it('defaults stopTypeId/stopTypeName to null for an ordinary stop', () => {
+    const result = schedulesResponseSchema.parse({
+      routes: [{ scheduleId: '1', orderId: '1', stations: [{ stationId: '5100' }] }],
+    })
+    expect(result.routes[0].stations[0].stopTypeId).toBeNull()
+    expect(result.routes[0].stations[0].stopTypeName).toBeNull()
   })
 })

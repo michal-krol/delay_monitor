@@ -12,6 +12,7 @@ export type BoardApiRow = {
   carrier: string
   carrierName: string | null
   category: string
+  categoryName: string | null
   headsign: string | null
   plannedAt: string
   actualAt: string | null

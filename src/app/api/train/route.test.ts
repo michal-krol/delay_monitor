@@ -108,6 +108,7 @@ describe('GET /api/train', () => {
         platform: '4/2',
         hasTrainStarted: false,
         estimatedDelayMinutes: null,
+        stopTypeName: null,
       },
     ])
   })

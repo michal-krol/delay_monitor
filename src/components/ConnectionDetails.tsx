@@ -222,6 +222,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                       >
                         {stop.stationName}
                       </span>
+                      {stop.stopTypeName !== null && (
+                        <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs text-text-muted dark:bg-white/10">
+                          {stop.stopTypeName}
+                        </span>
+                      )}
                       <DelayBadge
                         status={thisStatus}
                         delayMinutes={stopDelayMinutes(stop)}

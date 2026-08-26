@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { PkpApiError, type NameDictionaries, type PkpClient, type TrainDetailResult } from './client'
+import { PkpApiError, type NameDictionaries, type OperationsStatistics, type PkpClient, type TrainDetailResult } from './client'
 import type { RawTrainOperation, Station } from './types'
 import { operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 import { matchesStationName, normalizeForSearch } from '../search'
@@ -131,7 +131,12 @@ export function createMockClient(): PkpClient {
           .map((train) => `${train.scheduleId}-${train.orderId}`)
       )
       const routes = schedules.routes.filter((route) => relevantTrainIds.has(`${route.scheduleId}-${route.orderId}`))
-      return { routes, carrierNames: schedules.carrierNames, stationNames: schedules.stationNames }
+      return {
+        routes,
+        carrierNames: schedules.carrierNames,
+        categoryNames: schedules.categoryNames,
+        stationNames: schedules.stationNames,
+      }
     },
 
     async getTrainDetail(scheduleId: string, orderId: string, operatingDate: string): Promise<TrainDetailResult> {
@@ -156,6 +161,40 @@ export function createMockClient(): PkpClient {
       // nie ma powodu go duplikować osobnym fixture'em.
       const schedules = await loadSchedules()
       return { carrierNames: schedules.carrierNames, categoryNames: MOCK_CATEGORY_NAMES }
+    },
+
+    // Widżet "stan sieci": w trybie mock nie ma osobnego fixture'a o skali
+    // żywego API (patrz AGENTS.md #8) -- liczby liczone wprost z tych samych
+    // 8 pociągów co reszta mocka, żeby były wewnętrznie spójne, nie realistyczne.
+    async getOperationsStatistics(): Promise<OperationsStatistics> {
+      const { trains } = await loadOperations()
+      const counts = { notStarted: 0, inProgress: 0, completed: 0, cancelled: 0, partialCancelled: 0 }
+      for (const train of trains) {
+        switch (train.trainStatus) {
+          case 'S': counts.notStarted++; break
+          case 'P': counts.inProgress++; break
+          case 'C': counts.completed++; break
+          case 'X': counts.cancelled++; break
+          case 'Q': counts.partialCancelled++; break
+        }
+      }
+      return { generatedAt: new Date().toISOString(), totalTrains: trains.length, ...counts }
+    },
+
+    async getDailyCarrierCounts(): Promise<Record<string, number>> {
+      const { routes } = await loadSchedules()
+      const counts: Record<string, number> = {}
+      for (const route of routes) {
+        if (route.carrierCode === null) continue
+        counts[route.carrierCode] = (counts[route.carrierCode] ?? 0) + 1
+      }
+      return counts
+    },
+
+    async getDisruptionCount(): Promise<number> {
+      // Brak fixture'a dla /disruptions (patrz README, sekcja "Zbadane i
+      // odłożone") -- zero jest tu poprawnym, nie udawanym wynikiem.
+      return 0
     },
   }
 }

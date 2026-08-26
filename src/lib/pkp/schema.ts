@@ -96,6 +96,9 @@ const rawRouteStopSchema = z
     /** Przesunięcie dnia względem `operatingDate`, gdy przystanek wypada po północy. `null`/brak = ten sam dzień. */
     arrivalDay: z.number().int().nullable().optional().default(null),
     departureDay: z.number().int().nullable().optional().default(null),
+    /** Typ przystanku (np. "tylko dla wysiadających") — rzadkie (~1% przystanków na żywych danych), `null` gdy zwykły przystanek. */
+    stopTypeId: z.number().int().nullable().optional().default(null),
+    stopTypeName: z.string().nullable().optional().default(null),
   })
   .passthrough()
 
@@ -177,6 +180,16 @@ export const schedulesResponseSchema = z
           .record(z.string(), z.object({ id: idString, name: z.string() }).passthrough())
           .nullish()
           .transform((stations) => stations ?? {}),
+        // Słownik kod -> nazwa, bez rozbicia per przewoźnik (w przeciwieństwie
+        // do `commercialCategoriesResponseSchema` niżej, który dostaje osobny
+        // rekord z `/dictionaries/commercial-categories`) — wystarczające dla
+        // czytelnej etykiety w tabeli, przy zerowym koszcie: ten sam
+        // słownik jedzie w każdej odpowiedzi `/schedules`, którą i tak
+        // pobieramy co 24h.
+        commercialCategories: z
+          .record(z.string(), z.string())
+          .nullish()
+          .transform((categories) => categories ?? {}),
       })
       .passthrough()
       .nullish(),
@@ -185,6 +198,7 @@ export const schedulesResponseSchema = z
   .transform((data) => ({
     ...data,
     carrierNames: data.dictionaries?.carriers ?? {},
+    categoryNames: data.dictionaries?.commercialCategories ?? {},
     // Pełny słownik nazw stacji (id -> nazwa) — używany m.in. do rozwiązania
     // kierunku (origin/destination) na podstawie dopasowanej trasy, patrz
     // board/transform.ts. Obojętny na parametr fullRoute.
@@ -192,3 +206,37 @@ export const schedulesResponseSchema = z
       Object.entries(data.dictionaries?.stations ?? {}).map(([id, station]) => [id, station.name])
     ),
   }))
+
+/** `/api/v1/operations/statistics?date=` — zagregowane liczniki statusów dla całego kraju, patrz `getOperationsStatistics()` w `client.ts`. */
+export const operationsStatisticsResponseSchema = z
+  .object({
+    generatedAt: z.string(),
+    totalTrains: z.number().int().default(0),
+    notStarted: z.number().int().default(0),
+    inProgress: z.number().int().default(0),
+    completed: z.number().int().default(0),
+    cancelled: z.number().int().default(0),
+    partialCancelled: z.number().int().default(0),
+  })
+  .passthrough()
+
+/** `/api/v1/schedules/routes/{date}` — lekka lista tras całego kraju na dany dzień, bez przystanków. Tylko `carrierCode` jest nam tu potrzebny (rozkład ruchu wg przewoźnika). */
+export const dailyRoutesResponseSchema = z
+  .object({
+    routes: z
+      .array(z.object({ carrierCode: z.string().nullable().optional().default(null) }).passthrough())
+      .nullish()
+      .transform((routes) => routes ?? []),
+  })
+  .passthrough()
+
+/** `/api/v1/disruptions` — tylko liczność jest tu potrzebna (patrz `getDisruptionCount()`), więc kształt pojedynczego utrudnienia nas nie obchodzi. */
+export const disruptionsCountResponseSchema = z
+  .object({
+    disruptions: z
+      .array(z.unknown())
+      .nullish()
+      .transform((disruptions) => disruptions ?? []),
+  })
+  .passthrough()
+  .transform((data) => data.disruptions.length)

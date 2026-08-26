@@ -44,6 +44,7 @@ function snapshotWith(payload: string): BoardApiSnapshot {
         carrier: payload,
         carrierName: payload,
         category: payload,
+        categoryName: payload,
         headsign: payload,
         plannedAt: new Date(Date.now() + 5 * 60000).toISOString(),
         actualAt: null,

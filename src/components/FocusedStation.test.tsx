@@ -37,7 +37,7 @@ describe('FocusedStation', () => {
   })
 
   it('renders a full table -- columnheaders, carrier logo, click-through to connection details', async () => {
-    const departure = { scheduleId: '2026', orderId: '12345', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
+    const departure = { scheduleId: '2026', orderId: '12345', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
     const snapshot = makeSnapshot({ departures: [departure] })
     const user = userEvent.setup()
 
@@ -51,8 +51,8 @@ describe('FocusedStation', () => {
   })
 
   it('switches between departures and arrivals via the tab bar, like the full board', async () => {
-    const departure = { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
-    const arrival = { scheduleId: '2', orderId: '2', operatingDate: '2026-08-01', trainNumber: '2', trainLabel: 'EIC 2', carrier: 'KM', carrierName: null, category: 'REG', headsign: 'Gdańsk', plannedAt: new Date(Date.now() + 10 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '2', estimatedDelayMinutes: null }
+    const departure = { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
+    const arrival = { scheduleId: '2', orderId: '2', operatingDate: '2026-08-01', trainNumber: '2', trainLabel: 'EIC 2', carrier: 'KM', carrierName: null, category: 'REG', categoryName: null, headsign: 'Gdańsk', plannedAt: new Date(Date.now() + 10 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '2', estimatedDelayMinutes: null }
     const snapshot = makeSnapshot({ departures: [departure], arrivals: [arrival] })
     const user = userEvent.setup()
 
@@ -70,7 +70,7 @@ describe('FocusedStation', () => {
   })
 
   it('dims a connection that already happened instead of hiding it, like the full board', () => {
-    const past = { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'PAST1', carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() - 2 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
+    const past = { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'PAST1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() - 2 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
     const snapshot = makeSnapshot({ departures: [past] })
 
     render(<FocusedStation stationName="Warszawa Centralna" snapshot={snapshot} configError={false} onClose={vi.fn()} />)
@@ -82,7 +82,7 @@ describe('FocusedStation', () => {
   it('shows all upcoming rows, not just the nearest few', () => {
     const departures = Array.from({ length: 8 }, (_, i) => ({
       scheduleId: String(i), orderId: String(i), operatingDate: '2026-08-01', trainNumber: String(i), trainLabel: `EIC ${i}`,
-      carrier: 'IC', carrierName: null, category: 'EIC', headsign: 'Kraków', plannedAt: new Date(Date.now() + (i + 1) * 60000).toISOString(),
+      carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + (i + 1) * 60000).toISOString(),
       actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null,
     }))
     const snapshot = makeSnapshot({ departures })

@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { Sidebar } from '@/components/Sidebar'
 import { TopBar } from '@/components/TopBar'
+import { NetworkStatsCard } from '@/components/NetworkStatsCard'
 import { STATION_ID_PATTERN } from '@/lib/validation'
 
 // `/` nie ma dynamicznego segmentu, więc build próbuje ją prerenderować
@@ -64,6 +65,12 @@ function PulpitPage() {
           />
         )}
       </main>
+      {/* Tylko Pulpit -- pozostałe strony (/odjazdy, /polaczenie) celowo bez
+          trzeciej kolumny, patrz plan (Faza 3). Schowany poniżej xl, żeby nie
+          ściskać tablicy na węższych ekranach. */}
+      <aside className="hidden w-72 shrink-0 py-7 pr-8 xl:block">
+        <NetworkStatsCard />
+      </aside>
     </>
   )
 }

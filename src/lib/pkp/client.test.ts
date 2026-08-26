@@ -523,6 +523,8 @@ describe('createLiveClient', () => {
             departureTime: null,
             arrivalDay: null,
             departureDay: null,
+            stopTypeId: null,
+            stopTypeName: null,
           },
         ],
       })
@@ -616,6 +618,55 @@ describe('createLiveClient', () => {
       await client.getNameDictionaries()
 
       expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('widżet stanu sieci', () => {
+    it('getOperationsStatistics parses the nationwide status counters', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse({
+          generatedAt: '2026-08-26T19:53:29Z',
+          totalTrains: 7256,
+          notStarted: 1690,
+          inProgress: 723,
+          completed: 4803,
+          cancelled: 15,
+          partialCancelled: 25,
+        })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      const result = await client.getOperationsStatistics('2026-08-26')
+
+      expect(result.totalTrains).toBe(7256)
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/operations/statistics?date=2026-08-26')
+    })
+
+    it('getDailyCarrierCounts groups routes by carrier code, ignoring unknown codes', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse({
+          routes: [{ carrierCode: 'IC' }, { carrierCode: 'IC' }, { carrierCode: 'KM' }, { carrierCode: null }],
+        })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      const counts = await client.getDailyCarrierCounts('2026-08-26')
+
+      expect(counts).toEqual({ IC: 2, KM: 1 })
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/schedules/routes/2026-08-26')
+    })
+
+    it('getDisruptionCount returns only the count, without a station filter', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ disruptions: [{}, {}, {}] }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      const count = await client.getDisruptionCount('2026-08-26', '2026-08-26')
+
+      expect(count).toBe(3)
+      expect(String(fetchMock.mock.calls[0][0])).not.toContain('stations=')
     })
   })
 })

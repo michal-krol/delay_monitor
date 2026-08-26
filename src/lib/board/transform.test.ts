@@ -637,6 +637,29 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].carrierName).toBe('POLREGIO S.A.')
   })
 
+  it('resolves the full category name from the dictionaries.commercialCategories lookup, same pattern as carrierName', () => {
+    const trains = [
+      train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })]),
+    ]
+    const routes = new Map<string, RawRoute>([
+      ['26-12345', route({ scheduleId: '26', orderId: '12345', commercialCategorySymbol: 'EIC' })],
+    ])
+    const categoryNames = { EIC: 'Express InterCity' }
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW, categoryNames)
+    expect(snapshot.departures[0].categoryName).toBe('Express InterCity')
+  })
+
+  it('leaves categoryName null when the category dictionary does not know the symbol', () => {
+    const trains = [
+      train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })]),
+    ]
+    const routes = new Map<string, RawRoute>([
+      ['26-12345', route({ scheduleId: '26', orderId: '12345', commercialCategorySymbol: 'EIC' })],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures[0].categoryName).toBeNull()
+  })
+
   it('leaves carrier and category empty when no matching route is found', () => {
     const trains = [
       train('26', '99999', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })]),

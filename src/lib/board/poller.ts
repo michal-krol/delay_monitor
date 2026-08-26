@@ -86,20 +86,21 @@ export type Poller = {
 type RoutesLookup = {
   routesByTrainId: Map<string, RawRoute>
   carrierNames: Record<string, string>
+  categoryNames: Record<string, string>
   /** Pełny słownik nazw stacji ze `/schedules` — patrz merge w `runTick`. */
   scheduleStationNames: Record<string, string>
 }
 
 async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promise<RoutesLookup> {
   try {
-    const { routes, carrierNames, stationNames } = await client.getSchedules(active)
+    const { routes, carrierNames, categoryNames, stationNames } = await client.getSchedules(active)
     const routesByTrainId = new Map(
       routes.map((route) => [routeKey(route.scheduleId, route.orderId, route.trainOrderId), route])
     )
-    return { routesByTrainId, carrierNames, scheduleStationNames: stationNames }
+    return { routesByTrainId, carrierNames, categoryNames, scheduleStationNames: stationNames }
   } catch (err) {
     console.error('Poller: błąd pobierania rozkładu (przewoźnik/kategoria będą puste)', err)
-    return { routesByTrainId: new Map(), carrierNames: {}, scheduleStationNames: {} }
+    return { routesByTrainId: new Map(), carrierNames: {}, categoryNames: {}, scheduleStationNames: {} }
   }
 }
 
@@ -177,7 +178,7 @@ export function createPoller(deps: PollerDeps): Poller {
     const operationsStationIds = [...new Set([...realActive, ...auxStationIds])]
 
     try {
-      const [result, { routesByTrainId, carrierNames, scheduleStationNames }] = await Promise.all([
+      const [result, { routesByTrainId, carrierNames, categoryNames, scheduleStationNames }] = await Promise.all([
         client.getOperations(operationsStationIds),
         fetchRoutesByTrainId(client, realActive),
       ])
@@ -200,7 +201,9 @@ export function createPoller(deps: PollerDeps): Poller {
             mergedStationNames,
             routesByTrainId,
             carrierNames,
-            fetchedAt
+            fetchedAt,
+            new Date(fetchedAt),
+            categoryNames
           )
         )
       }

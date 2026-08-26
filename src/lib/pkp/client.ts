@@ -2,7 +2,10 @@ import type { RawRoute, RawTrainOperation, Station } from './types'
 import {
   carriersResponseSchema,
   commercialCategoriesResponseSchema,
+  dailyRoutesResponseSchema,
+  disruptionsCountResponseSchema,
   operationsResponseSchema,
+  operationsStatisticsResponseSchema,
   rawRouteSchema,
   rawTrainOperationSchema,
   schedulesResponseSchema,
@@ -54,12 +57,25 @@ export type GetSchedulesResult = {
   routes: RawRoute[]
   /** Kod przewoźnika → pełna nazwa, ze słownika dołączonego do tej samej odpowiedzi (za darmo, bez dodatkowego zapytania). */
   carrierNames: Record<string, string>
+  /** Kod kategorii handlowej → pełna nazwa (bez rozbicia per przewoźnik — patrz komentarz w `schema.ts`), też za darmo z tej samej odpowiedzi. */
+  categoryNames: Record<string, string>
   /**
    * ID stacji → nazwa, ze słownika dołączonego do tej samej odpowiedzi.
    * `/operations` nie ma już własnego pełnego słownika (patrz `fullRoutes`
    * niżej) — ten zasila „Kierunek" (origin/destination trasy).
    */
   stationNames: Record<string, string>
+}
+
+/** Zagregowane liczniki statusów pociągów w całym kraju na dany dzień — patrz `getOperationsStatistics()`. */
+export type OperationsStatistics = {
+  generatedAt: string
+  totalTrains: number
+  notStarted: number
+  inProgress: number
+  completed: number
+  cancelled: number
+  partialCancelled: number
 }
 
 export type NameDictionaries = {
@@ -116,6 +132,22 @@ export interface PkpClient {
    * nie łamiąc zasady, że route handler nigdy nie czeka na PKP.
    */
   getCachedStationIds(): ReadonlySet<string> | null
+  /**
+   * Zagregowane liczniki statusów pociągów w całym kraju, bez filtra po
+   * stacji — API nie oferuje takiego filtra dla tego endpointu (patrz
+   * README, sekcja o widżecie "stan sieci"). Wywołujący (patrz
+   * `board/networkStats.ts`) cache'uje wynik po swojej stronie — ta metoda
+   * jest surowym fetcherem, jak `getOperations()`.
+   */
+  getOperationsStatistics(date: string): Promise<OperationsStatistics>
+  /**
+   * Liczba pociągów danego dnia w całym kraju, pogrupowana po kodzie
+   * przewoźnika — z `/schedules/routes/{date}` (lekki, bez przystanków,
+   * bez filtra stacji). Skład rozkładu na dany dzień, nie stan realizacji.
+   */
+  getDailyCarrierCounts(date: string): Promise<Record<string, number>>
+  /** Liczba zgłoszonych utrudnień w całym kraju w danym oknie dat — tylko licznik, nie treść (patrz `disruptionsCountResponseSchema`). */
+  getDisruptionCount(dateFrom: string, dateTo: string): Promise<number>
 }
 
 export class PkpApiError extends Error {
@@ -313,7 +345,12 @@ export function createLiveClient(
     const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}&fullRoute=true`
     const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie rozkładu nie powiodło się')
     const parsed = schedulesResponseSchema.parse(json)
-    const result: GetSchedulesResult = { routes: parsed.routes, carrierNames: parsed.carrierNames, stationNames: parsed.stationNames }
+    const result: GetSchedulesResult = {
+      routes: parsed.routes,
+      carrierNames: parsed.carrierNames,
+      categoryNames: parsed.categoryNames,
+      stationNames: parsed.stationNames,
+    }
     schedulesCache.set(cacheKey, result)
     return result
   }
@@ -409,6 +446,31 @@ export function createLiveClient(
         })
       }
       return nameDictionariesInFlight
+    },
+
+    async getOperationsStatistics(date: string): Promise<OperationsStatistics> {
+      const url = `${BASE_URL}/api/v1/operations/statistics?date=${encodeURIComponent(date)}`
+      const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie statystyk sieci nie powiodło się')
+      return operationsStatisticsResponseSchema.parse(json)
+    },
+
+    async getDailyCarrierCounts(date: string): Promise<Record<string, number>> {
+      const url = `${BASE_URL}/api/v1/schedules/routes/${encodeURIComponent(date)}`
+      const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie listy tras dnia nie powiodło się')
+      const { routes } = dailyRoutesResponseSchema.parse(json)
+      const counts: Record<string, number> = {}
+      for (const route of routes) {
+        if (route.carrierCode === null) continue
+        counts[route.carrierCode] = (counts[route.carrierCode] ?? 0) + 1
+      }
+      return counts
+    },
+
+    async getDisruptionCount(dateFrom: string, dateTo: string): Promise<number> {
+      // Bez `stations=` -- zasięg ogólnopolski, tak jak `getOperationsStatistics()`.
+      const url = `${BASE_URL}/api/v1/disruptions?dateFrom=${encodeURIComponent(dateFrom)}&dateTo=${encodeURIComponent(dateTo)}`
+      const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie liczby utrudnień nie powiodło się')
+      return disruptionsCountResponseSchema.parse(json)
     },
   }
 }

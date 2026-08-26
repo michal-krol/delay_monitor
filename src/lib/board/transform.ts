@@ -16,6 +16,8 @@ export type BoardRow = {
   /** Pełna nazwa przewoźnika ze słownika `dictionaries.carriers` w odpowiedzi `/schedules`, gdy znana. */
   carrierName: string | null
   category: string
+  /** Pełna nazwa kategorii handlowej ze słownika `dictionaries.commercialCategories` w odpowiedzi `/schedules`, gdy znana — sam wzorzec co `carrierName` wyżej. */
+  categoryName: string | null
   /**
    * Origin (dla przyjazdów) / destination (dla odjazdów) z dopasowanej trasy
    * `/schedules`. `null`, gdy nie ma dopasowanej trasy — `/operations` już nie
@@ -131,6 +133,7 @@ type TrainStopContext = {
   isConfirmed: boolean
   route: RawRoute | undefined
   carrierNames: Record<string, string>
+  categoryNames: Record<string, string>
   hasTrainStartedFromTrainStatus: boolean
   upstreamStops: RawOperationStation[]
 }
@@ -145,7 +148,7 @@ type DirectionInput = {
 }
 
 function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRow {
-  const { scheduleId, orderId, operatingDate, trainId, cancelled, isConfirmed, route, carrierNames, hasTrainStartedFromTrainStatus, upstreamStops } = context
+  const { scheduleId, orderId, operatingDate, trainId, cancelled, isConfirmed, route, carrierNames, categoryNames, hasTrainStartedFromTrainStatus, upstreamStops } = context
   const { headsign, plannedAt, actualAt, apiDelay, platform } = direction
 
   const delayMinutes = resolveDelayMinutes(apiDelay, isConfirmed, plannedAt, actualAt)
@@ -168,6 +171,7 @@ function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRo
     carrier,
     carrierName: carrier ? (carrierNames[carrier] ?? null) : null,
     category,
+    categoryName: category ? (categoryNames[category] ?? null) : null,
     headsign,
     plannedAt,
     actualAt,
@@ -220,7 +224,11 @@ export function transformOperations(
   routesByTrainId: Map<string, RawRoute>,
   carrierNames: Record<string, string>,
   fetchedAt: string,
-  now: Date = new Date(fetchedAt)
+  now: Date = new Date(fetchedAt),
+  // Ostatni, opcjonalny parametr (nie obok carrierNames) świadomie -- ten sam
+  // wzorzec słownika co carrierNames, ale dodany później, żeby nie przestawiać
+  // pozycji fetchedAt/now w kilkudziesięciu miejscach w transform.test.ts.
+  categoryNames: Record<string, string> = {}
 ): BoardSnapshot {
   const departures: BoardRow[] = []
   const arrivals: BoardRow[] = []
@@ -251,6 +259,7 @@ export function transformOperations(
       isConfirmed: stop.isConfirmed,
       route,
       carrierNames,
+      categoryNames,
       hasTrainStartedFromTrainStatus: hasTrainStarted,
       upstreamStops,
     }

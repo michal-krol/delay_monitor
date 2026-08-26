@@ -110,6 +110,11 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                   ) : (
                     row.trainLabel
                   )}
+                  {row.category !== '' && (
+                    <span className="ml-1.5 text-xs text-text-muted" title={row.categoryName ?? undefined}>
+                      {row.categoryName ?? row.category}
+                    </span>
+                  )}
                 </td>
                 <td className="py-2.5 pr-3">
                   <span className="inline-flex items-center gap-1.5 text-text-secondary">
