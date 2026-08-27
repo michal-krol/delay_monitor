@@ -173,6 +173,27 @@ describe('createLiveClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('waits with jitter before retrying once on a PKP timeout (AbortError), not just a 5xx', async () => {
+    // Zaobserwowane na żywo (staging): PKP bywa chwilowo wolne i przekracza
+    // 8s timeout (fetchWithTimeout) -- to samo przejściowe zjawisko co 5xx,
+    // ale wcześniej w ogóle nie było ponawiane, więc chwilowe spowolnienie
+    // od razu kończyło się twardą awarią (500 z /api/train) bez żadnej próby.
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('The operation was aborted.', 'AbortError'))
+      .mockResolvedValueOnce(jsonResponse({ trains: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const sleep = vi.fn().mockResolvedValue(undefined)
+
+    const client = createLiveClient('secret-key', () => new Date(), sleep, () => 0.5)
+    const result = await client.getOperations(['5100'])
+
+    expect(result.trains).toEqual([])
+    expect(sleep).toHaveBeenCalledTimes(1)
+    expect(sleep).toHaveBeenCalledWith(1000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('does not retry a 4xx that is not worth repeating', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('bad request', { status: 400 }))
     vi.stubGlobal('fetch', fetchMock)
@@ -360,9 +381,11 @@ describe('createLiveClient', () => {
     expect(url.searchParams.get('dateTo')).toBe('2026-01-16')
   })
 
-  it('aborts a request that hangs past the timeout instead of waiting forever', async () => {
+  it('aborts a request that hangs past the timeout instead of waiting forever, retries once, then gives up if it hangs again too', async () => {
     // Timeout 8 s jest udokumentowanym zachowaniem, ale nie mial testu. Bez niego
-    // zawieszone polaczenie blokowaloby przebieg pollera bez konca.
+    // zawieszone polaczenie blokowaloby przebieg pollera bez konca. Ponowienie
+    // po AbortError (patrz test wyżej) oznacza, że trwale zawieszone połączenie
+    // musi zawiesić się DWA razy (obie próby), zanim błąd faktycznie wypłynie.
     vi.useFakeTimers()
     try {
       const fetchMock = vi.fn().mockImplementation(
@@ -372,16 +395,20 @@ describe('createLiveClient', () => {
           })
       )
       vi.stubGlobal('fetch', fetchMock)
+      const sleep = vi.fn().mockResolvedValue(undefined)
 
-      const client = createLiveClient('secret-key')
+      const client = createLiveClient('secret-key', () => new Date(), sleep, () => 0)
       const pending = client.getOperations(['5100'])
       const assertion = expect(pending).rejects.toThrowError(/abort/i)
 
-      await vi.advanceTimersByTimeAsync(8000)
+      await vi.advanceTimersByTimeAsync(8000) // pierwsza próba wisi i się poddaje
+      await vi.advanceTimersByTimeAsync(500) // odstęp przed ponowieniem (baza, bez jittera przy random()=0)
+      await vi.advanceTimersByTimeAsync(8000) // druga próba też wisi i się poddaje
       await assertion
 
-      const [, init] = fetchMock.mock.calls[0]
-      expect(init.signal.aborted).toBe(true)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const [, secondInit] = fetchMock.mock.calls[1]
+      expect(secondInit.signal.aborted).toBe(true)
     } finally {
       vi.useRealTimers()
     }

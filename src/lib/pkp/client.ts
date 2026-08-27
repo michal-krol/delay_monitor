@@ -287,18 +287,32 @@ export function createLiveClient(
   const disruptionsInFlight = new Map<string, Promise<GetDisruptionsResult>>()
 
   /**
-   * `fetchJson` + jedno ponowienie na 5xx, z odstępem i jitterem. Wcześniej
-   * to ponowienie żyło tylko wokół `getOperations` w `poller.ts` -- `/schedules`
-   * miał inną (catch-i-degraduj), a `getTrainDetail` (patrz `/api/train`) nie
-   * miał żadnej. Jeden wspólny wrapper na poziomie `fetchJson` daje tę samą
-   * odporność każdemu zapytaniu do PKP, nie tylko temu, które akurat ktoś
-   * owinął ręcznie.
+   * Zaobserwowane na żywo (staging): PKP bywa chwilowo wolne i przekracza
+   * `REQUEST_TIMEOUT_MS` (`fetchWithTimeout` przerywa żądanie przez
+   * `AbortController`) -- to samo przejściowe zjawisko co 5xx, ale bez tego
+   * warunku w ogóle nie było ponawiane. Rozpoznanie po `name`, nie po
+   * `instanceof DOMException` -- Node/undici i przeglądarka zgadzają się co
+   * do `name: 'AbortError'`, ale globalny `DOMException` bywał niedostępny
+   * w starszych środowiskach Node, więc sprawdzanie `instanceof` jest tu
+   * niepotrzebnym dodatkowym ryzykiem.
+   */
+  function isAbortError(err: unknown): boolean {
+    return err instanceof Error && err.name === 'AbortError'
+  }
+
+  /**
+   * `fetchJson` + jedno ponowienie na 5xx lub na timeout (AbortError), z
+   * odstępem i jitterem. Wcześniej to ponowienie żyło tylko wokół
+   * `getOperations` w `poller.ts` -- `/schedules` miał inną (catch-i-degraduj),
+   * a `getTrainDetail` (patrz `/api/train`) nie miał żadnej. Jeden wspólny
+   * wrapper na poziomie `fetchJson` daje tę samą odporność każdemu zapytaniu
+   * do PKP, nie tylko temu, które akurat ktoś owinął ręcznie.
    */
   async function fetchJsonWithRetry(url: string, key: string | null, errorMessage: string): Promise<{ json: unknown; response: Response }> {
     try {
       return await fetchJson(url, key, errorMessage)
     } catch (err) {
-      if (err instanceof PkpApiError && err.status >= 500) {
+      if ((err instanceof PkpApiError && err.status >= 500) || isAbortError(err)) {
         await sleep(RETRY_BASE_DELAY_MS + random() * RETRY_JITTER_MS)
         return fetchJson(url, key, errorMessage)
       }
