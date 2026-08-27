@@ -56,6 +56,51 @@ export type TrainDetailStop = {
   predictedDeparture: string | null
   /** Zdekodowane treści utrudnień obejmujących ten przystanek tego przejazdu -- [] gdy brak. Patrz `board/disruptions.ts`. */
   disruptionMessages: string[]
+  /**
+   * Planowy czas postoju w pełnych minutach — `null` dla przystanku krańcowego
+   * (tylko przyjazd albo tylko odjazd) i dla pociągu bez dopasowanej trasy.
+   * Liczony z PLANU, nie z realizacji: pasażer pyta „ile mam czasu", zanim
+   * pociąg tu dojedzie. Patrz `resolveStopMinutes`.
+   */
+  stopMinutes: number | null
+  /**
+   * „tylko dla wysiadających" / „tylko dla wsiadających" — `null` dla zwykłego
+   * postoju (na żywym API to zdecydowana większość, patrz `pkp/schema.ts`).
+   */
+  stopTypeName: string | null
+}
+
+/**
+ * Postój w pełnych minutach, `null` gdy nie ma obu planowych czasów albo gdy
+ * odjazd nie jest po przyjeździe.
+ *
+ * `Math.max(1, ...)` nie jest kosmetyką: na żywym API (475 tras, 8380
+ * przystanków) 1650 z 7173 postojów trwa KRÓCEJ niż minutę. Samo
+ * `Math.round(30_000 / 60_000)` dałoby dla nich `0`, czyli „brak postoju" —
+ * a postój istnieje, tylko jest krótki. Zero jest tu zawsze błędną odpowiedzią.
+ */
+function resolveStopMinutes(plannedArrival: string | null, plannedDeparture: string | null): number | null {
+  if (plannedArrival === null || plannedDeparture === null) return null
+  const diffMs = new Date(plannedDeparture).getTime() - new Date(plannedArrival).getTime()
+  if (diffMs <= 0) return null
+  return Math.max(1, Math.round(diffMs / 60_000))
+}
+
+/**
+ * Indeks przystanku, na którym pociąg fizycznie jest — ostatni POTWIERDZONY
+ * przystanek trasy, `-1` gdy żaden (pociąg jeszcze nigdzie nie ruszył).
+ *
+ * Jedyne źródło wskaźnika „Pociąg jest tutaj" w panelu szczegółów. Świadomie
+ * `isConfirmed`, nie obecność `actualArrival`/`actualDeparture`: PKP potrafi
+ * wpisać w pole faktycznego czasu kopię planu godziny przed odjazdem
+ * (AGENTS.md #2, `realization.ts`), więc czas faktyczny nigdy nie dowodzi, że
+ * pociąg tam był. Nie duplikuj tego pytania w komponencie.
+ */
+export function resolveCurrentStopIndex(stops: TrainDetailStop[]): number {
+  for (let index = stops.length - 1; index >= 0; index -= 1) {
+    if (stops[index].isConfirmed) return index
+  }
+  return -1
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -186,6 +231,8 @@ export function buildTrainDetailStops(
       platform: routeStopPlatform(routeStop, 'departure'),
       hasTrainStarted,
       estimatedDelayMinutes: status === 'enRoute' ? lastConfirmedDelayMinutes : null,
+      stopMinutes: resolveStopMinutes(plannedArrival, plannedDeparture),
+      stopTypeName: routeStop?.stopTypeName ?? null,
       disruptionMessages:
         operation.operatingDate === null
           ? []

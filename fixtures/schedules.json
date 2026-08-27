@@ -7,7 +7,7 @@
       "carrierCode": "IC",
       "commercialCategorySymbol": "EIC",
       "name": "EIC Grunwald",
-      "nationalNumber": null,
+      "nationalNumber": "1602",
       "stations": [
         {
           "stationId": "7500",
@@ -28,12 +28,13 @@
         {
           "stationId": "21808",
           "arrivalTime": "12:00:00",
-          "departureTime": "12:02:00"
+          "departureTime": "12:02:00",
+          "stopTypeName": "tylko dla wysiadających"
         },
         {
           "stationId": "22442",
           "arrivalTime": "12:20:00",
-          "departureTime": "12:22:00"
+          "departureTime": "12:26:00"
         },
         {
           "stationId": "38653",
@@ -67,7 +68,7 @@
       "carrierCode": "IC",
       "commercialCategorySymbol": "TLK",
       "name": "SUDETY",
-      "nationalNumber": null,
+      "nationalNumber": "38170",
       "stations": [
         {
           "stationId": "60103",
@@ -215,7 +216,7 @@
       "carrierCode": "IC",
       "commercialCategorySymbol": "TLK",
       "name": "POMORZANIN",
-      "nationalNumber": null,
+      "nationalNumber": "58102",
       "stations": [
         {
           "stationId": "30601",

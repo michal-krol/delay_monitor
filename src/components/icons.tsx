@@ -209,3 +209,33 @@ export function HelpCircleIcon(props: IconProps) {
     props
   )
 }
+
+export function ArrowRightIcon(props: IconProps) {
+  return base(<path d="m6 3 5 5-5 5" stroke="currentColor" strokeWidth={1.8} />, props, '0 0 16 16')
+}
+
+export function ShareIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M14 6.5V4.5a1 1 0 0 0-1-1H4.5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1H13a1 1 0 0 0 1-1v-2" stroke="currentColor" />
+      <path d="M10 10h6.5m0 0L14 7.5M16.5 10 14 12.5" stroke="currentColor" />
+    </>,
+    props
+  )
+}
+
+export function InfoIcon(props: IconProps) {
+  return base(
+    <>
+      <circle cx="10" cy="10" r="7.2" stroke="currentColor" />
+      <path d="M10 9.2v4.3" stroke="currentColor" />
+      <path d="M10 6.5h.01" stroke="currentColor" strokeWidth={2} />
+    </>,
+    props
+  )
+}
+
+/** Postój na trasie — dwie pauzy, ten sam znak co na odtwarzaczu. */
+export function PauseIcon(props: IconProps) {
+  return base(<path d="M7.5 5v10M12.5 5v10" stroke="currentColor" strokeWidth={1.9} />, props)
+}

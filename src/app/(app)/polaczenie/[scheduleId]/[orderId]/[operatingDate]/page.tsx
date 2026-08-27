@@ -5,6 +5,7 @@ import { ConnectionDetails } from '@/components/ConnectionDetails'
 import { Sidebar } from '@/components/Sidebar'
 import { TopBar } from '@/components/TopBar'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
+import { useShareUrl } from '@/hooks/useShareUrl'
 
 /**
  * Segmenty dynamiczne czytane przez `useParams()`, nie przez prop `params`.
@@ -36,6 +37,7 @@ export default function Page() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { share } = useShareUrl()
   // `train` = tymczasowy tytuł widoczny przed odpowiedzią `/api/train` —
   // zamiennik dzisiejszego propa `trainLabel` z dawnego modala.
   const trainLabel = searchParams.get('train') ?? ''
@@ -62,7 +64,7 @@ export default function Page() {
         {/* Nie znamy tu adresu strony-źródła — mogła to być zakładka Odjazdy
             albo Przyjazdy pełnej tablicy — więc `onBack` (router.back()), nie
             stały `backHref`. */}
-        <TopBar onBack={handleBack} backLabel="Powrót do wyników" />
+        <TopBar onBack={handleBack} backLabel="Powrót do wyników" onShare={() => void share()} />
         <ConnectionDetails
           scheduleId={scheduleId}
           orderId={orderId}

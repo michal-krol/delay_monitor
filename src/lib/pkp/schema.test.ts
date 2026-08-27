@@ -306,3 +306,21 @@ describe('disruptionsResponseSchema', () => {
   })
 })
 
+
+describe('schedulesResponseSchema — pola przystanku trasy', () => {
+  it('reads stopTypeName from a route stop', () => {
+    const result = schedulesResponseSchema.parse({
+      routes: [{ scheduleId: 2026, orderId: 1, stations: [{ stationId: 33605, stopTypeName: 'tylko dla wysiadających' }] }],
+    })
+    expect(result.routes[0].stations[0].stopTypeName).toBe('tylko dla wysiadających')
+  })
+
+  // Na żywym API pole jest wypełnione w 353 z 8380 przystanków — brak jest
+  // regułą, nie wyjątkiem, więc nie może niczego wywracać.
+  it('defaults a missing stopTypeName to null', () => {
+    const result = schedulesResponseSchema.parse({
+      routes: [{ scheduleId: 2026, orderId: 1, stations: [{ stationId: 33605 }] }],
+    })
+    expect(result.routes[0].stations[0].stopTypeName).toBeNull()
+  })
+})

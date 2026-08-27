@@ -17,11 +17,22 @@
   --sidebar-border: rgba(15, 23, 42, 0.06);
   --foreground: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #64748b;
+  /* #64748b dawało 4,22:1 na tle karty `glass` (zmierzone w przeglądarce na
+     rgb(239,241,250)) — poniżej progu WCAG AA 4,5:1, a to token setek etykiet.
+     #5b6878 daje 5,04:1 i nadal jest wyraźnie ciszsze od --text-secondary. */
+  --text-muted: #5b6878;
   --nav-active-bg: linear-gradient(90deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.14));
   --nav-active-ring: rgba(59, 130, 246, 0.35);
   --nav-active-text: #1d4ed8;
   --row-hover: rgba(15, 23, 42, 0.035);
+
+  /* Tekstowe warianty statusów -- patrz komentarz przy tokenach pigułki niżej. */
+  --status-onTime-text: #166534;
+  --status-delayed-text: #a83208;
+  --status-cancelled-text: #be123c;
+  --status-unknown-text: #475569;
+  --status-notStarted-text: #0369a1;
+  --status-enRoute-text: #4338ca;
 }
 
 .dark {
@@ -37,16 +48,37 @@
   --sidebar-border: rgba(255, 255, 255, 0.06);
   --foreground: #f1f5f9;
   --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  /* jw. — na ciemnym tle karty (rgb(11,18,32)) #64748b dawało tylko 3,94:1.
+     #7a8798 daje 5,12:1, wciąż wyraźnie poniżej --text-secondary (7,30:1). */
+  --text-muted: #7a8798;
   --nav-active-bg: linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.1));
   --nav-active-ring: rgba(125, 211, 252, 0.25);
   --nav-active-text: #f1f5f9;
   --row-hover: rgba(255, 255, 255, 0.035);
+
+  --status-onTime-text: #4ade80;
+  --status-delayed-text: #fb923c;
+  --status-cancelled-text: #fb7185;
+  --status-unknown-text: #94a3b8;
+  --status-notStarted-text: #38bdf8;
+  --status-enRoute-text: #a5b4fc;
 }
 
 /* Statusy: identyczne wartości w obu motywach — samowystarczalna, nasycona
    plakietka nie zależy od tła strony (decyzja #8). Jedyne źródło kolorów
-   statusu w całej aplikacji — DelayBadge i tylko DelayBadge je konsumuje. */
+   statusu w całej aplikacji — DelayBadge i tylko DelayBadge je konsumuje.
+
+   `--status-*-text` (wyżej, w blokach motywu) to DRUGI zestaw tej samej
+   palety, do statusu pisanego kolorowym TEKSTEM zamiast pigułką (przebieg
+   trasy w panelu szczegółów połączenia). Musi zależeć od motywu, w
+   przeciwieństwie do tokenów pigułki: kolory pigułki są projektowane jako TŁO
+   pod białym tekstem i jako tekst na ciemnym tle karty nie spełniają WCAG AA
+   — zmierzone na `#0d1424` (efektywne tło `glass` w ciemnym motywie):
+   onTime 3,66:1, delayed 3,55:1, cancelled 3,91:1, unknown 1,77:1,
+   notStarted 3,10:1, enRoute 2,92:1 — wszystkie poniżej progu 4,5:1.
+   Warianty tekstowe: 10,55 / 8,12 / 6,83 / 7,17 / 8,58 / 9,22:1 w ciemnym
+   i 4,76 / 5,34 / 5,97 / 7,20 / 5,64 / 7,51:1 w jasnym (na `#f8f9fc`).
+   To nadal jedno źródło — obie mapy konsumuje wyłącznie DelayBadge. */
 :root {
   --status-onTime-bg: #15803d;
   --status-onTime-fg: #ffffff;
@@ -61,6 +93,11 @@
   --status-enRoute-bg: #4f46e5;
   --status-enRoute-fg: #eef2ff;
   --accent-gradient: linear-gradient(135deg, #38bdf8, #6366f1);
+  /* Gradient akcentu jest za jasny na swoim jaśniejszym końcu, żeby unieść
+     biały tekst: biel na #38bdf8 to 2,14:1. Do plakietek z tekstem (np. kod
+     kategorii pociągu) służy więc pełny kolor — biel na nim ma 7,90:1.
+     Gradient zostaje do powierzchni i ikon, gdzie nie niesie treści. */
+  --accent-solid: #4338ca;
 }
 
 @theme inline {

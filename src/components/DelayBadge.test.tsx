@@ -146,3 +146,34 @@ describe('DelayBadge', () => {
     expect(html).toContain('var(--status-delayed-fg)')
   })
 })
+
+describe('DelayBadge — wariant tekstowy', () => {
+  it('używa tokenu tekstowego jako koloru, nie jako tła', () => {
+    render(<DelayBadge status="delayed" delayMinutes={4} variant="text" />)
+    const badge = screen.getByText('+4 min')
+    expect(badge).toHaveStyle({ color: 'var(--status-delayed-text)' })
+    expect(badge.style.backgroundColor).toBe('')
+  })
+
+  it('domyślnie zostaje pigułką, żeby istniejące użycia się nie zmieniły', () => {
+    render(<DelayBadge status="delayed" delayMinutes={4} />)
+    expect(screen.getByText('+4 min')).toHaveStyle({ backgroundColor: 'var(--status-delayed-bg)' })
+  })
+
+  it('mówi to samo co pigułka — wariant zmienia wygląd, nigdy treść', () => {
+    for (const status of STATUSES) {
+      const utils = render(<DelayBadge status={status} delayMinutes={5} />)
+      const pillText = utils.baseElement.textContent
+      utils.unmount()
+      const view = render(<DelayBadge status={status} delayMinutes={5} variant="text" />)
+      expect(view.baseElement.textContent, `status ${status}`).toBe(pillText)
+      view.unmount()
+    }
+  })
+
+  // Zastrzeżenie „to szacunek, nie fakt" nie może zniknąć razem z pigułką.
+  it('zachowuje tooltip szacunku w wariancie tekstowym', () => {
+    render(<DelayBadge status="enRoute" delayMinutes={null} estimatedDelayMinutes={4} variant="text" />)
+    expect(screen.getByTitle(/szacunek/i)).toHaveTextContent('w trasie, ~+4 min')
+  })
+})

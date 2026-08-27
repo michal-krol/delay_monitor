@@ -41,8 +41,8 @@
           "stationId": "22442",
           "plannedArrival": "2026-08-01T12:20:00+02:00",
           "actualArrival": "2026-08-01T12:27:00+02:00",
-          "plannedDeparture": "2026-08-01T12:22:00+02:00",
-          "actualDeparture": "2026-08-01T12:30:00+02:00",
+          "plannedDeparture": "2026-08-01T12:26:00+02:00",
+          "actualDeparture": "2026-08-01T12:28:00+02:00",
           "isConfirmed": true
         },
         {

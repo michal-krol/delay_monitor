@@ -33,6 +33,13 @@ export type TrainDetailApiResponse = {
   /** jw., dla kategorii -- rozwiązywane po kluczu `carrierCode|category`, bo sam kod kategorii jest niejednoznaczny między przewoźnikami. */
   categoryName: string | null
   routeName: string | null
+  /**
+   * Numer krajowy pociągu (`RouteDto.nationalNumber`) — na żywym API wypełniony
+   * w każdej z 475 sprawdzonych tras, w przeciwieństwie do `routeName` (316/475).
+   * Razem z `category` daje nagłówek panelu w formie, jakiej pasażer używa:
+   * „IC 2706". `null` tylko wtedy, gdy trasy w ogóle nie udało się dopasować.
+   */
+  nationalNumber: string | null
   stops: TrainDetailStop[]
 }
 
@@ -90,6 +97,7 @@ async function loadTrainDetail(scheduleId: string, orderId: string, operatingDat
     categoryName:
       carrierCode !== null && category !== null ? (names.categoryNames[`${carrierCode}|${category}`] ?? null) : null,
     routeName: detail.route?.name ?? null,
+    nationalNumber: detail.route?.nationalNumber ?? null,
     stops,
   }
 }

@@ -98,6 +98,11 @@ export type Poller = {
   isAwake(): boolean
   /** Czy poller zwolnił poniżej skonfigurowanego tempa (niski budżet albo 429). */
   isThrottled(): boolean
+  /**
+   * Aktualny odstęp między przebiegami. `isThrottled()` mówi „zwolnił", to
+   * mówi „o ile" — bez tego panel diagnostyczny pokazywałby sam bool.
+   */
+  getIntervalMs(): number
 }
 
 type RoutesLookup = {
@@ -347,6 +352,10 @@ export function createPoller(deps: PollerDeps): Poller {
 
     isAwake(): boolean {
       return timer !== null
+    },
+
+    getIntervalMs(): number {
+      return currentIntervalMs
     },
 
     isThrottled(): boolean {

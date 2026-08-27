@@ -96,6 +96,16 @@ const rawRouteStopSchema = z
     /** Przesunięcie dnia względem `operatingDate`, gdy przystanek wypada po północy. `null`/brak = ten sam dzień. */
     arrivalDay: z.number().int().nullable().optional().default(null),
     departureDay: z.number().int().nullable().optional().default(null),
+    /**
+     * Typ postoju, gdy jest inny niż zwykły — na żywym API (475 tras, 8380
+     * przystanków, Warszawa Centralna, 2026-08-27) wypełniony w 353 z nich
+     * i przyjmujący dokładnie dwie wartości: „tylko dla wysiadających"
+     * i „tylko dla wsiadających". Brak jest więc regułą, nie wyjątkiem —
+     * i znaczy „zwykły postój", nie „brak danych". Renderowane jako
+     * ostrzeżenie przy przystanku (patrz `ConnectionDetails.tsx`), bo to
+     * jedyny przypadek, w którym pasażer nie może tu wsiąść/wysiąść.
+     */
+    stopTypeName: z.string().nullable().optional().default(null),
   })
   .passthrough()
 

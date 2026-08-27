@@ -43,6 +43,7 @@ function routeStop(stationId: string): RawRouteStop {
     departureTime: null,
     arrivalDay: null,
     departureDay: null,
+    stopTypeName: null,
   }
 }
 

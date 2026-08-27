@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { HomeIcon, ListIcon, StarIcon, BellIcon, RouteIcon, MapIcon, SettingsIcon, ChevronRightIcon } from './icons'
+import { PollerDiagnostics } from './PollerDiagnostics'
 
 type ActiveItem = 'pulpit'
 
@@ -124,6 +125,10 @@ export function Sidebar({ activeItem }: Props) {
           )
         })}
       </nav>
+
+      {/* Tylko środowiska deweloperskie — na produkcji ten komponent nie
+          istnieje w bundlu, patrz `PollerDiagnostics.tsx`. */}
+      <PollerDiagnostics collapsed={collapsed} />
     </aside>
   )
 }

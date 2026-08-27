@@ -36,6 +36,25 @@ function detectGitBranch(): string {
 }
 
 /**
+ * Czy pokazać panel diagnostyczny pollera w pasku bocznym
+ * (`PollerDiagnostics.tsx`). **Allowlista, nie denylista** — i to jest tu
+ * całą pointą.
+ *
+ * Kuszące `detectGitBranch() !== "main"` byłoby błędem: jak opisuje komentarz
+ * wyżej, `RAILWAY_GIT_BRANCH` bywa puste nawet na Railway, a wtedy
+ * `detectGitBranch()` schodzi do `RAILWAY_ENVIRONMENT_NAME`, czyli
+ * `"production"` — nie `"main"`. Denylista pokazałaby więc panel dokładnie na
+ * produkcji. Tutaj nieznana albo pusta wartość znaczy „produkcja" i panel nie
+ * powstaje.
+ *
+ * Nowe środowisko Railway (np. `staging`) jest domyślnie wyłączone; włączenie
+ * to dopisanie jednej wartości.
+ */
+function showDiagnostics(): boolean {
+  return process.env.NODE_ENV === "development" || process.env.RAILWAY_ENVIRONMENT_NAME === "development";
+}
+
+/**
  * CSP pragmatyczna, nie ścisła — świadoma decyzja.
  *
  * Ścisła polityka wymagałaby nonce'ów dla każdego żądania, czyli middleware
@@ -92,6 +111,7 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
     NEXT_PUBLIC_APP_BRANCH: detectGitBranch(),
+    NEXT_PUBLIC_SHOW_DIAGNOSTICS: String(showDiagnostics()),
   },
 
   async headers() {

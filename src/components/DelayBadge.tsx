@@ -18,6 +18,13 @@ type Props = {
    * (patrz `board/transform.ts`, `estimatedDelayMinutes`).
    */
   estimatedDelayMinutes?: number | null
+  /**
+   * `pill` (domyślnie) — nasycona plakietka na własnym tle, do tablicy
+   * i nagłówków. `text` — sam kolorowy tekst, do gęstych list, gdzie sześć
+   * pigułek pod sobą przytłacza wiersz (przebieg trasy w panelu szczegółów).
+   * Zmienia wyłącznie wygląd: etykieta, tooltip i znaczenie są te same.
+   */
+  variant?: 'pill' | 'text'
 }
 
 /** Wyeksportowane, żeby legenda statusów (`BoardTable.tsx`) mogła reużyć te same etykiety zamiast duplikować je osobno. */
@@ -51,7 +58,23 @@ export const TOKENS: Record<RealizationStatus, { bg: string; fg: string }> = {
   enRoute: { bg: 'var(--status-enRoute-bg)', fg: 'var(--status-enRoute-fg)' },
 }
 
-export function DelayBadge({ status, delayMinutes, direction = 'departure', estimatedDelayMinutes = null }: Props) {
+/**
+ * Tekstowe warianty kolorów statusu — druga połowa tego samego, jedynego
+ * źródła co `TOKENS`. Osobna mapa, bo kolory pigułki są projektowane jako TŁO
+ * pod białym tekstem i jako tekst na tle karty nie spełniają WCAG AA
+ * (zmierzone wartości w komentarzu w `globals.css`). W przeciwieństwie do
+ * `TOKENS` te tokeny są zależne od motywu.
+ */
+export const STATUS_TEXT: Record<RealizationStatus, string> = {
+  onTime: 'var(--status-onTime-text)',
+  delayed: 'var(--status-delayed-text)',
+  cancelled: 'var(--status-cancelled-text)',
+  unknown: 'var(--status-unknown-text)',
+  notStarted: 'var(--status-notStarted-text)',
+  enRoute: 'var(--status-enRoute-text)',
+}
+
+export function DelayBadge({ status, delayMinutes, direction = 'departure', estimatedDelayMinutes = null, variant = 'pill' }: Props) {
   const hasEstimate = status === 'enRoute' && estimatedDelayMinutes !== null
   const text = hasEstimate
     ? estimatedDelayMinutes >= 1
@@ -64,8 +87,12 @@ export function DelayBadge({ status, delayMinutes, direction = 'departure', esti
         : LABELS[status]
   return (
     <span
-      className="rounded-full px-2.5 py-0.5 text-sm font-semibold"
-      style={{ backgroundColor: TOKENS[status].bg, color: TOKENS[status].fg }}
+      className={variant === 'text' ? 'text-sm font-semibold' : 'rounded-full px-2.5 py-0.5 text-sm font-semibold'}
+      style={
+        variant === 'text'
+          ? { color: STATUS_TEXT[status] }
+          : { backgroundColor: TOKENS[status].bg, color: TOKENS[status].fg }
+      }
       title={hasEstimate ? ESTIMATE_TOOLTIP : undefined}
     >
       {text}

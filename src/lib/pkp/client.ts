@@ -55,8 +55,17 @@ const SCHEDULES_CACHE_MAX_ENTRIES = 64
  * a nie „zero" — brak nagłówka nie może wyglądać jak wyczerpany limit.
  */
 export type RateLimitBudget = {
+  /** Ile zapytań zostało w oknie godzinowym. `null` = nie wiadomo (brak nagłówka), NIGDY „zero" — patrz AGENTS.md #3. */
   hourly: number | null
   daily: number | null
+  /**
+   * Sufity przypisane do klucza. Też z nagłówków (zweryfikowane na żywym API:
+   * `X-RateLimit-Hourly-Limit: 100`, `X-RateLimit-Daily-Limit: 1000`), więc
+   * nigdzie nie musimy ich wpisywać na sztywno ani zgadywać poziomu klucza.
+   * `null` znaczy „nie wiadomo" dokładnie tak samo jak wyżej.
+   */
+  hourlyLimit: number | null
+  dailyLimit: number | null
 }
 
 export type GetOperationsResult = {
@@ -232,6 +241,8 @@ function parseBudget(response: Response): RateLimitBudget {
   return {
     hourly: parseRemaining(response.headers.get('X-RateLimit-Hourly-Remaining')),
     daily: parseRemaining(response.headers.get('X-RateLimit-Daily-Remaining')),
+    hourlyLimit: parseRemaining(response.headers.get('X-RateLimit-Hourly-Limit')),
+    dailyLimit: parseRemaining(response.headers.get('X-RateLimit-Daily-Limit')),
   }
 }
 

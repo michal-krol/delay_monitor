@@ -38,6 +38,8 @@ export type RawRouteStop = {
   departureTime: string | null
   arrivalDay: number | null
   departureDay: number | null
+  /** „tylko dla wysiadających" / „tylko dla wsiadających" — `null` = zwykły postój. Patrz `schema.ts`. */
+  stopTypeName: string | null
 }
 
 export type RawRoute = {

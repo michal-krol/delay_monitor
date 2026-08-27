@@ -37,6 +37,7 @@ function routeStop(overrides: Partial<RawRouteStop> & { stationId: string }): Ra
     departureTime: null,
     arrivalDay: null,
     departureDay: null,
+    stopTypeName: null,
     ...overrides,
   }
 }

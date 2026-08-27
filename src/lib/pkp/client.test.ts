@@ -61,6 +61,29 @@ describe('createLiveClient', () => {
     expect(results).toEqual([{ id: '1', name: 'Warszawa Centralna' }])
   })
 
+  // Sufity limitu przychodzą z tych samych odpowiedzi co pozostałe (sprawdzone
+  // na żywym API: `X-RateLimit-Hourly-Limit: 100`, `X-RateLimit-Daily-Limit: 1000`),
+  // więc panel diagnostyczny nie musi ich nigdzie wpisywać na sztywno.
+  it('reads the rate-limit ceilings from response headers too, not just what is left', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        { trains: [] },
+        {
+          'X-RateLimit-Hourly-Remaining': '62',
+          'X-RateLimit-Daily-Remaining': '702',
+          'X-RateLimit-Hourly-Limit': '100',
+          'X-RateLimit-Daily-Limit': '1000',
+        }
+      )
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createLiveClient('secret-key')
+
+    const result = await client.getOperations(['33605'])
+
+    expect(result.budget).toEqual({ hourly: 62, daily: 702, hourlyLimit: 100, dailyLimit: 1000 })
+  })
+
   it('reads the rate-limit budget from response headers', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse(
@@ -73,7 +96,7 @@ describe('createLiveClient', () => {
     const client = createLiveClient('secret-key')
     const result = await client.getOperations(['5100'])
 
-    expect(result.budget).toEqual({ hourly: 42, daily: 901 })
+    expect(result.budget).toEqual({ hourly: 42, daily: 901, hourlyLimit: null, dailyLimit: null })
   })
 
   it('reports an absent rate-limit header as unknown, not as an exhausted budget', async () => {
@@ -85,7 +108,7 @@ describe('createLiveClient', () => {
     const client = createLiveClient('secret-key')
     const result = await client.getOperations(['5100'])
 
-    expect(result.budget).toEqual({ hourly: null, daily: null })
+    expect(result.budget).toEqual({ hourly: null, daily: null, hourlyLimit: null, dailyLimit: null })
   })
 
   it('reports an unparsable rate-limit header as unknown', async () => {
@@ -97,7 +120,7 @@ describe('createLiveClient', () => {
     const client = createLiveClient('secret-key')
     const result = await client.getOperations(['5100'])
 
-    expect(result.budget).toEqual({ hourly: null, daily: null })
+    expect(result.budget).toEqual({ hourly: null, daily: null, hourlyLimit: null, dailyLimit: null })
   })
 
   it('still reports a genuine zero as zero', async () => {
@@ -109,7 +132,7 @@ describe('createLiveClient', () => {
     const client = createLiveClient('secret-key')
     const result = await client.getOperations(['5100'])
 
-    expect(result.budget).toEqual({ hourly: 0, daily: 0 })
+    expect(result.budget).toEqual({ hourly: 0, daily: 0, hourlyLimit: null, dailyLimit: null })
   })
 
   it('joins multiple station ids into one query and requests withPlanned=true, without fullRoutes', async () => {
@@ -550,6 +573,7 @@ describe('createLiveClient', () => {
             departureTime: null,
             arrivalDay: null,
             departureDay: null,
+            stopTypeName: null,
           },
         ],
       })

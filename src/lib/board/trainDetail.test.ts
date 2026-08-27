@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTrainDetailStops } from './trainDetail'
+import { buildTrainDetailStops, resolveCurrentStopIndex } from './trainDetail'
 import type { RawDisruption, RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 
 /** Realizacja bez planu/opóźnienia — dokładnie taki kształt, jaki naprawdę zwraca `/operations/train/{scheduleId}/{orderId}/{operatingDate}` na żywo (stwierdzone bezpośrednio na API, nie w dokumentacji). */
@@ -27,6 +27,7 @@ function routeStop(overrides: Partial<RawRouteStop> & { stationId: string }): Ra
     departureTime: null,
     arrivalDay: null,
     departureDay: null,
+    stopTypeName: null,
     ...overrides,
   }
 }
@@ -369,5 +370,98 @@ describe('buildTrainDetailStops', () => {
       const result = buildTrainDetailStops(operation(stops, null), null, {}, disruptions, { utr_40: 'Awaria sieci trakcyjnej' })
       expect(result[0].disruptionMessages).toEqual([])
     })
+  })
+})
+
+describe('buildTrainDetailStops — postój i typ postoju', () => {
+  it('computes the planned dwell time in whole minutes', () => {
+    const stops = buildTrainDetailStops(
+      operation([realizedStop({ stationId: 'A' })]),
+      route([routeStop({ stationId: 'A', arrivalTime: '10:00:00', departureTime: '10:13:00' })]),
+      {}
+    )
+    expect(stops[0].stopMinutes).toBe(13)
+  })
+
+  // Na żywym API 1650 z 7173 postojów trwa krócej niż minutę. Gołe dzielenie
+  // przez 60000 dałoby `0`, czyli „brak postoju" -- zaokrąglamy w górę do 1,
+  // bo postój ISTNIEJE, tylko jest krótki.
+  it('rounds a sub-minute dwell up to 1 instead of collapsing it to 0', () => {
+    const stops = buildTrainDetailStops(
+      operation([realizedStop({ stationId: 'A' })]),
+      route([routeStop({ stationId: 'A', arrivalTime: '10:00:00', departureTime: '10:00:30' })]),
+      {}
+    )
+    expect(stops[0].stopMinutes).toBe(1)
+  })
+
+  it('reports no dwell for a terminus (only one of arrival/departure is planned)', () => {
+    const stops = buildTrainDetailStops(
+      operation([realizedStop({ stationId: 'A' }), realizedStop({ stationId: 'B' })]),
+      route([
+        routeStop({ stationId: 'A', departureTime: '10:00:00' }),
+        routeStop({ stationId: 'B', arrivalTime: '11:00:00' }),
+      ]),
+      {}
+    )
+    expect(stops[0].stopMinutes).toBeNull()
+    expect(stops[1].stopMinutes).toBeNull()
+  })
+
+  it('passes stopTypeName through from the route stop', () => {
+    const stops = buildTrainDetailStops(
+      operation([realizedStop({ stationId: 'A' })]),
+      route([routeStop({ stationId: 'A', stopTypeName: 'tylko dla wysiadających' })]),
+      {}
+    )
+    expect(stops[0].stopTypeName).toBe('tylko dla wysiadających')
+  })
+
+  it('leaves dwell and stop type null for a train with no matched route', () => {
+    const stops = buildTrainDetailStops(operation([realizedStop({ stationId: 'A' })]), null, {})
+    expect(stops[0].stopMinutes).toBeNull()
+    expect(stops[0].stopTypeName).toBeNull()
+  })
+})
+
+describe('resolveCurrentStopIndex', () => {
+  it('points at the last confirmed stop -- that is where the train actually is', () => {
+    const stops = buildTrainDetailStops(
+      operation([
+        realizedStop({ stationId: 'A', isConfirmed: true }),
+        realizedStop({ stationId: 'B', isConfirmed: true }),
+        realizedStop({ stationId: 'C', isConfirmed: false }),
+      ]),
+      null,
+      {}
+    )
+    expect(resolveCurrentStopIndex(stops)).toBe(1)
+  })
+
+  // `actualDeparture` bez `isConfirmed` nie dowodzi realizacji (AGENTS.md #2) --
+  // ta sama zasada musi obowiązywać dla pytania „gdzie jest pociąg".
+  it('ignores an unconfirmed stop that already carries an actual time', () => {
+    const stops = buildTrainDetailStops(
+      operation([
+        realizedStop({ stationId: 'A', isConfirmed: true }),
+        realizedStop({ stationId: 'B', isConfirmed: false, actualDeparture: '2026-08-01T10:20:00+02:00' }),
+      ]),
+      null,
+      {}
+    )
+    expect(resolveCurrentStopIndex(stops)).toBe(0)
+  })
+
+  it('returns -1 for a train that has not started anywhere yet', () => {
+    const stops = buildTrainDetailStops(
+      operation([realizedStop({ stationId: 'A', isConfirmed: false }), realizedStop({ stationId: 'B', isConfirmed: false })]),
+      null,
+      {}
+    )
+    expect(resolveCurrentStopIndex(stops)).toBe(-1)
+  })
+
+  it('returns -1 for an empty stop list', () => {
+    expect(resolveCurrentStopIndex([])).toBe(-1)
   })
 })

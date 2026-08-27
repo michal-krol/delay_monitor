@@ -69,6 +69,7 @@ function routeStop(stationId: string) {
     departureTime: null,
     arrivalDay: null,
     departureDay: null,
+    stopTypeName: null,
   }
 }
 
@@ -443,9 +444,13 @@ describe('createPoller', () => {
     poller.registerInterest(['5100'])
     await vi.advanceTimersByTimeAsync(0)
     expect(poller.isThrottled()).toBe(false)
+    // Sam bool nie mówi „o ile" — panel diagnostyczny pokazuje tempo, więc
+    // poller musi je udostępniać, nie tylko fakt zdławienia.
+    expect(poller.getIntervalMs()).toBe(90000)
 
     await vi.advanceTimersByTimeAsync(90000)
     expect(poller.isThrottled()).toBe(true)
+    expect(poller.getIntervalMs()).toBeGreaterThan(90000)
   })
 
   it('keeps the previous snapshot when a request fails', async () => {

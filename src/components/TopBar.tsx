@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftIcon, BellIcon } from './icons'
+import { ArrowLeftIcon, BellIcon, ShareIcon } from './icons'
 import { ThemeToggle } from './ThemeToggle'
 
 type HeaderVariant = {
@@ -19,6 +19,8 @@ type HeaderVariant = {
 type BackVariant = {
   backLabel: string
   onBack: () => void
+  /** Udostępnienie bieżącej trasy. Pominięte na stronach, których nie ma sensu wysyłać dalej. */
+  onShare?: () => void
   title?: never
   subtitle?: never
 }
@@ -44,6 +46,17 @@ export function TopBar(props: Props) {
       )}
 
       <div className="flex shrink-0 items-center gap-2">
+        {isBackVariant && props.onShare !== undefined && (
+          <button
+            type="button"
+            onClick={props.onShare}
+            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold text-text-secondary transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+            style={{ borderColor: 'var(--surface-border)' }}
+          >
+            <ShareIcon size={15} />
+            Udostępnij
+          </button>
+        )}
         <ThemeToggle />
         <button
           type="button"

@@ -96,6 +96,7 @@ describe('GET /api/train', () => {
     expect(body.carrierName).toBeNull()
     expect(body.categoryName).toBeNull()
     expect(body.routeName).toBe('EIC Grunwald')
+    expect(body.nationalNumber).toBeNull()
     expect(body.stops).toEqual([
       {
         stationId: '33605',
@@ -116,6 +117,9 @@ describe('GET /api/train', () => {
         hasTrainStarted: true,
         estimatedDelayMinutes: null,
         disruptionMessages: [],
+        // Postój wymaga OBU planowych czasów -- ten przystanek ma tylko odjazd.
+        stopMinutes: null,
+        stopTypeName: null,
       },
     ])
   })
@@ -284,6 +288,9 @@ describe('GET /api/train', () => {
     expect(body.stops[0].isConfirmed).toBe(false)
     expect(body.stops[0].departureDelayMinutes).toBeNull()
     expect(body.stops[0].arrivalDelayMinutes).toBeNull()
+    // Numer krajowy jest na żywym API wypełniony w 475/475 tras -- to on, nie
+    // nazwa trasy, daje nagłówek "R1 91342" w panelu szczegółów.
+    expect(body.nationalNumber).toBe('91342')
   })
 
   it('caches a successful response for the same train key, without a second upstream call', async () => {
