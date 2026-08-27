@@ -27,8 +27,16 @@ function isNetworkStats(value: unknown): value is NetworkStats {
   )
 }
 
+/**
+ * Ostatnia udana odpowiedź, poza stanem komponentu -- nawigacja z pulpitu i
+ * powrót odmontowuje kartę, więc samo `useState(null)` gubiło ją, mimo że
+ * serwer wciąż ma ją scache'owaną (`networkStats.ts`, TTL 15 min) i odpowiada
+ * natychmiast. Bez tego widżet migał "Wczytywanie…" przy każdym powrocie.
+ */
+let lastKnownStats: NetworkStats | null = null
+
 export function useNetworkStats() {
-  const [data, setData] = useState<NetworkStats | null>(null)
+  const [data, setData] = useState<NetworkStats | null>(lastKnownStats)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -50,6 +58,7 @@ export function useNetworkStats() {
           setData(json)
           setError(null)
         }
+        lastKnownStats = json
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Nieznany błąd')
       }

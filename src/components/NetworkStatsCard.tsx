@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useNetworkStats } from '@/hooks/useNetworkStats'
+import { AlertCircleIcon } from './icons'
 import type { NetworkStats } from '@/lib/board/networkStats'
 
 const STATUS_COLORS = {
@@ -114,9 +115,7 @@ export function NetworkStatsCard() {
         </svg>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">Dziś w Polsce</p>
-          <p className="truncate text-xs text-text-secondary">
-            {data === null ? 'Wczytywanie…' : `${formatNumber(data.totalTrains)} pociągów · zgodnie z planem`}
-          </p>
+          <p className="truncate text-xs text-text-secondary">{data === null ? 'Wczytywanie…' : 'zgodnie z planem'}</p>
         </div>
         {data !== null && <span className="shrink-0 text-xs text-text-muted">{formatTime(data.generatedAt)}</span>}
         <svg
@@ -132,6 +131,7 @@ export function NetworkStatsCard() {
 
       {expanded && data !== null && (
         <div className="mt-3.5 flex flex-col gap-4 border-t border-black/10 pt-3.5 dark:border-white/10">
+          <p className="text-xs text-text-muted">Pociągów łącznie · {formatNumber(data.totalTrains)}</p>
           <div className="flex items-center gap-4">
             <svg width={80} height={80} viewBox="0 0 36 36" aria-hidden="true" className="shrink-0">
               {statusSegments(data).map((segment, index) => (
@@ -184,7 +184,8 @@ export function NetworkStatsCard() {
             </div>
           )}
 
-          <p className="text-xs text-text-secondary">
+          <p className="flex items-center gap-1.5 text-xs text-text-secondary">
+            <AlertCircleIcon size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
             {formatNumber(data.disruptionCount)} zgłoszonych utrudnień na sieci
           </p>
         </div>
