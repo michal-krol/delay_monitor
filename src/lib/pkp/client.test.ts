@@ -550,8 +550,6 @@ describe('createLiveClient', () => {
             departureTime: null,
             arrivalDay: null,
             departureDay: null,
-            stopTypeId: null,
-            stopTypeName: null,
           },
         ],
       })

@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import { SunIcon, MoonIcon } from './icons'
 
@@ -12,8 +13,21 @@ import { SunIcon, MoonIcon } from './icons'
  * nie renderuje `TopBar` i inaczej straciłaby możliwość przełączania motywu).
  */
 export function ThemeToggle() {
+  // next-themes rozwiązuje prawdziwy motyw synchronicznie już przy
+  // pierwszym renderze klienta (żeby uniknąć błysku złego motywu), ale
+  // serwer nigdy nie ma dostępu do localStorage/prefers-color-scheme --
+  // resolvedTheme jest tam zawsze `undefined`. Czytanie resolvedTheme wprost
+  // (bez tej strażniczej flagi) dawało więc dwa różne renderowania tego
+  // samego przycisku (ikona + aria-label) między serwerem a klientem --
+  // "Hydration failed" zaobserwowane na żywo w konsoli produkcyjnej.
+  // `mounted` trzyma pierwszy render klienta identycznym z serwerowym z
+  // definicji, dopóki useEffect (który na serwerze się nie odpala) nie
+  // potwierdzi, że jesteśmy faktycznie po stronie klienta.
+  const [mounted, setMounted] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
-  const isDark = resolvedTheme === 'dark'
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- czy jesteśmy po stronie klienta jest wiadome dopiero po zamontowaniu, ten sam wzorzec co odtwarzanie stanu z URL-a w FullBoard.tsx
+  useEffect(() => setMounted(true), [])
+  const isDark = mounted && resolvedTheme === 'dark'
 
   return (
     <button

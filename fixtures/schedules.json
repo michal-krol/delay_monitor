@@ -23,9 +23,7 @@
         {
           "stationId": "7872",
           "arrivalTime": "11:35:00",
-          "departureTime": "11:37:00",
-          "stopTypeId": 2,
-          "stopTypeName": "tylko dla wysiadających"
+          "departureTime": "11:37:00"
         },
         {
           "stationId": "21808",

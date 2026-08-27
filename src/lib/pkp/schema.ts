@@ -96,9 +96,6 @@ const rawRouteStopSchema = z
     /** Przesunięcie dnia względem `operatingDate`, gdy przystanek wypada po północy. `null`/brak = ten sam dzień. */
     arrivalDay: z.number().int().nullable().optional().default(null),
     departureDay: z.number().int().nullable().optional().default(null),
-    /** Typ przystanku (np. "tylko dla wysiadających") — rzadkie (~1% przystanków na żywych danych), `null` gdy zwykły przystanek. */
-    stopTypeId: z.number().int().nullable().optional().default(null),
-    stopTypeName: z.string().nullable().optional().default(null),
   })
   .passthrough()
 

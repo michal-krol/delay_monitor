@@ -129,4 +129,17 @@ describe('FocusedStation', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('closes even while the board is still loading (snapshot not yet received)', async () => {
+    // Zgłoszony błąd: kliknięcie Zamknij tuż po wejściu, zanim dane się
+    // załadują, czasem nic nie robiło. `snapshot={null}` odtwarza dokładnie
+    // ten moment.
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(<FocusedStation stationName="Warszawa Centralna" snapshot={null} configError={false} onClose={onClose} />)
+
+    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
 })

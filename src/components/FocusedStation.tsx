@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardTable } from './BoardTable'
-import { PillButton, TabButton, type Direction } from './FullBoard'
+import { IconButton, TabButton, type Direction } from './FullBoard'
+import { CloseIcon } from './icons'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 
@@ -24,7 +25,9 @@ export function FocusedStation({ stationName, snapshot, configError, onClose }: 
     <section className="glass rounded-2xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">{stationName}</h2>
-        <PillButton onClick={onClose}>Zamknij</PillButton>
+        <IconButton onClick={onClose} label="Zamknij">
+          <CloseIcon size={15} />
+        </IconButton>
       </div>
 
       {configError ? (

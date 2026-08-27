@@ -16,8 +16,6 @@ export type TrainDetailStop = {
   isCancelled: boolean
   isConfirmed: boolean
   platform: string | null
-  /** Typ przystanku (np. "tylko dla wysiadających"), ze `/schedules` — `null` dla zwykłego przystanku (99% przypadków, patrz `schema.ts`). */
-  stopTypeName: string | null
   /**
    * Czy jakikolwiek wcześniejszy przystanek na tej trasie (wcześniejszy w
    * `operation.stations`, czyli po kolejności przejazdu) miał już
@@ -181,7 +179,6 @@ export function buildTrainDetailStops(
       ),
       hasTrainStarted,
       estimatedDelayMinutes: status === 'enRoute' ? lastConfirmedDelayMinutes : null,
-      stopTypeName: routeStop?.stopTypeName ?? null,
       disruptionMessages:
         operation.operatingDate === null
           ? []

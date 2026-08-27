@@ -24,9 +24,9 @@ export type BoardApiRow = {
   estimatedDelayMinutes: number | null
   /**
    * Czy cały przejazd (dowolna stacja trasy) jest objęty utrudnieniem -- patrz
-   * `board/disruptions.ts`. Opcjonalne (nie `boolean`), ten sam powód co
-   * `RawRouteStop.stopTypeId?` w `pkp/types.ts`: liczne literały tego typu w
-   * testach powstałych przed tym polem nie muszą się teraz o nim uczyć.
+   * `board/disruptions.ts`. Opcjonalne (nie `boolean`), świadomie: liczne
+   * literały tego typu w testach powstałych przed tym polem nie muszą się
+   * teraz o nim uczyć, żeby dalej się kompilować.
    */
   hasDisruption?: boolean
 }

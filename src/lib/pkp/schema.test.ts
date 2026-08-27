@@ -306,26 +306,3 @@ describe('disruptionsResponseSchema', () => {
   })
 })
 
-describe('schedulesResponseSchema stop type', () => {
-  it('parses stopTypeId/stopTypeName when present on a route stop', () => {
-    const result = schedulesResponseSchema.parse({
-      routes: [
-        {
-          scheduleId: '1',
-          orderId: '1',
-          stations: [{ stationId: '5100', stopTypeId: 2, stopTypeName: 'tylko dla wysiadających' }],
-        },
-      ],
-    })
-    expect(result.routes[0].stations[0].stopTypeId).toBe(2)
-    expect(result.routes[0].stations[0].stopTypeName).toBe('tylko dla wysiadających')
-  })
-
-  it('defaults stopTypeId/stopTypeName to null for an ordinary stop', () => {
-    const result = schedulesResponseSchema.parse({
-      routes: [{ scheduleId: '1', orderId: '1', stations: [{ stationId: '5100' }] }],
-    })
-    expect(result.routes[0].stations[0].stopTypeId).toBeNull()
-    expect(result.routes[0].stations[0].stopTypeName).toBeNull()
-  })
-})

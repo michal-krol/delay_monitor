@@ -6,6 +6,7 @@ import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable } from './BoardTable'
 import { ThemeToggle } from './ThemeToggle'
+import { CloseIcon, LinkIcon, StarIcon } from './icons'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 
@@ -19,13 +20,19 @@ type Props = {
 
 export type Direction = 'departures' | 'arrivals'
 
-/** "Dodaj/Usuń z ulubionych" i "Zamknij" mają identyczny wygląd — jedyna różnica to treść i akcja. Eksportowany do reużycia w `FocusedStation`. */
-export function PillButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+/**
+ * Przycisk-ikona bez podpisu — ten sam krój co `ThemeToggle` (obok którego
+ * zawsze stoi w tym samym rzędzie), żeby wszystkie przyciski nagłówka
+ * wyglądały spójnie. Eksportowany do reużycia w `FocusedStation`.
+ */
+export function IconButton({ onClick, label, children }: { onClick: () => void; label: string; children: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded-full bg-white/60 px-3.5 py-1.5 text-sm font-medium text-text-secondary ring-1 ring-black/10 transition hover:bg-white/90 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-white/10 dark:ring-white/10 dark:hover:bg-white/15"
+      aria-label={label}
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+      style={{ borderColor: 'var(--surface-border)' }}
     >
       {children}
     </button>
@@ -116,11 +123,15 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 {copyStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
               </span>
             )}
-            <PillButton onClick={onToggleFavourite}>
-              {isFavourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
-            </PillButton>
-            <PillButton onClick={() => void copyLink()}>Kopiuj link</PillButton>
-            <PillButton onClick={onClose}>Zamknij</PillButton>
+            <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
+              <StarIcon size={15} className={isFavourite ? 'fill-current text-amber-400' : ''} />
+            </IconButton>
+            <IconButton onClick={() => void copyLink()} label="Kopiuj link">
+              <LinkIcon size={15} />
+            </IconButton>
+            <IconButton onClick={onClose} label="Zamknij">
+              <CloseIcon size={15} />
+            </IconButton>
             <ThemeToggle />
           </div>
         </div>

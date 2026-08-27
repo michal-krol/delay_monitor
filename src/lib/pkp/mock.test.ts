@@ -93,13 +93,13 @@ describe('createMockClient', () => {
       name: 'EIC Grunwald',
       nationalNumber: null,
       stations: [
-        { stationId: '7500', arrivalPlatform: null, arrivalTrack: null, departurePlatform: '3', departureTrack: '1', arrivalTime: null, departureTime: '11:00:00', arrivalDay: null, departureDay: null, stopTypeId: null, stopTypeName: null },
-        { stationId: '7112', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '11:20:00', departureTime: '11:22:00', arrivalDay: null, departureDay: null, stopTypeId: null, stopTypeName: null },
-        { stationId: '7872', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '11:35:00', departureTime: '11:37:00', arrivalDay: null, departureDay: null, stopTypeId: 2, stopTypeName: 'tylko dla wysiadających' },
-        { stationId: '21808', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '12:00:00', departureTime: '12:02:00', arrivalDay: null, departureDay: null, stopTypeId: null, stopTypeName: null },
-        { stationId: '22442', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '12:20:00', departureTime: '12:22:00', arrivalDay: null, departureDay: null, stopTypeId: null, stopTypeName: null },
-        { stationId: '38653', arrivalPlatform: '2', arrivalTrack: null, departurePlatform: '2', departureTrack: null, arrivalTime: '13:10:00', departureTime: '13:12:00', arrivalDay: null, departureDay: null, stopTypeId: null, stopTypeName: null },
-        { stationId: '33605', arrivalPlatform: '4', arrivalTrack: '2', departurePlatform: null, departureTrack: null, arrivalTime: '13:20:00', departureTime: null, arrivalDay: null, departureDay: null, stopTypeId: null, stopTypeName: null },
+        { stationId: '7500', arrivalPlatform: null, arrivalTrack: null, departurePlatform: '3', departureTrack: '1', arrivalTime: null, departureTime: '11:00:00', arrivalDay: null, departureDay: null },
+        { stationId: '7112', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '11:20:00', departureTime: '11:22:00', arrivalDay: null, departureDay: null },
+        { stationId: '7872', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '11:35:00', departureTime: '11:37:00', arrivalDay: null, departureDay: null },
+        { stationId: '21808', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '12:00:00', departureTime: '12:02:00', arrivalDay: null, departureDay: null },
+        { stationId: '22442', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '12:20:00', departureTime: '12:22:00', arrivalDay: null, departureDay: null },
+        { stationId: '38653', arrivalPlatform: '2', arrivalTrack: null, departurePlatform: '2', departureTrack: null, arrivalTime: '13:10:00', departureTime: '13:12:00', arrivalDay: null, departureDay: null },
+        { stationId: '33605', arrivalPlatform: '4', arrivalTrack: '2', departurePlatform: null, departureTrack: null, arrivalTime: '13:20:00', departureTime: null, arrivalDay: null, departureDay: null },
       ],
     })
   })

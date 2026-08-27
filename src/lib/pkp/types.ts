@@ -38,15 +38,6 @@ export type RawRouteStop = {
   departureTime: string | null
   arrivalDay: number | null
   departureDay: number | null
-  /**
-   * Typ przystanku (np. "tylko dla wysiadających") — `null`/nieobecne dla
-   * zwykłego przystanku (99% przypadków). Opcjonalne (nie `T | null`, jak
-   * reszta pól tutaj) świadomie: Zod (`schema.ts`) zawsze je uzupełnia, ale
-   * liczne literały tego typu w testach powstałych przed tym polem nie muszą
-   * się teraz uczyć o nim, żeby dalej się kompilować.
-   */
-  stopTypeId?: number | null
-  stopTypeName?: string | null
 }
 
 export type RawRoute = {

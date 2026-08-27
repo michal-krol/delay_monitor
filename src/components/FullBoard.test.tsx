@@ -216,7 +216,7 @@ describe('FullBoard', () => {
     const user = userEvent.setup()
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={onToggleFavourite} onClose={vi.fn()} />)
-    await user.click(screen.getByText('Dodaj do ulubionych'))
+    await user.click(screen.getByRole('button', { name: 'Dodaj do ulubionych' }))
 
     expect(onToggleFavourite).toHaveBeenCalled()
   })
@@ -375,5 +375,19 @@ describe('FullBoard', () => {
     for (const label of ['punktualnie', 'opóźniony', 'odwołany', 'brak danych', 'jeszcze nie wyjechał / nie przyjechał', 'w trasie']) {
       expect(within(legendPanel).getByText(label)).toBeInTheDocument()
     }
+  })
+
+  it('closes even while the board is still loading (snapshot not yet received)', async () => {
+    // Zgłoszony błąd: kliknięcie Zamknij tuż po wejściu, zanim dane się
+    // załadują, czasem nic nie robiło. Fetch tu celowo nigdy się nie
+    // rozwiązuje -- snapshot zostaje `null` na cały czas trwania testu.
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(() => {})))
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={onClose} />)
+
+    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
+    expect(onClose).toHaveBeenCalled()
   })
 })
