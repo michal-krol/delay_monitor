@@ -52,7 +52,11 @@ function StatusLegend() {
       {open && position !== null && createPortal(
         <span
           role="tooltip"
-          className="glass-strong fixed z-50 w-64 rounded-2xl p-3 text-xs text-text-secondary"
+          // Celowo w pełni kryjące (nie `glass`/`glass-strong`, obie to zawsze
+          // tylko 88%/75% krycia z blurem) -- to pływający panel nad
+          // dowolną, ruchliwą zawartością tabeli, nie karta w kompozycji
+          // strony, więc musi być czytelny niezależnie od tła pod spodem.
+          className="fixed z-50 w-64 rounded-2xl border border-black/10 bg-white p-3 text-xs text-text-secondary dark:border-white/10 dark:bg-slate-900"
           style={{ top: position.top, right: position.right, boxShadow: 'var(--surface-shadow), 0 0 24px rgba(99,102,241,0.28)' }}
         >
           <ul className="flex flex-col gap-2">
@@ -60,7 +64,12 @@ function StatusLegend() {
               <li key={status} className="flex gap-2">
                 <span className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: TOKENS[status].bg }} />
                 <span>
-                  <span className="font-semibold text-text-primary">
+                  {/* text-foreground, nie text-text-primary -- ten drugi nie
+                      odpowiada żadnemu zdefiniowanemu tokenowi w globals.css
+                      (ten sam rodzaj błędu co wcześniejsze bg-background),
+                      więc dziedziczył stonowany text-secondary zamiast się
+                      wyróżnić. */}
+                  <span className="font-semibold text-foreground">
                     {status === 'notStarted' ? 'jeszcze nie wyjechał / nie przyjechał' : LABELS[status]}
                   </span>
                   <br />

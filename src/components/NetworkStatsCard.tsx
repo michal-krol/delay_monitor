@@ -97,25 +97,9 @@ export function NetworkStatsCard() {
         onClick={() => setExpanded((value) => !value)}
         className="flex w-full items-center gap-3 text-left"
       >
-        <svg width={36} height={36} viewBox="0 0 36 36" aria-hidden="true" className="shrink-0">
-          <circle cx={18} cy={18} r={RING_RADIUS} fill="none" stroke="currentColor" strokeWidth={4} className="text-black/10 dark:text-white/10" />
-          {data !== null && (
-            <circle
-              cx={18}
-              cy={18}
-              r={RING_RADIUS}
-              fill="none"
-              stroke={STATUS_COLORS.completed}
-              strokeWidth={4}
-              strokeLinecap="round"
-              strokeDasharray={`${(data.onTimePct / 100) * RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
-              transform="rotate(-90 18 18)"
-            />
-          )}
-        </svg>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">Dziś w Polsce</p>
-          <p className="truncate text-xs text-text-secondary">{data === null ? 'Wczytywanie…' : 'zgodnie z planem'}</p>
+          {data === null && <p className="truncate text-xs text-text-secondary">Wczytywanie…</p>}
         </div>
         {data !== null && <span className="shrink-0 text-xs text-text-muted">{formatTime(data.generatedAt)}</span>}
         <svg

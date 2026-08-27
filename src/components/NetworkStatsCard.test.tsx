@@ -24,13 +24,27 @@ afterEach(() => {
 })
 
 describe('NetworkStatsCard', () => {
-  it('keeps the collapsed subtitle short (no train count) so it never gets truncated', async () => {
+  it('keeps the collapsed subtitle short (no train count, no static "zgodnie z planem") so it never gets truncated', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STATS)))
 
     render(<NetworkStatsCard />)
 
-    expect(await screen.findByText('zgodnie z planem')).toBeInTheDocument()
+    expect(await screen.findByText(/^\d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText(/7\s?250 pociągów/)).not.toBeInTheDocument()
+    expect(screen.queryByText('zgodnie z planem')).not.toBeInTheDocument()
+  })
+
+  it('does not draw the on-time completion ring next to the collapsed title', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STATS)))
+
+    render(<NetworkStatsCard />)
+    await screen.findByText(/^\d{2}:\d{2}$/)
+
+    const header = screen.getByRole('button', { name: /Dziś w Polsce/ })
+    // Pierścień to dekoracyjny <svg>, bez roli dostępności -- jedyny sposób
+    // sprawdzić jego brak to zapytanie o sam element.
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(header.querySelector('circle')).toBeNull()
   })
 
   it('shows the total train count in the expanded panel instead', async () => {
@@ -38,7 +52,7 @@ describe('NetworkStatsCard', () => {
     const user = userEvent.setup()
 
     render(<NetworkStatsCard />)
-    await screen.findByText('zgodnie z planem')
+    await screen.findByText(/^\d{2}:\d{2}$/)
     await user.click(screen.getByRole('button', { name: /Dziś w Polsce/ }))
 
     expect(screen.getByText(/7.?250/)).toBeInTheDocument()
@@ -49,7 +63,7 @@ describe('NetworkStatsCard', () => {
     const user = userEvent.setup()
 
     render(<NetworkStatsCard />)
-    await screen.findByText('zgodnie z planem')
+    await screen.findByText(/^\d{2}:\d{2}$/)
     await user.click(screen.getByRole('button', { name: /Dziś w Polsce/ }))
 
     // getByText trafia w samo <p> (ikona to rodzeństwo bez własnego tekstu).
