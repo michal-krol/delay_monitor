@@ -1,7 +1,7 @@
 import type { RawDisruption, RawRoute, RawTrainOperation } from '../pkp/types'
 import { combineWarsawDateAndTime } from '../pkp/time'
-import { findRouteStop, formatPlatform } from './transform'
-import { resolveDelayMinutes, resolveStopStatus } from './realization'
+import { findRouteStop, routeStopPlatform } from './transform'
+import { hasTrainStartedFromStatus, resolveDelayMinutes, resolveStopStatus } from './realization'
 import { findStopDisruptionMessages } from './disruptions'
 
 export type TrainDetailStop = {
@@ -17,10 +17,13 @@ export type TrainDetailStop = {
   isConfirmed: boolean
   platform: string | null
   /**
-   * Czy jakikolwiek wcześniejszy przystanek na tej trasie (wcześniejszy w
-   * `operation.stations`, czyli po kolejności przejazdu) miał już
-   * `isConfirmed: true` — pociąg więc wyjechał, nawet jeśli jeszcze nie
-   * dotarł do tego przystanku. Pozwala `resolveStopStatus` odróżnić "w
+   * Czy pociąg już ruszył w trasę, mimo że ten konkretny przystanek jeszcze
+   * nie jest `isConfirmed`. Dwa źródła, tak samo jak na tablicy
+   * (`transform.ts`): (1) całopociągowy `trainStatus` ∈ {P, C} — błogosławiony
+   * wyjątek z AGENTS.md #2, bo PKP potrafi godzinami nie potwierdzać
+   * pojedynczych przystanków pociągu, który jednak jedzie; (2) jakikolwiek
+   * wcześniejszy przystanek tej trasy (wcześniejszy w `operation.stations`)
+   * miał już `isConfirmed: true`. Pozwala `resolveStopStatus` odróżnić "w
    * trasie" od "jeszcze nie wyjechał w ogóle" (patrz `realization.ts`).
    */
   hasTrainStarted: boolean
@@ -132,11 +135,13 @@ export function buildTrainDetailStops(
   disruptions: RawDisruption[] = [],
   disruptionTypes: Record<string, string> = {}
 ): TrainDetailStop[] {
-  // Akumulator "czy jakiś wcześniejszy przystanek już potwierdzony" -- czytany
-  // PRZED uwzględnieniem bieżącego przystanku, więc pierwszy potwierdzony
-  // przystanek na trasie sam dostaje `hasTrainStarted: false` (to on jest
-  // dowodem wyjazdu, nie dowodem, że coś wcześniej już się wydarzyło).
-  let hasTrainStarted = false
+  // Akumulator "czy pociąg już ruszył". Zaczyna od całopociągowego
+  // `trainStatus` (P/C — patrz `hasTrainStarted` w typie wyżej i AGENTS.md #2);
+  // dalej podnoszony przez pierwszy `isConfirmed` przystanek. Czytany PRZED
+  // uwzględnieniem bieżącego przystanku, więc pierwszy potwierdzony przystanek
+  // trasy sam dostaje wartość sprzed swojego potwierdzenia (to on jest dowodem
+  // wyjazdu, nie dowodem, że coś wcześniej już się wydarzyło).
+  let hasTrainStarted = hasTrainStartedFromStatus(operation.trainStatus)
   // Opóźnienie z najbliższego wcześniejszego potwierdzonego, nieodwołanego
   // przystanku -- źródło `estimatedDelayMinutes` niżej. Odjazdowe pierwsze,
   // ten sam porządek co `stopDelayMinutes()` w `ConnectionDetails.tsx`.
@@ -173,10 +178,7 @@ export function buildTrainDetailStops(
       predictedDeparture,
       // Odjazdowy peron/tor pierwszy — to ten, przy którym pasażer czeka, żeby
       // jechać dalej; brakujący dobija peron/tor przyjazdu (np. stacja końcowa).
-      platform: formatPlatform(
-        routeStop?.departurePlatform ?? routeStop?.arrivalPlatform,
-        routeStop?.departureTrack ?? routeStop?.arrivalTrack
-      ),
+      platform: routeStopPlatform(routeStop, 'departure'),
       hasTrainStarted,
       estimatedDelayMinutes: status === 'enRoute' ? lastConfirmedDelayMinutes : null,
       disruptionMessages:

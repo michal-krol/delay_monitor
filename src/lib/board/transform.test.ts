@@ -774,6 +774,31 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].platform).toBe('4/2')
   })
 
+  it('falls back to the departure platform/track for an arrival when the route has no arrival platform (PKP fills only departure on through-stops)', () => {
+    const trains = [
+      train('26', '12345', [
+        stop({
+          stationId: '5100',
+          plannedArrival: '2026-08-01T12:05:00+02:00',
+          plannedDeparture: '2026-08-01T12:10:00+02:00',
+        }),
+      ]),
+    ]
+    const routes = new Map<string, RawRoute>([
+      [
+        '26-12345',
+        route({
+          scheduleId: '26',
+          orderId: '12345',
+          stations: [routeStop({ stationId: '5100', departurePlatform: '4', departureTrack: '2' })],
+        }),
+      ],
+    ])
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    expect(snapshot.arrivals[0].platform).toBe('4/2')
+    expect(snapshot.departures[0].platform).toBe('4/2')
+  })
+
   it('joins to the route via trainOrderId when operations.orderId is a per-instance id that does not match the route', () => {
     // Wzorzec potwierdzony na żywych danych: /operations zwraca orderId
     // jako identyfikator konkretnego przejazdu, a prawdziwym kluczem

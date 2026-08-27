@@ -111,7 +111,9 @@ describe('GET /api/train', () => {
         predictedArrival: null,
         predictedDeparture: null,
         platform: '4/2',
-        hasTrainStarted: false,
+        // trainStatus 'P' (InProgress) na obiekcie realizacji -> pociąg już ruszył,
+        // niezależnie od per-przystankowego isConfirmed (AGENTS.md #2, jak na tablicy).
+        hasTrainStarted: true,
         estimatedDelayMinutes: null,
         disruptionMessages: [],
       },

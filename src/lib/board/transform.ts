@@ -76,11 +76,33 @@ function routeTerminus(route: RawRoute | undefined, end: 'first' | 'last'): RawR
 }
 
 /** „4/2" gdy znane są peron i tor, sam peron albo „tor 2" gdy tylko jedno z nich, `null` gdy nic. */
-export function formatPlatform(platform: string | null | undefined, track: string | null | undefined): string | null {
+function formatPlatform(platform: string | null | undefined, track: string | null | undefined): string | null {
   if (platform && track) return `${platform}/${track}`
   if (platform) return platform
   if (track) return `tor ${track}`
   return null
+}
+
+/**
+ * Peron/tor dla jednego zdarzenia (przyjazd albo odjazd) na przystanku trasy,
+ * z fallbackiem na drugą stronę. PKP wypełnia w `/schedules` zwykle tylko
+ * `departurePlatform`/`departureTrack` dla przystanków przelotowych, a
+ * `arrivalPlatform`/`arrivalTrack` zostawia `null` poza stacją końcową — bez
+ * fallbacku tablica Przyjazdów pokazywałaby „—" dla niemal każdego pociągu.
+ * Na przystanku przelotowym to fizycznie ten sam peron; ta sama decyzja co
+ * w panelu szczegółów połączenia (patrz `trainDetail.ts`).
+ */
+export function routeStopPlatform(routeStop: RawRouteStop | undefined, prefer: 'arrival' | 'departure'): string | null {
+  if (prefer === 'arrival') {
+    return formatPlatform(
+      routeStop?.arrivalPlatform ?? routeStop?.departurePlatform,
+      routeStop?.arrivalTrack ?? routeStop?.departureTrack
+    )
+  }
+  return formatPlatform(
+    routeStop?.departurePlatform ?? routeStop?.arrivalPlatform,
+    routeStop?.departureTrack ?? routeStop?.arrivalTrack
+  )
 }
 
 /**
@@ -281,7 +303,7 @@ export function transformOperations(
           plannedAt: stop.plannedDeparture,
           actualAt: stop.actualDeparture,
           apiDelay: stop.departureDelayMinutes,
-          platform: formatPlatform(routeStop?.departurePlatform, routeStop?.departureTrack),
+          platform: routeStopPlatform(routeStop, 'departure'),
         })
       )
     }
@@ -294,7 +316,7 @@ export function transformOperations(
           plannedAt: stop.plannedArrival,
           actualAt: stop.actualArrival,
           apiDelay: stop.arrivalDelayMinutes,
-          platform: formatPlatform(routeStop?.arrivalPlatform, routeStop?.arrivalTrack),
+          platform: routeStopPlatform(routeStop, 'arrival'),
         })
       )
     }

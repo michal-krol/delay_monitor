@@ -170,6 +170,18 @@ describe('ConnectionDetails', () => {
     expect(screen.queryByText('punktualnie')).not.toBeInTheDocument()
   })
 
+  it('shows a distinct "brak trasy" message (not the fetch-error alert, not "0 przystanków") when the API returns an empty stop list', async () => {
+    // `operation.stations` bywa `null` (legalne wg swaggera) -> schema daje []
+    // -> odpowiedź 200 z pustą listą. To nie awaria pobierania (AGENTS.md #7).
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ ...RESPONSE, stops: [] })))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('PKP nie udostępnia teraz trasy tego połączenia.')
+    expect(screen.queryByText('Nie udało się pobrać szczegółów połączenia.')).not.toBeInTheDocument()
+    expect(screen.queryByText('0 przystanków')).not.toBeInTheDocument()
+  })
+
   it('shows the total number of stops', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
 

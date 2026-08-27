@@ -44,8 +44,12 @@ function route(stations: RawRouteStop[]): RawRoute {
   }
 }
 
-function operation(stations: RawOperationStation[], operatingDate: string | null = '2026-08-01'): RawTrainOperation {
-  return { scheduleId: '2026', orderId: '1', trainOrderId: null, operatingDate, trainStatus: 'P', stations }
+function operation(
+  stations: RawOperationStation[],
+  operatingDate: string | null = '2026-08-01',
+  trainStatus: string | null = null
+): RawTrainOperation {
+  return { scheduleId: '2026', orderId: '1', trainOrderId: null, operatingDate, trainStatus, stations }
 }
 
 describe('buildTrainDetailStops', () => {
@@ -312,6 +316,17 @@ describe('buildTrainDetailStops', () => {
         ['C', true],
         ['D', true],
       ])
+    })
+
+    it('is true for every stop when trainStatus is P/C, even before any stop is confirmed (AGENTS.md #2 escape hatch, same as the board)', () => {
+      const stops = [
+        realizedStop({ stationId: 'A', isConfirmed: false }),
+        realizedStop({ stationId: 'B', isConfirmed: false }),
+      ]
+
+      const result = buildTrainDetailStops(operation(stops, '2026-08-01', 'P'), null, {})
+
+      expect(result.map((s) => s.hasTrainStarted)).toEqual([true, true])
     })
 
     it('stays true even once the train stops being confirmed again later (no un-starting)', () => {

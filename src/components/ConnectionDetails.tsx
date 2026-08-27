@@ -117,7 +117,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
         <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">
           {data?.routeName ?? trainLabel}
         </h1>
-        {status === 'ready' && data !== null && (
+        {status === 'ready' && data !== null && data.stops.length > 0 && (
           <p className="mt-0.5 text-sm text-text-muted">{data.stops.length} przystanków</p>
         )}
       </div>
@@ -130,7 +130,17 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
         </p>
       )}
 
-      {status === 'ready' && data !== null && (
+      {/* Odpowiedź przyszła, ale PKP nie zwróciło listy przystanków (legalne:
+          `stations` bywa `null`). To nie awaria pobierania — inny komunikat niż
+          `status === 'error'` (patrz AGENTS.md #7: „brak wyników" ≠ „nie udało
+          się sprawdzić"). */}
+      {status === 'ready' && data !== null && data.stops.length === 0 && (
+        <p role="alert" className="text-sm text-text-muted">
+          PKP nie udostępnia teraz trasy tego połączenia.
+        </p>
+      )}
+
+      {status === 'ready' && data !== null && data.stops.length > 0 && (
         <>
           <section className="glass rounded-2xl p-5">
             <h2 className="text-sm font-semibold text-text-secondary">Informacje o połączeniu</h2>
