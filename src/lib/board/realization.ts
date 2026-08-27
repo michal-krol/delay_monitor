@@ -17,6 +17,24 @@
  */
 export type RealizationStatus = 'onTime' | 'delayed' | 'cancelled' | 'unknown' | 'notStarted' | 'enRoute'
 
+/**
+ * Po tylu minutach od planowego czasu przystanek bez żadnego sygnału
+ * realizacji (`isConfirmed` false, pociąg nigdzie nie potwierdzony) przestaje
+ * być „jeszcze nie wyjechał" (co brzmi jak stwierdzony fakt) i staje się
+ * „brak danych". Zaobserwowane 2026-08-27: feed `/operations` PKP zamarł na
+ * ~8 h — wszystkie pociągi po ~14:00 utknęły jako `trainStatus: "S"` z
+ * `actualX` = kopią planu; panel szczegółów pokazywał „jeszcze nie wyjechał"
+ * dla pociągu, który wg rozkładu dawno dojechał. Próg > normalnego opóźnienia
+ * bez potwierdzenia (gęsta linia potrafi spóźniać samo potwierdzenie), na
+ * tyle krótki, by taką awarię złapać szybko.
+ */
+const STALE_UNCONFIRMED_MS = 30 * 60 * 1000
+
+function isStaleUnconfirmed(plannedAt: string | null | undefined, now: Date | undefined): boolean {
+  if (!plannedAt || !now) return false
+  return now.getTime() - new Date(plannedAt).getTime() > STALE_UNCONFIRMED_MS
+}
+
 export function resolveStopStatus(params: {
   isCancelled: boolean
   isConfirmed: boolean
@@ -32,9 +50,21 @@ export function resolveStopStatus(params: {
    * który i tak przychodzi za darmo w każdej odpowiedzi `/operations`.
    */
   hasTrainStarted?: boolean
+  /**
+   * Planowy czas tego zdarzenia (odjazd, w ostateczności przyjazd) i „teraz".
+   * Oba opcjonalne: gdy podane, niepotwierdzony przystanek z planem dawno
+   * w przeszłości dostaje `unknown` („brak danych") zamiast `notStarted`
+   * (patrz `STALE_UNCONFIRMED_MS`). Tablica ich nie podaje — jej okno
+   * `LOOKBACK_WINDOW_MS` (5 min) i tak nie przepuszcza tak starego wiersza.
+   */
+  plannedAt?: string | null
+  now?: Date
 }): RealizationStatus {
   if (params.isCancelled) return 'cancelled'
-  if (!params.isConfirmed) return params.hasTrainStarted ? 'enRoute' : 'notStarted'
+  if (!params.isConfirmed) {
+    if (params.hasTrainStarted) return 'enRoute'
+    return isStaleUnconfirmed(params.plannedAt, params.now) ? 'unknown' : 'notStarted'
+  }
   if (params.delayMinutes === null) return 'unknown'
   return params.delayMinutes >= 1 ? 'delayed' : 'onTime'
 }

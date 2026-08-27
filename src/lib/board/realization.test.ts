@@ -54,6 +54,63 @@ describe('resolveStopStatus', () => {
       resolveStopStatus({ isCancelled: true, isConfirmed: false, delayMinutes: null, hasTrainStarted: true })
     ).toBe('cancelled')
   })
+
+  describe('stale unconfirmed (planned time long past, still no realization signal)', () => {
+    const planned = '2026-08-01T10:00:00+02:00'
+
+    it('stays notStarted when the planned time has not passed yet', () => {
+      expect(
+        resolveStopStatus({
+          isCancelled: false,
+          isConfirmed: false,
+          delayMinutes: null,
+          plannedAt: planned,
+          now: new Date('2026-08-01T09:30:00+02:00'),
+        })
+      ).toBe('notStarted')
+    })
+
+    it('stays notStarted just after the planned time (within the grace window)', () => {
+      expect(
+        resolveStopStatus({
+          isCancelled: false,
+          isConfirmed: false,
+          delayMinutes: null,
+          plannedAt: planned,
+          now: new Date('2026-08-01T10:20:00+02:00'),
+        })
+      ).toBe('notStarted')
+    })
+
+    it('becomes unknown ("brak danych") once the planned time is well past with no confirmation', () => {
+      expect(
+        resolveStopStatus({
+          isCancelled: false,
+          isConfirmed: false,
+          delayMinutes: null,
+          plannedAt: planned,
+          now: new Date('2026-08-01T12:00:00+02:00'),
+        })
+      ).toBe('unknown')
+    })
+
+    it('a train known to be en route stays enRoute even when this stop is long overdue', () => {
+      expect(
+        resolveStopStatus({
+          isCancelled: false,
+          isConfirmed: false,
+          delayMinutes: null,
+          hasTrainStarted: true,
+          plannedAt: planned,
+          now: new Date('2026-08-01T12:00:00+02:00'),
+        })
+      ).toBe('enRoute')
+    })
+
+    it('without plannedAt/now (the board) an overdue unconfirmed stop is still just notStarted', () => {
+      expect(resolveStopStatus({ isCancelled: false, isConfirmed: false, delayMinutes: null })).toBe('notStarted')
+    })
+  })
 })
 
 describe('resolveDelayMinutes', () => {

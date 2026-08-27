@@ -98,7 +98,10 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
 
   // Status per przystanek, policzony raz z `resolveStopStatus` — jedyne źródło
   // koloru zarówno dla `DelayBadge` w wierszu, jak i dla znacznika/odcinka
-  // toru w stepperze niżej. Żadnej drugiej, równoległej logiki.
+  // toru w stepperze niżej. Żadnej drugiej, równoległej logiki. `now` liczone
+  // raz na render (nie w map), żeby wszystkie wiersze miały ten sam punkt
+  // odniesienia dla „plan dawno minął" (patrz `resolveStopStatus`).
+  const now = new Date()
   const stopStatuses =
     status === 'ready' && data !== null
       ? data.stops.map((stop) =>
@@ -107,6 +110,8 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             isConfirmed: stop.isConfirmed,
             delayMinutes: stopDelayMinutes(stop),
             hasTrainStarted: stop.hasTrainStarted,
+            plannedAt: stop.plannedDeparture ?? stop.plannedArrival,
+            now,
           })
         )
       : []

@@ -133,7 +133,10 @@ export function buildTrainDetailStops(
   route: RawRoute | null,
   stationNames: Record<string, string>,
   disruptions: RawDisruption[] = [],
-  disruptionTypes: Record<string, string> = {}
+  disruptionTypes: Record<string, string> = {},
+  // Do `resolveStopStatus`: niepotwierdzony przystanek z planem dawno w tyle
+  // to „brak danych", nie „jeszcze nie wyjechał" (patrz `realization.ts`).
+  now: Date = new Date()
 ): TrainDetailStop[] {
   // Akumulator "czy pociąg już ruszył". Zaczyna od całopociągowego
   // `trainStatus` (P/C — patrz `hasTrainStarted` w typie wyżej i AGENTS.md #2);
@@ -161,6 +164,8 @@ export function buildTrainDetailStops(
       isConfirmed: stop.isConfirmed,
       delayMinutes: departureDelayMinutes ?? arrivalDelayMinutes,
       hasTrainStarted,
+      plannedAt: plannedDeparture ?? plannedArrival,
+      now,
     })
 
     const result: TrainDetailStop = {

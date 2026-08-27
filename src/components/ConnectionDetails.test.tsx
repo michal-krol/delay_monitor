@@ -6,7 +6,17 @@ import { jsonResponse } from '@/test-utils/http'
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
+
+// Fixture'y mają plan w 2026-08-01; bez zamrożenia zegara „teraz" (rzeczywista
+// data) jest o lata później i każdy niepotwierdzony przystanek wychodziłby jako
+// „brak danych" (patrz `resolveStopStatus`, `STALE_UNCONFIRMED_MS`). Tylko Date
+// jest fake — Promisy/microtaski zostają realne, żeby RTL `findBy*` działało.
+function freezeClock(iso: string): void {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(iso))
+}
 
 const RESPONSE = {
   scheduleId: '2026',
@@ -207,15 +217,17 @@ describe('ConnectionDetails', () => {
     expect(within(row as HTMLElement).queryByText('jeszcze nie wyjechał')).not.toBeInTheDocument()
   })
 
-  it('renders "jeszcze nie wyjechał" when the whole train has not left any stop yet', async () => {
-    const response = {
-      ...RESPONSE,
-      stops: [
-        { ...RESPONSE.stops[0], isConfirmed: false, actualDeparture: null, departureDelayMinutes: null, hasTrainStarted: false },
-        { ...RESPONSE.stops[1], hasTrainStarted: false },
-      ],
-    }
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+  const NOT_STARTED_RESPONSE = {
+    ...RESPONSE,
+    stops: [
+      { ...RESPONSE.stops[0], isConfirmed: false, actualDeparture: null, departureDelayMinutes: null, hasTrainStarted: false },
+      { ...RESPONSE.stops[1], hasTrainStarted: false },
+    ],
+  }
+
+  it('renders "jeszcze nie wyjechał" when the whole train has not left any stop yet, before its planned time', async () => {
+    freezeClock('2026-08-01T10:00:00Z') // przed planowym przyjazdem do W-wy (11:20Z)
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(NOT_STARTED_RESPONSE)))
 
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
@@ -225,6 +237,20 @@ describe('ConnectionDetails', () => {
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('jeszcze nie wyjechał')).toBeInTheDocument()
     expect(within(row as HTMLElement).queryByText('w trasie')).not.toBeInTheDocument()
+  })
+
+  it('renders "brak danych" (not a confident "jeszcze nie wyjechał") for an unconfirmed stop whose planned time is long past -- e.g. a frozen PKP feed', async () => {
+    freezeClock('2026-08-01T13:00:00Z') // ~1h40m po planowym przyjeździe, wciąż zero potwierdzenia
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(NOT_STARTED_RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+
+    const stationName = await screen.findByText('Warszawa Centralna')
+    // eslint-disable-next-line testing-library/no-node-access -- j.w.
+    const row = stationName.closest('li')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('brak danych')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('jeszcze nie wyjechał')).not.toBeInTheDocument()
   })
 
   it('renders "odwołany" for a cancelled stop', async () => {

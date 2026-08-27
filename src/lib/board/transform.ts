@@ -185,6 +185,9 @@ function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRo
   // potwierdzenie na gęstej linii) -- którykolwiek z niedawnych przystanków
   // potwierdzony jest silniejszym dowodem "już wyjechał" niż samo trainStatus.
   const hasTrainStarted = hasTrainStartedFromTrainStatus || upstreamStops.some(isUsableUpstream)
+  // Bez `plannedAt`/`now` (opcjonalne w `resolveStopStatus`, dla „plan dawno
+  // minął → brak danych"): `sortAndTrim` i tak trzyma tu tylko wiersze do
+  // `LOOKBACK_WINDOW_MS` (5 min) wstecz, więc ta gałąź jest nieosiągalna z tablicy.
   const status = resolveStopStatus({ isCancelled: cancelled, isConfirmed, delayMinutes, hasTrainStarted })
   return {
     scheduleId,
