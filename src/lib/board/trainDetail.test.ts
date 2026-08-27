@@ -233,6 +233,20 @@ describe('buildTrainDetailStops', () => {
       expect(stop.predictedDeparture).toBe('2026-08-26T00:03:30+02:00')
     })
 
+    it('treats a diff of exactly one minute as a genuine (if small) predicted delay, not the day-multiple artifact', () => {
+      // Zweryfikowane na żywym API (produkcja, pociąg SŁOWACKI 2026/134648284,
+      // stacja Żyrardów 34207, 2026-08-27): plan 17:22:30, actual 17:23:30 --
+      // dokładnie 60s różnicy, realne (malejące, poprzedni przystanek miał
+      // +2 min) opóźnienie, nie artefakt kopii planu. Poprzedni próg tolerancji
+      // (60s, `<=`) błędnie łapał ten przypadek i chował realny predicted czas.
+      const stops = [realizedStop({ stationId: 'A', isConfirmed: false, actualArrival: '2026-08-27T17:23:30+02:00' })]
+      const routeStops = [routeStop({ stationId: 'A', arrivalTime: '17:22:30' })]
+
+      const [stop] = buildTrainDetailStops(operation(stops, '2026-08-27'), route(routeStops), {})
+
+      expect(stop.predictedArrival).toBe('2026-08-27T17:23:30+02:00')
+    })
+
     it('ignores actual when it differs from plan by an exact day multiple -- the known PKP artifact, not a real prediction', () => {
       const stops = [realizedStop({ stationId: 'A', isConfirmed: false, actualArrival: '2026-08-27T05:55:00+02:00' })]
       const routeStops = [routeStop({ stationId: 'A', arrivalTime: '05:55:00' })]

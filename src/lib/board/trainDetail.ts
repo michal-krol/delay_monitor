@@ -60,11 +60,14 @@ export type TrainDetailStop = {
 const DAY_MS = 24 * 60 * 60 * 1000
 // Zaobserwowane na żywym API (4 stacje, ~7300 pociągów): każdy przypadek
 // niepotwierdzonego przystanku, gdzie actual różni się od planu o dokładną
-// wielokrotność doby (co do minuty), nie miał żadnego pola opóźnienia --
-// odwrotnie, każdy przypadek z polem opóźnienia miał różnicę NIE będącą
-// wielokrotnością doby, zgadzającą się z tym polem co do minuty. 1 minuta
-// tolerancji na zaokrąglenia sekund w danych źródłowych.
-const DAY_MULTIPLE_TOLERANCE_MS = 60 * 1000
+// wielokrotność doby, nie miał żadnego pola opóźnienia -- odwrotnie, każdy
+// przypadek z polem opóźnienia miał różnicę NIE będącą wielokrotnością doby.
+// Tolerancja tylko na zaokrąglenia SEKUND w danych źródłowych (stąd 5 s, nie
+// więcej) -- zweryfikowane na żywo (produkcja, pociąg SŁOWACKI 2026/134648284,
+// stacja Żyrardów, 2026-08-27): różnica dokładnie 60 s bywa realnym, malejącym
+// opóźnieniem (poprzedni przystanek miał +2 min), nie artefaktem -- poprzedni
+// próg 60 s (`<=`) błędnie chował taki predicted czas jako rzekomy artefakt.
+const DAY_MULTIPLE_TOLERANCE_MS = 5 * 1000
 
 function isNearDayMultiple(diffMs: number): boolean {
   const remainder = ((diffMs % DAY_MS) + DAY_MS) % DAY_MS
