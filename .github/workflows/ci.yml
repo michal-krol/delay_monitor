@@ -22,4 +22,14 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      # Obie strefy jawnie, nie „domyślna runnera + UTC": runner GitHuba i tak
+      # chodzi w UTC, więc bez jawnego TZ oba przebiegi byłyby tym samym testem.
+      # Produkcja (node:24-slim na Railway) to UTC, maszyna dewelopera to
+      # Europe/Warsaw -- regresja strefowa potrafi iść w obie strony, a raz już
+      # trafiła na produkcję (AGENTS.md #1).
       - run: npm run test
+        env:
+          TZ: Europe/Warsaw
+      - run: npm run test
+        env:
+          TZ: UTC

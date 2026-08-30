@@ -28,6 +28,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Wygenerowany raport pokrycia (`npm run test:coverage`). Jest już
+    // w .gitignore, ale eslint czyta katalog roboczy, nie indeks gita --
+    // bez tego wpisu lint zgłasza uwagi do cudzego, generowanego kodu.
+    "coverage/**",
   ]),
 ]);
 

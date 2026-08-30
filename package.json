@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "comment:overrides": "next@16.2.12 to najnowsza stabilna wersja, a zakres podatnosci obejmuje wszystkie wydania - `npm audit fix` proponuje downgrade do next@9.3.3. Zamiast tego wymuszamy bezpieczne wersje zaleznosci przechodnich: sharp (uzywany wylacznie przez optymalizator obrazow Next, ktorego nie uzywamy) i postcss (build-time, Tailwind). Do usuniecia, gdy Next zaktualizuje je u siebie.",
   "overrides": {
@@ -34,6 +35,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "eslint-plugin-testing-library": "^7.16.2",
