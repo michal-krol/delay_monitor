@@ -2,23 +2,23 @@
 
 import { useEffect, useState } from 'react'
 import { STATUS_TEXT } from './DelayBadge'
+import type { RateLimitBudget } from '@/lib/pkp/client'
+import type { PollerStatus } from '@/lib/board/poller'
 
-type PollerStatus = 'ok' | 'configError' | 'degraded'
-
-type Budget = {
-  hourly: number | null
-  daily: number | null
-  hourlyLimit: number | null
-  dailyLimit: number | null
-}
-
+/**
+ * Kształt odpowiedzi `/api/health`. Typy `RateLimitBudget` i `PollerStatus`
+ * importowane, nie przepisane: to ten sam kontrakt, który wystawia handler,
+ * więc przepisany ręcznie milczałby przy rozjeździe zamiast go zgłosić.
+ * Import samego TYPU (`import type`) nie wciąga kodu serwerowego do bundla
+ * klienta -- znika przy kompilacji.
+ */
 type Health = {
   dataSource: 'live' | 'mock'
   pollerAwake: boolean
   pollerStatus: PollerStatus
   throttled: boolean
   intervalMs: number
-  budget: Budget | null
+  budget: RateLimitBudget | null
 }
 
 /** `/api/health` czyta tylko pamięć procesu — odpytywanie go nie kosztuje ani jednego zapytania do PKP (AGENTS.md #3). */

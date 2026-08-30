@@ -5,7 +5,9 @@ const envSchema = z.object({
   PKP_DATA_SOURCE: z.enum(['auto', 'live', 'mock']).default('auto'),
   POLL_INTERVAL_MS: z.coerce.number().int().positive().default(90000),
   INTEREST_TTL_MS: z.coerce.number().int().positive().default(300000),
-  PORT: z.coerce.number().int().positive().default(3000),
+  // Świadomie BEZ `PORT`: serwer czyta `process.env.PORT` sam (Next w trybie
+  // standalone, patrz Dockerfile), więc parsowanie go tutaj tworzyło pole,
+  // które nikt nigdy nie odczytał -- i sugerowało, że to my o porcie decydujemy.
 })
 
 export type DataSource = 'live' | 'mock'
@@ -15,7 +17,6 @@ export type AppConfig = {
   dataSource: DataSource
   pollIntervalMs: number
   interestTtlMs: number
-  port: number
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): AppConfig {
@@ -33,6 +34,5 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     dataSource,
     pollIntervalMs: parsed.POLL_INTERVAL_MS,
     interestTtlMs: parsed.INTEREST_TTL_MS,
-    port: parsed.PORT,
   }
 }

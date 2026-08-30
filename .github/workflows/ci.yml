@@ -30,6 +30,9 @@ jobs:
       - run: npm run test
         env:
           TZ: Europe/Warsaw
-      - run: npm run test
+      # Wariant z pokryciem świadomie tylko w JEDNYM z dwóch przebiegów:
+      # progi (patrz vitest.config.mts) nie zależą od strefy, a liczenie
+      # pokrycia dwa razy to czysty narzut. UTC, bo to strefa produkcji.
+      - run: npm run test:coverage
         env:
           TZ: UTC

@@ -27,9 +27,6 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
-    // Bez progu (`thresholds`) świadomie: próg dopisany w ciemno albo blokuje
-    // CI na starcie, albo jest ustawiony tak nisko, że niczego nie pilnuje.
-    // Najpierw liczba, dopiero potem decyzja, gdzie postawić poprzeczkę.
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
@@ -46,6 +43,21 @@ export default defineConfig({
         // w raporcie tylko rozmywa procent.
         'src/lib/pkp/types.ts',
       ],
+      /**
+       * Progi celowo NIŻSZE niż stan faktyczny w chwili ich ustawiania
+       * (92,4% instrukcji / 90,1% gałęzi / 92,2% funkcji / 94,5% linii).
+       * Mają łapać REGRESJĘ -- czyli świadome albo przypadkowe zdjęcie
+       * pokrycia z całego obszaru -- a nie karać za pojedynczy wiersz, którego
+       * sensownie nie da się przetestować. Zapas ok. 2-3 pkt proc. jest po to,
+       * żeby zwykła praca nie wymagała dyskusji z bramką; podnosić przy okazji,
+       * gdy stan faktyczny od niego odjedzie, nie ustawiać ambitnie z góry.
+       */
+      thresholds: {
+        statements: 89,
+        branches: 87,
+        functions: 89,
+        lines: 91,
+      },
     },
   },
 })

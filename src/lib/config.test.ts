@@ -7,7 +7,6 @@ describe('loadConfig', () => {
     expect(config.dataSource).toBe('mock')
     expect(config.pollIntervalMs).toBe(90000)
     expect(config.interestTtlMs).toBe(300000)
-    expect(config.port).toBe(3000)
   })
 
   it('defaults to live when an API key is present and PKP_DATA_SOURCE=auto', () => {
@@ -25,9 +24,8 @@ describe('loadConfig', () => {
   })
 
   it('parses numeric overrides from string env vars', () => {
-    const config = loadConfig({ POLL_INTERVAL_MS: '30000', INTEREST_TTL_MS: '60000', PORT: '4000' })
+    const config = loadConfig({ POLL_INTERVAL_MS: '30000', INTEREST_TTL_MS: '60000' })
     expect(config.pollIntervalMs).toBe(30000)
     expect(config.interestTtlMs).toBe(60000)
-    expect(config.port).toBe(4000)
   })
 })
