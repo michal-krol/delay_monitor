@@ -4,6 +4,7 @@ import { disruptionTrainKey } from './disruptions'
 import { findRouteForTrain } from './routeKey'
 import { findPrecedingStationIds, UPSTREAM_LOOKBACK_HOPS } from './upstreamEstimate'
 import { DEFAULT_PUNCTUALITY_THRESHOLD_MINUTES, type StationInsights, type StationStats } from './stationStats'
+import { resolvePlannedTime } from '../pkp/time'
 
 export { routeKey } from './routeKey'
 
@@ -401,13 +402,33 @@ export function transformOperations(
       hasDisruption,
     }
 
-    if (stop.plannedDeparture !== null) {
+    // Plan z realizacji, a gdy jej brak — złożony z dopasowanej trasy
+    // rozkładowej, którą i tak już mamy w ręku (`route`/`routeStop` wyżej).
+    // Panel szczegółów połączenia robił to od zawsze (`buildTrainDetailStops`),
+    // tablica nie robiła tego wcale — i gdy 2026-08-30 `withPlanned=true`
+    // przestał działać po stronie PKP, KAŻDY wiersz tablicy cicho znikał, choć
+    // rozkład był dostępny przez cały czas. Wspólna `resolvePlannedTime()`
+    // w `pkp/time.ts` zamyka ten rozjazd (AGENTS.md #2).
+    const plannedDeparture = resolvePlannedTime(
+      stop.plannedDeparture,
+      train.operatingDate,
+      routeStop?.departureTime,
+      routeStop?.departureDay
+    )
+    const plannedArrival = resolvePlannedTime(
+      stop.plannedArrival,
+      train.operatingDate,
+      routeStop?.arrivalTime,
+      routeStop?.arrivalDay
+    )
+
+    if (plannedDeparture !== null) {
       const destination = routeTerminus(route, 'last')
       departures.push(
         buildRow(context, {
           headsign: destination ? resolveStationName(destination.stationId, stationNames) : null,
           ...collectVia(route, stationId, 'departure', stationNames),
-          plannedAt: stop.plannedDeparture,
+          plannedAt: plannedDeparture,
           actualAt: stop.actualDeparture,
           apiDelay: stop.departureDelayMinutes,
           platformTrack: routeStopPlatform(routeStop, 'departure'),
@@ -415,13 +436,13 @@ export function transformOperations(
       )
     }
 
-    if (stop.plannedArrival !== null) {
+    if (plannedArrival !== null) {
       const origin = routeTerminus(route, 'first')
       arrivals.push(
         buildRow(context, {
           headsign: origin ? resolveStationName(origin.stationId, stationNames) : null,
           ...collectVia(route, stationId, 'arrival', stationNames),
-          plannedAt: stop.plannedArrival,
+          plannedAt: plannedArrival,
           actualAt: stop.actualArrival,
           apiDelay: stop.arrivalDelayMinutes,
           platformTrack: routeStopPlatform(routeStop, 'arrival'),

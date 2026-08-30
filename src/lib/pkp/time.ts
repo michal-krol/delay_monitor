@@ -86,3 +86,36 @@ export function combineWarsawDateAndTime(operatingDate: string, time: string | n
   const date = dayOffset && dayOffset !== 0 ? shiftDateString(operatingDate, dayOffset) : operatingDate
   return normalizeApiTimestamp(`${date}T${time}`)
 }
+
+/**
+ * Planowy czas przystanku: z realizacji, jeśli ją niesie, w przeciwnym razie
+ * złożony z trasy rozkładowej (`arrivalTime`/`departureTime` + `operatingDate`).
+ *
+ * Realizacja ma pierwszeństwo — jest bliżej prawdy o TYM kursie niż wzorzec
+ * rozkładu. Rezerwowe składanie z trasy istnieje, bo źródła planu bywają puste
+ * niezależnie od siebie:
+ *  - `/operations/train/{scheduleId}/{orderId}/{operatingDate}` NIGDY nie niesie
+ *    planowych czasów (stwierdzone na żywym API, nie w dokumentacji) — panel
+ *    szczegołów połączenia liczy plan z trasy od zawsze;
+ *  - `/operations` niesie je tylko przy działającym `withPlanned=true` — a ten
+ *    2026-08-30 przestał działać i tablica została z niczym.
+ *
+ * Mieszka tutaj, a nie w `board/`, z dwóch powodów: to czysta arytmetyka
+ * kalendarzowa nad `combineWarsawDateAndTime()` obok, a `board/transform.ts`
+ * i `board/trainDetail.ts` (jedyni konsumenci) są powiązane importem w jedną
+ * stronę — wspólny helper w którymkolwiek z nich zamykałby cykl.
+ *
+ * Jedna implementacja dla obu widoków świadomie: AGENTS.md #2 opisuje, jak
+ * dwie niezależne odpowiedzi na to samo pytanie już raz rozjechały tablicę
+ * z panelem szczegółów.
+ */
+export function resolvePlannedTime(
+  apiPlanned: string | null,
+  operatingDate: string | null,
+  time: string | null | undefined,
+  dayOffset: number | null | undefined
+): string | null {
+  if (apiPlanned !== null) return apiPlanned
+  if (operatingDate === null) return null
+  return combineWarsawDateAndTime(operatingDate, time ?? null, dayOffset ?? null)
+}

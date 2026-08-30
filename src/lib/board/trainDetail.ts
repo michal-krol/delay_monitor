@@ -1,5 +1,5 @@
 import type { RawDisruption, RawRoute, RawTrainOperation } from '../pkp/types'
-import { combineWarsawDateAndTime } from '../pkp/time'
+import { resolvePlannedTime } from '../pkp/time'
 import { findRouteStop, routeStopPlatform } from './transform'
 import { hasTrainStartedFromStatus, resolveDelayMinutes, resolvePredictedTime, resolveStopStatus } from './realization'
 import { findStopDisruptionMessages } from './disruptions'
@@ -104,29 +104,6 @@ export function resolveCurrentStopIndex(stops: TrainDetailStop[]): number {
     if (stops[index].isConfirmed) return index
   }
   return -1
-}
-
-/**
- * `/operations/train/{scheduleId}/{orderId}/{operatingDate}` — jedyne źródło
- * czasu FAKTYCZNEGO per przystanek — nie niesie ani planowego czasu, ani
- * opóźnienia (stwierdzone na żywym API, nie w dokumentacji: żaden przystanek
- * w realnej odpowiedzi nie miał `plannedArrival`/`arrivalDelayMinutes`).
- * Opóźnienie trzeba więc policzyć samemu z planu w `/schedules/route/...`
- * (`arrivalTime`/`departureTime`, HH:mm:ss) + `operatingDate`.
- *
- * Wyjątek: fixture'y mocka (i teoretycznie przyszłe warianty API) MOGĄ podać
- * `plannedArrival`/`arrivalDelayMinutes` wprost na obiekcie operacji — to ma
- * pierwszeństwo, liczenie z trasy jest tylko rezerwowe.
- */
-function resolvePlannedTime(
-  apiPlanned: string | null,
-  operatingDate: string | null,
-  time: string | null | undefined,
-  dayOffset: number | null | undefined
-): string | null {
-  if (apiPlanned !== null) return apiPlanned
-  if (operatingDate === null) return null
-  return combineWarsawDateAndTime(operatingDate, time ?? null, dayOffset ?? null)
 }
 
 /**

@@ -1,6 +1,6 @@
 import type { GetDisruptionsResult, PkpClient, RateLimitBudget } from '../pkp/client'
 import { PkpApiError } from '../pkp/client'
-import type { RawRoute } from '../pkp/types'
+import type { RawRoute, RawTrainOperation } from '../pkp/types'
 import { transformOperations, type BoardSnapshot } from './transform'
 import { indexRoutesByTrain } from './routeKey'
 import { findStationDisruptionMessages, indexDisruptedTrains } from './disruptions'
@@ -89,6 +89,28 @@ function isBudgetLow(budget: RateLimitBudget): boolean {
   if (budget.daily !== null && budget.daily < LOW_BUDGET_DAILY_THRESHOLD) return true
   if (budget.hourly !== null && budget.hourly < LOW_BUDGET_HOURLY_THRESHOLD) return true
   return false
+}
+
+/**
+ * Czy odpowiedź `/operations` niesie cokolwiek, z czego da się zbudować wiersz
+ * tablicy. `transformOperations` bramkuje każdy wiersz na obecności
+ * `plannedArrival`/`plannedDeparture`, więc odpowiedź bez ani jednego planowego
+ * czasu jest w całości bezużyteczna — niezależnie od tego, ile pociągów zawiera.
+ *
+ * Powód istnienia: 2026-08-30 `withPlanned=true` przestał działać po stronie
+ * PKP (odpowiedź bajt w bajt identyczna z `withPlanned=false`). `/operations`
+ * zwracał 1481 pociągów, z czego ZERO przystanków z planowym czasem — HTTP 200,
+ * `generatedAt` świeże, poller `ok`, a każda tablica pusta. Awaria widoczna
+ * tylko przez treść, nigdy przez status odpowiedzi.
+ *
+ * Pytamy o PLANOWY czas, nie o liczbę zbudowanych wierszy: pusta tablica bywa
+ * prawdą (noc, pociągi poza oknem `VISIBLE_WINDOW_MS`), więc sama jej pustka
+ * nie jest dowodem awarii. Brak planu przy niepustej liście pociągów — jest.
+ */
+export function hasUsablePlannedTimes(trains: RawTrainOperation[]): boolean {
+  return trains.some((train) =>
+    train.stations.some((stop) => stop.plannedArrival !== null || stop.plannedDeparture !== null)
+  )
 }
 
 export type PollerStatus = 'ok' | 'configError' | 'degraded'
@@ -230,8 +252,10 @@ export function createPoller(deps: PollerDeps): Poller {
         fetchDisruptions(client, realActive),
       ])
       budget = result.budget
+      const budgetLow = isBudgetLow(budget)
+      currentIntervalMs = budgetLow ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
+
       const disruptedTrains = indexDisruptedTrains(disruptions.disruptions)
-      status = 'ok'
       const fetchedAt = new Date(now()).toISOString()
 
       // /operations nie ma już (świadomie, patrz client.ts) własnego pełnego
@@ -248,8 +272,21 @@ export function createPoller(deps: PollerDeps): Poller {
       // rozkład („zero pociągów") -- AGENTS.md #7.
       const routesForStats = routes.length === 0 ? null : routes
 
+      /**
+       * Feed odpowiadający 200, ale bez ani jednego planowego czasu, jest
+       * niesprawny — patrz `hasUsablePlannedTimes()`. Sam ten fakt NIE przesądza
+       * jednak, że nie mamy co pokazać: od kiedy `transformOperations` odtwarza
+       * plan z trasy rozkładowej, tablica potrafi się zbudować z samego
+       * `/schedules`, bez realizacji. Dlatego rozstrzygamy dopiero po
+       * zbudowaniu snapshotów, nie przed.
+       */
+      const feedBroken = result.trains.length > 0 && !hasUsablePlannedTimes(result.trains)
+
+      // Do mapy pomocniczej, nie od razu do `snapshots` -- dopóki nie wiadomo,
+      // czy jest czym nadpisywać, ostatnie dobre dane muszą zostać nietknięte.
+      const built = new Map<string, BoardSnapshot>()
       for (const stationId of realActive) {
-        snapshots.set(
+        built.set(
           stationId,
           transformOperations(
             stationId,
@@ -268,15 +305,41 @@ export function createPoller(deps: PollerDeps): Poller {
         )
       }
 
+      const builtAnyRow = [...built.values()].some(
+        (snapshot) => snapshot.departures.length > 0 || snapshot.arrivals.length > 0
+      )
+
+      // Niesprawny feed I nic do pokazania -- jedyny przypadek, w którym
+      // nadpisanie byłoby czystą stratą. AGENTS.md #7: zostaje ostatni znany
+      // dobry snapshot wraz ze swoim wiekiem (`ageMs` w `/api/board`), nie pustka.
+      if (feedBroken && !builtAnyRow) {
+        status = 'degraded'
+        console.error(
+          `Poller: PKP zwróciło ${result.trains.length} pociągów bez ani jednego planowego czasu i bez dostępnego rozkładu — zachowuję poprzednie dane`
+        )
+        timer = setTimeout(() => void runTick(), currentIntervalMs)
+        return
+      }
+
+      for (const [stationId, snapshot] of built) {
+        snapshots.set(stationId, snapshot)
+      }
+
+      // Rozkład sam się zbudował, ale realizacji nadal nie ma -- dane są
+      // niepełne i UI ma o tym mówić wprost, zamiast pokazywać sam plan jako
+      // pełnowartościową prawdę.
+      status = feedBroken ? 'degraded' : 'ok'
+
       // Przeliczone od zera z wyniku TEGO cyklu -- jak tylko śledzony
       // przystanek się potwierdzi (albo zniknie), jego stacja pomocnicza
       // sama wypada z następnego zapytania, bez osobnego wygaszania.
       auxStationIds = collectUpstreamCandidates(realActive, result.trains, routesByTrainId)
 
-      const budgetLow = isBudgetLow(budget)
-      currentIntervalMs = budgetLow ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
       // Patrz `NEW_STATION_FOLLOWUP_DELAY_MS` -- tylko gdy ten cykl faktycznie
       // odkrył stacje pomocnicze DLA świeżo dodanej stacji, i budżet na to pozwala.
+      // (`budgetLow` i `currentIntervalMs` policzone wyżej, przed bramką
+      // sprawdzającą sprawność feedu -- zwolnienie przy niskim budżecie musi
+      // działać także wtedy, gdy ten cykl kończy się na `degraded`.)
       scheduleFollowUp = newlyObserved.length > 0 && auxStationIds.size > 0 && !budgetLow
     } catch (err) {
       if (err instanceof PkpApiError && err.status === 401) {
