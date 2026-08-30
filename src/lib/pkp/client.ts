@@ -398,13 +398,40 @@ export function createLiveClient(
 
   async function loadSchedules(stationIds: string[], cacheKey: string): Promise<GetSchedulesResult> {
     const { dateFrom, dateTo } = scheduleDateWindow()
+    const baseUrl = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}`
     // fullRoute=true: /operations celowo NIE dokłada już pełnej trasy (patrz
     // getOperations niżej) — origin/destination do „Kierunku" idą stąd.
     // Koszt jednorazowy: /schedules jest cache'owane 24h, w przeciwieństwie do
     // /operations pobieranego co cykl pollera.
-    const url = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}&fullRoute=true`
-    const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie rozkładu nie powiodło się')
-    const parsed = schedulesResponseSchema.parse(json)
+    const { json } = await fetchJsonWithRetry(`${baseUrl}&fullRoute=true`, apiKey, 'Pobranie rozkładu nie powiodło się')
+    let parsed = schedulesResponseSchema.parse(json)
+
+    /**
+     * Obejście awarii po stronie PKP, stwierdzonej 2026-08-30: `fullRoute=true`
+     * zaczęło zwracać komplet tras z kraju (10 498 zamiast 694 dla jednej
+     * stacji, 2,5 MB zamiast 522 KB) i przy tym GUBIĆ listę `stations` w każdej
+     * z nich. Bez przystanków nie ma planowych godzin, peronu, kierunku ani
+     * estymaty z poprzedniej stacji — czyli trasy są formalnie obecne, a
+     * praktycznie bezużyteczne. Schemat tego nie zgłasza, bo `stations` jest
+     * `.nullish()` i brak zamienia się w `[]` (świadomie: to granica zaufania).
+     *
+     * Wariant bez `fullRoute` działa i niesie przystanek obserwowanej stacji
+     * wraz z jego godzinami i peronem — traci tylko pełną trasę, czyli
+     * „Kierunek" i estymatę upstream. Lepsze to niż tablica bez godzin.
+     *
+     * Świadomie jako FALLBACK, nie jako domyślne zachowanie: gdy PKP naprawi
+     * `fullRoute`, kierunek i estymata wracają same, bez zmiany w kodzie.
+     * Koszt: jedno dodatkowe zapytanie na wpis cache'u (24 h), czyli w praktyce
+     * kilka na dobę — patrz AGENTS.md #3.
+     */
+    if (parsed.routes.length > 0 && !parsed.routes.some((route) => route.stations.length > 0)) {
+      console.error(
+        `PKP: /schedules?fullRoute=true zwróciło ${parsed.routes.length} tras, wszystkie bez przystanków — ponawiam bez fullRoute`
+      )
+      const fallback = await fetchJsonWithRetry(baseUrl, apiKey, 'Pobranie rozkładu nie powiodło się')
+      parsed = schedulesResponseSchema.parse(fallback.json)
+    }
+
     const result: GetSchedulesResult = {
       routes: parsed.routes,
       carrierNames: parsed.carrierNames,

@@ -256,9 +256,20 @@ describe('createLiveClient', () => {
   })
 
   it('fetches routes for the requested stations and parses carrier/category', async () => {
+    // Trasa z przystankiem, bo tak wygląda działająca odpowiedź `fullRoute=true`.
+    // Trasa BEZ przystanków to sygnał awarii PKP i uruchamia ponowienie bez
+    // `fullRoute` (patrz osobny test niżej) -- nie chcemy go tutaj przypadkiem.
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
-        routes: [{ scheduleId: 25, orderId: 118845, carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' }],
+        routes: [
+          {
+            scheduleId: 25,
+            orderId: 118845,
+            carrierCode: 'PKP_IC',
+            commercialCategorySymbol: 'EIC',
+            stations: [{ stationId: 5100 }],
+          },
+        ],
       })
     )
     vi.stubGlobal('fetch', fetchMock)
@@ -266,9 +277,83 @@ describe('createLiveClient', () => {
     const client = createLiveClient('secret-key')
     const { routes } = await client.getSchedules(['5100', '5136'])
 
-    expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', trainOrderId: null, carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, operatingDates: [], stations: [] }])
+    expect(routes).toEqual([
+      {
+        scheduleId: '25',
+        orderId: '118845',
+        trainOrderId: null,
+        carrierCode: 'PKP_IC',
+        commercialCategorySymbol: 'EIC',
+        name: null,
+        nationalNumber: null,
+        operatingDates: [],
+        stations: [
+          {
+            stationId: '5100',
+            arrivalPlatform: null,
+            arrivalTrack: null,
+            departurePlatform: null,
+            departureTrack: null,
+            arrivalTime: null,
+            departureTime: null,
+            arrivalDay: null,
+            departureDay: null,
+            stopTypeName: null,
+          },
+        ],
+      },
+    ])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/api/v1/schedules?stations=5100,5136')
+  })
+
+  it('ponawia /schedules bez fullRoute, gdy PKP zwraca trasy z pustą listą przystanków', async () => {
+    // Awaria stwierdzona na żywym API 2026-08-30: `fullRoute=true` zwracało
+    // 10 498 tras (2,5 MB), wszystkie bez `stations` -- czyli bez godzin, peronu
+    // i kierunku. Wariant bez `fullRoute` działał i niósł przystanek pytanej
+    // stacji. Schemat tego nie zgłasza, bo `stations` jest `.nullish()`.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ routes: [{ scheduleId: 2026, orderId: 1, carrierCode: 'KM' }] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          routes: [{ scheduleId: 2026, orderId: 1, carrierCode: 'KM', stations: [{ stationId: 5100, departureTime: '12:05:00' }] }],
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const { routes } = await client.getSchedules(['5100'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(String(fetchMock.mock.calls[0][0])).toContain('fullRoute=true')
+    expect(String(fetchMock.mock.calls[1][0])).not.toContain('fullRoute')
+    // Liczy się wynik: przystanek z godziną, z którego da się zbudować tablicę.
+    expect(routes[0].stations).toHaveLength(1)
+    expect(routes[0].stations[0].departureTime).toBe('12:05:00')
+  })
+
+  it('nie ponawia, gdy trasy mają przystanki -- fallback jest wyłącznie na awarię', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ routes: [{ scheduleId: 2026, orderId: 1, stations: [{ stationId: 5100 }] }] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getSchedules(['5100'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('nie ponawia, gdy PKP nie zwróciło żadnej trasy -- pusto to nie to samo co zepsuto', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getSchedules(['5100'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('requests full routes from /schedules, so origin/destination for "Kierunek" are available without fullRoutes on /operations', async () => {
