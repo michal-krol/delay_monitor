@@ -114,27 +114,6 @@ export function MoonIcon(props: IconProps) {
   )
 }
 
-export function RefreshIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M13.5 8a5.5 5.5 0 1 1-1.7-4" stroke="currentColor" />
-      <path d="M13.5 3v3.5H10" stroke="currentColor" />
-    </>,
-    props,
-    '0 0 16 16'
-  )
-}
-
-export function SearchIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="9" cy="9" r="6.5" stroke="currentColor" />
-      <path d="m17 17-3.8-3.8" stroke="currentColor" />
-    </>,
-    props
-  )
-}
-
 export function CloseIcon(props: IconProps) {
   return base(<path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth={2} />, props, '0 0 16 16')
 }
