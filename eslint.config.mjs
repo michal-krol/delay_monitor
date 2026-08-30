@@ -28,6 +28,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Katalogi robocze agentów -- pełne kopie repo. Bez tego `npm run lint`
+    // w głównym checkoucie sprawdza każdą gałąź roboczą naraz i kończy się
+    // błędem (560 plików, wyłącznie stamtąd), mimo że główne drzewo jest
+    // czyste. Ten sam powód co `exclude` w vitest.config.mts; gita to nie
+    // dotyczy (`.git/info/exclude`), więc CI zawsze widziało poprawny zestaw.
+    ".claude/**",
     // Wygenerowany raport pokrycia (`npm run test:coverage`). Jest już
     // w .gitignore, ale eslint czyta katalog roboczy, nie indeks gita --
     // bez tego wpisu lint zgłasza uwagi do cudzego, generowanego kodu.
