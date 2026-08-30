@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -13,6 +13,17 @@ export default defineConfig({
     },
   },
   test: {
+    /**
+     * Katalogi robocze agentów (`.claude/worktrees/**`) to pełne kopie repo,
+     * więc bez tego wykluczenia `npm run test` uruchomiony w głównym checkoucie
+     * zbiera KAŻDY test z KAŻDEJ gałęzi roboczej naraz -- 3208 przypadków
+     * zamiast 690, a alias `@` rozwiązuje się przy tym na `src` głównego
+     * drzewa, nie tej kopii. Efekt: setki porażek, które nie są błędami
+     * w żadnym z tych drzew. Gita to nie dotyczy (`.git/info/exclude`), więc
+     * CI zawsze widziało poprawny zestaw -- ale lokalnie mylące i kilka razy
+     * wolniejsze.
+     */
+    exclude: [...configDefaults.exclude, '**/.claude/**'],
     environment: 'node',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
