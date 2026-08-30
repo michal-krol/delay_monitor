@@ -21,8 +21,12 @@ describe('TopBar', () => {
     expect(onBack).toHaveBeenCalledTimes(1)
   })
 
-  it('zawsze pokazuje przycisk powiadomień', () => {
+  it('nie pokazuje przycisku powiadomień -- funkcji nie ma, więc nie ma jej obiecywać', () => {
+    // Dzwonek istniał tu wcześniej bez żadnej akcji. Powiadomienia wymagają
+    // service workera, kluczy VAPID i trwałego zapisu subskrypcji, których ta
+    // aplikacja świadomie nie ma (AGENTS.md #5) -- martwy przycisk był gorszy
+    // niż jego brak.
     render(<TopBar title="Pulpit" subtitle="x" />)
-    expect(screen.getByRole('button', { name: /powiadomienia/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /powiadomienia/i })).not.toBeInTheDocument()
   })
 })

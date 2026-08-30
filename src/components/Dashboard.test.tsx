@@ -45,8 +45,6 @@ describe('Dashboard', () => {
         favourites={FAVOURITES}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
-        focusedStationId={null}
-        onCloseFocus={vi.fn()}
       />
     )
 
@@ -72,8 +70,6 @@ describe('Dashboard', () => {
         favourites={FAVOURITES}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
-        focusedStationId={null}
-        onCloseFocus={vi.fn()}
       />
     )
 
@@ -105,8 +101,6 @@ describe('Dashboard', () => {
         favourites={FAVOURITES}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
-        focusedStationId={null}
-        onCloseFocus={vi.fn()}
       />
     )
 
@@ -149,8 +143,6 @@ describe('Dashboard', () => {
         favourites={FAVOURITES}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
-        focusedStationId={null}
-        onCloseFocus={vi.fn()}
       />
     )
 
@@ -176,8 +168,6 @@ describe('Dashboard', () => {
         favourites={FAVOURITES}
         onExpand={vi.fn()}
         onRemove={onRemove}
-        focusedStationId={null}
-        onCloseFocus={vi.fn()}
       />
     )
 
@@ -218,8 +208,6 @@ describe('Dashboard', () => {
         favourites={FAVOURITES}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
-        focusedStationId={null}
-        onCloseFocus={vi.fn()}
       />
     )
     expect(await screen.findByText('IC')).toBeInTheDocument()
@@ -231,8 +219,6 @@ describe('Dashboard', () => {
         favourites={[FAVOURITES[1]]}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
-        focusedStationId={null}
-        onCloseFocus={vi.fn()}
       />
     )
 
@@ -241,100 +227,7 @@ describe('Dashboard', () => {
     expect(screen.queryByText('IC')).not.toBeInTheDocument()
   })
 
-  it('w trybie ogniskowym pokazuje tylko wskazaną stację i nie robi drugiego zapytania', async () => {
-    const fetchMock = vi.fn().mockImplementation(() =>
-      jsonResponse({
-        snapshots: [
-          { stationId: '5100', stationName: 'Warszawa Centralna', departures: [], arrivals: [], fetchedAt: '2026-08-01T20:24:11.827Z', ageMs: 0 },
-          { stationId: '5136', stationName: 'Kraków Główny', departures: [], arrivals: [], fetchedAt: '2026-08-01T20:24:11.827Z', ageMs: 0 },
-        ],
-        budget: undefined,
-        status: 'ok',
-      })
-    )
-    vi.stubGlobal('fetch', fetchMock)
 
-    render(
-      <Dashboard
-        favourites={FAVOURITES}
-        onExpand={vi.fn()}
-        onRemove={vi.fn()}
-        focusedStationId="5136"
-        onCloseFocus={vi.fn()}
-      />
-    )
 
-    expect(await screen.findByRole('heading', { name: 'Kraków Główny' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Warszawa Centralna' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('article')).not.toBeInTheDocument()
-    // Ten sam pojedynczy fetch po wszystkich ulubionych co w trybie siatki —
-    // tryb ogniskowy nie ma dociągać danych osobno.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100,5136'))
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
 
-  it('"Zamknij" w trybie ogniskowym woła onCloseFocus', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok', throttled: false }))
-    vi.stubGlobal('fetch', fetchMock)
-    const onCloseFocus = vi.fn()
-    const user = userEvent.setup()
-
-    render(
-      <Dashboard
-        favourites={FAVOURITES}
-        onExpand={vi.fn()}
-        onRemove={vi.fn()}
-        focusedStationId="5136"
-        onCloseFocus={onCloseFocus}
-      />
-    )
-
-    // "Zobacz wszystkie" nie istnieje już w trybie ogniskowym -- tabela w
-    // miejscu jest już tą samą listą, którą dawniej pokazywał ten przycisk.
-    expect(screen.queryByRole('button', { name: 'Zobacz wszystkie' })).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
-    expect(onCloseFocus).toHaveBeenCalledTimes(1)
-  })
-
-  it('przekazuje configError do FocusedStation w trybie ogniskowym', async () => {
-    const fetchMock = vi.fn().mockImplementation(() =>
-      jsonResponse({ snapshots: [null, null], budget: undefined, status: 'configError' })
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    render(
-      <Dashboard
-        favourites={FAVOURITES}
-        onExpand={vi.fn()}
-        onRemove={vi.fn()}
-        focusedStationId="5136"
-        onCloseFocus={vi.fn()}
-      />
-    )
-
-    expect(await screen.findByRole('alert')).toBeInTheDocument()
-    expect(screen.queryByRole('tab', { name: 'Odjazdy' })).not.toBeInTheDocument()
-    // Nagłówek (Zamknij) zostaje użyteczny mimo błędu konfiguracji.
-    expect(screen.getByRole('button', { name: 'Zamknij' })).toBeInTheDocument()
-  })
-
-  it('wraca do siatki, gdy focusedStationId nie pasuje do żadnej ulubionej stacji', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok', throttled: false }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    render(
-      <Dashboard
-        favourites={FAVOURITES}
-        onExpand={vi.fn()}
-        onRemove={vi.fn()}
-        focusedStationId="999999999"
-        onCloseFocus={vi.fn()}
-      />
-    )
-
-    expect(screen.getAllByRole('article')).toHaveLength(2)
-    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
-  })
 })

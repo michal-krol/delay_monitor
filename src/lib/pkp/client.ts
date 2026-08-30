@@ -50,6 +50,9 @@ const RETRY_JITTER_MS = 1000
 // każda zmiana ulubionych tworzy nowy wpis. Limit trzyma to w ryzach.
 const SCHEDULES_CACHE_MAX_ENTRIES = 64
 
+/** Maksimum dopuszczone przez swagger dla `/operations` (domyślne API to 1000) — patrz `getOperations()`. */
+const OPERATIONS_PAGE_SIZE = 5000
+
 /**
  * Pozostały budżet zapytań wg nagłówków API. `null` znaczy „nie wiadomo",
  * a nie „zero" — brak nagłówka nie może wyglądać jak wyczerpany limit.
@@ -444,9 +447,23 @@ export function createLiveClient(
       // destination do „Kierunku" idą teraz z dopasowanej trasy /schedules
       // (fullRoute=true tam — patrz loadSchedules — ale cache 24h, nie co 90s).
       // Nie dopisuj tego z powrotem bez przeliczenia kosztu.
-      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true`
+      // pageSize=5000 to maksimum dopuszczone przez swagger (domyślne 1000).
+      // Nie chodzi o tablicę (ta pokazuje kilkadziesiąt wierszy), tylko o
+      // statystyki stacji — liczą się z CAŁEGO dnia realizacji, więc ucięcie
+      // na pierwszej stronie zaniżałoby je po cichu. Jedna strona to nadal
+      // JEDNO zapytanie, więc koszt względem budżetu się nie zmienia.
+      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true&pageSize=${OPERATIONS_PAGE_SIZE}`
       const { json, response } = await fetchJsonWithRetry(url, apiKey, 'Pobranie realizacji nie powiodło się')
       const parsed = operationsResponseSchema.parse(json)
+      // Klient świadomie NIE dociąga kolejnych stron -- każda kosztowałaby
+      // osobne zapytanie z limitu 100/h. Zamiast tego głośno mówi, że sufit
+      // został przekroczony: to sygnał, że trzeba przeprojektować pobieranie,
+      // a nie po cichu liczyć statystyki z niepełnego dnia.
+      if (parsed.pagination?.hasNextPage === true) {
+        console.warn(
+          `PKP /operations: odpowiedź ucięta na ${OPERATIONS_PAGE_SIZE} pociągach (totalCount=${parsed.pagination.totalCount ?? '?'}) — statystyki stacji liczą się z niepełnego dnia`
+        )
+      }
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response) }
     },
 

@@ -41,6 +41,7 @@ function route(stations: RawRouteStop[]): RawRoute {
     commercialCategorySymbol: 'EIC',
     name: 'Test',
     nationalNumber: null,
+    operatingDates: [],
     stations,
   }
 }
@@ -196,7 +197,8 @@ describe('buildTrainDetailStops', () => {
 
     const [stop] = buildTrainDetailStops(operation(stops), route(routeStops), {})
 
-    expect(stop.platform).toBe('2/2')
+    expect(stop.platform).toBe('2')
+    expect(stop.track).toBe('2')
   })
 
   it('never computes a delay for an unconfirmed stop, even when actual genuinely differs from planned', () => {

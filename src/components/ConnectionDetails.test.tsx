@@ -41,7 +41,8 @@ const RESPONSE = {
       departureDelayMinutes: 7,
       isCancelled: false,
       isConfirmed: true,
-      platform: '3/1',
+      platform: '3',
+      track: '1',
       hasTrainStarted: false,
     },
     {
@@ -91,7 +92,9 @@ describe('ConnectionDetails', () => {
     expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'EIC Grunwald' })).toBeInTheDocument()
     expect(screen.getByText('+7 min')).toBeInTheDocument()
-    expect(screen.getByText('peron 3/1')).toBeInTheDocument()
+    // Peron i tor jako dwie osobne wartości, nie sklejone „3/1" -- jedna
+    // bywa znana bez drugiej (makieta §10).
+    expect(screen.getByText(/peron 3 · tor 1/)).toBeInTheDocument()
   })
 
   it('shows the resolved carrier/category name instead of the raw code, when known', async () => {

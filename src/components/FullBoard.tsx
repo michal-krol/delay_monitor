@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable } from './BoardTable'
+import { StationAside } from './StationAside'
+import { StationStatsCards } from './StationStatsCards'
+import { StationThumb } from './StationThumb'
 import { ThemeToggle } from './ThemeToggle'
-import { CloseIcon, LinkIcon, StarIcon } from './icons'
+import { CloseIcon, ShareIcon, StarIcon } from './icons'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
+import { useShareUrl } from '@/hooks/useShareUrl'
 
 type Props = {
   stationId: string
@@ -19,6 +23,9 @@ type Props = {
 }
 
 export type Direction = 'departures' | 'arrivals'
+
+/** Sufit długości filtra kierunku odtwarzanego z URL-a -- patrz komentarz przy odczycie. */
+const MAX_DESTINATION_FILTER_LENGTH = 100
 
 /**
  * Przycisk-ikona bez podpisu — ten sam krój co `ThemeToggle` (obok którego
@@ -58,13 +65,32 @@ export function TabButton({ active, onClick, children }: { active: boolean; onCl
 
 export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, onClose }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+  /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
+  const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
+  const { share, status: shareStatus } = useShareUrl()
   const { data, error } = useBoard([stationId])
   const snapshot = data?.snapshots[0] ?? null
-  const rows = snapshot ? snapshot[direction] : []
   const configError = data?.status === 'configError'
 
   const now = useSnapshotNow(data)
+
+  /**
+   * Zmiana kierunku czyści filtr: „najpopularniejsze kierunki" liczą się z
+   * ODJAZDÓW, więc ten sam filtr na tablicy przyjazdów dawałby pustą listę
+   * bez czytelnego powodu. Czyszczone wprost w handlerze, nie efektem na
+   * `direction` -- efekt ustawiający stan po zmianie innego stanu to zawsze
+   * dodatkowy render i renderowanie odfiltrowanej tablicy przez jedną klatkę.
+   */
+  function switchDirection(next: Direction): void {
+    setDirection(next)
+    setDestinationFilter(null)
+  }
+
+  const allRows = useMemo(() => (snapshot ? snapshot[direction] : []), [snapshot, direction])
+  const rows = useMemo(
+    () => (destinationFilter === null ? allRows : allRows.filter((row) => row.headsign === destinationFilter)),
+    [allRows, destinationFilter]
+  )
 
   // Odtworzenie zakładki z linku — raz, po zamontowaniu (patrz identyczny
   // wzorzec i uzasadnienie w page.tsx). Nieprawidłowy/uszkodzony parametr jest
@@ -76,6 +102,15 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
       // eslint-disable-next-line react-hooks/set-state-in-effect -- odtworzenie stanu z URL-a, dostępnego tylko po zamontowaniu
       setDirection(tab)
     }
+    // Filtr kierunku jest wprost porównywany z `headsign` wiersza, więc żadna
+    // wartość z URL-a nie jest niebezpieczna: nieznana nazwa po prostu nie
+    // pasuje do niczego i tablica wychodzi pusta. Przycinamy jednak długość,
+    // żeby spreparowany link nie wstrzyknął kilobajta tekstu do plakietki
+    // filtra (AGENTS.md #4: wejście spoza aplikacji jest zawsze wrogie).
+    const destination = readUrlParam('kierunek')
+    if (destination !== null && destination !== '' && destination.length <= MAX_DESTINATION_FILTER_LENGTH) {
+      setDestinationFilter(destination)
+    }
   }, [])
 
   // Zapis do URL-a przy każdej zmianie — `replaceState`, nie `pushState`
@@ -85,85 +120,131 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
     patchUrlParams({ tab: direction })
   }, [direction])
 
+  // Filtr kierunku w adresie, żeby „Warszawa Zachodnia → Kraków" dało się
+  // komuś wysłać. Ten sam `replaceState` co `tab` -- filtrowanie listy nie ma
+  // zaśmiecać historii cofania.
+  useEffect(() => {
+    patchUrlParams({ kierunek: destinationFilter })
+  }, [destinationFilter])
+
   // Zamknięcie całej tablicy (powrót do dashboardu) musi wyczyścić `tab` —
   // inaczej otwarcie kolejnej, innej stacji odziedziczyłoby zakładkę sprzed
   // zamknięcia, przez wciąż obecny w URL-u wpis.
   useEffect(() => {
     return () => {
-      patchUrlParams({ tab: null })
+      patchUrlParams({ tab: null, kierunek: null })
     }
   }, [])
 
-  async function copyLink(): Promise<void> {
-    try {
-      if (!navigator.clipboard) throw new Error('Clipboard API niedostępne')
-      await navigator.clipboard.writeText(window.location.href)
-      setCopyStatus('copied')
-    } catch {
-      setCopyStatus('error')
-    }
-  }
-
-  useEffect(() => {
-    if (copyStatus === 'idle') return
-    const timer = setTimeout(() => setCopyStatus('idle'), 3000)
-    return () => clearTimeout(timer)
-  }, [copyStatus])
-
   return (
-    <>
-      <section className="glass rounded-2xl p-5">
-        {configError && <ConfigErrorBanner />}
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <div className="flex min-w-0 flex-col gap-5">
+        <section className="glass rounded-2xl p-5">
+          {configError && <ConfigErrorBanner />}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">{stationName}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {copyStatus !== 'idle' && (
-              <span role="status" className="text-sm text-text-secondary">
-                {copyStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
-              </span>
-            )}
-            <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
-              <StarIcon size={15} className={isFavourite ? 'fill-current text-amber-400' : ''} />
-            </IconButton>
-            <IconButton onClick={() => void copyLink()} label="Kopiuj link">
-              <LinkIcon size={15} />
-            </IconButton>
-            <IconButton onClick={onClose} label="Zamknij">
-              <CloseIcon size={15} />
-            </IconButton>
-            <ThemeToggle />
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <StationThumb stationName={stationName} />
+              <div className="min-w-0">
+                <h2 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stationName}</h2>
+                {/* Przy błędzie konfiguracji NIE pokazujemy statusu danych --
+                    „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API"
+                    to dokładnie to mieszanie sygnałów, przed którym ostrzega
+                    AGENTS.md #7. Ta sama zasada co ukrycie tabeli niżej. */}
+                {!configError && (
+                  <div className="mt-1">
+                    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} data={data} error={error !== null} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {shareStatus !== 'idle' && (
+                <span role="status" className="text-sm text-text-secondary">
+                  {shareStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
+                </span>
+              )}
+              <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
+                <StarIcon size={15} className={isFavourite ? 'fill-current text-amber-400' : ''} />
+              </IconButton>
+              {/* Przycisk z podpisem, nie sama ikona (makieta §17) -- to
+                  główna akcja nagłówka, a „Udostępnij" bez etykiety było
+                  najmniej odgadywalnym elementem tego widoku. */}
+              <button
+                type="button"
+                onClick={() => void share()}
+                className="inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                style={{ borderColor: 'var(--surface-border)' }}
+              >
+                <ShareIcon size={15} />
+                Udostępnij
+              </button>
+              <IconButton onClick={onClose} label="Zamknij">
+                <CloseIcon size={15} />
+              </IconButton>
+              <ThemeToggle />
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* Baner z błędem konfiguracji nie ma slotu na przycisk, więc nie może
             całkowicie zastąpić widoku (jak robi StationCard) — FullBoard jest
             jedynym widokiem na ekranie i użytkownik musiałby stąd wyjść. Ukrywamy
-            więc tylko zależne od danych zakładki/status/tabelę, żeby baner
+            więc tylko zależne od danych kafelki/zakładki/tabelę, żeby baner
             "sprawdź klucz API" nie sąsiadował z wyglądającą na działającą tabelą. */}
         {!configError && (
           <>
-            <div
-              role="tablist"
-              aria-label="Kierunek"
-              className="mt-4 inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5"
-            >
-              <TabButton active={direction === 'departures'} onClick={() => setDirection('departures')}>
-                Odjazdy
-              </TabButton>
-              <TabButton active={direction === 'arrivals'} onClick={() => setDirection('arrivals')}>
-                Przyjazdy
-              </TabButton>
-            </div>
+            <StationStatsCards stats={snapshot?.stats} loading={snapshot === null && error === null} />
 
-            <div className="mt-3">
-              <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} data={data} error={error !== null} />
-            </div>
+            <section className="glass rounded-2xl p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div role="tablist" aria-label="Kierunek" className="inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5">
+                  <TabButton active={direction === 'departures'} onClick={() => switchDirection('departures')}>
+                    Odjazdy
+                  </TabButton>
+                  <TabButton active={direction === 'arrivals'} onClick={() => switchDirection('arrivals')}>
+                    Przyjazdy
+                  </TabButton>
+                </div>
 
-            <BoardTable stationName={stationName} direction={direction} rows={rows} now={now} loading={snapshot === null && error === null} />
+                {destinationFilter !== null && (
+                  <button
+                    type="button"
+                    onClick={() => setDestinationFilter(null)}
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground"
+                    style={{ borderColor: 'var(--surface-border)' }}
+                  >
+                    Kierunek: {destinationFilter}
+                    <CloseIcon size={12} />
+                  </button>
+                )}
+              </div>
+
+              <BoardTable
+                stationName={stationName}
+                direction={direction}
+                rows={rows}
+                now={now}
+                loading={snapshot === null && error === null}
+              />
+            </section>
           </>
         )}
-      </section>
-    </>
+      </div>
+
+      {!configError && (
+        <aside>
+          <StationAside
+            insights={snapshot?.insights}
+            disruptionMessages={snapshot?.disruptionMessages ?? []}
+            destinationFilter={destinationFilter}
+            onDestinationFilter={setDestinationFilter}
+            loading={snapshot === null && error === null}
+            currentHour={new Date(now).getHours()}
+          />
+        </aside>
+      )}
+    </div>
   )
 }

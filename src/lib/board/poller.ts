@@ -1,9 +1,12 @@
-import type { PkpClient, RateLimitBudget } from '../pkp/client'
+import type { GetDisruptionsResult, PkpClient, RateLimitBudget } from '../pkp/client'
 import { PkpApiError } from '../pkp/client'
-import type { RawDisruption, RawRoute } from '../pkp/types'
-import { routeKey, transformOperations, type BoardSnapshot } from './transform'
-import { indexDisruptedTrains } from './disruptions'
+import type { RawRoute } from '../pkp/types'
+import { transformOperations, type BoardSnapshot } from './transform'
+import { indexRoutesByTrain } from './routeKey'
+import { findStationDisruptionMessages, indexDisruptedTrains } from './disruptions'
 import { collectUpstreamCandidates } from './upstreamEstimate'
+import { computeStationStats } from './stationStats'
+import { warsawDateString } from '../pkp/time'
 
 const FORCE_RUN_THROTTLE_MS = 45000
 const LOW_BUDGET_INTERVAL_MS = 5 * 60 * 1000
@@ -107,6 +110,14 @@ export type Poller = {
 
 type RoutesLookup = {
   routesByTrainId: Map<string, RawRoute>
+  /**
+   * Surowa lista tras, BEZ deduplikacji po kluczu przejazdu — statystyki
+   * stacji liczą wystąpienia, więc muszą widzieć każdy rekord osobno.
+   * Indeks wyżej celowo trzyma po jednej trasie na (przejazd, dzień) i do
+   * liczenia się nie nadaje: zwijał 1094 dzisiejsze odjazdy do 910
+   * (zmierzone na żywo, Warszawa Zachodnia).
+   */
+  routes: RawRoute[]
   carrierNames: Record<string, string>
   categoryNames: Record<string, string>
   /** Pełny słownik nazw stacji ze `/schedules` — patrz merge w `runTick`. */
@@ -116,23 +127,20 @@ type RoutesLookup = {
 async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promise<RoutesLookup> {
   try {
     const { routes, carrierNames, categoryNames, stationNames } = await client.getSchedules(active)
-    const routesByTrainId = new Map(
-      routes.map((route) => [routeKey(route.scheduleId, route.orderId, route.trainOrderId), route])
-    )
-    return { routesByTrainId, carrierNames, categoryNames, scheduleStationNames: stationNames }
+    return { routesByTrainId: indexRoutesByTrain(routes), routes, carrierNames, categoryNames, scheduleStationNames: stationNames }
   } catch (err) {
     console.error('Poller: błąd pobierania rozkładu (przewoźnik/kategoria będą puste)', err)
-    return { routesByTrainId: new Map(), carrierNames: {}, categoryNames: {}, scheduleStationNames: {} }
+    return { routesByTrainId: new Map(), routes: [], carrierNames: {}, categoryNames: {}, scheduleStationNames: {} }
   }
 }
 
 /** Awaria pobrania utrudnień to wzbogacenie, nie rdzeń ticka -- degraduje łagodnie do braku badge'y, reszta cyklu działa dalej. */
-async function fetchDisruptions(client: PkpClient, active: string[]): Promise<RawDisruption[]> {
+async function fetchDisruptions(client: PkpClient, active: string[]): Promise<GetDisruptionsResult> {
   try {
-    return (await client.getDisruptions(active)).disruptions
+    return await client.getDisruptions(active)
   } catch (err) {
     console.error('Poller: błąd pobierania utrudnień (badge będzie niedostępny)', err)
-    return []
+    return { disruptions: [], disruptionTypes: {} }
   }
 }
 
@@ -216,13 +224,13 @@ export function createPoller(deps: PollerDeps): Poller {
     const operationsStationIds = [...new Set([...realActive, ...auxStationIds])]
 
     try {
-      const [result, { routesByTrainId, carrierNames, categoryNames, scheduleStationNames }, disruptions] = await Promise.all([
+      const [result, { routesByTrainId, routes, carrierNames, categoryNames, scheduleStationNames }, disruptions] = await Promise.all([
         client.getOperations(operationsStationIds),
         fetchRoutesByTrainId(client, realActive),
         fetchDisruptions(client, realActive),
       ])
       budget = result.budget
-      const disruptedTrains = indexDisruptedTrains(disruptions)
+      const disruptedTrains = indexDisruptedTrains(disruptions.disruptions)
       status = 'ok'
       const fetchedAt = new Date(now()).toISOString()
 
@@ -230,6 +238,15 @@ export function createPoller(deps: PollerDeps): Poller {
       // słownika nazw stacji — zasila go teraz /schedules. `result.stationNames`
       // idzie na wierzch jako świeższe dla samej zapytanej stacji.
       const mergedStationNames = { ...scheduleStationNames, ...result.stationNames }
+      // Data warszawska, nie `new Date().toISOString().slice(0,10)` -- na
+      // Railway proces chodzi w UTC, więc po 22:00 lokalnego czasu „dzisiaj"
+      // rozjechałoby się o dobę i statystyki liczyłyby jutrzejszy rozkład
+      // (AGENTS.md #1).
+      const todayIsoDate = warsawDateString(new Date(fetchedAt))
+      // Pusta lista tras (pobranie rozkładu padło -- patrz `fetchRoutesByTrainId`)
+      // musi dojść do statystyk jako `null` („nie wiadomo"), nie jako pusty
+      // rozkład („zero pociągów") -- AGENTS.md #7.
+      const routesForStats = routes.length === 0 ? null : routes
 
       for (const stationId of realActive) {
         snapshots.set(
@@ -244,7 +261,9 @@ export function createPoller(deps: PollerDeps): Poller {
             fetchedAt,
             new Date(fetchedAt),
             categoryNames,
-            disruptedTrains
+            disruptedTrains,
+            computeStationStats(stationId, result.trains, routesForStats, mergedStationNames, todayIsoDate),
+            findStationDisruptionMessages(disruptions.disruptions, disruptions.disruptionTypes, stationId)
           )
         )
       }

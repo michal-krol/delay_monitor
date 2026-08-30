@@ -84,6 +84,10 @@ describe('createMockClient', () => {
     const client = createMockClient()
     const { routes } = await client.getSchedules(['33605'])
     const eic = routes.find((route) => route.orderId === '12345')
+    // Fixture ma sztywny sierpień 2026; mock podmienia daty kursowania na
+    // dzisiejszą, tak samo jak `operatingDate` pociągów -- inaczej statystyki
+    // stacji („Odjazdy dzisiaj") pokazywałyby zero przy pełnej tablicy.
+    const { warsawDateString } = await import('./time')
     expect(eic).toEqual({
       scheduleId: '2026',
       orderId: '12345',
@@ -92,6 +96,7 @@ describe('createMockClient', () => {
       commercialCategorySymbol: 'EIC',
       name: 'EIC Grunwald',
       nationalNumber: '1602',
+      operatingDates: [warsawDateString(new Date())],
       stations: [
         { stationId: '7500', arrivalPlatform: null, arrivalTrack: null, departurePlatform: '3', departureTrack: '1', arrivalTime: null, departureTime: '11:00:00', arrivalDay: null, departureDay: null, stopTypeName: null },
         { stationId: '7112', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null, arrivalTime: '11:20:00', departureTime: '11:22:00', arrivalDay: null, departureDay: null, stopTypeName: null },

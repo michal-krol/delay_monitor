@@ -56,6 +56,8 @@ export type RawRoute = {
   commercialCategorySymbol: string | null
   name: string | null
   nationalNumber: string | null
+  /** Dni kursowania (yyyy-MM-dd) — patrz `rawRouteSchema` w `schema.ts`. */
+  operatingDates: string[]
   stations: RawRouteStop[]
 }
 

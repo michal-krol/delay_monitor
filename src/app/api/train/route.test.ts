@@ -111,7 +111,8 @@ describe('GET /api/train', () => {
         isConfirmed: true,
         predictedArrival: null,
         predictedDeparture: null,
-        platform: '4/2',
+        platform: '4',
+        track: '2',
         // trainStatus 'P' (InProgress) na obiekcie realizacji -> pociąg już ruszył,
         // niezależnie od per-przystankowego isConfirmed (AGENTS.md #2, jak na tablicy).
         hasTrainStarted: true,
@@ -246,7 +247,8 @@ describe('GET /api/train', () => {
       ['B', 0, 0],
       ['C', 3, null],
     ])
-    expect(body.stops[2].platform).toBe('2/1')
+    expect(body.stops[2].platform).toBe('2')
+    expect(body.stops[2].track).toBe('1')
   })
 
   it('reports null delay (not a fabricated 0) for an unconfirmed stop whose actual time echoes the plan -- the real shape of a not-yet-started (trainStatus S) train on live', async () => {

@@ -70,7 +70,10 @@ describe('FullBoard', () => {
 
     expect(await screen.findByText('EIC 1')).toBeInTheDocument()
     expect(screen.getAllByRole('columnheader')[0]).toHaveAttribute('scope', 'col')
-    expect(screen.getByRole('columnheader', { name: 'Przewoźnik' })).toBeInTheDocument()
+    // Przewoźnik nie ma już własnej kolumny -- wg makiety siedzi razem z
+    // numerem pociągu i kategorią w kolumnie „Pociąg".
+    expect(screen.getByRole('columnheader', { name: 'Pociąg' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Kierunek i przystanki pośrednie' })).toBeInTheDocument()
     expect(screen.queryByText('TLK 2')).not.toBeInTheDocument()
   })
 
@@ -107,28 +110,29 @@ describe('FullBoard', () => {
     expect(row).toHaveTextContent('—')
   })
 
-  it('keeps the carrier code and full name in separate elements toggled by breakpoint, so mobile can show just the code', async () => {
+  it('shows the carrier name once, not duplicated into breakpoint variants', async () => {
     const snapshotWithName = { ...SNAPSHOT, departures: [{ ...SNAPSHOT.departures[0], carrierName: 'PKP Intercity' }] }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshotWithName], budget: undefined, status: 'ok' })))
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
     await screen.findByText('EIC 1')
 
-    expect(screen.getByRole('columnheader', { name: 'Przewoźnik' })).not.toHaveClass('hidden')
-
-    const shortCode = screen.getByText('IC')
-    const fullName = screen.getByText('PKP Intercity')
-    expect(shortCode).toHaveClass('sm:hidden')
-    expect(fullName).toHaveClass('hidden', 'sm:inline')
+    // Wcześniej kod i pełna nazwa renderowały się OBA, przełączane klasami
+    // `sm:hidden`/`hidden sm:inline` -- czytnik ekranu czytał przewoźnika
+    // dwa razy. Teraz jest jeden element: pełna nazwa, z kodem jako rezerwą.
+    expect(screen.getByText('PKP Intercity')).toBeInTheDocument()
+    expect(screen.queryByText('IC')).not.toBeInTheDocument()
   })
 
-  it('shows the Peron/Tor column on narrow screens too, no longer hidden', async () => {
+  it('shows the platform and track column on narrow screens too, no longer hidden', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
     await screen.findByText('EIC 1')
 
-    expect(screen.getByRole('columnheader', { name: 'Peron/Tor' })).not.toHaveClass('hidden')
+    // Peron i tor to teraz dwie osobne wartości pod sobą (makieta §10),
+    // stąd nagłówek „Peron" z podpisem „tor", a nie jedno „Peron/Tor".
+    expect(screen.getByRole('columnheader', { name: 'Peron i tor' })).not.toHaveClass('hidden')
   })
 
   it('dims the whole row -- train name, carrier, direction, time and status badge -- for a departure that already passed', async () => {
@@ -318,7 +322,7 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
     await screen.findByText('EIC 1')
-    await user.click(screen.getByRole('button', { name: 'Kopiuj link' }))
+    await user.click(screen.getByRole('button', { name: 'Udostępnij' }))
 
     expect(writeText).toHaveBeenCalledWith(window.location.href)
     expect(await screen.findByRole('status')).toHaveTextContent('Skopiowano link')
@@ -331,7 +335,7 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
     await screen.findByText('EIC 1')
-    await user.click(screen.getByRole('button', { name: 'Kopiuj link' }))
+    await user.click(screen.getByRole('button', { name: 'Udostępnij' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent(/link w pasku adresu/)
   })

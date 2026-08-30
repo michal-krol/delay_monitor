@@ -8,10 +8,11 @@ import type { Favourite } from '@/hooks/useFavourites'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
+const replace = vi.fn()
 // Mutable seed read once per `render(<Page />)` — set per-test before rendering.
 let searchParamsSeed = ''
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace }),
   useSearchParams: () => new URLSearchParams(searchParamsSeed),
 }))
 
@@ -41,49 +42,41 @@ vi.mock('@/hooks/useBoard', () => ({
 describe('Page (Pulpit)', () => {
   beforeEach(() => {
     push.mockClear()
+    replace.mockClear()
     searchParamsSeed = ''
     initialFavourites = [{ id: '33605', name: 'Warszawa Centralna' }]
   })
 
-  it('klik w kartę stacji ustawia focus w URL-u, nie nawiguje od razu do /odjazdy', async () => {
+  it('klik w kartę stacji otwiera pełny widok stacji, z nazwą w adresie', async () => {
     render(<Page />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Pokaż pełną tablicę: Warszawa Centralna/ }))
-    expect(push).toHaveBeenCalledWith('/?focus=33605')
+    expect(push).toHaveBeenCalledWith('/odjazdy/33605?name=Warszawa%20Centralna')
   })
 
-  it('renderuje widok ogniskowy, gdy ?focus= wskazuje na przypiętą stację', () => {
+  it('przekierowuje stary adres ?focus= na widok stacji, zachowując nazwę z ulubionych', () => {
     searchParamsSeed = 'focus=33605'
     render(<Page />)
 
-    expect(screen.getByRole('button', { name: 'Zamknij' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Pokaż pełną tablicę:/ })).not.toBeInTheDocument()
-    // "Zobacz wszystkie" nie istnieje już -- widok ogniskowy pokazuje w
-    // miejscu dokładnie tę samą tablicę, którą dawniej odsłaniał ten przycisk.
-    expect(screen.queryByRole('button', { name: 'Zobacz wszystkie' })).not.toBeInTheDocument()
+    // `replace`, nie `push` -- przekierowanie nie ma zostawiać wpisu w
+    // historii, bo „wstecz" wracałoby na adres, który znów przekierowuje.
+    expect(replace).toHaveBeenCalledWith('/odjazdy/33605?name=Warszawa%20Centralna')
+    expect(push).not.toHaveBeenCalled()
   })
 
-  it('wraca po cichu do siatki, gdy ?focus= jest nieprawidłowe lub nieznane', () => {
-    searchParamsSeed = 'focus=abc'
-    const { unmount } = render(<Page />)
-    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
-    unmount()
-
+  it('przekierowuje ?focus= także dla stacji spoza ulubionych, bez nazwy', () => {
     searchParamsSeed = 'focus=999999999'
     render(<Page />)
-    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
+
+    expect(replace).toHaveBeenCalledWith('/odjazdy/999999999')
   })
 
-  it('"Zamknij" w widoku ogniskowym wraca do /', async () => {
-    searchParamsSeed = 'focus=33605'
+  it('ignoruje po cichu nieprawidłowe ?focus= i pokazuje zwykły pulpit', () => {
+    searchParamsSeed = 'focus=abc'
     render(<Page />)
-    const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
-
-    expect(push).toHaveBeenCalledWith('/')
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('pokazuje stan pusty z wyszukiwarką, gdy nie ma ulubionych', () => {

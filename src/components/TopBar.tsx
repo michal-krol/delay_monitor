@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftIcon, BellIcon, ShareIcon } from './icons'
+import { ArrowLeftIcon, ShareIcon } from './icons'
 import { ThemeToggle } from './ThemeToggle'
 
 type HeaderVariant = {
@@ -58,14 +58,12 @@ export function TopBar(props: Props) {
           </button>
         )}
         <ThemeToggle />
-        <button
-          type="button"
-          aria-label="Powiadomienia"
-          className="relative grid h-9 w-9 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-          style={{ borderColor: 'var(--surface-border)' }}
-        >
-          <BellIcon size={15} />
-        </button>
+        {/* Dzwonek „Powiadomienia" usunięty: nie miał żadnej akcji, a
+            powiadomienia wymagają service workera, kluczy VAPID i trwałego
+            zapisu subskrypcji — których ta aplikacja świadomie nie ma
+            (AGENTS.md #5). Przycisk bez akcji obiecuje funkcję, której nie ma.
+            Wyciszony placeholder w `Sidebar` (`kind: 'disabled'`, „Wkrótce")
+            zostaje — ten niczego nie udaje. */}
       </div>
     </div>
   )

@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { DelayBadge, LABELS, TOKENS } from './DelayBadge'
+import { DelayBadge, LABELS, STATUS_TEXT, TOKENS } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
+import { CategoryBadge } from './CategoryBadge'
 import { AlertCircleIcon, ChevronRightIcon, HelpCircleIcon } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
@@ -94,6 +95,79 @@ const ROW_TINT: Partial<Record<RealizationStatus, string>> = {
   cancelled: 'rgba(225,29,72,0.05)',
 }
 
+/**
+ * Ile wierszy widać, zanim użytkownik kliknie „Pokaż więcej połączeń".
+ * Snapshot niesie ich więcej (okno 3 h / 40 wierszy, patrz `transform.ts`) —
+ * rozwinięcie jest czysto klienckie i nie kosztuje ani jednego zapytania.
+ */
+const COLLAPSED_ROWS = 10
+
+/** Stabilny klucz wiersza -- ten sam przejazd między snapshotami. */
+function rowKey(row: BoardApiRow): string {
+  return `${row.trainNumber}-${row.plannedAt}`
+}
+
+/**
+ * Wiersze, w których opóźnienie zmieniło się względem POPRZEDNIEGO snapshotu
+ * — źródło błysku tła (makieta §22: „+3 min → +4 min powinno zostać
+ * zasygnalizowane subtelną animacją zamiast pełnego przeładowania tabeli").
+ *
+ * Porównanie żyje w `useRef` aktualizowanym w efekcie, nie w trakcie
+ * renderowania: React potrafi wyrenderować ten sam stan dwa razy (Strict
+ * Mode), a porównanie „w locie" zapamiętałoby wtedy nową wartość przy
+ * pierwszym przebiegu i przy drugim nie wykryłoby już żadnej zmiany.
+ *
+ * Pierwszy snapshot nigdy nie miga — wtedy wszystko jest „nowe", a migająca
+ * cała tablica nie niosłaby żadnej informacji.
+ */
+function useChangedDelays(rows: BoardApiRow[]): ReadonlySet<string> {
+  const previous = useRef<Map<string, number | null> | null>(null)
+  const [changed, setChanged] = useState<ReadonlySet<string>>(new Set())
+
+  useEffect(() => {
+    const current = new Map(rows.map((row) => [rowKey(row), row.delayMinutes]))
+    const before = previous.current
+    previous.current = current
+
+    if (before === null) return
+
+    const next = new Set<string>()
+    for (const [key, delay] of current) {
+      if (before.has(key) && before.get(key) !== delay) next.add(key)
+    }
+    setChanged(next)
+  }, [rows])
+
+  return changed
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * Druga linia w kolumnie godziny — FAKT albo PROGNOZA, nigdy jedno udające
+ * drugie (makieta §19).
+ *
+ * Kolejność jest istotna: potwierdzony czas rzeczywisty wypiera przewidywanie.
+ * `null` znaczy „nie wiemy nic ponad plan" i wtedy druga linia po prostu nie
+ * istnieje — pusty wiersz jest uczciwszy niż powtórzony plan udający pomiar.
+ */
+function realizedTime(row: BoardApiRow): { time: string; kind: 'fact' | 'forecast' } | null {
+  if (row.actualAt !== null && row.delayMinutes !== null) return { time: formatTime(row.actualAt), kind: 'fact' }
+  if (row.predictedAt != null) return { time: formatTime(row.predictedAt), kind: 'forecast' }
+  return null
+}
+
+/** „przez Pruszków, Opoczno · +12 przystanków" — pusto, gdy nie znamy trasy. */
+function viaLabel(row: BoardApiRow): string | null {
+  const via = row.via ?? []
+  const remaining = row.viaRemaining ?? 0
+  if (via.length === 0) return null
+  const base = `przez ${via.join(', ')}`
+  return remaining > 0 ? `${base} · +${remaining} ${remaining === 1 ? 'przystanek' : 'przystanków'}` : base
+}
+
 type Props = {
   stationName: string
   direction: Direction
@@ -111,128 +185,243 @@ type Props = {
  */
 export function BoardTable({ stationName, direction, rows, now, loading }: Props) {
   const router = useRouter()
+  const [expanded, setExpanded] = useState(false)
+  const changedDelays = useChangedDelays(rows)
+
+  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED_ROWS)
+  const hiddenCount = rows.length - visibleRows.length
+
+  function openDetails(row: BoardApiRow): void {
+    // encodeURIComponent, nie URLSearchParams (form-encoding zamieniłoby
+    // spacje na `+`) -- ta sama konwencja co /odjazdy/[stationId] w page.tsx.
+    router.push(`/polaczenie/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`)
+  }
+
+  const emptyMessage = loading
+    ? 'Ładowanie…'
+    : direction === 'departures'
+      ? 'Brak odjazdów w najbliższych godzinach'
+      : 'Brak przyjazdów w najbliższych godzinach'
 
   return (
-    <div className="mt-3 overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <caption className="sr-only">
-          {direction === 'departures' ? 'Odjazdy' : 'Przyjazdy'} — {stationName}
-        </caption>
-        <thead>
-          <tr className="border-b border-black/10 dark:border-white/10">
-            <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Pociąg</th>
-            <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Przewoźnik</th>
-            <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Kierunek</th>
-            <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Planowo</th>
-            <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Peron/Tor</th>
-            <th scope="col" className="py-2 pr-3 font-medium text-text-muted">
-              Status
-              <StatusLegend />
-            </th>
-            <th scope="col" className="py-2 pr-1"><span className="sr-only">Szczegóły</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={7} className="py-6 text-center text-text-muted">
-                {loading
-                  ? 'Ładowanie…'
-                  : direction === 'departures'
-                    ? 'Brak odjazdów w najbliższych godzinach'
-                    : 'Brak przyjazdów w najbliższych godzinach'}
-              </td>
+    <div className="mt-3">
+      <div className="overflow-x-auto">
+        <table className="board-table w-full text-left text-sm">
+          <caption className="sr-only">
+            {direction === 'departures' ? 'Odjazdy' : 'Przyjazdy'} — {stationName}
+          </caption>
+          <thead>
+            <tr className="border-b border-black/10 dark:border-white/10">
+              {/* `aria-label` na każdym nagłówku dwuwierszowym: bez niego nazwa
+                  dostępna powstaje ze sklejenia obu linii BEZ spacji
+                  („Perontor"), bo `block` nie wprowadza odstępu do drzewa
+                  dostępności. Widoczny podpis zostaje, nazwa jest zdaniem. */}
+              <th scope="col" aria-label={direction === 'departures' ? 'Odjazd — plan i faktycznie' : 'Przyjazd — plan i faktycznie'} className="py-2 pr-3 pl-3 font-medium text-text-muted">
+                {direction === 'departures' ? 'Odjazd' : 'Przyjazd'}
+                <span className="block text-[11px] font-normal">plan · faktycznie</span>
+              </th>
+              <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Pociąg</th>
+              <th scope="col" aria-label="Kierunek i przystanki pośrednie" className="py-2 pr-3 font-medium text-text-muted">
+                Kierunek
+                <span className="block text-[11px] font-normal">przez</span>
+              </th>
+              <th scope="col" aria-label="Peron i tor" className="py-2 pr-3 font-medium text-text-muted">
+                Peron
+                <span className="block text-[11px] font-normal">tor</span>
+              </th>
+              <th scope="col" className="py-2 pr-3 font-medium text-text-muted">
+                Status
+                <StatusLegend />
+              </th>
+              <th scope="col" className="py-2 pr-1"><span className="sr-only">Szczegóły</span></th>
             </tr>
-          )}
-          {rows.map((row) => {
-            // Pociąg, którego planowy czas już minął (mieści się w oknie
-            // 5 minut wstecz z transform.ts) — cały wiersz wizualnie
-            // przygaszony (łącznie z przewoźnikiem i plakietką statusu),
-            // żeby odróżnić go od nadchodzących, bez zmiany danych.
-            const isPast = new Date(row.plannedAt).getTime() < now
-            // operatingDate bywa puste, gdy API nie podało go dla tego
-            // przejazdu (patrz board/transform.ts) — bez niego /api/train
-            // i tak odrzuci zapytanie, więc wiersz lepiej nie robić klikalnym.
-            const canOpenDetails = row.operatingDate !== ''
-
-            function openDetails(): void {
-              if (canOpenDetails) {
-                // encodeURIComponent, nie URLSearchParams (form-encoding zamieniłoby
-                // spacje na `+`) -- ta sama konwencja co /odjazdy/[stationId] w page.tsx.
-                router.push(
-                  `/polaczenie/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`
-                )
-              }
-            }
-
-            return (
-              // Kliknięcie gdziekolwiek w wierszu wygodne dla myszy, ale
-              // `<tr role="button">` łamałoby semantykę tabeli (zniknąłby
-              // domyślny `role="row"`, na którym opierają się czytniki
-              // ekranu i testy). Dostępność klawiaturowa idzie osobno,
-              // przez prawdziwy <button> na etykiecie pociągu.
-              <tr
-                key={`${row.trainNumber}-${row.plannedAt}`}
-                data-past={isPast || undefined}
-                className={`border-b border-black/5 transition hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5 ${isPast ? 'opacity-50' : ''} ${canOpenDetails ? 'cursor-pointer' : ''}`}
-                style={!isPast ? { backgroundColor: ROW_TINT[row.status] } : undefined}
-                onClick={canOpenDetails ? openDetails : undefined}
-              >
-                <td className="py-2.5 pr-3 whitespace-nowrap text-foreground">
-                  {canOpenDetails ? (
-                    <button
-                      type="button"
-                      onClick={openDetails}
-                      className="rounded text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                    >
-                      {row.trainLabel}
-                    </button>
-                  ) : (
-                    row.trainLabel
-                  )}
-                  {row.category !== '' && (
-                    <span className="ml-1.5 text-xs text-text-muted" title={row.categoryName ?? undefined}>
-                      {row.categoryName ?? row.category}
-                    </span>
-                  )}
-                </td>
-                <td className="py-2.5 pr-3">
-                  <span className="inline-flex items-center gap-1.5 text-text-secondary">
-                    <CarrierLogo carrierCode={row.carrier} size={16} />
-                    <span className="sm:hidden">{row.carrier || '—'}</span>
-                    <span className="hidden sm:inline">{row.carrierName ?? (row.carrier || '—')}</span>
-                  </span>
-                </td>
-                <td className="py-2.5 pr-3 text-text-secondary">{row.headsign ?? '—'}</td>
-                {/* tabular-nums: godziny stoją jedna pod drugą, więc cyfry muszą mieć
-                    równą szerokość — inaczej kolumna „faluje" i traci się sens tablicy. */}
-                <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums text-text-secondary">
-                  {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-                </td>
-                <td className="py-2.5 pr-3 text-text-secondary">{row.platform ?? '—'}</td>
-                <td className="py-2.5 pr-3">
-                  <DelayBadge
-                    status={row.status}
-                    delayMinutes={row.delayMinutes}
-                    direction={direction === 'arrivals' ? 'arrival' : 'departure'}
-                    estimatedDelayMinutes={row.estimatedDelayMinutes}
-                  />
-                </td>
-                <td className="py-2.5 pr-1 text-text-muted">
-                  <span className="inline-flex items-center gap-1">
-                    {row.hasDisruption === true && (
-                      <span title="Utrudnienie na trasie" className="text-amber-600 dark:text-amber-400">
-                        <AlertCircleIcon size={14} />
-                      </span>
-                    )}
-                    {canOpenDetails && <ChevronRightIcon size={14} />}
-                  </span>
+          </thead>
+          <tbody>
+            {visibleRows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-text-muted">
+                  {emptyMessage}
                 </td>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            )}
+            {visibleRows.map((row) => (
+              <BoardRow
+                key={rowKey(row)}
+                row={row}
+                direction={direction}
+                now={now}
+                onOpen={openDetails}
+                delayChanged={changedDelays.has(rowKey(row))}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {hiddenCount > 0 && (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium text-text-secondary transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            style={{ borderColor: 'var(--surface-border)' }}
+          >
+            Pokaż więcej połączeń
+            <span className="text-text-muted">({hiddenCount})</span>
+          </button>
+        </div>
+      )}
     </div>
+  )
+}
+
+type RowProps = {
+  row: BoardApiRow
+  direction: Direction
+  now: number
+  onOpen: (row: BoardApiRow) => void
+  /** Opóźnienie zmieniło się w tym odświeżeniu — wiersz raz błyska (patrz `useChangedDelays`). */
+  delayChanged: boolean
+}
+
+/** Pasek akcentu po lewej stronie wiersza (makieta §12) -- pozwala skanować listę wzrokiem bez czytania wartości. */
+function accentColor(status: RealizationStatus): string {
+  return TOKENS[status].bg
+}
+
+/** Peron i tor, każde ze swoim własnym „nie podano" (makieta §10). */
+function PlatformTrack({ row }: { row: BoardApiRow }) {
+  const platform = row.platform
+  const track = row.track ?? null
+
+  if (platform === null && track === null) {
+    // „Nie podano" to nie to samo co „—" przy znanym peronie i nieznanym torze
+    // -- rozróżnienie wprost wymagane przez makietę §10.
+    return <span className="text-xs text-text-muted">nie podano</span>
+  }
+
+  return (
+    <span className="block tabular-nums">
+      <span className="block font-semibold text-foreground">{platform ?? '—'}</span>
+      <span className="block text-xs text-text-muted">{track ?? '—'}</span>
+    </span>
+  )
+}
+
+function TrainIdentity({ row }: { row: BoardApiRow }) {
+  return (
+    <span className="flex items-center gap-2">
+      <CategoryBadge category={row.category} categoryName={row.categoryName} />
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-foreground">{row.trainLabel}</span>
+        <span className="flex items-center gap-1 text-xs text-text-muted">
+          <CarrierLogo carrierCode={row.carrier} size={12} />
+          <span className="truncate">{row.carrierName ?? (row.carrier || '—')}</span>
+        </span>
+      </span>
+    </span>
+  )
+}
+
+function TimePair({ row }: { row: BoardApiRow }) {
+  const realized = realizedTime(row)
+
+  return (
+    <span className="block tabular-nums">
+      {/* PLAN -- zawsze, niezależnie od tego, co wiemy o realizacji. */}
+      <span className="block text-base font-semibold text-foreground">{formatTime(row.plannedAt)}</span>
+      {realized !== null && (
+        <span
+          className={`block text-sm font-medium ${realized.kind === 'forecast' ? 'italic' : ''}`}
+          style={{ color: STATUS_TEXT[row.status] }}
+          title={realized.kind === 'forecast' ? 'Godzina przewidywana — przystanek nie jest jeszcze potwierdzony.' : 'Godzina faktyczna — przejazd potwierdzony.'}
+        >
+          {realized.time}
+        </span>
+      )}
+    </span>
+  )
+}
+
+function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
+  // Pociąg, którego planowy czas już minął (mieści się w oknie
+  // 5 minut wstecz z transform.ts) — cały wiersz wizualnie
+  // przygaszony (łącznie z przewoźnikiem i plakietką statusu),
+  // żeby odróżnić go od nadchodzących, bez zmiany danych.
+  const isPast = new Date(row.plannedAt).getTime() < now
+  // operatingDate bywa puste, gdy API nie podało go dla tego
+  // przejazdu (patrz board/transform.ts) — bez niego /api/train
+  // i tak odrzuci zapytanie, więc wiersz lepiej nie robić klikalnym.
+  const canOpenDetails = row.operatingDate !== ''
+  const via = viaLabel(row)
+
+  return (
+    // Kliknięcie gdziekolwiek w wierszu wygodne dla myszy, ale
+    // `<tr role="button">` łamałoby semantykę tabeli (zniknąłby
+    // domyślny `role="row"`, na którym opierają się czytniki
+    // ekranu i testy). Dostępność klawiaturowa idzie osobno,
+    // przez prawdziwy <button> na etykiecie pociągu.
+    <tr
+      data-past={isPast || undefined}
+      className={`group border-b border-black/5 transition dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${isPast ? 'opacity-50' : ''} ${canOpenDetails ? 'cursor-pointer' : ''} ${delayChanged ? 'delay-changed' : ''}`}
+      // borderLeftColor działa wyłącznie w układzie kartowym (poniżej `sm`,
+      // patrz `.board-table` w globals.css) -- na desktopie wiersz nie ma
+      // ramki, a akcent rysuje `inset box-shadow` na komórce godziny.
+      style={{ borderLeftColor: accentColor(row.status), ...(!isPast ? { backgroundColor: ROW_TINT[row.status] } : {}) }}
+      onClick={canOpenDetails ? () => onOpen(row) : undefined}
+    >
+      <td data-cell="time" className="py-2.5 pr-3 pl-3 whitespace-nowrap" style={{ boxShadow: `inset 3px 0 0 0 ${accentColor(row.status)}` }}>
+        <TimePair row={row} />
+      </td>
+      <td data-cell="train" className="max-w-[13rem] py-2.5 pr-3">
+        {canOpenDetails ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onOpen(row)
+            }}
+            // Jawna etykieta, bo treść przycisku to teraz trzy rzeczy naraz
+            // (plakietka kategorii, numer, przewoźnik) -- bez tego czytnik
+            // ekranu odczytałby „EIC EIC 1 PKP Intercity" zamiast nazwy pociągu.
+            aria-label={row.trainLabel}
+            className="rounded text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          >
+            <TrainIdentity row={row} />
+          </button>
+        ) : (
+          <TrainIdentity row={row} />
+        )}
+      </td>
+      <td data-cell="direction" className="max-w-[18rem] py-2.5 pr-3">
+        <span className="block truncate font-medium text-foreground">{row.headsign ?? '—'}</span>
+        {via !== null && <span className="block truncate text-xs text-text-muted">{via}</span>}
+      </td>
+      <td data-cell="platform" className="py-2.5 pr-3">
+        <PlatformTrack row={row} />
+      </td>
+      <td data-cell="status" className="py-2.5 pr-3">
+        <DelayBadge
+          status={row.status}
+          delayMinutes={row.delayMinutes}
+          direction={direction === 'arrivals' ? 'arrival' : 'departure'}
+          estimatedDelayMinutes={row.estimatedDelayMinutes}
+        />
+      </td>
+      <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
+        <span className="inline-flex items-center gap-1">
+          {row.hasDisruption === true && (
+            <span title="Utrudnienie na trasie" className="text-amber-600 dark:text-amber-400">
+              <AlertCircleIcon size={14} />
+            </span>
+          )}
+          {canOpenDetails && (
+            <span className="transition group-hover:translate-x-0.5 group-hover:text-foreground">
+              <ChevronRightIcon size={14} />
+            </span>
+          )}
+        </span>
+      </td>
+    </tr>
   )
 }

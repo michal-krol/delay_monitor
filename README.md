@@ -25,13 +25,45 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
   Escape). Ignoruje polskie znaki, więc „wroclaw" znajduje „Wrocław Główny".
   Rozróżnia „szukam", „brak stacji o tej nazwie" i „nie udało się pobrać
   listy" — nie chowa awarii pod pustą listą.
-- **Pełna tablica stacyjna** — do 10 najbliższych pozycji w oknie od 5 minut
-  wstecz do 1 godziny naprzód (który warunek pierwszy), przełącznik odjazdy/
-  przyjazdy, kolumny: pociąg, przewoźnik, kierunek, planowo, peron, status.
-  Połączenia sprzed maksymalnie 5 minut są nadal widoczne, ale wizualnie
-  przygaszone (plakietka statusu zostaje w pełnym kolorze). Kolumna
-  „Przewoźnik" na wąskim ekranie (poniżej `sm`) pokazuje sam kod (np. „IC"),
-  od `sm` wzwyż pełną nazwę. Dodawanie/usuwanie z ulubionych jednym kliknięciem.
+- **Widok stacji** — jedna strona `/odjazdy/{id}`: nagłówek (nazwa, aktualność
+  danych, ulubione, „Udostępnij"), cztery kafelki KPI, tablica i prawa kolumna
+  kontekstowa. Stary adres `/?focus={id}` przekierowuje tutaj — widok stacji
+  jest jeden, nie dwa.
+- **Pełna tablica stacyjna** — okno od 5 minut wstecz do 3 godzin naprzód
+  (maks. 40 pozycji); domyślnie widać 10, resztę odsłania „Pokaż więcej
+  połączeń" — czysto po stronie klienta, bez dodatkowego zapytania.
+  Przełącznik odjazdy/przyjazdy, kolumny: godzina (plan nad faktem/prognozą),
+  pociąg (kategoria + numer + przewoźnik), kierunek z przystankami pośrednimi
+  („przez Pruszków, Opoczno · +12 przystanków"), peron i tor jako dwie osobne
+  wartości, status. Każdy wiersz ma pasek akcentu w kolorze statusu; zmiana
+  opóźnienia między odświeżeniami sygnalizowana jest błyskiem tła wiersza
+  (wyłączonym przy `prefers-reduced-motion`). Połączenia sprzed maksymalnie
+  5 minut są nadal widoczne, ale wizualnie przygaszone (plakietka statusu
+  zostaje w pełnym kolorze). Poniżej `sm` ten sam wiersz układa się w kartę
+  (jeden DOM, przełączany CSS-em — bez dublowania treści dla czytników ekranu).
+  Dodawanie/usuwanie z ulubionych jednym kliknięciem.
+- **PLAN / PROGNOZA / FAKT** — trzy różne rzeczy, nigdy jedna udająca drugą.
+  Górna godzina to zawsze rozkład. Dolna pojawia się tylko wtedy, gdy coś
+  o realizacji wiemy: potwierdzony czas faktyczny albo — kursywą, z tooltipem
+  — przewidywanie PKP dla przystanku jeszcze niepotwierdzonego. Brak drugiej
+  linii znaczy „nie wiemy nic ponad plan"; powtórzony plan udawałby pomiar.
+- **Kafelki KPI stacji** — „Odjazdy dzisiaj", „Przyjazdy dzisiaj", „Średnie
+  opóźnienie", „Punktualność". Liczone w cyklu pollera z danych, które ten
+  cykl i tak ma (`lib/board/stationStats.ts`) — **bez ani jednego dodatkowego
+  zapytania do PKP**. Metodologia jest pod każdą liczbą, bo to nasz wskaźnik,
+  nie oficjalna statystyka przewoźnika: liczby dzienne pochodzą z rozkładu na
+  dziś, średnia i punktualność wyłącznie z **potwierdzonych** dziś przejazdów
+  przez tę stację (próg punktualności 5 min, konfigurowalny). Trzy stany są
+  rozróżnialne: „wczytywanie", „brak danych" (nie udało się pobrać / próbka
+  pusta) i konkretna liczba — kafelek nigdy nie pokazuje „0" w zastępstwie
+  nieznanej wartości.
+  **Punktualności historycznej („w ciągu 7 dni") tu nie ma i nie będzie bez
+  własnej bazy** — patrz „Znane ograniczenia".
+- **Prawa kolumna kontekstowa** — najpopularniejsze kierunki dzisiaj (klik
+  filtruje tablicę), utrudnienia dotyczące tej stacji i natężenie ruchu
+  w dobie (24 słupki, bieżąca godzina wyróżniona). Wszystko z tego samego,
+  już pobranego rozkładu i tych samych utrudnień co badge'e w wierszach —
+  zero dodatkowych zapytań.
 - **Przewoźnik i kategoria** — dociągane z `/api/v1/schedules` (cache 24 h)
   i łączone z realizacją po `trainOrderId` (z fallbackiem na `orderId`,
   patrz `routeKey()` w `board/transform.ts`). Pełna nazwa przewoźnika
@@ -503,6 +535,47 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   Kliknięcie w pociąg, który w międzyczasie zniknął z rozkładu PKP (rzadkie),
   zwróci 404 zamiast ostatnich znanych danych — w przeciwieństwie do tablicy
   głównej, panel nie ma „ostatniego dobrego snapshotu" do pokazania.
+- **Nie ma punktualności historycznej ani żadnego wskaźnika „za ostatnie N dni".**
+  To ograniczenie źródła, nie brak implementacji: `/operations` nie ma parametru
+  daty w ogóle, a `/operations/statistics?date=` zwraca wyłącznie ogólnokrajowe
+  liczniki statusów (`notStarted`/`inProgress`/`completed`/`cancelled`/
+  `partialCancelled`) — bez minut opóźnienia i bez filtra po stacji. Historia
+  per pociąg (`/operations/train/{…}/{data}`) to jedno zapytanie na pociąg, co
+  przy 100/h jest arytmetycznie nierealne. Własne gromadzenie historii wymagałoby
+  bazy, której ta aplikacja świadomie nie ma (patrz „Stan ginie przy restarcie").
+  Kafelek „Punktualność" liczy więc **dzisiejszy** dzień i tak jest podpisany.
+  Uwaga zweryfikowana na żywym kluczu (2026-08-28): jedna odpowiedź
+  `/operations` potrafi nieść pociągi z kilku różnych dni kursowania naraz
+  (obserwowane: pięć dni w jednej odpowiedzi), więc filtr po
+  `operatingDate === dzisiaj` (`AGENTS.md` #9) jest wymagany, nie opcjonalny —
+  bez niego kafelek liczyłby średnią z minionych dni i podpisywał ją jako
+  dzisiejszą.
+- **Feed `/operations` bywa zamrożony** — patrz zapisany incydent: PKP potrafi
+  przez wiele godzin zwracać `200 OK` z danymi, w których każdy pociąg ma
+  `trainStatus: "notStarted"` i zero potwierdzonych przystanków, mimo że dzień
+  operacyjny dawno się zaczął (zaobserwowane na żywo: `/operations/statistics`
+  pokazywało `notStarted: 7274, inProgress: 0, completed: 0` o 21:08). Aplikacja
+  nie odróżnia tego od realnie spokojnego dnia — kafelki KPI poprawnie pokazują
+  wtedy „brak danych" (próbka pusta), ale nic nie ostrzega, że to może być
+  awaria źródła, nie brak ruchu.
+- **Peron i tor są PLANOWE.** Pola `arrivalPlatform`/`arrivalTrack`/
+  `departurePlatform`/`departureTrack` istnieją wyłącznie w rozkładzie
+  (`/schedules`); zmiana peronu w ostatniej chwili nie jest w tym API
+  reprezentowalna. UI nigdzie nie twierdzi, że peron jest „aktualny", i
+  rozróżnia „2 / —" (znany peron, nieznany tor) od „nie podano" (nie wiadomo nic).
+- **Nie ma zdjęć stacji.** `/dictionaries/stations` zwraca dla stacji dokładnie
+  `id` i `name` — zero obrazów, współrzędnych i metadanych. Kafelek w nagłówku
+  jest generowany deterministycznie z nazwy (gradient + inicjały); wymiana na
+  prawdziwe zdjęcia to jeden komponent (`StationThumb`).
+- **Liczba odjazdów/przyjazdów „dzisiaj" pomija pociągi bez dopasowanej trasy.**
+  Liczy się z rozkładu (`/schedules`), a tablica pokazuje realizację
+  (`/operations`) — pociąg bez dopasowanej trasy pojawi się w tablicy, ale nie
+  w liczniku. To ta sama mniejszość co w pierwszym punkcie tej listy.
+- **`/operations` nie jest stronicowane po naszej stronie.** Pytamy o
+  `pageSize=5000` (maksimum wg swaggera); gdyby stacja miała więcej pozycji
+  w ciągu dnia, statystyki liczyłyby się z niepełnego dnia. Klient loguje
+  wtedy ostrzeżenie (`odpowiedź ucięta na 5000 pociągach`) zamiast po cichu
+  zaniżać liczby — jeśli pojawi się w logach, pobieranie wymaga przeprojektowania.
 
 ## Bezpieczeństwo
 

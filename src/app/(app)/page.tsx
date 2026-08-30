@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useFavourites } from '@/hooks/useFavourites'
 import { Dashboard } from '@/components/Dashboard'
@@ -36,33 +36,39 @@ function PulpitPage() {
     router.push(`/odjazdy/${station.id}?name=${encodeURIComponent(station.name)}`)
   }
 
-  function setFocus(station: StationOption): void {
-    router.push(`/?focus=${station.id}`)
-  }
-
-  function clearFocus(): void {
-    router.push('/')
-  }
+  /**
+   * `?focus=` to stary adres rozwiniętej stacji na pulpicie. Widok stacji jest
+   * teraz jeden — pełna strona `/odjazdy/{id}` z kafelkami KPI i prawą kolumną
+   * — więc stare linki przekierowujemy, zamiast utrzymywać drugi, uboższy
+   * widok tej samej rzeczy (to właśnie ten rodzaj rozjazdu, o którym mówi
+   * AGENTS.md #2).
+   *
+   * `replace`, nie `push`: przekierowanie nie ma zostawiać wpisu w historii,
+   * bo „wstecz" wracałoby na adres, który natychmiast przekierowuje ponownie.
+   */
+  useEffect(() => {
+    if (focusedStationId === null || !loaded) return
+    const name = favourites.find((favourite) => favourite.id === focusedStationId)?.name
+    const query = name === undefined ? '' : `?name=${encodeURIComponent(name)}`
+    router.replace(`/odjazdy/${focusedStationId}${query}`)
+  }, [focusedStationId, loaded, favourites, router])
 
   if (!loaded) return null
+  // Przekierowanie leci w efekcie wyżej; przez tę jedną klatkę nie ma po co
+  // pokazywać pulpitu, który zaraz zniknie.
+  if (focusedStationId !== null) return null
 
   return (
     <>
       <Sidebar activeItem="pulpit" />
-      <main className="flex min-w-0 flex-1 flex-col gap-6 px-8 py-7">
+      <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-5 sm:px-8 sm:py-7">
         <TopBar title="Pulpit" subtitle="Twoje ulubione stacje i najbliższe odjazdy" />
         <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />
 
         {favourites.length === 0 ? (
           <EmptyState />
         ) : (
-          <Dashboard
-            favourites={favourites}
-            onExpand={setFocus}
-            onRemove={removeFavourite}
-            focusedStationId={focusedStationId}
-            onCloseFocus={clearFocus}
-          />
+          <Dashboard favourites={favourites} onExpand={goToBoard} onRemove={removeFavourite} />
         )}
       </main>
       {/* Tylko Pulpit -- pozostałe strony (/odjazdy, /polaczenie) celowo bez

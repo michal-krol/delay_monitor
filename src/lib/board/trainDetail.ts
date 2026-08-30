@@ -1,7 +1,7 @@
 import type { RawDisruption, RawRoute, RawTrainOperation } from '../pkp/types'
 import { combineWarsawDateAndTime } from '../pkp/time'
 import { findRouteStop, routeStopPlatform } from './transform'
-import { hasTrainStartedFromStatus, resolveDelayMinutes, resolveStopStatus } from './realization'
+import { hasTrainStartedFromStatus, resolveDelayMinutes, resolvePredictedTime, resolveStopStatus } from './realization'
 import { findStopDisruptionMessages } from './disruptions'
 
 export type TrainDetailStop = {
@@ -15,7 +15,10 @@ export type TrainDetailStop = {
   departureDelayMinutes: number | null
   isCancelled: boolean
   isConfirmed: boolean
+  /** Peron PLANOWY — patrz `routeStopPlatform()`. `null` = nie podano. */
   platform: string | null
+  /** Tor PLANOWY, niezależny od `platform` — jedno bywa znane bez drugiego (makieta §10). */
+  track: string | null
   /**
    * Czy pociąg już ruszył w trasę, mimo że ten konkretny przystanek jeszcze
    * nie jest `isConfirmed`. Dwa źródła, tak samo jak na tablicy
@@ -101,44 +104,6 @@ export function resolveCurrentStopIndex(stops: TrainDetailStop[]): number {
     if (stops[index].isConfirmed) return index
   }
   return -1
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000
-// Zaobserwowane na żywym API (4 stacje, ~7300 pociągów): każdy przypadek
-// niepotwierdzonego przystanku, gdzie actual różni się od planu o dokładną
-// wielokrotność doby, nie miał żadnego pola opóźnienia -- odwrotnie, każdy
-// przypadek z polem opóźnienia miał różnicę NIE będącą wielokrotnością doby.
-// Tolerancja tylko na zaokrąglenia SEKUND w danych źródłowych (stąd 5 s, nie
-// więcej) -- zweryfikowane na żywo (produkcja, pociąg SŁOWACKI 2026/134648284,
-// stacja Żyrardów, 2026-08-27): różnica dokładnie 60 s bywa realnym, malejącym
-// opóźnieniem (poprzedni przystanek miał +2 min), nie artefaktem -- poprzedni
-// próg 60 s (`<=`) błędnie chował taki predicted czas jako rzekomy artefakt.
-const DAY_MULTIPLE_TOLERANCE_MS = 5 * 1000
-
-function isNearDayMultiple(diffMs: number): boolean {
-  const remainder = ((diffMs % DAY_MS) + DAY_MS) % DAY_MS
-  return remainder <= DAY_MULTIPLE_TOLERANCE_MS || remainder >= DAY_MS - DAY_MULTIPLE_TOLERANCE_MS
-}
-
-/**
- * Przewidywana godzina dla jeszcze niepotwierdzonego przystanku -- patrz
- * `TrainDetailStop.predictedArrival`. Liczona tylko z surowego `actualAt`
- * (bez sięgania po `arrivalDelayMinutes`/`departureDelayMinutes` — ten
- * konkretny endpoint, `/operations/train/...`, w ogóle ich nie niesie,
- * stwierdzone bezpośrednio na żywym API), więc jedynym dostępnym sygnałem
- * "to nie jest ten sam artefakt co doba przesunięcia" jest sama różnica
- * czasu -- zweryfikowane bezpośrednio na żywym API (`/operations?withPlanned=true`,
- * które NIESIE pole opóźnienia): w całej sprawdzonej próbce obecność pola
- * opóźnienia i "różnica nie jest wielokrotnością doby" występowały zawsze
- * razem, nigdy osobno -- stąd sama różnica czasu jest tu wystarczającym,
- * równoważnym sygnałem, mimo że ten konkretny endpoint pola opóźnienia
- * w ogóle nie niesie.
- */
-function resolvePredictedTime(plannedAt: string | null, actualAt: string | null, isConfirmed: boolean): string | null {
-  if (isConfirmed || plannedAt === null || actualAt === null) return null
-  const diffMs = new Date(actualAt).getTime() - new Date(plannedAt).getTime()
-  if (isNearDayMultiple(diffMs)) return null
-  return actualAt
 }
 
 /**
@@ -228,7 +193,7 @@ export function buildTrainDetailStops(
       predictedDeparture,
       // Odjazdowy peron/tor pierwszy — to ten, przy którym pasażer czeka, żeby
       // jechać dalej; brakujący dobija peron/tor przyjazdu (np. stacja końcowa).
-      platform: routeStopPlatform(routeStop, 'departure'),
+      ...routeStopPlatform(routeStop, 'departure'),
       hasTrainStarted,
       estimatedDelayMinutes: status === 'enRoute' ? lastConfirmedDelayMinutes : null,
       stopMinutes: resolveStopMinutes(plannedArrival, plannedDeparture),

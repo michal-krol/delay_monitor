@@ -98,6 +98,30 @@
      kategorii pociągu) służy więc pełny kolor — biel na nim ma 7,90:1.
      Gradient zostaje do powierzchni i ikon, gdzie nie niesie treści. */
   --accent-solid: #4338ca;
+
+  /* Kategorie handlowe pociągu (plakietka „IC", „EIP", „KM" na tablicy).
+     Identyczne w obu motywach, z tego samego powodu co statusy wyżej:
+     samowystarczalna, nasycona plakietka z białym tekstem nie zależy od tła.
+
+     Kolor przypisany do KLASY USŁUGI, nie do pojedynczego kodu (makieta §8:
+     „kolor powinien być systematycznie przypisany"). To nie kosmetyka —
+     `commercialCategorySymbol` jest zakresowany per przewoźnik (`carrierCode`
+     w `/dictionaries/commercial-categories`), więc mapa „kod → kolor" jeden do
+     jednego byłaby niepoprawna z definicji: ten sam symbol znaczy co innego
+     u różnych przewoźników. Cztery klasy + fallback są odporne na to, czego
+     nie znamy — nieznany kod dostaje `default`, nigdy koloru losowego.
+
+     Kontrast bieli na tle, zmierzony (WCAG 2.1, próg AA 4,5:1):
+     premium 8,72:1 · long 8,72:1 · regional 5,47:1 · urban 5,36:1 ·
+     default 7,58:1. Odcienie świadomie z dala od palety statusów (zieleń =
+     „na czas", pomarańcz = „opóźniony", róż = „odwołany"), żeby dwie
+     kolorowe plakietki w jednym wierszu nie mówiły tego samego językiem. */
+  --cat-premium-bg: #6b21a8;
+  --cat-long-bg: #1e40af;
+  --cat-regional-bg: #0f766e;
+  --cat-urban-bg: #0e7490;
+  --cat-default-bg: #475569;
+  --cat-fg: #ffffff;
 }
 
 @theme inline {
@@ -215,6 +239,110 @@
   inset: 0;
   border-radius: inherit;
   animation: ringPulse 2.4s ease-out infinite;
+}
+
+/* Zmiana opóźnienia (np. +3 min -> +4 min) sygnalizowana błyskiem tła wiersza,
+   zamiast przeładowania tabeli (makieta §22) — dzięki temu aplikacja sprawia
+   wrażenie działającej na żywo, a wzrok trafia dokładnie w to, co się zmieniło.
+
+   `prefers-reduced-motion` wyłącza animację całkowicie: dla części osób ruch
+   w interfejsie to realna dolegliwość, a ta animacja jest ozdobą — informacja
+   (nowa liczba minut) i tak jest już w wierszu. */
+@keyframes delayFlash {
+  0% {
+    background-color: color-mix(in srgb, var(--status-delayed-bg) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.delay-changed {
+  animation: delayFlash 1.6s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .delay-changed {
+    animation: none;
+  }
+}
+
+/* Tablica połączeń na wąskim ekranie: ten sam DOM, układ kartowy.
+
+   Makieta §21 zabrania ściskania desktopowej tabeli do szerokości telefonu --
+   i słusznie, sześć kolumn tam nie wchodzi. Ale renderowanie DRUGIEGO,
+   kartowego drzewa obok tabeli dublowałoby każdy napis w DOM: czytnik ekranu
+   przeczytałby całą tablicę dwa razy, a każde zapytanie testowe trafiałoby na
+   dwa elementy. Zamiast tego jeden `<table>` przestaje być tabelą poniżej
+   `sm`: nagłówki znikają, wiersz staje się siatką 2x3, komórki układają się
+   w kartę. Rola `row`/`cell` zostaje dla czytników, wygląd jest kartowy.
+
+   `sm` = 40rem, ta sama wartość co domyślny breakpoint Tailwinda -- warianty
+   `sm:` w komponentach i ten media query MUSZĄ przełączać się w tym samym
+   punkcie, inaczej przy pewnych szerokościach powstałby układ pośredni,
+   którego nikt nie zaprojektował. */
+@media (max-width: 39.999rem) {
+  .board-table,
+  .board-table tbody,
+  .board-table tr {
+    display: block;
+  }
+
+  .board-table thead {
+    /* Nie `display: none` -- to usunęłoby nagłówki także z drzewa
+       dostępności, a komórki nadal się do nich odwołują. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .board-table tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "time direction status"
+      "train train platform";
+    gap: 0.25rem 0.75rem;
+    align-items: start;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--surface-border);
+    border-left-width: 3px;
+    border-radius: 0.75rem;
+  }
+
+  .board-table td {
+    padding: 0;
+    max-width: none;
+  }
+
+  .board-table td[data-cell="time"] {
+    grid-area: time;
+    /* Pasek akcentu na desktopie jest `inset box-shadow` na tej komórce;
+       w karcie rolę tę przejmuje lewa krawędź całego wiersza. */
+    box-shadow: none !important;
+    padding-left: 0 !important;
+  }
+  .board-table td[data-cell="train"] {
+    grid-area: train;
+  }
+  .board-table td[data-cell="direction"] {
+    grid-area: direction;
+  }
+  .board-table td[data-cell="platform"] {
+    grid-area: platform;
+    justify-self: end;
+    text-align: right;
+  }
+  .board-table td[data-cell="status"] {
+    grid-area: status;
+    justify-self: end;
+  }
+  /* Strzałka „szczegóły" nie niesie treści -- w karcie klika się cały wiersz. */
+  .board-table td[data-cell="chevron"] {
+    display: none;
+  }
 }
 
 body {

@@ -266,7 +266,7 @@ describe('createLiveClient', () => {
     const client = createLiveClient('secret-key')
     const { routes } = await client.getSchedules(['5100', '5136'])
 
-    expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', trainOrderId: null, carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, stations: [] }])
+    expect(routes).toEqual([{ scheduleId: '25', orderId: '118845', trainOrderId: null, carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, operatingDates: [], stations: [] }])
     const [url] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/api/v1/schedules?stations=5100,5136')
   })
@@ -344,11 +344,13 @@ describe('createLiveClient', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const client = createLiveClient('secret-key')
-    await client.getOperations(['5100&pageSize=5000'])
+    // Ładunek celowo RÓŻNY od naszego własnego pageSize (5000) -- inaczej test
+    // przechodziłby na remis i niczego by nie dowodził.
+    await client.getOperations(['5100&pageSize=1'])
 
     const url = new URL(String(fetchMock.mock.calls[0][0]))
-    expect(url.searchParams.get('pageSize')).toBeNull()
-    expect(url.searchParams.get('stations')).toBe('5100&pageSize=5000')
+    expect(url.searchParams.get('pageSize')).toBe('5000')
+    expect(url.searchParams.get('stations')).toBe('5100&pageSize=1')
     expect(url.searchParams.get('withPlanned')).toBe('true')
   })
 
@@ -562,6 +564,7 @@ describe('createLiveClient', () => {
         commercialCategorySymbol: 'EIC',
         name: null,
         nationalNumber: null,
+        operatingDates: [],
         stations: [
           {
             stationId: '33605',

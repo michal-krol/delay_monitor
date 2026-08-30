@@ -56,6 +56,7 @@ function route(scheduleId: string, orderId: string, stationIds: string[]): RawRo
     commercialCategorySymbol: null,
     name: null,
     nationalNumber: null,
+    operatingDates: [],
     stations: stationIds.map(routeStop),
   }
 }

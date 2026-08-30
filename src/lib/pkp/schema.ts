@@ -64,8 +64,22 @@ export const rawTrainOperationSchema = z
   })
   .passthrough()
 
+/**
+ * Stronicowanie `/operations`. Potrzebne wyłącznie po to, żeby wykryć, że
+ * jedna strona nie pomieściła całego dnia — statystyki stacji (`stationStats.ts`)
+ * liczą się z CAŁEGO dnia, więc ciche ucięcie zaniżałoby je bez śladu.
+ * Klient nie dociąga kolejnych stron (patrz `getOperations()` w `client.ts`).
+ */
+const paginationSchema = z
+  .object({
+    totalCount: z.number().int().nullable().optional().default(null),
+    hasNextPage: z.boolean().nullable().optional().default(null),
+  })
+  .passthrough()
+
 export const operationsResponseSchema = z
   .object({
+    pagination: paginationSchema.nullish().transform((pagination) => pagination ?? null),
     trains: z
       .array(rawTrainOperationSchema)
       .nullish()
@@ -119,6 +133,16 @@ export const rawRouteSchema = z
     commercialCategorySymbol: z.string().nullable().optional().default(null),
     name: z.string().nullable().optional().default(null),
     nationalNumber: z.string().nullable().optional().default(null),
+    /**
+     * Dni, w które ta trasa kursuje (yyyy-MM-dd). `/schedules` jest wołane
+     * oknem dziś+jutro (patrz `scheduleDateWindow()` w `client.ts`), więc bez
+     * tego pola nie da się odróżnić kursu dzisiejszego od jutrzejszego —
+     * a na tym stoi liczenie „Odjazdy/Przyjazdy dzisiaj" (`stationStats.ts`).
+     */
+    operatingDates: z
+      .array(z.string())
+      .nullish()
+      .transform((dates) => dates ?? []),
     stations: z
       .array(rawRouteStopSchema)
       .nullish()

@@ -17,14 +17,16 @@ const CONFIRMATION_MS = 2500
  * „Udostępnij połączenie"), żeby zachowanie nie mogło się między nimi
  * rozjechać.
  */
+export type ShareStatus = 'idle' | 'copied' | 'error'
+
 export function useShareUrl() {
-  const [copied, setCopied] = useState(false)
+  const [status, setStatus] = useState<ShareStatus>('idle')
 
   useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), CONFIRMATION_MS)
+    if (status === 'idle') return
+    const timer = setTimeout(() => setStatus('idle'), CONFIRMATION_MS)
     return () => clearTimeout(timer)
-  }, [copied])
+  }, [status])
 
   async function share(): Promise<void> {
     const url = window.location.href
@@ -38,14 +40,17 @@ export function useShareUrl() {
       return
     }
     try {
+      if (!navigator.clipboard) throw new Error('Clipboard API niedostępne')
       await navigator.clipboard.writeText(url)
-      setCopied(true)
+      setStatus('copied')
     } catch {
       // Schowek bywa zablokowany (brak uprawnienia, kontekst bez HTTPS).
-      // Przycisk po prostu nie potwierdza — nie udajemy, że się udało.
-      setCopied(false)
+      // Mówimy o tym wprost i kierujemy do paska adresu, zamiast milczeć --
+      // cicha porażka wygląda dla użytkownika jak zawieszony przycisk
+      // (AGENTS.md #7: awaria nie chowa się pod pustym stanem).
+      setStatus('error')
     }
   }
 
-  return { share, copied }
+  return { share, status, copied: status === 'copied' }
 }

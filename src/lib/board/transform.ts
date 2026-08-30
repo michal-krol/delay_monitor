@@ -1,8 +1,9 @@
 import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
-import { hasTrainStartedFromStatus, resolveDelayMinutes, resolveStopStatus, type RealizationStatus } from './realization'
+import { hasTrainStartedFromStatus, resolveDelayMinutes, resolvePredictedTime, resolveStopStatus, type RealizationStatus } from './realization'
 import { disruptionTrainKey } from './disruptions'
-import { routeKey } from './routeKey'
+import { findRouteForTrain } from './routeKey'
 import { findPrecedingStationIds, UPSTREAM_LOOKBACK_HOPS } from './upstreamEstimate'
+import { DEFAULT_PUNCTUALITY_THRESHOLD_MINUTES, type StationInsights, type StationStats } from './stationStats'
 
 export { routeKey } from './routeKey'
 
@@ -25,12 +26,28 @@ export type BoardRow = {
    * niesie własnej pełnej trasy (patrz `client.ts`, `fullRoutes`).
    */
   headsign: string | null
+  /**
+   * Wybrane przystanki pośrednie między TĄ stacją a `headsign` (dla odjazdów;
+   * dla przyjazdów — przebyte przed tą stacją, w kolejności jazdy). Do
+   * `MAX_VIA_STOPS` nazw; `[]` gdy nie ma dopasowanej trasy albo pociąg jedzie
+   * stąd prosto do celu. Zero dodatkowych zapytań — trasa jest już w cache'u
+   * `/schedules` pollera (patrz `poller.ts`).
+   */
+  via: string[]
+  /** Ile przystanków pośrednich NIE zmieściło się w `via` — „· +12 przystanków". `0` gdy wszystkie się zmieściły. */
+  viaRemaining: number
   plannedAt: string
+  /** FAKT — `null`, dopóki przystanek nie jest potwierdzony. Patrz `realization.ts`. */
   actualAt: string | null
+  /** PROGNOZA — przewidywana godzina dla niepotwierdzonego przystanku. Nigdy nie jest faktem i nigdy nie nadpisuje `actualAt`; patrz `resolvePredictedTime()`. */
+  predictedAt: string | null
   /** `null`, gdy przystanek nie jest jeszcze potwierdzony (`isConfirmed: false`) — patrz `realization.ts`. */
   delayMinutes: number | null
   status: RealizationStatus
+  /** Peron PLANOWY — API nie reprezentuje zmiany peronu w ostatniej chwili (patrz `routeStopPlatform`). `null` = nie podano. */
   platform: string | null
+  /** Tor PLANOWY, niezależnie od `platform` — jedno bywa znane bez drugiego. Formatowanie („2 / —") należy do UI, nie tutaj. */
+  track: string | null
   /**
    * Szacunek, nie fakt — opóźnienie ze stacji bezpośrednio PRZED tą, o ile
    * jest już potwierdzone. Wyłącznie przy `status === 'enRoute'`, inaczej
@@ -48,11 +65,35 @@ export type BoardSnapshot = {
   departures: BoardRow[]
   arrivals: BoardRow[]
   fetchedAt: string
+  /**
+   * Kafelki KPI i kontekst prawej kolumny. Liczone w cyklu pollera z danych,
+   * które ten cykl i tak ma (patrz `stationStats.ts`) — nie kosztują ani
+   * jednego dodatkowego zapytania do PKP.
+   */
+  stats: StationStats
+  insights: StationInsights
+  /**
+   * Zdekodowane treści utrudnień dotykających TEJ stacji — dowolnego
+   * przejazdu przez nią (patrz `findStationDisruptionMessages`). Pusta
+   * tablica = brak zgłoszonych utrudnień; awaria pobrania degraduje do tego
+   * samego pustego stanu, tak jak `hasDisruption` na wierszach.
+   */
+  disruptionMessages: string[]
 }
 
-const VISIBLE_WINDOW_MS = 60 * 60 * 1000
+/**
+ * Okno widoczności tablicy. Szersze niż wyświetla domyślnie UI (patrz
+ * „Pokaż więcej połączeń" w `BoardTable.tsx`) — `/operations` i tak zwraca
+ * CAŁY dzień, więc poszerzenie kosztuje wyłącznie rozmiar snapshotu, ani
+ * jednego dodatkowego zapytania do PKP. Widoki pokazujące mniej (kafelki
+ * ulubionych) tną listę po swojej stronie.
+ */
+const VISIBLE_WINDOW_MS = 3 * 60 * 60 * 1000
 const LOOKBACK_WINDOW_MS = 5 * 60 * 1000
-const MAX_ROWS = 10
+const MAX_ROWS = 40
+
+/** Ile przystanków pośrednich wchodzi do `BoardRow.via`; reszta ląduje w `viaRemaining`. */
+const MAX_VIA_STOPS = 3
 
 function computeTrainLabel(route: RawRoute | undefined, category: string, trainId: string): string {
   if (route?.name) return route.name
@@ -75,12 +116,42 @@ function routeTerminus(route: RawRoute | undefined, end: 'first' | 'last'): RawR
   return end === 'first' ? route.stations[0] : route.stations[route.stations.length - 1]
 }
 
-/** „4/2" gdy znane są peron i tor, sam peron albo „tor 2" gdy tylko jedno z nich, `null` gdy nic. */
-function formatPlatform(platform: string | null | undefined, track: string | null | undefined): string | null {
-  if (platform && track) return `${platform}/${track}`
-  if (platform) return platform
-  if (track) return `tor ${track}`
-  return null
+/**
+ * Przystanki pośrednie między TĄ stacją a końcem trasy — „przez Pruszków,
+ * Opoczno, Kielce · +12 przystanków" z makiety §9.
+ *
+ * Dla odjazdów bierzemy odcinek ZA tą stacją (kierunek jazdy), dla przyjazdów
+ * odcinek PRZED nią, wciąż w kolejności jazdy — pasażer czyta trasę tak, jak
+ * pociąg ją pokonuje, niezależnie od tego, którą tablicę ogląda. Terminus jest
+ * wyłączony, bo pokazujemy go osobno jako `headsign`.
+ *
+ * `{ via: [], viaRemaining: 0 }` gdy nie ma dopasowanej trasy — pusta lista
+ * znaczy „nie wiemy" i UI pokazuje wtedy sam kierunek, zamiast zgadywać.
+ */
+function collectVia(
+  route: RawRoute | undefined,
+  stationId: string,
+  direction: 'departure' | 'arrival',
+  stationNames: Record<string, string>
+): { via: string[]; viaRemaining: number } {
+  if (!route) return { via: [], viaRemaining: 0 }
+  const index = route.stations.findIndex((stop) => stop.stationId === stationId)
+  if (index === -1) return { via: [], viaRemaining: 0 }
+
+  // Odcinek BEZ terminusa (pokazywanego jako `headsign`) i bez tej stacji.
+  const segment = direction === 'departure' ? route.stations.slice(index + 1, -1) : route.stations.slice(1, index)
+
+  return {
+    via: segment.slice(0, MAX_VIA_STOPS).map((stop) => resolveStationName(stop.stationId, stationNames)),
+    viaRemaining: Math.max(0, segment.length - MAX_VIA_STOPS),
+  }
+}
+
+/** Peron i tor jako osobne wartości — sklejanie w „2 / 4" należy do UI (makieta §10 rozróżnia `2 / 4`, `2 / —` i „nie podano"). */
+export type PlatformTrack = { platform: string | null; track: string | null }
+
+function pickPlatform(platform: string | null | undefined, track: string | null | undefined): PlatformTrack {
+  return { platform: platform ?? null, track: track ?? null }
 }
 
 /**
@@ -92,14 +163,14 @@ function formatPlatform(platform: string | null | undefined, track: string | nul
  * Na przystanku przelotowym to fizycznie ten sam peron; ta sama decyzja co
  * w panelu szczegółów połączenia (patrz `trainDetail.ts`).
  */
-export function routeStopPlatform(routeStop: RawRouteStop | undefined, prefer: 'arrival' | 'departure'): string | null {
+export function routeStopPlatform(routeStop: RawRouteStop | undefined, prefer: 'arrival' | 'departure'): PlatformTrack {
   if (prefer === 'arrival') {
-    return formatPlatform(
+    return pickPlatform(
       routeStop?.arrivalPlatform ?? routeStop?.departurePlatform,
       routeStop?.arrivalTrack ?? routeStop?.departureTrack
     )
   }
-  return formatPlatform(
+  return pickPlatform(
     routeStop?.departurePlatform ?? routeStop?.arrivalPlatform,
     routeStop?.departureTrack ?? routeStop?.arrivalTrack
   )
@@ -167,15 +238,17 @@ type TrainStopContext = {
 /** To, co faktycznie różni się między przyjazdem a odjazdem TEGO SAMEGO przystanku. */
 type DirectionInput = {
   headsign: string | null
+  via: string[]
+  viaRemaining: number
   plannedAt: string
   actualAt: string | null
   apiDelay: number | null
-  platform: string | null
+  platformTrack: PlatformTrack
 }
 
 function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRow {
   const { scheduleId, orderId, operatingDate, trainId, cancelled, isConfirmed, route, carrierNames, categoryNames, hasTrainStartedFromTrainStatus, upstreamStops, hasDisruption } = context
-  const { headsign, plannedAt, actualAt, apiDelay, platform } = direction
+  const { headsign, via, viaRemaining, plannedAt, actualAt, apiDelay, platformTrack } = direction
 
   const delayMinutes = resolveDelayMinutes(apiDelay, isConfirmed, plannedAt, actualAt)
   const category = route?.commercialCategorySymbol ?? ''
@@ -202,11 +275,17 @@ function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRo
     category,
     categoryName: category ? (categoryNames[category] ?? null) : null,
     headsign,
+    via,
+    viaRemaining,
     plannedAt,
     actualAt,
+    // PROGNOZA obok FAKTU, nigdy zamiast niego — ta sama funkcja co w panelu
+    // szczegółów połączenia (`trainDetail.ts`), jedna implementacja.
+    predictedAt: resolvePredictedTime(plannedAt, actualAt, isConfirmed),
     delayMinutes,
     status,
-    platform,
+    platform: platformTrack.platform,
+    track: platformTrack.track,
     estimatedDelayMinutes: estimateDelayFromUpstream(status, upstreamStops),
     hasDisruption,
   }
@@ -260,7 +339,28 @@ export function transformOperations(
   // pozycji fetchedAt/now w kilkudziesięciu miejscach w transform.test.ts.
   categoryNames: Record<string, string> = {},
   /** Klucze `disruptionTrainKey()` pociągów dotkniętych utrudnieniem -- ten sam trailing-optional wzorzec co `categoryNames` wyżej. */
-  disruptedTrains: ReadonlySet<string> = new Set()
+  disruptedTrains: ReadonlySet<string> = new Set(),
+  /**
+   * Policzone przez `computeStationStats()` w cyklu pollera i wstrzyknięte
+   * tutaj, zamiast liczone w środku -- ta funkcja jest per-stacja, a wejście
+   * do statystyk (cały dzień realizacji + trasy) jest wspólne dla całego
+   * cyklu. Domyślnie „nic nie wiadomo", żeby testy tablicy nie musiały
+   * podawać statystyk, które ich nie dotyczą.
+   */
+  stationStats: { stats: StationStats; insights: StationInsights } = {
+    stats: {
+      departuresToday: null,
+      arrivalsToday: null,
+      averageDelayMinutes: null,
+      averageDelaySample: 0,
+      punctualityPct: null,
+      punctualitySample: 0,
+      punctualityThresholdMinutes: DEFAULT_PUNCTUALITY_THRESHOLD_MINUTES,
+    },
+    insights: { topDestinations: [], hourlyTraffic: null },
+  },
+  /** Patrz `BoardSnapshot.disruptionMessages`. */
+  disruptionMessages: string[] = []
 ): BoardSnapshot {
   const departures: BoardRow[] = []
   const arrivals: BoardRow[] = []
@@ -272,7 +372,10 @@ export function transformOperations(
 
     const stop = stops[stopIndex]
     const trainId = `${train.scheduleId}-${train.orderId}`
-    const route = routesByTrainId.get(routeKey(train.scheduleId, train.orderId, train.trainOrderId))
+    // Wariant trasy z DNIA tego przejazdu, nie „jakikolwiek o tym kluczu" --
+    // patrz `findRouteForTrain()`; peron i przystanki potrafią się między
+    // dniami różnić.
+    const route = findRouteForTrain(routesByTrainId, train)
     const routeStop = findRouteStop(route, stationId)
     // Całopociągowy trainStatus przychodzi za darmo w każdej odpowiedzi
     // /operations (patrz realization.ts) -- pozwala pokazać "w trasie" zamiast
@@ -303,10 +406,11 @@ export function transformOperations(
       departures.push(
         buildRow(context, {
           headsign: destination ? resolveStationName(destination.stationId, stationNames) : null,
+          ...collectVia(route, stationId, 'departure', stationNames),
           plannedAt: stop.plannedDeparture,
           actualAt: stop.actualDeparture,
           apiDelay: stop.departureDelayMinutes,
-          platform: routeStopPlatform(routeStop, 'departure'),
+          platformTrack: routeStopPlatform(routeStop, 'departure'),
         })
       )
     }
@@ -316,10 +420,11 @@ export function transformOperations(
       arrivals.push(
         buildRow(context, {
           headsign: origin ? resolveStationName(origin.stationId, stationNames) : null,
+          ...collectVia(route, stationId, 'arrival', stationNames),
           plannedAt: stop.plannedArrival,
           actualAt: stop.actualArrival,
           apiDelay: stop.arrivalDelayMinutes,
-          platform: routeStopPlatform(routeStop, 'arrival'),
+          platformTrack: routeStopPlatform(routeStop, 'arrival'),
         })
       )
     }
@@ -331,5 +436,8 @@ export function transformOperations(
     departures: sortAndTrim(departures, now),
     arrivals: sortAndTrim(arrivals, now),
     fetchedAt,
+    stats: stationStats.stats,
+    insights: stationStats.insights,
+    disruptionMessages,
   }
 }

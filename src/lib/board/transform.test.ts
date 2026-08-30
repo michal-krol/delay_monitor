@@ -49,6 +49,7 @@ function route(overrides: Partial<RawRoute> & { scheduleId: string; orderId: str
     commercialCategorySymbol: null,
     name: null,
     nationalNumber: null,
+    operatingDates: [],
     stations: [],
     ...overrides,
   }
@@ -541,18 +542,18 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].delayMinutes).toBe(3)
   })
 
-  it('sorts ascending by plannedAt and caps at 10 rows within a 1h window', () => {
-    const trains = Array.from({ length: 15 }, (_, i) =>
+  it('sorts ascending by plannedAt and caps at 40 rows within the 3h window', () => {
+    const trains = Array.from({ length: 45 }, (_, i) =>
       train(String(i), '1', [
         stop({
           stationId: '5100',
-          plannedDeparture: new Date(NOW.getTime() + (15 - i) * 60000).toISOString(),
+          plannedDeparture: new Date(NOW.getTime() + (45 - i) * 60000).toISOString(),
         }),
       ])
     )
     const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
-    expect(snapshot.departures).toHaveLength(10)
-    expect(snapshot.departures[0].trainNumber).toBe('14-1')
+    expect(snapshot.departures).toHaveLength(40)
+    expect(snapshot.departures[0].trainNumber).toBe('44-1')
     expect(new Date(snapshot.departures[0].plannedAt).getTime()).toBeLessThan(
       new Date(snapshot.departures[1].plannedAt).getTime()
     )
@@ -574,31 +575,31 @@ describe('transformOperations', () => {
     expect(snapshot.departures).toHaveLength(0)
   })
 
-  it('gives past and upcoming connections independent budgets -- past ones do not eat into the 10-upcoming cap', () => {
+  it('gives past and upcoming connections independent budgets -- past ones do not eat into the upcoming cap', () => {
     const pastTrains = Array.from({ length: 3 }, (_, i) =>
       train(`past-${i}`, '1', [
         stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() - (i + 1) * 60000).toISOString() }),
       ])
     )
-    const futureTrains = Array.from({ length: 15 }, (_, i) =>
+    const futureTrains = Array.from({ length: 45 }, (_, i) =>
       train(`future-${i}`, '1', [
         stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() + (i + 1) * 60000).toISOString() }),
       ])
     )
     const snapshot = transformOperations('5100', 'X', [...pastTrains, ...futureTrains], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
 
-    // 3 przeszłe (bez limitu liczbowego, tylko okno 5 min) + 10 nadchodzących
-    // (limit), a nie 10 łącznie z przeszłymi zajmującymi część tego limitu.
-    expect(snapshot.departures).toHaveLength(13)
+    // 3 przeszłe (bez limitu liczbowego, tylko okno 5 min) + 40 nadchodzących
+    // (limit), a nie 40 łącznie z przeszłymi zajmującymi część tego limitu.
+    expect(snapshot.departures).toHaveLength(43)
     // Rosnąco po czasie -- najdawniej miniony (past-2, 3 min wstecz) pierwszy.
     expect(snapshot.departures.slice(0, 3).map((row) => row.trainNumber)).toEqual(['past-2-1', 'past-1-1', 'past-0-1'])
-    expect(snapshot.departures.slice(3)).toHaveLength(10)
+    expect(snapshot.departures.slice(3)).toHaveLength(40)
   })
 
-  it('excludes departures more than 1 hour in the future', () => {
+  it('excludes departures beyond the 3h visibility window', () => {
     const trains = [
       train('25', '1', [
-        stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() + 90 * 60000).toISOString() }),
+        stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() + 200 * 60000).toISOString() }),
       ]),
     ]
     const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
@@ -700,7 +701,7 @@ describe('transformOperations', () => {
     expect(snapshot.departures[0].trainLabel).toBe('TLK 26-11111')
   })
 
-  it('combines platform and track for the matching station on the route', () => {
+  it('reports platform and track as separate values for the matching station on the route', () => {
     const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
     const routes = new Map<string, RawRoute>([
       [
@@ -713,7 +714,8 @@ describe('transformOperations', () => {
       ],
     ])
     const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
-    expect(snapshot.departures[0].platform).toBe('4/2')
+    expect(snapshot.departures[0].platform).toBe('4')
+    expect(snapshot.departures[0].track).toBe('2')
   })
 
   it('shows only the platform when the track is unknown', () => {
@@ -730,9 +732,10 @@ describe('transformOperations', () => {
     ])
     const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].platform).toBe('4')
+    expect(snapshot.departures[0].track).toBeNull()
   })
 
-  it('shows "tor N" when only the track is known, not the platform', () => {
+  it('reports the track alone when the platform is unknown -- two independent values, not one merged string', () => {
     const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
     const routes = new Map<string, RawRoute>([
       [
@@ -745,7 +748,8 @@ describe('transformOperations', () => {
       ],
     ])
     const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
-    expect(snapshot.departures[0].platform).toBe('tor 2')
+    expect(snapshot.departures[0].platform).toBeNull()
+    expect(snapshot.departures[0].track).toBe('2')
   })
 
   it('uses arrival platform/track for arrivals and departure platform/track for departures at the same stop', () => {
@@ -771,8 +775,10 @@ describe('transformOperations', () => {
       ],
     ])
     const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
-    expect(snapshot.arrivals[0].platform).toBe('1/3')
-    expect(snapshot.departures[0].platform).toBe('4/2')
+    expect(snapshot.arrivals[0].platform).toBe('1')
+    expect(snapshot.arrivals[0].track).toBe('3')
+    expect(snapshot.departures[0].platform).toBe('4')
+    expect(snapshot.departures[0].track).toBe('2')
   })
 
   it('falls back to the departure platform/track for an arrival when the route has no arrival platform (PKP fills only departure on through-stops)', () => {
@@ -796,8 +802,10 @@ describe('transformOperations', () => {
       ],
     ])
     const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
-    expect(snapshot.arrivals[0].platform).toBe('4/2')
-    expect(snapshot.departures[0].platform).toBe('4/2')
+    expect(snapshot.arrivals[0].platform).toBe('4')
+    expect(snapshot.arrivals[0].track).toBe('2')
+    expect(snapshot.departures[0].platform).toBe('4')
+    expect(snapshot.departures[0].track).toBe('2')
   })
 
   it('joins to the route via trainOrderId when operations.orderId is a per-instance id that does not match the route', () => {
@@ -821,6 +829,7 @@ describe('transformOperations', () => {
     const routes = new Map<string, RawRoute>([['26-12345', route({ scheduleId: '26', orderId: '12345' })]])
     const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].platform).toBeNull()
+    expect(snapshot.departures[0].track).toBeNull()
   })
 
   it('marks hasDisruption true when the train (scheduleId+orderId+operatingDate) is in the disrupted set', () => {
@@ -841,5 +850,128 @@ describe('transformOperations', () => {
     const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
     const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].hasDisruption).toBe(false)
+  })
+})
+
+describe('transformOperations -- przystanki pośrednie („przez…")', () => {
+  const VIA_NAMES = {
+    '5100': 'Warszawa Centralna',
+    A: 'Pruszków',
+    B: 'Opoczno',
+    C: 'Kielce',
+    D: 'Miechów',
+    '5136': 'Kraków Główny',
+  }
+
+  /** Trasa 5100 -> A -> B -> C -> D -> 5136, ta sama dla odjazdów i przyjazdów. */
+  function longRoute(): Map<string, RawRoute> {
+    return new Map([
+      [
+        '30-1',
+        route({
+          scheduleId: '30',
+          orderId: '1',
+          stations: ['5100', 'A', 'B', 'C', 'D', '5136'].map((stationId) => routeStop({ stationId })),
+        }),
+      ],
+    ])
+  }
+
+  it('lists intermediate stops after this station, excluding the terminus shown as headsign', () => {
+    const trains = [train('30', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, longRoute(), {}, NOW.toISOString(), NOW)
+
+    expect(snapshot.departures[0].headsign).toBe('Kraków Główny')
+    expect(snapshot.departures[0].via).toEqual(['Pruszków', 'Opoczno', 'Kielce'])
+    // A, B, C, D to cztery przystanki pośrednie; trzy zmieściły się w `via`.
+    expect(snapshot.departures[0].viaRemaining).toBe(1)
+  })
+
+  it('lists stops already travelled for arrivals, still in travel order', () => {
+    const trains = [train('30', '1', [stop({ stationId: 'D', plannedArrival: '2026-08-01T12:10:00+02:00' })])]
+    const snapshot = transformOperations('D', 'X', trains, VIA_NAMES, longRoute(), {}, NOW.toISOString(), NOW)
+
+    expect(snapshot.arrivals[0].headsign).toBe('Warszawa Centralna')
+    // Odcinek między originem (wykluczonym, bo to headsign) a tą stacją.
+    expect(snapshot.arrivals[0].via).toEqual(['Pruszków', 'Opoczno', 'Kielce'])
+    expect(snapshot.arrivals[0].viaRemaining).toBe(0)
+  })
+
+  it('reports an empty via list when the train runs straight to the terminus', () => {
+    const routes = new Map([
+      ['30-1', route({ scheduleId: '30', orderId: '1', stations: [routeStop({ stationId: '5100' }), routeStop({ stationId: '5136' })] })],
+    ])
+    const trains = [train('30', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, routes, {}, NOW.toISOString(), NOW)
+
+    expect(snapshot.departures[0].via).toEqual([])
+    expect(snapshot.departures[0].viaRemaining).toBe(0)
+  })
+
+  it('reports an empty via list when there is no matching route -- empty means "unknown", never "runs direct"', () => {
+    const trains = [train('30', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
+    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+
+    expect(snapshot.departures[0].via).toEqual([])
+    expect(snapshot.departures[0].headsign).toBeNull()
+  })
+})
+
+describe('transformOperations -- PLAN / PROGNOZA / FAKT', () => {
+  it('exposes a prediction for an unconfirmed stop without ever filling actualAt', () => {
+    const planned = '2026-08-01T12:10:00+02:00'
+    const trains = [
+      train('40', '1', [
+        stop({
+          stationId: '5100',
+          plannedDeparture: planned,
+          // PKP potrafi wpisać tu własną projekcję dla niepotwierdzonego przystanku.
+          actualDeparture: '2026-08-01T12:13:00+02:00',
+          isConfirmed: false,
+        }),
+      ]),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const row = snapshot.departures[0]
+
+    expect(row.predictedAt).toBe('2026-08-01T12:13:00+02:00')
+    // Niepotwierdzony przystanek nie ma FAKTU ani opóźnienia -- prognoza nie
+    // awansuje do żadnego z nich (AGENTS.md #2).
+    expect(row.delayMinutes).toBeNull()
+    expect(row.status).toBe('notStarted')
+  })
+
+  it('drops the prediction once the stop is confirmed -- then the fact is what counts', () => {
+    const trains = [
+      train('41', '1', [
+        stop({
+          stationId: '5100',
+          plannedDeparture: '2026-08-01T12:10:00+02:00',
+          actualDeparture: '2026-08-01T12:13:00+02:00',
+          isConfirmed: true,
+        }),
+      ]),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+
+    expect(snapshot.departures[0].predictedAt).toBeNull()
+    expect(snapshot.departures[0].actualAt).toBe('2026-08-01T12:13:00+02:00')
+    expect(snapshot.departures[0].delayMinutes).toBe(3)
+  })
+
+  it('ignores the whole-day-offset artefact PKP writes for far-ahead stops', () => {
+    const trains = [
+      train('42', '1', [
+        stop({
+          stationId: '5100',
+          plannedDeparture: '2026-08-01T12:10:00+02:00',
+          actualDeparture: '2026-08-02T12:10:00+02:00',
+          isConfirmed: false,
+        }),
+      ]),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+
+    expect(snapshot.departures[0].predictedAt).toBeNull()
   })
 })

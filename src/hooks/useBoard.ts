@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { RealizationStatus } from '@/lib/board/realization'
+import type { StationInsights, StationStats } from '@/lib/board/stationStats'
 
 export type BoardApiRow = {
   scheduleId: string
@@ -14,12 +15,26 @@ export type BoardApiRow = {
   category: string
   categoryName: string | null
   headsign: string | null
+  /**
+   * Wybrane przystanki pośrednie („przez Pruszków, Opoczno, Kielce").
+   * Opcjonalne z tego samego powodu co `hasDisruption` niżej -- literały tego
+   * typu w testach sprzed tego pola nie muszą się o nim uczyć.
+   */
+  via?: string[]
+  /** Ile przystanków pośrednich nie zmieściło się w `via` -- „· +12 przystanków". */
+  viaRemaining?: number
   plannedAt: string
+  /** FAKT -- `null`, dopóki przystanek nie jest potwierdzony. */
   actualAt: string | null
+  /** PROGNOZA -- przewidywana godzina dla niepotwierdzonego przystanku. Nigdy nie jest faktem; patrz `board/realization.ts`. */
+  predictedAt?: string | null
   /** `null`, gdy przystanek nie jest jeszcze potwierdzony (`status` będzie wtedy `notStarted`). */
   delayMinutes: number | null
   status: RealizationStatus
+  /** Peron PLANOWY -- API nie reprezentuje zmiany peronu w ostatniej chwili. `null` = nie podano. */
   platform: string | null
+  /** Tor PLANOWY, niezależny od `platform`. Formatowanie („2 / —") należy do komponentu. */
+  track?: string | null
   /** Szacunek (nie fakt) ze stacji poprzedniej -- tylko przy `status === 'enRoute'`. Patrz `board/transform.ts`. */
   estimatedDelayMinutes: number | null
   /**
@@ -38,6 +53,17 @@ export type BoardApiSnapshot = {
   arrivals: BoardApiRow[]
   fetchedAt: string
   ageMs: number
+  /**
+   * Kafelki KPI i kontekst prawej kolumny widoku stacji -- liczone w cyklu
+   * pollera, bez ani jednego dodatkowego zapytania do PKP (patrz
+   * `lib/board/stationStats.ts`). Opcjonalne, bo starsze snapshoty w testach
+   * ich nie mają; komponenty i tak muszą obsłużyć `null` w środku („nie
+   * wiadomo" ≠ „zero").
+   */
+  stats?: StationStats
+  insights?: StationInsights
+  /** Treści utrudnień dotykających tej stacji -- patrz `board/disruptions.ts`. */
+  disruptionMessages?: string[]
 }
 
 export type BoardApiResponse = {

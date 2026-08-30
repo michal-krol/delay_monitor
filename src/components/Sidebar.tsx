@@ -46,7 +46,14 @@ export function Sidebar({ activeItem }: Props) {
   return (
     <aside
       data-collapsed={collapsed}
-      className="flex shrink-0 flex-col gap-6 border-r p-4 transition-[width] duration-200"
+      // Poniżej `sm` menu chowa się całkowicie. Nawet zwinięte (76 px) zjadało
+      // piątą część szerokości telefonu, przez co główna treść dostawała 123 px
+      // z 375 -- tablica w układzie kartowym nie miała się gdzie zmieścić.
+      // Nawigacja i tak jest dziś w większości wyłączonymi placeholderami
+      // („Wkrótce"), więc na małym ekranie nie traci się nic działającego.
+      // ponytail: ukrycie, nie szuflada -- do zamiany na wysuwane menu, gdy
+      // pozycje nawigacji zaczną coś robić.
+      className="hidden shrink-0 flex-col gap-6 border-r p-4 transition-[width] duration-200 sm:flex"
       style={{
         width: collapsed ? '76px' : '252px',
         background: 'var(--sidebar-bg)',

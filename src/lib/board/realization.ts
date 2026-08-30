@@ -106,3 +106,45 @@ export function resolveDelayMinutes(
   if (plannedAt === null || actualAt === null) return null
   return Math.round((new Date(actualAt).getTime() - new Date(plannedAt).getTime()) / 60000)
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+// Zaobserwowane na żywym API (4 stacje, ~7300 pociągów): każdy przypadek
+// niepotwierdzonego przystanku, gdzie actual różni się od planu o dokładną
+// wielokrotność doby, nie miał żadnego pola opóźnienia -- odwrotnie, każdy
+// przypadek z polem opóźnienia miał różnicę NIE będącą wielokrotnością doby.
+// Tolerancja tylko na zaokrąglenia SEKUND w danych źródłowych (stąd 5 s, nie
+// więcej) -- zweryfikowane na żywo (produkcja, pociąg SŁOWACKI 2026/134648284,
+// stacja Żyrardów, 2026-08-27): różnica dokładnie 60 s bywa realnym, malejącym
+// opóźnieniem (poprzedni przystanek miał +2 min), nie artefaktem -- poprzedni
+// próg 60 s (`<=`) błędnie chował taki predicted czas jako rzekomy artefakt.
+const DAY_MULTIPLE_TOLERANCE_MS = 5 * 1000
+
+function isNearDayMultiple(diffMs: number): boolean {
+  const remainder = ((diffMs % DAY_MS) + DAY_MS) % DAY_MS
+  return remainder <= DAY_MULTIPLE_TOLERANCE_MS || remainder >= DAY_MS - DAY_MULTIPLE_TOLERANCE_MS
+}
+
+/**
+ * PROGNOZA — przewidywana godzina dla jeszcze NIEpotwierdzonego przystanku,
+ * trzecia kategoria obok PLANU (`plannedAt`) i FAKTU (`actualAt`). Nigdy nie
+ * zastępuje żadnej z nich: dopóki `isConfirmed` jest `false`, nie ma faktu,
+ * a gdy jest `true` — nie ma po co przewidywać (zwraca `null`).
+ *
+ * PKP wpisuje w `actualArrival`/`actualDeparture` dwie różne rzeczy naraz:
+ * czasem realną, samodzielnie przeliczoną projekcję, a czasem — dla dalszych
+ * w czasie przystanków — wartość przesuniętą o całą dobę względem planu.
+ * Drugie to artefakt i musi zniknąć, stąd `isNearDayMultiple`.
+ *
+ * Jedna implementacja dla obu wywołujących (`trainDetail.ts` i `transform.ts`)
+ * — patrz nagłówek pliku i AGENTS.md #2. `/operations/train/...` w ogóle nie
+ * niesie pól opóźnienia (stwierdzone na żywym API), więc sama różnica czasu
+ * musi wystarczyć jako sygnał; zweryfikowane na `/operations?withPlanned=true`
+ * (które te pola NIESIE): obecność pola opóźnienia i „różnica nie jest
+ * wielokrotnością doby" występowały zawsze razem, nigdy osobno.
+ */
+export function resolvePredictedTime(plannedAt: string | null, actualAt: string | null, isConfirmed: boolean): string | null {
+  if (isConfirmed || plannedAt === null || actualAt === null) return null
+  const diffMs = new Date(actualAt).getTime() - new Date(plannedAt).getTime()
+  if (isNearDayMultiple(diffMs)) return null
+  return actualAt
+}

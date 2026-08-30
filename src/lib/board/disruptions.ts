@@ -72,3 +72,29 @@ export function findStopDisruptionMessages(
   }
   return messages
 }
+
+/**
+ * Zdekodowane treści utrudnień dotykających DANEJ STACJI — dowolnego
+ * przejazdu przez nią, w odróżnieniu od `findStopDisruptionMessages()`, które
+ * pyta o konkretny przejazd na konkretnym przystanku. Źródło modułu
+ * „Utrudnienia" w prawej kolumnie widoku stacji.
+ *
+ * Dedup po `disruptionId`, tak samo jak wyżej: jedno utrudnienie obejmujące
+ * czterdzieści pociągów przez tę stację to jeden komunikat, nie czterdzieści.
+ */
+export function findStationDisruptionMessages(
+  disruptions: RawDisruption[],
+  disruptionTypes: Record<string, string>,
+  stationId: string
+): string[] {
+  const seen = new Set<number>()
+  const messages: string[] = []
+  for (const disruption of disruptions) {
+    if (seen.has(disruption.disruptionId)) continue
+    if (!disruption.affectedRoutes.some((route) => route.stationId === stationId)) continue
+    seen.add(disruption.disruptionId)
+    const text = decodeDisruptionMessage(disruption.message, disruptionTypes)
+    if (text !== null) messages.push(text)
+  }
+  return messages
+}

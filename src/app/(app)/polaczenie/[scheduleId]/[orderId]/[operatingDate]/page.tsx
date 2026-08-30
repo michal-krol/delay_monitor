@@ -60,7 +60,7 @@ export default function Page() {
   return (
     <>
       <Sidebar />
-      <main className="flex min-w-0 flex-1 flex-col gap-6 px-8 py-7">
+      <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-5 sm:px-8 sm:py-7">
         {/* Nie znamy tu adresu strony-źródła — mogła to być zakładka Odjazdy
             albo Przyjazdy pełnej tablicy — więc `onBack` (router.back()), nie
             stały `backHref`. */}

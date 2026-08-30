@@ -37,6 +37,21 @@ type Status = 'loading' | 'error' | 'ready'
 // Kolor znacznika/odcinka toru per status — te same pary kolor/token co
 // `DelayBadge` (src/app/globals.css, decyzja #1.1), żeby stepper i plakietka
 // obok nigdy nie mogły pokazać dwóch różnych kolorów dla tego samego statusu.
+/**
+ * „peron 3 · tor 1", sam peron albo sam tor — puste, gdy nie znamy żadnego.
+ *
+ * Peron i tor są dwiema niezależnymi wartościami (jedna bywa znana bez
+ * drugiej), więc nie sklejamy ich w „3/1" — z takiego zapisu nie da się
+ * odczytać, której z nich brakuje. Jeden ciąg, nie trzy wyrażenia JSX obok
+ * siebie: te renderują się jako osobne węzły tekstowe i rozbijają zarówno
+ * zaznaczanie tekstu, jak i odczyt przez czytnik ekranu.
+ */
+function formatPlatformTrack(platform: string | null, track: string | null): string {
+  return [platform !== null ? `peron ${platform}` : null, track !== null ? `tor ${track}` : null]
+    .filter((part) => part !== null)
+    .join(' · ')
+}
+
 const STOP_COLOR: Record<RealizationStatus, string> = {
   onTime: 'var(--status-onTime-bg)',
   delayed: 'var(--status-delayed-bg)',
@@ -441,8 +456,12 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                 )}
                               </div>
 
+                              {/* Peron i tor są dwiema niezależnymi wartościami
+                                  (jedna bywa znana bez drugiej), więc każda ma
+                                  własną etykietę zamiast sklejenia „4/2".
+                                  Nic nie pokazujemy, gdy nie znamy żadnej. */}
                               <div className="text-sm text-text-secondary tabular-nums">
-                                {stop.platform !== null ? `peron ${stop.platform}` : ''}
+                                {formatPlatformTrack(stop.platform, stop.track)}
                               </div>
 
                               <div className="@lg:text-right">

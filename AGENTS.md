@@ -21,6 +21,14 @@ Wszystkie cztery pola czasowe (`plannedArrival`, `plannedDeparture`,
 z `src/lib/pkp/time.ts`, na granicy schematu Zod. Jeśli dokładasz nowe pole
 czasowe z API — podłącz je tam samo.
 
+To samo dotyczy pytania „czy to jest dzisiaj": data dnia liczy się przez
+`warsawDateString()`, nigdy przez `new Date().toISOString().slice(0, 10)`.
+Statystyki stacji odsiewają kursy jutrzejsze po `operatingDates` (okno
+`/schedules` to dziś+jutro), więc po 22:00 czasu lokalnego proces w UTC
+liczyłby jutrzejszy rozkład jako dzisiejszy. Godziny z `/schedules`
+(`departureTime`, „HH:mm:ss") są już czasem warszawskim — czytaj je z ciągu,
+nie przepuszczaj przez `Date`.
+
 Uruchamiaj testy także pod `TZ=UTC` — to odwzorowuje produkcję:
 
 ```bash
@@ -69,6 +77,13 @@ przy 90 s zużywa ~40/h, więc zapas jest realny, ale nieduży.
   synchroniczny fetch do PKP przy każdym kliknięciu w niewidziany wcześniej
   pociąg, chroniony wyłącznie własnym cache'em 90 s (`createTtlCache()`).
   Licz jego koszt osobno od budżetu pollera, nie razem z nim.
+- Kafelki KPI stacji, „najpopularniejsze kierunki", natężenie ruchu i „przez…"
+  w wierszu **nie kosztują ani jednego zapytania**: liczą się w cyklu pollera
+  z tego, co on i tak ma w ręku — całodniowej odpowiedzi `/operations` oraz
+  tras z `/schedules` (cache 24 h, `fullRoute=true`). Cała ta arytmetyka żyje
+  w `src/lib/board/stationStats.ts`, czystymi funkcjami wołanymi raz na tick.
+  Dokładając kolejny wskaźnik, sprawdź najpierw, czy nie da się go policzyć
+  z tych samych danych — najczęściej da się.
 
 ## 4. Wejście spoza aplikacji jest zawsze wrogie
 
@@ -122,7 +137,11 @@ zamiast czyścić widok. Awaria objawia się rosnącym wiekiem danych, nie biał
 ekranem. Baner błędu jest zarezerwowany dla błędu konfiguracji (401).
 
 Nie chowaj awarii pod pustym stanem — „brak wyników" i „nie udało się sprawdzić"
-to dwa różne komunikaty.
+to dwa różne komunikaty. Przy wskaźnikach liczbowych stany są **trzy**, nie dwa:
+„jeszcze się wczytuje", „nie udało się pobrać" i konkretna liczba. `null`
+w `StationStats`/`StationInsights` zawsze znaczy „nie wiadomo" i nigdy nie może
+wyrenderować się jako `0` — kafelek „0 pociągów" przy zepsutym pobraniu rozkładu
+kłamie tak samo jak pusta tablica przy awarii API.
 
 Wyjątek: panel szczegółów połączenia (`/api/train`) **nie ma** snapshotu do
 pokazania przy awarii — to jednorazowy fetch po kliknięciu, nie dane z pollera.
@@ -144,12 +163,38 @@ curl -s https://pdp-api.plk-sa.pl/swagger/v1/swagger.json
 
 Jest dostępny bez klucza i bez zużycia limitu.
 
-## 9. Katalog `docs/` nie jest publikowany
+## 9. `/operations` i `/schedules` nie ograniczają się same do „dzisiaj"
+
+Zweryfikowane na żywym kluczu (Warszawa Zachodnia, 2026-08-28): jedna
+odpowiedź `/operations?stations=…&withPlanned=true` niosła pociągi z **pięciu
+różnych dni kursowania** naraz (24–28.08), mimo że ten endpoint w ogóle nie
+przyjmuje parametru daty. Każde miejsce liczące coś „dzisiaj" z tej odpowiedzi
+(patrz `stationStats.ts`, `computeStationRealization`) musi jawnie odfiltrować
+po `train.operatingDate === todayIsoDate` — bez tego kafelek podpisany „z
+potwierdzonych dziś przejazdów" pokazywał średnią z zeszłego tygodnia, co jest
+gorsze niż brak danych, bo wygląda wiarygodnie (patrz #7).
+
+Druga, niezależna pułapka tego samego rodzaju: `/schedules` (okno dziś+jutro,
+`fullRoute=true`) zwraca **osobny rekord trasy dla każdego dnia kursowania**
+tego samego przejazdu — ten sam `trainOrderId`, inny `orderId`, czasem inne
+perony i przystanki. Zmierzone na żywo: 2008 tras dla jednej stacji dzieliło
+się na 1657 unikalnych kluczy przejazdu (`routeKey()`), a zwykła `Map` typu
+„ostatni wygrywa" w 217 przypadkach zostawiała rekord z **niewłaściwego**
+dnia, mimo że dzisiejszy istniał — 910 zamiast 1094 dzisiejszych odjazdów.
+`indexRoutesByTrain()`/`findRouteForTrain()` w `board/routeKey.ts` to
+naprawiają: indeks trzyma wariant per (przejazd, dzień) plus rezerwę bez daty,
+`findRouteForTrain()` szuka najpierw dokładnego dnia. **Nie wracaj do zwykłej
+`new Map(routes.map(r => [routeKey(r), r]))`** — to dokładnie ten błąd.
+Liczenie (nie wyszukiwanie pojedynczej trasy) musi iść po **surowej liście**
+tras z pollera, nie po tym indeksie — indeks z definicji zwija warianty tego
+samego przejazdu i zaniża każdy licznik.
+
+## 10. Katalog `docs/` nie jest publikowany
 
 `docs/` (projekt techniczny, plan implementacji) jest w `.gitignore` i celowo
 nie trafia do repozytorium. Nie dodawaj go z powrotem.
 
-## 10. Bramka jakości
+## 11. Bramka jakości
 
 Commity trafiają bezpośrednio na `main`, z którego deployuje Railway. Przed
 oddaniem pracy:

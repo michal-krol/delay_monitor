@@ -82,6 +82,7 @@ function routeWithUpstream(scheduleId: string, orderId: string, upstreamStationI
     commercialCategorySymbol: null,
     name: null,
     nationalNumber: null,
+    operatingDates: [],
     stations: [routeStop(upstreamStationId), routeStop(stationId)],
   }
 }
@@ -497,7 +498,7 @@ describe('createPoller', () => {
     })
     const getSchedules = vi.fn().mockResolvedValue({
       routes: [
-        { scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, stations: [] },
+        { scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC', name: null, nationalNumber: null, operatingDates: [], stations: [] },
       ],
       carrierNames: {},
     })

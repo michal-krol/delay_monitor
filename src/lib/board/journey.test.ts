@@ -13,6 +13,7 @@ function stop(overrides: Partial<TrainDetailStop> & { stationId: string; station
     isCancelled: false,
     isConfirmed: false,
     platform: null,
+    track: null,
     hasTrainStarted: false,
     estimatedDelayMinutes: null,
     predictedArrival: null,

@@ -140,7 +140,15 @@ export function createMockClient(): PkpClient {
           .filter((train) => train.stations.some((stop) => requested.has(stop.stationId)))
           .map((train) => `${train.scheduleId}-${train.orderId}`)
       )
-      const routes = schedules.routes.filter((route) => relevantTrainIds.has(`${route.scheduleId}-${route.orderId}`))
+      // `operatingDates` podmieniane na dzisiejszą datę, dokładnie tym samym
+      // powodem co `operatingDate` w `rebaseTrains()`: fixture ma sztywny
+      // sierpień 2026, a statystyki stacji liczą wyłącznie kursy „dzisiaj"
+      // (patrz `stationStats.ts`) -- bez tego mock pokazywałby zero odjazdów
+      // przy pełnej tablicy.
+      const operatingDates = [warsawDateString(new Date())]
+      const routes = schedules.routes
+        .filter((route) => relevantTrainIds.has(`${route.scheduleId}-${route.orderId}`))
+        .map((route) => ({ ...route, operatingDates }))
       return {
         routes,
         carrierNames: schedules.carrierNames,

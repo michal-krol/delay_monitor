@@ -1,5 +1,5 @@
 import type { RawOperationStation, RawRoute, RawTrainOperation } from '../pkp/types'
-import { routeKey } from './routeKey'
+import { findRouteForTrain } from './routeKey'
 
 /**
  * Ile najbliższych "w trasie" połączeń per stacja per kierunek dostaje
@@ -114,7 +114,7 @@ export function collectUpstreamCandidates(
   const arrivalCandidatesByStation = new Map<string, Candidate[]>()
 
   for (const train of trains) {
-    const route = routesByTrainId.get(routeKey(train.scheduleId, train.orderId, train.trainOrderId))
+    const route = findRouteForTrain(routesByTrainId, train)
 
     for (const stop of train.stations) {
       if (!stationIdSet.has(stop.stationId) || !isEnRouteCandidate(stop)) continue
