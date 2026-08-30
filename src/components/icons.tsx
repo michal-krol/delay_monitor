@@ -218,3 +218,68 @@ export function InfoIcon(props: IconProps) {
 export function PauseIcon(props: IconProps) {
   return base(<path d="M7.5 5v10M12.5 5v10" stroke="currentColor" strokeWidth={1.9} />, props)
 }
+
+// --- Ikony pogodowe (widżet "Pogoda dziś" w StationAside) ---
+
+export function CloudIcon(props: IconProps) {
+  return base(<path d="M5.7 14.5a3 3 0 0 1-.4-6 4.2 4.2 0 0 1 8-1.4A3.3 3.3 0 0 1 14.3 14.5H5.7Z" stroke="currentColor" strokeLinejoin="round" />, props)
+}
+
+export function FogIcon(props: IconProps) {
+  return base(<path d="M3 7.5h10M5 10.5h12M3 13.5h10" stroke="currentColor" />, props)
+}
+
+export function RainIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M5.7 11.5a2.7 2.7 0 0 1-.3-5.4A3.8 3.8 0 0 1 12.8 4.6a3 3 0 0 1 1.5 5.9H5.7Z" stroke="currentColor" strokeLinejoin="round" />
+      <path d="M6.5 13.5 5.8 15.7M10 13.5 9.3 15.7M13.5 13.5 12.8 15.7" stroke="currentColor" />
+    </>,
+    props
+  )
+}
+
+export function SnowIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M5.7 11.5a2.7 2.7 0 0 1-.3-5.4A3.8 3.8 0 0 1 12.8 4.6a3 3 0 0 1 1.5 5.9H5.7Z" stroke="currentColor" strokeLinejoin="round" />
+      <path d="M6.5 14v.1M10 14.5v.1M13.5 14v.1" stroke="currentColor" strokeWidth={2.4} />
+    </>,
+    props
+  )
+}
+
+export function ThunderIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M5.7 10.5a2.7 2.7 0 0 1-.3-5.4A3.8 3.8 0 0 1 12.8 3.6a3 3 0 0 1 1.5 5.9H5.7Z" stroke="currentColor" strokeLinejoin="round" />
+      <path d="M10.3 11.5 7.8 15.5h2.4L9 18.5 13.3 13h-2.6l1.6-1.5Z" stroke="currentColor" strokeLinejoin="round" />
+    </>,
+    props
+  )
+}
+
+export function WindIcon(props: IconProps) {
+  return base(
+    <path
+      d="M3 8h8.5a2 2 0 1 0-1.8-2.8M3 11.5h11a2 2 0 1 1-1.8 2.8M3 15h6.5a1.6 1.6 0 1 0-1.4-2.3"
+      stroke="currentColor"
+    />,
+    props
+  )
+}
+
+export function DropletIcon(props: IconProps) {
+  return base(<path d="M10 3.5s5 6 5 9.5a5 5 0 0 1-10 0c0-3.5 5-9.5 5-9.5Z" stroke="currentColor" strokeLinejoin="round" />, props)
+}
+
+export function GaugeIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M3.5 13.5a6.5 6.5 0 0 1 13 0" stroke="currentColor" />
+      <path d="M10 13.5 13 9" stroke="currentColor" />
+      <circle cx="10" cy="13.5" r="1" fill="currentColor" stroke="none" />
+    </>,
+    props
+  )
+}

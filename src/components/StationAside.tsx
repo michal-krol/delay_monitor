@@ -1,7 +1,21 @@
 'use client'
 
 import type { StationInsights } from '@/lib/board/stationStats'
-import { AlertCircleIcon, ChevronRightIcon } from './icons'
+import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
+import {
+  AlertCircleIcon,
+  ChevronRightIcon,
+  CloudIcon,
+  DropletIcon,
+  FogIcon,
+  GaugeIcon,
+  RainIcon,
+  SnowIcon,
+  SunIcon,
+  ThunderIcon,
+  WindIcon,
+} from './icons'
+import { compassDirection, describeWeatherCode, type WeatherIconKey } from '@/lib/weather/format'
 import { pluralPl } from '@/lib/plural'
 
 /**
@@ -149,6 +163,109 @@ function HourlyTraffic({ hourly, loading, currentHour }: { hourly: number[] | nu
   )
 }
 
+const WEATHER_ICONS: Record<WeatherIconKey, (props: { size?: number; className?: string }) => React.ReactNode> = {
+  sun: SunIcon,
+  cloud: CloudIcon,
+  fog: FogIcon,
+  rain: RainIcon,
+  snow: SnowIcon,
+  thunder: ThunderIcon,
+}
+
+/** `HH:MM` warszawski, jawnie -- nigdy strefa procesu (AGENTS.md #1). */
+function formatWarsawTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
+}
+
+function WeatherStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-1.5">
+      <span className="mt-0.5 text-text-muted" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-text-muted">{label}</span>
+        <span className="block truncate text-foreground tabular-nums">{value}</span>
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Pogoda dziś dla stacji -- jedyny moduł tej kolumny, który jest naprawdę
+ * nowym zapytaniem sieciowym (Open-Meteo), nie czymś policzonym z tego, co
+ * poller już ma. Stąd osobny stan (`useStationWeather`, przekazywany z
+ * zewnątrz -- ten komponent zostaje czysto prezentacyjny) i osobna, czwarta
+ * wartość stanu: „brak danych lokalizacyjnych" to coś innego niż „nie udało
+ * się pobrać" (AGENTS.md #7 -- różne komunikaty dla różnych przyczyn).
+ */
+function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
+  if (weather.status === 'loading') return <EmptyHint>Wczytywanie pogody…</EmptyHint>
+  if (weather.status === 'error') return <EmptyHint>Nie udało się pobrać pogody.</EmptyHint>
+  if (weather.status === 'unavailable') return <EmptyHint>Brak danych lokalizacyjnych dla tej stacji.</EmptyHint>
+
+  const { current, today, fetchedAt } = weather.weather
+  const condition = describeWeatherCode(current.weatherCode)
+  const Icon = WEATHER_ICONS[condition.icon]
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <span className="text-foreground" aria-hidden="true">
+          <Icon size={32} />
+        </span>
+        <div className="min-w-0">
+          <span className="font-heading text-2xl font-extrabold tracking-tight text-foreground tabular-nums">
+            {Math.round(current.temperatureC)}°C
+          </span>
+          <p className="text-xs text-text-muted">
+            Odczuwalna {Math.round(current.apparentTemperatureC)}° · {condition.label}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <WeatherStat
+          icon={<WindIcon size={14} />}
+          label="Wiatr"
+          value={`${Math.round(current.windSpeedKmh)} km/h ${compassDirection(current.windDirectionDeg)}`}
+        />
+        <WeatherStat icon={<DropletIcon size={14} />} label="Wilgotność" value={`${Math.round(current.humidityPercent)}%`} />
+        <WeatherStat icon={<GaugeIcon size={14} />} label="Ciśnienie" value={`${Math.round(current.pressureHpa)} hPa`} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 border-t pt-3 text-xs" style={{ borderColor: 'var(--surface-border)' }}>
+        <div>
+          <span className="block text-text-muted">Min / max dziś</span>
+          <span className="tabular-nums text-foreground">
+            {Math.round(today.minTemperatureC)}° / {Math.round(today.maxTemperatureC)}°
+          </span>
+        </div>
+        <div>
+          <span className="block text-text-muted">Opady dziś</span>
+          <span className="tabular-nums text-foreground">
+            {today.precipitationMm.toFixed(1)} mm · {Math.round(today.precipitationProbabilityPercent)}%
+          </span>
+        </div>
+        <div>
+          <span className="block text-text-muted">Wschód / zachód</span>
+          <span className="tabular-nums text-foreground">
+            {formatWarsawTime(today.sunrise)} / {formatWarsawTime(today.sunset)}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-[10px] text-text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--status-onTime-bg)' }} aria-hidden="true" />
+          Open-Meteo
+        </span>
+        <span>Aktualizacja: {formatWarsawTime(fetchedAt)}</span>
+      </div>
+    </div>
+  )
+}
+
 type Props = {
   insights: StationInsights | undefined
   disruptionMessages: string[]
@@ -159,9 +276,26 @@ type Props = {
   loading: boolean
   /** Godzina warszawska „teraz" — wyróżniony słupek. Podawana z zewnątrz, żeby komponent pozostał czysty. */
   currentHour: number
+  weather: UseStationWeatherResult
+  /**
+   * Nazwa stacji, do podpisu w nagłówku karty pogody -- bez tego widżet
+   * wygląda jak pogoda „u mnie" (bieżąca lokalizacja użytkownika), nie
+   * pogoda przy tej konkretnej stacji. Ta sama nazwa co w nagłówku strony
+   * (`FullBoard`), więc bez osobnego zapytania -- podana z zewnątrz.
+   */
+  stationName: string
 }
 
-export function StationAside({ insights, disruptionMessages, destinationFilter, onDestinationFilter, loading, currentHour }: Props) {
+export function StationAside({
+  insights,
+  disruptionMessages,
+  destinationFilter,
+  onDestinationFilter,
+  loading,
+  currentHour,
+  weather,
+  stationName,
+}: Props) {
   return (
     <div className="flex flex-col gap-4 lg:sticky lg:top-6">
       <AsideCard title="Najpopularniejsze kierunki">
@@ -172,6 +306,9 @@ export function StationAside({ insights, disruptionMessages, destinationFilter, 
       </AsideCard>
       <AsideCard title="Natężenie ruchu dzisiaj">
         <HourlyTraffic hourly={insights?.hourlyTraffic ?? null} loading={loading} currentHour={currentHour} />
+      </AsideCard>
+      <AsideCard title={`Pogoda dziś — ${stationName}`}>
+        <WeatherCard weather={weather} />
       </AsideCard>
     </div>
   )

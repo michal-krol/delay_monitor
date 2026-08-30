@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
+import { useStationWeather } from '@/hooks/useStationWeather'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable } from './BoardTable'
@@ -69,6 +70,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
   const { share, status: shareStatus } = useShareUrl()
   const { data, error } = useBoard([stationId])
+  const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
   const configError = data?.status === 'configError'
 
@@ -242,6 +244,8 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             onDestinationFilter={setDestinationFilter}
             loading={snapshot === null && error === null}
             currentHour={new Date(now).getHours()}
+            weather={weather}
+            stationName={stationName}
           />
         </aside>
       )}
