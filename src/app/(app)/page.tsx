@@ -74,7 +74,7 @@ function PulpitPage() {
       {/* Tylko Pulpit -- pozostałe strony (/odjazdy, /polaczenie) celowo bez
           trzeciej kolumny, patrz plan (Faza 3). Schowany poniżej xl, żeby nie
           ściskać tablicy na węższych ekranach. */}
-      <aside className="hidden w-72 shrink-0 py-7 pr-8 xl:block">
+      <aside className="hidden w-72 shrink-0 self-start sticky top-0 max-h-dvh overflow-y-auto py-7 pr-8 xl:block">
         <NetworkStatsCard />
       </aside>
     </>

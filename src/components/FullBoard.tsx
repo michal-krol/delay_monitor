@@ -236,7 +236,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
       </div>
 
       {!configError && (
-        <aside>
+        <aside className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
           <StationAside
             insights={snapshot?.insights}
             disruptionMessages={snapshot?.disruptionMessages ?? []}

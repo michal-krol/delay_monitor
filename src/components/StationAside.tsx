@@ -297,7 +297,7 @@ export function StationAside({
   stationName,
 }: Props) {
   return (
-    <div className="flex flex-col gap-4 lg:sticky lg:top-6">
+    <div className="flex flex-col gap-4">
       <AsideCard title="Najpopularniejsze kierunki">
         <PopularDestinations insights={insights} loading={loading} onSelect={onDestinationFilter} selected={destinationFilter} />
       </AsideCard>

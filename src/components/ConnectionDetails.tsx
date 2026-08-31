@@ -560,7 +560,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             </div>
 
             {/* ── Prawa kolumna ──────────────────────────────────────── */}
-            <aside className="flex flex-col gap-6 lg:sticky lg:top-6">
+            <aside className="flex flex-col gap-6 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
               <section className="glass rounded-2xl p-5">
                 <SectionHeading>Informacje o połączeniu</SectionHeading>
                 <dl className="mt-2 divide-y" style={{ borderColor: 'var(--surface-border)' }}>
