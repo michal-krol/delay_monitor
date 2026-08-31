@@ -177,23 +177,6 @@
 
 /* Mikroanimacje z makiety Claude Design ("Czy dojadę? — Makieta dashboardu",
    artboardy Main/EmptyState/ErrorStates) — przeniesione 1:1 co do wartości. */
-@keyframes pulseGlow {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 4px rgba(99, 102, 241, 0.1),
-      0 0 14px rgba(99, 102, 241, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 0 0 4px rgba(99, 102, 241, 0.18),
-      0 0 28px rgba(99, 102, 241, 0.85);
-  }
-}
-@utility live-pulse {
-  animation: pulseGlow 2.6s ease-in-out infinite;
-}
-
 @keyframes softBreathe {
   0%,
   100% {
@@ -259,9 +242,19 @@
 .delay-changed {
   animation: delayFlash 1.6s ease-out;
 }
+/* Ta sama zasada dotyczy WSZYSTKICH animacji ozdobnych, nie tylko błysku
+   opóźnienia: dla części osób ruch w interfejsie to realna dolegliwość
+   (nudności, zawroty). Wszystkie te efekty są czysto wizualne — informacja
+   („pociąg jest tutaj", „brak stacji") jest już w treści obok. */
 @media (prefers-reduced-motion: reduce) {
-  .delay-changed {
+  .delay-changed,
+  .breathe,
+  .float,
+  .ring-pulse::after {
     animation: none;
+  }
+  .card-hover:hover {
+    transform: none;
   }
 }
 
@@ -315,6 +308,11 @@
   .board-table td {
     padding: 0;
     max-width: none;
+    /* Element grida bez tego ma `min-width: auto` i nie zejdzie poniżej
+       min-content swojej treści -- długie „przez Pruszków, …" w komórce
+       „Kierunek" (kolumna `1fr`) rozpychało wtedy kartę ponad szerokość
+       telefonu i wypychało peron oraz status poza prawą krawędź. */
+    min-width: 0;
   }
 
   .board-table td[data-cell="time"] {
