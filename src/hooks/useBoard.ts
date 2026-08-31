@@ -70,6 +70,8 @@ export type BoardApiResponse = {
   snapshots: (BoardApiSnapshot | null)[]
   budget: { hourly: number | null; daily: number | null } | undefined
   status: 'ok' | 'configError' | 'degraded'
+  /** Tablica stoi na rozkładzie, bo realizacja nie zna dzisiejszego ruchu -- patrz `/api/board`. */
+  realizationStale?: boolean
   throttled: boolean
 }
 

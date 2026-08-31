@@ -975,3 +975,144 @@ describe('transformOperations -- PLAN / PROGNOZA / FAKT', () => {
     expect(snapshot.departures[0].predictedAt).toBeNull()
   })
 })
+
+describe('transformOperations — rozkład jako źródło listy', () => {
+  const TODAY = '2026-08-01'
+  const source = (routes: RawRoute[]) => ({ routes, todayIsoDate: TODAY })
+
+  /** Trasa przez 5100 z godziną odjazdu w oknie widoczności (NOW = 12:00 czasu warszawskiego). */
+  function routeThroughStation(overrides: Partial<RawRoute> = {}): RawRoute {
+    return route({
+      scheduleId: '2026',
+      orderId: '77',
+      trainOrderId: '77',
+      carrierCode: 'KM',
+      commercialCategorySymbol: 'REG',
+      nationalNumber: '91342',
+      operatingDates: [TODAY],
+      stations: [
+        routeStop({ stationId: '5100', departureTime: '12:30:00', departurePlatform: '4', departureTrack: '2' }),
+        routeStop({ stationId: '5136', arrivalTime: '13:40:00' }),
+      ],
+      ...overrides,
+    })
+  }
+
+  it('buduje wiersz z samego rozkładu, gdy realizacja nie zna tego kursu', () => {
+    // Sedno przepięcia: 27-31.08.2026 /operations zwracało wyłącznie pociągi
+    // sprzed kilku dni, więc takie kursy nie miały jak trafić na tablicę.
+    const snapshot = transformOperations(
+      '5100', 'X', [], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
+      undefined, [], source([routeThroughStation()])
+    )
+
+    expect(snapshot.departures).toHaveLength(1)
+    const row = snapshot.departures[0]
+    expect(row.plannedAt).toBe('2026-08-01T10:30:00.000Z')
+    expect(row.platform).toBe('4')
+    expect(row.track).toBe('2')
+    expect(row.carrier).toBe('KM')
+    expect(row.headsign).toBe('Kraków Główny')
+    // Bez realizacji nie wiadomo nic o ruchu — i to musi być widoczne.
+    expect(row.delayMinutes).toBeNull()
+    expect(row.actualAt).toBeNull()
+    expect(row.predictedAt).toBeNull()
+    expect(row.status).toBe('notStarted')
+  })
+
+  it('nakłada realizację na wiersz z rozkładu, gdy oba źródła znają kurs', () => {
+    const trains = [
+      train('2026', '99999', [
+        stop({
+          stationId: '5100',
+          plannedDeparture: '2026-08-01T12:30:00+02:00',
+          actualDeparture: '2026-08-01T12:37:00+02:00',
+          departureDelayMinutes: 7,
+          isConfirmed: true,
+        }),
+      ], '77'),
+    ]
+    const snapshot = transformOperations(
+      '5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
+      undefined, [], source([routeThroughStation()])
+    )
+
+    expect(snapshot.departures).toHaveLength(1)
+    const row = snapshot.departures[0]
+    expect(row.delayMinutes).toBe(7)
+    expect(row.status).toBe('delayed')
+    // Identyfikator przejazdu pochodzi z realizacji -- to nim posługuje się /api/train.
+    expect(row.orderId).toBe('99999')
+  })
+
+  it('pomija trasę, która dziś nie kursuje', () => {
+    const snapshot = transformOperations(
+      '5100', 'X', [], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
+      undefined, [], source([routeThroughStation({ operatingDates: ['2026-08-02'] })])
+    )
+
+    expect(snapshot.departures).toHaveLength(0)
+  })
+
+  it('pomija trasę, która nie przechodzi przez tę stację', () => {
+    const other = routeThroughStation({
+      stations: [routeStop({ stationId: '4900', departureTime: '12:30:00' })],
+    })
+    const snapshot = transformOperations(
+      '5100', 'X', [], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
+      undefined, [], source([other])
+    )
+
+    expect(snapshot.departures).toHaveLength(0)
+  })
+
+  it('dokleja kurs z realizacji, któremu nie dopasowano żadnej trasy', () => {
+    // Polisa, nie reguła: na zmierzonych danych (26 i 27.08, Warszawa Centralna)
+    // takich kursów było zero. Ma gwarantować, że nowa ścieżka nigdy nie pokaże
+    // mniej niż stara.
+    const trains = [
+      train('2026', '12345', [
+        stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:20:00+02:00' }),
+      ]),
+    ]
+    const snapshot = transformOperations(
+      '5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
+      undefined, [], source([])
+    )
+
+    expect(snapshot.departures).toHaveLength(1)
+    expect(snapshot.departures[0].trainNumber).toBe('2026-12345')
+  })
+
+  it('nie duplikuje kursu obecnego w obu źródłach', () => {
+    const trains = [
+      train('2026', '99999', [
+        stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:30:00+02:00', isConfirmed: true }),
+      ], '77'),
+    ]
+    const snapshot = transformOperations(
+      '5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
+      undefined, [], source([routeThroughStation()])
+    )
+
+    expect(snapshot.departures).toHaveLength(1)
+  })
+
+  it('składa przyjazd z godziny przyjazdowej trasy, nie odjazdowej', () => {
+    const terminus = routeThroughStation({
+      stations: [
+        routeStop({ stationId: '5136', departureTime: '11:00:00' }),
+        routeStop({ stationId: '5100', arrivalTime: '12:40:00', arrivalPlatform: '1' }),
+      ],
+    })
+    const snapshot = transformOperations(
+      '5100', 'X', [], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
+      undefined, [], source([terminus])
+    )
+
+    expect(snapshot.departures).toHaveLength(0)
+    expect(snapshot.arrivals).toHaveLength(1)
+    expect(snapshot.arrivals[0].plannedAt).toBe('2026-08-01T10:40:00.000Z')
+    expect(snapshot.arrivals[0].headsign).toBe('Kraków Główny')
+  })
+})

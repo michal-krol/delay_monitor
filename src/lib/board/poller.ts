@@ -68,6 +68,12 @@ const DEFAULT_MAX_WATCHED_STATIONS = 5000
 export type PollerConfig = {
   pollIntervalMs: number
   interestTtlMs: number
+  /**
+   * Co wyznacza listę połączeń — patrz `BOARD_SOURCE` w `config.ts`.
+   * Domyślnie `operations` (zachowanie historyczne), żeby dziesiątki
+   * istniejących testów pollera nie musiały tego podawać.
+   */
+  boardSource?: 'schedule' | 'operations'
   /** Nadpisanie `DEFAULT_MAX_WATCHED_STATIONS` -- głównie po to, żeby test mógł sprawdzić limit bez tysięcy wywołań. */
   maxWatchedStations?: number
 }
@@ -145,6 +151,13 @@ export type EndpointHealth = {
  * z aplikacji nie dało się odczytać, KTÓRE źródło zawodzi.
  */
 export type PollerDiagnostics = {
+  /**
+   * Czy realizacja nie wie NIC o dzisiejszym ruchu (żaden pociąg z dzisiejszą
+   * `operatingDate`). Odkąd tablica potrafi się zbudować z samego rozkładu,
+   * to rozróżnienie decyduje o treści komunikatu: „API nie odpowiada" i „są
+   * godziny, ale nie znamy opóźnień" to dwie różne wiadomości dla pasażera.
+   */
+  realizationStale: boolean
   operations: EndpointHealth
   /** Rozkład plus informacja, czy trzeba było sięgnąć po wariant bez `fullRoute`. */
   schedules: EndpointHealth & { usedFullRouteFallback: boolean }
@@ -273,6 +286,7 @@ export function createPoller(deps: PollerDeps): Poller {
   /** Patrz `PollerDiagnostics`. Startuje w stanie „jeszcze nie próbowano" (`null`), nie w „błąd". */
   const emptyHealth = (): EndpointHealth => ({ ok: null, lastSuccessAt: null, records: null })
   const diagnostics: PollerDiagnostics = {
+    realizationStale: false,
     operations: emptyHealth(),
     schedules: { ...emptyHealth(), usedFullRouteFallback: false },
     disruptions: emptyHealth(),
@@ -280,6 +294,20 @@ export function createPoller(deps: PollerDeps): Poller {
   }
   /** Dławik zapytań o wersję danych -- patrz `maybeCheckDataVersion`. */
   let lastDataVersionCheckAt = 0
+
+  /**
+   * Ostatni rozkład, który udało się pobrać — BEZ TTL, świadomie.
+   *
+   * Nie wystarczy polegać na cache'u klienta: ma on TTL 24 h i po jego upływie
+   * zwraca `undefined`, czyli przestaje działać dokładnie w dłuższej awarii,
+   * kiedy jest najbardziej potrzebny. Odkąd rozkład wyznacza listę wierszy
+   * (`boardSource: 'schedule'`), jego brak oznaczałby pustą tablicę.
+   *
+   * Wiek jest wystawiany w diagnostyce (`schedules.lastSuccessAt`): rozkład
+   * sprzed trzech dni to nie ta sama informacja co sprzed godziny, a pokazanie
+   * go bez wieku zamieniłoby jedno ciche kłamstwo na drugie.
+   */
+  let lastGoodRoutes: RawRoute[] | null = null
 
   function recordHealth(target: EndpointHealth, ok: boolean, records: number, at: string): void {
     target.ok = ok
@@ -388,10 +416,23 @@ export function createPoller(deps: PollerDeps): Poller {
       // rozjechałoby się o dobę i statystyki liczyłyby jutrzejszy rozkład
       // (AGENTS.md #1).
       const todayIsoDate = warsawDateString(new Date(fetchedAt))
+      // Rozkład zapamiętujemy tylko wtedy, gdy pobranie się udało I coś przyszło:
+      // pusta odpowiedź po udanym zapytaniu nie może skasować ostatniego dobrego
+      // rozkładu, bo „udało się, ale pusto" bywa samo w sobie objawem awarii.
+      if (schedulesOk && routes.length > 0) lastGoodRoutes = routes
+      const effectiveRoutes = schedulesOk && routes.length > 0 ? routes : (lastGoodRoutes ?? routes)
+
       // Pusta lista tras (pobranie rozkładu padło -- patrz `fetchRoutesByTrainId`)
       // musi dojść do statystyk jako `null` („nie wiadomo"), nie jako pusty
       // rozkład („zero pociągów") -- AGENTS.md #7.
-      const routesForStats = routes.length === 0 ? null : routes
+      const routesForStats = effectiveRoutes.length === 0 ? null : effectiveRoutes
+
+      // Rozkład jako źródło listy -- patrz `ScheduleSource` w `transform.ts`.
+      // `null` zachowuje ścieżkę historyczną (lista z realizacji).
+      const scheduleSource =
+        (config.boardSource ?? 'operations') === 'schedule'
+          ? { routes: effectiveRoutes, todayIsoDate }
+          : null
 
       /**
        * Feed odpowiadający 200, ale bez ani jednego planowego czasu, jest
@@ -408,13 +449,21 @@ export function createPoller(deps: PollerDeps): Poller {
       diagnostics.schedules.usedFullRouteFallback = usedFullRouteFallback
       recordHealth(diagnostics.disruptions, disruptions.ok, disruptions.disruptions.length, fetchedAt)
 
+      /**
+       * Czy realizacja w ogóle wie cokolwiek o DZISIEJSZYM ruchu. `every` na
+       * pustej liście daje `true` -- brak odpowiedzi to też brak wiedzy.
+       *
+       * Odkąd tablica potrafi się zbudować z samego rozkładu, to rozróżnienie
+       * decyduje o uczciwości komunikatu: wiersze są, ale żaden nie niesie
+       * informacji o opóźnieniu.
+       */
+      const realizationStale = result.trains.every((train) => train.operatingDate !== todayIsoDate)
+
       // „Podejrzanie" to albo feed bez planowych czasów, albo brak choćby
-      // jednego pociągu z dzisiejszą datą kursowania -- oba stany zaobserwowane
-      // podczas awarii z 27-31.08. Nie czekamy na wynik: diagnostyka nie może
-      // opóźniać cyklu ani go wywrócić.
-      const noTrainsToday =
-        result.trains.length > 0 && !result.trains.some((train) => train.operatingDate === todayIsoDate)
-      void maybeCheckDataVersion(feedBroken || noTrainsToday, fetchedAt)
+      // jednego pociągu z dzisiejszą datą -- oba stany zaobserwowane podczas
+      // awarii z 27-31.08. Nie czekamy na wynik: diagnostyka nie może opóźniać
+      // cyklu ani go wywrócić.
+      void maybeCheckDataVersion(feedBroken || (result.trains.length > 0 && realizationStale), fetchedAt)
 
       // Do mapy pomocniczej, nie od razu do `snapshots` -- dopóki nie wiadomo,
       // czy jest czym nadpisywać, ostatnie dobre dane muszą zostać nietknięte.
@@ -434,7 +483,8 @@ export function createPoller(deps: PollerDeps): Poller {
             categoryNames,
             disruptedTrains,
             computeStationStats(stationId, result.trains, routesForStats, mergedStationNames, todayIsoDate),
-            findStationDisruptionMessages(disruptions.disruptions, disruptions.disruptionTypes, stationId)
+            findStationDisruptionMessages(disruptions.disruptions, disruptions.disruptionTypes, stationId),
+            scheduleSource
           )
         )
       }
@@ -459,10 +509,20 @@ export function createPoller(deps: PollerDeps): Poller {
         snapshots.set(stationId, snapshot)
       }
 
-      // Rozkład sam się zbudował, ale realizacji nadal nie ma -- dane są
-      // niepełne i UI ma o tym mówić wprost, zamiast pokazywać sam plan jako
-      // pełnowartościową prawdę.
-      status = feedBroken ? 'degraded' : 'ok'
+      /**
+       * Rozkład sam się zbudował, ale realizacji nadal nie ma -- dane są
+       * niepełne i UI ma o tym mówić wprost, zamiast pokazywać sam plan jako
+       * pełnowartościową prawdę.
+       *
+       * Drugi warunek dotyczy wyłącznie trybu „rozkład jest źródłem": mamy
+       * wtedy komplet wierszy, ale ani jednego opóźnienia, bo realizacja nie
+       * zna dzisiejszego dnia. Bez tego tablica wyglądałaby na w pełni sprawną
+       * (same statusy „jeszcze nie wyjechał"), co przy pięciodniowej awarii PKP
+       * byłoby po prostu nieprawdą.
+       */
+      diagnostics.realizationStale = realizationStale
+      const scheduleOnly = scheduleSource !== null && builtAnyRow && realizationStale
+      status = feedBroken || scheduleOnly ? 'degraded' : 'ok'
 
       // Przeliczone od zera z wyniku TEGO cyklu -- jak tylko śledzony
       // przystanek się potwierdzi (albo zniknie), jego stacja pomocnicza
@@ -583,6 +643,7 @@ export function createPoller(deps: PollerDeps): Poller {
       // Kopia płytka po polach: konsument (`/api/health`) nie może przypadkiem
       // zmutować stanu pollera, a struktura jest płaska.
       return {
+        realizationStale: diagnostics.realizationStale,
         operations: { ...diagnostics.operations },
         schedules: { ...diagnostics.schedules },
         disruptions: { ...diagnostics.disruptions },

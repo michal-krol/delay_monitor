@@ -1,7 +1,7 @@
 import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 import { hasTrainStartedFromStatus, resolveDelayMinutes, resolvePredictedTime, resolveStopStatus, type RealizationStatus } from './realization'
 import { disruptionTrainKey } from './disruptions'
-import { findRouteForTrain } from './routeKey'
+import { findRouteForTrain, routeKey } from './routeKey'
 import { findPrecedingStationIds, UPSTREAM_LOOKBACK_HOPS } from './upstreamEstimate'
 import { DEFAULT_PUNCTUALITY_THRESHOLD_MINUTES, type StationInsights, type StationStats } from './stationStats'
 import { resolvePlannedTime } from '../pkp/time'
@@ -326,6 +326,146 @@ function resolveStationName(stationId: string, stationNames: Record<string, stri
   return stationNames[stationId] ?? stationId
 }
 
+
+/**
+ * Skąd bierze się wiersz tablicy: z realizacji, z rozkładu, albo z obu.
+ *
+ * `stop === null` znaczy „ten kurs zna tylko rozkład" — nie ma potwierdzenia,
+ * czasu faktycznego ani opóźnienia, więc cała reszta łańcucha (`resolveDelayMinutes`,
+ * `resolveStopStatus`) odpowie „nie wiadomo" bez żadnej zmiany w tych funkcjach.
+ */
+type RowSource = {
+  scheduleId: string
+  orderId: string
+  operatingDate: string | null
+  trainStatus: string | null
+  route: RawRoute | undefined
+  /** Przystanek realizacji na tej stacji. `null` = kurs znany wyłącznie z rozkładu. */
+  stop: RawOperationStation | null
+  /** Wszystkie przystanki realizacji tego pociągu — źródło estymaty z poprzedniej stacji. */
+  stops: RawOperationStation[]
+}
+
+/**
+ * Konfiguracja trybu „rozkład jest źródłem listy". `null` = zachowanie
+ * historyczne, w którym listę wyznacza wyłącznie `/operations`.
+ *
+ * Powód istnienia: 27-31.08.2026 feed realizacji PKP zwracał wyłącznie pociągi
+ * sprzed kilku dni, więc tablica była pusta, choć rozkład znał komplet
+ * dzisiejszych kursów. Zmierzone wtedy na Warszawie Centralnej: rozkład 394
+ * kursy, realizacja 307 — czyli 22% pociągów nie miało jak trafić na tablicę.
+ * W dniu zdrowym różnica wynosiła 2 kursy (0,5%).
+ */
+export type ScheduleSource = {
+  /** Trasy z `/schedules` — surowa lista, nie indeks (ten zwija warianty dzienne). */
+  routes: RawRoute[]
+  /** Dzień kursowania, wg kalendarza warszawskiego. */
+  todayIsoDate: string
+}
+
+/** Czy trasa kursuje danego dnia. Ta sama reguła co `runsOn()` w `stationStats.ts`. */
+function routeRunsOn(route: RawRoute, isoDate: string): boolean {
+  return route.operatingDates.includes(isoDate)
+}
+
+/**
+ * Klucz przejazdu dla trasy w konkretnym dniu — symetryczny do
+ * `findRouteForTrain()`, tylko szukamy w drugą stronę: mając trasę, znaleźć
+ * jej realizację.
+ */
+function realizationKey(scheduleId: string, orderId: string, trainOrderId: string | null, operatingDate: string): string {
+  return `${routeKey(scheduleId, orderId, trainOrderId)}|${operatingDate}`
+}
+
+/**
+ * Lista kursów, z których powstaną wiersze tej stacji.
+ *
+ * Bez `scheduleSource` iteruje po realizacji (zachowanie historyczne). Z nim —
+ * po trasach kursujących dziś, doklejając realizację tam, gdzie jest, oraz te
+ * kursy z realizacji, którym nie udało się dopasować trasy.
+ *
+ * To doklejenie jest polisą, nie regułą: na zmierzonych danych (26 i 27.08,
+ * Warszawa Centralna) dopasowanie po `scheduleId-trainOrderId|operatingDate`
+ * obejmowało 100% pociągów z realizacji, w obie strony. Kosztuje kilka linii
+ * i gwarantuje, że nowa ścieżka nigdy nie pokaże MNIEJ niż stara.
+ */
+function collectRowSources(
+  stationId: string,
+  trains: RawTrainOperation[],
+  routesByTrainId: Map<string, RawRoute>,
+  scheduleSource: ScheduleSource | null
+): RowSource[] {
+  const fromTrain = (train: RawTrainOperation, route: RawRoute | undefined, stop: RawOperationStation): RowSource => ({
+    scheduleId: train.scheduleId,
+    orderId: train.orderId,
+    operatingDate: train.operatingDate,
+    trainStatus: train.trainStatus,
+    route,
+    stop,
+    stops: train.stations,
+  })
+
+  if (scheduleSource === null) {
+    const sources: RowSource[] = []
+    for (const train of trains) {
+      const stop = train.stations.find((candidate) => candidate.stationId === stationId)
+      if (stop === undefined) continue
+      // Wariant trasy z DNIA tego przejazdu, nie „jakikolwiek o tym kluczu" --
+      // patrz `findRouteForTrain()`; peron i przystanki potrafią się różnić.
+      sources.push(fromTrain(train, findRouteForTrain(routesByTrainId, train), stop))
+    }
+    return sources
+  }
+
+  // Indeks realizacji po kluczu przejazdu -- odwrotność `indexRoutesByTrain()`.
+  const realizationByKey = new Map<string, RawTrainOperation>()
+  for (const train of trains) {
+    if (train.operatingDate === null) continue
+    realizationByKey.set(realizationKey(train.scheduleId, train.orderId, train.trainOrderId, train.operatingDate), train)
+  }
+
+  const sources: RowSource[] = []
+  const usedRealizations = new Set<RawTrainOperation>()
+
+  for (const route of scheduleSource.routes) {
+    if (!routeRunsOn(route, scheduleSource.todayIsoDate)) continue
+    if (!route.stations.some((stop) => stop.stationId === stationId)) continue
+
+    const train = realizationByKey.get(
+      realizationKey(route.scheduleId, route.orderId, route.trainOrderId, scheduleSource.todayIsoDate)
+    )
+    if (train !== undefined) usedRealizations.add(train)
+    const stop = train?.stations.find((candidate) => candidate.stationId === stationId) ?? null
+
+    sources.push({
+      // Identyfikatory z realizacji, gdy jest -- to ona niesie `orderId`
+      // konkretnego przejazdu, którym posługuje się `/api/train`.
+      scheduleId: train?.scheduleId ?? route.scheduleId,
+      orderId: train?.orderId ?? route.orderId,
+      operatingDate: train?.operatingDate ?? scheduleSource.todayIsoDate,
+      trainStatus: train?.trainStatus ?? null,
+      route,
+      stop,
+      stops: train?.stations ?? [],
+    })
+  }
+
+  // Kursy widoczne w realizacji, którym nie dopasowano trasy — patrz komentarz
+  // nad tą funkcją. Na zmierzonych danych: zero takich przypadków.
+  for (const train of trains) {
+    if (usedRealizations.has(train)) continue
+    const stop = train.stations.find((candidate) => candidate.stationId === stationId)
+    if (stop === undefined) continue
+    const route = findRouteForTrain(routesByTrainId, train)
+    // Trasa dopasowana, ale nieprzechodząca przez tę stację albo niekursująca
+    // dziś — wtedy pętla wyżej świadomie go pominęła i nie doklejamy ponownie.
+    if (route !== undefined && routeRunsOn(route, scheduleSource.todayIsoDate)) continue
+    sources.push(fromTrain(train, route, stop))
+  }
+
+  return sources
+}
+
 export function transformOperations(
   stationId: string,
   stationName: string,
@@ -361,39 +501,45 @@ export function transformOperations(
     insights: { topDestinations: [], hourlyTraffic: null },
   },
   /** Patrz `BoardSnapshot.disruptionMessages`. */
-  disruptionMessages: string[] = []
+  disruptionMessages: string[] = [],
+  /**
+   * Gdy podane, listę wierszy wyznacza ROZKŁAD, a realizacja jest warstwą
+   * nakładaną (patrz `ScheduleSource` i `collectRowSources`). `null` zachowuje
+   * zachowanie historyczne — listę wyznacza `/operations`.
+   *
+   * Trailing-optional świadomie, tym samym wzorcem co `categoryNames`
+   * i `disruptedTrains` wyżej: dzięki temu kilkadziesiąt istniejących wywołań
+   * w testach opisuje nadal starą ścieżkę i nie wymaga przepisania.
+   */
+  scheduleSource: ScheduleSource | null = null
 ): BoardSnapshot {
   const departures: BoardRow[] = []
   const arrivals: BoardRow[] = []
 
-  for (const train of trains) {
-    const stops = train.stations
-    const stopIndex = stops.findIndex((stop) => stop.stationId === stationId)
-    if (stopIndex === -1) continue
-
-    const stop = stops[stopIndex]
-    const trainId = `${train.scheduleId}-${train.orderId}`
-    // Wariant trasy z DNIA tego przejazdu, nie „jakikolwiek o tym kluczu" --
-    // patrz `findRouteForTrain()`; peron i przystanki potrafią się między
-    // dniami różnić.
-    const route = findRouteForTrain(routesByTrainId, train)
+  for (const source of collectRowSources(stationId, trains, routesByTrainId, scheduleSource)) {
+    const { scheduleId, orderId, operatingDate, trainStatus, route, stop, stops } = source
+    const trainId = `${scheduleId}-${orderId}`
     const routeStop = findRouteStop(route, stationId)
     // Całopociągowy trainStatus przychodzi za darmo w każdej odpowiedzi
     // /operations (patrz realization.ts) -- pozwala pokazać "w trasie" zamiast
     // mylącego "jeszcze nie wyjechał" dla pociągu, który już ruszył gdzieś
     // indziej na trasie, ale jeszcze nie dotarł/nie odjechał z TEJ stacji.
-    const hasTrainStarted = hasTrainStartedFromStatus(train.trainStatus)
+    const hasTrainStarted = hasTrainStartedFromStatus(trainStatus)
     // Ta sama stacja poprzednia obsługuje i odjazd, i przyjazd na TEJ stacji
     // -- to jeden i ten sam punkt na trasie, dwa różne zdarzenia w nim.
     const upstreamStops = findUpstreamStops(route, stationId, stops)
-    const hasDisruption = train.operatingDate !== null && disruptedTrains.has(disruptionTrainKey(train.scheduleId, train.orderId, train.operatingDate))
+    const hasDisruption = operatingDate !== null && disruptedTrains.has(disruptionTrainKey(scheduleId, orderId, operatingDate))
     const context: TrainStopContext = {
-      scheduleId: train.scheduleId,
-      orderId: train.orderId,
-      operatingDate: train.operatingDate,
+      scheduleId,
+      orderId,
+      operatingDate,
       trainId,
-      cancelled: stop.isCancelled,
-      isConfirmed: stop.isConfirmed,
+      // Bez dopasowanej realizacji nie ma czego potwierdzać ani odwoływać --
+      // `resolveStopStatus` zamieni to na `notStarted`, a po upływie
+      // `STALE_UNCONFIRMED_MS` na `unknown` („brak danych"), co jest uczciwą
+      // odpowiedzią dla wiersza zbudowanego z samego rozkładu.
+      cancelled: stop?.isCancelled ?? false,
+      isConfirmed: stop?.isConfirmed ?? false,
       route,
       carrierNames,
       categoryNames,
@@ -410,14 +556,14 @@ export function transformOperations(
     // rozkład był dostępny przez cały czas. Wspólna `resolvePlannedTime()`
     // w `pkp/time.ts` zamyka ten rozjazd (AGENTS.md #2).
     const plannedDeparture = resolvePlannedTime(
-      stop.plannedDeparture,
-      train.operatingDate,
+      stop?.plannedDeparture ?? null,
+      operatingDate,
       routeStop?.departureTime,
       routeStop?.departureDay
     )
     const plannedArrival = resolvePlannedTime(
-      stop.plannedArrival,
-      train.operatingDate,
+      stop?.plannedArrival ?? null,
+      operatingDate,
       routeStop?.arrivalTime,
       routeStop?.arrivalDay
     )
@@ -429,8 +575,8 @@ export function transformOperations(
           headsign: destination ? resolveStationName(destination.stationId, stationNames) : null,
           ...collectVia(route, stationId, 'departure', stationNames),
           plannedAt: plannedDeparture,
-          actualAt: stop.actualDeparture,
-          apiDelay: stop.departureDelayMinutes,
+          actualAt: stop?.actualDeparture ?? null,
+          apiDelay: stop?.departureDelayMinutes ?? null,
           platformTrack: routeStopPlatform(routeStop, 'departure'),
         })
       )
@@ -443,8 +589,8 @@ export function transformOperations(
           headsign: origin ? resolveStationName(origin.stationId, stationNames) : null,
           ...collectVia(route, stationId, 'arrival', stationNames),
           plannedAt: plannedArrival,
-          actualAt: stop.actualArrival,
-          apiDelay: stop.arrivalDelayMinutes,
+          actualAt: stop?.actualArrival ?? null,
+          apiDelay: stop?.arrivalDelayMinutes ?? null,
           platformTrack: routeStopPlatform(routeStop, 'arrival'),
         })
       )

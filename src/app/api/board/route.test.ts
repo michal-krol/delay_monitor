@@ -18,6 +18,7 @@ vi.mock('@/lib/board/instance', () => ({
     getBudget: vi.fn(() => ({ hourly: 90, daily: 950 })),
     getStatus: vi.fn(() => 'ok'),
     isThrottled: vi.fn(() => false),
+    getDiagnostics: vi.fn(() => ({ realizationStale: false })),
   },
 }))
 

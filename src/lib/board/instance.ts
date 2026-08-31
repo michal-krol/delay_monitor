@@ -28,6 +28,10 @@ export function rememberStationName(id: string, name: string): void {
 
 export const poller: Poller = createPoller({
   client,
-  config: { pollIntervalMs: appConfig.pollIntervalMs, interestTtlMs: appConfig.interestTtlMs },
+  config: {
+    pollIntervalMs: appConfig.pollIntervalMs,
+    interestTtlMs: appConfig.interestTtlMs,
+    boardSource: appConfig.boardSource,
+  },
   stationNames,
 })

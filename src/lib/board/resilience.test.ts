@@ -260,3 +260,153 @@ describe('zamrożony feed PKP (200 z bezużyteczną treścią)', () => {
     expect(poller.getSnapshot('5100')?.departures).toHaveLength(1)
   })
 })
+
+describe('rozkład jako źródło listy', () => {
+  const scheduleCfg = { pollIntervalMs: 90000, interestTtlMs: 300000, boardSource: 'schedule' as const }
+
+  function todayRoute(stationId: string) {
+    return { ...routeWithTimes('2026', '1', stationId), operatingDates: ['2026-08-01'] }
+  }
+
+  it('buduje tablicę, gdy realizacja nie zna dzisiejszych pociągów', async () => {
+    // Awaria 27-31.08: /operations zwracało wyłącznie kursy sprzed kilku dni.
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
+      getSchedules: vi.fn().mockResolvedValue({
+        routes: [todayRoute('5100')],
+        carrierNames: { KM: 'Koleje Mazowieckie' },
+        categoryNames: {},
+        stationNames: { '5100': 'Warszawa Centralna', '9999': 'Skierniewice' },
+        usedFullRouteFallback: false,
+      }),
+    })
+    const poller = createPoller({ client, config: scheduleCfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const snapshot = poller.getSnapshot('5100')
+    expect(snapshot?.departures).toHaveLength(1)
+    expect(snapshot?.departures[0].delayMinutes).toBeNull()
+    expect(snapshot?.departures[0].platform).toBe('4')
+    // Wiersze są, ale ani jednego opóźnienia nie znamy -- UI musi to powiedzieć
+    // wprost, zamiast pokazywać sam rozkład jako pełnowartościową prawdę.
+    expect(poller.getStatus()).toBe('degraded')
+  })
+
+  it('nie krzyczy, gdy realizacja zna dzisiejszy ruch', async () => {
+    // Kontrola przeciw fałszywemu alarmowi: rozkład jest źródłem listy, ale
+    // realizacja działa, więc dane są kompletne.
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({
+        trains: [
+          {
+            ...healthyTrain('1', '5100'),
+            trainOrderId: '1',
+            operatingDate: '2026-08-01',
+          },
+        ],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      }),
+      getSchedules: vi.fn().mockResolvedValue({
+        routes: [todayRoute('5100')],
+        carrierNames: {},
+        categoryNames: {},
+        stationNames: {},
+        usedFullRouteFallback: false,
+      }),
+    })
+    const poller = createPoller({ client, config: scheduleCfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(poller.getStatus()).toBe('ok')
+  })
+
+  it('trzyma ostatni znany rozkład, gdy /schedules przestaje odpowiadać', async () => {
+    // Cache klienta ma TTL 24 h i wygasa dokładnie w dłuższej awarii, kiedy jest
+    // najbardziej potrzebny -- dlatego poller trzyma własny uchwyt bez TTL.
+    const getSchedules = vi
+      .fn()
+      .mockResolvedValueOnce({
+        routes: [todayRoute('5100')],
+        carrierNames: {},
+        categoryNames: {},
+        stationNames: {},
+        usedFullRouteFallback: false,
+      })
+      .mockRejectedValue(new Error('schedules down'))
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
+      getSchedules,
+    })
+    const poller = createPoller({ client, config: scheduleCfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getSnapshot('5100')?.departures).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(90000)
+
+    expect(getSchedules).toHaveBeenCalledTimes(2)
+    // Tablica nadal stoi, a diagnostyka mówi wprost, że rozkład jest nieświeży.
+    expect(poller.getSnapshot('5100')?.departures).toHaveLength(1)
+    expect(poller.getDiagnostics().schedules.ok).toBe(false)
+  })
+
+  it('pusta odpowiedź rozkładu nie kasuje ostatniego dobrego', async () => {
+    const getSchedules = vi
+      .fn()
+      .mockResolvedValueOnce({
+        routes: [todayRoute('5100')],
+        carrierNames: {},
+        categoryNames: {},
+        stationNames: {},
+        usedFullRouteFallback: false,
+      })
+      .mockResolvedValue({
+        routes: [],
+        carrierNames: {},
+        categoryNames: {},
+        stationNames: {},
+        usedFullRouteFallback: false,
+      })
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
+      getSchedules,
+    })
+    const poller = createPoller({ client, config: scheduleCfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(90000)
+
+    expect(poller.getSnapshot('5100')?.departures).toHaveLength(1)
+  })
+
+  it('ścieżka historyczna zostaje, gdy flaga wskazuje operations', async () => {
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
+      getSchedules: vi.fn().mockResolvedValue({
+        routes: [todayRoute('5100')],
+        carrierNames: {},
+        categoryNames: {},
+        stationNames: {},
+        usedFullRouteFallback: false,
+      }),
+    })
+    const poller = createPoller({
+      client,
+      config: { pollIntervalMs: 90000, interestTtlMs: 300000, boardSource: 'operations' },
+      stationNames: new Map(),
+    })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Bez realizacji stara ścieżka nie ma z czego zbudować wiersza.
+    expect(poller.getSnapshot('5100')?.departures).toHaveLength(0)
+  })
+})

@@ -76,6 +76,10 @@ export async function GET(request: Request) {
     snapshots,
     budget: poller.getBudget(),
     status: poller.getStatus(),
+    // Czy tablica stoi na samym rozkładzie, bo realizacja nie zna dzisiejszego
+    // ruchu. Bez tego UI nie odróżnia „API nie odpowiada" od „są godziny, ale
+    // nie znamy opóźnień" -- a to dwie różne wiadomości.
+    realizationStale: poller.getDiagnostics().realizationStale,
     throttled: poller.isThrottled(),
   })
 }

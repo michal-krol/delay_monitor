@@ -107,4 +107,35 @@ describe('BoardStatus', () => {
 
     expect(screen.getByText('odświeżanie ograniczone')).not.toHaveAttribute('title')
   })
+
+  // Dwa różne `degraded`: awaria pobrania i „są godziny, ale nie znamy
+  // opóźnień". Ten drugi pojawił się, odkąd tablica potrafi zbudować się
+  // z samego rozkładu — komunikat o ostatnich znanych danych byłby wtedy
+  // nieprawdą, bo godziny i perony SĄ aktualne.
+  it('mówi o braku danych o ruchu, nie o niedostępnym API, gdy stoi na rozkładzie', () => {
+    render(
+      <BoardStatus
+        data={makeData({ status: 'degraded', realizationStale: true })}
+        error={false}
+        fetchedAt={FETCHED_AT}
+        ageMs={1000}
+      />
+    )
+
+    expect(screen.getByText(/PKP nie podaje dziś danych o ruchu/)).toBeInTheDocument()
+    expect(screen.queryByText(/API nie odpowiada/)).not.toBeInTheDocument()
+  })
+
+  it('nadal mówi o niedostępnym API, gdy to pobranie zawiodło', () => {
+    render(
+      <BoardStatus
+        data={makeData({ status: 'degraded', realizationStale: false })}
+        error={false}
+        fetchedAt={FETCHED_AT}
+        ageMs={1000}
+      />
+    )
+
+    expect(screen.getByText(/API nie odpowiada/)).toBeInTheDocument()
+  })
 })

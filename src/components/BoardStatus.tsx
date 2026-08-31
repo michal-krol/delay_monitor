@@ -84,9 +84,15 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
 
       {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 
-      {data?.status === 'degraded' && (
-        <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
-      )}
+      {data?.status === 'degraded' &&
+        (data.realizationStale === true ? (
+          /* Rozkład jest świeży, brakuje wyłącznie informacji o ruchu. Komunikat
+             „pokazujemy ostatnie znane dane" byłby tu nieprawdą -- godziny
+             i perony są aktualne, nieznane są opóźnienia. */
+          <span className={WARNING_CLASS}>PKP nie podaje dziś danych o ruchu — godziny wg rozkładu</span>
+        ) : (
+          <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
+        ))}
 
       {data?.throttled === true && (
         <span className={WARNING_CLASS} title={budgetHint(data)}>
