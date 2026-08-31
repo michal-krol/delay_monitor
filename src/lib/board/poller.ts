@@ -30,6 +30,13 @@ const NEW_STATION_FOLLOWUP_DELAY_MS = 2000
 // Basic daje 1000 zapytań/dobę i 100/godzinę jednocześnie. Przy interwale 90 s
 // zużywamy ~40/h, więc mniej niż 10 pozostałych w godzinie oznacza, że zaraz
 // dostaniemy 429 — nawet jeśli budżet dobowy jest jeszcze zdrowy.
+/**
+ * Najkrótszy odstęp między zapytaniami o `/data-version`. Bez niego seria
+ * zamrożonych cykli (co 90 s) zamieniłaby się w serię zapytań z limitu.
+ * Zamrożenie i tak trwa godzinami, więc rzadsze sprawdzanie niczego nie gubi.
+ */
+const DATA_VERSION_MIN_INTERVAL_MS = 5 * 60 * 1000
+
 const LOW_BUDGET_DAILY_THRESHOLD = 50
 const LOW_BUDGET_HOURLY_THRESHOLD = 10
 
@@ -115,6 +122,48 @@ export function hasUsablePlannedTimes(trains: RawTrainOperation[]): boolean {
 
 export type PollerStatus = 'ok' | 'configError' | 'degraded'
 
+/**
+ * Stan jednego endpointu PKP w ostatnim cyklu. Trzy stany, nie dwa — `null`
+ * znaczy „jeszcze nie próbowano" i nigdy nie może wyrenderować się jako zero
+ * ani jako błąd (AGENTS.md #3 i #7).
+ */
+export type EndpointHealth = {
+  /** Czy OSTATNIA próba się powiodła. `null` = nie było jeszcze żadnej. */
+  ok: boolean | null
+  /** ISO ostatniej udanej odpowiedzi. `null` = nigdy się nie udało. */
+  lastSuccessAt: string | null
+  /** Ile rekordów przyszło w ostatniej udanej odpowiedzi (pociągi / trasy / utrudnienia). */
+  records: number | null
+}
+
+/**
+ * Migawka diagnostyczna cyklu — czego `PollerStatus` nie jest w stanie unieść.
+ *
+ * Pojedynczy `status` miesza w sobie awarię `/operations`, zamrożony feed i 401,
+ * a o `/schedules` i `/disruptions` milczy zupełnie: ich awarie są łapane
+ * lokalnie i degradują cicho. Przy pięciodniowej awarii PKP oznaczało to, że
+ * z aplikacji nie dało się odczytać, KTÓRE źródło zawodzi.
+ */
+export type PollerDiagnostics = {
+  operations: EndpointHealth
+  /** Rozkład plus informacja, czy trzeba było sięgnąć po wariant bez `fullRoute`. */
+  schedules: EndpointHealth & { usedFullRouteFallback: boolean }
+  disruptions: EndpointHealth
+  /**
+   * Wersje danych po stronie PKP — sprawdzane WARUNKOWO, dopiero gdy feed
+   * wygląda na zamrożony (patrz `maybeCheckDataVersion`). `null`, dopóki nie
+   * było powodu pytać, co samo w sobie jest dobrą wiadomością.
+   */
+  dataVersion: {
+    operationsVersion: string | null
+    schedulesVersion: string | null
+    /** Znacznik ostatniej aktualizacji danych PO STRONIE PKP. */
+    timestamp: string | null
+    /** Kiedy MY o to zapytaliśmy — bez tego nie da się ocenić wieku `timestamp`. */
+    checkedAt: string
+  } | null
+}
+
 export type Poller = {
   registerInterest(stationIds: string[]): void
   getSnapshot(stationId: string): BoardSnapshot | undefined
@@ -128,9 +177,15 @@ export type Poller = {
    * mówi „o ile" — bez tego panel diagnostyczny pokazywałby sam bool.
    */
   getIntervalMs(): number
+  /** Stan poszczególnych źródeł w ostatnim cyklu — patrz `PollerDiagnostics`. */
+  getDiagnostics(): PollerDiagnostics
 }
 
 type RoutesLookup = {
+  /** Czy pobranie rozkładu się powiodło -- awaria degraduje cicho, więc bez tego pola nie da się jej odróżnić od pustego rozkładu. */
+  ok: boolean
+  /** Czy klient musiał sięgnąć po wariant bez `fullRoute` (patrz `client.ts`). */
+  usedFullRouteFallback: boolean
   routesByTrainId: Map<string, RawRoute>
   /**
    * Surowa lista tras, BEZ deduplikacji po kluczu przejazdu — statystyki
@@ -148,21 +203,37 @@ type RoutesLookup = {
 
 async function fetchRoutesByTrainId(client: PkpClient, active: string[]): Promise<RoutesLookup> {
   try {
-    const { routes, carrierNames, categoryNames, stationNames } = await client.getSchedules(active)
-    return { routesByTrainId: indexRoutesByTrain(routes), routes, carrierNames, categoryNames, scheduleStationNames: stationNames }
+    const { routes, carrierNames, categoryNames, stationNames, usedFullRouteFallback } = await client.getSchedules(active)
+    return {
+      routesByTrainId: indexRoutesByTrain(routes),
+      routes,
+      carrierNames,
+      categoryNames,
+      scheduleStationNames: stationNames,
+      ok: true,
+      usedFullRouteFallback,
+    }
   } catch (err) {
     console.error('Poller: błąd pobierania rozkładu (przewoźnik/kategoria będą puste)', err)
-    return { routesByTrainId: new Map(), routes: [], carrierNames: {}, categoryNames: {}, scheduleStationNames: {} }
+    return {
+      routesByTrainId: new Map(),
+      routes: [],
+      carrierNames: {},
+      categoryNames: {},
+      scheduleStationNames: {},
+      ok: false,
+      usedFullRouteFallback: false,
+    }
   }
 }
 
 /** Awaria pobrania utrudnień to wzbogacenie, nie rdzeń ticka -- degraduje łagodnie do braku badge'y, reszta cyklu działa dalej. */
-async function fetchDisruptions(client: PkpClient, active: string[]): Promise<GetDisruptionsResult> {
+async function fetchDisruptions(client: PkpClient, active: string[]): Promise<GetDisruptionsResult & { ok: boolean }> {
   try {
-    return await client.getDisruptions(active)
+    return { ...(await client.getDisruptions(active)), ok: true }
   } catch (err) {
     console.error('Poller: błąd pobierania utrudnień (badge będzie niedostępny)', err)
-    return { disruptions: [], disruptionTypes: {} }
+    return { disruptions: [], disruptionTypes: {}, ok: false }
   }
 }
 
@@ -198,6 +269,52 @@ export function createPoller(deps: PollerDeps): Poller {
   /** Znaczniki czasu wymuszonych przebiegów w bieżącym oknie kroczącym. */
   let forcedRunsAt: number[] = []
   let status: PollerStatus = 'ok'
+
+  /** Patrz `PollerDiagnostics`. Startuje w stanie „jeszcze nie próbowano" (`null`), nie w „błąd". */
+  const emptyHealth = (): EndpointHealth => ({ ok: null, lastSuccessAt: null, records: null })
+  const diagnostics: PollerDiagnostics = {
+    operations: emptyHealth(),
+    schedules: { ...emptyHealth(), usedFullRouteFallback: false },
+    disruptions: emptyHealth(),
+    dataVersion: null,
+  }
+  /** Dławik zapytań o wersję danych -- patrz `maybeCheckDataVersion`. */
+  let lastDataVersionCheckAt = 0
+
+  function recordHealth(target: EndpointHealth, ok: boolean, records: number, at: string): void {
+    target.ok = ok
+    if (ok) {
+      target.lastSuccessAt = at
+      target.records = records
+    }
+  }
+
+  /**
+   * Pyta PKP o wersje danych, ale TYLKO gdy feed realizacji wygląda na
+   * zamrożony -- i nie częściej niż raz na `DATA_VERSION_MIN_INTERVAL_MS`.
+   *
+   * Powód warunkowości: to kosztuje zapytanie z limitu 100/h, przy którym
+   * poller zużywa już ~40. Zamrożenie trwa godzinami (zaobserwowane: pięć dób),
+   * więc sygnał wyprzedzający niczego by nie zmienił -- ta odpowiedź jest
+   * potrzebna dopiero wtedy, gdy trzeba rozstrzygnąć „to my nie pobieramy czy
+   * oni nie publikują".
+   */
+  async function maybeCheckDataVersion(suspicious: boolean, at: string): Promise<void> {
+    if (!suspicious) return
+    if (now() - lastDataVersionCheckAt < DATA_VERSION_MIN_INTERVAL_MS) return
+    lastDataVersionCheckAt = now()
+    try {
+      const version = await client.getDataVersion()
+      diagnostics.dataVersion = {
+        operationsVersion: version.operationsVersion,
+        schedulesVersion: version.schedulesVersion,
+        timestamp: version.timestamp,
+        checkedAt: at,
+      }
+    } catch (err) {
+      console.error('Poller: nie udało się sprawdzić wersji danych PKP', err)
+    }
+  }
 
   function pruneInactive(): string[] {
     const cutoff = now() - config.interestTtlMs
@@ -246,7 +363,11 @@ export function createPoller(deps: PollerDeps): Poller {
     const operationsStationIds = [...new Set([...realActive, ...auxStationIds])]
 
     try {
-      const [result, { routesByTrainId, routes, carrierNames, categoryNames, scheduleStationNames }, disruptions] = await Promise.all([
+      const [
+        result,
+        { routesByTrainId, routes, carrierNames, categoryNames, scheduleStationNames, ok: schedulesOk, usedFullRouteFallback },
+        disruptions,
+      ] = await Promise.all([
         client.getOperations(operationsStationIds),
         fetchRoutesByTrainId(client, realActive),
         fetchDisruptions(client, realActive),
@@ -281,6 +402,19 @@ export function createPoller(deps: PollerDeps): Poller {
        * zbudowaniu snapshotów, nie przed.
        */
       const feedBroken = result.trains.length > 0 && !hasUsablePlannedTimes(result.trains)
+
+      recordHealth(diagnostics.operations, true, result.trains.length, fetchedAt)
+      recordHealth(diagnostics.schedules, schedulesOk, routes.length, fetchedAt)
+      diagnostics.schedules.usedFullRouteFallback = usedFullRouteFallback
+      recordHealth(diagnostics.disruptions, disruptions.ok, disruptions.disruptions.length, fetchedAt)
+
+      // „Podejrzanie" to albo feed bez planowych czasów, albo brak choćby
+      // jednego pociągu z dzisiejszą datą kursowania -- oba stany zaobserwowane
+      // podczas awarii z 27-31.08. Nie czekamy na wynik: diagnostyka nie może
+      // opóźniać cyklu ani go wywrócić.
+      const noTrainsToday =
+        result.trains.length > 0 && !result.trains.some((train) => train.operatingDate === todayIsoDate)
+      void maybeCheckDataVersion(feedBroken || noTrainsToday, fetchedAt)
 
       // Do mapy pomocniczej, nie od razu do `snapshots` -- dopóki nie wiadomo,
       // czy jest czym nadpisywać, ostatnie dobre dane muszą zostać nietknięte.
@@ -351,6 +485,7 @@ export function createPoller(deps: PollerDeps): Poller {
         currentIntervalMs = Math.min(currentIntervalMs * 2, LOW_BUDGET_INTERVAL_MS)
       }
       status = 'degraded'
+      diagnostics.operations.ok = false
       console.error('Poller: błąd pobierania operacji', err)
     }
 
@@ -442,6 +577,17 @@ export function createPoller(deps: PollerDeps): Poller {
 
     isThrottled(): boolean {
       return currentIntervalMs > config.pollIntervalMs
+    },
+
+    getDiagnostics(): PollerDiagnostics {
+      // Kopia płytka po polach: konsument (`/api/health`) nie może przypadkiem
+      // zmutować stanu pollera, a struktura jest płaska.
+      return {
+        operations: { ...diagnostics.operations },
+        schedules: { ...diagnostics.schedules },
+        disruptions: { ...diagnostics.disruptions },
+        dataVersion: diagnostics.dataVersion === null ? null : { ...diagnostics.dataVersion },
+      }
     },
   }
 }

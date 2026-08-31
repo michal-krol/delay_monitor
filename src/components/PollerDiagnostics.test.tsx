@@ -11,6 +11,12 @@ const HEALTHY = {
   throttled: false,
   intervalMs: 90000,
   budget: { hourly: 62, daily: 702, hourlyLimit: 100, dailyLimit: 1000 },
+  feeds: {
+    operations: { ok: true, lastSuccessAt: '2026-08-01T12:00:00.000Z', records: 128 },
+    schedules: { ok: true, lastSuccessAt: '2026-08-01T12:00:00.000Z', records: 44, usedFullRouteFallback: false },
+    disruptions: { ok: true, lastSuccessAt: '2026-08-01T12:00:00.000Z', records: 3 },
+    dataVersion: null,
+  },
 }
 
 function stubHealth(body: unknown) {
@@ -111,5 +117,60 @@ describe('PollerDiagnostics', () => {
     // awaria zostawia go bez wartości, nie wywraca paska bocznego.
     expect(await screen.findByText('Diagnostyka')).toBeInTheDocument()
     expect(container).not.toBeEmptyDOMElement()
+  })
+
+  // Sedno rozszerzenia: awaria rozkładu albo utrudnień degraduje CICHO --
+  // `pollerStatus` zostaje 'ok'. Bez rozbicia na źródła panel pokazywałby
+  // wtedy stan zdrowy, mimo że tablica traci kierunek i perony.
+  it('shows a silently failed feed even while the poller reports ok', async () => {
+    stubHealth({
+      ...HEALTHY,
+      feeds: {
+        ...HEALTHY.feeds,
+        schedules: { ok: false, lastSuccessAt: null, records: null, usedFullRouteFallback: false },
+      },
+    })
+    render(<PollerDiagnostics collapsed={false} />)
+
+    expect(await screen.findByText('Źródła PKP')).toBeInTheDocument()
+    expect(screen.getByText('Rozkład')).toBeInTheDocument()
+    // „Nigdy się nie udało" renderuje się jako „—", nigdy jako 0 (AGENTS.md #3).
+    expect(screen.getByText(/— · —/)).toBeInTheDocument()
+    expect(screen.getByText('ok')).toBeInTheDocument()
+  })
+
+  it('flags the fullRoute fallback, which used to exist only in a server log', async () => {
+    stubHealth({
+      ...HEALTHY,
+      feeds: {
+        ...HEALTHY.feeds,
+        schedules: { ok: true, lastSuccessAt: '2026-08-01T12:00:00.000Z', records: 10498, usedFullRouteFallback: true },
+      },
+    })
+    render(<PollerDiagnostics collapsed={false} />)
+
+    expect(await screen.findByText('tryb awaryjny')).toBeInTheDocument()
+  })
+
+  // Wersja danych pojawia się TYLKO gdy poller miał powód dopytać -- brak tego
+  // wiersza jest dobrą wiadomością, nie brakiem informacji.
+  it('hides the PKP data version until the poller had a reason to ask', async () => {
+    stubHealth(HEALTHY)
+    render(<PollerDiagnostics collapsed={false} />)
+
+    expect(await screen.findByText('Źródła PKP')).toBeInTheDocument()
+    expect(screen.queryByText('Dane PKP')).not.toBeInTheDocument()
+  })
+
+  it('survives a server that does not report feeds at all', async () => {
+    // Panel deweloperski nie ma prawa wywrócić paska bocznego -- ta sama
+    // zasada co pusty catch przy błędzie fetcha.
+    const withoutFeeds: Record<string, unknown> = { ...HEALTHY }
+    delete withoutFeeds.feeds
+    stubHealth(withoutFeeds)
+    render(<PollerDiagnostics collapsed={false} />)
+
+    expect(await screen.findByText('live')).toBeInTheDocument()
+    expect(screen.queryByText('Źródła PKP')).not.toBeInTheDocument()
   })
 })

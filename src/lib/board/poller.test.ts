@@ -774,3 +774,158 @@ describe('createPoller', () => {
     })
   })
 })
+
+describe('diagnostyka źródeł', () => {
+  const cfg = { pollIntervalMs: 90000, interestTtlMs: 300000 }
+
+  function makeTrainOn(date: string) {
+    const t = makeTrain('2026', '1', '5100')
+    return { ...t, operatingDate: date }
+  }
+
+  it('raportuje stan trzech endpointów osobno po udanym cyklu', async () => {
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({
+        trains: [makeTrainOn('2026-08-01')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      }),
+      getSchedules: vi.fn().mockResolvedValue({
+        routes: [routeWithUpstream('2026', '1', '5136', '5100')],
+        carrierNames: {},
+        categoryNames: {},
+        stationNames: {},
+        usedFullRouteFallback: false,
+      }),
+      getDisruptions: vi.fn().mockResolvedValue({ disruptions: [], disruptionTypes: {} }),
+    })
+    const poller = createPoller({ client, config: cfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const d = poller.getDiagnostics()
+    expect(d.operations).toMatchObject({ ok: true, records: 1 })
+    expect(d.schedules).toMatchObject({ ok: true, records: 1, usedFullRouteFallback: false })
+    expect(d.disruptions).toMatchObject({ ok: true, records: 0 })
+    expect(d.operations.lastSuccessAt).not.toBeNull()
+  })
+
+  it('odróżnia awarię rozkładu od pustego rozkładu -- ta pierwsza degraduje cicho', async () => {
+    // Awaria /schedules jest łapana lokalnie i nie zmienia PollerStatus, więc
+    // bez tego pola z aplikacji nie dało się odczytać, że rozkładu brakuje.
+    const client = makePkpClient({
+      getSchedules: vi.fn().mockRejectedValue(new Error('boom')),
+    })
+    const poller = createPoller({ client, config: cfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(poller.getDiagnostics().schedules.ok).toBe(false)
+    expect(poller.getDiagnostics().schedules.lastSuccessAt).toBeNull()
+    expect(poller.getStatus()).toBe('ok')
+  })
+
+  it('nie pyta o wersję danych, gdy feed jest zdrowy', async () => {
+    const getDataVersion = vi.fn()
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({
+        trains: [makeTrainOn('2026-08-01')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      }),
+      getDataVersion,
+    })
+    const poller = createPoller({ client, config: cfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(getDataVersion).not.toHaveBeenCalled()
+    expect(poller.getDiagnostics().dataVersion).toBeNull()
+  })
+
+  it('pyta o wersję danych, gdy w odpowiedzi nie ma ani jednego dzisiejszego pociągu', async () => {
+    // Dokładnie awaria z 27-31.08: /operations zwracało komplet pociągów,
+    // ale wyłącznie z dni minionych.
+    const getDataVersion = vi.fn().mockResolvedValue({
+      dataVersion: 'a',
+      schedulesVersion: 'b',
+      operationsVersion: 'c',
+      timestamp: '2026-07-30T14:08:15.000Z',
+    })
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({
+        trains: [makeTrainOn('2026-07-25')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      }),
+      getDataVersion,
+    })
+    const poller = createPoller({ client, config: cfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(getDataVersion).toHaveBeenCalledTimes(1)
+    expect(poller.getDiagnostics().dataVersion).toMatchObject({
+      operationsVersion: 'c',
+      timestamp: '2026-07-30T14:08:15.000Z',
+    })
+  })
+
+  it('dławi pytania o wersję danych -- seria zamrożonych cykli to nie seria zapytań', async () => {
+    const getDataVersion = vi.fn().mockResolvedValue({
+      dataVersion: 'a',
+      schedulesVersion: 'b',
+      operationsVersion: 'c',
+      timestamp: '2026-07-30T14:08:15.000Z',
+    })
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({
+        trains: [makeTrainOn('2026-07-25')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      }),
+      getDataVersion,
+    })
+    // Dłuższe TTL zainteresowania niż domyślne 5 min: inaczej poller zasnąłby
+    // dokładnie w oknie dławika i test mieszałby dwa niezależne mechanizmy.
+    const poller = createPoller({
+      client,
+      config: { pollIntervalMs: 90000, interestTtlMs: 60 * 60 * 1000 },
+      stationNames: new Map(),
+    })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(90000)
+    await vi.advanceTimersByTimeAsync(90000)
+
+    // Trzy cykle, ale odstęp dławika to 5 minut.
+    expect(getDataVersion).toHaveBeenCalledTimes(1)
+
+    // Po przekroczeniu okna dławik zwalnia -- nie blokuje na zawsze.
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
+    expect(getDataVersion).toHaveBeenCalledTimes(2)
+  })
+
+  it('nie wywraca cyklu, gdy samo sprawdzenie wersji padnie', async () => {
+    const client = makePkpClient({
+      getOperations: vi.fn().mockResolvedValue({
+        trains: [makeTrainOn('2026-07-25')],
+        stationNames: {},
+        budget: { hourly: 99, daily: 999 },
+      }),
+      getDataVersion: vi.fn().mockRejectedValue(new Error('boom')),
+    })
+    const poller = createPoller({ client, config: cfg, stationNames: new Map() })
+
+    poller.registerInterest(['5100'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(poller.getDiagnostics().dataVersion).toBeNull()
+    expect(poller.getDiagnostics().operations.ok).toBe(true)
+  })
+})

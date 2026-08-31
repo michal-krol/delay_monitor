@@ -19,5 +19,11 @@ export async function GET() {
     // `undefined` (brak jeszcze pierwszego przebiegu) musi dojechać jako
     // jawny `null`, nie zniknąć z JSON-a — „nie wiadomo" to informacja.
     budget: poller.getBudget() ?? null,
+    // Stan każdego źródła osobno. `pollerStatus` wyżej miesza w jednym polu
+    // awarię `/operations`, zamrożony feed i 401, a o `/schedules`
+    // i `/disruptions` milczy zupełnie — ich awarie degradują cicho. Podczas
+    // pięciodniowej awarii PKP z aplikacji nie dało się odczytać, KTÓRE źródło
+    // zawodzi (patrz `PollerDiagnostics` w `board/poller.ts`).
+    feeds: poller.getDiagnostics(),
   })
 }
