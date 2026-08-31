@@ -154,6 +154,9 @@ export function createMockClient(): PkpClient {
         carrierNames: schedules.carrierNames,
         categoryNames: schedules.categoryNames,
         stationNames: schedules.stationNames,
+        // Fixture zawsze ma przystanki, więc ścieżka awaryjna `fullRoute`
+        // (patrz `client.ts`) nigdy nie dotyczy trybu mock.
+        usedFullRouteFallback: false,
       }
     },
 
@@ -230,6 +233,18 @@ export function createMockClient(): PkpClient {
           affectedRoutes: disruption.affectedRoutes.map((route) => ({ ...route, operatingDate })),
         }))
       return { disruptions, disruptionTypes: data.disruptionTypes }
+    },
+
+    async getDataVersion() {
+      // Mock nie ma źródła, które mogłoby się zestarzeć — dane są zawsze
+      // rebase'owane na „teraz", więc znacznik jest bieżący, a identyfikatory
+      // stałe. Diagnostyka pokaże wtedy „świeże", co jest prawdą o tym trybie.
+      return {
+        dataVersion: 'mock',
+        schedulesVersion: 'mock',
+        operationsVersion: 'mock',
+        timestamp: new Date().toISOString(),
+      }
     },
   }
 }

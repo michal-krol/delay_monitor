@@ -3,6 +3,7 @@ import {
   carriersResponseSchema,
   commercialCategoriesResponseSchema,
   dailyRoutesResponseSchema,
+  dataVersionResponseSchema,
   disruptionsCountResponseSchema,
   disruptionsResponseSchema,
   operationsResponseSchema,
@@ -89,6 +90,23 @@ export type GetSchedulesResult = {
    * niżej) — ten zasila „Kierunek" (origin/destination trasy).
    */
   stationNames: Record<string, string>
+  /**
+   * Czy trzeba było ponowić zapytanie bez `fullRoute`, bo PKP zwróciło trasy
+   * z pustą listą przystanków (patrz `loadSchedules()`). Wcześniej ten fakt
+   * istniał wyłącznie w logu serwera, a wynik lądował w cache'u na 24 h — więc
+   * kolejne cykle nawet nie logowały i nikt nie wiedział, że rozkład jest
+   * okrojony. Wynoszone na zewnątrz, żeby trafiło do diagnostyki.
+   */
+  usedFullRouteFallback: boolean
+}
+
+/** `/api/v1/data-version` — patrz `getDataVersion()` i `dataVersionResponseSchema`. */
+export type DataVersion = {
+  dataVersion: string | null
+  schedulesVersion: string | null
+  operationsVersion: string | null
+  /** Znacznik ostatniej aktualizacji danych po stronie PKP (ISO, UTC). */
+  timestamp: string | null
 }
 
 /** Zagregowane liczniki statusów pociągów w całym kraju na dany dzień — patrz `getOperationsStatistics()`. */
@@ -187,6 +205,13 @@ export interface PkpClient {
    * `getSchedules()` — patrz `DISRUPTIONS_CACHE_TTL_MS`.
    */
   getDisruptions(stationIds: string[], dateFrom?: string, dateTo?: string): Promise<GetDisruptionsResult>
+  /**
+   * Wersje danych po stronie PKP — sygnał „czy tam w ogóle coś się zmienia".
+   * Wołane WARUNKOWO, dopiero gdy feed realizacji wygląda na zamrożony (patrz
+   * `poller.ts`), nie w każdym cyklu: kosztuje zapytanie z limitu 100/h,
+   * a zamrożenie trwa godzinami, więc sygnał wyprzedzający niczego nie zmienia.
+   */
+  getDataVersion(): Promise<DataVersion>
 }
 
 export class PkpApiError extends Error {
@@ -428,10 +453,12 @@ export function createLiveClient(
      * Koszt: jedno dodatkowe zapytanie na wpis cache'u (24 h), czyli w praktyce
      * kilka na dobę — patrz AGENTS.md #3.
      */
+    let usedFullRouteFallback = false
     if (parsed.routes.length > 0 && !parsed.routes.some((route) => route.stations.length > 0)) {
       console.error(
         `PKP: /schedules?fullRoute=true zwróciło ${parsed.routes.length} tras, wszystkie bez przystanków — ponawiam bez fullRoute`
       )
+      usedFullRouteFallback = true
       const fallback = await fetchJsonWithRetry(baseUrl, apiKey, 'Pobranie rozkładu nie powiodło się')
       parsed = schedulesResponseSchema.parse(fallback.json)
     }
@@ -441,6 +468,7 @@ export function createLiveClient(
       carrierNames: parsed.carrierNames,
       categoryNames: parsed.categoryNames,
       stationNames: parsed.stationNames,
+      usedFullRouteFallback,
     }
     schedulesCache.set(cacheKey, result)
     return result
@@ -618,6 +646,18 @@ export function createLiveClient(
       })
       disruptionsInFlight.set(cacheKey, request)
       return request
+    },
+
+    async getDataVersion(): Promise<DataVersion> {
+      // Bez cache'u świadomie: to pytanie brzmi „czy dane się właśnie zmieniły",
+      // więc zapamiętana odpowiedź nie miałaby sensu. Dławienie częstotliwości
+      // należy do wywołującego (patrz `poller.ts`), nie tutaj.
+      const { json } = await fetchJsonWithRetry(
+        `${BASE_URL}/api/v1/data-version`,
+        apiKey,
+        'Pobranie wersji danych nie powiodło się'
+      )
+      return dataVersionResponseSchema.parse(json)
     },
   }
 }

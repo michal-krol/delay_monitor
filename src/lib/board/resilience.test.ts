@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPoller } from './poller'
 import type { PkpClient } from '../pkp/client'
 import type { RawRoute, RawTrainOperation } from '../pkp/types'
+import { makePkpClient } from '@/test-utils/pkpClient'
 
 /**
  * Awarie, w których PKP odpowiada HTTP 200, ale treścią bezużyteczną — czyli
@@ -117,22 +118,6 @@ function routeWithTimes(scheduleId: string, orderId: string, stationId: string):
   }
 }
 
-function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
-  return {
-    searchStations: vi.fn().mockResolvedValue([]),
-    getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
-    getSchedules: vi.fn().mockResolvedValue({ routes: [], carrierNames: {}, categoryNames: {}, stationNames: {} }),
-    getTrainDetail: vi.fn(),
-    getNameDictionaries: vi.fn().mockResolvedValue({ carrierNames: {}, categoryNames: {} }),
-    getCachedStationIds: vi.fn(() => null),
-    getOperationsStatistics: vi.fn(),
-    getDailyCarrierCounts: vi.fn(),
-    getDisruptionCount: vi.fn(),
-    getDisruptions: vi.fn().mockResolvedValue({ disruptions: [], disruptionTypes: {} }),
-    ...overrides,
-  }
-}
-
 function makePoller(client: PkpClient) {
   return createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 }
@@ -148,7 +133,7 @@ afterEach(() => {
 
 describe('zamrożony feed PKP (200 z bezużyteczną treścią)', () => {
   it('zgłasza degraded, gdy pociągi przyszły, ale żaden nie niesie planowego czasu', async () => {
-    const client = makeClient({
+    const client = makePkpClient({
       getOperations: vi.fn().mockResolvedValue({
         trains: [frozenTrain('1', '5100'), frozenTrain('2', '5100'), frozenTrain('3', '5100')],
         stationNames: {},
@@ -178,7 +163,7 @@ describe('zamrożony feed PKP (200 z bezużyteczną treścią)', () => {
         stationNames: {},
         budget: { hourly: 98, daily: 998 },
       })
-    const poller = makePoller(makeClient({ getOperations }))
+    const poller = makePoller(makePkpClient({ getOperations }))
 
     poller.registerInterest(['5100'])
     await vi.advanceTimersByTimeAsync(0)
@@ -197,7 +182,7 @@ describe('zamrożony feed PKP (200 z bezużyteczną treścią)', () => {
     // Kontrola przeciw fałszywemu alarmowi: w nocy tablica bywa pusta i to
     // jest prawda o rozkładzie, nie awaria. Różnica wobec zamrożonego feedu
     // jest jednoznaczna — tu planowe czasy SĄ, tylko leżą dalej niż okno.
-    const client = makeClient({
+    const client = makePkpClient({
       getOperations: vi.fn().mockResolvedValue({
         trains: [outOfWindowTrain('1', '5100'), outOfWindowTrain('2', '5100')],
         stationNames: {},
@@ -216,7 +201,7 @@ describe('zamrożony feed PKP (200 z bezużyteczną treścią)', () => {
   it('nie krzyczy, gdy PKP nie zwróciło żadnego pociągu', async () => {
     // Pusta odpowiedź to co innego niż odpowiedź pełna bezużytecznych wierszy:
     // nie ma z czego wnioskować, że feed jest zepsuty, więc nie zgadujemy.
-    const poller = makePoller(makeClient())
+    const poller = makePoller(makePkpClient())
 
     poller.registerInterest(['5100'])
     await vi.advanceTimersByTimeAsync(0)
@@ -229,7 +214,7 @@ describe('zamrożony feed PKP (200 z bezużyteczną treścią)', () => {
     // awarii realizacji, a tablica i tak świeciła pustką — bo bramkowała wiersz
     // na planowym czasie z `/operations`, zamiast złożyć go z trasy, którą
     // trzymała w ręku. Panel szczegołów połączenia robił to poprawnie od zawsze.
-    const client = makeClient({
+    const client = makePkpClient({
       getOperations: vi.fn().mockResolvedValue({
         trains: [frozenTrain('1', '5100')],
         stationNames: {},
@@ -263,7 +248,7 @@ describe('zamrożony feed PKP (200 z bezużyteczną treścią)', () => {
       .fn()
       .mockResolvedValueOnce({ trains: [frozenTrain('1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 } })
       .mockResolvedValue({ trains: [healthyTrain('2', '5100')], stationNames: {}, budget: { hourly: 98, daily: 998 } })
-    const poller = makePoller(makeClient({ getOperations }))
+    const poller = makePoller(makePkpClient({ getOperations }))
 
     poller.registerInterest(['5100'])
     await vi.advanceTimersByTimeAsync(0)

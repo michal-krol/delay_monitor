@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPoller } from './poller'
 import { PkpApiError } from '../pkp/client'
-import type { PkpClient } from '../pkp/client'
 import type { RawRoute, RawTrainOperation } from '../pkp/types'
 import { MAX_AUX_STATIONS } from './upstreamEstimate'
+import { makePkpClient } from '@/test-utils/pkpClient'
 
 function makeTrain(scheduleId: string, orderId: string, stationId: string): RawTrainOperation {
   return {
@@ -87,22 +87,6 @@ function routeWithUpstream(scheduleId: string, orderId: string, upstreamStationI
   }
 }
 
-function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
-  return {
-    searchStations: vi.fn().mockResolvedValue([]),
-    getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
-    getSchedules: vi.fn().mockResolvedValue({ routes: [], carrierNames: {} }),
-    getTrainDetail: vi.fn(),
-    getNameDictionaries: vi.fn().mockResolvedValue({ carrierNames: {}, categoryNames: {} }),
-    getCachedStationIds: vi.fn(() => null),
-    getOperationsStatistics: vi.fn(),
-    getDailyCarrierCounts: vi.fn(),
-    getDisruptionCount: vi.fn(),
-    getDisruptions: vi.fn().mockResolvedValue({ disruptions: [], disruptionTypes: {} }),
-    ...overrides,
-  }
-}
-
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-08-01T12:00:00+02:00'))
@@ -115,7 +99,7 @@ afterEach(() => {
 describe('createPoller', () => {
   it('wakes and fires immediately on the first registerInterest call', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -127,7 +111,7 @@ describe('createPoller', () => {
 
   it('merges multiple stations into a single request', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100', '5136'])
@@ -138,7 +122,7 @@ describe('createPoller', () => {
   })
 
   it('sleeps after interestTtlMs of silence', async () => {
-    const client = makeClient()
+    const client = makePkpClient()
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -153,7 +137,7 @@ describe('createPoller', () => {
 
   it('does not fire when the active set is empty', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     await vi.advanceTimersByTimeAsync(200000)
@@ -172,7 +156,7 @@ describe('createPoller', () => {
       resolveFetch = resolve
     })
     const getOperations = vi.fn().mockReturnValue(pending)
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -191,7 +175,7 @@ describe('createPoller', () => {
 
   it('respects the 45s throttle when all requested stations already have data', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -207,7 +191,7 @@ describe('createPoller', () => {
 
   it('bypasses the throttle immediately when a newly watched station has no data yet', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -230,7 +214,7 @@ describe('createPoller', () => {
     const train = makeEnRouteTrain('26', '1', '5100')
     const getOperations = vi.fn().mockResolvedValue({ trains: [train], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const getSchedules = vi.fn().mockResolvedValue({ routes: [routeWithUpstream('26', '1', '4900', '5100')], carrierNames: {} })
-    const client = makeClient({ getOperations, getSchedules })
+    const client = makePkpClient({ getOperations, getSchedules })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -254,7 +238,7 @@ describe('createPoller', () => {
     const train = makeEnRouteTrain('26', '1', '5100')
     const getOperations = vi.fn().mockResolvedValue({ trains: [train], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const getSchedules = vi.fn().mockResolvedValue({ routes: [routeWithUpstream('26', '1', '4900', '5100')], carrierNames: {} })
-    const client = makeClient({ getOperations, getSchedules })
+    const client = makePkpClient({ getOperations, getSchedules })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -275,7 +259,7 @@ describe('createPoller', () => {
 
   it('forces a run once 45s have passed since the last run, even for a station that already has data', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -292,7 +276,7 @@ describe('createPoller', () => {
 
   it('extends the interval to 5 minutes when daily budget drops below 50', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 5, daily: 40 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -309,7 +293,7 @@ describe('createPoller', () => {
     // Regresja: brak nagłówka dawał wcześniej daily=0, co natychmiast i na
     // stałe spychało poller na interwał awaryjny 5 minut.
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: null, daily: null } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -322,7 +306,7 @@ describe('createPoller', () => {
 
   it('extends the interval when the hourly budget runs low even if the daily one is healthy', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 4, daily: 900 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -343,7 +327,7 @@ describe('createPoller', () => {
     // sobie poradzi z przejściową awarią; patrz `client.test.ts` dla testów
     // samego ponowienia.
     const getOperations = vi.fn().mockRejectedValue(new PkpApiError('boom', 500))
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -358,7 +342,7 @@ describe('createPoller', () => {
     // zamieniala sie 1:1 na zapytania do PKP. Limit 100/h dalo sie w ten sposob
     // wyczerpac w 100 zadaniach i zdegradowac aplikacje dla wszystkich.
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     for (let i = 0; i < 60; i += 1) {
@@ -372,7 +356,7 @@ describe('createPoller', () => {
 
   it('caps the number of simultaneously watched stations, evicting the oldest first', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({
       client,
       config: { pollIntervalMs: 90000, interestTtlMs: 300000, maxWatchedStations: 3 },
@@ -396,7 +380,7 @@ describe('createPoller', () => {
     // Limit nie moze psuc normalnego uzycia: dodanie kilku ulubionych stacji
     // ma nadal dawac dane od razu, bez czekania na kolejny przebieg.
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -414,7 +398,7 @@ describe('createPoller', () => {
 
   it('lets the forced-run budget recover after the window passes', async () => {
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     for (let i = 0; i < 40; i += 1) {
@@ -439,7 +423,7 @@ describe('createPoller', () => {
       .fn()
       .mockResolvedValueOnce({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
       .mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 10 } })
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -460,7 +444,7 @@ describe('createPoller', () => {
       .fn()
       .mockResolvedValueOnce({ trains: goodTrains, stationNames: { '5100': 'Warszawa Centralna' }, budget: { hourly: 99, daily: 999 } })
       .mockRejectedValueOnce(new PkpApiError('boom', 500))
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({
       client,
       config: { pollIntervalMs: 90000, interestTtlMs: 300000 },
@@ -480,7 +464,7 @@ describe('createPoller', () => {
 
   it('stops polling on a 401 and reports configError', async () => {
     const getOperations = vi.fn().mockRejectedValue(new PkpApiError('unauthorized', 401))
-    const client = makeClient({ getOperations })
+    const client = makePkpClient({ getOperations })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -502,7 +486,7 @@ describe('createPoller', () => {
       ],
       carrierNames: {},
     })
-    const client = makeClient({ getOperations, getSchedules })
+    const client = makePkpClient({ getOperations, getSchedules })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -538,7 +522,7 @@ describe('createPoller', () => {
       carrierNames: {},
       stationNames: { '5136': 'Kraków Główny' },
     })
-    const client = makeClient({ getOperations, getSchedules })
+    const client = makePkpClient({ getOperations, getSchedules })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -569,7 +553,7 @@ describe('createPoller', () => {
       ],
       carrierNames: {},
     })
-    const client = makeClient({ getOperations, getSchedules })
+    const client = makePkpClient({ getOperations, getSchedules })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -587,7 +571,7 @@ describe('createPoller', () => {
       budget: { hourly: 99, daily: 999 },
     })
     const getSchedules = vi.fn().mockRejectedValue(new PkpApiError('boom', 500))
-    const client = makeClient({ getOperations, getSchedules })
+    const client = makePkpClient({ getOperations, getSchedules })
     const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
     poller.registerInterest(['5100'])
@@ -610,7 +594,7 @@ describe('createPoller', () => {
         disruptions: [{ disruptionId: 1, message: 'utr_40', affectedRoutes: [{ scheduleId: '26', orderId: '12345', operatingDate: '2026-08-01', stationId: '5100' }] }],
         disruptionTypes: { utr_40: 'Awaria sieci trakcyjnej' },
       })
-      const client = makeClient({ getOperations, getDisruptions })
+      const client = makePkpClient({ getOperations, getDisruptions })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
@@ -626,7 +610,7 @@ describe('createPoller', () => {
         budget: { hourly: 99, daily: 999 },
       })
       const getDisruptions = vi.fn().mockResolvedValue({ disruptions: [], disruptionTypes: {} })
-      const client = makeClient({ getOperations, getDisruptions })
+      const client = makePkpClient({ getOperations, getDisruptions })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
@@ -642,7 +626,7 @@ describe('createPoller', () => {
         budget: { hourly: 99, daily: 999 },
       })
       const getDisruptions = vi.fn().mockRejectedValue(new PkpApiError('boom', 500))
-      const client = makeClient({ getOperations, getDisruptions })
+      const client = makePkpClient({ getOperations, getDisruptions })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
@@ -666,7 +650,7 @@ describe('createPoller', () => {
         routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
         carrierNames: {},
       })
-      const client = makeClient({ getOperations, getSchedules })
+      const client = makePkpClient({ getOperations, getSchedules })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
@@ -687,7 +671,7 @@ describe('createPoller', () => {
         routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
         carrierNames: {},
       })
-      const client = makeClient({ getOperations, getSchedules })
+      const client = makePkpClient({ getOperations, getSchedules })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
@@ -708,7 +692,7 @@ describe('createPoller', () => {
         routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
         carrierNames: {},
       })
-      const client = makeClient({ getOperations, getSchedules })
+      const client = makePkpClient({ getOperations, getSchedules })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
@@ -728,7 +712,7 @@ describe('createPoller', () => {
         routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
         carrierNames: {},
       })
-      const client = makeClient({ getOperations, getSchedules })
+      const client = makePkpClient({ getOperations, getSchedules })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
@@ -750,7 +734,7 @@ describe('createPoller', () => {
         routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
         carrierNames: {},
       })
-      const client = makeClient({ getOperations, getSchedules })
+      const client = makePkpClient({ getOperations, getSchedules })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
@@ -777,7 +761,7 @@ describe('createPoller', () => {
 
       const getOperations = vi.fn().mockResolvedValue({ trains, stationNames: {}, budget: { hourly: 99, daily: 999 } })
       const getSchedules = vi.fn().mockResolvedValue({ routes, carrierNames: {} })
-      const client = makeClient({ getOperations, getSchedules })
+      const client = makePkpClient({ getOperations, getSchedules })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(stationIds)

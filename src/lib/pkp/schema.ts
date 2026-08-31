@@ -316,3 +316,26 @@ export const disruptionsResponseSchema = z
       .transform((types) => types ?? {}),
   })
   .passthrough()
+
+/**
+ * `/api/v1/data-version` — trzy identyfikatory wersji danych plus znacznik
+ * czasu ostatniej aktualizacji po stronie PKP.
+ *
+ * Używane WYŁĄCZNIE diagnostycznie: gdy `/operations` przestaje nieść dzisiejsze
+ * pociągi, ten endpoint rozstrzyga, czy dane po stronie PKP w ogóle się
+ * zmieniają. Zmierzone 2026-08-31: `timestamp` stał w miejscu 14 h 49 min,
+ * a wszystkie trzy identyfikatory były niezmienione między odczytami.
+ *
+ * Świadomie NIE do sterowania cache'em rozkładu — to zostało zbadane wcześniej
+ * i odrzucone (identyfikatory rotują szybciej niż nasze TTL i reagują na szum
+ * w nieparsowanym polu `connections[].id`; patrz README, „Inne endpointy API").
+ * Tamten wniosek dotyczył oszczędzania pobrań i nadal obowiązuje.
+ */
+export const dataVersionResponseSchema = z
+  .object({
+    dataVersion: z.string().nullable().optional().default(null),
+    schedulesVersion: z.string().nullable().optional().default(null),
+    operationsVersion: z.string().nullable().optional().default(null),
+    timestamp: z.string().nullable().optional().default(null),
+  })
+  .passthrough()

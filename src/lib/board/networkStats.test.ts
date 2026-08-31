@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getNetworkStats, resetNetworkStatsForTests } from './networkStats'
 import type { PkpClient } from '../pkp/client'
+import { makePkpClient } from '@/test-utils/pkpClient'
 
 function makeStats(overrides: Partial<Awaited<ReturnType<PkpClient['getOperationsStatistics']>>> = {}) {
   return {
@@ -15,20 +16,19 @@ function makeStats(overrides: Partial<Awaited<ReturnType<PkpClient['getOperation
   }
 }
 
+/**
+ * Wspólna atrapa (`makePkpClient`) ma domyślne odpowiedzi PUSTE. Widżet stanu
+ * sieci potrzebuje trzech konkretnych źródeł, więc podaje je tutaj raz —
+ * zamiast powtarzać w każdym teście.
+ */
 function makeClient(overrides: Partial<PkpClient> = {}): PkpClient {
-  return {
-    searchStations: vi.fn().mockResolvedValue([]),
-    getOperations: vi.fn(),
-    getSchedules: vi.fn(),
-    getTrainDetail: vi.fn(),
+  return makePkpClient({
     getNameDictionaries: vi.fn().mockResolvedValue({ carrierNames: { IC: 'PKP Intercity' }, categoryNames: {} }),
-    getCachedStationIds: vi.fn(() => null),
     getOperationsStatistics: vi.fn().mockResolvedValue(makeStats()),
     getDailyCarrierCounts: vi.fn().mockResolvedValue({ IC: 10, KM: 5, PR: 3, KS: 1 }),
     getDisruptionCount: vi.fn().mockResolvedValue(4),
-    getDisruptions: vi.fn().mockResolvedValue({ disruptions: [], disruptionTypes: {} }),
     ...overrides,
-  }
+  })
 }
 
 beforeEach(() => {
