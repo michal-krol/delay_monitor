@@ -346,6 +346,48 @@ describe('createLiveClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('rozroznia okno dat w kluczu cache rozkladu -- inny dzien to inne pobranie', async () => {
+    // Klucz zawierał wyłącznie zestaw stacji, a okno `dateFrom`/`dateTo` liczone
+    // jest w chwili pobrania. Przy TTL 24 h znaczyło to, że rozkład pobrany
+    // o 14:00 (okno dziś+jutro) obsługiwał także zapytania z DNIA NASTĘPNEGO aż
+    // do 14:00 — czyli przez kilkanaście godzin aplikacja pracowałaby na oknie,
+    // które nie zawiera dnia bieżącego.
+    // mockImplementation, nie mockResolvedValue: ten test celowo pobiera DWA
+    // razy, a jeden obiekt Response da się odczytać tylko raz.
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => jsonResponse({ routes: [{ scheduleId: 2026, orderId: 1, stations: [{ stationId: 5100 }] }] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    let clock = new Date('2026-08-30T12:00:00+02:00')
+    const client = createLiveClient('secret-key', () => clock)
+
+    await client.getSchedules(['5100'])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    clock = new Date('2026-08-31T00:30:00+02:00')
+    await client.getSchedules(['5100'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(String(fetchMock.mock.calls[0][0])).toContain('dateFrom=2026-08-30')
+    expect(String(fetchMock.mock.calls[1][0])).toContain('dateFrom=2026-08-31')
+  })
+
+  it('nadal trafia w cache przy powtorzeniu tego samego dnia', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ routes: [{ scheduleId: 2026, orderId: 1, stations: [{ stationId: 5100 }] }] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const clock = new Date('2026-08-30T12:00:00+02:00')
+    const client = createLiveClient('secret-key', () => clock)
+
+    await client.getSchedules(['5100'])
+    await client.getSchedules(['5100'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('nie ponawia, gdy PKP nie zwróciło żadnej trasy -- pusto to nie to samo co zepsuto', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
     vi.stubGlobal('fetch', fetchMock)

@@ -396,8 +396,12 @@ export function createLiveClient(
     }
   }
 
-  async function loadSchedules(stationIds: string[], cacheKey: string): Promise<GetSchedulesResult> {
-    const { dateFrom, dateTo } = scheduleDateWindow()
+  async function loadSchedules(
+    stationIds: string[],
+    dateFrom: string,
+    dateTo: string,
+    cacheKey: string
+  ): Promise<GetSchedulesResult> {
     const baseUrl = `${BASE_URL}/api/v1/schedules?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}`
     // fullRoute=true: /operations celowo NIE dokłada już pełnej trasy (patrz
     // getOperations niżej) — origin/destination do „Kierunku" idą stąd.
@@ -495,7 +499,20 @@ export function createLiveClient(
     },
 
     async getSchedules(stationIds: string[]): Promise<GetSchedulesResult> {
-      const cacheKey = [...stationIds].sort().join(',')
+      // Okno dat MUSI wejść do klucza i MUSI być policzone raz, tutaj.
+      //
+      // Bez niego klucz opisywał wyłącznie zestaw stacji, a `dateFrom`/`dateTo`
+      // powstawały dopiero przy pobraniu — więc rozkład ściągnięty o 14:00 dla
+      // okna dziś+jutro obsługiwał także zapytania z DNIA NASTĘPNEGO, aż do
+      // wygaśnięcia TTL (24 h). Przez kilkanaście godzin dziennie aplikacja
+      // pracowała na oknie, które nie zawiera dnia bieżącego. Ten sam wzorzec
+      // klucza co w `getDisruptions()` niżej.
+      //
+      // „Raz, tutaj" jest istotne osobno: gdyby `loadSchedules` liczyło okno
+      // po swojemu, przebieg dokładnie o północy mógłby zapisać wynik pod
+      // kluczem z wczorajszą datą.
+      const { dateFrom, dateTo } = scheduleDateWindow()
+      const cacheKey = `${[...stationIds].sort().join(',')}|${dateFrom}|${dateTo}`
       const cached = schedulesCache.get(cacheKey)
       if (cached !== undefined) {
         return cached
@@ -506,7 +523,7 @@ export function createLiveClient(
         return pending
       }
 
-      const request = loadSchedules(stationIds, cacheKey).finally(() => {
+      const request = loadSchedules(stationIds, dateFrom, dateTo, cacheKey).finally(() => {
         schedulesInFlight.delete(cacheKey)
       })
       schedulesInFlight.set(cacheKey, request)
