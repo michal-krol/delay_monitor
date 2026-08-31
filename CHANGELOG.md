@@ -3,6 +3,68 @@
 Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 Wersjonowanie semantyczne.
 
+## [Niewydane]
+
+### Zmienione
+
+- **Rozkład wyznacza teraz listę połączeń, realizacja ją wzbogaca** —
+  odwrócenie kierunku zależności w `board/transform.ts`. Powód zmierzony na
+  żywym API podczas pięciodniowej awarii feedu realizacji PKP (27–31.08):
+  `/operations` zwracało HTTP 200 z poprawnym kształtem, ale wyłącznie
+  o kursach sprzed kilku dni, więc tablica była pusta, choć rozkład znał
+  komplet dzisiejszych połączeń.
+
+  Pomiar (Warszawa Centralna): 26.08 realizacja 392 / rozkład 394; 27.08
+  realizacja 307 / rozkład 394 — **22% pociągów nie miało jak trafić na
+  tablicę**. Dopasowanie po `scheduleId-trainOrderId|operatingDate` obejmuje
+  100% kursów w obie strony, więc kursy z realizacji bez trasy są doklejane
+  wyłącznie jako polisa (na danych: zero takich przypadków).
+
+  Weryfikacja na żywym kluczu, ta sama chwila, przełącznik jako jedyna
+  różnica: `operations` → 0 odjazdów, `schedule` → 42 odjazdy i 42 przyjazdy.
+
+  Przełącznik `BOARD_SOURCE=schedule|operations` (domyślnie `schedule`)
+  pozwala wrócić bez wdrażania kodu. Tymczasowy.
+
+- **`degraded` obejmuje przypadek „są godziny, ale nie znamy opóźnień"** —
+  tablica stojąca na samym rozkładzie nie może wyglądać na w pełni sprawną.
+  `/api/board` niesie `realizationStale`, dzięki czemu UI odróżnia „API nie
+  odpowiada — pokazujemy ostatnie znane dane" od „PKP nie podaje dziś danych
+  o ruchu — godziny wg rozkładu".
+
+### Dodane
+
+- **Diagnostyka per źródło PKP** w karcie w pasku bocznym i w `/api/health`:
+  dla `/operations`, `/schedules` i `/disruptions` osobno — czy ostatnia próba
+  się powiodła, kiedy udało się ostatnio i ile rekordów przyszło. Wcześniej
+  awarie rozkładu i utrudnień degradowały cicho, zostawiając `status: 'ok'`,
+  więc z aplikacji nie dało się odczytać, które źródło zawodzi.
+
+- **`/api/v1/data-version` jako sygnał zamrożenia danych** — wołane warunkowo,
+  dopiero gdy feed wygląda na zamrożony, z dławikiem 5 min. Rozstrzyga „to my
+  nie pobieramy czy oni nie publikują" jednym zapytaniem. (Ten sam endpoint był
+  wcześniej zbadany i odrzucony jako sygnał odświeżania cache'u — tamten wniosek
+  nadal obowiązuje.)
+
+- **Sygnał `usedFullRouteFallback`** — fakt sięgnięcia po `/schedules` bez
+  `fullRoute` istniał dotąd wyłącznie w logu serwera, a wynik lądował w cache'u
+  na 24 h, więc kolejne cykle nawet nie logowały.
+
+- **Ostatni znany dobry rozkład** w pollerze, bez TTL. Cache klienta wygasa po
+  24 h, czyli przestaje działać dokładnie w dłuższej awarii, kiedy jest
+  najbardziej potrzebny.
+
+### Naprawione
+
+- **Klucz cache'u rozkładu nie zawierał okna dat** — przy TTL 24 h rozkład
+  pobrany o 14:00 obsługiwał zapytania z dnia następnego aż do 14:00, czyli
+  przez kilkanaście godzin dziennie aplikacja pracowała na oknie bez dnia
+  bieżącego. Niewidoczne, dopóki listę wyznaczała realizacja; po przepięciu
+  oznaczałoby pustą tablicę.
+
+- **Progi pokrycia kodu** (89/87/89/91) i **testy w obu strefach czasowych**
+  w CI — `TZ` nie było ustawiane nigdzie, mimo wymogu z AGENTS.md #1.
+
 ## [0.9.9] — 2026-08-06
 
 ### Dodane

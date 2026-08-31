@@ -280,7 +280,15 @@ Zweryfikowane na żywo (2026-08-26), świadomie nieużywane dziś:
   kategoria identyczne. Token rotuje szybciej niż nasz 24h cache i reaguje
   na szum w nieużywanym polu, nie na realną zmianę rozkładu — sprawdzenie
   wersji nigdy nie zaoszczędziłoby pełnego pobrania, tylko dodałoby
-  zapytanie. Niewdrożone.
+  zapytanie. Niewdrożone **do tego celu**.
+
+  **Wdrożone do innego** (31.08.2026): jako sygnał ZAMROŻENIA danych. Podczas
+  awarii feedu `timestamp` stanął w miejscu na 14 h 49 min, a wszystkie trzy
+  GUID-y były identyczne między odczytami — czyli dokładnie odwrotnie niż przy
+  sprawnym API, gdzie rotowały co godzinę. To rozstrzyga pytanie „to my nie
+  pobieramy czy oni nie publikują" jednym tanim zapytaniem, bez ściągania
+  600 KB danych. Wołane warunkowo, dopiero gdy feed wygląda na zamrożony,
+  z dławikiem 5 min (`board/poller.ts`, `maybeCheckDataVersion`).
 - **`GET /api/v1/operations/statistics?date=`** — zagregowane liczniki statusów
   (`notStarted`/`inProgress`/`completed`/`cancelled`/`partialCancelled`) dla
   całego dnia, bez pobierania listy pociągów. Mógłby zasilić wskaźnik „stan

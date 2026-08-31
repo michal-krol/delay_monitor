@@ -189,12 +189,49 @@ Liczenie (nie wyszukiwanie pojedynczej trasy) musi iść po **surowej liście**
 tras z pollera, nie po tym indeksie — indeks z definicji zwija warianty tego
 samego przejazdu i zaniża każdy licznik.
 
-## 10. Katalog `docs/` nie jest publikowany
+## 10. Rozkład wyznacza listę połączeń, realizacja ją wzbogaca
+
+Kierunek zależności jest odwrotny, niż podpowiada intuicja „monitora opóźnień".
+Listę wierszy tablicy wyznacza **rozkład** (`/schedules`), a realizacja
+(`/operations`) dokłada do gotowych wierszy opóźnienie, status i czas faktyczny.
+
+Powód jest zmierzony, nie estetyczny. 27–31.08.2026 feed realizacji PKP przez
+pięć dób zwracał wyłącznie kursy sprzed kilku dni — odpowiadał HTTP 200,
+z poprawnym kształtem, tylko nie o dzisiaj. Przy poprzednim kierunku
+(lista z realizacji) aplikacja świeciła pustką, choć rozkład znał komplet
+dzisiejszych połączeń. Pomiar z tamtych dni, Warszawa Centralna:
+
+| dzień | realizacja | rozkład | realizacja bez trasy | trasa bez realizacji |
+|---|---|---|---|---|
+| 26.08 (zdrowy) | 392 | 394 | 0% | 0,5% |
+| 27.08 (awaria) | 307 | 394 | 0% | **22%** |
+
+Dwa wnioski, oba istotne przy zmianach w `board/transform.ts`:
+
+- **Dopasowanie po `scheduleId-trainOrderId|operatingDate` obejmuje 100%**
+  kursów w obie strony. Kursy z realizacji bez trasy są mimo to doklejane
+  (`collectRowSources`) — to polisa gwarantująca, że tablica nigdy nie pokaże
+  mniej niż przy starym kierunku, nie obsługa realnego przypadku.
+- **Wiersz bez dopasowanej realizacji jest normalny, nie błędny.** `stop: null`
+  w `RowSource` przechodzi przez `resolveDelayMinutes`/`resolveStopStatus` bez
+  żadnej zmiany w tych funkcjach i daje „nie wiadomo". Nie dopisuj tam obejść.
+
+Przełącznik `BOARD_SOURCE=schedule|operations` pozwala wrócić do starego
+kierunku bez wdrażania kodu. Jest tymczasowy — gdy zniknie, ścieżka
+`scheduleSource === null` w `transformOperations()` idzie razem z nim.
+
+Konsekwencja dla komunikatów (patrz #7): „są godziny, ale nie znamy opóźnień"
+to **inny** stan niż „nie udało się pobrać". Poller zgłasza go jako `degraded`
+z `realizationStale: true`, a tablica pisze „PKP nie podaje dziś danych
+o ruchu", nie „pokazujemy ostatnie znane dane" — bo godziny i perony są wtedy
+w pełni aktualne.
+
+## 11. Katalog `docs/` nie jest publikowany
 
 `docs/` (projekt techniczny, plan implementacji) jest w `.gitignore` i celowo
 nie trafia do repozytorium. Nie dodawaj go z powrotem.
 
-## 11. Bramka jakości
+## 12. Bramka jakości
 
 Commity trafiają bezpośrednio na `main`, z którego deployuje Railway. Przed
 oddaniem pracy:
