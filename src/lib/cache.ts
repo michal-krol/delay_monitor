@@ -65,3 +65,25 @@ export function createTtlCache<V>(options: TtlCacheOptions): TtlCache<V> {
     },
   }
 }
+
+/**
+ * Leniwe, jednorazowe wczytanie zasobu niezmiennego przez cały czas życia
+ * procesu (fixture'y, plik współrzędnych stacji).
+ *
+ * Pamiętamy OBIETNICĘ, nie wartość — równoległe pierwsze wywołania trafiają
+ * w jedno odczytanie dysku zamiast ścigać się o nie.
+ *
+ * Ale porażki nie pamiętamy. Zapamiętana odrzucona obietnica wyłącza funkcję
+ * do restartu procesu: jeden przejściowy błąd I/O gasi pogodę na stałe, mimo
+ * że plik jest na miejscu i drugie podejście by się udało.
+ */
+export function once<T>(load: () => Promise<T>): () => Promise<T> {
+  let pending: Promise<T> | null = null
+  return () => {
+    pending ??= load().catch((err: unknown) => {
+      pending = null
+      throw err
+    })
+    return pending
+  }
+}

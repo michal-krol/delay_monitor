@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createTtlCache } from './cache'
+import { createTtlCache, once } from './cache'
 
 function withClock() {
   let current = 0
@@ -83,5 +83,32 @@ describe('createTtlCache', () => {
     cache.set('c', 3)
     expect(cache.get('b')).toBeUndefined()
     expect(cache.get('a')).toBe(11)
+  })
+})
+
+describe('once', () => {
+  it('loads once, no matter how many concurrent callers ask', async () => {
+    let calls = 0
+    const load = once(async () => {
+      calls += 1
+      return 'wartość'
+    })
+
+    expect(await Promise.all([load(), load(), load()])).toEqual(['wartość', 'wartość', 'wartość'])
+    expect(calls).toBe(1)
+  })
+
+  it('retries after a failure instead of freezing it for the process lifetime', async () => {
+    let calls = 0
+    const load = once(async () => {
+      calls += 1
+      if (calls === 1) throw new Error('ENOENT')
+      return 'wartość'
+    })
+
+    await expect(load()).rejects.toThrow('ENOENT')
+    // Bez resetu ten `await` oddałby zapamiętane odrzucenie, a nie ponowną próbę.
+    expect(await load()).toBe('wartość')
+    expect(calls).toBe(2)
   })
 })

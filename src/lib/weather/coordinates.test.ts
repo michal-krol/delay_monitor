@@ -36,4 +36,21 @@ describe('getStationCoordinates', () => {
     await Promise.all([getStationCoordinates('33605'), getStationCoordinates('999999'), getStationCoordinates('33605')])
     expect(readFile).toHaveBeenCalledTimes(1)
   })
+
+  // AGENTS.md #7: „nie udało się wczytać pliku" to inny stan niż „ta stacja
+  // nie ma współrzędnych". `null` dla obu renderowałoby się identycznie.
+  it('throws when the coordinates file cannot be read, instead of pretending the station has no location', async () => {
+    readFile.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
+    const { getStationCoordinates } = await import('./coordinates')
+    await expect(getStationCoordinates('33605')).rejects.toThrow('ENOENT')
+  })
+
+  it('retries the read after a failure rather than staying broken until the process restarts', async () => {
+    readFile.mockRejectedValueOnce(new Error('ENOENT'))
+    const { getStationCoordinates } = await import('./coordinates')
+
+    await expect(getStationCoordinates('33605')).rejects.toThrow('ENOENT')
+    expect(await getStationCoordinates('33605')).toEqual({ lat: 52.2288207, lon: 21.00316 })
+    expect(readFile).toHaveBeenCalledTimes(2)
+  })
 })

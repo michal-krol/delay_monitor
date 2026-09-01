@@ -104,6 +104,26 @@ describe('GET /api/weather', () => {
     expect(body.error).toBe('Nieoczekiwany błąd')
   })
 
+  // AGENTS.md #7: awaria wczytania pliku współrzędnych ma dać błąd (UI: „Nie
+  // udało się pobrać pogody"), a nie `available:false` („Brak danych
+  // lokalizacyjnych dla tej stacji") -- i nie ma osiąść w cache'u, bo to stan
+  // przejściowy, w przeciwieństwie do prawdziwego braku współrzędnych.
+  it('returns 500 and does not cache when the coordinates file fails to load', async () => {
+    getStationCoordinates.mockClear()
+    getStationCoordinates.mockRejectedValueOnce(new Error('ENOENT'))
+    const { GET } = await import('./route')
+
+    const first = await GET(new Request('http://localhost/api/weather?stationId=777777'))
+    const body = await first.json()
+    expect(first.status).toBe(500)
+    expect(body).not.toMatchObject({ available: false })
+
+    getStationCoordinates.mockResolvedValueOnce(null)
+    const second = await GET(new Request('http://localhost/api/weather?stationId=777777'))
+    expect(second.status).toBe(200)
+    expect(getStationCoordinates).toHaveBeenCalledTimes(2)
+  })
+
   it('caches a successful response and dedupes the upstream call on a second request', async () => {
     // Liczniki wywołań mocków kumulują się przez cały plik (żadnego auto-resetu
     // w konfiguracji vitest) -- czyścimy jawnie, żeby ta asercja liczyła tylko

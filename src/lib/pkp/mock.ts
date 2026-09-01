@@ -11,6 +11,7 @@ import {
 import type { RawTrainOperation, Station } from './types'
 import { disruptionsResponseSchema, operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 import { matchesStationName, normalizeForSearch } from '../search'
+import { once } from '../cache'
 import { warsawDateString } from './time'
 
 const FIXTURES_DIR = path.join(process.cwd(), 'fixtures')
@@ -39,22 +40,10 @@ async function readFixture<T>(fileName: string): Promise<T> {
   return JSON.parse(raw) as T
 }
 
-/**
- * Fixture'y są niezmienne przez cały czas życia procesu, a poller sięga po nie
- * co 90 s. Czytanie i walidacja Zodem przy każdym wywołaniu to czysty koszt —
- * `getSchedules` otwierało dodatkowo dwa pliki naraz. Parsujemy raz, leniwie.
- *
- * Obietnica, nie wartość: równoległe wywołania trafiają w tę samą operację
- * wejścia/wyjścia zamiast ścigać się o nią.
- */
-function once<T>(load: () => Promise<T>): () => Promise<T> {
-  let pending: Promise<T> | null = null
-  return () => {
-    pending ??= load()
-    return pending
-  }
-}
-
+// Fixture'y są niezmienne przez cały czas życia procesu, a poller sięga po nie
+// co 90 s. Czytanie i walidacja Zodem przy każdym wywołaniu to czysty koszt —
+// `getSchedules` otwierało dodatkowo dwa pliki naraz. Parsujemy raz, leniwie
+// (`once()` z `lib/cache.ts` — patrz tam co do porażek).
 const loadStations = once(async () => stationSearchResponseSchema.parse(await readFixture('stations-search.json')))
 const loadOperations = once(async () => operationsResponseSchema.parse(await readFixture('operations.json')))
 const loadSchedules = once(async () => schedulesResponseSchema.parse(await readFixture('schedules.json')))
