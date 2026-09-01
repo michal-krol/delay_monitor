@@ -129,6 +129,8 @@ export function createMockClient(): PkpClient {
         // Sufity takie jak na żywym kluczu Basic, żeby panel diagnostyczny
         // w trybie mock pokazywał wiarygodny kształt, nie same liczby bez skali.
         budget: { hourly: 99, daily: 999, hourlyLimit: 100, dailyLimit: 1000 },
+        // Fixture ma 8 pociągów — nigdy nie zbliża się do OPERATIONS_PAGE_SIZE.
+        truncated: false,
       }
     },
 

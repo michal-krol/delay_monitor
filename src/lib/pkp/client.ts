@@ -76,6 +76,13 @@ export type GetOperationsResult = {
   trains: RawTrainOperation[]
   stationNames: Record<string, string>
   budget: RateLimitBudget
+  /**
+   * Czy odpowiedź została ucięta na `OPERATIONS_PAGE_SIZE` (API zgłosiło
+   * `pagination.hasNextPage`). Dotąd ten fakt żył wyłącznie w `console.warn`;
+   * poller potrzebuje go, żeby dla wielkiego węzła dociągnąć realizację samych
+   * obserwowanych stacji osobnym zapytaniem (patrz `poller.ts`, re-fetch).
+   */
+  truncated: boolean
 }
 
 export type GetSchedulesResult = {
@@ -515,15 +522,16 @@ export function createLiveClient(
       const { json, response } = await fetchJsonWithRetry(url, apiKey, 'Pobranie realizacji nie powiodło się')
       const parsed = operationsResponseSchema.parse(json)
       // Klient świadomie NIE dociąga kolejnych stron -- każda kosztowałaby
-      // osobne zapytanie z limitu 100/h. Zamiast tego głośno mówi, że sufit
-      // został przekroczony: to sygnał, że trzeba przeprojektować pobieranie,
-      // a nie po cichu liczyć statystyki z niepełnego dnia.
-      if (parsed.pagination?.hasNextPage === true) {
+      // osobne zapytanie z limitu 100/h. Głośno mówi, że sufit został
+      // przekroczony, i zwraca to jako `truncated`: poller decyduje wtedy, czy
+      // dla obserwowanych stacji potrzebne jest osobne, węższe zapytanie.
+      const truncated = parsed.pagination?.hasNextPage === true
+      if (truncated) {
         console.warn(
-          `PKP /operations: odpowiedź ucięta na ${OPERATIONS_PAGE_SIZE} pociągach (totalCount=${parsed.pagination.totalCount ?? '?'}) — statystyki stacji liczą się z niepełnego dnia`
+          `PKP /operations: odpowiedź ucięta na ${OPERATIONS_PAGE_SIZE} pociągach (totalCount=${parsed.pagination?.totalCount ?? '?'}) — poller dociągnie realizację obserwowanych stacji osobno`
         )
       }
-      return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response) }
+      return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response), truncated }
     },
 
     async getSchedules(stationIds: string[]): Promise<GetSchedulesResult> {

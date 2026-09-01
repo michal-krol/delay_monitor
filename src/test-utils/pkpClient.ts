@@ -23,6 +23,7 @@ export function makePkpClient(overrides: Partial<PkpClient> = {}): PkpClient {
       trains: [],
       stationNames: {},
       budget: { hourly: 99, daily: 999, hourlyLimit: 100, dailyLimit: 1000 },
+      truncated: false,
     }),
     getSchedules: vi.fn().mockResolvedValue({
       routes: [],

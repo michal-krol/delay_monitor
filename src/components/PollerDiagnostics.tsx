@@ -189,6 +189,13 @@ function Panel() {
                fakt istniał wyłącznie w logu serwera. */
             <Row label="Rozkład" value="tryb awaryjny" color={STATUS_TEXT.delayed} />
           )}
+          {health.feeds.operations.truncatedRefetch && (
+            /* Zapytanie zbiorcze (obserwowane + stacje pomocnicze) zostało
+               ucięte na limicie strony i poller dociągnął realizację samych
+               obserwowanych stacji osobnym zapytaniem — zdarza się na wielkich
+               węzłach w szczycie ruchu. */
+            <Row label="Realizacja" value="dociągana osobno" color={STATUS_TEXT.delayed} />
+          )}
           {health.feeds.dataVersion !== null && (
             /* Pojawia się TYLKO wtedy, gdy feed wyglądał na zamrożony i poller
                dopytał PKP o wersję danych. Wiek liczony od ICH znacznika, więc

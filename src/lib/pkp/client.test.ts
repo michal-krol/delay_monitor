@@ -168,6 +168,22 @@ describe('createLiveClient', () => {
     expect(result.trains).toHaveLength(1)
     expect(result.trains[0].scheduleId).toBe('25')
     expect(result.stationNames).toEqual({ '5100': 'Warszawa Centralna' })
+    expect(result.truncated).toBe(false)
+  })
+
+  it('flags the response as truncated when the API reports another page', async () => {
+    // Klient nie dociąga strony 2 (koszt z limitu 100/h) -- zwraca `truncated`,
+    // a poller decyduje, czy dla obserwowanych stacji potrzebne jest węższe
+    // zapytanie. Sam brak `pagination` albo `hasNextPage: false` -> `false`.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ trains: [], pagination: { totalCount: 8603, hasNextPage: true } })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    const result = await client.getOperations(['33605'])
+
+    expect(result.truncated).toBe(true)
   })
 
   it('throws PkpApiError with the response status on a non-ok response', async () => {
