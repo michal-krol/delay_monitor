@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 import { execSync } from "node:child_process";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import pkg from "./package.json";
+
+/**
+ * Katalog projektu. Bez tego Turbopack szuka „root" w górę drzewa po pierwszym
+ * napotkanym lockfile — a w worktree agenta (`.claude/worktrees/**`) trafia na
+ * `package-lock.json` GŁÓWNEGO checkoutu i ostrzega przy każdym starcie.
+ * `import.meta.url` działa i w `dev`, i w `build` (config ładowany jako ESM).
+ */
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -100,6 +110,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+
+  // Patrz `projectRoot` wyżej -- w worktree Next inaczej wybiera lockfile
+  // głównego checkoutu i ostrzega o „multiple lockfiles".
+  turbopack: { root: projectRoot },
 
   // Domyślnie Next ogłasza się nagłówkiem X-Powered-By. Nie ma powodu ułatwiać
   // dopasowania podatności do wersji frameworka.

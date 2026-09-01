@@ -9,6 +9,7 @@ import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realizati
 import { resolveCurrentStopIndex, type TrainDetailStop } from '@/lib/board/trainDetail'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
+import { formatClockTime } from '@/lib/format'
 import { useShareUrl } from '@/hooks/useShareUrl'
 
 type TrainDetailApiResponse = {
@@ -76,10 +77,7 @@ const NOTABLE_STOP_MINUTES = 3
 /** Odświeżanie samego odliczania „za ile" — bez żadnego zapytania do PKP (AGENTS.md #3). */
 const COUNTDOWN_TICK_MS = 30_000
 
-function formatTime(value: string | null): string | null {
-  if (value === null) return null
-  return new Date(value).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
-}
+const formatTime = formatClockTime
 
 /** `2026-08-27` → `27.08.2026 (czw.)`. Sama data kalendarzowa, nie znacznik czasu — nie przechodzi przez `normalizeApiTimestamp`. */
 function formatOperatingDate(value: string): string | null {

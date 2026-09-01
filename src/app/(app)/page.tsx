@@ -6,7 +6,6 @@ import { useFavourites } from '@/hooks/useFavourites'
 import { Dashboard } from '@/components/Dashboard'
 import { EmptyState } from '@/components/EmptyState'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { Sidebar } from '@/components/Sidebar'
 import { TopBar } from '@/components/TopBar'
 import { NetworkStatsCard } from '@/components/NetworkStatsCard'
 import { STATION_ID_PATTERN } from '@/lib/validation'
@@ -60,7 +59,6 @@ function PulpitPage() {
 
   return (
     <>
-      <Sidebar activeItem="pulpit" />
       <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-5 sm:px-8 sm:py-7">
         <TopBar title="Pulpit" subtitle="Twoje ulubione stacje i najbliższe odjazdy" />
         <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useNetworkStats } from '@/hooks/useNetworkStats'
 import { AlertCircleIcon } from './icons'
+import { formatClockTime } from '@/lib/format'
 import type { NetworkStats } from '@/lib/board/networkStats'
 
 const STATUS_COLORS = {
@@ -17,10 +18,6 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 
 function formatNumber(value: number): string {
   return value.toLocaleString('pl-PL')
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
 }
 
 /** Segmenty pierścienia stanu sieci — kolejność decyduje o kolejności rysowania (offsety liczone od poprzedniego). */
@@ -101,7 +98,7 @@ export function NetworkStatsCard() {
           <p className="text-sm font-medium text-foreground">Dziś w Polsce</p>
           {data === null && <p className="truncate text-xs text-text-secondary">Wczytywanie…</p>}
         </div>
-        {data !== null && <span className="shrink-0 text-xs text-text-muted">{formatTime(data.generatedAt)}</span>}
+        {data !== null && <span className="shrink-0 text-xs text-text-muted">{formatClockTime(data.generatedAt)}</span>}
         <svg
           width={16}
           height={16}

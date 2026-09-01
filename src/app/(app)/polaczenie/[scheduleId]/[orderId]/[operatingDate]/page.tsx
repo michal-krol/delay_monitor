@@ -2,7 +2,6 @@
 
 import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ConnectionDetails } from '@/components/ConnectionDetails'
-import { Sidebar } from '@/components/Sidebar'
 import { TopBar } from '@/components/TopBar'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
 import { useShareUrl } from '@/hooks/useShareUrl'
@@ -59,7 +58,6 @@ export default function Page() {
 
   return (
     <>
-      <Sidebar />
       <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-5 sm:px-8 sm:py-7">
         {/* Nie znamy tu adresu strony-źródła — mogła to być zakładka Odjazdy
             albo Przyjazdy pełnej tablicy — więc `onBack` (router.back()), nie

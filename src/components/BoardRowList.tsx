@@ -1,5 +1,6 @@
 import { DelayBadge } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
+import { formatClockTime } from '@/lib/format'
 import type { BoardApiRow } from '@/hooks/useBoard'
 
 type Props = {
@@ -29,9 +30,7 @@ export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) 
             <DelayBadge status={row.status} delayMinutes={row.delayMinutes} estimatedDelayMinutes={row.estimatedDelayMinutes} />
           </div>
           <div className="mt-0.5 text-text-muted">
-            <span className="tabular-nums">
-              {new Date(row.plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-            </span>{' '}
+            <span className="tabular-nums">{formatClockTime(row.plannedAt)}</span>{' '}
             · {row.trainLabel} → {row.headsign ?? '—'} · <span>Peron/Tor: {row.platform ?? '—'}</span>
           </div>
         </li>

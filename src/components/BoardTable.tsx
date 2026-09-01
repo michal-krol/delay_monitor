@@ -10,6 +10,7 @@ import { AlertCircleIcon, ChevronRightIcon, HelpCircleIcon } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
+import { formatClockTime } from '@/lib/format'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -156,9 +157,6 @@ function useChangedDelays(rows: BoardApiRow[]): ReadonlySet<string> {
   return changed
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
-}
 
 /**
  * Druga linia w kolumnie godziny — FAKT albo PROGNOZA, nigdy jedno udające
@@ -169,8 +167,8 @@ function formatTime(iso: string): string {
  * istnieje — pusty wiersz jest uczciwszy niż powtórzony plan udający pomiar.
  */
 function realizedTime(row: BoardApiRow): { time: string; kind: 'fact' | 'forecast' } | null {
-  if (row.actualAt !== null && row.delayMinutes !== null) return { time: formatTime(row.actualAt), kind: 'fact' }
-  if (row.predictedAt != null) return { time: formatTime(row.predictedAt), kind: 'forecast' }
+  if (row.actualAt !== null && row.delayMinutes !== null) return { time: formatClockTime(row.actualAt), kind: 'fact' }
+  if (row.predictedAt != null) return { time: formatClockTime(row.predictedAt), kind: 'forecast' }
   return null
 }
 
@@ -344,7 +342,7 @@ function TimePair({ row }: { row: BoardApiRow }) {
   return (
     <span className="block tabular-nums">
       {/* PLAN -- zawsze, niezależnie od tego, co wiemy o realizacji. */}
-      <span className="block text-base font-semibold text-foreground">{formatTime(row.plannedAt)}</span>
+      <span className="block text-base font-semibold text-foreground">{formatClockTime(row.plannedAt)}</span>
       {realized !== null && (
         <span
           className={`block text-sm font-medium ${realized.kind === 'forecast' ? 'italic' : ''}`}

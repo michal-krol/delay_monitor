@@ -22,9 +22,7 @@
      #5b6878 daje 5,04:1 i nadal jest wyraźnie ciszsze od --text-secondary. */
   --text-muted: #5b6878;
   --nav-active-bg: linear-gradient(90deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.14));
-  --nav-active-ring: rgba(59, 130, 246, 0.35);
   --nav-active-text: #1d4ed8;
-  --row-hover: rgba(15, 23, 42, 0.035);
 
   /* Tekstowe warianty statusów -- patrz komentarz przy tokenach pigułki niżej. */
   --status-onTime-text: #166534;
@@ -52,9 +50,7 @@
      #7a8798 daje 5,12:1, wciąż wyraźnie poniżej --text-secondary (7,30:1). */
   --text-muted: #7a8798;
   --nav-active-bg: linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.1));
-  --nav-active-ring: rgba(125, 211, 252, 0.25);
   --nav-active-text: #f1f5f9;
-  --row-hover: rgba(255, 255, 255, 0.035);
 
   --status-onTime-text: #4ade80;
   --status-delayed-text: #fb923c;
@@ -130,12 +126,6 @@
   --color-text-muted: var(--text-muted);
   --color-surface: var(--surface);
   --color-surface-strong: var(--surface-strong);
-  --color-status-on-time: var(--status-onTime-bg);
-  --color-status-delayed: var(--status-delayed-bg);
-  --color-status-cancelled: var(--status-cancelled-bg);
-  --color-status-unknown: var(--status-unknown-bg);
-  --color-status-not-started: var(--status-notStarted-bg);
-  --color-status-en-route: var(--status-enRoute-bg);
   --font-heading: var(--font-manrope), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 

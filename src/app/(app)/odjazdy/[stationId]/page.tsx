@@ -3,7 +3,6 @@
 import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useFavourites } from '@/hooks/useFavourites'
 import { FullBoard } from '@/components/FullBoard'
-import { Sidebar } from '@/components/Sidebar'
 import { STATION_ID_PATTERN } from '@/lib/validation'
 
 /**
@@ -35,7 +34,6 @@ export default function Page() {
 
   return (
     <>
-      <Sidebar />
       <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-5 sm:px-8 sm:py-7">
         <FullBoard
           stationId={stationId}
