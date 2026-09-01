@@ -241,3 +241,14 @@ npm run typecheck && npm run lint && npm run test
 ```
 
 Zmiany widoczne w interfejsie weryfikuj w przeglądarce, nie tylko testami.
+
+Dotykając `src/lib/pkp/schema.ts` albo parametrów zapytań w `client.ts`,
+sprawdź kontrakt wobec publicznego swaggera PKP (poza CI, wymaga sieci, bez
+klucza i bez kosztu z limitu):
+
+```bash
+PKP_CONTRACT=1 npm run test -- contract
+```
+
+`src/lib/pkp/contract.test.ts` pyta wyłącznie o obecność pól i parametrów —
+to ich zniknięcie robi ciche awarie (2026-08-30: `withPlanned`/`fullRoute`).
