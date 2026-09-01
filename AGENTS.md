@@ -217,8 +217,24 @@ Dwa wnioski, oba istotne przy zmianach w `board/transform.ts`:
   żadnej zmiany w tych funkcjach i daje „nie wiadomo". Nie dopisuj tam obejść.
 
 Przełącznik `BOARD_SOURCE=schedule|operations` pozwala wrócić do starego
-kierunku bez wdrażania kodu. Jest tymczasowy — gdy zniknie, ścieżka
-`scheduleSource === null` w `transformOperations()` idzie razem z nim.
+kierunku bez wdrażania kodu. Jest tymczasowy.
+
+**Kiedy usunąć:** nie wcześniej niż **~2026-09-14** — dwa pełne tygodnie od
+naprawy feedu (31.08 ~14:00), jeśli w tym czasie feed realizacji nie padnie
+ponownie. Przy usuwaniu znika naraz:
+
+- `BOARD_SOURCE` w `src/lib/config.ts` (schemat + `AppConfig.boardSource`),
+  wpis w `.env.example`;
+- `boardSource` w `PollerConfig` i gałąź
+  `(config.boardSource ?? 'operations') === 'schedule'` w `poller.ts`
+  (`scheduleSource` staje się bezwarunkowe);
+- ścieżka `scheduleSource === null` w `collectRowSources()`
+  (`src/lib/board/transform.ts`) oraz trailing-optional `scheduleSource`
+  w `transformOperations()`;
+- **~63 wywołania `transformOperations(` w `transform.test.ts`** — dziś
+  testują ścieżkę historyczną (bez `scheduleSource`); trzeba je przepisać na
+  jawny `scheduleSource`, albo przebudować helper testowy tak, żeby domyślnie
+  go dokładał.
 
 Konsekwencja dla komunikatów (patrz #7): „są godziny, ale nie znamy opóźnień"
 to **inny** stan niż „nie udało się pobrać". Poller zgłasza go jako `degraded`

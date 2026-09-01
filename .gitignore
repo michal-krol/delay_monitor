@@ -29,6 +29,7 @@
 # narzędzia agentowe / lokalne ustawienia edytora
 .impeccable/
 .claude/settings.local.json
+.claude/launch.json
 .idea/
 .vscode/
 
