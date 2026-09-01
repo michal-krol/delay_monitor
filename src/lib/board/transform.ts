@@ -100,6 +100,13 @@ export type BoardSnapshot = {
 const VISIBLE_WINDOW_MS = 3 * 60 * 60 * 1000
 const LOOKBACK_WINDOW_MS = 5 * 60 * 1000
 const MAX_ROWS = 40
+/**
+ * Twardy sufit na wiek PLANU dla wiersza trzymanego mimo minięcia planowego
+ * czasu (opóźniony, jeszcze niepotwierdzony). Pociąg z planem sprzed ponad
+ * doby to nie jest pociąg, na który ktoś czeka — chroni przed błędną, ogromną
+ * prognozą przypinającą wiersz na stałe.
+ */
+const MAX_KEPT_AGE_MS = 24 * 60 * 60 * 1000
 
 /** Ile przystanków pośrednich wchodzi do `BoardRow.via`; reszta ląduje w `viaRemaining`. */
 const MAX_VIA_STOPS = 3
@@ -306,16 +313,47 @@ function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRo
   }
 }
 
-function isPast(plannedAt: string, now: Date): boolean {
-  const plannedMs = new Date(plannedAt).getTime()
-  const nowMs = now.getTime()
-  return plannedMs < nowMs && plannedMs >= nowMs - LOOKBACK_WINDOW_MS
+/** Prognoza opóźnienia w minutach (nieujemna), z pułapem na błędne, ogromne wartości. */
+function projectedDelayMin(row: BoardRow): number {
+  const raw = row.predictedDelayMinutes ?? row.estimatedDelayMinutes ?? 0
+  return Math.max(0, Math.min(raw, 12 * 60))
 }
 
-function isUpcoming(plannedAt: string, now: Date): boolean {
-  const plannedMs = new Date(plannedAt).getTime()
+/**
+ * Czas, względem którego wiersz jest „przeszły" albo „nadchodzący".
+ *
+ * - potwierdzony przystanek (`onTime`/`delayed`) → FAKTYCZNY czas: pociąg
+ *   opóźniony o 6 h znika 5 min po faktycznym odjeździe, nie 5 min po planie
+ *   sprzed 6 h;
+ * - niepotwierdzony → czas PROGNOZOWANY (plan + prognoza opóźnienia): pociąg
+ *   opóźniony o 6 h, wciąż jadący do stacji, zostaje na tablicy przez te 6 h,
+ *   aż odjedzie. Prognoza rośnie z każdym potwierdzonym przystankiem wcześniej
+ *   na trasie; gdy feed `/operations` zamarza, przestaje rosnąć i „teraz" ją
+ *   w końcu mija → wiersz znika (inaczej zamrożony feed przypiąłby pociąg-widmo
+ *   na stałe — AGENTS.md #2).
+ */
+function rowAnchorMs(row: BoardRow): number {
+  const plannedMs = new Date(row.plannedAt).getTime()
+  if (row.actualAt !== null && (row.status === 'onTime' || row.status === 'delayed')) {
+    return new Date(row.actualAt).getTime()
+  }
+  return plannedMs + projectedDelayMin(row) * 60_000
+}
+
+function isPast(row: BoardRow, now: Date): boolean {
+  const anchor = rowAnchorMs(row)
   const nowMs = now.getTime()
-  return plannedMs >= nowMs && plannedMs <= nowMs + VISIBLE_WINDOW_MS
+  return anchor < nowMs && anchor >= nowMs - LOOKBACK_WINDOW_MS
+}
+
+function isUpcoming(row: BoardRow, now: Date): boolean {
+  const nowMs = now.getTime()
+  if (rowAnchorMs(row) < nowMs) return false
+  // Okno 3 h do przodu liczone od PLANU, nie od prognozy — inaczej mocno
+  // opóźniony pociąg wypadałby za horyzont. Dolne ograniczenie: plan nie
+  // starszy niż `MAX_KEPT_AGE_MS`.
+  const plannedMs = new Date(row.plannedAt).getTime()
+  return plannedMs <= nowMs + VISIBLE_WINDOW_MS && plannedMs >= nowMs - MAX_KEPT_AGE_MS
 }
 
 function byPlannedAt(a: BoardRow, b: BoardRow): number {
@@ -323,14 +361,16 @@ function byPlannedAt(a: BoardRow, b: BoardRow): number {
 }
 
 /**
- * Przeszłość (do 5 min wstecz) i przyszłość (do 10 połączeń, max 1h w przód)
- * mają osobne budżety, nie jeden wspólny limit — inaczej garstka właśnie
- * minionych połączeń zajmowałaby miejsce należne nadchodzącym w limicie 10.
+ * Przeszłość (do `LOOKBACK_WINDOW_MS` za kotwicą wiersza) i przyszłość (do
+ * `MAX_ROWS`, max `VISIBLE_WINDOW_MS` w przód wg planu) mają osobne budżety,
+ * nie jeden wspólny limit — inaczej garstka właśnie minionych połączeń
+ * zajmowałaby miejsce należne nadchodzącym. Kotwicą jest czas prognozowany,
+ * nie planowy — patrz `rowAnchorMs`.
  */
 function sortAndTrim(rows: BoardRow[], now: Date): BoardRow[] {
-  const past = rows.filter((row) => isPast(row.plannedAt, now)).sort(byPlannedAt)
+  const past = rows.filter((row) => isPast(row, now)).sort(byPlannedAt)
   const upcoming = rows
-    .filter((row) => isUpcoming(row.plannedAt, now))
+    .filter((row) => isUpcoming(row, now))
     .sort(byPlannedAt)
     .slice(0, MAX_ROWS)
   return [...past, ...upcoming]
@@ -471,9 +511,17 @@ function collectRowSources(
     const stop = train.stations.find((candidate) => candidate.stationId === stationId)
     if (stop === undefined) continue
     const route = findRouteForTrain(routesByTrainId, train)
-    // Trasa dopasowana, ale nieprzechodząca przez tę stację albo niekursująca
-    // dziś — wtedy pętla wyżej świadomie go pominęła i nie doklejamy ponownie.
-    if (route !== undefined && routeRunsOn(route, scheduleSource.todayIsoDate)) continue
+    // Doklejamy, chyba że pętla po rozkładzie już obsłużyła ten kurs dla TEJ
+    // stacji — a robi to wyłącznie, gdy trasa kursuje dziś ORAZ ma tę stację na
+    // liście przystanków (te same dwa warunki co wyżej). Trasa dopasowana, ale
+    // bez tej stacji — w skrajnym przypadku z pustą listą przystanków (realny
+    // kształt, patrz README „Znane ograniczenia") — NIE jest wyżej obsłużona
+    // i musi trafić tutaj, inaczej kurs znika z tablicy mimo obecności w realizacji.
+    const routeHandledAbove =
+      route !== undefined &&
+      routeRunsOn(route, scheduleSource.todayIsoDate) &&
+      route.stations.some((candidate) => candidate.stationId === stationId)
+    if (routeHandledAbove) continue
     sources.push(fromTrain(train, route, stop))
   }
 

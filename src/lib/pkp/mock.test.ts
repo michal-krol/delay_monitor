@@ -53,7 +53,7 @@ describe('createMockClient', () => {
   it('returns schedules only for trains that stop at the requested stations', async () => {
     const client = createMockClient()
     const { routes } = await client.getSchedules(['80416'])
-    expect(routes.map((route) => route.orderId).sort()).toEqual(['22222', '33333'])
+    expect(routes.map((route) => route.orderId).sort()).toEqual(['104', '107', '110', '114'])
     expect(routes.every((route) => route.scheduleId === '2026')).toBe(true)
   })
 
@@ -83,19 +83,19 @@ describe('createMockClient', () => {
   it('carries carrier and category codes on each route', async () => {
     const client = createMockClient()
     const { routes } = await client.getSchedules(['33605'])
-    const eic = routes.find((route) => route.orderId === '12345')
+    const eic = routes.find((route) => route.orderId === '101')
     // Fixture ma sztywny sierpień 2026; mock podmienia daty kursowania na
     // dzisiejszą, tak samo jak `operatingDate` pociągów -- inaczej statystyki
     // stacji („Odjazdy dzisiaj") pokazywałyby zero przy pełnej tablicy.
     const { warsawDateString } = await import('./time')
     expect(eic).toEqual({
       scheduleId: '2026',
-      orderId: '12345',
+      orderId: '101',
       trainOrderId: null,
       carrierCode: 'IC',
       commercialCategorySymbol: 'EIC',
-      name: 'EIC Grunwald',
-      nationalNumber: '1602',
+      name: 'BAŁTYK',
+      nationalNumber: '4501',
       operatingDates: [warsawDateString(new Date())],
       stations: [
         { stationId: '7500', arrivalPlatform: null, arrivalTrack: null, departurePlatform: '3', departureTrack: '1', arrivalTime: null, departureTime: '11:00:00', arrivalDay: null, departureDay: null, stopTypeName: null },
@@ -115,13 +115,15 @@ describe('createMockClient', () => {
       const operations = await client.getOperations(['33605'])
       const operatingDate = operations.trains[0].operatingDate as string
 
-      const detail = await client.getTrainDetail('2026', '12345', operatingDate)
+      // Pierwszy pociąg zatrzymujący się na 33605 w kolejności fixture'a to
+      // '102' (SUDETY, IC/TLK, odjazd z Warszawy Centralnej).
+      const detail = await client.getTrainDetail('2026', '102', operatingDate)
 
       expect(detail.operation.scheduleId).toBe('2026')
-      expect(detail.operation.orderId).toBe('12345')
+      expect(detail.operation.orderId).toBe('102')
       expect(detail.operation.stations.length).toBeGreaterThanOrEqual(3)
       expect(detail.route?.carrierCode).toBe('IC')
-      expect(detail.route?.name).toBe('EIC Grunwald')
+      expect(detail.route?.name).toBe('SUDETY')
     })
 
     it('rebases the returned operation the same way getOperations does', async () => {
@@ -129,7 +131,7 @@ describe('createMockClient', () => {
       const operations = await client.getOperations(['33605'])
       const operatingDate = operations.trains[0].operatingDate as string
 
-      const detail = await client.getTrainDetail('2026', '12345', operatingDate)
+      const detail = await client.getTrainDetail('2026', '102', operatingDate)
 
       const stop = detail.operation.stations.find((s) => s.stationId === '33605')
       const referenceMs = new Date((stop!.plannedArrival ?? stop!.plannedDeparture) as string).getTime()
@@ -141,9 +143,9 @@ describe('createMockClient', () => {
       const operations = await client.getOperations(['33605'])
       const operatingDate = operations.trains[0].operatingDate as string
 
-      // 67890 istnieje w operations.json, ale jego trasa w schedules.json ma
-      // pustą listę przystanków (odwołany kurs) — samo istnienie route !== null.
-      const detail = await client.getTrainDetail('2026', '67890', operatingDate)
+      // 113 istnieje w operations.json, ale jego trasa w schedules.json ma
+      // pustą listę przystanków (brak dopasowanego rozkładu) — samo istnienie route !== null.
+      const detail = await client.getTrainDetail('2026', '113', operatingDate)
       expect(detail.route).not.toBeNull()
       expect(detail.route?.stations).toEqual([])
     })
@@ -158,18 +160,18 @@ describe('createMockClient', () => {
 
     it('rejects when the operatingDate does not match (stale request)', async () => {
       const client = createMockClient()
-      await expect(client.getTrainDetail('2026', '12345', '2020-01-01')).rejects.toMatchObject({ status: 404 })
+      await expect(client.getTrainDetail('2026', '101', '2020-01-01')).rejects.toMatchObject({ status: 404 })
     })
 
-    it('returns an unconfirmed, not-yet-departed shape for the S-status train (33333), same as a real not-started train on live', async () => {
+    it('returns an unconfirmed, not-yet-departed shape for the S-status train (107), same as a real not-started train on live', async () => {
       // Jedyny test wywołujący getTrainDetail dla tego konkretnego pociągu --
       // wcześniej nic nie sprawdzało panelu szczegółów dla przypadku S.
       const client = createMockClient()
       const operations = await client.getOperations(['80416'])
-      const train33333 = operations.trains.find((t) => t.orderId === '33333')
-      expect(train33333).toBeDefined()
+      const train107 = operations.trains.find((t) => t.orderId === '107')
+      expect(train107).toBeDefined()
 
-      const detail = await client.getTrainDetail('2026', '33333', train33333!.operatingDate as string)
+      const detail = await client.getTrainDetail('2026', '107', train107!.operatingDate as string)
 
       expect(detail.operation.trainStatus).toBe('S')
       for (const stop of detail.operation.stations) {
@@ -231,17 +233,17 @@ describe('createMockClient', () => {
   })
 
   describe('getDisruptions', () => {
-    it('decodes a dictionary-code message for the matching train (station 7500, train 12345)', async () => {
+    it('decodes a dictionary-code message for the matching train (station 33605, train 109)', async () => {
       const client = createMockClient()
-      const result = await client.getDisruptions(['7500'])
+      const result = await client.getDisruptions(['33605'])
       expect(result.disruptionTypes.utr_40).toBe('Awaria sieci trakcyjnej')
-      expect(result.disruptions.some((d) => d.message === 'utr_40' && d.affectedRoutes.some((r) => r.orderId === '12345'))).toBe(true)
+      expect(result.disruptions.some((d) => d.message === 'utr_40' && d.affectedRoutes.some((r) => r.orderId === '109'))).toBe(true)
     })
 
-    it('returns the already-rendered PKP text verbatim for the other fixture train (station 80416, train 22222)', async () => {
+    it('returns the already-rendered PKP text verbatim for the other fixture train (station 80416, train 110)', async () => {
       const client = createMockClient()
       const result = await client.getDisruptions(['80416'])
-      const disruption = result.disruptions.find((d) => d.affectedRoutes.some((r) => r.orderId === '22222'))
+      const disruption = result.disruptions.find((d) => d.affectedRoutes.some((r) => r.orderId === '110'))
       expect(disruption?.message).toBe('Na odcinku od stacji Kraków Główny do stacji Katowice pociąg kursuje z opóźnieniem z powodu prac na sieci trakcyjnej.')
     })
 
@@ -253,7 +255,7 @@ describe('createMockClient', () => {
 
     it('rebases affectedRoutes.operatingDate to today (Warsaw calendar date), matching the rebased train', async () => {
       const client = createMockClient()
-      const result = await client.getDisruptions(['7500'])
+      const result = await client.getDisruptions(['33605'])
       const { warsawDateString } = await import('./time')
       const today = warsawDateString(new Date())
       expect(result.disruptions.every((d) => d.affectedRoutes.every((r) => r.operatingDate === today))).toBe(true)

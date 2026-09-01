@@ -254,9 +254,12 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
       )}
 
       {status === 'ready' && data !== null && data.stops.length > 0 && (
-        <>
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem]">
+          {/* Nagłówek + przebieg trasy w jednej kolumnie (`col-start-1`), prawy pasek
+              w drugiej i przez oba wiersze — dzięki temu widżety zaczynają się od
+              samej góry, a karta nagłówka ma szerokość listy przystanków. */}
           {/* ── Nagłówek ─────────────────────────────────────────────── */}
-          <header className="glass rounded-2xl p-5 sm:p-6">
+          <header className="glass @container rounded-2xl p-5 sm:p-6 lg:col-start-1 lg:row-start-1">
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -308,7 +311,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             </div>
 
             <div
-              className="mt-5 grid gap-4 border-t pt-4 text-sm sm:grid-cols-2 lg:grid-cols-4"
+              className="mt-5 grid gap-4 border-t pt-4 text-sm @md:grid-cols-2 @xl:grid-cols-4"
               style={{ borderColor: 'var(--surface-border)' }}
             >
               <MetaItem
@@ -337,9 +340,12 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             </div>
           </header>
 
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem]">
+          {/* `contents`: ten div znika z drzewa układu, a jego dzieci (kolumna
+              trasy i prawy pasek) trafiają wprost do siatki wyżej — bez tego
+              trzeba by przesunąć wcięcie całej sekcji trasy o jeden poziom. */}
+          <div className="contents">
             {/* ── Przebieg trasy ─────────────────────────────────────── */}
-            <div className="flex min-w-0 flex-col gap-6">
+            <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-2">
               <section className="glass rounded-2xl p-5 sm:p-6">
                 <SectionHeading>Przebieg trasy</SectionHeading>
                 {/* Pionowy stepper: kolumna znacznika ma `flex-direction: column`, więc
@@ -565,7 +571,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             </div>
 
             {/* ── Prawa kolumna ──────────────────────────────────────── */}
-            <aside className="flex flex-col gap-6 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
+            <aside className="flex flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
               <section className="glass rounded-2xl p-5">
                 <SectionHeading>Informacje o połączeniu</SectionHeading>
                 <dl className="mt-2 divide-y" style={{ borderColor: 'var(--surface-border)' }}>
@@ -625,7 +631,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               </section>
             </aside>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

@@ -150,10 +150,20 @@ Pokazuje wtedy jawny komunikat błędu, nie ostatnie znane dane (bo ich nie ma).
 ## 8. Fixture'y nie odwzorowują skali żywego API
 
 Mock ma **prawdziwe** ID stacji (Warszawa Centralna `33605`, Kraków Główny
-`80416`, Wrocław Główny `60103`, Gdańsk Główny `7500` — te same co na żywo),
-ale to wciąż 8 pociągów zamiast kilkudziesięciu-kilkuset i 6 kodów
-przewoźników zamiast 22. Nadają się do pracy nad UI — nie do wnioskowania
-o rzeczywistym natężeniu ruchu produkcji.
+`80416`, Gdańsk Główny `7500` — te same co na żywo), ale to wciąż 14
+syntetycznych, ręcznie napisanych pociągów (`orderId` 101–114) zamiast
+kilkudziesięciu-kilkuset i 6 kodów przewoźników zamiast 22. Nadają się do
+pracy nad UI — nie do wnioskowania o rzeczywistym natężeniu ruchu produkcji.
+
+Ruch skupia się wokół trzech stacji kotwicowych (Warszawa C. / Kraków Gł. /
+Gdańsk Gł.), a zestaw pokrywa komplet wariantów: punktualny, lekkie i duże
+opóźnienie, pociąg opóźniony o ~6 h wciąż w trasie (`orderId 104`), odwołany
+w całości (`105`), częściowo odwołany (`106`), „jeszcze nie wyjechał" ze
+stacji początkowej (`107`, `trainStatus S`), świeżo potwierdzony odjazd
+(`108`), dwa utrudnienia (`109` kod słownikowy, `110` gotowy tekst PKP), kurs
+po północy (`112`, `arrivalDay: 1`) i przejazd bez dopasowanej trasy (`113`,
+`schedules` route z pustą listą przystanków). Mapowanie `orderId` → przypadek
+opisują komentarze w `src/lib/pkp/mock.test.ts`.
 
 Kształt odpowiedzi sprawdzaj w publicznym schemacie, nie zgaduj z fixture'ów:
 

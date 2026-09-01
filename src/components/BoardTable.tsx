@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { DelayBadge, LABELS, STATUS_TEXT, TOKENS } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
 import { CategoryBadge } from './CategoryBadge'
-import { AlertCircleIcon, ChevronRightIcon, HelpCircleIcon } from './icons'
+import { InfoTooltip } from './InfoTooltip'
+import { AlertCircleIcon, ChevronRightIcon } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
@@ -26,79 +26,28 @@ const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
 const STATUS_ORDER: RealizationStatus[] = ['onTime', 'delayed', 'cancelled', 'unknown', 'notStarted', 'enRoute']
 
 function StatusLegend() {
-  // Prawdziwy stan (nie czysty CSS :hover), żeby panel istniał w DOM
-  // wyłącznie gdy otwarty -- inaczej etykiety statusów w legendzie
-  // (identyczne z tekstem plakietek na wierszach, celowo -- jedno źródło
-  // prawdziwy `LABELS`) kolidowałyby z zapytaniami `getByText` na wierszach.
-  const [open, setOpen] = useState(false)
-  const [position, setPosition] = useState<{ top: number; right: number } | null>(null)
-  const anchorRef = useRef<HTMLSpanElement>(null)
-  const tooltipId = useId()
-
-  function show(): void {
-    const rect = anchorRef.current?.getBoundingClientRect()
-    if (rect) setPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
-    setOpen(true)
-  }
-
   return (
-    <span
-      ref={anchorRef}
-      className="relative ml-1 inline-flex"
-      onMouseEnter={show}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={show}
-      onBlur={() => setOpen(false)}
-      // Escape zamyka podpowiedź bez zabierania focusu z przycisku -- zachowanie
-      // tooltipa (nie dialogu). Focus zostaje, więc `onFocus` nie otworzy jej
-      // z powrotem, dopóki użytkownik nie odejdzie i nie wróci.
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') setOpen(false)
-      }}
-    >
-      <button type="button" aria-label="Legenda statusów" aria-describedby={open ? tooltipId : undefined} className="cursor-help text-text-muted">
-        <HelpCircleIcon size={13} />
-      </button>
-      {/* Portal do <body> -- rodzic tabeli ma `overflow-x-auto`, co wymusza
-          (spec. CSS Overflow) `overflow-y: auto` na tym samym elemencie i
-          obcina wszystko, co z niego wystaje, gdy tabela jest krótka (mało
-          wierszy). `position: fixed` liczone z getBoundingClientRect() w
-          show() całkowicie omija to ograniczenie, zamiast próbować zgadywać
-          z-index/stacking w obrębie tabeli. */}
-      {open && position !== null && createPortal(
-        <span
-          id={tooltipId}
-          role="tooltip"
-          // Celowo w pełni kryjące (nie `glass`/`glass-strong`, obie to zawsze
-          // tylko 88%/75% krycia z blurem) -- to pływający panel nad
-          // dowolną, ruchliwą zawartością tabeli, nie karta w kompozycji
-          // strony, więc musi być czytelny niezależnie od tła pod spodem.
-          className="fixed z-50 w-64 rounded-2xl border border-black/10 bg-white p-3 text-xs text-text-secondary dark:border-white/10 dark:bg-slate-900"
-          style={{ top: position.top, right: position.right, boxShadow: 'var(--surface-shadow), 0 0 24px rgba(99,102,241,0.28)' }}
-        >
-          <ul className="flex flex-col gap-2">
-            {STATUS_ORDER.map((status) => (
-              <li key={status} className="flex gap-2">
-                <span className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: TOKENS[status].bg }} />
-                <span>
-                  {/* text-foreground, nie text-text-primary -- ten drugi nie
-                      odpowiada żadnemu zdefiniowanemu tokenowi w globals.css
-                      (ten sam rodzaj błędu co wcześniejsze bg-background),
-                      więc dziedziczył stonowany text-secondary zamiast się
-                      wyróżnić. */}
-                  <span className="font-semibold text-foreground">
-                    {status === 'notStarted' ? 'jeszcze nie wyjechał / nie przyjechał' : LABELS[status]}
-                  </span>
-                  <br />
-                  {STATUS_DESCRIPTIONS[status]}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </span>,
-        document.body
-      )}
-    </span>
+    <InfoTooltip label="Legenda statusów">
+      <ul className="flex flex-col gap-2">
+        {STATUS_ORDER.map((status) => (
+          <li key={status} className="flex gap-2">
+            <span className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: TOKENS[status].bg }} />
+            <span>
+              {/* text-foreground, nie text-text-primary -- ten drugi nie
+                  odpowiada żadnemu zdefiniowanemu tokenowi w globals.css
+                  (ten sam rodzaj błędu co wcześniejsze bg-background),
+                  więc dziedziczył stonowany text-secondary zamiast się
+                  wyróżnić. */}
+              <span className="font-semibold text-foreground">
+                {status === 'notStarted' ? 'jeszcze nie wyjechał / nie przyjechał' : LABELS[status]}
+              </span>
+              <br />
+              {STATUS_DESCRIPTIONS[status]}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </InfoTooltip>
   )
 }
 
@@ -357,11 +306,14 @@ function TimePair({ row }: { row: BoardApiRow }) {
 }
 
 function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
-  // Pociąg, którego planowy czas już minął (mieści się w oknie
-  // 5 minut wstecz z transform.ts) — cały wiersz wizualnie
-  // przygaszony (łącznie z przewoźnikiem i plakietką statusu),
-  // żeby odróżnić go od nadchodzących, bez zmiany danych.
-  const isPast = new Date(row.plannedAt).getTime() < now
+  // Pociąg, którego planowy czas już minął — cały wiersz wizualnie
+  // przygaszony (łącznie z przewoźnikiem i plakietką statusu), żeby
+  // odróżnić go od nadchodzących, bez zmiany danych. Wyjątek: pociąg
+  // jeszcze nieodjeżdżający (`enRoute`/`notStarted`) nie jest „miniony"
+  // mimo planu w przeszłości — jest opóźniony i wciąż go czekamy
+  // (patrz `rowAnchorMs` w transform.ts) — pełne krycie.
+  const isPast =
+    new Date(row.plannedAt).getTime() < now && row.status !== 'enRoute' && row.status !== 'notStarted'
   // operatingDate bywa puste, gdy API nie podało go dla tego
   // przejazdu (patrz board/transform.ts) — bez niego /api/train
   // i tak odrzuci zapytanie, więc wiersz lepiej nie robić klikalnym.

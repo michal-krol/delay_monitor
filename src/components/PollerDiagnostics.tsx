@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { STATUS_TEXT } from './DelayBadge'
+import { InfoTooltip } from './InfoTooltip'
 import type { RateLimitBudget } from '@/lib/pkp/client'
 import type { PollerDiagnostics as FeedDiagnostics, PollerStatus } from '@/lib/board/poller'
 
@@ -109,6 +110,65 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
   )
 }
 
+function LegendTerm({ children }: { children: string }) {
+  return <span className="font-semibold text-foreground">{children}</span>
+}
+
+function LegendDot({ color }: { color: string }) {
+  return (
+    <span
+      className="inline-block h-1.5 w-1.5 rounded-full align-middle"
+      style={{ backgroundColor: color }}
+      aria-hidden="true"
+    />
+  )
+}
+
+/** Statyczna legenda pól widżetu — wywoływana z ikonki „?" w nagłówku, wzorzec jak `StatusLegend` na tablicy. */
+function DiagnosticsLegend() {
+  return (
+    <ul className="flex flex-col gap-2">
+      <li>
+        <LegendTerm>Źródło</LegendTerm> — <code>live</code> dane z API PKP · <code>mock</code> dane przykładowe do pracy
+        nad UI
+      </li>
+      <li>
+        <LegendTerm>Poller</LegendTerm> — <code>czuwa</code> odpytuje PKP w cyklu · <code>śpi</code> brak aktywnych
+        obserwacji, cykl wstrzymany
+      </li>
+      <li>
+        <LegendTerm>Stan</LegendTerm> — <code>ok</code> · <code>degraded</code> feed realizacji nie nadąża (godziny
+        aktualne, opóźnienia nie) · <code>configError</code> błąd konfiguracji (np. 401)
+      </li>
+      <li>
+        <LegendTerm>Tempo</LegendTerm> — odstęp między odpytaniami PKP; <code>(zdławiony)</code> = poller zwolnił z powodu
+        limitu
+      </li>
+      <li>
+        <LegendTerm>Limit / h · doba</LegendTerm> — pozostały budżet zapytań / sufit (100/h, 1000/dobę); <code>—</code> =
+        nie wiadomo, nigdy „zero”
+      </li>
+      <li>
+        <LegendTerm>Kropka źródła</LegendTerm> — <LegendDot color={STATUS_TEXT.onTime} /> ostatnie pobranie OK ·{' '}
+        <LegendDot color={STATUS_TEXT.cancelled} /> nieudane · <LegendDot color="var(--text-muted)" /> jeszcze nie
+        próbowano (liczba = rekordy, obok wiek ostatniego udanego pobrania)
+      </li>
+      <li>
+        <LegendTerm>Rozkład: tryb awaryjny</LegendTerm> — rozkład przyszedł bez przystanków, ponowiono bez{' '}
+        <code>fullRoute</code>
+      </li>
+      <li>
+        <LegendTerm>Realizacja: dociągana osobno</LegendTerm> — zapytanie zbiorcze ucięte na limicie strony; realizację
+        obserwowanych stacji dociągnięto osobnym zapytaniem
+      </li>
+      <li>
+        <LegendTerm>Dane PKP</LegendTerm> — wiek znacznika wersji danych po stronie PKP (pojawia się tylko gdy feed
+        wyglądał na zamrożony)
+      </li>
+    </ul>
+  )
+}
+
 function Panel() {
   const [health, setHealth] = useState<Health | null>(null)
   const [fetchedAtMs, setFetchedAtMs] = useState(() => Date.now())
@@ -160,6 +220,9 @@ function Panel() {
           aria-hidden="true"
         />
         Diagnostyka
+        <InfoTooltip label="Legenda diagnostyki" align="left" width="w-72">
+          <DiagnosticsLegend />
+        </InfoTooltip>
       </div>
       <div className="flex flex-col gap-1">
         <Row label="Źródło" value={health?.dataSource ?? '—'} />

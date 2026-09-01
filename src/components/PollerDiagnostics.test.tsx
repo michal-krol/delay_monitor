@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PollerDiagnostics } from './PollerDiagnostics'
 import { jsonResponse } from '@/test-utils/http'
@@ -160,6 +160,21 @@ describe('PollerDiagnostics', () => {
 
     expect(await screen.findByText('Źródła PKP')).toBeInTheDocument()
     expect(screen.queryByText('Dane PKP')).not.toBeInTheDocument()
+  })
+
+  it('opens a legend explaining the fields on hover/focus of the header icon', async () => {
+    stubHealth(HEALTHY)
+    render(<PollerDiagnostics collapsed={false} />)
+
+    const trigger = await screen.findByRole('button', { name: 'Legenda diagnostyki' })
+    // Zamknięta -- treść legendy nie istnieje w DOM (nie koliduje z innymi zapytaniami).
+    expect(screen.queryByText(/błąd konfiguracji/)).not.toBeInTheDocument()
+
+    fireEvent.focus(trigger)
+    expect(await screen.findByText(/błąd konfiguracji/)).toBeInTheDocument()
+
+    fireEvent.blur(trigger)
+    expect(screen.queryByText(/błąd konfiguracji/)).not.toBeInTheDocument()
   })
 
   it('survives a server that does not report feeds at all', async () => {

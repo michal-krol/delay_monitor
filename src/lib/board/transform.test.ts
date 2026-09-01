@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { transformOperations } from './transform'
 import { disruptionTrainKey } from './disruptions'
+import { indexRoutesByTrain } from './routeKey'
 import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
 
 function stop(overrides: Partial<RawOperationStation> & { stationId: string }): RawOperationStation {
@@ -606,6 +607,58 @@ describe('transformOperations', () => {
     expect(snapshot.departures).toHaveLength(0)
   })
 
+  // Kotwica = czas prognozowany (patrz `rowAnchorMs`): opóźniony pociąg, który
+  // jeszcze nie odjechał z obserwowanej stacji, zostaje na tablicy aż do
+  // przewidywanego odjazdu, nie znika 5 min po planie.
+  it('keeps a delayed en-route train visible well past its planned time (forecast still ahead)', () => {
+    const plannedDeparture = new Date(NOW.getTime() - 30 * 60000).toISOString() // 11:30
+    const actualDeparture = new Date(NOW.getTime() + 60 * 60000).toISOString() // 13:00 -> prognoza +90 min
+    const trains = [
+      train('late', '1', [stop({ stationId: '5100', plannedDeparture, actualDeparture })], null, 'P'),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures).toHaveLength(1)
+    expect(snapshot.departures[0].status).toBe('enRoute')
+  })
+
+  it('drops the en-route train once its forecast departure time has itself passed (frozen-feed guard)', () => {
+    const plannedDeparture = new Date(NOW.getTime() - 30 * 60000).toISOString() // 11:30
+    const actualDeparture = new Date(NOW.getTime() + 60 * 60000).toISOString() // 13:00 forecast
+    const later = new Date(NOW.getTime() + 90 * 60000) // 13:30 — > forecast + 5 min
+    const trains = [
+      train('late', '1', [stop({ stationId: '5100', plannedDeparture, actualDeparture })], null, 'P'),
+    ]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, later.toISOString(), later)
+    expect(snapshot.departures).toHaveLength(0)
+  })
+
+  it('still drops a not-started train with no delay signal 30 min past its planned time', () => {
+    const plannedDeparture = new Date(NOW.getTime() - 30 * 60000).toISOString()
+    const trains = [train('idle', '1', [stop({ stationId: '5100', plannedDeparture })])]
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(snapshot.departures).toHaveLength(0)
+  })
+
+  it('anchors a confirmed delayed departure to its actual time, not its long-past planned time', () => {
+    const plannedDeparture = new Date(NOW.getTime() - 60 * 60000).toISOString() // 11:00
+    const actualDeparture = new Date(NOW.getTime() - 2 * 60000).toISOString() // 11:58
+    const mkTrain = () =>
+      train(
+        'done',
+        '1',
+        [stop({ stationId: '5100', plannedDeparture, actualDeparture, departureDelayMinutes: 58, isConfirmed: true })],
+        null,
+        'P'
+      )
+    const fresh = transformOperations('5100', 'X', [mkTrain()], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    expect(fresh.departures).toHaveLength(1)
+    expect(fresh.departures[0].status).toBe('delayed')
+
+    const later = new Date(NOW.getTime() + 10 * 60000) // 12:10 — > actual + 5 min
+    const gone = transformOperations('5100', 'X', [mkTrain()], NAMES, NO_ROUTES, {}, later.toISOString(), later)
+    expect(gone.departures).toHaveLength(0)
+  })
+
   it('ignores trains that never stop at the requested station', () => {
     const trains = [
       train('25', '1', [stop({ stationId: '5136', plannedDeparture: '2026-08-01T12:10:00+02:00' })]),
@@ -1086,6 +1139,24 @@ describe('transformOperations — rozkład jako źródło listy', () => {
 
     expect(snapshot.departures).toHaveLength(1)
     expect(snapshot.departures[0].trainNumber).toBe('2026-12345')
+  })
+
+  it('dokleja kurs z realizacji, gdy dopasowana trasa istnieje, ale ma pustą listę przystanków', () => {
+    // Realny kształt (patrz README, „Znane ograniczenia"): mniejszość pociągów
+    // ma wpis trasy bez listy przystanków. Pętla po rozkładzie pomija taką trasę
+    // (nie „przechodzi" przez żadną stację), więc kurs musi trafić na tablicę
+    // ścieżką rezerwową -- inaczej znika mimo obecności w realizacji.
+    const emptyRoute = route({ scheduleId: '2026', orderId: '113', trainOrderId: '113', operatingDates: [TODAY], stations: [] })
+    const trains = [
+      train('2026', '113', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:20:00+02:00' })], '113'),
+    ]
+    const snapshot = transformOperations(
+      '5100', 'X', trains, NAMES, indexRoutesByTrain([emptyRoute]), {}, NOW.toISOString(), NOW, {}, new Set(),
+      undefined, [], source([emptyRoute])
+    )
+
+    expect(snapshot.departures).toHaveLength(1)
+    expect(snapshot.departures[0].orderId).toBe('113')
   })
 
   it('nie duplikuje kursu obecnego w obu źródłach', () => {
