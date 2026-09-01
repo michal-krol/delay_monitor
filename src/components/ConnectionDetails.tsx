@@ -288,6 +288,10 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               </div>
 
               <div className="flex flex-wrap items-center gap-5">
+                {/* Badge całej podróży: `notStarted` -> „jeszcze nie wyjechał"
+                    (kierunek domyślny). Dla nagłówka to informacja („pociąg
+                    jeszcze nie ruszył"), a nie truizm „nie przyjechał"; ten
+                    drugi ma sens tylko na ostatnim przystanku steppera niżej. */}
                 <DelayBadge
                   status={summary.overallStatus}
                   delayMinutes={summary.arrivalDelayMinutes}
@@ -466,6 +470,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                 <DelayBadge
                                   status={thisStatus}
                                   delayMinutes={stopDelayMinutes(stop)}
+                                  // Ostatni przystanek to tylko przyjazd -> „jeszcze nie przyjechał";
+                                  // wszystkie wcześniejsze wiersz opisuje odjazdowo.
+                                  direction={isLast ? 'arrival' : 'departure'}
                                   estimatedDelayMinutes={stop.estimatedDelayMinutes}
                                   variant="text"
                                 />

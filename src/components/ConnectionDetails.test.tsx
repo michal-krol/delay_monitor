@@ -248,17 +248,19 @@ describe('ConnectionDetails', () => {
     ],
   }
 
-  it('renders "jeszcze nie wyjechał" when the whole train has not left any stop yet, before its planned time', async () => {
+  it('renders "jeszcze nie przyjechał" for the terminal stop of a train that has not left yet (arrival-only, not "nie wyjechał")', async () => {
     freezeClock('2026-08-01T10:00:00Z') // przed planowym przyjazdem do W-wy (11:20Z)
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(NOT_STARTED_RESPONSE)))
 
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     await waitForRoute()
+    // Warszawa Centralna to przystanek KOŃCOWY tej trasy -- tam pociąg może
+    // tylko „nie przyjechać", nie „nie wyjechać" (backlog: DelayBadge bez direction).
     // eslint-disable-next-line testing-library/no-node-access -- j.w., ograniczenie zapytania do wiersza tego przystanku
     const row = routeList().getByText('Warszawa Centralna').closest('li')
     expect(row).not.toBeNull()
-    expect(within(row as HTMLElement).getByText('jeszcze nie wyjechał')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('jeszcze nie przyjechał')).toBeInTheDocument()
     expect(within(row as HTMLElement).queryByText('w trasie')).not.toBeInTheDocument()
   })
 

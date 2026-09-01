@@ -114,7 +114,10 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         <h2 className="text-lg font-semibold tracking-tight text-foreground">{stationName}</h2>
         <div className="flex shrink-0 items-center gap-1.5">
           {delayedCount > 0 && (
-            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+            /* Ten sam bursztynowy chip co „Utrudnienie" w panelu szczegółów
+               (`ConnectionDetails`) — jedno miękkie ostrzeżenie w całej apce,
+               nie dwa lekko różne odcienie na ciemnym tle. */
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
               {delayedCount} {pluralPl(delayedCount, 'opóźniony', 'opóźnione', 'opóźnionych')}
             </span>
           )}

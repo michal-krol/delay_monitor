@@ -282,10 +282,11 @@
 
   .board-table tr {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "time direction status"
-      "train train platform";
+      "time  direction platform"
+      "train train     train"
+      "status status    status";
     gap: 0.25rem 0.75rem;
     align-items: start;
     margin-bottom: 0.5rem;
@@ -325,7 +326,11 @@
   }
   .board-table td[data-cell="status"] {
     grid-area: status;
-    justify-self: end;
+    /* Osobny wiersz na dole karty, wyrównany do lewej -- plakietka statusu to
+       najważniejsza informacja monitora, a dzieląc górny wiersz z „Kierunkiem"
+       spychała jego treść do „Bydgos…". */
+    justify-self: start;
+    margin-top: 0.15rem;
   }
   /* Strzałka „szczegóły" nie niesie treści -- w karcie klika się cały wiersz. */
   .board-table td[data-cell="chevron"] {
