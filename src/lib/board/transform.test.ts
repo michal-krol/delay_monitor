@@ -935,6 +935,9 @@ describe('transformOperations -- PLAN / PROGNOZA / FAKT', () => {
     const row = snapshot.departures[0]
 
     expect(row.predictedAt).toBe('2026-08-01T12:13:00+02:00')
+    // Minuty z prognozy (12:13 − 12:10 = 3) -- do plakietki `notStarted`,
+    // która inaczej milczy o spóźnieniu (patrz `DelayBadge`).
+    expect(row.predictedDelayMinutes).toBe(3)
     // Niepotwierdzony przystanek nie ma FAKTU ani opóźnienia -- prognoza nie
     // awansuje do żadnego z nich (AGENTS.md #2).
     expect(row.delayMinutes).toBeNull()
@@ -955,6 +958,7 @@ describe('transformOperations -- PLAN / PROGNOZA / FAKT', () => {
     const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
 
     expect(snapshot.departures[0].predictedAt).toBeNull()
+    expect(snapshot.departures[0].predictedDelayMinutes).toBeNull()
     expect(snapshot.departures[0].actualAt).toBe('2026-08-01T12:13:00+02:00')
     expect(snapshot.departures[0].delayMinutes).toBe(3)
   })

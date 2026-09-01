@@ -419,6 +419,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
           delayMinutes={row.delayMinutes}
           direction={direction === 'arrivals' ? 'arrival' : 'departure'}
           estimatedDelayMinutes={row.estimatedDelayMinutes}
+          predictedDelayMinutes={row.predictedDelayMinutes ?? null}
         />
       </td>
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">

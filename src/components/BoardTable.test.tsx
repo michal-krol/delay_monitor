@@ -93,6 +93,12 @@ describe('BoardTable — godzina: PLAN / PROGNOZA / FAKT', () => {
 
     expect(screen.getAllByText(shown(PLANNED))).toHaveLength(1)
   })
+
+  it('plakietka niewyruszonego pociągu z prognozą pokazuje spodziewane spóźnienie', () => {
+    renderTable([row({ status: 'notStarted', predictedAt: PREDICTED, predictedDelayMinutes: 34 })])
+
+    expect(screen.getByText('jeszcze nie wyjechał · prognoza +34 min')).toBeInTheDocument()
+  })
 })
 
 describe('BoardTable — peron i tor', () => {

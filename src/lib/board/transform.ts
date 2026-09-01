@@ -42,6 +42,14 @@ export type BoardRow = {
   actualAt: string | null
   /** PROGNOZA — przewidywana godzina dla niepotwierdzonego przystanku. Nigdy nie jest faktem i nigdy nie nadpisuje `actualAt`; patrz `resolvePredictedTime()`. */
   predictedAt: string | null
+  /**
+   * Minuty opóźnienia wynikające z `predictedAt` (prognoza − plan). `null`, gdy
+   * nie ma prognozy. To NIE jest fakt (`delayMinutes`) ani estymata z poprzedniej
+   * stacji (`estimatedDelayMinutes`) — to własna projekcja PKP dla TEGO
+   * przystanku. UI pokazuje ją tylko przy `status === 'notStarted'` (patrz
+   * `DelayBadge`), gdzie plakietka inaczej milczałaby o spóźnieniu.
+   */
+  predictedDelayMinutes: number | null
   /** `null`, gdy przystanek nie jest jeszcze potwierdzony (`isConfirmed: false`) — patrz `realization.ts`. */
   delayMinutes: number | null
   status: RealizationStatus
@@ -263,6 +271,11 @@ function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRo
   // minął → brak danych"): `sortAndTrim` i tak trzyma tu tylko wiersze do
   // `LOOKBACK_WINDOW_MS` (5 min) wstecz, więc ta gałąź jest nieosiągalna z tablicy.
   const status = resolveStopStatus({ isCancelled: cancelled, isConfirmed, delayMinutes, hasTrainStarted })
+  const predictedAt = resolvePredictedTime(plannedAt, actualAt, isConfirmed)
+  // Minuty z prognozy (prognoza − plan). Instanty ISO -- różnica jest
+  // niezależna od strefy. `null`, gdy nie ma prognozy.
+  const predictedDelayMinutes =
+    predictedAt === null ? null : Math.round((new Date(predictedAt).getTime() - new Date(plannedAt).getTime()) / 60000)
   return {
     scheduleId,
     orderId,
@@ -282,7 +295,8 @@ function buildRow(context: TrainStopContext, direction: DirectionInput): BoardRo
     actualAt,
     // PROGNOZA obok FAKTU, nigdy zamiast niego — ta sama funkcja co w panelu
     // szczegółów połączenia (`trainDetail.ts`), jedna implementacja.
-    predictedAt: resolvePredictedTime(plannedAt, actualAt, isConfirmed),
+    predictedAt,
+    predictedDelayMinutes,
     delayMinutes,
     status,
     platform: platformTrack.platform,

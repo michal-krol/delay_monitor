@@ -28,6 +28,8 @@ export type BoardApiRow = {
   actualAt: string | null
   /** PROGNOZA -- przewidywana godzina dla niepotwierdzonego przystanku. Nigdy nie jest faktem; patrz `board/realization.ts`. */
   predictedAt?: string | null
+  /** Minuty opóźnienia z `predictedAt`. Opcjonalne -- literały w testach sprzed tego pola nie muszą się o nim uczyć. */
+  predictedDelayMinutes?: number | null
   /** `null`, gdy przystanek nie jest jeszcze potwierdzony (`status` będzie wtedy `notStarted`). */
   delayMinutes: number | null
   status: RealizationStatus

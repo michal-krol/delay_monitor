@@ -62,6 +62,39 @@ describe('DelayBadge', () => {
     unmount3()
   })
 
+  it('notStarted z prognozą PKP dokleja "· prognoza +N min" i tooltip', () => {
+    const { unmount } = render(<DelayBadge status="notStarted" delayMinutes={null} predictedDelayMinutes={74} />)
+    const badge = screen.getByText('jeszcze nie wyjechał · prognoza +74 min')
+    expect(badge).toBeInTheDocument()
+    expect(badge.getAttribute('title')).toMatch(/prognoza pkp/i)
+    unmount()
+
+    // Działa też z brzmieniem przyjazdowym.
+    render(<DelayBadge status="notStarted" delayMinutes={null} direction="arrival" predictedDelayMinutes={12} />)
+    expect(screen.getByText('jeszcze nie przyjechał · prognoza +12 min')).toBeInTheDocument()
+  })
+
+  it('notStarted bez prognozy (albo prognoza < 1 min) to sama etykieta, bez tooltipa', () => {
+    for (const predicted of [null, 0, -3]) {
+      const { unmount } = render(
+        <DelayBadge status="notStarted" delayMinutes={null} predictedDelayMinutes={predicted} />
+      )
+      const badge = screen.getByText('jeszcze nie wyjechał')
+      expect(badge).not.toHaveAttribute('title')
+      unmount()
+    }
+  })
+
+  it('ignoruje predictedDelayMinutes dla statusów innych niż notStarted', () => {
+    for (const status of ['onTime', 'delayed', 'cancelled', 'unknown', 'enRoute'] as const) {
+      const { container, unmount } = render(
+        <DelayBadge status={status} delayMinutes={5} predictedDelayMinutes={40} />
+      )
+      expect(container.textContent, `status ${status}`).not.toMatch(/prognoza/)
+      unmount()
+    }
+  })
+
   it('direction nie zmienia brzmienia statusów innych niż notStarted', () => {
     for (const status of ['onTime', 'delayed', 'cancelled', 'unknown', 'enRoute'] as const) {
       const { unmount: unmountDeparture, container: departureContainer } = render(

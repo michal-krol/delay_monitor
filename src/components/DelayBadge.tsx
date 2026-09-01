@@ -19,6 +19,13 @@ type Props = {
    */
   estimatedDelayMinutes?: number | null
   /**
+   * Minuty z PROGNOZY PKP (`predictedAt` − plan) — czytane tylko przy
+   * `status === 'notStarted'`, gdzie plakietka inaczej nie powie nic
+   * o spóźnieniu. `null`/pominięte albo wartość < 1: sama etykieta „jeszcze
+   * nie wyjechał/przyjechał" (patrz `board/transform.ts`, `predictedDelayMinutes`).
+   */
+  predictedDelayMinutes?: number | null
+  /**
    * `pill` (domyślnie) — nasycona plakietka na własnym tle, do tablicy
    * i nagłówków. `text` — sam kolorowy tekst, do gęstych list, gdzie sześć
    * pigułek pod sobą przytłacza wiersz (przebieg trasy w panelu szczegółów).
@@ -41,6 +48,9 @@ const ARRIVAL_NOT_STARTED_LABEL = 'jeszcze nie przyjechał'
 
 const ESTIMATE_TOOLTIP =
   'Szacunek na podstawie ostatniej potwierdzonej stacji — może się różnić od faktycznego opóźnienia tutaj.'
+
+const PREDICTION_TOOLTIP =
+  'Prognoza PKP dla tego przystanku — pociąg jeszcze nie ruszył, godzina może się zmienić.'
 
 // Nasycone plakietki z tokenów CSS (src/app/globals.css) — ta sama para
 // kolorów w obu motywach, patrz task 1.1. `notStarted` odróżnialny od
@@ -74,16 +84,27 @@ export const STATUS_TEXT: Record<RealizationStatus, string> = {
   enRoute: 'var(--status-enRoute-text)',
 }
 
-export function DelayBadge({ status, delayMinutes, direction = 'departure', estimatedDelayMinutes = null, variant = 'pill' }: Props) {
+export function DelayBadge({
+  status,
+  delayMinutes,
+  direction = 'departure',
+  estimatedDelayMinutes = null,
+  predictedDelayMinutes = null,
+  variant = 'pill',
+}: Props) {
   const hasEstimate = status === 'enRoute' && estimatedDelayMinutes !== null
+  const hasPrediction = status === 'notStarted' && predictedDelayMinutes !== null && predictedDelayMinutes >= 1
+  const notStartedLabel = direction === 'arrival' ? ARRIVAL_NOT_STARTED_LABEL : LABELS.notStarted
   const text = hasEstimate
     ? estimatedDelayMinutes >= 1
       ? `w trasie, ~+${estimatedDelayMinutes} min`
       : 'w trasie, punktualnie'
     : status === 'delayed'
       ? `+${delayMinutes} min`
-      : status === 'notStarted' && direction === 'arrival'
-        ? ARRIVAL_NOT_STARTED_LABEL
+      : status === 'notStarted'
+        ? hasPrediction
+          ? `${notStartedLabel} · prognoza +${predictedDelayMinutes} min`
+          : notStartedLabel
         : LABELS[status]
   return (
     <span
@@ -93,7 +114,7 @@ export function DelayBadge({ status, delayMinutes, direction = 'departure', esti
           ? { color: STATUS_TEXT[status] }
           : { backgroundColor: TOKENS[status].bg, color: TOKENS[status].fg }
       }
-      title={hasEstimate ? ESTIMATE_TOOLTIP : undefined}
+      title={hasEstimate ? ESTIMATE_TOOLTIP : hasPrediction ? PREDICTION_TOOLTIP : undefined}
     >
       {text}
     </span>
