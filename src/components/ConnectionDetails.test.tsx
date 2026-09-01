@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConnectionDetails } from './ConnectionDetails'
+import { formatClockTime } from '@/lib/format'
 import { jsonResponse } from '@/test-utils/http'
 
 afterEach(() => {
@@ -319,8 +320,8 @@ describe('ConnectionDetails', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
     await waitForRoute()
 
-    const plannedTime = new Date('2026-08-01T05:55:00.000Z').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
-    const actualTime = new Date('2026-08-01T20:15:00.000Z').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const plannedTime = formatClockTime('2026-08-01T05:55:00.000Z')
+    const actualTime = formatClockTime('2026-08-01T20:15:00.000Z')
     expect(screen.getAllByText(plannedTime).length).toBeGreaterThan(0)
     expect(screen.queryByText(new RegExp(actualTime))).not.toBeInTheDocument()
   })
@@ -342,7 +343,7 @@ describe('ConnectionDetails', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
     await waitForRoute()
 
-    const predictedTime = new Date('2026-08-01T22:01:30.000Z').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const predictedTime = formatClockTime('2026-08-01T22:01:30.000Z')
     const predictedLabel = routeList().getByText(predictedTime)
     expect(predictedLabel).toHaveClass('italic')
     expect(predictedLabel).toHaveAttribute('title', expect.stringContaining('Przewidywana godzina'))
@@ -368,7 +369,7 @@ describe('ConnectionDetails', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
     await waitForRoute()
 
-    const predictedTime = new Date('2026-08-01T09:20:00.000Z').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const predictedTime = formatClockTime('2026-08-01T09:20:00.000Z')
     const predictedLabel = routeList().getByText(predictedTime)
     expect(predictedLabel).toHaveClass('italic')
     expect(predictedLabel).toHaveAttribute('title', expect.stringContaining('Przewidywana godzina'))

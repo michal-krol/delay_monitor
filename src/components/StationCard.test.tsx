@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { StationCard } from './StationCard'
+import { formatClockTime } from '@/lib/format'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 
 function makeSnapshot(overrides: Partial<BoardApiSnapshot> = {}): BoardApiSnapshot {
@@ -69,7 +70,7 @@ describe('StationCard', () => {
 
   it('shows the departure time for each of the 3 nearest departures', () => {
     const plannedAt = new Date(Date.now() + 15 * 60000).toISOString()
-    const expectedTime = new Date(plannedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+    const expectedTime = formatClockTime(plannedAt)
     const snapshot = makeSnapshot({
       departures: [
         { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt, actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1', estimatedDelayMinutes: null },

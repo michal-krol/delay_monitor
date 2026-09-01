@@ -17,6 +17,7 @@ import {
 } from './icons'
 import { compassDirection, describeWeatherCode, type WeatherIconKey } from '@/lib/weather/format'
 import { pluralPl } from '@/lib/plural'
+import { formatClockTime } from '@/lib/format'
 
 /**
  * Prawa kolumna kontekstowa widoku stacji.
@@ -172,11 +173,6 @@ const WEATHER_ICONS: Record<WeatherIconKey, (props: { size?: number; className?:
   thunder: ThunderIcon,
 }
 
-/** `HH:MM` warszawski, jawnie -- nigdy strefa procesu (AGENTS.md #1). */
-function formatWarsawTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
-}
-
 function WeatherStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex items-start gap-1.5">
@@ -250,7 +246,7 @@ function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
         <div>
           <span className="block text-text-muted">Wschód / zachód</span>
           <span className="tabular-nums text-foreground">
-            {formatWarsawTime(today.sunrise)} / {formatWarsawTime(today.sunset)}
+            {formatClockTime(today.sunrise)} / {formatClockTime(today.sunset)}
           </span>
         </div>
       </div>
@@ -260,7 +256,7 @@ function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--status-onTime-bg)' }} aria-hidden="true" />
           Open-Meteo
         </span>
-        <span>Aktualizacja: {formatWarsawTime(fetchedAt)}</span>
+        <span>Aktualizacja: {formatClockTime(fetchedAt)}</span>
       </div>
     </div>
   )

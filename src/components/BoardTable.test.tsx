@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BoardTable } from './BoardTable'
+import { formatClockTime } from '@/lib/format'
 import type { BoardApiRow } from '@/hooks/useBoard'
 
 const push = vi.fn()
@@ -21,13 +22,12 @@ const ACTUAL = '2026-08-01T12:33:00+02:00'
 const PREDICTED = '2026-08-01T12:34:00+02:00'
 
 /**
- * Godziny liczone tak samo, jak renderuje je komponent — nie wpisane na sztywno.
- * Suita chodzi też pod `TZ=UTC` (odwzorowanie Railway, AGENTS.md #1), gdzie ten
- * sam moment wyświetla się jako inna godzina zegarowa; sztywne „12:30" testowałoby
- * strefę maszyny, nie zachowanie tablicy.
+ * Godziny liczone tą samą funkcją, którą renderuje komponent — nie wpisane na
+ * sztywno. `formatClockTime` wymusza strefę warszawską, więc wynik jest ten sam
+ * pod `TZ=Europe/Warsaw` i `TZ=UTC` (AGENTS.md #1).
  */
 function shown(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+  return formatClockTime(iso)
 }
 
 function row(overrides: Partial<BoardApiRow> = {}): BoardApiRow {
