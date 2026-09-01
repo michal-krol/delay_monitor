@@ -16,8 +16,14 @@ import { findRouteForTrain } from './routeKey'
  * dodatkowych stacji "pomocniczych" dokładanych do TEGO SAMEGO zapytania
  * `/operations`, więc rozmiar odpowiedzi rośnie liniowo z tą liczbą, nie
  * eksploduje jak `fullRoutes=true` (patrz `client.ts`).
+ *
+ * Zmniejszone 10 → 6 (2026-09): na wielkim węźle w szczycie ruchu przy 10
+ * kandydatach × 5 przystanków wstecz zbiorcze `/operations` przekraczało
+ * `OPERATIONS_PAGE_SIZE` co cykl i poller musiał dociągać obserwowane stacje
+ * osobnym zapytaniem (patrz `poller.ts`, `truncatedRefetch`). 6 wystarcza na
+ * najbliższe „w trasie" połączenia, a odpowiedź zwykle mieści się w limicie.
  */
-export const UPSTREAM_CANDIDATE_LIMIT = 10
+export const UPSTREAM_CANDIDATE_LIMIT = 6
 
 /**
  * Ile przystanków wstecz sprawdzamy szukając potwierdzonego, nie tylko
@@ -27,14 +33,18 @@ export const UPSTREAM_CANDIDATE_LIMIT = 10
  * bezpośrednio przed obserwowaną stacją jeszcze niepotwierdzony, trzy wstecz
  * już tak). Wciąż tylko więcej ID w TYM SAMYM zapytaniu `/operations`, nie
  * `fullRoutes=true` ani zapytanie per pociąg jak w `trainDetail.ts`.
+ *
+ * Zmniejszone 5 → 3 (2026-09), tym samym powodem co `UPSTREAM_CANDIDATE_LIMIT`
+ * wyżej: 3 przystanki wstecz pokrywają zaobserwowany przypadek (S3 10556),
+ * a łączna liczba stacji pomocniczych (kandydaci × przystanki) spada tak, że
+ * zbiorcze `/operations` przestaje się rutynowo ucinać.
  */
-export const UPSTREAM_LOOKBACK_HOPS = 5
+export const UPSTREAM_LOOKBACK_HOPS = 3
 
 /**
  * Twardy sufit łącznej liczby stacji pomocniczych na cykl, niezależny od
  * tego, ile stacji jest akurat obserwowanych naraz — zabezpieczenie przed
- * patologicznym wzrostem, nie normalny tryb pracy. Podniesiony razem z
- * `UPSTREAM_LOOKBACK_HOPS` (do 5 przystanków wstecz na kandydata zamiast 1).
+ * patologicznym wzrostem, nie normalny tryb pracy.
  */
 export const MAX_AUX_STATIONS = 150
 
