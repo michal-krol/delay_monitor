@@ -122,7 +122,9 @@ describe('BoardStatus', () => {
       />
     )
 
-    expect(screen.getByText(/PKP nie podaje dziś danych o ruchu/)).toBeInTheDocument()
+    // Ostrzega też o odwołaniach: `isCancelled` jest tylko w `/operations`,
+    // więc na samym rozkładzie odwołany pociąg wygląda jak normalny.
+    expect(screen.getByText(/PKP nie podaje dziś danych o ruchu.*możliwe niewidoczne odwołania/)).toBeInTheDocument()
     expect(screen.queryByText(/API nie odpowiada/)).not.toBeInTheDocument()
   })
 

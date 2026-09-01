@@ -94,8 +94,13 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
           (data.realizationStale === true ? (
             /* Rozkład jest świeży, brakuje wyłącznie informacji o ruchu. Komunikat
                „pokazujemy ostatnie znane dane" byłby tu nieprawdą -- godziny
-               i perony są aktualne, nieznane są opóźnienia. */
-            <span className={WARNING_CLASS}>PKP nie podaje dziś danych o ruchu — godziny wg rozkładu</span>
+               i perony są aktualne, nieznane są opóźnienia.
+               Dopisek o odwołaniach nie jest ozdobą: `isCancelled` istnieje
+               wyłącznie w `/operations` (rozkład nie ma pola o odwołaniu), więc
+               w tym stanie odwołany dziś pociąg wygląda jak normalny kurs. */
+            <span className={WARNING_CLASS}>
+              PKP nie podaje dziś danych o ruchu — godziny wg rozkładu, możliwe niewidoczne odwołania
+            </span>
           ) : (
             <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
           ))}
