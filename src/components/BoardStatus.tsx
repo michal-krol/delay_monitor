@@ -43,8 +43,11 @@ function budgetHint(data: BoardApiResponse | null): string | undefined {
 /**
  * Linijka statusu nad tablicą i nad dashboardem.
  *
- * aria-live="polite" celowo obejmuje wyłącznie ten fragment, nie tabelę —
- * inaczej czytnik ekranu odczytywałby całą tablicę przy każdym odświeżeniu.
+ * `aria-live="polite"` celowo NIE obejmuje tabeli (czytnik odczytywałby ją
+ * przy każdym odświeżeniu) ANI linijki „Ostatnia aktualizacja: …" — ta tyka
+ * co 30 s samym znacznikiem czasu, więc żywy region na niej to szum bez
+ * treści. Region obejmuje wyłącznie chipy stanu, które pojawiają się rzadko
+ * i wtedy są warte ogłoszenia: błąd, wiek danych, `degraded`, throttling.
  */
 /** Statyczny fakt o tempie odświeżania -- ma być widoczny zawsze, niezależnie od stanu ładowania/błędu. */
 const REFRESH_HINT = <span>Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
@@ -76,29 +79,33 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
   const isStale = ageMs !== undefined && ageMs >= STALE_AFTER_MS
 
   return (
-    <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
       <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
       {REFRESH_HINT}
 
-      {error && <span className="text-red-600 dark:text-red-400">Błąd ostatniego odświeżenia</span>}
+      {/* `display: contents` -- węzeł istnieje dla `aria-live`, ale nie wchodzi
+          we flex-wrap rodzica (chipy układają się tak samo jak wcześniej). */}
+      <span className="contents" aria-live="polite">
+        {error && <span className="text-red-600 dark:text-red-400">Błąd ostatniego odświeżenia</span>}
 
-      {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
+        {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 
-      {data?.status === 'degraded' &&
-        (data.realizationStale === true ? (
-          /* Rozkład jest świeży, brakuje wyłącznie informacji o ruchu. Komunikat
-             „pokazujemy ostatnie znane dane" byłby tu nieprawdą -- godziny
-             i perony są aktualne, nieznane są opóźnienia. */
-          <span className={WARNING_CLASS}>PKP nie podaje dziś danych o ruchu — godziny wg rozkładu</span>
-        ) : (
-          <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
-        ))}
+        {data?.status === 'degraded' &&
+          (data.realizationStale === true ? (
+            /* Rozkład jest świeży, brakuje wyłącznie informacji o ruchu. Komunikat
+               „pokazujemy ostatnie znane dane" byłby tu nieprawdą -- godziny
+               i perony są aktualne, nieznane są opóźnienia. */
+            <span className={WARNING_CLASS}>PKP nie podaje dziś danych o ruchu — godziny wg rozkładu</span>
+          ) : (
+            <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
+          ))}
 
-      {data?.throttled === true && (
-        <span className={WARNING_CLASS} title={budgetHint(data)}>
-          odświeżanie ograniczone
-        </span>
-      )}
+        {data?.throttled === true && (
+          <span className={WARNING_CLASS} title={budgetHint(data)}>
+            odświeżanie ograniczone
+          </span>
+        )}
+      </span>
     </p>
   )
 }

@@ -379,6 +379,23 @@ describe('FullBoard', () => {
     for (const label of ['punktualnie', 'opóźniony', 'odwołany', 'brak danych', 'jeszcze nie wyjechał / nie przyjechał', 'w trasie']) {
       expect(within(legendPanel).getByText(label)).toBeInTheDocument()
     }
+    // Przycisk wskazuje na panel, gdy jest otwarty (wzorzec tooltipa).
+    expect(legendButton).toHaveAttribute('aria-describedby', legendPanel.id)
+  })
+
+  it('closes the status legend on Escape without moving focus off the trigger', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('EIC 1')
+
+    const legendButton = screen.getByRole('button', { name: 'Legenda statusów' })
+    fireEvent.focus(legendButton)
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+
+    fireEvent.keyDown(legendButton, { key: 'Escape' })
+
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
   it('closes even while the board is still loading (snapshot not yet received)', async () => {

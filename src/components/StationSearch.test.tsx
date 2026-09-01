@@ -102,6 +102,72 @@ describe('StationSearch', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('exposes an accessible name and the list-autocomplete pattern', () => {
+    render(<StationSearch onSelect={vi.fn()} placeholder="Dodaj stację…" />)
+    const input = screen.getByRole('combobox')
+    // `placeholder` znika, gdy pole ma wartość -- nazwa musi żyć osobno.
+    expect(input).toHaveAccessibleName('Dodaj stację…')
+    expect(input).toHaveAttribute('aria-autocomplete', 'list')
+  })
+
+  it('walks the results with the arrow keys and selects the active one on Enter', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      jsonResponse({
+        stations: [
+          { id: '5136', name: 'Kraków Główny' },
+          { id: '5137', name: 'Kraków Płaszów' },
+        ],
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const onSelect = vi.fn()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={onSelect} />)
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+
+    // Nic nie jest aktywne, dopóki użytkownik nie zejdzie strzałką.
+    expect(input).not.toHaveAttribute('aria-activedescendant')
+
+    await user.keyboard('{ArrowDown}')
+    const first = screen.getByRole('option', { name: 'Kraków Główny' })
+    expect(input).toHaveAttribute('aria-activedescendant', first.id)
+    expect(first).toHaveAttribute('aria-selected', 'true')
+
+    await user.keyboard('{ArrowDown}')
+    const second = screen.getByRole('option', { name: 'Kraków Płaszów' })
+    expect(input).toHaveAttribute('aria-activedescendant', second.id)
+
+    // Na ostatniej opcji strzałka w dół nie wychodzi poza listę.
+    await user.keyboard('{ArrowDown}')
+    expect(input).toHaveAttribute('aria-activedescendant', second.id)
+
+    await user.keyboard('{ArrowUp}')
+    expect(input).toHaveAttribute('aria-activedescendant', first.id)
+
+    await user.keyboard('{Enter}')
+    expect(onSelect).toHaveBeenCalledWith({ id: '5136', name: 'Kraków Główny' })
+    expect(input).toHaveValue('')
+  })
+
+  it('does nothing on Enter when no option is active (does not pick the first blindly)', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const onSelect = vi.fn()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={onSelect} />)
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+
+    await user.keyboard('{Enter}')
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
   it('opens the listbox and calls onSelect when an option is chosen', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
     vi.stubGlobal('fetch', fetchMock)

@@ -115,6 +115,12 @@ export function StationSearch({ onSelect, placeholder }: Props) {
         ref={inputRef}
         type="text"
         role="combobox"
+        // Nazwa dostępna: sam `placeholder` znika, gdy pole ma wartość, i część
+        // czytników ekranu go nie czyta jako etykiety. `aria-autocomplete="list"`
+        // mówi wprost, że podpowiedzi pojawiają się jako lista poniżej (wzorzec
+        // WAI-ARIA APG combobox).
+        aria-label={placeholder ?? 'Szukaj stacji'}
+        aria-autocomplete="list"
         aria-expanded={isOpen}
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { DelayBadge, LABELS, STATUS_TEXT, TOKENS } from './DelayBadge'
@@ -32,6 +32,7 @@ function StatusLegend() {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<{ top: number; right: number } | null>(null)
   const anchorRef = useRef<HTMLSpanElement>(null)
+  const tooltipId = useId()
 
   function show(): void {
     const rect = anchorRef.current?.getBoundingClientRect()
@@ -40,8 +41,21 @@ function StatusLegend() {
   }
 
   return (
-    <span ref={anchorRef} className="relative ml-1 inline-flex" onMouseEnter={show} onMouseLeave={() => setOpen(false)} onFocus={show} onBlur={() => setOpen(false)}>
-      <button type="button" aria-label="Legenda statusów" className="cursor-help text-text-muted">
+    <span
+      ref={anchorRef}
+      className="relative ml-1 inline-flex"
+      onMouseEnter={show}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={show}
+      onBlur={() => setOpen(false)}
+      // Escape zamyka podpowiedź bez zabierania focusu z przycisku -- zachowanie
+      // tooltipa (nie dialogu). Focus zostaje, więc `onFocus` nie otworzy jej
+      // z powrotem, dopóki użytkownik nie odejdzie i nie wróci.
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setOpen(false)
+      }}
+    >
+      <button type="button" aria-label="Legenda statusów" aria-describedby={open ? tooltipId : undefined} className="cursor-help text-text-muted">
         <HelpCircleIcon size={13} />
       </button>
       {/* Portal do <body> -- rodzic tabeli ma `overflow-x-auto`, co wymusza
@@ -52,6 +66,7 @@ function StatusLegend() {
           z-index/stacking w obrębie tabeli. */}
       {open && position !== null && createPortal(
         <span
+          id={tooltipId}
           role="tooltip"
           // Celowo w pełni kryjące (nie `glass`/`glass-strong`, obie to zawsze
           // tylko 88%/75% krycia z blurem) -- to pływający panel nad
