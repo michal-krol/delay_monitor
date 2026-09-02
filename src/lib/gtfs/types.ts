@@ -28,6 +28,9 @@ export type GtfsStop = {
   wheelchair: 0 | 1 | 2
 }
 
+/** Rodzaj linii — wyprowadzony z numeru/`route_desc` (patrz `lineKindFrom` w schema.ts). */
+export type LineKind = 'regular' | 'night' | 'express' | 'replacement'
+
 export type GtfsRoute = {
   id: string
   /** `route_short_name` (numer linii). */
@@ -35,6 +38,7 @@ export type GtfsRoute = {
   /** `route_long_name`. */
   longName: string
   mode: GtfsMode
+  kind: LineKind
   /** `#RRGGBB` po walidacji na granicy Zod, albo `null`. Nigdy surowy string z feedu. */
   color: string | null
   /**
@@ -54,6 +58,8 @@ export type GtfsDeparture = {
   /** `route_short_name` (fallback `route_long_name`, dalej `routeId`). */
   line: string
   mode: GtfsMode
+  /** Rodzaj linii (nocna/przyspieszona/…) — patrz `LineKind`. */
+  lineKind: LineKind
   color: string | null
   headsign: string | null
   /** ISO z offsetem strefy miasta. */

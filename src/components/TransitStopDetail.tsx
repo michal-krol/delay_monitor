@@ -12,7 +12,7 @@ import { AsideCard, HourlyTraffic } from './aside'
 import { LineBadge } from './LineBadge'
 import { ScheduleStatus } from './ScheduleStatus'
 import { TransitDepartureList } from './TransitDepartureList'
-import { ShareIcon, StarIcon } from './icons'
+import { AccessibleIcon, ShareIcon, StarIcon } from './icons'
 
 const MODE_LABEL: Record<GtfsMode, string> = {
   metro: 'metro',
@@ -22,6 +22,7 @@ const MODE_LABEL: Record<GtfsMode, string> = {
   other: 'inne',
 }
 const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
+const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
 /** `sec` może przekroczyć 86400 (kurs po północy) — zwijamy do zegara doby. */
 function clockOfSec(sec: number): string {
@@ -45,7 +46,18 @@ function SummaryCard({ label, value, hint }: { label: string; value: string; hin
  * (komunikacja miejska ich nie ma: „rozkład", nigdy „na czas"). Wspólny
  * komponent dla samodzielnej trasy i osadzenia na ekranie miasta.
  */
-export function TransitStopDetail({ city, stopId, embedded = false }: { city: string; stopId: string; embedded?: boolean }) {
+export function TransitStopDetail({
+  city,
+  stopId,
+  embedded = false,
+  initialName,
+}: {
+  city: string
+  stopId: string
+  embedded?: boolean
+  /** Nazwa z linku (`?nazwa=`) — nagłówek do czasu wczytania rozkładu, potem tablica ją nadpisuje. */
+  initialName?: string
+}) {
   const { data, error } = useTransitBoard(city, [stopId])
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
   const { share, status: shareStatus } = useShareUrl()
@@ -53,7 +65,7 @@ export function TransitStopDetail({ city, stopId, embedded = false }: { city: st
   const [lineFilter, setLineFilter] = useState<string | null>(null)
 
   const board = data?.stops[0] ?? null
-  const stopName = board?.name ?? stopId
+  const stopName = board?.name ?? initialName ?? stopId
   const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }
   const key = favouriteKey(favourite)
   const pinned = isFavourite(key)
@@ -82,7 +94,14 @@ export function TransitStopDetail({ city, stopId, embedded = false }: { city: st
         <section className="glass rounded-2xl p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stopName}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stopName}</h1>
+                {board?.wheelchairAccessible === true && (
+                  <span title="Przystanek dostępny dla osób z niepełnosprawnością" className="text-text-secondary">
+                    <AccessibleIcon size={18} />
+                  </span>
+                )}
+              </div>
               {board !== null && board.modes.length > 0 && (
                 <p className="mt-1 text-sm text-text-secondary">
                   {board.modes.map((mode) => MODE_LABEL[mode]).join(' · ')}
@@ -124,14 +143,9 @@ export function TransitStopDetail({ city, stopId, embedded = false }: { city: st
           </div>
         </section>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-3">
           <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} />
           <SummaryCard label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" />
-          <SummaryCard
-            label="Rodzaje"
-            value={board !== null && board.modes.length > 0 ? String(board.modes.length) : '—'}
-            hint={board?.modes.map((mode) => MODE_LABEL[mode]).join(', ')}
-          />
           <SummaryCard
             label="Pierwszy / ostatni"
             value={
@@ -194,9 +208,14 @@ export function TransitStopDetail({ city, stopId, embedded = false }: { city: st
               {linesByMode.map(([mode, lines]) => (
                 <div key={mode}>
                   <div className="mb-1 text-xs text-text-muted">{MODE_LABEL[mode]}</div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {lines.map((line) => (
-                      <LineBadge key={line.routeId} line={line.line} color={line.color} mode={line.mode} size="sm" />
+                      <span key={line.routeId} className="inline-flex items-center gap-1">
+                        <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
+                        {LINE_KIND_LABEL[line.kind] !== '' && (
+                          <span className="text-[10px] text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
+                        )}
+                      </span>
                     ))}
                   </div>
                 </div>

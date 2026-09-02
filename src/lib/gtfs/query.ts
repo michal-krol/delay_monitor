@@ -4,7 +4,7 @@
  */
 import { isoInZone } from '@/lib/pkp/time'
 import { normalizeForSearch } from '@/lib/search'
-import type { GtfsDeparture, GtfsMode, GtfsRoute, GtfsSchedule } from './types'
+import type { GtfsDeparture, GtfsMode, GtfsRoute, GtfsSchedule, LineKind } from './types'
 
 /** Ile posortowanych przebiegów najwyżej scalamy dla jednego zespołu. */
 const MAX_MERGED_RUNS = 12
@@ -23,6 +23,7 @@ function eventDeparture(schedule: GtfsSchedule, eventIndex: number): GtfsDepartu
     routeId: route?.id ?? '',
     line: route?.shortName || route?.longName || route?.id || '',
     mode: route?.mode ?? 'other',
+    lineKind: route?.kind ?? 'regular',
     color: route?.color ?? null,
     headsign: headsignIdx >= 0 ? schedule.headsigns[headsignIdx] : null,
     plannedAt: isoInZone(schedule.evAbsSec[eventIndex] * 1000, schedule.timezone),
@@ -95,7 +96,7 @@ export type StopGroupMember = {
 }
 
 /** Jedna linia obsługująca zespół — plakietka w wyszukiwarce i w szczegółach. */
-export type GtfsLine = { routeId: string; line: string; color: string | null; mode: GtfsMode }
+export type GtfsLine = { routeId: string; line: string; color: string | null; mode: GtfsMode; kind: LineKind }
 
 export type StopGroup = {
   id: string
@@ -105,6 +106,11 @@ export type StopGroup = {
   modes: GtfsMode[]
   /** Linie obsługujące zespół, posortowane naturalnie. */
   lines: GtfsLine[]
+  /**
+   * Czy któryś słupek zespołu ma POTWIERDZONĄ dostępność (`wheelchair_boarding = 1`).
+   * `0` w GTFS = brak informacji, nie „niedostępny" — nie pokazujemy nic w tym wypadku.
+   */
+  wheelchairAccessible: boolean
 }
 
 const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
@@ -117,7 +123,13 @@ function compareLine(a: GtfsRoute, b: GtfsRoute): number {
 }
 
 function lineOf(route: GtfsRoute): GtfsLine {
-  return { routeId: route.id, line: route.shortName || route.longName || route.id, color: route.color, mode: route.mode }
+  return {
+    routeId: route.id,
+    line: route.shortName || route.longName || route.id,
+    color: route.color,
+    mode: route.mode,
+    kind: route.kind,
+  }
 }
 
 /** Linie obsługujące zespół — z `groupRoutes` (zbudowanego raz przy ładowaniu). */
@@ -154,6 +166,7 @@ export function stopGroup(schedule: GtfsSchedule, id: string): StopGroup | null 
     })),
     modes,
     lines,
+    wheelchairAccessible: memberIndices.some((stopIndex) => schedule.stopWheelchair[stopIndex] === 1),
   }
 }
 
@@ -248,6 +261,69 @@ export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayI
   return {
     lineCount: groupLines(schedule, groupId).length,
     departuresToday: count,
+    firstDepartureSec: firstSec,
+    lastDepartureSec: lastSec,
+    hourly,
+  }
+}
+
+export type CityStats = {
+  /** Liczba linii per rodzaj środka. */
+  linesByMode: Record<GtfsMode, number>
+  /** Liczba linii autobusowych per rodzaj (nocna/przyspieszona/…). */
+  busKinds: Record<LineKind, number>
+  /** Liczba zespołów przystankowych. */
+  stopGroupCount: number
+  /** Liczba środków transportu obecnych w feedzie (rodzaje z ≥1 linią). */
+  modeCount: number
+  /** Liczba kursów w dobie „dziś". */
+  tripsToday: number
+  /** Sekunda pierwszego / ostatniego odjazdu dziś w całej sieci. `null` = brak. */
+  firstDepartureSec: number | null
+  lastDepartureSec: number | null
+  /** 24 kubełki — kursy per godzina zegarowa doby. */
+  hourly: number[]
+}
+
+/**
+ * Statystyki komunikacji miejskiej miasta na potrzeby widżetu sieci. Wszystko
+ * z rozkładu — zero pozycji pojazdów, zero „w trasie" (dochodzi w etapie 5).
+ */
+export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats {
+  const byMode = linesByMode(schedule)
+  const linesByModeCount: Record<GtfsMode, number> = {
+    metro: byMode.metro.length,
+    tram: byMode.tram.length,
+    bus: byMode.bus.length,
+    rail: byMode.rail.length,
+    other: byMode.other.length,
+  }
+
+  const busKinds: Record<LineKind, number> = { regular: 0, night: 0, express: 0, replacement: 0 }
+  for (const route of byMode.bus) busKinds[route.kind] += 1
+
+  const hourly = new Array<number>(24).fill(0)
+  let tripsToday = 0
+  for (let trip = 0; trip < schedule.tripIds.length; trip += 1) {
+    if (schedule.tripServiceDay[trip] === todayIndex) tripsToday += 1
+  }
+
+  let firstSec: number | null = null
+  let lastSec: number | null = null
+  for (let e = 0; e < schedule.evCount; e += 1) {
+    if (schedule.tripServiceDay[schedule.evTrip[e]] !== todayIndex) continue
+    const sec = schedule.evDepSec[e]
+    if (firstSec === null || sec < firstSec) firstSec = sec
+    if (lastSec === null || sec > lastSec) lastSec = sec
+    hourly[Math.floor(sec / 3600) % 24] += 1
+  }
+
+  return {
+    linesByMode: linesByModeCount,
+    busKinds,
+    stopGroupCount: schedule.groupMembers.size,
+    modeCount: (Object.values(linesByModeCount) as number[]).filter((count) => count > 0).length,
+    tripsToday,
     firstDepartureSec: firstSec,
     lastDepartureSec: lastSec,
     hourly,

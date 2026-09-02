@@ -10,6 +10,7 @@ function dep(over: Partial<GtfsDeparture> = {}): GtfsDeparture {
     routeId: '20',
     line: '20',
     mode: 'tram',
+    lineKind: 'regular',
     color: null,
     headsign: 'Piaski',
     plannedAt: '2026-09-02T14:30:00+02:00',
@@ -36,20 +37,19 @@ describe('TransitDepartureList', () => {
     expect(screen.queryByText(/na czas/i)).not.toBeInTheDocument()
   })
 
-  it('marks a frequency-based departure and shows a confirmed-accessible stop only', () => {
+  it('marks a frequency-based departure and its platform', () => {
     render(
       <TransitDepartureList
-        departures={[dep({ frequencyBased: true, platformCode: 'P1', wheelchair: 1 })]}
+        departures={[dep({ frequencyBased: true, platformCode: 'P1' })]}
       />
     )
     expect(screen.getByText('co kilka min')).toBeInTheDocument()
     expect(screen.getByText('peron P1')).toBeInTheDocument()
-    expect(screen.getByTitle('Przystanek dostępny dla wózków')).toBeInTheDocument()
   })
 
-  it('does not mark wheelchair=0 (unknown) as anything', () => {
-    render(<TransitDepartureList departures={[dep({ wheelchair: 0 })]} />)
-    expect(screen.queryByTitle('Przystanek dostępny dla wózków')).not.toBeInTheDocument()
+  it('labels a night line, leaving a regular one unlabelled', () => {
+    render(<TransitDepartureList departures={[dep({ lineKind: 'night' }), dep({ lineKind: 'regular' })]} />)
+    expect(screen.getByText('nocna')).toBeInTheDocument()
   })
 
   it('shows skeletons while loading', () => {

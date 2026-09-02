@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { GtfsMode } from '@/lib/gtfs/types'
+import type { GtfsLine } from '@/lib/gtfs/query'
 import { LineBadge } from './LineBadge'
 import { BusIcon, MetroIcon, TrainIcon, TramIcon } from './icons'
 
@@ -12,7 +13,7 @@ export type StationOption = {
   kind?: 'rail' | 'transit'
   mode?: GtfsMode
   modes?: GtfsMode[]
-  lines?: { routeId: string; line: string; color: string | null; mode: GtfsMode }[]
+  lines?: GtfsLine[]
 }
 
 type Props = {

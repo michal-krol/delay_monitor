@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { GtfsMode } from './types'
+import type { GtfsMode, LineKind } from './types'
 
 /**
  * Zod na wszystkich plikach GTFS PONIŻEJ `stop_times.txt`. `stop_times` (7,95
@@ -42,6 +42,27 @@ export function contrastText(hex: string | null): '#000000' | '#ffffff' {
   return luminance > 0.179 ? '#000000' : '#ffffff'
 }
 
+/**
+ * Rodzaj linii — GTFS nie ma takiego pola, wyprowadzamy z numeru linii wg
+ * konwencji ZTM: `N…` nocna, `Z…` zastępcza, `E…`/400–599 przyspieszona,
+ * reszta zwykła. `route_desc` (gdy jest) ma pierwszeństwo. Best-effort —
+ * kolejne miasto może wymagać innej reguły (wtedy trafi do `CityFeed`).
+ */
+export function lineKindFrom(shortName: string, desc: string | undefined): LineKind {
+  const d = (desc ?? '').toLowerCase()
+  if (d.includes('nocn')) return 'night'
+  if (d.includes('zastępcz') || d.includes('zastepcz')) return 'replacement'
+  if (d.includes('przyspiesz') || d.includes('ekspres')) return 'express'
+
+  const name = shortName.trim()
+  if (/^N/i.test(name)) return 'night'
+  if (/^Z/i.test(name)) return 'replacement'
+  if (/^E/i.test(name)) return 'express'
+  const number = Number(name)
+  if (Number.isFinite(number) && number >= 400 && number <= 599) return 'express'
+  return 'regular'
+}
+
 /** `route_type` → garść przypadków, z zakresami rozszerzonymi (HVT). */
 export function modeFromRouteType(routeType: number): GtfsMode {
   if (routeType === 0 || (routeType >= 900 && routeType <= 906)) return 'tram'
@@ -75,16 +96,19 @@ export const routeSchema = z
     route_id: z.string().min(1),
     route_short_name: z.string().optional(),
     route_long_name: z.string().optional(),
+    route_desc: z.string().optional(),
     route_type: z.coerce.number().int(),
     route_color: z.string().optional(),
   })
   .transform((row) => {
     const color = normalizeRouteColor(optional(row.route_color))
+    const shortName = optional(row.route_short_name) ?? ''
     return {
       id: row.route_id,
-      shortName: optional(row.route_short_name) ?? '',
+      shortName,
       longName: optional(row.route_long_name) ?? '',
       mode: modeFromRouteType(row.route_type),
+      kind: lineKindFrom(shortName, optional(row.route_desc)),
       color,
       textColor: contrastText(color),
     }

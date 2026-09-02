@@ -4,17 +4,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker, type CityOption } from '@/components/CityPicker'
-import { CitySummary, type CitySummaryData } from '@/components/CitySummary'
-import { ModeFilterChips, type SearchMode } from '@/components/ModeFilterChips'
+import { CityStatTiles } from '@/components/CityStatTiles'
+import { CityTransitWidget } from '@/components/CityTransitWidget'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { FullBoard } from '@/components/FullBoard'
 import { TransitStopDetail } from '@/components/TransitStopDetail'
 import { ArrowLeftIcon } from '@/components/icons'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useCityContext } from '@/hooks/useCityContext'
+import { useCityStats } from '@/hooks/useCityStats'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
 
-type CityEntry = CityOption & CitySummaryData & { name: string }
+type CityEntry = CityOption & { name: string }
 
 export default function CityPage() {
   const params = useParams<{ city: string }>()
@@ -28,9 +29,9 @@ export default function CityPage() {
   const searchParams = useSearchParams()
   const { setCity } = useCityContext()
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
+  const { data: statsData } = useCityStats(city)
 
   const [cities, setCities] = useState<CityEntry[]>([])
-  const [mode, setMode] = useState<SearchMode>('all')
 
   useEffect(() => {
     setCity(city)
@@ -43,9 +44,7 @@ export default function CityPage() {
       .then((body: { cities: CityEntry[] }) => {
         if (!cancelled) setCities(body.cities)
       })
-      .catch(() => {
-        // Brak listy → picker pokazuje bieżące miasto, reszta ekranu działa.
-      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -53,8 +52,9 @@ export default function CityPage() {
 
   const entry = useMemo(() => cities.find((option) => option.id === city) ?? null, [cities, city])
   const cityName = entry?.name ?? city
+  const stats = statsData?.state === 'ready' ? statsData.stats : null
+  const statsLoading = statsData === null || statsData.state === 'loading'
 
-  // Wybrany przystanek — z parametru URL, wzajemnie wykluczające się.
   const rawRail = searchParams.get('stacja')
   const rawTransit = searchParams.get('przystanek')
   const selectedName = searchParams.get('nazwa') ?? undefined
@@ -64,11 +64,8 @@ export default function CityPage() {
 
   function pick(option: StationOption): void {
     const name = encodeURIComponent(option.name)
-    if (option.kind === 'rail') {
-      router.push(`/miasto/${city}?stacja=${encodeURIComponent(option.id)}&nazwa=${name}`)
-    } else {
-      router.push(`/miasto/${city}?przystanek=${encodeURIComponent(option.id)}&nazwa=${name}`)
-    }
+    const param = option.kind === 'rail' ? 'stacja' : 'przystanek'
+    router.push(`/miasto/${city}?${param}=${encodeURIComponent(option.id)}&nazwa=${name}`)
   }
 
   function clearSelection(): void {
@@ -79,53 +76,65 @@ export default function CityPage() {
     railId !== null ? { kind: 'pkp', id: railId, name: selectedName ?? railId } : null
 
   return (
-    <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
-      <TopBar title={`Odjazdy i przyjazdy — ${cityName}`} subtitle="Stacje kolejowe i przystanki komunikacji miejskiej" />
+    <>
+      <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
+        <TopBar
+          title={`Odjazdy i przyjazdy — ${cityName}`}
+          subtitle="Stacje kolejowe i przystanki komunikacji miejskiej"
+          actions={<CityPicker cities={cities} current={city} />}
+        />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <CityPicker cities={cities} current={city} />
-      </div>
-      {entry !== null && !hasSelection && <CitySummary data={entry} />}
+        {!hasSelection && (
+          <CityStatTiles stats={stats} loading={statsLoading} railStationCount={entry?.railStations.length ?? 0} />
+        )}
 
-      <div className="flex flex-col gap-3">
-        <ModeFilterChips value={mode} onChange={setMode} />
         <StationSearch
           wide
-          endpoint={`/api/search?city=${encodeURIComponent(city)}&mode=${mode}`}
+          endpoint={`/api/search?city=${encodeURIComponent(city)}`}
           placeholder="Szukaj stacji kolejowej lub przystanku miejskiego…"
           onSelect={pick}
         />
-      </div>
 
-      {hasSelection && (
-        <section className="flex flex-col gap-4">
-          <button
-            type="button"
-            onClick={clearSelection}
-            className="inline-flex items-center gap-2 self-start text-sm font-semibold text-text-secondary hover:text-foreground"
-          >
-            <ArrowLeftIcon size={16} />
-            Wróć do wyszukiwania
-          </button>
+        {hasSelection && (
+          <section className="flex flex-col gap-4">
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="inline-flex items-center gap-2 self-start text-sm font-semibold text-text-secondary hover:text-foreground"
+            >
+              <ArrowLeftIcon size={16} />
+              Wróć do wyszukiwania
+            </button>
 
-          {railId !== null && railFavourite !== null && (
-            <FullBoard
-              embedded
-              stationId={railId}
-              stationName={railFavourite.name}
-              isFavourite={isFavourite(favouriteKey(railFavourite))}
-              onToggleFavourite={() =>
-                isFavourite(favouriteKey(railFavourite))
-                  ? removeFavourite(favouriteKey(railFavourite))
-                  : addFavourite(railFavourite)
-              }
-              onClose={clearSelection}
-            />
-          )}
+            {railId !== null && railFavourite !== null && (
+              <FullBoard
+                embedded
+                stationId={railId}
+                stationName={railFavourite.name}
+                isFavourite={isFavourite(favouriteKey(railFavourite))}
+                onToggleFavourite={() =>
+                  isFavourite(favouriteKey(railFavourite))
+                    ? removeFavourite(favouriteKey(railFavourite))
+                    : addFavourite(railFavourite)
+                }
+                onClose={clearSelection}
+              />
+            )}
 
-          {transitId !== null && <TransitStopDetail embedded city={city} stopId={transitId} />}
-        </section>
+            {transitId !== null && (
+              <TransitStopDetail embedded city={city} stopId={transitId} initialName={selectedName} />
+            )}
+          </section>
+        )}
+      </main>
+
+      {/* Prawa kolumna: widżet sieci komunikacji miejskiej — tylko gdy nie ma
+          otwartego panelu szczegółów (ten ma własną kolumnę). */}
+      {!hasSelection && (
+        <aside className="hidden w-80 shrink-0 self-start sticky top-0 max-h-dvh overflow-y-auto py-7 pr-8 xl:block">
+          <CityTransitWidget city={city} cityName={cityName} />
+        </aside>
       )}
-    </main>
+    </>
   )
 }

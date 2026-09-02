@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isoInZone } from '@/lib/pkp/time'
-import { buildSchedule, groupStopId, type BuildScheduleInput } from './schedule'
-import { contrastText, modeFromRouteType } from './schema'
+import { buildSchedule, cleanGroupName, groupStopId, type BuildScheduleInput } from './schedule'
+import { contrastText, lineKindFrom, modeFromRouteType } from './schema'
 import type { GtfsRoute } from './types'
 
 const at = (schedule: { evAbsSec: Float64Array; timezone: string }, eventIndex: number) =>
@@ -16,6 +16,7 @@ function route(id: string, type: number, shortName = id): GtfsRoute {
     shortName,
     longName: shortName,
     mode: modeFromRouteType(type),
+    kind: lineKindFrom(shortName, undefined),
     color: null,
     textColor: contrastText(null),
   }
@@ -44,6 +45,17 @@ function makeInput(over: Overrides): BuildScheduleInput {
     stopTimeLines: over.stopTimeLines ?? [],
   }
 }
+
+describe('cleanGroupName', () => {
+  it('drops a trailing 2-digit słupek number (ZTM convention)', () => {
+    expect(cleanGroupName('Centrum 01')).toBe('Centrum')
+    expect(cleanGroupName('Rondo ONZ 02')).toBe('Rondo ONZ')
+  })
+  it('leaves names without a trailing number alone', () => {
+    expect(cleanGroupName('Świętokrzyska')).toBe('Świętokrzyska')
+    expect(cleanGroupName('Dworzec Zachodni 100')).toBe('Dworzec Zachodni 100') // 3 cyfry ≠ słupek
+  })
+})
 
 describe('groupStopId', () => {
   it('uses parent_station when present', () => {

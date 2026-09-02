@@ -1,6 +1,8 @@
-route_id,agency_id,route_short_name,route_long_name,route_type,route_color,route_text_color
-M1,0,M1,Kabaty – Młociny,1,0000BB,FFFFFF
-M2,0,M2,Bemowo – Bródno,1,BB0000,BB0000
-20,0,20,Piaski – Międzylesie,0,009944,FFFFFF
-128,0,128,Chomiczówka – Dworzec Centralny,3,E30613,FFFFFF
-S2,0,S2,Sulejówek Miłosna – Lotnisko Chopina,2,ZZ12GG,FFFFFF
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_color,route_text_color
+M1,0,M1,Kabaty – Młociny,,1,0000BB,FFFFFF
+M2,0,M2,Bemowo – Bródno,,1,BB0000,BB0000
+20,0,20,Piaski – Międzylesie,,0,009944,FFFFFF
+128,0,128,Chomiczówka – Dworzec Centralny,,3,E30613,FFFFFF
+N16,0,N16,Dworzec Centralny – Bemowo,linia nocna,3,000000,FFFFFF
+521,0,521,Marysin – Zachodnia,linia przyspieszona,3,00A0E3,FFFFFF
+S2,0,S2,Sulejówek Miłosna – Lotnisko Chopina,,2,ZZ12GG,FFFFFF

@@ -48,17 +48,13 @@ export function TransitDepartureList({ departures, loading = false, emptyMessage
           <span className="min-w-0 flex-1 truncate text-sm text-foreground">
             {departure.headsign ?? '—'}
           </span>
+          {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
+          {departure.lineKind === 'express' && <span className="shrink-0 text-xs text-text-muted">przyspieszona</span>}
           {departure.frequencyBased && (
             <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
           )}
           {departure.platformCode !== null && (
             <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
-          )}
-          {/* GTFS `0` = brak informacji, nie „niedostępny" — pokazujemy wyłącznie potwierdzoną dostępność. */}
-          {departure.wheelchair === 1 && (
-            <span className="shrink-0 text-xs text-text-muted" title="Przystanek dostępny dla wózków">
-              ♿
-            </span>
           )}
         </li>
       ))}

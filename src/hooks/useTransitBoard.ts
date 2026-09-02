@@ -10,6 +10,8 @@ export type TransitStopBoard = {
   modes: GtfsMode[]
   /** Linie obsługujące zespół, posortowane naturalnie. */
   lines: GtfsLine[]
+  /** Któryś słupek zespołu ma potwierdzoną dostępność (`wheelchair_boarding = 1`). */
+  wheelchairAccessible: boolean
   /** Fakty rozkładowe (liczba linii, odjazdy dziś, pierwszy/ostatni, wykres godzinowy). */
   summary: StopSummary
   departures: GtfsDeparture[]

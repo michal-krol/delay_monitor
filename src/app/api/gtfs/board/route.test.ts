@@ -36,7 +36,7 @@ beforeAll(async () => {
     timezone: 'Europe/Warsaw',
     attribution: ['ZTM', 'Mikołaj Kuranowski'],
     routes: [
-      { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), color: null, textColor: contrastText(null) },
+      { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular', color: null, textColor: contrastText(null) },
     ],
     stops: [
       { id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 },

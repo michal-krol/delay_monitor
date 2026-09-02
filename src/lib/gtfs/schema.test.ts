@@ -3,6 +3,7 @@ import {
   calendarDateSchema,
   contrastText,
   frequencySchema,
+  lineKindFrom,
   modeFromRouteType,
   normalizeRouteColor,
   parseGtfsSeconds,
@@ -44,6 +45,31 @@ describe('modeFromRouteType', () => {
     expect(modeFromRouteType(700)).toBe('bus')
     expect(modeFromRouteType(109)).toBe('rail')
     expect(modeFromRouteType(999)).toBe('other')
+  })
+})
+
+describe('lineKindFrom', () => {
+  it('reads route_desc first', () => {
+    expect(lineKindFrom('16', 'linia nocna')).toBe('night')
+    expect(lineKindFrom('7', 'komunikacja zastępcza')).toBe('replacement')
+    expect(lineKindFrom('9', 'linia przyspieszona')).toBe('express')
+  })
+
+  it('falls back to the ZTM number convention', () => {
+    expect(lineKindFrom('N16', undefined)).toBe('night')
+    expect(lineKindFrom('Z1', undefined)).toBe('replacement')
+    expect(lineKindFrom('521', undefined)).toBe('express')
+    expect(lineKindFrom('E-1', undefined)).toBe('express')
+    expect(lineKindFrom('128', undefined)).toBe('regular')
+    expect(lineKindFrom('20', undefined)).toBe('regular')
+    expect(lineKindFrom('M1', undefined)).toBe('regular') // M ≠ night
+  })
+})
+
+describe('routeSchema — rodzaj linii', () => {
+  it('derives kind from the short name', () => {
+    expect(routeSchema.parse({ route_id: 'r', route_short_name: 'N16', route_type: '3' }).kind).toBe('night')
+    expect(routeSchema.parse({ route_id: 'r', route_short_name: '128', route_type: '3' }).kind).toBe('regular')
   })
 })
 

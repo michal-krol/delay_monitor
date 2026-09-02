@@ -70,13 +70,11 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('CityPage', () => {
-  it('shows the city picker, a summary line and one unified search', async () => {
+  it('shows the city picker, the stat tiles and one unified search', async () => {
     render(<CityPage />)
     expect(await screen.findByRole('combobox', { name: /szukaj/i })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: 'Warszawa' })).toBeInTheDocument()
-    expect(await screen.findByText(/stacja kolejowa|stacji kolejowych/)).toBeInTheDocument()
-    // Filtr rodzaju.
-    expect(screen.getByRole('button', { name: /metro/i })).toBeInTheDocument()
+    expect(await screen.findByText('stacje kolejowe')).toBeInTheDocument()
   })
 
   it('navigates with ?stacja= when a rail result is picked, ?przystanek= for a transit result', async () => {

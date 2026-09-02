@@ -84,6 +84,7 @@ export async function GET(request: Request) {
       name: group.name,
       modes: group.modes,
       lines: group.lines,
+      wheelchairAccessible: group.wheelchairAccessible,
       summary,
       departures: nextDepartures(schedule, [id], now, limit),
     }

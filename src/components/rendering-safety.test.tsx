@@ -139,6 +139,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
               routeId: payload,
               line: payload,
               mode: 'bus',
+              lineKind: 'regular',
               // route_color surowy z cudzego serwera — LineBadge dostaje go jako `color`.
               color: payload,
               headsign: payload,

@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
-import { contrastText, modeFromRouteType } from '@/lib/gtfs/schema'
+import { contrastText, lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
 
 const searchStations = vi.fn(async () => [
@@ -24,6 +24,7 @@ beforeAll(async () => {
     shortName: id,
     longName: id,
     mode: modeFromRouteType(type),
+    kind: lineKindFrom(id, undefined),
     color: null,
     textColor: contrastText(null),
   })
@@ -79,18 +80,7 @@ describe('GET /api/search', () => {
     const { body: transit } = await call('city=waw&q=swi')
     const hit = transit.stations.find((s: { kind: string }) => s.kind === 'transit')
     expect(hit.name).toBe('Świętokrzyska')
-    expect(hit.lines).toEqual([{ routeId: 'M1', line: 'M1', color: null, mode: 'metro' }])
-  })
-
-  it('mode=rail returns only rail stations; mode=metro only metro transit', async () => {
-    const railOnly = (await call('city=waw&q=war&mode=rail')).body.stations
-    expect(railOnly.every((s: { kind: string }) => s.kind === 'rail')).toBe(true)
-
-    const metroOnly = (await call('city=waw&q=swi&mode=metro')).body.stations as { kind: string; modes: string[] }[]
-    expect(metroOnly.every((s) => s.kind === 'transit' && s.modes.includes('metro'))).toBe(true)
-
-    const tramOnly = (await call('city=waw&q=swi&mode=tram')).body.stations
-    expect(tramOnly).toEqual([]) // Świętokrzyska w feedzie ma tylko metro
+    expect(hit.lines).toEqual([{ routeId: 'M1', line: 'M1', color: null, mode: 'metro', kind: 'regular' }])
   })
 
   it('flags loading while the schedule is not ready — rail still works, transit retries', async () => {

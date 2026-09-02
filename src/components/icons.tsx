@@ -203,6 +203,18 @@ export function MetroIcon(props: IconProps) {
   )
 }
 
+export function AccessibleIcon(props: IconProps) {
+  return base(
+    <>
+      <circle cx="10" cy="3.6" r="1.5" fill="currentColor" stroke="none" />
+      <path d="M10 6v4.5h3.5M10 8.2h-3" stroke="currentColor" />
+      <path d="M10 10.5c0 3.6-2.6 5.5-4.5 5.5S2 14 3.2 11.3" stroke="currentColor" />
+      <path d="M10 10.5l2 5.5" stroke="currentColor" />
+    </>,
+    props
+  )
+}
+
 export function AlertCircleIcon(props: IconProps) {
   return base(
     <>

@@ -105,6 +105,15 @@ export function groupStopId(stop: { id: string; parentId: string | null }): stri
   return stop.id
 }
 
+/**
+ * Nazwy słupków ZTM niosą numer słupka na końcu („Centrum 01", „Centrum 02").
+ * To ten sam zespół — obcinamy numer, żeby wyszukiwarka pokazywała jeden wpis.
+ * Konwencja ZTM, nie gwarancja GTFS-a — kolejne miasto może wymagać innej reguły.
+ */
+export function cleanGroupName(name: string): string {
+  return name.replace(/\s+\d{2}$/, '').trim() || name
+}
+
 /** GTFS dzień tygodnia: 0 = poniedziałek … 6 = niedziela. */
 function gtfsWeekday(date: string): number {
   const sundayFirst = new Date(`${date}T12:00:00Z`).getUTCDay()
@@ -170,12 +179,12 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     const members = groupMembers.get(group)
     if (members === undefined) groupMembers.set(group, [index])
     else members.push(index)
-    if (!groupName.has(group) && stop.name !== '') groupName.set(group, stop.name)
+    if (!groupName.has(group) && stop.name !== '') groupName.set(group, cleanGroupName(stop.name))
   })
   // Preferuj nazwę rodzica zespołu, gdy istnieje.
   for (const [group, members] of groupMembers) {
     const parentIdx = members.map((m) => stopParent[m]).find((p) => p >= 0)
-    if (parentIdx !== undefined && stopNames[parentIdx] !== '') groupName.set(group, stopNames[parentIdx])
+    if (parentIdx !== undefined && stopNames[parentIdx] !== '') groupName.set(group, cleanGroupName(stopNames[parentIdx]))
   }
 
   // ── kursy: rozwinięcie na doby kursowania ─────────────────────────────────

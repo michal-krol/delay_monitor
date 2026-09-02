@@ -1,14 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { buildSchedule, type BuildScheduleInput } from './schedule'
-import { contrastText, modeFromRouteType } from './schema'
-import { dayTimetable, groupLines, linesByMode, nextDepartures, searchStops, stopGroup, stopSummary } from './query'
+import { contrastText, lineKindFrom, modeFromRouteType } from './schema'
+import {
+  cityStats,
+  dayTimetable,
+  groupLines,
+  linesByMode,
+  nextDepartures,
+  searchStops,
+  stopGroup,
+  stopSummary,
+} from './query'
 import type { GtfsRoute } from './types'
 
 const TZ = 'Europe/Warsaw'
 const DATES: [string, string, string] = ['2026-09-01', '2026-09-02', '2026-09-03']
 
 function route(id: string, type: number, shortName = id): GtfsRoute {
-  return { id, shortName, longName: shortName, mode: modeFromRouteType(type), color: null, textColor: contrastText(null) }
+  return { id, shortName, longName: shortName, mode: modeFromRouteType(type), kind: lineKindFrom(shortName, undefined), color: null, textColor: contrastText(null) }
 }
 function stop(id: string, name: string, parentId: string | null = null) {
   return { id, name, lat: 52, lon: 21, locationType: '0', parentId, platformCode: null, wheelchair: 0 as const }
@@ -104,6 +113,21 @@ describe('stopGroup', () => {
     // Linie z `groupRoutes` — posortowane, metro przed tramwajem w `modes`.
     expect(group?.lines.map((line) => line.line)).toEqual(['20', 'M1'])
     expect(group?.modes).toEqual(['metro', 'tram'])
+    expect(group?.wheelchairAccessible).toBe(false) // słupki wheelchair=0
+  })
+
+  it('flags wheelchairAccessible only for a confirmed (1) member, not unknown (0)', async () => {
+    const schedule = await make({
+      stops: [
+        { id: '100101', name: 'Centrum 01', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 1 as const },
+        { id: '100102', name: 'Centrum 02', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 as const },
+      ],
+      trips: [{ routeId: '1', serviceId: 'S', tripId: 't', headsign: 'A', directionId: 0 }],
+      stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 't,100101,12:00:00,12:00:00,1'],
+    })
+    expect(stopGroup(schedule, '1001')?.wheelchairAccessible).toBe(true)
+    // Sama nazwa zespołu bez numeru słupka.
+    expect(stopGroup(schedule, '1001')?.name).toBe('Centrum')
   })
 
   it('returns null for an unknown id', async () => {
@@ -124,7 +148,7 @@ describe('groupLines / stopSummary', () => {
   it('groupLines returns the distinct lines of a group', async () => {
     const schedule = await scheduleWithMetro()
     expect(groupLines(schedule, '7014M')).toEqual([
-      { routeId: 'M1', line: 'M1', color: null, mode: 'metro' },
+      { routeId: 'M1', line: 'M1', color: null, mode: 'metro', kind: 'regular' },
     ])
     expect(groupLines(schedule, 'ghost')).toEqual([])
   })
@@ -147,6 +171,35 @@ describe('groupLines / stopSummary', () => {
     })
     const summary = stopSummary(schedule, '1001', 1)
     expect(summary.hourly[1]).toBe(1) // 25:30 → kubełek 1
+  })
+})
+
+describe('cityStats', () => {
+  it('counts lines per mode, bus kinds, trips today and the network hourly histogram', async () => {
+    const schedule = await make({
+      routes: [route('M1', 1, 'M1'), route('20', 0, '20'), route('128', 3, '128'), route('N16', 3, 'N16'), route('521', 3, '521')],
+      stops: [stop('1001', 'A')],
+      trips: [
+        { routeId: '20', serviceId: 'S', tripId: 't1', headsign: 'x', directionId: 0 },
+        { routeId: '128', serviceId: 'S', tripId: 't2', headsign: 'x', directionId: 0 },
+        { routeId: 'N16', serviceId: 'S', tripId: 't3', headsign: 'x', directionId: 0 },
+      ],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        't1,1001,06:00:00,06:00:00,1',
+        't2,1001,07:30:00,07:30:00,1',
+        't3,1001,24:15:00,24:15:00,1',
+      ],
+    })
+    const stats = cityStats(schedule, 1)
+    expect(stats.linesByMode).toEqual({ metro: 1, tram: 1, bus: 3, rail: 0, other: 0 })
+    expect(stats.busKinds).toEqual({ regular: 1, night: 1, express: 1, replacement: 0 })
+    expect(stats.modeCount).toBe(3) // metro, tram, bus
+    expect(stats.tripsToday).toBe(3)
+    expect(stats.firstDepartureSec).toBe(6 * 3600)
+    expect(stats.lastDepartureSec).toBe(24 * 3600 + 15 * 60)
+    expect(stats.hourly[6]).toBe(1)
+    expect(stats.hourly[0]).toBe(1) // 24:15 → kubełek 0
   })
 })
 
