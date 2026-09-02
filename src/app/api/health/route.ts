@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { appConfig, poller } from '@/lib/board/instance'
+import { loadConfig } from '@/lib/config'
+import { enabledGtfsCities, peekGtfsPoller } from '@/lib/gtfs/instance'
 
 /**
  * Ścieżka healthchecku Railway (`railway.json`) — czyta wyłącznie pamięć
@@ -10,8 +12,36 @@ import { appConfig, poller } from '@/lib/board/instance'
  * budżet i tak przyjeżdża w nagłówkach odpowiedzi `/operations`).
  */
 export async function GET() {
+  const gtfsConfig = loadConfig().gtfs
+  // Sekcja GTFS per miasto — sam ODCZYT stanu pollera, nie budzi ładowania.
+  // `droppedRows` trójstanowo: `null` = nigdy nie parsowano, NIGDY jako `0`.
+  const gtfs = gtfsConfig.enabled
+    ? {
+        dataSource: gtfsConfig.dataSource,
+        cities: Object.fromEntries(
+          enabledGtfsCities().map((city) => {
+            const view = peekGtfsPoller(city.id)?.getView() ?? null
+            return [
+              city.id,
+              view === null
+                ? { state: 'idle' as const, loadedAt: null, feedVersion: null, droppedRows: null, phase: null }
+                : {
+                    state: view.state,
+                    loadedAt: view.loadedAt,
+                    ageMs: view.ageMs,
+                    feedVersion: view.feedVersion,
+                    droppedRows: view.droppedRows,
+                    phase: view.phase,
+                  },
+            ]
+          })
+        ),
+      }
+    : { enabled: false }
+
   return NextResponse.json({
     dataSource: appConfig.dataSource,
+    gtfs,
     pollerAwake: poller.isAwake(),
     pollerStatus: poller.getStatus(),
     throttled: poller.isThrottled(),

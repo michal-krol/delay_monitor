@@ -5,7 +5,7 @@
  */
 import { loadConfig } from '@/lib/config'
 import { getCity, type CityFeed } from './cities'
-import type { GtfsClient } from './client'
+import { createLiveClient, type GtfsClient } from './client'
 import { loadSchedule } from './loader'
 import { createMockClient } from './mock'
 import { createGtfsPoller, type GtfsPoller } from './poller'
@@ -14,10 +14,7 @@ const config = loadConfig()
 const pollers = new Map<string, GtfsPoller>()
 
 function clientFor(city: CityFeed): GtfsClient {
-  if (config.gtfs.dataSource === 'mock') return createMockClient(city)
-  // ponytail: `createLiveClient(city)` podłączamy tu w etapie 3. Do tego czasu
-  // `GTFS_DATA_SOURCE` domyślnie = `mock`, a ta gałąź jest nieosiągalna.
-  throw new Error('GTFS_DATA_SOURCE=live wymaga klienta z etapu 3 (jeszcze nie zaimplementowany)')
+  return config.gtfs.dataSource === 'mock' ? createMockClient(city) : createLiveClient(city)
 }
 
 /**
@@ -41,6 +38,11 @@ export function getGtfsPoller(cityId: string): GtfsPoller | null {
     pollers.set(cityId, poller)
   }
   return poller
+}
+
+/** Istniejący poller miasta bez tworzenia nowego — do `/api/health` (samo raportowanie). */
+export function peekGtfsPoller(cityId: string): GtfsPoller | null {
+  return pollers.get(cityId) ?? null
 }
 
 /** Lista miast, dla których podprojekt jest aktywny (wpis w rejestrze ∩ GTFS_CITIES). */

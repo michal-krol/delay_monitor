@@ -1,75 +1,12 @@
-import { crc32, deflateRawSync, inflateRawSync } from 'node:zlib'
+import { inflateRawSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
+import { buildZip } from '@/test-utils/zip'
 import {
   findEndOfCentralDirectory,
   isZip64UnsupportedError,
   localDataOffset,
   parseCentralDirectory,
 } from './zip'
-
-type BuildEntry = {
-  name: string
-  data: Buffer
-  /** 0 = stored, 8 = deflate */
-  method: 0 | 8
-  /** Długość pola `extra` w nagłówku LOKALNYM (celowo różna od CD). */
-  localExtraLength?: number
-}
-
-/** Buduje prawidłowy klasyczny ZIP z podanych wpisów. */
-function buildZip(entries: BuildEntry[]): Buffer {
-  const localChunks: Buffer[] = []
-  const centralChunks: Buffer[] = []
-  const layout: { offset: number }[] = []
-  let offset = 0
-
-  for (const entry of entries) {
-    const nameBuf = Buffer.from(entry.name, 'utf8')
-    const stored = entry.method === 8 ? deflateRawSync(entry.data) : entry.data
-    const localExtra = Buffer.alloc(entry.localExtraLength ?? 0)
-    const checksum = crc32(entry.data)
-
-    const local = Buffer.alloc(30)
-    local.writeUInt32LE(0x04034b50, 0)
-    local.writeUInt16LE(20, 4)
-    local.writeUInt16LE(entry.method, 8)
-    local.writeUInt32LE(checksum, 14)
-    local.writeUInt32LE(stored.length, 18)
-    local.writeUInt32LE(entry.data.length, 22)
-    local.writeUInt16LE(nameBuf.length, 26)
-    local.writeUInt16LE(localExtra.length, 28)
-
-    layout.push({ offset })
-    const localRecord = Buffer.concat([local, nameBuf, localExtra, stored])
-    localChunks.push(localRecord)
-    offset += localRecord.length
-
-    const central = Buffer.alloc(46)
-    central.writeUInt32LE(0x02014b50, 0)
-    central.writeUInt16LE(20, 4)
-    central.writeUInt16LE(20, 6)
-    central.writeUInt16LE(entry.method, 10)
-    central.writeUInt32LE(checksum, 16)
-    central.writeUInt32LE(stored.length, 20)
-    central.writeUInt32LE(entry.data.length, 24)
-    central.writeUInt16LE(nameBuf.length, 28)
-    central.writeUInt16LE(0, 30) // CD extra length — celowo 0, różne od lokalnego
-    central.writeUInt32LE(layout[layout.length - 1].offset, 42)
-    centralChunks.push(Buffer.concat([central, nameBuf]))
-  }
-
-  const centralDirectory = Buffer.concat(centralChunks)
-  const centralDirectoryOffset = offset
-
-  const eocd = Buffer.alloc(22)
-  eocd.writeUInt32LE(0x06054b50, 0)
-  eocd.writeUInt16LE(entries.length, 8)
-  eocd.writeUInt16LE(entries.length, 10)
-  eocd.writeUInt32LE(centralDirectory.length, 12)
-  eocd.writeUInt32LE(centralDirectoryOffset, 16)
-
-  return Buffer.concat([...localChunks, centralDirectory, eocd])
-}
 
 const ROUTES = Buffer.from('route_id,route_short_name,route_type\nM1,M1,1\n', 'utf8')
 const FEED_INFO = Buffer.from('feed_version\n2026-09-02\n', 'utf8')
