@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useCityContext } from './useCityContext'
+import { __resetCityContext, useCityContext } from './useCityContext'
 
 beforeEach(() => {
   window.localStorage.clear()
   window.history.replaceState(null, '', '/')
+  __resetCityContext()
 })
 
 describe('useCityContext', () => {

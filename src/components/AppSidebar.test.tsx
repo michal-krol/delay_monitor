@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AppSidebar } from './AppSidebar'
+import { __resetCityContext } from '@/hooks/useCityContext'
 
 const usePathname = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -12,6 +13,7 @@ vi.mock('next/navigation', () => ({
 afterEach(() => {
   vi.clearAllMocks()
   window.localStorage.clear()
+  __resetCityContext()
 })
 
 describe('AppSidebar', () => {

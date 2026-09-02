@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityPage from './page'
+import { __resetCityContext } from '@/hooks/useCityContext'
 import { jsonResponse } from '@/test-utils/http'
 
 const notFound = vi.fn(() => {
@@ -18,6 +19,7 @@ vi.mock('@/hooks/useBoard', () => ({ useBoard: () => ({ data: null }) }))
 beforeEach(() => {
   cityParam = 'waw'
   window.localStorage.clear()
+  __resetCityContext()
   window.history.replaceState(null, '', '/miasto/waw')
   vi.stubGlobal(
     'fetch',

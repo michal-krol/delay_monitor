@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from './Sidebar'
+import { __resetCityContext } from '@/hooks/useCityContext'
 
 // CitySwitcher (nad menu) używa useRouter.
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
@@ -11,6 +12,7 @@ beforeEach(() => {
   // collapse (like the one below) would otherwise leak collapsed=true into
   // every test that runs after it in this file.
   window.localStorage.clear()
+  __resetCityContext()
 })
 
 afterEach(() => {

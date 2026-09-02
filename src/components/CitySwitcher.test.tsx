@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CitySwitcher } from './CitySwitcher'
+import { __resetCityContext } from '@/hooks/useCityContext'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
@@ -12,6 +13,7 @@ beforeEach(() => {
   push.mockClear()
   window.localStorage.clear()
   window.history.replaceState(null, '', '/')
+  __resetCityContext()
   vi.stubGlobal(
     'fetch',
     vi.fn(() =>
