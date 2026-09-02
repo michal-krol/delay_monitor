@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
@@ -77,6 +77,20 @@ const NOTABLE_STOP_MINUTES = 3
 /** Odświeżanie samego odliczania „za ile" — bez żadnego zapytania do PKP (AGENTS.md #3). */
 const COUNTDOWN_TICK_MS = 30_000
 
+/**
+ * Najkrótszy odstęp między pobraniami `/api/train` w tle. Poniżej tego i tak
+ * trafiłoby w 90 s cache trasy po stronie serwera (`src/app/api/train/route.ts`),
+ * więc szybciej nie ma po co pytać PKP (AGENTS.md #3).
+ */
+const MIN_BACKGROUND_REFRESH_MS = 90_000
+
+/**
+ * Powolny timer dociągania danych w tle — tylko gdy karta jest widoczna i pociąg
+ * jeszcze jedzie. Rzadki, bo główny sygnał to powrót na kartę / focus okna; ten
+ * timer łapie tylko przypadek „patrzę na stronę bez przerwy 10+ min".
+ */
+const BACKGROUND_REFRESH_MS = 5 * 60_000
+
 const formatTime = formatClockTime
 
 /** `2026-08-27` → `27.08.2026 (czw.)`. Sama data kalendarzowa, nie znacznik czasu — nie przechodzi przez `normalizeApiTimestamp`. */
@@ -148,28 +162,65 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const [data, setData] = useState<TrainDetailApiResponse | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const { share, copied } = useShareUrl()
+  // Do sprawdzenia „czy jest jeszcze co odświeżać" wewnątrz efektu bez trzymania
+  // `data` w jego zależnościach — inaczej każdy refetch przepinałby listenery.
+  const dataRef = useRef<TrainDetailApiResponse | null>(null)
 
+  // Wejście = jednorazowy fetch, a strona żyje potem tylko licznikiem „za ile"
+  // (AGENTS.md #3) — więc marker „Pociąg jest tutaj", opóźnienia i statusy
+  // zostają zamrożone z chwili wczytania. Dociągamy je w tle: przy powrocie na
+  // kartę / focusie okna oraz powolnym timerem, ale nie częściej niż co
+  // `MIN_BACKGROUND_REFRESH_MS` (cache `/api/train` i tak trzyma 90 s) i nie po
+  // dojechaniu pociągu do stacji końcowej. Odświeżenie w tle jest CICHE — nie
+  // pokazuje szkieletu i nie wygasza działającej strony przy błędzie (#7).
   useEffect(() => {
     let cancelled = false
+    let lastFetchAt = 0
 
-    async function load(): Promise<void> {
+    async function load(mode: 'initial' | 'background'): Promise<void> {
+      if (mode === 'background' && Date.now() - lastFetchAt < MIN_BACKGROUND_REFRESH_MS) return
+      lastFetchAt = Date.now()
       try {
         const params = new URLSearchParams({ scheduleId, orderId, operatingDate })
         const response = await fetch(`/api/train?${params}`)
         if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
         const json = (await response.json()) as TrainDetailApiResponse
-        if (!cancelled) {
-          setData(json)
-          setStatus('ready')
-        }
+        if (cancelled) return
+        dataRef.current = json
+        setData(json)
+        setStatus('ready')
       } catch {
-        if (!cancelled) setStatus('error')
+        // Baner błędu tylko wtedy, gdy nie mamy jeszcze CZEGO pokazać. Nieudany
+        // refetch zostawia ostatni dobry stan (AGENTS.md #7).
+        if (!cancelled && mode === 'initial') setStatus('error')
       }
     }
 
-    void load()
+    // Pociąg, który dojechał do ostatniego przystanku (albo ma całą trasę
+    // odwołaną), już się nie zmieni — nie ma czego dociągać.
+    function journeyOver(): boolean {
+      const stops = dataRef.current?.stops
+      if (stops === undefined || stops.length === 0) return false
+      return stops[stops.length - 1].isConfirmed || stops.every((stop) => stop.isCancelled)
+    }
+
+    function backgroundRefresh(): void {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      if (journeyOver()) return
+      void load('background')
+    }
+
+    void load('initial')
+
+    document.addEventListener('visibilitychange', backgroundRefresh)
+    window.addEventListener('focus', backgroundRefresh)
+    const timer = window.setInterval(backgroundRefresh, BACKGROUND_REFRESH_MS)
+
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', backgroundRefresh)
+      window.removeEventListener('focus', backgroundRefresh)
+      window.clearInterval(timer)
     }
   }, [scheduleId, orderId, operatingDate])
 
@@ -426,8 +477,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     const showStopMinutes = stopMinutes !== null && stopMinutes >= NOTABLE_STOP_MINUTES
                     const hasBadges = isCurrent || showStopMinutes || stopTypeName !== null || messages.length > 0
 
+                    // Klucz z indeksem, nie sam `stationId`: pociąg z zawrotką mija tę
+                    // samą stację dwa razy (np. PODLASIAK: Szczecin Dąbie) — bez indeksu
+                    // React myli oba wiersze przy odświeżaniu danych w tle.
                     return (
-                      <li key={stop.stationId} className="flex gap-3.5">
+                      <li key={`${stop.stationId}-${index}`} className="flex gap-3.5">
                         <div className="flex flex-col items-center pt-2.5">
                           {/* Halo z makiety na przystanku, na którym pociąg właśnie stoi —
                               jedyne miejsce w widoku odpowiadające „tu jesteśmy teraz",

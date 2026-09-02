@@ -628,4 +628,85 @@ describe('ConnectionDetails', () => {
     expect(writeText).toHaveBeenCalledWith(window.location.href)
     expect(await screen.findByText('Skopiowano link')).toBeInTheDocument()
   })
+
+  describe('background refresh', () => {
+    const CONFIRMED_SECOND_STOP = {
+      ...RESPONSE,
+      stops: [
+        RESPONSE.stops[0],
+        { ...RESPONSE.stops[1], isConfirmed: true, actualArrival: '2026-08-01T11:21:00.000Z', arrivalDelayMinutes: 1 },
+      ],
+    }
+
+    it('refetches on window focus once past the throttle window, updating stops without a skeleton flash', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(RESPONSE))
+        .mockImplementation(() => jsonResponse(CONFIRMED_SECOND_STOP))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      // <90 s od pierwszego pobrania — ignorowane (cache /api/train i tak trzyma 90 s)
+      vi.setSystemTime(new Date('2026-08-01T10:01:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await Promise.resolve()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      // >90 s — dociąga w tle
+      vi.setSystemTime(new Date('2026-08-01T10:02:00Z'))
+      window.dispatchEvent(new Event('focus'))
+
+      // eslint-disable-next-line testing-library/no-node-access
+      const wwaRow = () => routeList().getByText('Warszawa Centralna').closest('li') as HTMLElement
+      await vi.waitFor(() => expect(within(wwaRow()).getByText('+1 min')).toBeInTheDocument())
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      // Nigdy nie wróciło do stanu ładowania
+      expect(screen.queryByText('Wczytywanie trasy…')).not.toBeInTheDocument()
+    })
+
+    it('keeps the last good data (no error banner) when a background refetch fails', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(RESPONSE))
+        .mockImplementation(() => Promise.resolve(new Response('boom', { status: 500 })))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+      expect(screen.queryByText('Nie udało się pobrać szczegółów połączenia.')).not.toBeInTheDocument()
+      expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
+    })
+
+    it('stops refetching once the train has reached its final stop', async () => {
+      freezeClock('2026-08-01T12:00:00Z')
+      const arrived = {
+        ...RESPONSE,
+        stops: [
+          RESPONSE.stops[0],
+          { ...RESPONSE.stops[1], isConfirmed: true, actualArrival: '2026-08-01T11:25:00.000Z', arrivalDelayMinutes: 5 },
+        ],
+      }
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse(arrived))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      vi.setSystemTime(new Date('2026-08-01T12:10:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await Promise.resolve()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+  })
 })
