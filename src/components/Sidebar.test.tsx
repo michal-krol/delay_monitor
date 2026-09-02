@@ -62,9 +62,16 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Pulpit' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('Odjazdy/Przyjazdy/Trasy/Mapa/Ustawienia/Powiadomienia są nieaktywne — brak href, aria-disabled', () => {
+  it('„Odjazdy / Przyjazdy" prowadzi na /miasto (trasa dobiera domyślne miasto)', () => {
+    render(<Sidebar activeItem="odjazdy" />)
+    const link = screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })
+    expect(link).toHaveAttribute('href', '/miasto')
+    expect(link).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('Ulubione/Powiadomienia/Trasy/Mapa/Ustawienia są nieaktywne — brak href, aria-disabled', () => {
     render(<Sidebar activeItem="pulpit" />)
-    for (const label of ['Odjazdy / Przyjazdy', 'Trasy', 'Mapa', 'Ustawienia', 'Powiadomienia']) {
+    for (const label of ['Ulubione', 'Powiadomienia', 'Trasy', 'Mapa', 'Ustawienia']) {
       // eslint-disable-next-line testing-library/no-node-access -- najbliższy element z aria-disabled to cały wiersz pozycji nawigacji
       const item = screen.getByText(label).closest('[aria-disabled]')
       expect(item).toHaveAttribute('aria-disabled', 'true')

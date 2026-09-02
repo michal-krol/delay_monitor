@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
+import { serviceDateWindow } from '@/lib/pkp/time'
+import { getCity } from '@/lib/gtfs/cities'
 import { getGtfsPoller } from '@/lib/gtfs/instance'
-import { nextDepartures, stopGroup } from '@/lib/gtfs/query'
+import { nextDepartures, stopGroup, stopSummary } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 
 /** Przeniesione z `/api/board`: realny użytkownik obserwuje kilka przystanków. */
@@ -66,13 +68,23 @@ export async function GET(request: Request) {
   }
 
   const now = Date.now()
+  // Indeks doby „dziś" w oknie [wczoraj, dziś, jutro] — do podsumowania stopu.
+  const todayIndex = (() => {
+    const timezone = getCity(city)?.timezone ?? 'Europe/Warsaw'
+    const today = serviceDateWindow(new Date(now), timezone)[1]
+    return schedule.serviceDates.indexOf(today) === -1 ? 1 : schedule.serviceDates.indexOf(today)
+  })()
+
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
     if (group === null) return null
+    const summary = stopSummary(schedule, id, todayIndex)
     return {
       stopId: id,
       name: group.name,
       modes: group.modes,
+      lines: group.lines,
+      summary,
       departures: nextDepartures(schedule, [id], now, limit),
     }
   })

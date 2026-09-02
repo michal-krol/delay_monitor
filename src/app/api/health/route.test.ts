@@ -49,7 +49,12 @@ describe('GET /api/health', () => {
     expect(response.status).toBe(200)
     expect(body).toEqual({
       dataSource: 'mock',
-      gtfs: { dataSource: 'mock', cities: { waw: { state: 'idle', loadedAt: null, feedVersion: null, droppedRows: null, phase: null } } },
+      gtfs: {
+        dataSource: 'mock',
+        cities: {
+          waw: { state: 'idle', loadedAt: null, ageMs: null, feedVersion: null, droppedRows: null, phase: null, serviceDates: null },
+        },
+      },
       pollerAwake: false,
       pollerStatus: 'ok',
       throttled: false,

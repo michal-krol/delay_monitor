@@ -5,34 +5,33 @@ import { __resetCityContext, useCityContext } from './useCityContext'
 
 beforeEach(() => {
   window.localStorage.clear()
-  window.history.replaceState(null, '', '/')
   __resetCityContext()
 })
 
 describe('useCityContext', () => {
-  it('defaults to null (whole country — rail) with no stored or URL value', async () => {
+  it('defaults to null (not yet chosen) with nothing stored', async () => {
     const { result } = renderHook(() => useCityContext())
     await waitFor(() => expect(result.current.loaded).toBe(true))
     expect(result.current.city).toBeNull()
   })
 
-  it('persists a selection to localStorage and the URL', async () => {
-    const { result } = renderHook(() => useCityContext())
-    await waitFor(() => expect(result.current.loaded).toBe(true))
+  it('persists a selection to localStorage and shares it between hook instances', async () => {
+    const { result: a } = renderHook(() => useCityContext())
+    const { result: b } = renderHook(() => useCityContext())
+    await waitFor(() => expect(a.current.loaded).toBe(true))
 
-    act(() => result.current.setCity('waw'))
-    expect(result.current.city).toBe('waw')
+    act(() => a.current.setCity('waw'))
+    expect(a.current.city).toBe('waw')
+    expect(b.current.city).toBe('waw')
     expect(JSON.parse(window.localStorage.getItem('monitor.cityContext.v1') ?? 'null')).toBe('waw')
-    expect(window.location.search).toContain('miasto=waw')
 
-    act(() => result.current.setCity(null))
+    act(() => a.current.setCity(null))
     expect(window.localStorage.getItem('monitor.cityContext.v1')).toBeNull()
-    expect(window.location.search).not.toContain('miasto')
+    expect(b.current.city).toBeNull()
   })
 
-  it('lets a URL parameter win over a stored value', async () => {
-    window.localStorage.setItem('monitor.cityContext.v1', JSON.stringify('waw'))
-    window.history.replaceState(null, '', '/?miasto=krk')
+  it('hydrates from a previously stored city', async () => {
+    window.localStorage.setItem('monitor.cityContext.v1', JSON.stringify('krk'))
     const { result } = renderHook(() => useCityContext())
     await waitFor(() => expect(result.current.loaded).toBe(true))
     expect(result.current.city).toBe('krk')
@@ -43,5 +42,13 @@ describe('useCityContext', () => {
     const { result } = renderHook(() => useCityContext())
     await waitFor(() => expect(result.current.loaded).toBe(true))
     expect(result.current.city).toBeNull()
+  })
+
+  it('does not touch the URL', async () => {
+    window.history.replaceState(null, '', '/miasto/waw')
+    const { result } = renderHook(() => useCityContext())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => result.current.setCity('waw'))
+    expect(window.location.search).toBe('')
   })
 })

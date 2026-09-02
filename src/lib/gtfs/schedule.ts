@@ -387,6 +387,21 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     stopEventOrder.set(slice, lo)
   }
 
+  // ── linie per zespół przystankowy — dla wyszukiwarki i podsumowania stopu ──
+  // Iterujemy po grupach (kilka tysięcy), a nie po zdarzeniach (miliony): dla
+  // każdego słupka grupy czytamy jego wycinek CSR i zbieramy indeksy linii.
+  const groupRoutes = new Map<string, Set<number>>()
+  for (const [groupId, members] of groupMembers) {
+    const set = new Set<number>()
+    for (const stopIndex of members) {
+      for (let k = stopEventOffset[stopIndex]; k < stopEventOffset[stopIndex + 1]; k += 1) {
+        const routeIdx = tripRoute[evTrip[stopEventOrder[k]]]
+        if (routeIdx >= 0) set.add(routeIdx)
+      }
+    }
+    groupRoutes.set(groupId, set)
+  }
+
   return {
     feedVersion: input.feedVersion,
     serviceDates,
@@ -403,6 +418,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     stopIndexById,
     groupMembers,
     groupName,
+    groupRoutes,
     routes,
     routeIndexById,
     tripIds,

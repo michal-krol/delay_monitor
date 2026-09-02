@@ -52,11 +52,48 @@ describe('StationSearch', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-    render(<StationSearch onSelect={vi.fn()} endpoint="/api/gtfs/stops?city=waw" />)
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=waw&mode=all" />)
     await user.type(screen.getByRole('combobox'), 'metro')
     await vi.advanceTimersByTimeAsync(300)
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/stops?city=waw&q=metro'))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?city=waw&mode=all&q=metro'))
+  })
+
+  it('renders rich transit tiles (icon + line badges) while keeping the accessible name stable', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      jsonResponse({
+        stations: [
+          {
+            id: '7014M',
+            name: 'Świętokrzyska',
+            kind: 'transit',
+            mode: 'metro',
+            modes: ['metro', 'tram'],
+            lines: [
+              { routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro' },
+              { routeId: '20', line: '20', color: null, mode: 'tram' },
+            ],
+          },
+          { id: '33605', name: 'Warszawa Centralna', kind: 'rail', mode: 'rail' },
+        ],
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const onSelect = vi.fn()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={onSelect} endpoint="/api/search?city=waw" />)
+    await user.type(screen.getByRole('combobox'), 'swi')
+    await vi.advanceTimersByTimeAsync(300)
+
+    // Dostępna nazwa opcji nadal to sama nazwa mimo plakietek/podtytułu.
+    const option = await screen.findByRole('option', { name: 'Świętokrzyska' })
+    expect(option).toHaveTextContent('M1')
+    expect(option).toHaveTextContent('20')
+    expect(screen.getByRole('option', { name: 'Warszawa Centralna' })).toHaveTextContent('stacja kolejowa')
+
+    await user.click(option)
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: '7014M', kind: 'transit' }))
   })
 
   it('tells the user it is searching, then that nothing matched', async () => {

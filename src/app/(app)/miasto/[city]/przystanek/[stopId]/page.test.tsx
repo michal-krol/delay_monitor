@@ -30,6 +30,11 @@ beforeEach(() => {
           stopId: '7014M',
           name: 'Świętokrzyska',
           modes: ['metro', 'tram'],
+          lines: [
+            { routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro' },
+            { routeId: '20', line: '20', color: null, mode: 'tram' },
+          ],
+          summary: { lineCount: 2, departuresToday: 44, firstDepartureSec: 18000, lastDepartureSec: 90600, hourly: new Array(24).fill(2) },
           departures: [
             { tripId: 'm', routeId: 'M1', line: 'M1', mode: 'metro', color: '#0000bb', headsign: 'Kabaty', plannedAt: '2026-09-02T14:30:00+02:00', departureSec: 52200, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, wheelchair: 1, frequencyBased: true },
           ],

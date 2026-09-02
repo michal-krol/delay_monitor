@@ -13,6 +13,14 @@ import type { PollerDiagnostics as FeedDiagnostics, PollerStatus } from '@/lib/b
  * Import samego TYPU (`import type`) nie wciąga kodu serwerowego do bundla
  * klienta -- znika przy kompilacji.
  */
+type GtfsCityHealth = {
+  state: 'idle' | 'loading' | 'ready' | 'failed'
+  loadedAt: string | null
+  feedVersion: string | null
+  /** Trójstan: `null` = nigdy nie parsowano, NIGDY jako `0`. */
+  droppedRows: number | null
+}
+
 type Health = {
   dataSource: 'live' | 'mock'
   pollerAwake: boolean
@@ -22,6 +30,8 @@ type Health = {
   budget: RateLimitBudget | null
   /** Może zabraknąć, gdy panel odpyta starszą wersję serwera — panel nie ma prawa się na tym wywrócić. */
   feeds?: FeedDiagnostics
+  /** Sekcja komunikacji miejskiej (GTFS). `{ enabled: false }` = podprojekt wyłączony. */
+  gtfs?: { enabled: false } | { dataSource: 'live' | 'mock'; cities: Record<string, GtfsCityHealth> }
 }
 
 /** `/api/health` czyta tylko pamięć procesu — odpytywanie go nie kosztuje ani jednego zapytania do PKP (AGENTS.md #3). */
@@ -165,6 +175,12 @@ function DiagnosticsLegend() {
         <LegendTerm>Dane PKP</LegendTerm> — wiek znacznika wersji danych po stronie PKP (pojawia się tylko gdy feed
         wyglądał na zamrożony)
       </li>
+      <li>
+        <LegendTerm>Komunikacja miejska</LegendTerm> — rozkłady GTFS per miasto: <code>Miasta gotowe</code> = ile
+        wczytanych, kropka przy mieście (<LegendDot color={STATUS_TEXT.onTime} /> gotowe ·{' '}
+        <LegendDot color={STATUS_TEXT.cancelled} /> błąd · <LegendDot color="var(--text-muted)" /> nie wczytane), obok
+        wersja feedu i wiek rozkładu; <code>Odrzucone wiersze</code> = cicha korupcja w <code>stop_times</code>
+      </li>
     </ul>
   )
 }
@@ -271,6 +287,53 @@ function Panel() {
           )}
         </div>
       )}
+
+      {health?.gtfs !== undefined && 'cities' in health.gtfs && (
+        <GtfsSection gtfs={health.gtfs} nowMs={nowMs} />
+      )}
+    </div>
+  )
+}
+
+function gtfsStateColor(state: GtfsCityHealth['state']): string {
+  if (state === 'ready') return STATUS_TEXT.onTime
+  if (state === 'failed') return STATUS_TEXT.cancelled
+  return 'var(--text-muted)'
+}
+
+function GtfsSection({
+  gtfs,
+  nowMs,
+}: {
+  gtfs: { dataSource: 'live' | 'mock'; cities: Record<string, GtfsCityHealth> }
+  nowMs: number
+}) {
+  const entries = Object.entries(gtfs.cities)
+  const ready = entries.filter(([, city]) => city.state === 'ready').length
+  // `null` (nigdy nie parsowano) NIE liczy się jako 0 — sumujemy tylko liczby.
+  const dropped = entries.reduce((sum, [, city]) => sum + (city.droppedRows ?? 0), 0)
+
+  return (
+    <div className="mt-2 flex flex-col gap-1 border-t pt-2" style={{ borderColor: 'var(--sidebar-border)' }}>
+      <div className="mb-0.5 tracking-[0.1em] text-text-muted uppercase">Komunikacja miejska</div>
+      <Row label="Źródło" value={gtfs.dataSource} />
+      <Row label="Miasta gotowe" value={`${ready} / ${entries.length}`} />
+      {entries.map(([id, city]) => (
+        <div key={id} className="flex items-baseline justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-text-muted">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: gtfsStateColor(city.state) }}
+              aria-hidden="true"
+            />
+            {id}
+          </span>
+          <span className="font-medium tabular-nums">
+            {city.feedVersion ?? '—'} · {formatAge(city.loadedAt, nowMs)}
+          </span>
+        </div>
+      ))}
+      {dropped > 0 && <Row label="Odrzucone wiersze" value={String(dropped)} color={STATUS_TEXT.delayed} />}
     </div>
   )
 }

@@ -16,6 +16,7 @@ vi.mock('@/lib/board/instance', () => ({
 
 vi.mock('@/lib/gtfs/instance', () => ({
   enabledGtfsCities: () => [{ id: 'waw' }],
+  peekGtfsPoller: () => null,
 }))
 
 async function call() {
@@ -35,6 +36,10 @@ describe('GET /api/cities', () => {
       'Warszawa Zachodnia',
     ])
     // "Kraków Główny" nie pasuje do prefiksu "Warszawa " — odsiane.
+    // Rozkład jeszcze nie wczytany (peekGtfsPoller → null) — pola null/idle, nie 0.
+    expect(waw.schedule.state).toBe('idle')
+    expect(waw.lineCounts).toBeNull()
+    expect(waw.stopGroupCount).toBeNull()
   })
 
   it('degrades to an empty rail station list when the dictionary lookup fails', async () => {

@@ -75,6 +75,26 @@ describe('buildSchedule — grouping', () => {
     expect(schedule.groupMembers.get('7014M')?.length).toBe(3)
     expect(schedule.groupName.get('7014M')).toBe('Świętokrzyska')
   })
+
+  it('collects the routes serving each group into groupRoutes', async () => {
+    const schedule = await buildSchedule(
+      makeInput({
+        routes: [route('M1', 1, 'M1'), route('20', 0, '20')],
+        stops: [stop('7014M:P1', 'Świętokrzyska', '7014M'), stop('7014M:P2', 'Świętokrzyska', '7014M')],
+        trips: [
+          { routeId: 'M1', serviceId: 'S', tripId: 'm', headsign: null, directionId: 0 },
+          { routeId: '20', serviceId: 'S', tripId: 't', headsign: null, directionId: 0 },
+        ],
+        stopTimeLines: [
+          'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+          'm,7014M:P1,12:00:00,12:00:00,1',
+          't,7014M:P2,12:02:00,12:02:00,1',
+        ],
+      })
+    )
+    const routeIndices = [...(schedule.groupRoutes.get('7014M') ?? [])].map((i) => schedule.routes[i].id).sort()
+    expect(routeIndices).toEqual(['20', 'M1'])
+  })
 })
 
 describe('buildSchedule — strefa czasowa (asercje na ISO z offsetem)', () => {

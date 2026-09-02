@@ -94,27 +94,52 @@ export type StopGroupMember = {
   wheelchair: 0 | 1 | 2
 }
 
+/** Jedna linia obsługująca zespół — plakietka w wyszukiwarce i w szczegółach. */
+export type GtfsLine = { routeId: string; line: string; color: string | null; mode: GtfsMode }
+
 export type StopGroup = {
   id: string
   name: string
   members: StopGroupMember[]
   /** Rodzaje transportu obsługujące ten zespół — do plakietek/filtra. */
   modes: GtfsMode[]
+  /** Linie obsługujące zespół, posortowane naturalnie. */
+  lines: GtfsLine[]
+}
+
+const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
+
+/** Naturalne sortowanie numerów linii („2" przed „10", „M1" przed „M2"). */
+function compareLine(a: GtfsRoute, b: GtfsRoute): number {
+  const keyA = a.shortName || a.longName || a.id
+  const keyB = b.shortName || b.longName || b.id
+  return keyA.localeCompare(keyB, 'pl', { numeric: true, sensitivity: 'base' })
+}
+
+function lineOf(route: GtfsRoute): GtfsLine {
+  return { routeId: route.id, line: route.shortName || route.longName || route.id, color: route.color, mode: route.mode }
+}
+
+/** Linie obsługujące zespół — z `groupRoutes` (zbudowanego raz przy ładowaniu). */
+export function groupLines(schedule: GtfsSchedule, groupId: string): GtfsLine[] {
+  const routeIndices = schedule.groupRoutes.get(groupId)
+  if (routeIndices === undefined) return []
+  return [...routeIndices]
+    .map((index) => schedule.routes[index])
+    .filter((route): route is GtfsRoute => route !== undefined)
+    .sort(compareLine)
+    .map(lineOf)
 }
 
 export function stopGroup(schedule: GtfsSchedule, id: string): StopGroup | null {
   const memberIndices = schedule.groupMembers.get(id) ?? (schedule.stopIndexById.has(id) ? [schedule.stopIndexById.get(id)!] : [])
   if (memberIndices.length === 0) return null
 
-  const modes = new Set<GtfsMode>()
-  for (const stopIndex of memberIndices) {
-    const lo = schedule.stopEventOffset[stopIndex]
-    const hi = schedule.stopEventOffset[stopIndex + 1]
-    for (let k = lo; k < hi; k += 1) {
-      const routeIdx = schedule.tripRoute[schedule.evTrip[schedule.stopEventOrder[k]]]
-      if (routeIdx >= 0) modes.add(schedule.routes[routeIdx].mode)
-    }
-  }
+  const lines = groupLines(schedule, id)
+  const modeOrder = new Map(MODE_ORDER.map((mode, index) => [mode, index]))
+  const modes = [...new Set(lines.map((entry) => entry.mode))].sort(
+    (a, b) => (modeOrder.get(a) ?? 99) - (modeOrder.get(b) ?? 99)
+  )
 
   return {
     id,
@@ -127,17 +152,9 @@ export function stopGroup(schedule: GtfsSchedule, id: string): StopGroup | null 
       platformCode: schedule.stopPlatforms[stopIndex],
       wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
     })),
-    modes: [...modes],
+    modes,
+    lines,
   }
-}
-
-const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
-
-/** Naturalne sortowanie numerów linii („2" przed „10", „M1" przed „M2"). */
-function compareLine(a: GtfsRoute, b: GtfsRoute): number {
-  const keyA = a.shortName || a.longName || a.id
-  const keyB = b.shortName || b.longName || b.id
-  return keyA.localeCompare(keyB, 'pl', { numeric: true, sensitivity: 'base' })
 }
 
 export function linesByMode(schedule: GtfsSchedule): Record<GtfsMode, GtfsRoute[]> {
@@ -190,6 +207,51 @@ export function dayTimetable(
   }
   entries.sort((a, b) => a.departureSec - b.departureSec)
   return entries
+}
+
+export type StopSummary = {
+  lineCount: number
+  /** Liczba odjazdów zespołu w dobie `serviceDayIndex`. */
+  departuresToday: number
+  /** Sekunda pierwszego / ostatniego odjazdu tej doby (może być ≥ 86400). `null` = brak kursów. */
+  firstDepartureSec: number | null
+  lastDepartureSec: number | null
+  /** 24 kubełki — liczba odjazdów per godzina zegarowa doby (25:30 → kubełek 1). */
+  hourly: number[]
+}
+
+/**
+ * Fakty rozkładowe o zespole na potrzeby kart podsumowania w szczegółach stopu.
+ * Wszystko z rozkładu — zero „na czas", zero „opóźnienie". Jeden skan zdarzeń grupy.
+ */
+export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayIndex: number): StopSummary {
+  const stopIndices = resolveStopIndices(schedule, groupId)
+  const hourly = new Array<number>(24).fill(0)
+  let count = 0
+  let firstSec: number | null = null
+  let lastSec: number | null = null
+
+  for (const stopIndex of stopIndices) {
+    const lo = schedule.stopEventOffset[stopIndex]
+    const hi = schedule.stopEventOffset[stopIndex + 1]
+    for (let k = lo; k < hi; k += 1) {
+      const eventIndex = schedule.stopEventOrder[k]
+      if (schedule.tripServiceDay[schedule.evTrip[eventIndex]] !== serviceDayIndex) continue
+      const sec = schedule.evDepSec[eventIndex]
+      count += 1
+      if (firstSec === null || sec < firstSec) firstSec = sec
+      if (lastSec === null || sec > lastSec) lastSec = sec
+      hourly[Math.floor(sec / 3600) % 24] += 1
+    }
+  }
+
+  return {
+    lineCount: groupLines(schedule, groupId).length,
+    departuresToday: count,
+    firstDepartureSec: firstSec,
+    lastDepartureSec: lastSec,
+    hourly,
+  }
 }
 
 export type StopSearchResult = { id: string; name: string }

@@ -24,7 +24,7 @@ export async function GET() {
             return [
               city.id,
               view === null
-                ? { state: 'idle' as const, loadedAt: null, feedVersion: null, droppedRows: null, phase: null }
+                ? { state: 'idle' as const, loadedAt: null, ageMs: null, feedVersion: null, droppedRows: null, phase: null, serviceDates: null }
                 : {
                     state: view.state,
                     loadedAt: view.loadedAt,
@@ -32,6 +32,7 @@ export async function GET() {
                     feedVersion: view.feedVersion,
                     droppedRows: view.droppedRows,
                     phase: view.phase,
+                    serviceDates: view.serviceDates,
                   },
             ]
           })

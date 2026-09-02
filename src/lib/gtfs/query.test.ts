@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildSchedule, type BuildScheduleInput } from './schedule'
 import { contrastText, modeFromRouteType } from './schema'
-import { dayTimetable, linesByMode, nextDepartures, searchStops, stopGroup } from './query'
+import { dayTimetable, groupLines, linesByMode, nextDepartures, searchStops, stopGroup, stopSummary } from './query'
 import type { GtfsRoute } from './types'
 
 const TZ = 'Europe/Warsaw'
@@ -101,10 +101,52 @@ describe('stopGroup', () => {
     const group = stopGroup(schedule, '7014M')
     expect(group?.members).toHaveLength(3)
     expect(new Set(group?.modes)).toEqual(new Set(['metro', 'tram']))
+    // Linie z `groupRoutes` — posortowane, metro przed tramwajem w `modes`.
+    expect(group?.lines.map((line) => line.line)).toEqual(['20', 'M1'])
+    expect(group?.modes).toEqual(['metro', 'tram'])
   })
 
   it('returns null for an unknown id', async () => {
     expect(stopGroup(await make({}), 'nope')).toBeNull()
+  })
+})
+
+describe('groupLines / stopSummary', () => {
+  const scheduleWithMetro = () =>
+    make({
+      routes: [route('M1', 1, 'M1')],
+      stops: [stop('7014M', 'Świętokrzyska')],
+      trips: [{ routeId: 'M1', serviceId: 'S', tripId: 'M1:KAB', headsign: 'Kabaty', directionId: 0 }],
+      frequencies: [{ tripId: 'M1:KAB', startSec: 5 * 3600, endSec: 5 * 3600 + 20 * 60, headwaySecs: 600 }],
+      stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 'M1:KAB,7014M,05:00:00,05:00:00,1'],
+    })
+
+  it('groupLines returns the distinct lines of a group', async () => {
+    const schedule = await scheduleWithMetro()
+    expect(groupLines(schedule, '7014M')).toEqual([
+      { routeId: 'M1', line: 'M1', color: null, mode: 'metro' },
+    ])
+    expect(groupLines(schedule, 'ghost')).toEqual([])
+  })
+
+  it('stopSummary counts today departures, first/last and the hourly histogram', async () => {
+    const schedule = await scheduleWithMetro()
+    const summary = stopSummary(schedule, '7014M', 1) // doba „dziś"
+    expect(summary.lineCount).toBe(1)
+    expect(summary.departuresToday).toBe(2) // frequencies 05:00, 05:10
+    expect(summary.firstDepartureSec).toBe(5 * 3600)
+    expect(summary.lastDepartureSec).toBe(5 * 3600 + 600)
+    expect(summary.hourly[5]).toBe(2)
+    expect(summary.hourly.reduce((a, b) => a + b, 0)).toBe(2)
+  })
+
+  it('stopSummary buckets an after-midnight departure into the wrapped hour', async () => {
+    const schedule = await make({
+      trips: [{ routeId: '1', serviceId: 'S', tripId: 'N', headsign: 'X', directionId: 0 }],
+      stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 'N,1001,25:30:00,25:30:00,1'],
+    })
+    const summary = stopSummary(schedule, '1001', 1)
+    expect(summary.hourly[1]).toBe(1) // 25:30 → kubełek 1
   })
 })
 

@@ -2,17 +2,19 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { z } from 'zod'
-import { patchUrlParams } from '@/lib/urlState'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
 const STORAGE_KEY = 'monitor.cityContext.v1'
-const URL_PARAM = 'miasto'
 
 /**
- * `null` = kontekst „Cała Polska — kolej" (dzisiejsze zachowanie aplikacji).
- * Nieprawidłowy/uszkodzony wpis jest po cichu ignorowany, nigdy nie wywraca
- * renderu (AGENTS.md #4). Format tylko — czy takie miasto istnieje, rozstrzyga
- * lista z `/api/cities` w `CitySwitcher`.
+ * Wybrane miasto na ekranie Odjazdy/Przyjazdy. `null` = jeszcze nie wybrano
+ * (stan przejściowy przy pierwszej wizycie — trasa `/miasto` dobiera wtedy
+ * domyślne miasto). NIE ma już kontekstu „Cała Polska" — ekran jest zawsze
+ * przypisany do konkretnego miasta, a Pulpit nie ma żadnego kontekstu.
+ *
+ * Źródłem prawdy jest segment ścieżki `/miasto/[city]`; tu trzymamy tylko
+ * `localStorage` (żeby menu wracało do ostatniego miasta) + wspólny stan
+ * między instancjami hooka.
  */
 const cityIdSchema = z.string().regex(CITY_ID_PATTERN)
 
@@ -22,9 +24,8 @@ function parse(value: string | null): string | null {
   return result.success ? result.data : null
 }
 
-// Wspólny stan między wszystkimi instancjami hooka (CitySwitcher, Sidebar,
-// strony). `useSyncExternalStore` zamiast React Context — mniej wiązania
-// w drzewie, a i tak jeden proces w przeglądarce.
+// Wspólny stan między wszystkimi instancjami hooka (picker, sidebar, strony).
+// `useSyncExternalStore` zamiast React Context — mniej wiązania w drzewie.
 let current: string | null = null
 let hydrated = false
 const listeners = new Set<() => void>()
@@ -35,8 +36,6 @@ function emit(): void {
 
 function readInitial(): string | null {
   try {
-    const fromUrl = parse(new URLSearchParams(window.location.search).get(URL_PARAM))
-    if (fromUrl !== null) return fromUrl
     const raw = window.localStorage.getItem(STORAGE_KEY)
     return raw === null ? null : parse(JSON.parse(raw))
   } catch {
@@ -63,7 +62,6 @@ export function useCityContext() {
 
   useEffect(() => {
     if (hydrated) return
-    // Adres URL ma pierwszeństwo nad localStorage — link jest współdzielony.
     current = readInitial()
     hydrated = true
     emit()
@@ -75,9 +73,8 @@ export function useCityContext() {
       if (next === null) window.localStorage.removeItem(STORAGE_KEY)
       else window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     } catch {
-      // brak localStorage (tryb prywatny) — kontekst zostaje tylko w URL-u
+      // brak localStorage (tryb prywatny) — kontekst zostaje w segmencie ścieżki
     }
-    patchUrlParams({ [URL_PARAM]: next })
     emit()
   }, [])
 

@@ -2,10 +2,8 @@
 
 import Link from 'next/link'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
-import { useCityContext } from '@/hooks/useCityContext'
 import { HomeIcon, ListIcon, StarIcon, BellIcon, RouteIcon, MapIcon, SettingsIcon, ChevronRightIcon } from './icons'
 import { PollerDiagnostics } from './PollerDiagnostics'
-import { CitySwitcher } from './CitySwitcher'
 
 type ActiveItem = 'pulpit' | 'odjazdy'
 
@@ -33,28 +31,23 @@ type NavItem =
   | { kind: 'disabled'; label: string; icon: typeof HomeIcon; badge?: number; title?: string }
 
 /**
- * „Odjazdy / Przyjazdy" i „Trasy" przestały być atrapami: w kontekście miasta
- * prowadzą na jego ekran. Bez wybranego miasta „Odjazdy" nadal jest wyłączone
- * (nie ma krajowej tablicy odjazdów), a „Trasy" czeka na etap 4.
+ * „Odjazdy / Przyjazdy" prowadzi na `/miasto` — trasa dobiera domyślne miasto
+ * (ostatnie z `useCityContext` albo to z największą liczbą stacji kolejowych)
+ * i przekierowuje. Przełącznik miasta jest w treści tamtego ekranu, nie w menu.
+ * „Trasy" czeka na etap 4.
  */
-function navItems(city: string | null): NavItem[] {
-  return [
-    { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
-    city === null
-      ? { kind: 'disabled', label: 'Odjazdy / Przyjazdy', icon: ListIcon, title: 'Wybierz miasto' }
-      : { kind: 'active', key: 'odjazdy', href: `/miasto/${city}`, label: 'Odjazdy / Przyjazdy', icon: ListIcon },
-    { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
-    { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
-    { kind: 'disabled', label: 'Trasy', icon: RouteIcon },
-    { kind: 'disabled', label: 'Mapa', icon: MapIcon },
-    { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
-  ]
-}
+const NAV_ITEMS: NavItem[] = [
+  { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
+  { kind: 'active', key: 'odjazdy', href: '/miasto', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
+  { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
+  { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
+  { kind: 'disabled', label: 'Trasy', icon: RouteIcon },
+  { kind: 'disabled', label: 'Mapa', icon: MapIcon },
+  { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
+]
 
 export function Sidebar({ activeItem }: Props) {
   const { collapsed, toggle } = useSidebarCollapsed()
-  const { city } = useCityContext()
-  const NAV_ITEMS = navItems(city)
 
   return (
     <aside
@@ -108,8 +101,6 @@ export function Sidebar({ activeItem }: Props) {
           <ChevronRightIcon size={14} className={collapsed ? '' : 'rotate-180'} />
         </button>
       </div>
-
-      {!collapsed && <CitySwitcher collapsed={collapsed} />}
 
       <nav className="flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => {

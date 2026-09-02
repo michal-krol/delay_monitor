@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import type { GtfsDeparture, GtfsMode, ScheduleState } from '@/lib/gtfs/types'
+import type { GtfsLine, StopSummary } from '@/lib/gtfs/query'
 
 export type TransitStopBoard = {
   stopId: string
   name: string
   modes: GtfsMode[]
+  /** Linie obsługujące zespół, posortowane naturalnie. */
+  lines: GtfsLine[]
+  /** Fakty rozkładowe (liczba linii, odjazdy dziś, pierwszy/ostatni, wykres godzinowy). */
+  summary: StopSummary
   departures: GtfsDeparture[]
 }
 

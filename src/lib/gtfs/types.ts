@@ -104,6 +104,8 @@ export type GtfsSchedule = {
   groupMembers: Map<string, number[]>
   /** Nazwa zespołu (nazwa dowolnego z jego słupków) → id zespołu, do wyszukiwarki. */
   groupName: Map<string, string>
+  /** Id zespołu → indeksy linii (`routes`), które go obsługują. Do kafelków wyszukiwarki i podsumowania stopu. */
+  groupRoutes: Map<string, Set<number>>
 
   // --- linie ---
   routes: GtfsRoute[]
