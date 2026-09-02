@@ -93,11 +93,13 @@ describe('GET /api/search', () => {
     expect(tramOnly).toEqual([]) // Świętokrzyska w feedzie ma tylko metro
   })
 
-  it('returns [] transit while the schedule is still loading, rail still works', async () => {
+  it('flags loading while the schedule is not ready — rail still works, transit retries', async () => {
     const kept = schedule
     schedule = null
     const { body } = await call('city=waw&q=war')
     expect(body.stations.every((s: { kind: string }) => s.kind === 'rail')).toBe(true)
+    expect(body.loading).toBe(true)
     schedule = kept
+    expect((await call('city=waw&q=war')).body.loading).toBe(false)
   })
 })

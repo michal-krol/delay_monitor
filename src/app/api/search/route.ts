@@ -74,10 +74,12 @@ export async function GET(request: Request) {
   }
 
   // ── zespoły przystankowe komunikacji miejskiej ─────────────────────────
+  let scheduleLoading = false
   if (wantTransit) {
     const poller = getGtfsPoller(cityId)
     poller?.ensureLoaded()
     const schedule = poller?.getSchedule() ?? null
+    scheduleLoading = schedule === null
     if (schedule !== null) {
       for (const hit of searchStops(schedule, query, MAX_SUGGESTIONS)) {
         const lines = groupLines(schedule, hit.id)
@@ -103,5 +105,7 @@ export async function GET(request: Request) {
     return ap - bp || a.name.localeCompare(b.name, 'pl')
   })
 
-  return NextResponse.json({ stations: results.slice(0, MAX_SUGGESTIONS) })
+  // `loading` mówi wyszukiwarce, żeby ponowiła — rozkład miejski jeszcze się
+  // wczytuje, więc same stacje kolejowe to niepełny wynik.
+  return NextResponse.json({ stations: results.slice(0, MAX_SUGGESTIONS), loading: scheduleLoading })
 }

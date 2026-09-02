@@ -96,6 +96,23 @@ describe('StationSearch', () => {
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: '7014M', kind: 'transit' }))
   })
 
+  it('retries while the endpoint reports loading, then settles', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ stations: [], loading: true }))
+      .mockImplementation(() => jsonResponse({ stations: [{ id: '1', name: 'Rondo' }], loading: false }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=waw" />)
+    await user.type(screen.getByRole('combobox'), 'ron')
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(1500)
+    await vi.waitFor(() => expect(screen.getByRole('option', { name: 'Rondo' })).toBeInTheDocument())
+  })
+
   it('tells the user it is searching, then that nothing matched', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [] }))
     vi.stubGlobal('fetch', fetchMock)

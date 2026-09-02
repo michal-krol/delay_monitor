@@ -33,6 +33,8 @@ const MAX_TILE_LINES = 6
 
 const DEBOUNCE_MS = 300
 const MIN_QUERY_LENGTH = 3
+/** Ponowienie, gdy endpoint zgłasza `loading` (rozkład miejski się wczytuje). */
+const LOADING_RETRY_MS = 1500
 
 type SearchStatus = 'idle' | 'searching' | 'ready' | 'error'
 
@@ -56,31 +58,40 @@ export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations
     }
 
     let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout>
+    const separator = endpoint.includes('?') ? '&' : '?'
+    const url = `${endpoint}${separator}q=${encodeURIComponent(trimmed)}`
 
-    const timer = setTimeout(() => {
+    function run(): void {
       setStatus('searching')
-
-      const separator = endpoint.includes('?') ? '&' : '?'
-      fetch(`${endpoint}${separator}q=${encodeURIComponent(trimmed)}`)
+      fetch(url)
         .then(async (response) => {
           if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
-          return (await response.json()) as { stations: StationOption[] }
+          return (await response.json()) as { stations: StationOption[]; loading?: boolean }
         })
         .then((json) => {
           if (cancelled) return
           setOptions(json.stations)
-          setStatus('ready')
           setActiveIndex(-1)
+          // Rozkład miejski wciąż się wczytuje — wynik niepełny, ponawiamy.
+          if (json.loading === true) {
+            retryTimer = setTimeout(run, LOADING_RETRY_MS)
+          } else {
+            setStatus('ready')
+          }
         })
         .catch(() => {
           if (cancelled) return
           setOptions([])
           setStatus('error')
         })
-    }, DEBOUNCE_MS)
+    }
+
+    const timer = setTimeout(run, DEBOUNCE_MS)
 
     return () => {
       cancelled = true
+      clearTimeout(retryTimer)
       clearTimeout(timer)
     }
   }, [query, endpoint])
