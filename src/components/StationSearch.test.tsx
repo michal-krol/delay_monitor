@@ -47,6 +47,18 @@ describe('StationSearch', () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/stations?q=krak'))
   })
 
+  it('queries a custom endpoint, appending q with the right separator', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/gtfs/stops?city=waw" />)
+    await user.type(screen.getByRole('combobox'), 'metro')
+    await vi.advanceTimersByTimeAsync(300)
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/stops?city=waw&q=metro'))
+  })
+
   it('tells the user it is searching, then that nothing matched', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [] }))
     vi.stubGlobal('fetch', fetchMock)

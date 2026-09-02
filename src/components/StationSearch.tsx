@@ -10,6 +10,12 @@ export type StationOption = {
 type Props = {
   onSelect: (station: StationOption) => void
   placeholder?: string
+  /**
+   * Źródło podpowiedzi. Domyślnie stacje PKP; ekran miasta podaje tu
+   * `/api/gtfs/stops?city=<id>`, który zwraca ten sam kształt `{ stations }`.
+   * Może już nieść parametr zapytania — `q` dokładamy właściwym łącznikiem.
+   */
+  endpoint?: string
 }
 
 const DEBOUNCE_MS = 300
@@ -17,7 +23,7 @@ const MIN_QUERY_LENGTH = 3
 
 type SearchStatus = 'idle' | 'searching' | 'ready' | 'error'
 
-export function StationSearch({ onSelect, placeholder }: Props) {
+export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations' }: Props) {
   const [query, setQuery] = useState('')
   const [options, setOptions] = useState<StationOption[]>([])
   const [status, setStatus] = useState<SearchStatus>('idle')
@@ -41,7 +47,8 @@ export function StationSearch({ onSelect, placeholder }: Props) {
     const timer = setTimeout(() => {
       setStatus('searching')
 
-      fetch(`/api/stations?q=${encodeURIComponent(trimmed)}`)
+      const separator = endpoint.includes('?') ? '&' : '?'
+      fetch(`${endpoint}${separator}q=${encodeURIComponent(trimmed)}`)
         .then(async (response) => {
           if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
           return (await response.json()) as { stations: StationOption[] }
@@ -63,7 +70,7 @@ export function StationSearch({ onSelect, placeholder }: Props) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query])
+  }, [query, endpoint])
 
   function selectOption(option: StationOption): void {
     onSelect(option)

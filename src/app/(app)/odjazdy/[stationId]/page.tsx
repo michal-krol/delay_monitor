@@ -1,7 +1,7 @@
 'use client'
 
 import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useFavourites } from '@/hooks/useFavourites'
+import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { FullBoard } from '@/components/FullBoard'
 import { STATION_ID_PATTERN } from '@/lib/validation'
 
@@ -32,16 +32,17 @@ export default function Page() {
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
   const stationName = searchParams.get('name') ?? stationId
 
+  const favourite: Favourite = { kind: 'pkp', id: stationId, name: stationName }
+  const key = favouriteKey(favourite)
+
   return (
     <>
       <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-5 sm:px-8 sm:py-7">
         <FullBoard
           stationId={stationId}
           stationName={stationName}
-          isFavourite={isFavourite(stationId)}
-          onToggleFavourite={() =>
-            isFavourite(stationId) ? removeFavourite(stationId) : addFavourite({ id: stationId, name: stationName })
-          }
+          isFavourite={isFavourite(key)}
+          onToggleFavourite={() => (isFavourite(key) ? removeFavourite(key) : addFavourite(favourite))}
           onClose={() => router.push('/')}
         />
       </main>

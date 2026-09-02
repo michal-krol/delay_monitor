@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
-import type { Favourite } from '@/hooks/useFavourites'
+import { favouriteKey, type Favourite } from '@/hooks/useFavourites'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
@@ -22,14 +22,16 @@ vi.mock('next/navigation', () => ({
 // a test, the same reactivity a stateful `useFavourites()` gives the real page.
 let initialFavourites: Favourite[] = []
 
-vi.mock('@/hooks/useFavourites', () => ({
+vi.mock('@/hooks/useFavourites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useFavourites')>()),
   useFavourites: () => {
     const [favourites, setFavourites] = useState(initialFavourites)
     return {
       favourites,
       loaded: true,
       addFavourite: vi.fn(),
-      removeFavourite: (id: string) => setFavourites((current) => current.filter((item) => item.id !== id)),
+      removeFavourite: (key: string) =>
+        setFavourites((current) => current.filter((item) => favouriteKey(item) !== key)),
       isFavourite: () => true,
     }
   },
@@ -44,7 +46,7 @@ describe('Page (Pulpit)', () => {
     push.mockClear()
     replace.mockClear()
     searchParamsSeed = ''
-    initialFavourites = [{ id: '33605', name: 'Warszawa Centralna' }]
+    initialFavourites = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
   })
 
   it('klik w kartę stacji otwiera pełny widok stacji, z nazwą w adresie', async () => {

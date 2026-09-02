@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
+import type { Favourite } from '@/hooks/useFavourites'
 import { jsonResponse } from '@/test-utils/http'
 
 // BoardTable (rendered via FocusedStation in the focused branch) navigates via useRouter().
@@ -14,9 +15,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const FAVOURITES = [
-  { id: '5100', name: 'Warszawa Centralna' },
-  { id: '5136', name: 'Kraków Główny' },
+const FAVOURITES: Favourite[] = [
+  { kind: 'pkp', id: '5100', name: 'Warszawa Centralna' },
+  { kind: 'pkp', id: '5136', name: 'Kraków Główny' },
 ]
 
 /** Karta na dashboardzie znaleziona po nazwie stacji w jej nagłówku. */
@@ -173,7 +174,7 @@ describe('Dashboard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Usuń z ulubionych: Kraków Główny' }))
 
-    expect(onRemove).toHaveBeenCalledWith('5136')
+    expect(onRemove).toHaveBeenCalledWith('pkp:5136')
   })
 
   it('drops stale snapshots for stations that are no longer favourites', async () => {

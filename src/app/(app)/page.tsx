@@ -47,7 +47,9 @@ function PulpitPage() {
    */
   useEffect(() => {
     if (focusedStationId === null || !loaded) return
-    const name = favourites.find((favourite) => favourite.id === focusedStationId)?.name
+    const name = favourites.find(
+      (favourite) => favourite.kind === 'pkp' && favourite.id === focusedStationId
+    )?.name
     const query = name === undefined ? '' : `?name=${encodeURIComponent(name)}`
     router.replace(`/odjazdy/${focusedStationId}${query}`)
   }, [focusedStationId, loaded, favourites, router])

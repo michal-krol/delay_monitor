@@ -28,4 +28,25 @@ describe('loadConfig', () => {
     expect(config.pollIntervalMs).toBe(30000)
     expect(config.interestTtlMs).toBe(60000)
   })
+
+  describe('GTFS', () => {
+    it('defaults: enabled, mock, single city waw, 1h idle TTL', () => {
+      const { gtfs } = loadConfig({})
+      expect(gtfs).toEqual({ enabled: true, cities: ['waw'], dataSource: 'mock', idleTtlMs: 3600000 })
+    })
+
+    it('GTFS_ENABLED=false actually disables (not coerced to true)', () => {
+      expect(loadConfig({ GTFS_ENABLED: 'false' }).gtfs.enabled).toBe(false)
+      expect(loadConfig({ GTFS_ENABLED: '0' }).gtfs.enabled).toBe(false)
+      expect(loadConfig({ GTFS_ENABLED: 'true' }).gtfs.enabled).toBe(true)
+    })
+
+    it('splits GTFS_CITIES on commas and trims blanks', () => {
+      expect(loadConfig({ GTFS_CITIES: 'waw, krk ,,wro' }).gtfs.cities).toEqual(['waw', 'krk', 'wro'])
+    })
+
+    it('takes an explicit live data source without needing a key', () => {
+      expect(loadConfig({ GTFS_DATA_SOURCE: 'live' }).gtfs.dataSource).toBe('live')
+    })
+  })
 })
