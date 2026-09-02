@@ -6,7 +6,7 @@ import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { AlertCircleIcon, CalendarIcon, ClockIcon, InfoIcon, LinkIcon, PauseIcon, RouteIcon, ShareIcon, TrainIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
-import { resolveCurrentStopIndex, type TrainDetailStop } from '@/lib/board/trainDetail'
+import { isScheduleProjection, resolveCurrentStopIndex, resolveScheduledStopIndex, type TrainDetailStop } from '@/lib/board/trainDetail'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatClockTime } from '@/lib/format'
@@ -190,18 +190,28 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // (patrz `resolveStopStatus`, `STALE_UNCONFIRMED_MS`).
   const stops = data?.stops ?? []
   const nowDate = new Date(now)
-  const stopStatuses = stops.map((stop) =>
+  // Pociąg bez ŻADNEJ realizacji, który wg rozkładu właśnie jedzie: pokazujemy
+  // szacowaną pozycję i status „w trasie" z jawnym zastrzeżeniem (patrz
+  // `isScheduleProjection`, plan „trains-schedule-position"). Decyzja żyje
+  // w czystej funkcji obok `resolveCurrentStopIndex`, nie w tym komponencie.
+  const scheduleMode = isScheduleProjection(stops, data?.trainStatus ?? null, nowDate)
+  const currentStopIndex = scheduleMode ? resolveScheduledStopIndex(stops, nowDate) : resolveCurrentStopIndex(stops)
+  const stopStatuses = stops.map((stop, index) =>
     resolveStopStatus({
       isCancelled: stop.isCancelled,
       isConfirmed: stop.isConfirmed,
       delayMinutes: stopDelayMinutes(stop),
-      hasTrainStarted: stop.hasTrainStarted,
+      // W trybie rozkładowym każdy przystanek do bieżącego włącznie liczy się
+      // jako „pociąg tu już był" → `enRoute` zamiast `notStarted`/`unknown`.
+      hasTrainStarted: stop.hasTrainStarted || (scheduleMode && index <= currentStopIndex),
       plannedAt: stop.plannedDeparture ?? stop.plannedArrival,
       now: nowDate,
     })
   )
   const summary = summariseJourney(stops, { now: nowDate })
-  const currentStopIndex = resolveCurrentStopIndex(stops)
+  // Nagłówek i wykres prognozy idą tą samą ścieżką co wiersze: w trybie
+  // rozkładowym „w trasie", inaczej wynik `summariseJourney` bez zmian.
+  const overallStatus: RealizationStatus = scheduleMode ? 'enRoute' : summary.overallStatus
 
   // Utrudnienia zebrane z całej trasy — jedno utrudnienie potrafi dotyczyć
   // wielu przystanków, więc bez deduplikacji baner powtarzałby ten sam tekst.
@@ -296,7 +306,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     jeszcze nie ruszył"), a nie truizm „nie przyjechał"; ten
                     drugi ma sens tylko na ostatnim przystanku steppera niżej. */}
                 <DelayBadge
-                  status={summary.overallStatus}
+                  status={overallStatus}
                   delayMinutes={summary.arrivalDelayMinutes}
                   estimatedDelayMinutes={summary.estimatedArrivalDelayMinutes}
                 />
@@ -346,6 +356,23 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
           <div className="contents">
             {/* ── Przebieg trasy ─────────────────────────────────────── */}
             <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-2">
+              {/* Tryb rozkładowy: PKP nie potwierdza nic na tej trasie, a wg
+                  rozkładu pociąg jedzie. Pozycja i „w trasie" niżej są wtedy
+                  projekcją z rozkładu — trzeba to powiedzieć wprost. */}
+              {scheduleMode && (
+                <div className="glass flex items-start gap-3 rounded-2xl p-4">
+                  <span className="mt-0.5 shrink-0 text-text-muted">
+                    <InfoIcon size={17} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Brak potwierdzeń przejazdu z PKP.</p>
+                    <p className="text-sm text-text-secondary">
+                      Pozycja i status „w trasie” są szacowane z rozkładu. Jeśli pociąg został odwołany, nie zobaczysz
+                      tego tutaj.
+                    </p>
+                  </div>
+                </div>
+              )}
               <section className="glass rounded-2xl p-5 sm:p-6">
                 <SectionHeading>Przebieg trasy</SectionHeading>
                 {/* Pionowy stepper: kolumna znacznika ma `flex-direction: column`, więc
@@ -406,7 +433,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                               jedyne miejsce w widoku odpowiadające „tu jesteśmy teraz",
                               więc jedyne, które je dostaje (jeden akcent, nie rozsypane efekty). */}
                           <span
-                            className={`h-3 w-3 shrink-0 rounded-full ${isCurrent ? 'breathe' : ''}`}
+                            className={`h-3 w-3 shrink-0 rounded-full ${isCurrent && !scheduleMode ? 'breathe' : ''}`}
                             style={{
                               backgroundColor: STOP_COLOR[thisStatus],
                               boxShadow: isCurrent
@@ -496,7 +523,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                     }}
                                   >
                                     <TrainIcon size={12} />
-                                    Pociąg jest tutaj
+                                    {scheduleMode ? 'Pociąg jest tutaj — wg rozkładu' : 'Pociąg jest tutaj'}
                                   </span>
                                 )}
                                 {showStopMinutes && (
@@ -609,7 +636,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 <DelayForecast
                   series={summary.delaySeries}
                   arrivalTime={arrivalTime}
-                  arrivalStatus={summary.overallStatus}
+                  arrivalStatus={overallStatus}
                   className="mt-4"
                 />
               </section>

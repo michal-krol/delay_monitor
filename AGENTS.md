@@ -150,8 +150,8 @@ Pokazuje wtedy jawny komunikat błędu, nie ostatnie znane dane (bo ich nie ma).
 ## 8. Fixture'y nie odwzorowują skali żywego API
 
 Mock ma **prawdziwe** ID stacji (Warszawa Centralna `33605`, Kraków Główny
-`80416`, Gdańsk Główny `7500` — te same co na żywo), ale to wciąż 14
-syntetycznych, ręcznie napisanych pociągów (`orderId` 101–114) zamiast
+`80416`, Gdańsk Główny `7500` — te same co na żywo), ale to wciąż 15
+syntetycznych, ręcznie napisanych pociągów (`orderId` 101–115) zamiast
 kilkudziesięciu-kilkuset i 6 kodów przewoźników zamiast 22. Nadają się do
 pracy nad UI — nie do wnioskowania o rzeczywistym natężeniu ruchu produkcji.
 
@@ -161,9 +161,12 @@ opóźnienie, pociąg opóźniony o ~6 h wciąż w trasie (`orderId 104`), odwo�
 w całości (`105`), częściowo odwołany (`106`), „jeszcze nie wyjechał" ze
 stacji początkowej (`107`, `trainStatus S`), świeżo potwierdzony odjazd
 (`108`), dwa utrudnienia (`109` kod słownikowy, `110` gotowy tekst PKP), kurs
-po północy (`112`, `arrivalDay: 1`) i przejazd bez dopasowanej trasy (`113`,
-`schedules` route z pustą listą przystanków). Mapowanie `orderId` → przypadek
-opisują komentarze w `src/lib/pkp/mock.test.ts`.
+po północy (`112`, `arrivalDay: 1`), przejazd bez dopasowanej trasy (`113`,
+`schedules` route z pustą listą przystanków) i pociąg bez ŻADNEJ realizacji,
+którego rozkład stawia w połowie trasy (`115`, `trainStatus S`, zero
+`isConfirmed`, okno trasy obejmuje „teraz" — pozycja „wg rozkładu" na
+szczegółach połączenia, patrz `isScheduleProjection` w `board/trainDetail.ts`).
+Mapowanie `orderId` → przypadek opisują komentarze w `src/lib/pkp/mock.test.ts`.
 
 Kształt odpowiedzi sprawdzaj w publicznym schemacie, nie zgaduj z fixture'ów:
 

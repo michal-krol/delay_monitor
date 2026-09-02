@@ -178,6 +178,26 @@ describe('createMockClient', () => {
         expect(stop.isConfirmed).toBe(false)
       }
     })
+
+    it('gives train 115 a schedule window that straddles "now" with zero realization — the schedule-projection case', async () => {
+      // 115: `trainStatus S`, żaden przystanek `isConfirmed`, a zrebase'owane
+      // czasy stawiają go w połowie trasy względem `Date.now()`. To fixtura pod
+      // `isScheduleProjection` (patrz `board/trainDetail.ts`, AGENTS.md #8).
+      const client = createMockClient()
+      const operations = await client.getOperations(['60103'])
+      const operatingDate = operations.trains[0].operatingDate as string
+
+      const detail = await client.getTrainDetail('2026', '115', operatingDate)
+
+      expect(detail.operation.trainStatus).toBe('S')
+      expect(detail.operation.stations.every((stop) => !stop.isConfirmed && !stop.isCancelled)).toBe(true)
+      expect(detail.route?.stations).toHaveLength(3)
+
+      const first = new Date(detail.operation.stations[0].plannedDeparture as string).getTime()
+      const last = new Date(detail.operation.stations.at(-1)!.plannedArrival as string).getTime()
+      expect(first).toBeLessThan(Date.now())
+      expect(last).toBeGreaterThan(Date.now())
+    })
   })
 
   describe('warm-up robustness', () => {

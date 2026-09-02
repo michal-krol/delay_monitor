@@ -198,6 +198,20 @@
         { "stationId": "73312", "departurePlatform": "3", "departureTime": "08:50:00" },
         { "stationId": "80416", "arrivalPlatform": "5", "arrivalTrack": "2", "arrivalTime": "09:40:00" }
       ]
+    },
+    {
+      "scheduleId": "2026",
+      "orderId": "115",
+      "trainOrderId": null,
+      "carrierCode": "PR",
+      "commercialCategorySymbol": "REG",
+      "name": null,
+      "nationalNumber": "63210",
+      "stations": [
+        { "stationId": "60103", "departurePlatform": "3", "departureTrack": "2", "departureTime": "11:10:00" },
+        { "stationId": "60608", "arrivalPlatform": "2", "arrivalTime": "11:45:00", "departureTime": "11:47:00" },
+        { "stationId": "62653", "arrivalPlatform": "1", "arrivalTime": "12:40:00" }
+      ]
     }
   ],
   "dictionaries": {
