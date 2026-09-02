@@ -24,15 +24,17 @@ const HAS_TIMEZONE_DESIGNATOR = /(Z|[+-]\d{2}:?\d{2})$/
  * przez Intl — niezależnie od strefy procesu, więc CET/CEST wychodzi
  * poprawnie bez względu na to, gdzie działa kontener.
  */
-function warsawOffsetMinutes(instant: Date): number {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: WARSAW_TZ, timeZoneName: 'longOffset' }).formatToParts(
-    instant
-  )
+function zoneOffsetMinutes(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(instant)
   const raw = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT+00:00'
   const match = /GMT([+-])(\d{2}):(\d{2})/.exec(raw)
   if (match === null) return 0
   const sign = match[1] === '-' ? -1 : 1
   return sign * (Number(match[2]) * 60 + Number(match[3]))
+}
+
+function warsawOffsetMinutes(instant: Date): number {
+  return zoneOffsetMinutes(instant, WARSAW_TZ)
 }
 
 /**
@@ -47,7 +49,47 @@ function warsawOffsetMinutes(instant: Date): number {
  * ciągu ręcznie z osobnych pól roku/miesiąca/dnia.
  */
 export function warsawDateString(instant: Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: WARSAW_TZ }).format(instant)
+  return zonedDateString(instant, WARSAW_TZ)
+}
+
+/** Jak `warsawDateString`, ale dla dowolnej strefy — GTFS bierze ją z `CityFeed.timezone`. */
+export function zonedDateString(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(instant)
+}
+
+/**
+ * Epoka (ms) południa dnia kursowania `serviceDate` (yyyy-MM-dd) w strefie
+ * `timeZone`. GTFS definiuje czasy przystanków jako przesunięcia od
+ * (południe doby kursowania − 12 h), a NIE od północy: w dni zmiany czasu
+ * północ+offset daje błąd godziny dla kursów po przejściu, południe nie
+ * (przejście nigdy nie wypada w południe).
+ *
+ * To jedyne miejsce w warstwie GTFS, w którym data kursowania spotyka zegar —
+ * `schedule.ts` liczy z tego `evAbsSec` raz przy ładowaniu i nic poniżej nie
+ * przelicza czasu ponownie (niezmiennik #1).
+ */
+export function serviceDayNoonEpoch(serviceDate: string, timeZone: string): number {
+  const noonUtc = new Date(`${serviceDate}T12:00:00Z`).getTime()
+  return noonUtc - zoneOffsetMinutes(new Date(noonUtc), timeZone) * 60000
+}
+
+/** `[wczoraj, dziś, jutro]` względem daty kalendarzowej w strefie `timeZone`. */
+export function serviceDateWindow(instant: Date, timeZone: string): [string, string, string] {
+  const today = zonedDateString(instant, timeZone)
+  return [shiftDateString(today, -1), today, shiftDateString(today, 1)]
+}
+
+/**
+ * Chwila (epoka ms) → ISO 8601 z jawnym offsetem strefy `timeZone`
+ * (`2026-09-02T23:55:00+02:00`). Bez frakcji sekund. Używane przez warstwę
+ * GTFS do `plannedAt` — czas jest już absolutny, tu tylko renderowanie.
+ */
+export function isoInZone(epochMs: number, timeZone: string): string {
+  const offsetMinutes = zoneOffsetMinutes(new Date(epochMs), timeZone)
+  const wall = new Date(epochMs + offsetMinutes * 60000).toISOString().slice(0, 19)
+  const sign = offsetMinutes >= 0 ? '+' : '-'
+  const abs = Math.abs(offsetMinutes)
+  return `${wall}${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`
 }
 
 export function normalizeApiTimestamp(value: string): string {

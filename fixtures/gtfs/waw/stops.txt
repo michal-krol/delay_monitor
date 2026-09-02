@@ -1,0 +1,11 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,platform_code,wheelchair_boarding,zone_id
+100101,Centrum,52.230100,21.011500,0,,01,1,1
+100102,Centrum,52.230200,21.012400,0,,02,1,1
+100103,Centrum,52.229800,21.010900,0,,03,0,1
+100104,Centrum,52.229600,21.013100,0,,04,2,1
+7014M,Świętokrzyska,52.235300,21.008900,1,,,1,1
+7014M:P1,"Świętokrzyska, peron M1",52.235310,21.008800,0,7014M,P1,1,1
+7014M:P2,"Świętokrzyska, peron M2",52.235290,21.009000,0,7014M,P2,1,1
+700201,Rondo ONZ,52.233000,20.999600,0,,,1,1
+500801,Dworzec Centralny,52.228700,21.003400,0,,,1,1
+100201,Kabaty,52.104900,21.062700,0,,,0,2

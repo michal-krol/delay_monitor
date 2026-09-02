@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { combineWarsawDateAndTime, normalizeApiTimestamp, warsawDateString } from './time'
+import {
+  combineWarsawDateAndTime,
+  isoInZone,
+  normalizeApiTimestamp,
+  serviceDateWindow,
+  serviceDayNoonEpoch,
+  warsawDateString,
+} from './time'
 
 describe('warsawDateString', () => {
   it('returns the Warsaw calendar date even when the process/UTC date has not rolled over yet (CEST, UTC+2)', () => {
@@ -46,6 +53,67 @@ describe('normalizeApiTimestamp', () => {
     const result = normalizeApiTimestamp('2026-08-01T00:00:00')
     expect(result).not.toBe('2026-08-01T00:00:00')
     expect(result).toMatch(/Z$/)
+  })
+})
+
+describe('serviceDayNoonEpoch', () => {
+  const iso = (ms: number) => new Date(ms).toISOString()
+
+  it('resolves noon of the service day in summer (CEST, UTC+2)', () => {
+    expect(iso(serviceDayNoonEpoch('2026-09-02', 'Europe/Warsaw'))).toBe('2026-09-02T10:00:00.000Z')
+  })
+
+  it('resolves noon of the service day in winter (CET, UTC+1)', () => {
+    expect(iso(serviceDayNoonEpoch('2026-01-15', 'Europe/Warsaw'))).toBe('2026-01-15T11:00:00.000Z')
+  })
+
+  it('places a 03:30 departure correctly on the autumn changeover day (noon−12h rule, not midnight)', () => {
+    // 2026-10-25: CEST→CET. GTFS: czas = południe doby − 12 h + offset.
+    const noon = serviceDayNoonEpoch('2026-10-25', 'Europe/Warsaw')
+    const evAbs = noon - 12 * 3600_000 + (3 * 3600 + 30 * 60) * 1000
+    // Reguła „północ + offset" dałaby tu 01:30Z — o godzinę za wcześnie.
+    expect(iso(evAbs)).toBe('2026-10-25T02:30:00.000Z')
+  })
+
+  it('places a 03:30 departure correctly on the spring changeover day', () => {
+    // 2026-03-29: CET→CEST.
+    const noon = serviceDayNoonEpoch('2026-03-29', 'Europe/Warsaw')
+    const evAbs = noon - 12 * 3600_000 + (3 * 3600 + 30 * 60) * 1000
+    expect(iso(evAbs)).toBe('2026-03-29T01:30:00.000Z')
+  })
+
+  it('honours a non-Warsaw timezone without code changes', () => {
+    expect(iso(serviceDayNoonEpoch('2026-09-02', 'UTC'))).toBe('2026-09-02T12:00:00.000Z')
+  })
+})
+
+describe('serviceDateWindow', () => {
+  it('returns [yesterday, today, tomorrow] for the zone calendar date', () => {
+    expect(serviceDateWindow(new Date('2026-09-02T08:00:00Z'), 'Europe/Warsaw')).toEqual([
+      '2026-09-01',
+      '2026-09-02',
+      '2026-09-03',
+    ])
+  })
+
+  it('uses the zone date, not the UTC date, near midnight', () => {
+    // 22:30Z latem = 00:30 następnego dnia w Warszawie.
+    expect(serviceDateWindow(new Date('2026-09-02T22:30:00Z'), 'Europe/Warsaw')).toEqual([
+      '2026-09-02',
+      '2026-09-03',
+      '2026-09-04',
+    ])
+  })
+})
+
+describe('isoInZone', () => {
+  it('renders the instant with the zone offset, summer and winter', () => {
+    expect(isoInZone(Date.parse('2026-09-02T21:55:00Z'), 'Europe/Warsaw')).toBe('2026-09-02T23:55:00+02:00')
+    expect(isoInZone(Date.parse('2026-01-15T09:00:00Z'), 'Europe/Warsaw')).toBe('2026-01-15T10:00:00+01:00')
+  })
+
+  it('works for a non-Warsaw zone', () => {
+    expect(isoInZone(Date.parse('2026-09-02T12:00:00Z'), 'UTC')).toBe('2026-09-02T12:00:00+00:00')
   })
 })
 

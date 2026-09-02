@@ -1,0 +1,4 @@
+service_id,date,exception_type
+{{WCZORAJ}}:C,{{WCZORAJ}},1
+{{DZIS}}:C,{{DZIS}},1
+{{JUTRO}}:C,{{JUTRO}},1
