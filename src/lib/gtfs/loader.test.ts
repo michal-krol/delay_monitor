@@ -48,7 +48,7 @@ function fakeClient(overrides: Partial<Record<string, string | null>> = {}, feed
 
 describe('loadSchedule', () => {
   it('builds a schedule end to end from the entry table', async () => {
-    const schedule = await loadSchedule(fakeClient(), CITY, NOW)
+    const schedule = await loadSchedule(fakeClient(), CITY, { now: NOW })
     expect(schedule.feedVersion).toBe('v-1')
     expect(schedule.serviceDates).toEqual(['2026-09-01', '2026-09-02', '2026-09-03'])
     expect(schedule.attribution).toEqual(['ZTM', 'Mikołaj Kuranowski'])
@@ -57,25 +57,25 @@ describe('loadSchedule', () => {
   })
 
   it('tolerates a missing calendar.txt (calendar lives only in calendar_dates)', async () => {
-    const schedule = await loadSchedule(fakeClient({ 'calendar.txt': null }), CITY, NOW)
+    const schedule = await loadSchedule(fakeClient({ 'calendar.txt': null }), CITY, { now: NOW })
     expect(schedule.evCount).toBe(2)
   })
 
   it('rejects the load when feed_version changes between the opening and closing read', async () => {
-    await expect(loadSchedule(fakeClient({}, ['v-1', 'v-2']), CITY, NOW)).rejects.toBeInstanceOf(
+    await expect(loadSchedule(fakeClient({}, ['v-1', 'v-2']), CITY, { now: NOW })).rejects.toBeInstanceOf(
       FeedChangedDuringLoadError
     )
   })
 
   it('throws when stop_times.txt is absent', async () => {
-    await expect(loadSchedule(fakeClient({ 'stop_times.txt': null }), CITY, NOW)).rejects.toThrow(/stop_times/)
+    await expect(loadSchedule(fakeClient({ 'stop_times.txt': null }), CITY, { now: NOW })).rejects.toThrow(/stop_times/)
   })
 
   it('skips rows that fail their schema instead of aborting the whole file', async () => {
     const schedule = await loadSchedule(
       fakeClient({ 'routes.txt': 'route_id,route_short_name,route_type\n1,1,3\n,,notanumber\n' }),
       CITY,
-      NOW
+      { now: NOW }
     )
     expect(schedule.routes).toHaveLength(1)
   })

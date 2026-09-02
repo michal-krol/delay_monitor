@@ -55,13 +55,27 @@ async function parseRows<T>(client: GtfsClient, name: string, schema: z.ZodType<
   return rows
 }
 
-export async function loadSchedule(client: GtfsClient, city: CityFeed, now: Date = new Date()): Promise<GtfsSchedule> {
+export type LoadScheduleOptions = {
+  now?: Date
+  /** Nazwa bieżącej fazy — poller wystawia ją w widoku (ważniejsze niż licznik sekund). */
+  onPhase?: (phase: string) => void
+}
+
+export async function loadSchedule(
+  client: GtfsClient,
+  city: CityFeed,
+  options: LoadScheduleOptions = {}
+): Promise<GtfsSchedule> {
+  const now = options.now ?? new Date()
+  const phase = options.onPhase ?? (() => {})
   const serviceDates = serviceDateWindow(now, city.timezone)
 
   // 1. feed_info — wartość otwarcia
+  phase('feed_info')
   const feedVersionBefore = await client.getFeedVersion()
 
   // 2-6. wpisy przez Zod (kolejność wymuszona zależnościami)
+  phase('tabele')
   const [calendars, calendarDates, stops, routes, trips, frequencies, attributions] = await Promise.all([
     parseRows(client, 'calendar.txt', calendarSchema),
     parseRows(client, 'calendar_dates.txt', calendarDateSchema),
@@ -73,6 +87,7 @@ export async function loadSchedule(client: GtfsClient, city: CityFeed, now: Date
   ])
 
   // 7. stop_times — strumieniowo, poza Zod (patrz nagłówek schedule.ts)
+  phase('stop_times')
   const stopTimeStream = await client.readEntry('stop_times.txt')
   if (stopTimeStream === null) throw new Error('Brak stop_times.txt w feedzie GTFS.')
 
@@ -91,6 +106,7 @@ export async function loadSchedule(client: GtfsClient, city: CityFeed, now: Date
   })
 
   // 8. feed_info — musi się równać krokowi 1
+  phase('weryfikacja')
   const feedVersionAfter = await client.getFeedVersion()
   if (feedVersionAfter !== feedVersionBefore) {
     throw new FeedChangedDuringLoadError(feedVersionBefore, feedVersionAfter)
