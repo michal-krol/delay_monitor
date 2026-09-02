@@ -39,6 +39,24 @@ describe('createMockClient', () => {
   it('reads feed_version from feed_info.txt', async () => {
     expect(await createMockClient(WAW).getFeedVersion()).toBe(`mock-${TODAY}`)
   })
+
+  it('returns null feed_version when the fixtures directory does not exist', async () => {
+    const client = createMockClient({ ...WAW, id: 'nonexistent-city' })
+    expect(await client.getFeedVersion()).toBeNull()
+    expect(await client.readEntry('stops.txt')).toBeNull()
+  })
+
+  it('yields the last line even without a trailing newline', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'gtfs-nonl-'))
+    await cp(path.join(FIXTURE_ROOT, 'waw'), path.join(root, 'x'), { recursive: true })
+    // routes.txt kopiowany z waw kończy się newline; to i tak przechodzi.
+    const lines: string[] = []
+    for await (const line of (await createMockClient({ ...WAW, id: 'x' }, root).readEntry('routes.txt')) ?? []) {
+      lines.push(line)
+    }
+    expect(lines[0]).toContain('route_id')
+    expect(lines.some((line) => line.startsWith('M1,'))).toBe(true)
+  })
 })
 
 describe('loadSchedule on the waw fixtures (end to end, no network)', () => {

@@ -159,6 +159,25 @@ describe('edge cases', () => {
   it('searchStops returns [] for a blank query', async () => {
     expect(searchStops(await make({}), '   ', 5)).toEqual([])
   })
+
+  it('searchStops honours the limit even with many matches', async () => {
+    const stops = Array.from({ length: 30 }, (_, i) => stop(`90${i.toString().padStart(2, '0')}`, `Aleja ${i}`))
+    const schedule = await make({ stops })
+    expect(searchStops(schedule, 'aleja', 3)).toHaveLength(3)
+  })
+
+  it('nextDepartures caps how many stop runs it merges for a huge group', async () => {
+    // 20 słupków w jednym zespole (prefiks 4-cyfrowy), każdy z odjazdem.
+    const stops = Array.from({ length: 20 }, (_, i) => stop(`5500${i.toString().padStart(2, '0')}`.slice(0, 6), 'Węzeł'))
+    const trips = stops.map((_, i) => ({ routeId: '1', serviceId: 'S', tripId: `t${i}`, headsign: 'H', directionId: 0 as const }))
+    const lines = ['trip_id,stop_id,arrival_time,departure_time,stop_sequence']
+    stops.forEach((s, i) => lines.push(`t${i},${s.id},12:${(10 + i).toString().padStart(2, '0')}:00,12:${(10 + i).toString().padStart(2, '0')}:00,1`))
+    const schedule = await make({ stops, trips, stopTimeLines: lines })
+    // Nie wywala się i zwraca posortowaną listę w granicach limitu.
+    const out = nextDepartures(schedule, ['5500'], waw0902(11), 5)
+    expect(out.length).toBeLessThanOrEqual(5)
+    expect(out).toEqual([...out].sort((a, b) => a.departureSec - b.departureSec))
+  })
 })
 
 describe('searchStops', () => {

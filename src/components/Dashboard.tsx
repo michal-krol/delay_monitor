@@ -2,6 +2,7 @@
 
 import { useBoard } from '@/hooks/useBoard'
 import { StationCard } from './StationCard'
+import { TransitStopCard } from './TransitStopCard'
 import { BoardStatus } from './BoardStatus'
 import type { StationOption } from './StationSearch'
 import { favouriteKey, type Favourite } from '@/hooks/useFavourites'
@@ -13,10 +14,11 @@ type Props = {
 }
 
 export function Dashboard({ favourites, onExpand, onRemove }: Props) {
-  // ponytail: przystanki miejskie (`kind: 'gtfs'`) dołączają tu w etapie 2 jako
-  // druga siatka na `useTransitBoard`. Do tego czasu nikt ich nie dodaje —
-  // filtrujemy do stacji PKP zamiast renderować martwą gałąź.
+  // Pulpit jest ponad miastami: stacja PKP i przystanek miejski (dowolnego
+  // miasta) wiszą obok siebie na jednej siatce. Stacje idą przez wspólny
+  // `useBoard` (jedno zapytanie), przystanki miejskie mają własne karty.
   const stations = favourites.filter((favourite) => favourite.kind === 'pkp')
+  const transitStops = favourites.filter((favourite) => favourite.kind === 'gtfs')
   const stationIds = stations.map((favourite) => favourite.id)
   const { data, error } = useBoard(stationIds)
 
@@ -54,6 +56,18 @@ export function Dashboard({ favourites, onExpand, onRemove }: Props) {
             onRemove={() => onRemove(favouriteKey(favourite))}
           />
         ))}
+        {transitStops.map(
+          (favourite) =>
+            favourite.kind === 'gtfs' && (
+              <TransitStopCard
+                key={favouriteKey(favourite)}
+                city={favourite.city}
+                stopId={favourite.id}
+                stopName={favourite.name}
+                onRemove={() => onRemove(favouriteKey(favourite))}
+              />
+            )
+        )}
       </div>
     </div>
   )

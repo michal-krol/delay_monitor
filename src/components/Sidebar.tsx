@@ -2,10 +2,12 @@
 
 import Link from 'next/link'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
+import { useCityContext } from '@/hooks/useCityContext'
 import { HomeIcon, ListIcon, StarIcon, BellIcon, RouteIcon, MapIcon, SettingsIcon, ChevronRightIcon } from './icons'
 import { PollerDiagnostics } from './PollerDiagnostics'
+import { CitySwitcher } from './CitySwitcher'
 
-type ActiveItem = 'pulpit'
+type ActiveItem = 'pulpit' | 'odjazdy'
 
 type Props = {
   // Opcjonalny -- jedyny prawdziwy wpis nawigacji to "Pulpit"; reszta jest
@@ -28,20 +30,31 @@ function environmentLabel(branch: string): string {
 
 type NavItem =
   | { kind: 'active'; key: ActiveItem; href: string; label: string; icon: typeof HomeIcon }
-  | { kind: 'disabled'; label: string; icon: typeof HomeIcon; badge?: number }
+  | { kind: 'disabled'; label: string; icon: typeof HomeIcon; badge?: number; title?: string }
 
-const NAV_ITEMS: NavItem[] = [
-  { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
-  { kind: 'disabled', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
-  { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
-  { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
-  { kind: 'disabled', label: 'Trasy', icon: RouteIcon },
-  { kind: 'disabled', label: 'Mapa', icon: MapIcon },
-  { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
-]
+/**
+ * „Odjazdy / Przyjazdy" i „Trasy" przestały być atrapami: w kontekście miasta
+ * prowadzą na jego ekran. Bez wybranego miasta „Odjazdy" nadal jest wyłączone
+ * (nie ma krajowej tablicy odjazdów), a „Trasy" czeka na etap 4.
+ */
+function navItems(city: string | null): NavItem[] {
+  return [
+    { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
+    city === null
+      ? { kind: 'disabled', label: 'Odjazdy / Przyjazdy', icon: ListIcon, title: 'Wybierz miasto' }
+      : { kind: 'active', key: 'odjazdy', href: `/miasto/${city}`, label: 'Odjazdy / Przyjazdy', icon: ListIcon },
+    { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
+    { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
+    { kind: 'disabled', label: 'Trasy', icon: RouteIcon },
+    { kind: 'disabled', label: 'Mapa', icon: MapIcon },
+    { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
+  ]
+}
 
 export function Sidebar({ activeItem }: Props) {
   const { collapsed, toggle } = useSidebarCollapsed()
+  const { city } = useCityContext()
+  const NAV_ITEMS = navItems(city)
 
   return (
     <aside
@@ -96,6 +109,8 @@ export function Sidebar({ activeItem }: Props) {
         </button>
       </div>
 
+      {!collapsed && <CitySwitcher collapsed={collapsed} />}
+
       <nav className="flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
@@ -124,7 +139,7 @@ export function Sidebar({ activeItem }: Props) {
               key={item.label}
               aria-disabled="true"
               aria-label={item.label}
-              title="Wkrótce"
+              title={item.title ?? 'Wkrótce'}
               className="flex cursor-not-allowed items-center justify-between gap-3 rounded-[10px] px-3 py-2.5 text-sm text-text-muted opacity-50"
             >
               <div className="flex items-center gap-3">

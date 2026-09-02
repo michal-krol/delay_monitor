@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AppSidebar } from './AppSidebar'
 
 const usePathname = vi.fn()
-vi.mock('next/navigation', () => ({ usePathname: () => usePathname() }))
+vi.mock('next/navigation', () => ({
+  usePathname: () => usePathname(),
+  useRouter: () => ({ push: vi.fn() }),
+}))
 
 afterEach(() => {
   vi.clearAllMocks()

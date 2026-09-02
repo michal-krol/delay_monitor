@@ -192,6 +192,36 @@ describe('buildSchedule — frequencies', () => {
   })
 })
 
+describe('buildSchedule — parsowanie stop_times', () => {
+  it('reads trip_id by header when it is NOT the first column, and handles quoted fields', async () => {
+    const schedule = await buildSchedule(
+      makeInput({
+        stops: [stop('1001', 'Rondo, główne')],
+        trips: [{ routeId: '1', serviceId: 'S', tripId: 'a,b', headsign: null, directionId: 0 }],
+        stopTimeLines: [
+          'stop_sequence,stop_id,trip_id,arrival_time,departure_time',
+          '1,1001,"a,b",06:00:00,06:00:00',
+        ],
+      })
+    )
+    expect(schedule.evCount).toBe(1)
+    expect(schedule.tripIds[schedule.evTrip[0]]).toBe('a,b')
+  })
+
+  it('drops the quoted-first-column ambiguity gracefully when trip_id IS column 0', async () => {
+    const schedule = await buildSchedule(
+      makeInput({
+        trips: [{ routeId: '1', serviceId: 'S', tripId: 'plain', headsign: null, directionId: 0 }],
+        stopTimeLines: [
+          'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+          '"plain",1001,06:00:00,06:00:00,1',
+        ],
+      })
+    )
+    expect(schedule.evCount).toBe(1)
+  })
+})
+
 describe('buildSchedule — strażniki stop_times', () => {
   it('drops rows with an unparseable time and an unknown stop, counting each', async () => {
     const schedule = await buildSchedule(
@@ -207,6 +237,34 @@ describe('buildSchedule — strażniki stop_times', () => {
     )
     expect(schedule.evCount).toBe(1)
     expect(schedule.droppedStopTimes).toBe(2)
+  })
+
+  it('tolerates a trip whose route is missing and a stop_time with only an arrival time', async () => {
+    const schedule = await buildSchedule(
+      makeInput({
+        routes: [],
+        trips: [{ routeId: 'ghost', serviceId: 'S', tripId: 't', headsign: null, directionId: 2 }],
+        stopTimeLines: [
+          'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+          't,1001,06:00:00,,1', // brak departure_time → używamy arrival
+        ],
+      })
+    )
+    expect(schedule.evCount).toBe(1)
+    expect(schedule.evDepSec[0]).toBe(6 * 3600)
+    expect(schedule.tripRoute[schedule.evTrip[0]]).toBe(-1)
+  })
+
+  it('a frequency row that references a trip with no stop_times pattern is dropped and counted', async () => {
+    const schedule = await buildSchedule(
+      makeInput({
+        trips: [{ routeId: '1', serviceId: 'S', tripId: 'freqless', headsign: null, directionId: 0 }],
+        frequencies: [{ tripId: 'freqless', startSec: 5 * 3600, endSec: 6 * 3600, headwaySecs: 300 }],
+        stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence'], // brak wierszy
+      })
+    )
+    expect(schedule.droppedFrequencies).toBe(1)
+    expect(schedule.evCount).toBe(0)
   })
 
   it('CSR slice for a stop is sorted by absolute time', async () => {

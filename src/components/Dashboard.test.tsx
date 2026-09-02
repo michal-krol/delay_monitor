@@ -11,6 +11,14 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }))
 
+// Karty przystanków miejskich odpytują własny endpoint — mockujemy hook.
+vi.mock('@/hooks/useTransitBoard', () => ({
+  useTransitBoard: () => ({
+    data: { stops: [{ stopId: '7014M', name: 'Świętokrzyska', modes: ['metro'], departures: [] }], schedule: { state: 'ready' }, attribution: [] },
+    error: null,
+  }),
+}))
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -175,6 +183,22 @@ describe('Dashboard', () => {
     await user.click(screen.getByRole('button', { name: 'Usuń z ulubionych: Kraków Główny' }))
 
     expect(onRemove).toHaveBeenCalledWith('pkp:5136')
+  })
+
+  it('renders a transit stop card for a gtfs favourite alongside station cards (Pulpit is above cities)', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <Dashboard
+        favourites={[...FAVOURITES, { kind: 'gtfs', city: 'waw', id: '7014M', name: 'Świętokrzyska' }]}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Świętokrzyska' })).toBeInTheDocument()
+    expect(screen.getByText('Rozkład — waw')).toBeInTheDocument()
   })
 
   it('drops stale snapshots for stations that are no longer favourites', async () => {

@@ -3,6 +3,9 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from './Sidebar'
 
+// CitySwitcher (nad menu) używa useRouter.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+
 beforeEach(() => {
   // useSidebarCollapsed persists to real localStorage — a test that toggles
   // collapse (like the one below) would otherwise leak collapsed=true into

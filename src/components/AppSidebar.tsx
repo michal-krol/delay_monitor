@@ -12,5 +12,6 @@ import { Sidebar } from './Sidebar'
  */
 export function AppSidebar() {
   const pathname = usePathname()
-  return <Sidebar activeItem={pathname === '/' ? 'pulpit' : undefined} />
+  const activeItem = pathname === '/' ? 'pulpit' : pathname.startsWith('/miasto/') ? 'odjazdy' : undefined
+  return <Sidebar activeItem={activeItem} />
 }

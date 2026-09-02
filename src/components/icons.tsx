@@ -167,6 +167,42 @@ export function TrainIcon(props: IconProps) {
   )
 }
 
+export function BusIcon(props: IconProps) {
+  return base(
+    <>
+      <rect x="4.3" y="3.5" width="11.4" height="11" rx="2" stroke="currentColor" />
+      <path d="M4.3 8.5h11.4" stroke="currentColor" />
+      <circle cx="7.3" cy="11.4" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12.7" cy="11.4" r="1" fill="currentColor" stroke="none" />
+      <path d="M6.3 14.5 5 16.5M13.7 14.5l1.3 2" stroke="currentColor" />
+    </>,
+    props
+  )
+}
+
+export function TramIcon(props: IconProps) {
+  return base(
+    <>
+      <rect x="5" y="4" width="10" height="11" rx="2.4" stroke="currentColor" />
+      <path d="M5 9h10" stroke="currentColor" />
+      <path d="M10 4V2M7.5 2.6 10 4l2.5-1.4" stroke="currentColor" />
+      <path d="M7 15l-1.6 2.4M13 15l1.6 2.4" stroke="currentColor" />
+    </>,
+    props
+  )
+}
+
+export function MetroIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M4 15 10 4l6 11" stroke="currentColor" />
+      <path d="M6.3 15h7.4" stroke="currentColor" />
+      <path d="M8 10.5 10 7l2 3.5" stroke="currentColor" />
+    </>,
+    props
+  )
+}
+
 export function AlertCircleIcon(props: IconProps) {
   return base(
     <>
