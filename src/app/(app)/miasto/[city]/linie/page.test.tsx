@@ -57,7 +57,31 @@ describe('CityLinesPage', () => {
     render(<CityLinesPage />)
     const link = await screen.findByRole('link', { name: /Linia M1/ })
     expect(link).toHaveAttribute('href', '/miasto/waw/linia/M1')
-    expect(await screen.findByText('Linie — Warszawa')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Trasy — Warszawa' })).toBeInTheDocument()
+    expect(screen.getByText('Przeglądarka linii komunikacji miejskiej')).toBeInTheDocument()
+  })
+
+  it('filters the grid by a text query on line number or headsign', async () => {
+    stubFetch({
+      ...LINES,
+      lines: {
+        ...LINES.lines,
+        bus: [{ routeId: '128', line: '128', longName: 'Chomiczówka – Dworzec', color: null, textColor: '#000000', mode: 'bus', kind: 'regular' }],
+      },
+    })
+    const user = userEvent.setup()
+    render(<CityLinesPage />)
+    await screen.findByRole('link', { name: /Linia M1/ })
+    await user.type(screen.getByRole('searchbox', { name: /szukaj linii/i }), '128')
+    expect(screen.queryByRole('link', { name: /Linia M1/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Linia 128/ })).toBeInTheDocument()
+  })
+
+  it('renders the city picker in the top bar (line-browser navigation target)', async () => {
+    stubFetch()
+    render(<CityLinesPage />)
+    await screen.findByRole('link', { name: /Linia M1/ })
+    expect(screen.getByRole('combobox', { name: /miasto/i })).toBeInTheDocument()
   })
 
   it('filters the grid when a mode chip is pressed', async () => {

@@ -1,7 +1,8 @@
-import type { TimetableEntry } from '@/lib/gtfs/query'
+/** Minimum, którego tabliczka potrzebuje — `TimetableEntry` je spełnia. */
+export type TimetableRow = { departureSec: number; headsign?: string | null; frequencyBased?: boolean }
 
 type Props = {
-  entries: TimetableEntry[]
+  entries: TimetableRow[]
   loading?: boolean
   /** Komunikat, gdy linia nie kursuje w tej dobie z tego przystanku. */
   emptyMessage?: string
@@ -10,7 +11,7 @@ type Props = {
 type Row = { hour: string; minutes: { value: string; headsign: string | null; frequencyBased: boolean }[] }
 
 /** `sec` może przekroczyć 86400 (kurs po północy) — godzina zwija się do doby. */
-function groupByHour(entries: TimetableEntry[]): Row[] {
+function groupByHour(entries: TimetableRow[]): Row[] {
   const rows = new Map<number, Row['minutes']>()
   for (const entry of entries) {
     const hour = Math.floor(entry.departureSec / 3600)
@@ -18,8 +19,8 @@ function groupByHour(entries: TimetableEntry[]): Row[] {
     const list = rows.get(hour) ?? []
     list.push({
       value: String(minute).padStart(2, '0'),
-      headsign: entry.headsign,
-      frequencyBased: entry.frequencyBased,
+      headsign: entry.headsign ?? null,
+      frequencyBased: entry.frequencyBased ?? false,
     })
     rows.set(hour, list)
   }

@@ -11,7 +11,16 @@ export type CityOption = { id: string; name: string; railStations: { id: string 
  * pierwszy. Brak opcji „Cała Polska" — ekran jest zawsze przypisany do miasta.
  * `cities` podaje ekran (jeden wspólny fetch `/api/cities`).
  */
-export function CityPicker({ cities, current }: { cities: CityOption[]; current: string }) {
+export function CityPicker({
+  cities,
+  current,
+  hrefFor = (id) => `/miasto/${id}`,
+}: {
+  cities: CityOption[]
+  current: string
+  /** Dokąd nawigować po zmianie miasta — domyślnie ekran odjazdów, `Trasy` podaje własny. */
+  hrefFor?: (id: string) => string
+}) {
   const router = useRouter()
   const { setCity } = useCityContext()
 
@@ -21,7 +30,7 @@ export function CityPicker({ cities, current }: { cities: CityOption[]; current:
   function choose(nextId: string): void {
     if (nextId === current) return
     setCity(nextId)
-    router.push(`/miasto/${nextId}`)
+    router.push(hrefFor(nextId))
   }
 
   return (

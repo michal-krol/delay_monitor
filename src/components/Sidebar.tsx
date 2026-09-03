@@ -39,9 +39,9 @@ type NavItem =
 const NAV_ITEMS: NavItem[] = [
   { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
   { kind: 'active', key: 'odjazdy', href: '/miasto', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
+  { kind: 'active', key: 'trasy', href: '/linie', label: 'Trasy', icon: RouteIcon },
   { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
   { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
-  { kind: 'active', key: 'trasy', href: '/linie', label: 'Trasy', icon: RouteIcon },
   { kind: 'disabled', label: 'Mapa', icon: MapIcon },
   { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
 ]

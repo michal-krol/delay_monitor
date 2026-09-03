@@ -4,7 +4,11 @@
  */
 import { isoInZone } from '@/lib/pkp/time'
 import { normalizeForSearch } from '@/lib/search'
+import type { ServiceCategory } from './schema'
 import type { GtfsDeparture, GtfsMode, GtfsRoute, GtfsSchedule, LineKind } from './types'
+
+/** Kod `tripCategory` (0-4) → nazwa kategorii dnia. Kolejność sekcji rozkładu. */
+export const SERVICE_CATEGORIES: ServiceCategory[] = ['weekday', 'friday', 'saturday', 'sunday', 'other']
 
 /** Ile posortowanych przebiegów najwyżej scalamy dla jednego zespołu. */
 const MAX_MERGED_RUNS = 12
@@ -213,8 +217,47 @@ export function allLines(schedule: GtfsSchedule): Record<GtfsMode, LineListEntry
 }
 
 export type LineRouteStop = { stopId: string; groupId: string; name: string; wheelchair: 0 | 1 | 2 }
-export type LineRouteDirection = { directionId: number; headsign: string | null; stops: LineRouteStop[] }
+/** Odjazdy z krańcówki w jednej kategorii dnia — sekcja rozkładu linii. */
+export type LineDepartureBlock = { category: ServiceCategory; times: number[]; frequencyBased: boolean }
+export type LineRouteDirection = {
+  directionId: number
+  headsign: string | null
+  /** Nazwa krańcówki początkowej (pierwszy przystanek przebiegu). */
+  origin: string | null
+  stops: LineRouteStop[]
+  /** Rozkład odjazdów z krańcówki, pogrupowany po kategorii dnia. */
+  departures: LineDepartureBlock[]
+}
 export type LineDetail = LineListEntry & { directions: LineRouteDirection[] }
+
+/**
+ * Odjazdy z krańcówki linii w danym kierunku, pogrupowane po kategorii dnia.
+ * Skan wycinka CSR krańcówki (dziesiątki–setki zdarzeń), nie całej tablicy.
+ * ponytail: widoczne tylko kategorie z okna [wczoraj, dziś, jutro]; pełny
+ * tygodniowy rozkład wymagałby trzymania kursów spoza okna.
+ */
+function lineDepartures(schedule: GtfsSchedule, routeIdx: number, directionId: number, terminusStopIdx: number): LineDepartureBlock[] {
+  const byCategory = new Map<number, { times: Set<number>; frequencyBased: boolean }>()
+  const lo = schedule.stopEventOffset[terminusStopIdx]
+  const hi = schedule.stopEventOffset[terminusStopIdx + 1]
+  for (let k = lo; k < hi; k += 1) {
+    const eventIndex = schedule.stopEventOrder[k]
+    const trip = schedule.evTrip[eventIndex]
+    if (schedule.tripRoute[trip] !== routeIdx || schedule.tripDirection[trip] !== directionId) continue
+    const code = schedule.tripCategory[trip]
+    const bucket = byCategory.get(code) ?? { times: new Set<number>(), frequencyBased: false }
+    bucket.times.add(schedule.evDepSec[eventIndex])
+    if (schedule.tripFrequencyBased[trip] === 1) bucket.frequencyBased = true
+    byCategory.set(code, bucket)
+  }
+  return [...byCategory.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([code, bucket]) => ({
+      category: SERVICE_CATEGORIES[code] ?? 'other',
+      times: [...bucket.times].sort((a, b) => a - b),
+      frequencyBased: bucket.frequencyBased,
+    }))
+}
 
 /**
  * Przebieg linii w obu kierunkach — reprezentatywny wzorzec z `routePatterns`
@@ -230,18 +273,21 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
   for (const directionId of [0, 1, 2]) {
     const pattern = schedule.routePatterns.get(`${routeIdx}:${directionId}`)
     if (pattern === undefined) continue
+    const stops = pattern.stops.map((stopIndex) => {
+      const groupId = schedule.stopGroupIds[stopIndex]
+      return {
+        stopId: schedule.stopIds[stopIndex],
+        groupId,
+        name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
+        wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
+      }
+    })
     directions.push({
       directionId,
       headsign: pattern.headsignIdx >= 0 ? schedule.headsigns[pattern.headsignIdx] : null,
-      stops: pattern.stops.map((stopIndex) => {
-        const groupId = schedule.stopGroupIds[stopIndex]
-        return {
-          stopId: schedule.stopIds[stopIndex],
-          groupId,
-          name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
-          wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
-        }
-      }),
+      origin: stops[0]?.name ?? null,
+      stops,
+      departures: pattern.stops.length > 0 ? lineDepartures(schedule, routeIdx, directionId, pattern.stops[0]) : [],
     })
   }
 

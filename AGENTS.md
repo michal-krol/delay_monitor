@@ -311,6 +311,13 @@ dziedziczy**. Rzeczy, które łatwo złamać:
 - **`schedule.routePatterns`** (przebieg linii per kierunek) jest akumulowany
   w gorącej pętli `stop_times` — **nie skanuj milionów zdarzeń per żądanie**
   strony linii. `lineDetail()` czyta gotowy indeks.
+- **Kategoria dnia** (`serviceCategory` w `schema.ts` → `schedule.tripCategory`):
+  najpierw token w `service_id` (`…:PcS` roboczy, `SbM` sobota, `NdM` niedziela,
+  `PtS` piątek — konwencja WTP), potem rozkład dni tygodnia dat kursowania
+  (feed z `calendar.txt`). Sekcje rozkładu linii („dni robocze"/„soboty"/
+  „niedziele i święta") biorą się stąd — widoczne tylko kategorie z okna
+  `[wczoraj, dziś, jutro]`. Fixture mocka modeluje wszystkie trzy: linia `20`
+  ma warianty `PcS`/`SbS`/`NdS` (`{{DZIS}}`/`{{JUTRO}}`/`{{WCZORAJ}}`).
 - **Rozkład wyznacza doby `[wczoraj, dziś, jutro]`** — `/operations`-owy problem
   z #9 tu nie występuje (GTFS nie ma feedu realizacji), ale liczenie „dziś"
   nadal idzie przez `serviceDateWindow()` i indeks doby, nie przez `new Date()`.

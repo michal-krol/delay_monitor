@@ -8,6 +8,7 @@ import {
   normalizeRouteColor,
   parseGtfsSeconds,
   routeSchema,
+  serviceCategory,
   stopSchema,
 } from './schema'
 
@@ -132,5 +133,27 @@ describe('calendarDateSchema', () => {
       true
     )
     expect(calendarDateSchema.parse({ service_id: 'x', date: '20260902', exception_type: '2' }).added).toBe(false)
+  })
+})
+
+describe('serviceCategory', () => {
+  it('reads the WTP token in the service_id, dated or bare', () => {
+    expect(serviceCategory('2026-09-05:SbS')).toBe('saturday')
+    expect(serviceCategory('NdM')).toBe('sunday')
+    expect(serviceCategory('2026-09-04:PtS')).toBe('friday')
+    expect(serviceCategory('PcM')).toBe('weekday')
+  })
+
+  it('falls back to the weekday spread of the active dates (feed with calendar.txt)', () => {
+    // gtfsWeekday: 0 pon … 4 pt, 5 sob, 6 niedz
+    expect(serviceCategory('S1', new Set([0, 1, 2, 3, 4]))).toBe('weekday')
+    expect(serviceCategory('S2', new Set([5]))).toBe('saturday')
+    expect(serviceCategory('S3', new Set([6]))).toBe('sunday')
+    expect(serviceCategory('S4', new Set([4]))).toBe('friday')
+  })
+
+  it('returns "other" when neither the token nor the weekday spread decides', () => {
+    expect(serviceCategory('holiday-2026')).toBe('other')
+    expect(serviceCategory('mix', new Set([4, 6]))).toBe('other')
   })
 })

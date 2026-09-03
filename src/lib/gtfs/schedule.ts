@@ -18,7 +18,7 @@
  */
 import { serviceDayNoonEpoch } from '@/lib/pkp/time'
 import { headerIndex, parseCsvLine } from './csv'
-import { parseGtfsSeconds } from './schema'
+import { parseGtfsSeconds, serviceCategory, type ServiceCategory } from './schema'
 import type { GtfsRoute, GtfsSchedule } from './types'
 
 export type ParsedStop = {
@@ -191,6 +191,25 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const activeSets = serviceDates.map((date) => activeServices(date, input.calendars, input.calendarDates))
   const frequencyTripIds = new Set(input.frequencies.map((frequency) => frequency.tripId))
 
+  // Kategoria dnia per `service_id` — do sekcji rozkładu linii („dni robocze",
+  // „soboty", „niedziele i święta"). Dni tygodnia z `calendar_dates` (feed bez
+  // `calendar.txt`) i z flag `calendar.txt`, potem token w id (patrz `serviceCategory`).
+  const CATEGORY_CODE: Record<ServiceCategory, number> = { weekday: 0, friday: 1, saturday: 2, sunday: 3, other: 4 }
+  const serviceWeekdays = new Map<string, Set<number>>()
+  const noteWeekday = (serviceId: string, weekday: number) => {
+    const set = serviceWeekdays.get(serviceId) ?? new Set<number>()
+    set.add(weekday)
+    serviceWeekdays.set(serviceId, set)
+  }
+  for (const exception of input.calendarDates) {
+    if (!exception.added) continue
+    const iso = `${exception.date.slice(0, 4)}-${exception.date.slice(4, 6)}-${exception.date.slice(6, 8)}`
+    noteWeekday(exception.serviceId, gtfsWeekday(iso))
+  }
+  for (const calendar of input.calendars) calendar.days.forEach((on, weekday) => on && noteWeekday(calendar.serviceId, weekday))
+  const categoryOf = (serviceId: string): number =>
+    CATEGORY_CODE[serviceCategory(serviceId, serviceWeekdays.get(serviceId) ?? new Set())]
+
   const headsigns: string[] = []
   const headsignIndex = new Map<string, number>()
   const internHeadsign = (value: string | null): number => {
@@ -208,6 +227,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const tripHeadsign: number[] = []
   const tripServiceDay: number[] = []
   const tripDirection: number[] = []
+  const tripCategoryList: number[] = []
   const tripFrequencyBased: number[] = []
   /** base trip_id → indeksy wpisów (po jednym na dobę, w której kurs jest aktywny). */
   const tripEntriesById = new Map<string, number[]>()
@@ -220,6 +240,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     headsignIdx: number,
     day: number,
     direction: number,
+    category: number,
     frequencyBased: boolean
   ): number => {
     const index = tripIds.length
@@ -228,6 +249,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     tripHeadsign.push(headsignIdx)
     tripServiceDay.push(day)
     tripDirection.push(direction)
+    tripCategoryList.push(category)
     tripFrequencyBased.push(frequencyBased ? 1 : 0)
     return index
   }
@@ -237,9 +259,10 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     const headsignIdx = internHeadsign(trip.headsign)
     tripMetaById.set(trip.tripId, { routeIdx, direction: trip.directionId, headsignIdx })
     const isFrequency = frequencyTripIds.has(trip.tripId)
+    const category = categoryOf(trip.serviceId)
     for (let day = 0; day < 3; day += 1) {
       if (!activeSets[day].has(trip.serviceId)) continue
-      const entry = pushTrip(trip.tripId, routeIdx, headsignIdx, day, trip.directionId, isFrequency)
+      const entry = pushTrip(trip.tripId, routeIdx, headsignIdx, day, trip.directionId, category, isFrequency)
       const list = tripEntriesById.get(trip.tripId)
       if (list === undefined) tripEntriesById.set(trip.tripId, [entry])
       else list.push(entry)
@@ -398,11 +421,12 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       const routeIdx = tripRoute[template]
       const headsignIdx = tripHeadsign[template]
       const direction = tripDirection[template]
+      const category = tripCategoryList[template]
       // `t < end` OSTRE — `end_time` to moment zmiany taktu (GTFS):
       // 05:00–05:23 co 480 s daje 05:00, 05:08, 05:16 — trzy, nie cztery.
       for (let t = startSec; t < endSec; t += headwaySecs) {
         const shift = t - patternFirstDep
-        const instance = pushTrip(tripId, routeIdx, headsignIdx, day, direction, true)
+        const instance = pushTrip(tripId, routeIdx, headsignIdx, day, direction, category, true)
         for (const point of pattern) {
           addEvent(instance, point.stopIdx, point.arrSec + shift, point.depSec + shift, point.seq)
         }
@@ -480,6 +504,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     tripHeadsign: Int32Array.from(tripHeadsign),
     tripServiceDay: Uint8Array.from(tripServiceDay),
     tripDirection: Uint8Array.from(tripDirection),
+    tripCategory: Uint8Array.from(tripCategoryList),
     tripFrequencyBased: Uint8Array.from(tripFrequencyBased),
     headsigns,
     evTrip,

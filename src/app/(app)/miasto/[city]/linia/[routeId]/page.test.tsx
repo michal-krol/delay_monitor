@@ -27,8 +27,26 @@ const LINE = {
     mode: 'tram',
     kind: 'regular',
     directions: [
-      { directionId: 0, headsign: 'Piaski', stops: [{ stopId: '100101', groupId: '1001', name: 'Centrum', wheelchair: 1 }, { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', wheelchair: 0 }] },
-      { directionId: 1, headsign: 'Międzylesie', stops: [{ stopId: '700201', groupId: '7002', name: 'Rondo ONZ', wheelchair: 0 }] },
+      {
+        directionId: 0,
+        headsign: 'Dworzec Centralny',
+        origin: 'Centrum',
+        stops: [
+          { stopId: '100101', groupId: '1001', name: 'Centrum', wheelchair: 1 },
+          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', wheelchair: 0 },
+        ],
+        departures: [
+          { category: 'weekday', times: [6 * 3600, 6 * 3600 + 1200], frequencyBased: false },
+          { category: 'saturday', times: [8 * 3600], frequencyBased: false },
+        ],
+      },
+      {
+        directionId: 1,
+        headsign: 'Centrum',
+        origin: 'Dworzec Centralny',
+        stops: [{ stopId: '700201', groupId: '7002', name: 'Rondo ONZ', wheelchair: 0 }],
+        departures: [{ category: 'weekday', times: [6 * 3600 + 600], frequencyBased: false }],
+      },
     ],
   },
   attribution: ['ZTM'],
@@ -58,12 +76,16 @@ describe('LineDetailPage', () => {
     expect(() => render(<LineDetailPage />)).toThrow('NEXT_NOT_FOUND')
   })
 
-  it('shows the line, both directions, and links stops to their stop pages — never a delay', async () => {
+  it('shows the line, both directions as origin → destination, and links stops — never a delay', async () => {
     stubFetch()
     render(<LineDetailPage />)
     expect(await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Piaski' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Międzylesie' })).toBeInTheDocument()
+    // kierunek jako „skąd → dokąd"
+    expect(screen.getByRole('heading', { name: /Centrum.*Dworzec Centralny/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Dworzec Centralny.*Centrum/ })).toBeInTheDocument()
+    // sekcje rozkładu per kategoria dnia
+    expect(screen.getAllByRole('heading', { name: 'Dni robocze' }).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('heading', { name: 'Soboty' })).toBeInTheDocument()
     const stop = screen.getAllByRole('link', { name: 'Centrum' })[0]
     expect(stop).toHaveAttribute('href', '/miasto/waw/przystanek/1001?nazwa=Centrum')
     expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()

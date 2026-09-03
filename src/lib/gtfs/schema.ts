@@ -63,6 +63,33 @@ export function lineKindFrom(shortName: string, desc: string | undefined): LineK
   return 'regular'
 }
 
+/** Kategoria dnia kursowania — do sekcji rozkładu linii. */
+export type ServiceCategory = 'weekday' | 'friday' | 'saturday' | 'sunday' | 'other'
+
+/**
+ * Do której kategorii dnia należy `service_id`. Najpierw token w identyfikatorze
+ * (konwencja WTP: `…:PcS` roboczy, `PtS` piątek, `SbM` sobota, `NdM` niedziela),
+ * potem rozkład dni tygodnia dat kursowania (feed z `calendar.txt` albo bez
+ * konwencji w ID). `activeWeekdays` w konwencji `gtfsWeekday`: 0 = pon … 6 = niedz.
+ * Kolejne miasto z inną konwencją dokłada tu swój przypadek — jak `lineKindFrom`.
+ */
+export function serviceCategory(serviceId: string, activeWeekdays: ReadonlySet<number> = new Set()): ServiceCategory {
+  const tag = serviceId.replace(/^\d{4}-?\d{2}-?\d{2}:/, '').slice(0, 2).toLowerCase()
+  if (tag === 'sb' || tag === 'so') return 'saturday'
+  if (tag === 'nd' || tag === 'ni' || tag === 'su') return 'sunday'
+  if (tag === 'pt' || tag === 'pi' || tag === 'fr') return 'friday'
+  if (tag === 'pc' || tag === 'ro' || tag === 'wd' || tag === 'we') return 'weekday'
+
+  const days = [...activeWeekdays]
+  if (days.length > 0) {
+    if (days.length === 1 && days[0] === 4) return 'friday'
+    if (days.length === 1 && days[0] === 5) return 'saturday'
+    if (days.length === 1 && days[0] === 6) return 'sunday'
+    if (days.every((d) => d >= 0 && d <= 5)) return 'weekday'
+  }
+  return 'other'
+}
+
 /** `route_type` → garść przypadków, z zakresami rozszerzonymi (HVT). */
 export function modeFromRouteType(routeType: number): GtfsMode {
   if (routeType === 0 || (routeType >= 900 && routeType <= 906)) return 'tram'

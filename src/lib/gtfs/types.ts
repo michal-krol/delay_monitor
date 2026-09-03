@@ -134,6 +134,8 @@ export type GtfsSchedule = {
   tripServiceDay: Uint8Array
   /** `direction_id` (0/1), 2 = brak. */
   tripDirection: Uint8Array
+  /** Kategoria dnia kursowania: 0 roboczy, 1 piątek, 2 sobota, 3 niedziela/święto, 4 inny (patrz `serviceCategory`). */
+  tripCategory: Uint8Array
   /** Kurs powstał z rozwinięcia `frequencies.txt`. */
   tripFrequencyBased: Uint8Array
   headsigns: string[]

@@ -22,10 +22,11 @@ describe('ScheduleStatus', () => {
     expect(screen.getByText(/rozkład przejazdów/)).toBeInTheDocument()
   })
 
-  it('shows the ready line with the service-day span', () => {
+  it('shows the ready line with the "current as of" date (today = middle of the window)', () => {
     render(<ScheduleStatus schedule={block({})} cityName="Warszawa" />)
     expect(screen.getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()
-    expect(screen.getByText(/2026-09-01–2026-09-03/)).toBeInTheDocument()
+    // serviceDates[1] = 2026-09-02 (środa)
+    expect(screen.getByText(/aktualny na .*2 września/)).toBeInTheDocument()
   })
 
   it('surfaces a failed refresh with the age of the still-served data', () => {

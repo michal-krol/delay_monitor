@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { notFound, useParams, useRouter } from 'next/navigation'
+import { notFound, useParams } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
+import { CityPicker, type CityOption } from '@/components/CityPicker'
 import { ModeFilter, type ModeValue } from '@/components/ModeFilter'
 import { LineGrid } from '@/components/LineGrid'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
-import { useCityName } from '@/hooks/useCityName'
+import { normalizeForSearch } from '@/lib/search'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -21,6 +22,7 @@ type LinesResponse = {
 }
 
 const LOADING_RETRY_MS = [1000, 2000, 3000, 5000, 8000, 15000]
+const MODES: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
 
 export default function CityLinesPage() {
   const params = useParams<{ city: string }>()
@@ -30,11 +32,24 @@ export default function CityLinesPage() {
     notFound()
   }
 
-  const router = useRouter()
-  const cityName = useCityName(city)
   const [data, setData] = useState<LinesResponse | null>(null)
+  const [cities, setCities] = useState<CityOption[]>([])
   const [failed, setFailed] = useState(false)
   const [mode, setMode] = useState<ModeValue>('all')
+  const [query, setQuery] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/cities')
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
+      .then((body: { cities: CityOption[] }) => {
+        if (!cancelled) setCities(body.cities)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -64,32 +79,51 @@ export default function CityLinesPage() {
     }
   }, [city])
 
-  const lines = data?.lines ?? null
+  const cityName = useMemo(() => cities.find((option) => option.id === city)?.name ?? city, [cities, city])
+
+  const filteredLines = useMemo(() => {
+    if (data?.lines == null) return null
+    const needle = normalizeForSearch(query)
+    if (needle.length === 0) return data.lines
+    const match = (entry: LineListEntry) =>
+      normalizeForSearch(entry.line).includes(needle) || normalizeForSearch(entry.longName).includes(needle)
+    return Object.fromEntries(MODES.map((m) => [m, data.lines![m].filter(match)])) as Record<GtfsMode, LineListEntry[]>
+  }, [data, query])
+
   const available = useMemo<GtfsMode[]>(
-    () => (lines === null ? [] : (Object.keys(lines) as GtfsMode[]).filter((m) => lines[m].length > 0)),
-    [lines]
+    () => (data?.lines == null ? [] : MODES.filter((m) => data.lines![m].length > 0)),
+    [data]
   )
   const loading = data === null && !failed
 
   return (
     <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
-      <TopBar backLabel="Wróć do miasta" onBack={() => router.push(`/miasto/${city}`)} />
+      <TopBar
+        title={`Trasy — ${cityName}`}
+        subtitle="Przeglądarka linii komunikacji miejskiej"
+        actions={<CityPicker cities={cities} current={city} hrefFor={(id) => `/miasto/${id}/linie`} />}
+      />
 
-      <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">Linie — {cityName}</h1>
-        {data !== null && <ScheduleStatus schedule={data.schedule} cityName={cityName} error={failed} />}
-      </div>
+      {data !== null && <ScheduleStatus schedule={data.schedule} cityName={cityName} error={failed} />}
 
       {failed && data === null ? (
         <p className="text-sm text-red-700 dark:text-red-300">Nie udało się pobrać listy linii.</p>
       ) : loading ? (
         <p className="text-sm text-text-secondary">Wczytuję linie…</p>
-      ) : lines === null ? (
+      ) : filteredLines === null ? (
         <p className="text-sm text-text-secondary">Rozkład jeszcze się wczytuje.</p>
       ) : (
         <>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Szukaj linii (numer lub kierunek)…"
+            aria-label="Szukaj linii"
+            className="glass w-full max-w-md rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500"
+          />
           <ModeFilter available={available} value={mode} onChange={setMode} />
-          <LineGrid linesByMode={lines} city={city} filter={mode} />
+          <LineGrid linesByMode={filteredLines} city={city} filter={mode} />
         </>
       )}
 

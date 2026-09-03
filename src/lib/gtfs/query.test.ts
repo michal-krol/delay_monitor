@@ -334,6 +334,39 @@ describe('lineDetail', () => {
     expect(detail!.directions[0].stops.map((s) => s.name)).toEqual(['Centrum', 'Rondo ONZ', 'Dworzec'])
     expect(detail!.directions[0].stops.map((s) => s.groupId)).toEqual(['1001', '7002', '5008'])
     expect(detail!.directions[1].stops.map((s) => s.name)).toEqual(['Dworzec', 'Centrum'])
+    expect(detail!.directions[0].origin).toBe('Centrum')
+    // odjazdy z krańcówki (100101), pogrupowane po kategorii dnia
+    expect(detail!.directions[0].departures).toEqual([{ category: 'weekday', times: [12 * 3600], frequencyBased: false }])
+  })
+
+  it('groups terminus departures by day category (weekday / saturday)', async () => {
+    const schedule = await make({
+      routes: [route('20', 0, '20')],
+      stops: [stop('1001', 'Rondo'), stop('2002', 'Meta')],
+      calendarDates: [
+        { serviceId: 'PcS', date: '20260902', added: true },
+        { serviceId: 'SbS', date: '20260902', added: true },
+      ],
+      trips: [
+        { routeId: '20', serviceId: 'PcS', tripId: 'wd-a', headsign: 'Meta', directionId: 0 },
+        { routeId: '20', serviceId: 'PcS', tripId: 'wd-b', headsign: 'Meta', directionId: 0 },
+        { routeId: '20', serviceId: 'SbS', tripId: 'sa-a', headsign: 'Meta', directionId: 0 },
+      ],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        'wd-a,1001,06:00:00,06:00:00,1',
+        'wd-a,2002,06:10:00,06:10:00,2',
+        'wd-b,1001,06:20:00,06:20:00,1',
+        'wd-b,2002,06:30:00,06:30:00,2',
+        'sa-a,1001,08:00:00,08:00:00,1',
+        'sa-a,2002,08:10:00,08:10:00,2',
+      ],
+    })
+    const blocks = lineDetail(schedule, '20')!.directions[0].departures
+    expect(blocks).toEqual([
+      { category: 'weekday', times: [6 * 3600, 6 * 3600 + 1200], frequencyBased: false },
+      { category: 'saturday', times: [8 * 3600], frequencyBased: false },
+    ])
   })
 
   it('keeps the longest run when trips of one direction differ (short-turns)', async () => {
