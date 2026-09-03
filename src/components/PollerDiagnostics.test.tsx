@@ -183,8 +183,8 @@ describe('PollerDiagnostics', () => {
       gtfs: {
         dataSource: 'mock',
         cities: {
-          waw: { state: 'ready', loadedAt: '2026-08-01T12:00:00.000Z', feedVersion: 'mock-1', droppedRows: 0 },
-          krk: { state: 'failed', loadedAt: null, feedVersion: null, droppedRows: null },
+          warszawa: { state: 'ready', loadedAt: '2026-08-01T12:00:00.000Z', feedVersion: 'mock-1', droppedRows: 0 },
+          krakow: { state: 'failed', loadedAt: null, feedVersion: null, droppedRows: null },
         },
       },
     })
@@ -203,8 +203,8 @@ describe('PollerDiagnostics', () => {
       gtfs: {
         dataSource: 'live',
         cities: {
-          waw: { state: 'ready', loadedAt: '2026-08-01T12:00:00.000Z', feedVersion: 'v1', droppedRows: 12 },
-          krk: { state: 'idle', loadedAt: null, feedVersion: null, droppedRows: null },
+          warszawa: { state: 'ready', loadedAt: '2026-08-01T12:00:00.000Z', feedVersion: 'v1', droppedRows: 12 },
+          krakow: { state: 'idle', loadedAt: null, feedVersion: null, droppedRows: null },
         },
       },
     })

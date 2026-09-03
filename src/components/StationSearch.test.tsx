@@ -52,11 +52,11 @@ describe('StationSearch', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=waw&mode=all" />)
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=warszawa&mode=all" />)
     await user.type(screen.getByRole('combobox'), 'metro')
     await vi.advanceTimersByTimeAsync(300)
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?city=waw&mode=all&q=metro'))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?city=warszawa&mode=all&q=metro'))
   })
 
   it('renders rich transit tiles (icon + line badges) while keeping the accessible name stable', async () => {
@@ -82,7 +82,7 @@ describe('StationSearch', () => {
     const onSelect = vi.fn()
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-    render(<StationSearch onSelect={onSelect} endpoint="/api/search?city=waw" />)
+    render(<StationSearch onSelect={onSelect} endpoint="/api/search?city=warszawa" />)
     await user.type(screen.getByRole('combobox'), 'swi')
     await vi.advanceTimersByTimeAsync(300)
 
@@ -104,7 +104,7 @@ describe('StationSearch', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=waw" />)
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=warszawa" />)
     await user.type(screen.getByRole('combobox'), 'ron')
     await vi.advanceTimersByTimeAsync(300)
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))

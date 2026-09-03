@@ -20,12 +20,14 @@ describe('STATION_ID_PATTERN (PKP — zostaje ścisły)', () => {
 })
 
 describe('CITY_ID_PATTERN', () => {
-  it('accepts short lowercase slugs', () => {
-    for (const ok of ['waw', 'krk', 'wroclaw']) expect(CITY_ID_PATTERN.test(ok), ok).toBe(true)
+  it('accepts lowercase-ascii city slugs', () => {
+    for (const ok of ['warszawa', 'krakow', 'wroclaw', 'bydgoszcz', 'lodz']) {
+      expect(CITY_ID_PATTERN.test(ok), ok).toBe(true)
+    }
   })
 
-  it('rejects uppercase, digits, punctuation, and out-of-range lengths', () => {
-    for (const bad of ['WAW', 'w', 'waw1', 'wa-w', 'warszawaa', '', 'wa/rk']) {
+  it('rejects uppercase, diacritics, digits, punctuation, and out-of-range lengths', () => {
+    for (const bad of ['Warszawa', 'w', 'krakow1', 'wa-w', 'łódź', 'a'.repeat(25), '', 'wa/rk']) {
       expect(CITY_ID_PATTERN.test(bad), bad).toBe(false)
     }
   })

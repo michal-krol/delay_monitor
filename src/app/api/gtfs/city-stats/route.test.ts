@@ -9,7 +9,7 @@ const [, TODAY] = serviceDateWindow(new Date(), 'Europe/Warsaw')
 let schedule: GtfsSchedule | null = null
 const getView = vi.fn(() => ({ state: schedule === null ? 'loading' : 'ready' }))
 const getGtfsPoller = vi.fn((city: string) =>
-  city === 'waw' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView } : null
+  city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView } : null
 )
 vi.mock('@/lib/gtfs/instance', () => ({ getGtfsPoller: (...a: [string]) => getGtfsPoller(...a) }))
 
@@ -45,7 +45,7 @@ describe('GET /api/gtfs/city-stats', () => {
   })
 
   it('returns ready stats built from the schedule', async () => {
-    const { body } = await call('city=waw')
+    const { body } = await call('city=warszawa')
     expect(body.state).toBe('ready')
     expect(body.stats.tripsToday).toBe(1)
     expect(body.stats.linesByMode.tram).toBe(1)
@@ -55,7 +55,7 @@ describe('GET /api/gtfs/city-stats', () => {
   it('returns state=loading with null stats while the schedule is not ready', async () => {
     const kept = schedule
     schedule = null
-    const { body } = await call('city=waw')
+    const { body } = await call('city=warszawa')
     expect(body.state).toBe('loading')
     expect(body.stats).toBeNull()
     schedule = kept

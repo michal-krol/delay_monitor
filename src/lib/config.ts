@@ -26,7 +26,7 @@ const envSchema = z.object({
    */
   GTFS_ENABLED: z.stringbool().default(true),
   /** Lista miast do włączenia, po przecinku. Pozwala wyłączyć jedno bez wdrożenia. */
-  GTFS_CITIES: z.string().default('waw'),
+  GTFS_CITIES: z.string().default('warszawa'),
   /**
    * Nie `auto` — `auto` w schemacie PKP wnioskuje z obecności klucza, a GTFS
    * klucza nie ma. Domyślnie `mock`: `live` znaczy ~107 MB pobrania, więc

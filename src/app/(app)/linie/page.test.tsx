@@ -17,11 +17,11 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('LinieIndex', () => {
   it('redirects to the stored city line browser without a network call', async () => {
-    window.localStorage.setItem('monitor.cityContext.v1', JSON.stringify('krk'))
+    window.localStorage.setItem('monitor.cityContext.v2', JSON.stringify('krakow'))
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     render(<LinieIndex />)
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/krk/linie'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/krakow/linie'))
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -31,14 +31,14 @@ describe('LinieIndex', () => {
       vi.fn(() =>
         jsonResponse({
           cities: [
-            { id: 'krk', railStations: [{ id: '1' }] },
-            { id: 'waw', railStations: [{ id: '1' }, { id: '2' }] },
+            { id: 'krakow', railStations: [{ id: '1' }] },
+            { id: 'warszawa', railStations: [{ id: '1' }, { id: '2' }] },
           ],
         })
       )
     )
     render(<LinieIndex />)
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/waw/linie'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/warszawa/linie'))
   })
 
   it('shows a message when there are no configured cities', async () => {

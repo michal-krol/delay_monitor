@@ -21,10 +21,10 @@ vi.mock('@/lib/board/instance', () => ({
 
 let gtfsView: { state: string; droppedRows: number | null } | null = null
 vi.mock('@/lib/config', () => ({
-  loadConfig: () => ({ gtfs: { enabled: true, dataSource: 'mock', cities: ['waw'], idleTtlMs: 1 } }),
+  loadConfig: () => ({ gtfs: { enabled: true, dataSource: 'mock', cities: ['warszawa'], idleTtlMs: 1 } }),
 }))
 vi.mock('@/lib/gtfs/instance', () => ({
-  enabledGtfsCities: () => [{ id: 'waw' }],
+  enabledGtfsCities: () => [{ id: 'warszawa' }],
   peekGtfsPoller: () => {
     const view = gtfsView
     if (view === null) return null
@@ -52,7 +52,7 @@ describe('GET /api/health', () => {
       gtfs: {
         dataSource: 'mock',
         cities: {
-          waw: { state: 'idle', loadedAt: null, ageMs: null, feedVersion: null, droppedRows: null, phase: null, serviceDates: null },
+          warszawa: { state: 'idle', loadedAt: null, ageMs: null, feedVersion: null, droppedRows: null, phase: null, serviceDates: null },
         },
       },
       pollerAwake: false,
@@ -69,13 +69,13 @@ describe('GET /api/health', () => {
     gtfsView = { state: 'ready', droppedRows: 0 }
     const { GET } = await import('./route')
     const body = await (await GET()).json()
-    expect(body.gtfs.cities.waw.state).toBe('ready')
-    expect(body.gtfs.cities.waw.droppedRows).toBe(0) // 0 = parsowano, nic nie odrzucono
+    expect(body.gtfs.cities.warszawa.state).toBe('ready')
+    expect(body.gtfs.cities.warszawa.droppedRows).toBe(0) // 0 = parsowano, nic nie odrzucono
 
     vi.resetModules()
     gtfsView = null // poller jeszcze nie istnieje
     const again = await (await (await import('./route')).GET()).json()
-    expect(again.gtfs.cities.waw.droppedRows).toBeNull() // null = nigdy nie parsowano
+    expect(again.gtfs.cities.warszawa.droppedRows).toBeNull() // null = nigdy nie parsowano
     gtfsView = null
   })
 

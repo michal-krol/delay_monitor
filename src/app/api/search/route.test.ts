@@ -15,7 +15,7 @@ vi.mock('@/lib/board/instance', () => ({
 let schedule: GtfsSchedule | null = null
 vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (city: string) =>
-    city === 'waw' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule } : null,
+    city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule } : null,
 }))
 
 beforeAll(async () => {
@@ -67,17 +67,17 @@ describe('GET /api/search', () => {
   })
 
   it('returns [] below 3 characters', async () => {
-    expect((await call('city=waw&q=ab')).body.stations).toEqual([])
+    expect((await call('city=warszawa&q=ab')).body.stations).toEqual([])
   })
 
   it('merges rail stations (city-prefixed) and transit groups with line badges', async () => {
-    const { body } = await call('city=waw&q=war')
+    const { body } = await call('city=warszawa&q=war')
     const rail = body.stations.filter((s: { kind: string }) => s.kind === 'rail')
     expect(rail.map((s: { name: string }) => s.name)).toEqual(['Warszawa Centralna', 'Warszawa Zachodnia'])
     // "Kraków Główny" nie ma prefiksu "Warszawa " — odsiane.
     expect(JSON.stringify(body)).not.toContain('Kraków')
 
-    const { body: transit } = await call('city=waw&q=swi')
+    const { body: transit } = await call('city=warszawa&q=swi')
     const hit = transit.stations.find((s: { kind: string }) => s.kind === 'transit')
     expect(hit.name).toBe('Świętokrzyska')
     expect(hit.lines).toEqual([{ routeId: 'M1', line: 'M1', color: null, mode: 'metro', kind: 'regular' }])
@@ -86,10 +86,10 @@ describe('GET /api/search', () => {
   it('flags loading while the schedule is not ready — rail still works, transit retries', async () => {
     const kept = schedule
     schedule = null
-    const { body } = await call('city=waw&q=war')
+    const { body } = await call('city=warszawa&q=war')
     expect(body.stations.every((s: { kind: string }) => s.kind === 'rail')).toBe(true)
     expect(body.loading).toBe(true)
     schedule = kept
-    expect((await call('city=waw&q=war')).body.loading).toBe(false)
+    expect((await call('city=warszawa&q=war')).body.loading).toBe(false)
   })
 })

@@ -9,7 +9,7 @@ import { __resetMockCache, createMockClient } from './mock'
 import { nextDepartures } from './query'
 
 const FIXTURE_ROOT = path.join(process.cwd(), 'fixtures', 'gtfs')
-const WAW = getCity('waw') as CityFeed
+const WAW = getCity('warszawa') as CityFeed
 const [YESTERDAY, TODAY] = serviceDateWindow(new Date(), WAW.timezone)
 
 beforeEach(() => {
@@ -48,8 +48,8 @@ describe('createMockClient', () => {
 
   it('yields the last line even without a trailing newline', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'gtfs-nonl-'))
-    await cp(path.join(FIXTURE_ROOT, 'waw'), path.join(root, 'x'), { recursive: true })
-    // routes.txt kopiowany z waw kończy się newline; to i tak przechodzi.
+    await cp(path.join(FIXTURE_ROOT, 'warszawa'), path.join(root, 'x'), { recursive: true })
+    // routes.txt kopiowany z warszawa kończy się newline; to i tak przechodzi.
     const lines: string[] = []
     for await (const line of (await createMockClient({ ...WAW, id: 'x' }, root).readEntry('routes.txt')) ?? []) {
       lines.push(line)
@@ -59,7 +59,7 @@ describe('createMockClient', () => {
   })
 })
 
-describe('loadSchedule on the waw fixtures (end to end, no network)', () => {
+describe('loadSchedule on the warszawa fixtures (end to end, no network)', () => {
   it('parses routes, dropping an invalid colour to null and computing text colour', async () => {
     const schedule = await loadSchedule(createMockClient(WAW), WAW)
     const s2 = schedule.routes.find((route) => route.id === 'S2')
@@ -110,24 +110,24 @@ describe('acceptance: a second, fictional city works with no code change', () =>
   it('loads a schedule for a city that only exists as a registry entry + fixtures', async () => {
     // „Kraków" tu jest fikcyjny: te same fixture'y, inny id miasta i strefa
     // podana wyłącznie w obiekcie CityFeed. Żaden plik źródłowy nie wie o nim.
-    const root = await mkdtemp(path.join(tmpdir(), 'gtfs-krk-'))
-    await cp(path.join(FIXTURE_ROOT, 'waw'), path.join(root, 'krk'), { recursive: true })
+    const root = await mkdtemp(path.join(tmpdir(), 'gtfs-krakow-'))
+    await cp(path.join(FIXTURE_ROOT, 'warszawa'), path.join(root, 'krakow'), { recursive: true })
 
-    const krk: CityFeed = {
-      id: 'krk',
+    const krakow: CityFeed = {
+      id: 'krakow',
       name: 'Kraków',
-      staticUrl: 'https://example.test/krk.zip',
+      staticUrl: 'https://example.test/krakow.zip',
       vehiclesUrl: null,
       alertsUrl: null,
       railStationPrefix: 'Kraków ',
       timezone: 'Europe/Warsaw',
     }
 
-    const schedule = await loadSchedule(createMockClient(krk, root), krk)
-    expect(await readdir(path.join(root, 'krk'))).toContain('stop_times.txt')
+    const schedule = await loadSchedule(createMockClient(krakow, root), krakow)
+    expect(await readdir(path.join(root, 'krakow'))).toContain('stop_times.txt')
     expect(schedule.routes.length).toBeGreaterThan(0)
 
-    const [today] = [serviceDateWindow(new Date(), krk.timezone)[1]]
+    const [today] = [serviceDateWindow(new Date(), krakow.timezone)[1]]
     const departures = nextDepartures(schedule, ['1001'], Date.parse(`${today}T11:00:00+02:00`), 5)
     expect(departures.length).toBeGreaterThan(0)
     expect(departures[0].serviceDate).toBe(today)

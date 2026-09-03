@@ -6,7 +6,7 @@ import { jsonResponse } from '@/test-utils/http'
 
 const ready = (state: 'ready' | 'loading' = 'ready') =>
   jsonResponse({
-    city: 'waw',
+    city: 'warszawa',
     schedule: { state, loadedAt: null, ageMs: null, phase: state === 'loading' ? 'stop_times' : null, serviceDates: null, feedVersion: null },
     stops: [],
     attribution: [],
@@ -25,7 +25,7 @@ describe('useTransitBoard', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     renderHook(() => useTransitBoard(null, ['1001']))
-    renderHook(() => useTransitBoard('waw', []))
+    renderHook(() => useTransitBoard('warszawa', []))
     await vi.advanceTimersByTimeAsync(2000)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -34,15 +34,15 @@ describe('useTransitBoard', () => {
     const fetchMock = vi.fn().mockImplementation(ready)
     vi.stubGlobal('fetch', fetchMock)
 
-    renderHook(() => useTransitBoard('waw', ['1001', '7014M'], 15))
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/board?city=waw&stops=1001,7014M&limit=15'))
+    renderHook(() => useTransitBoard('warszawa', ['1001', '7014M'], 15))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/board?city=warszawa&stops=1001,7014M&limit=15'))
   })
 
   it('retries quickly on the loading backoff, then settles to the refresh interval', async () => {
     const fetchMock = vi.fn().mockImplementation(() => ready('loading'))
     vi.stubGlobal('fetch', fetchMock)
 
-    renderHook(() => useTransitBoard('waw', ['1001']))
+    renderHook(() => useTransitBoard('warszawa', ['1001']))
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
 
     await vi.advanceTimersByTimeAsync(1000)
@@ -55,7 +55,7 @@ describe('useTransitBoard', () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('network'))
     vi.stubGlobal('fetch', fetchMock)
 
-    const { result } = renderHook(() => useTransitBoard('waw', ['1001']))
+    const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
     await vi.waitFor(() => expect(result.current.error).toBe('network'))
   })
 })

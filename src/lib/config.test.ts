@@ -30,9 +30,9 @@ describe('loadConfig', () => {
   })
 
   describe('GTFS', () => {
-    it('defaults: enabled, mock, single city waw, 1h idle TTL', () => {
+    it('defaults: enabled, mock, single city warszawa, 1h idle TTL', () => {
       const { gtfs } = loadConfig({})
-      expect(gtfs).toEqual({ enabled: true, cities: ['waw'], dataSource: 'mock', idleTtlMs: 3600000 })
+      expect(gtfs).toEqual({ enabled: true, cities: ['warszawa'], dataSource: 'mock', idleTtlMs: 3600000 })
     })
 
     it('GTFS_ENABLED=false actually disables (not coerced to true)', () => {
@@ -42,7 +42,7 @@ describe('loadConfig', () => {
     })
 
     it('splits GTFS_CITIES on commas and trims blanks', () => {
-      expect(loadConfig({ GTFS_CITIES: 'waw, krk ,,wro' }).gtfs.cities).toEqual(['waw', 'krk', 'wro'])
+      expect(loadConfig({ GTFS_CITIES: 'warszawa, krakow ,,wro' }).gtfs.cities).toEqual(['warszawa', 'krakow', 'wro'])
     })
 
     it('takes an explicit live data source without needing a key', () => {

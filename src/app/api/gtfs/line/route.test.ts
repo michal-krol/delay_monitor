@@ -6,7 +6,7 @@ import type { GtfsSchedule } from '@/lib/gtfs/types'
 let schedule: GtfsSchedule | null = null
 const getView = vi.fn(() => ({ state: schedule === null ? 'loading' : 'ready', loadedAt: null, ageMs: null, phase: null, serviceDates: null, feedVersion: null }))
 const getGtfsPoller = vi.fn((city: string) =>
-  city === 'waw' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView } : null
+  city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView } : null
 )
 vi.mock('@/lib/gtfs/instance', () => ({ getGtfsPoller: (...a: [string]) => getGtfsPoller(...a) }))
 
@@ -56,19 +56,19 @@ describe('GET /api/gtfs/line', () => {
   })
 
   it('rejects a malformed route id with 400 and no echo', async () => {
-    const { response, body } = await call('city=waw&route=..%2Fetc')
+    const { response, body } = await call('city=warszawa&route=..%2Fetc')
     expect(response.status).toBe(400)
     expect(JSON.stringify(body)).not.toContain('etc')
   })
 
   it('returns line=null (200) for a well-formed unknown route id', async () => {
-    const { response, body } = await call('city=waw&route=999')
+    const { response, body } = await call('city=warszawa&route=999')
     expect(response.status).toBe(200)
     expect(body.line).toBeNull()
   })
 
   it('returns the run for each direction, with cleaned group names', async () => {
-    const { body } = await call('city=waw&route=20')
+    const { body } = await call('city=warszawa&route=20')
     expect(body.line.mode).toBe('tram')
     expect(body.line.directions.map((d: { directionId: number }) => d.directionId)).toEqual([0, 1])
     expect(body.line.directions[0].headsign).toBe('Piaski')
@@ -79,7 +79,7 @@ describe('GET /api/gtfs/line', () => {
   it('returns line=null while the schedule loads', async () => {
     const kept = schedule
     schedule = null
-    const { body } = await call('city=waw&route=20')
+    const { body } = await call('city=warszawa&route=20')
     expect(body.schedule.state).toBe('loading')
     expect(body.line).toBeNull()
     schedule = kept

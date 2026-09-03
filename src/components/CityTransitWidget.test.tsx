@@ -25,14 +25,14 @@ afterEach(() => {
 
 describe('CityTransitWidget', () => {
   it('shows a loading note before data arrives', () => {
-    render(<CityTransitWidget city="waw" cityName="Warszawa" />)
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('Komunikacja miejska — Warszawa')).toBeInTheDocument()
     expect(screen.getByText('Wczytuję rozkład…')).toBeInTheDocument()
   })
 
   it('lists line counts per mode with the bus-kind breakdown and no "in transit"', () => {
-    hookState.current = { data: { city: 'waw', state: 'ready', stats }, error: null }
-    render(<CityTransitWidget city="waw" cityName="Warszawa" />)
+    hookState.current = { data: { city: 'warszawa', state: 'ready', stats }, error: null }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('metro')).toBeInTheDocument()
     expect(screen.getByText(/15 nocnych/)).toBeInTheDocument()
     expect(screen.getByText(/5 przyspieszonych/)).toBeInTheDocument()
@@ -43,8 +43,8 @@ describe('CityTransitWidget', () => {
   })
 
   it('shows an error note when stats cannot load', () => {
-    hookState.current = { data: { city: 'waw', state: 'failed', stats: null }, error: 'boom' }
-    render(<CityTransitWidget city="waw" cityName="Warszawa" />)
+    hookState.current = { data: { city: 'warszawa', state: 'failed', stats: null }, error: 'boom' }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('Nie udało się wczytać statystyk.')).toBeInTheDocument()
   })
 })

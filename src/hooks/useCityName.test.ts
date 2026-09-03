@@ -8,15 +8,15 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('useCityName', () => {
   it('falls back to the id, then resolves the registry name', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [{ id: 'waw', name: 'Warszawa' }] })))
-    const { result } = renderHook(() => useCityName('waw'))
-    expect(result.current).toBe('waw')
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] })))
+    const { result } = renderHook(() => useCityName('warszawa'))
+    expect(result.current).toBe('warszawa')
     await waitFor(() => expect(result.current).toBe('Warszawa'))
   })
 
   it('keeps the id when the registry has no such city or the fetch fails', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('x'))))
-    const { result } = renderHook(() => useCityName('krk'))
-    await waitFor(() => expect(result.current).toBe('krk'))
+    const { result } = renderHook(() => useCityName('krakow'))
+    await waitFor(() => expect(result.current).toBe('krakow'))
   })
 })

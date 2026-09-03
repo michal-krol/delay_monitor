@@ -294,9 +294,11 @@ dziedziczy**. Rzeczy, które łatwo złamać:
   (~107 MB, ~3 s parse), potem tylko czyta się z pamięci. `/api/gtfs/*` nigdy
   nie czekają na pobranie feedu — `ensureLoaded()` jest fire-and-forget,
   `getSchedule()` zwraca `null` dopóki nie gotowe, a klient ponawia.
-- **Rejestr miast (`gtfs/cities.ts`) to jedyne miejsce ze słowem „Warszawa".**
+- **Rejestr miast (`gtfs/cities.ts`) to jedyne miejsce z logiką per-miasto.**
   Kolejne miasto = jeden wpis w `REGISTRY`, zero nowego kodu (test odbioru:
-  `cities.test.ts`). Słowa „wtp"/„ztm"/„warszawa" nie ma nigdzie poza tym
+  `cities.test.ts`). Slug miasta to **pełna nazwa bez polskich znaków**
+  (`warszawa`, `krakow`), nie trzyliterowy kod — `[a-z]{2,24}`, katalog fixture'a
+  = slug (`fixtures/gtfs/warszawa/`). Słów „wtp"/„ztm" nie ma nigdzie poza tym
   plikiem i fixture'ami.
 - **Identyfikatory GTFS (`stop`, `route`) nigdy nie trafiają do wychodzącego
   URL-a** — są kluczami do `Map` w pamięci. Realną granicą zaufania jest
@@ -318,8 +320,9 @@ dziedziczy**. Rzeczy, które łatwo złamać:
   `PtS` piątek — konwencja WTP), potem rozkład dni tygodnia dat kursowania
   (feed z `calendar.txt`). Sekcje rozkładu linii („dni robocze"/„soboty"/
   „niedziele i święta") biorą się stąd — widoczne tylko kategorie z okna
-  `[wczoraj, dziś, jutro]`. Fixture mocka modeluje wszystkie trzy: linia `20`
-  ma warianty `PcS`/`SbS`/`NdS` (`{{DZIS}}`/`{{JUTRO}}`/`{{WCZORAJ}}`).
+  `[wczoraj, dziś, jutro]`. Fixture mocka (`fixtures/gtfs/warszawa/`) modeluje
+  wszystkie trzy: linia `20` ma warianty `PcS`/`SbS`/`NdS`
+  (`{{DZIS}}`/`{{JUTRO}}`/`{{WCZORAJ}}`).
 - **Rozkład wyznacza doby `[wczoraj, dziś, jutro]`** — `/operations`-owy problem
   z #9 tu nie występuje (GTFS nie ma feedu realizacji), ale liczenie „dziś"
   nadal idzie przez `serviceDateWindow()` i indeks doby, nie przez `new Date()`.

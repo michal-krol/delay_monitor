@@ -7,7 +7,7 @@ import TransitStopPage from './page'
 const notFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
 })
-const params = { city: 'waw', stopId: '7014M' }
+const params = { city: 'warszawa', stopId: '7014M' }
 vi.mock('next/navigation', () => ({
   useParams: () => params,
   useRouter: () => ({ push: vi.fn() }),
@@ -19,12 +19,12 @@ const useTransitBoard = vi.fn()
 vi.mock('@/hooks/useTransitBoard', () => ({ useTransitBoard: () => useTransitBoard() }))
 
 beforeEach(() => {
-  params.city = 'waw'
+  params.city = 'warszawa'
   params.stopId = '7014M'
   window.localStorage.clear()
   useTransitBoard.mockReturnValue({
     data: {
-      city: 'waw',
+      city: 'warszawa',
       schedule: { state: 'ready', loadedAt: '2026-09-02T09:00:00.000Z', ageMs: 1000, phase: null, serviceDates: ['2026-09-01', '2026-09-02', '2026-09-03'], feedVersion: 'v1' },
       stops: [
         {
@@ -61,7 +61,7 @@ describe('TransitStopPage', () => {
     render(<TransitStopPage />)
     await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
     const stored = JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')
-    expect(stored).toEqual([{ kind: 'gtfs', city: 'waw', id: '7014M', name: 'Świętokrzyska' }])
+    expect(stored).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }])
   })
 
   it('calls notFound for a malformed stop id', () => {

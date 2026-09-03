@@ -191,14 +191,14 @@ describe('Dashboard', () => {
 
     render(
       <Dashboard
-        favourites={[...FAVOURITES, { kind: 'gtfs', city: 'waw', id: '7014M', name: 'Świętokrzyska' }]}
+        favourites={[...FAVOURITES, { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }]}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
 
     expect(await screen.findByRole('heading', { name: 'Świętokrzyska' })).toBeInTheDocument()
-    expect(screen.getByText('Rozkład — waw')).toBeInTheDocument()
+    expect(screen.getByText('Rozkład — warszawa')).toBeInTheDocument()
   })
 
   it('drops stale snapshots for stations that are no longer favourites', async () => {

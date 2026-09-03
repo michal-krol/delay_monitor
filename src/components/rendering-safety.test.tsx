@@ -177,7 +177,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
     for (const payload of PAYLOADS) {
       const { container, unmount } = render(
         <LineGrid
-          city="waw"
+          city="warszawa"
           filter="all"
           linesByMode={{
             metro: [],

@@ -394,7 +394,7 @@ realnego natężenia ruchu.
 | `INTEREST_TTL_MS` | `300000` | Po tym czasie ciszy stacja przestaje być obserwowana |
 | `BOARD_SOURCE` | `schedule` | Co wyznacza listę połączeń tablicy (`schedule` \| `operations`) — tymczasowy przełącznik |
 | `GTFS_ENABLED` | `true` | Wyłącznik podprojektu komunikacji miejskiej |
-| `GTFS_CITIES` | `waw` | Lista miast GTFS do włączenia, po przecinku |
+| `GTFS_CITIES` | `warszawa` | Lista miast GTFS do włączenia, po przecinku |
 | `GTFS_DATA_SOURCE` | `mock` | `mock` \| `live`. `live` = ~107 MB pobrania na miasto |
 | `GTFS_IDLE_TTL_MS` | `3600000` | Po tym czasie bezczynności poller miasta zwalnia rozkład |
 | `PORT` | `3000` | Ustawiane przez Railway |

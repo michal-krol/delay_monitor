@@ -16,26 +16,26 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 const cities = [
-  { id: 'waw', name: 'Warszawa', railStations: [{ id: '1' }, { id: '2' }, { id: '3' }] },
-  { id: 'krk', name: 'Kraków', railStations: [{ id: '4' }] },
+  { id: 'warszawa', name: 'Warszawa', railStations: [{ id: '1' }, { id: '2' }, { id: '3' }] },
+  { id: 'krakow', name: 'Kraków', railStations: [{ id: '4' }] },
 ]
 
 describe('CityPicker', () => {
   it('lists cities sorted by rail-station count, descending', () => {
-    render(<CityPicker cities={cities} current="waw" />)
+    render(<CityPicker cities={cities} current="warszawa" />)
     const options = screen.getAllByRole('option').map((o) => o.textContent)
     expect(options).toEqual(['Warszawa', 'Kraków'])
   })
 
   it('navigates and stores the context on change', async () => {
-    render(<CityPicker cities={cities} current="waw" />)
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'krk')
-    expect(push).toHaveBeenCalledWith('/miasto/krk')
-    expect(JSON.parse(window.localStorage.getItem('monitor.cityContext.v1') ?? 'null')).toBe('krk')
+    render(<CityPicker cities={cities} current="warszawa" />)
+    await userEvent.selectOptions(screen.getByRole('combobox'), 'krakow')
+    expect(push).toHaveBeenCalledWith('/miasto/krakow')
+    expect(JSON.parse(window.localStorage.getItem('monitor.cityContext.v2') ?? 'null')).toBe('krakow')
   })
 
   it('falls back to the current id when the list has not loaded', () => {
-    render(<CityPicker cities={[]} current="waw" />)
-    expect(screen.getByRole('option')).toHaveValue('waw')
+    render(<CityPicker cities={[]} current="warszawa" />)
+    expect(screen.getByRole('option')).toHaveValue('warszawa')
   })
 })

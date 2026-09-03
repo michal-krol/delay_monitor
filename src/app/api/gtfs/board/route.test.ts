@@ -18,7 +18,7 @@ const getView = vi.fn(() => ({
 const ensureLoaded = vi.fn()
 
 const getGtfsPoller = vi.fn((city: string) =>
-  city === 'waw' ? { ensureLoaded, getSchedule: () => schedule, getView } : null
+  city === 'warszawa' ? { ensureLoaded, getSchedule: () => schedule, getView } : null
 )
 
 vi.mock('@/lib/gtfs/instance', () => ({
@@ -70,19 +70,19 @@ describe('GET /api/gtfs/board', () => {
   })
 
   it('rejects a malformed stop id with 400 and no echo', async () => {
-    const { response, body } = await call('http://localhost/api/gtfs/board?city=waw&stops=..%2Fetc')
+    const { response, body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=..%2Fetc')
     expect(response.status).toBe(400)
     expect(JSON.stringify(body)).not.toContain('etc')
   })
 
   it('returns a null entry for a well-formed but unknown stop id (not 400)', async () => {
-    const { response, body } = await call('http://localhost/api/gtfs/board?city=waw&stops=999999')
+    const { response, body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=999999')
     expect(response.status).toBe(200)
     expect(body.stops).toEqual([null])
   })
 
   it('returns grouped departures, attribution, and a schedule block; never a delay field', async () => {
-    const { body } = await call(`http://localhost/api/gtfs/board?city=waw&stops=1001`)
+    const { body } = await call(`http://localhost/api/gtfs/board?city=warszawa&stops=1001`)
     expect(ensureLoaded).toHaveBeenCalled()
     expect(body.stops[0].name).toBe('Centrum')
     expect(body.stops[0].departures.length).toBeGreaterThan(0)
@@ -94,7 +94,7 @@ describe('GET /api/gtfs/board', () => {
   it('returns state=loading with empty stops while the schedule is not ready', async () => {
     const kept = schedule
     schedule = null
-    const { body } = await call('http://localhost/api/gtfs/board?city=waw&stops=1001')
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
     expect(body.schedule.state).toBe('loading')
     expect(body.schedule.phase).toBe('stop_times')
     expect(body.stops).toEqual([])

@@ -11,9 +11,9 @@ describe('LineBadge', () => {
   })
 
   it('wraps in a link to the line details when href is given', () => {
-    render(<LineBadge line="M1" color="#0000bb" mode="metro" href="/miasto/waw/linia/M1" />)
+    render(<LineBadge line="M1" color="#0000bb" mode="metro" href="/miasto/warszawa/linia/M1" />)
     const link = screen.getByRole('link', { name: 'Linia M1' })
-    expect(link).toHaveAttribute('href', '/miasto/waw/linia/M1')
+    expect(link).toHaveAttribute('href', '/miasto/warszawa/linia/M1')
   })
 
   it('falls back to the neutral token for a colour that is not #rrggbb', () => {

@@ -3,7 +3,7 @@ import { allCities, getCity } from './cities'
 
 describe('cities registry', () => {
   it('resolves a known city and rejects an unknown one', () => {
-    expect(getCity('waw')?.name).toBe('Warszawa')
+    expect(getCity('warszawa')?.name).toBe('Warszawa')
     expect(getCity('nope')).toBeNull()
     expect(getCity('')).toBeNull()
   })
@@ -19,6 +19,6 @@ describe('cities registry', () => {
 
   it('does not leak the word "warszawa" as a hardcoded assumption outside the registry value', () => {
     // Sanity: `name`/`railStationPrefix` SĄ jedynym dozwolonym miejscem.
-    expect(getCity('waw')?.railStationPrefix).toBe('Warszawa ')
+    expect(getCity('warszawa')?.railStationPrefix).toBe('Warszawa ')
   })
 })

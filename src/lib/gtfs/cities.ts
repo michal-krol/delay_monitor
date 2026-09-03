@@ -5,7 +5,11 @@
  * poza wartościami tutaj i w fixture'ach.
  */
 export type CityFeed = {
-  /** np. `waw` — segment trasy `/miasto/[city]`, prefiks przestrzeni identyfikatorów. */
+  /**
+   * Slug miasta — pełna nazwa bez polskich znaków (`warszawa`, `krakow`), nie
+   * trzyliterowy kod. Segment trasy `/miasto/[city]`, prefiks przestrzeni
+   * identyfikatorów, klucz do tego rejestru. `[a-z]{2,24}`, walidowany u wejścia.
+   */
   id: string
   /** np. `Warszawa` — do nagłówków UI. */
   name: string
@@ -28,7 +32,7 @@ export type CityFeed = {
 
 const REGISTRY: readonly CityFeed[] = [
   {
-    id: 'waw',
+    id: 'warszawa',
     name: 'Warszawa',
     staticUrl: 'https://mkuran.pl/gtfs/warsaw/gtfs.user_facing.zip',
     vehiclesUrl: 'https://mkuran.pl/gtfs/warsaw/vehicles.json',

@@ -9,7 +9,7 @@ const push = vi.fn()
 const notFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
 })
-const params = { city: 'waw', routeId: '20' }
+const params = { city: 'warszawa', routeId: '20' }
 vi.mock('next/navigation', () => ({
   useParams: () => params,
   useRouter: () => ({ push }),
@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 const LINE = {
-  city: 'waw',
+  city: 'warszawa',
   schedule: { state: 'ready', loadedAt: '2026-09-03T09:15:00.000Z', ageMs: 1000, phase: null, serviceDates: ['2026-09-01', '2026-09-02', '2026-09-03'], feedVersion: 'v1' },
   line: {
     routeId: '20',
@@ -59,14 +59,14 @@ function stubFetch(lineBody: unknown = LINE) {
     vi.fn((url: string) => {
       if (url.startsWith('/api/gtfs/line')) return jsonResponse(lineBody)
       if (url.startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
-      return jsonResponse({ cities: [{ id: 'waw', name: 'Warszawa', railStations: [{ id: '33605', name: 'Warszawa Centralna' }] }] })
+      return jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [{ id: '33605', name: 'Warszawa Centralna' }] }] })
     })
   )
 }
 
 beforeEach(() => {
   push.mockClear()
-  params.city = 'waw'
+  params.city = 'warszawa'
   params.routeId = '20'
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -90,7 +90,7 @@ describe('LineDetailPage', () => {
     // pełna trasa widoczna od razu (bez rozwijania), z linkiem do tablicy przystanku
     expect(screen.getByRole('link', { name: /pełna tablica przystanku/ })).toHaveAttribute(
       'href',
-      '/miasto/waw/przystanek/1001?nazwa=Centrum'
+      '/miasto/warszawa/przystanek/1001?nazwa=Centrum'
     )
     expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()
   })

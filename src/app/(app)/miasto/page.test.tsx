@@ -17,12 +17,12 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('MiastoIndex', () => {
   it('redirects to the stored city without a network call', async () => {
-    window.localStorage.setItem('monitor.cityContext.v1', JSON.stringify('krk'))
+    window.localStorage.setItem('monitor.cityContext.v2', JSON.stringify('krakow'))
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
     render(<MiastoIndex />)
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/krk'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/krakow'))
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -32,14 +32,14 @@ describe('MiastoIndex', () => {
       vi.fn(() =>
         jsonResponse({
           cities: [
-            { id: 'krk', railStations: [{ id: '1' }] },
-            { id: 'waw', railStations: [{ id: '1' }, { id: '2' }, { id: '3' }] },
+            { id: 'krakow', railStations: [{ id: '1' }] },
+            { id: 'warszawa', railStations: [{ id: '1' }, { id: '2' }, { id: '3' }] },
           ],
         })
       )
     )
     render(<MiastoIndex />)
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/waw'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/warszawa'))
   })
 
   it('shows a message when there are no configured cities', async () => {

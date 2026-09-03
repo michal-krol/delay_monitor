@@ -17,7 +17,7 @@ import { headerIndex } from './csv'
  * (metro w `frequencies`, `parent_station` w `stops`, `route_color` w `routes`).
  */
 
-const client = createLiveClient(getCity('waw')!)
+const client = createLiveClient(getCity('warszawa')!)
 
 async function firstLine(name: string): Promise<string> {
   const stream = await client.readEntry(name)

@@ -15,7 +15,7 @@ vi.mock('@/lib/board/instance', () => ({
 }))
 
 vi.mock('@/lib/gtfs/instance', () => ({
-  enabledGtfsCities: () => [{ id: 'waw' }],
+  enabledGtfsCities: () => [{ id: 'warszawa' }],
   peekGtfsPoller: () => null,
 }))
 
@@ -28,18 +28,18 @@ async function call() {
 describe('GET /api/cities', () => {
   it('returns the registry with rail stations filtered by the name prefix', async () => {
     const { body } = await call()
-    const waw = body.cities.find((c: { id: string }) => c.id === 'waw')
-    expect(waw.name).toBe('Warszawa')
-    expect(waw.hasTransit).toBe(true)
-    expect(waw.railStations.map((s: { name: string }) => s.name)).toEqual([
+    const warszawa = body.cities.find((c: { id: string }) => c.id === 'warszawa')
+    expect(warszawa.name).toBe('Warszawa')
+    expect(warszawa.hasTransit).toBe(true)
+    expect(warszawa.railStations.map((s: { name: string }) => s.name)).toEqual([
       'Warszawa Centralna',
       'Warszawa Zachodnia',
     ])
     // "Kraków Główny" nie pasuje do prefiksu "Warszawa " — odsiane.
     // Rozkład jeszcze nie wczytany (peekGtfsPoller → null) — pola null/idle, nie 0.
-    expect(waw.schedule.state).toBe('idle')
-    expect(waw.lineCounts).toBeNull()
-    expect(waw.stopGroupCount).toBeNull()
+    expect(warszawa.schedule.state).toBe('idle')
+    expect(warszawa.lineCounts).toBeNull()
+    expect(warszawa.stopGroupCount).toBeNull()
   })
 
   it('degrades to an empty rail station list when the dictionary lookup fails', async () => {

@@ -10,7 +10,7 @@ const push = vi.fn()
 const notFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
 })
-let cityParam = 'waw'
+let cityParam = 'warszawa'
 let search = ''
 vi.mock('next/navigation', () => ({
   useParams: () => ({ city: cityParam }),
@@ -23,7 +23,7 @@ const { mockBoard, mockTransit } = vi.hoisted(() => ({
   mockBoard: { data: null, error: null },
   mockTransit: {
     data: {
-      city: 'waw',
+      city: 'warszawa',
       schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
       stops: [
         {
@@ -47,7 +47,7 @@ function citiesResponse() {
   return jsonResponse({
     cities: [
       {
-        id: 'waw',
+        id: 'warszawa',
         name: 'Warszawa',
         hasTransit: true,
         railStations: [{ id: '33605', name: 'Warszawa Centralna' }],
@@ -61,7 +61,7 @@ function citiesResponse() {
 
 beforeEach(() => {
   push.mockClear()
-  cityParam = 'waw'
+  cityParam = 'warszawa'
   search = ''
   window.localStorage.clear()
   __resetCityContext()
@@ -95,7 +95,7 @@ describe('CityPage', () => {
     render(<CityPage />)
     await user.type(await screen.findByRole('combobox', { name: /szukaj/i }), 'war')
     await user.click(await screen.findByRole('option', { name: 'Warszawa Centralna' }))
-    expect(push).toHaveBeenCalledWith('/miasto/waw?stacja=33605&nazwa=Warszawa%20Centralna')
+    expect(push).toHaveBeenCalledWith('/miasto/warszawa?stacja=33605&nazwa=Warszawa%20Centralna')
   })
 
   it('embeds the transit stop detail when ?przystanek= is set', () => {

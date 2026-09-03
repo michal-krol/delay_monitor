@@ -4,7 +4,10 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { z } from 'zod'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
-const STORAGE_KEY = 'monitor.cityContext.v1'
+// v2: slug miasta zmienił się z trzyliterowego kodu na pełną nazwę bez polskich
+// znaków (`warszawa`) — stary wpis `v1` jest po cichu porzucany, trasa `/miasto`
+// dobiera wtedy domyślne miasto od nowa.
+const STORAGE_KEY = 'monitor.cityContext.v2'
 
 /**
  * Wybrane miasto na ekranie Odjazdy/Przyjazdy. `null` = jeszcze nie wybrano

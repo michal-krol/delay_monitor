@@ -8,7 +8,7 @@ const V2_KEY = 'monitor.favourites.v2'
 
 const WAW: Favourite = { kind: 'pkp', id: '5100', name: 'Warszawa Centralna' }
 const KRK: Favourite = { kind: 'pkp', id: '5136', name: 'Kraków Główny' }
-const METRO: Favourite = { kind: 'gtfs', city: 'waw', id: '7014M', name: 'Świętokrzyska' }
+const METRO: Favourite = { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }
 
 function readV2(): unknown {
   return JSON.parse(window.localStorage.getItem(V2_KEY) ?? 'null')
@@ -49,8 +49,8 @@ describe('useFavourites', () => {
     const { result } = renderHook(() => useFavourites())
     await waitFor(() => expect(result.current.loaded).toBe(true))
 
-    const wawStop: Favourite = { kind: 'gtfs', city: 'waw', id: '1001', name: 'Rondo' }
-    const krkStop: Favourite = { kind: 'gtfs', city: 'krk', id: '1001', name: 'Rynek' }
+    const wawStop: Favourite = { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Rondo' }
+    const krkStop: Favourite = { kind: 'gtfs', city: 'krakow', id: '1001', name: 'Rynek' }
     act(() => result.current.addFavourite(wawStop))
     act(() => result.current.addFavourite(krkStop))
 

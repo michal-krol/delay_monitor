@@ -17,11 +17,13 @@ export const STATION_ID_PATTERN = /^\d{1,10}$/
 export const OPERATING_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * Identyfikator miasta w warstwie GTFS — segment trasy (`/miasto/[city]`)
- * i klucz do rejestru miast, który wybiera feed. Musi być sprawdzony wobec
- * rejestru u wejścia każdego handlera GTFS: to on decyduje, skąd pobieramy dane.
+ * Slug miasta w warstwie GTFS — pełna nazwa bez polskich znaków (`warszawa`,
+ * `krakow`), segment trasy (`/miasto/[city]`) i klucz do rejestru miast, który
+ * wybiera feed. Musi być sprawdzony wobec rejestru u wejścia każdego handlera
+ * GTFS: to on decyduje, skąd pobieramy dane. Tylko małe litery ASCII — trafia
+ * do adresu URL i do kluczy `Map`.
  */
-export const CITY_ID_PATTERN = /^[a-z]{2,8}$/
+export const CITY_ID_PATTERN = /^[a-z]{2,24}$/
 
 /**
  * Identyfikatory przystanków GTFS NIE są liczbami (inaczej niż w PKP):

@@ -24,25 +24,25 @@ const lines = {
 
 describe('LineGrid', () => {
   it('links each line to its route page and keeps the accessible name', () => {
-    render(<LineGrid linesByMode={lines} city="waw" filter="all" />)
+    render(<LineGrid linesByMode={lines} city="warszawa" filter="all" />)
     const link = screen.getByRole('link', { name: 'Linia M1 — M1 długa' })
-    expect(link).toHaveAttribute('href', '/miasto/waw/linia/M1')
+    expect(link).toHaveAttribute('href', '/miasto/warszawa/linia/M1')
   })
 
   it('shows a section per mode with a count, ordered metro→tram→bus', () => {
-    render(<LineGrid linesByMode={lines} city="waw" filter="all" />)
+    render(<LineGrid linesByMode={lines} city="warszawa" filter="all" />)
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     expect(headings).toEqual(['metro · 1', 'tramwaj · 1', 'autobus · 1'])
   })
 
   it('filters to a single mode', () => {
-    render(<LineGrid linesByMode={lines} city="waw" filter="tram" />)
+    render(<LineGrid linesByMode={lines} city="warszawa" filter="tram" />)
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['tramwaj · 1'])
     expect(screen.queryByRole('link', { name: /M1/ })).not.toBeInTheDocument()
   })
 
   it('explains an empty filtered result instead of rendering nothing', () => {
-    render(<LineGrid linesByMode={lines} city="waw" filter="rail" />)
+    render(<LineGrid linesByMode={lines} city="warszawa" filter="rail" />)
     expect(screen.getByText('Feed nie zawiera linii tego rodzaju.')).toBeInTheDocument()
   })
 })

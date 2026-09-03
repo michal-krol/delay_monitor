@@ -9,7 +9,7 @@ const push = vi.fn()
 const notFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
 })
-let cityParam = 'waw'
+let cityParam = 'warszawa'
 vi.mock('next/navigation', () => ({
   useParams: () => ({ city: cityParam }),
   useRouter: () => ({ push }),
@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 const LINES = {
-  city: 'waw',
+  city: 'warszawa',
   schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: ['2026-09-01', '2026-09-02', '2026-09-03'], feedVersion: 'v1' },
   lines: {
     metro: [{ routeId: 'M1', line: 'M1', longName: 'Kabaty – Młociny', color: null, textColor: '#000000', mode: 'metro', kind: 'regular' }],
@@ -35,14 +35,14 @@ function stubFetch(linesBody: unknown = LINES) {
     vi.fn((url: string) =>
       url.startsWith('/api/gtfs/lines')
         ? jsonResponse(linesBody)
-        : jsonResponse({ cities: [{ id: 'waw', name: 'Warszawa' }] })
+        : jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] })
     )
   )
 }
 
 beforeEach(() => {
   push.mockClear()
-  cityParam = 'waw'
+  cityParam = 'warszawa'
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -56,7 +56,7 @@ describe('CityLinesPage', () => {
     stubFetch()
     render(<CityLinesPage />)
     const link = await screen.findByRole('link', { name: /Linia M1/ })
-    expect(link).toHaveAttribute('href', '/miasto/waw/linia/M1')
+    expect(link).toHaveAttribute('href', '/miasto/warszawa/linia/M1')
     expect(await screen.findByRole('heading', { name: 'Trasy — Warszawa' })).toBeInTheDocument()
     expect(screen.getByText('Przeglądarka linii komunikacji miejskiej')).toBeInTheDocument()
   })

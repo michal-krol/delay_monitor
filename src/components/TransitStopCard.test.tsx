@@ -17,27 +17,27 @@ describe('TransitStopCard', () => {
       },
       error: null,
     })
-    render(<TransitStopCard city="waw" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
 
     expect(screen.getByRole('heading', { name: 'Świętokrzyska' })).toBeInTheDocument()
-    expect(screen.getByText(/Rozkład — waw/)).toBeInTheDocument()
+    expect(screen.getByText(/Rozkład — warszawa/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Pokaż przystanek/ })).toHaveAttribute(
       'href',
-      '/miasto/waw/przystanek/7014M'
+      '/miasto/warszawa/przystanek/7014M'
     )
   })
 
   it('calls onRemove without following the card link', async () => {
     useTransitBoard.mockReturnValue({ data: null, error: null })
     const onRemove = vi.fn()
-    render(<TransitStopCard city="waw" stopId="7014M" stopName="Świętokrzyska" onRemove={onRemove} />)
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={onRemove} />)
     await userEvent.click(screen.getByRole('button', { name: /Odepnij z Pulpitu/ }))
     expect(onRemove).toHaveBeenCalledTimes(1)
   })
 
   it('shows an explicit error when the schedule could not load', () => {
     useTransitBoard.mockReturnValue({ data: null, error: 'network' })
-    render(<TransitStopCard city="waw" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
     expect(screen.getByText('Nie udało się wczytać rozkładu')).toBeInTheDocument()
   })
 })
