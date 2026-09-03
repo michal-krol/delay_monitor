@@ -61,6 +61,15 @@ export function TransitDepartureList({ departures, loading = false, emptyMessage
           {departure.frequencyBased && (
             <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
           )}
+          {departure.onRequest && (
+            <span
+              title="Przystanek na żądanie — zasygnalizuj kierowcy chęć wsiadania / wysiadania"
+              className="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+              style={{ borderColor: 'var(--surface-border)' }}
+            >
+              na żądanie
+            </span>
+          )}
           {departure.platformCode !== null && (
             <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
           )}

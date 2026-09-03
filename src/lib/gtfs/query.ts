@@ -37,6 +37,7 @@ function eventDeparture(schedule: GtfsSchedule, eventIndex: number): GtfsDepartu
     platformCode: schedule.stopPlatforms[stopIdx],
     wheelchair: schedule.stopWheelchair[stopIdx] as 0 | 1 | 2,
     frequencyBased: schedule.tripFrequencyBased[trip] === 1,
+    onRequest: schedule.evOnRequest[eventIndex] === 1,
   }
 }
 
@@ -96,7 +97,13 @@ export type StopGroupMember = {
   lat: number
   lon: number
   platformCode: string | null
+  /** `stop_code` — numer słupka w zespole („01", „06"). `null` gdy feed nie podaje. */
+  code: string | null
+  /** `street_name` — ulica, przy której stoi słupek. Rozróżnia krawędzie zespołu. */
+  street: string | null
   wheelchair: 0 | 1 | 2
+  /** Linie zatrzymujące się NA TYM słupku (nie w całym zespole). */
+  lines: GtfsLine[]
 }
 
 /** Jedna linia obsługująca zespół — plakietka w wyszukiwarce i w szczegółach. */
@@ -111,10 +118,12 @@ export type StopGroup = {
   /** Linie obsługujące zespół, posortowane naturalnie. */
   lines: GtfsLine[]
   /**
-   * Czy któryś słupek zespołu ma POTWIERDZONĄ dostępność (`wheelchair_boarding = 1`).
-   * `0` w GTFS = brak informacji, nie „niedostępny" — nie pokazujemy nic w tym wypadku.
+   * Sygnał dostępności zespołu. Feed WTP daje `wheelchair_boarding = 1` na ~89%
+   * słupków (wartość DOMYŚLNA — nie oznaczamy), więc jedyny wartościowy sygnał to
+   * `2` = NIEdostępny. `'inaccessible'` = wszystkie słupki oznaczone `2`,
+   * `'partial'` = część, `null` = brak sygnału (nic nie pokazujemy).
    */
-  wheelchairAccessible: boolean
+  wheelchairNote: 'inaccessible' | 'partial' | null
 }
 
 const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
@@ -147,6 +156,20 @@ export function groupLines(schedule: GtfsSchedule, groupId: string): GtfsLine[] 
     .map(lineOf)
 }
 
+/** Linie zatrzymujące się na JEDNYM słupku — skan jego wycinka CSR (okno [wczoraj, dziś, jutro]). */
+function stopLinesOf(schedule: GtfsSchedule, stopIndex: number): GtfsLine[] {
+  const set = new Set<number>()
+  for (let k = schedule.stopEventOffset[stopIndex]; k < schedule.stopEventOffset[stopIndex + 1]; k += 1) {
+    const routeIdx = schedule.tripRoute[schedule.evTrip[schedule.stopEventOrder[k]]]
+    if (routeIdx >= 0) set.add(routeIdx)
+  }
+  return [...set]
+    .map((index) => schedule.routes[index])
+    .filter((route): route is GtfsRoute => route !== undefined)
+    .sort(compareLine)
+    .map(lineOf)
+}
+
 export function stopGroup(schedule: GtfsSchedule, id: string): StopGroup | null {
   const memberIndices = schedule.groupMembers.get(id) ?? (schedule.stopIndexById.has(id) ? [schedule.stopIndexById.get(id)!] : [])
   if (memberIndices.length === 0) return null
@@ -166,11 +189,18 @@ export function stopGroup(schedule: GtfsSchedule, id: string): StopGroup | null 
       lat: schedule.stopLat[stopIndex],
       lon: schedule.stopLon[stopIndex],
       platformCode: schedule.stopPlatforms[stopIndex],
+      code: schedule.stopCodes[stopIndex] ?? null,
+      street: schedule.stopStreets[stopIndex] ?? null,
       wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
+      lines: stopLinesOf(schedule, stopIndex),
     })),
     modes,
     lines,
-    wheelchairAccessible: memberIndices.some((stopIndex) => schedule.stopWheelchair[stopIndex] === 1),
+    wheelchairNote: (() => {
+      const flagged = memberIndices.filter((stopIndex) => schedule.stopWheelchair[stopIndex] === 2).length
+      if (flagged === 0) return null
+      return flagged === memberIndices.length ? 'inaccessible' : 'partial'
+    })(),
   }
 }
 
@@ -239,11 +269,49 @@ export type LineDetail = LineListEntry & { directions: LineRouteDirection[] }
 
 /**
  * Odjazdy z przystanku startowego linii w danym kierunku, pogrupowane po
- * kategorii dnia. Skan wycinka CSR tego przystanku (dziesiątki–setki zdarzeń),
- * nie całej tablicy. ponytail: widoczne tylko kategorie z okna [wczoraj, dziś,
- * jutro]; pełny tygodniowy rozkład wymagałby trzymania kursów spoza okna.
+ * kategorii dnia — z indeksu `run*` (JEDEN wpis na kurs, KAŻDA doba, także spoza
+ * okna [wczoraj, dziś, jutro]). Dzięki temu kolumny „soboty" / „niedziele" są
+ * zawsze widoczne, niezależnie od tego, jaki dziś dzień tygodnia.
+ * `originGroupId` — zespół przystanku startowego przebiegu (kurs może ruszać
+ * z dowolnego słupka tego zespołu).
  */
-function lineDepartures(schedule: GtfsSchedule, routeIdx: number, directionId: number, terminusStopIdx: number): LineDepartureBlock[] {
+function lineDeparturesFromRuns(
+  schedule: GtfsSchedule,
+  routeIdx: number,
+  directionId: number,
+  originGroupId: string
+): LineDepartureBlock[] {
+  const frequencyBased = schedule.routeFrequency.has(`${routeIdx}:${directionId}`)
+  const byCategory = new Map<number, Set<number>>()
+  for (let i = 0; i < schedule.runCount; i += 1) {
+    if (schedule.runRoute[i] !== routeIdx || schedule.runDir[i] !== directionId) continue
+    if (schedule.stopGroupIds[schedule.runFirstStop[i]] !== originGroupId) continue
+    const code = schedule.runCat[i]
+    const bucket = byCategory.get(code) ?? new Set<number>()
+    bucket.add(schedule.runDepSec[i])
+    byCategory.set(code, bucket)
+  }
+  return [...byCategory.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([code, times]) => ({
+      category: SERVICE_CATEGORIES[code] ?? 'other',
+      times: [...times].sort((a, b) => a - b),
+      frequencyBased,
+    }))
+}
+
+/**
+ * Fallback dla linii częstotliwościowych (metro) — nie mają wpisów `run*`
+ * (rozwijane z `frequencies.txt`), więc bierzemy je z wycinka CSR przystanku
+ * startowego. Okno [wczoraj, dziś, jutro] wystarcza: metro kursuje podobnie
+ * każdego dnia.
+ */
+function lineDeparturesFromEvents(
+  schedule: GtfsSchedule,
+  routeIdx: number,
+  directionId: number,
+  terminusStopIdx: number
+): LineDepartureBlock[] {
   const byCategory = new Map<number, { times: Set<number>; frequencyBased: boolean }>()
   const lo = schedule.stopEventOffset[terminusStopIdx]
   const hi = schedule.stopEventOffset[terminusStopIdx + 1]
@@ -290,12 +358,24 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
         offsetSec: pattern.offsets[order] ?? 0,
       }
     })
+    const originStopIdx = pattern.stops[0]
+    const runsBlocks =
+      originStopIdx !== undefined
+        ? lineDeparturesFromRuns(schedule, routeIdx, directionId, schedule.stopGroupIds[originStopIdx])
+        : []
+    // Linie częstotliwościowe (metro) nie mają wpisów `run*` — fallback na CSR.
+    const departures =
+      runsBlocks.length > 0
+        ? runsBlocks
+        : originStopIdx !== undefined
+          ? lineDeparturesFromEvents(schedule, routeIdx, directionId, originStopIdx)
+          : []
     directions.push({
       directionId,
       headsign: pattern.headsignIdx >= 0 ? schedule.headsigns[pattern.headsignIdx] : null,
       origin: stops[0]?.name ?? null,
       stops,
-      departures: pattern.stops.length > 0 ? lineDepartures(schedule, routeIdx, directionId, pattern.stops[0]) : [],
+      departures,
     })
   }
 

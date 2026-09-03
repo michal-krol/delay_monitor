@@ -151,6 +151,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
               platformCode: payload,
               wheelchair: 0,
               frequencyBased: false,
+              onRequest: false,
             },
           ]}
         />

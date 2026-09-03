@@ -114,21 +114,24 @@ describe('stopGroup', () => {
     // Linie z `groupRoutes` — posortowane, metro przed tramwajem w `modes`.
     expect(group?.lines.map((line) => line.line)).toEqual(['20', 'M1'])
     expect(group?.modes).toEqual(['metro', 'tram'])
-    expect(group?.wheelchairAccessible).toBe(false) // słupki wheelchair=0
+    expect(group?.wheelchairNote).toBeNull() // słupki wheelchair=0 → brak sygnału
   })
 
-  it('flags wheelchairAccessible only for a confirmed (1) member, not unknown (0)', async () => {
-    const schedule = await make({
-      stops: [
-        { id: '100101', name: 'Centrum 01', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 1 as const },
-        { id: '100102', name: 'Centrum 02', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 as const },
-      ],
-      trips: [{ routeId: '1', serviceId: 'S', tripId: 't', headsign: 'A', directionId: 0 }],
-      stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 't,100101,12:00:00,12:00:00,1'],
-    })
-    expect(stopGroup(schedule, '1001')?.wheelchairAccessible).toBe(true)
+  it('wheelchairNote: `2` na wszystkich słupkach = inaccessible, na części = partial, `1`/`0` = null', async () => {
+    const withFlags = (a: 0 | 1 | 2, b: 0 | 1 | 2) =>
+      make({
+        stops: [
+          { id: '100101', name: 'Centrum 01', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: a },
+          { id: '100102', name: 'Centrum 02', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: b },
+        ],
+        trips: [{ routeId: '1', serviceId: 'S', tripId: 't', headsign: 'A', directionId: 0 }],
+        stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 't,100101,12:00:00,12:00:00,1'],
+      })
+    expect(stopGroup(await withFlags(2, 2), '1001')?.wheelchairNote).toBe('inaccessible')
+    expect(stopGroup(await withFlags(2, 0), '1001')?.wheelchairNote).toBe('partial')
+    expect(stopGroup(await withFlags(1, 1), '1001')?.wheelchairNote).toBeNull()
     // Sama nazwa zespołu bez numeru słupka.
-    expect(stopGroup(schedule, '1001')?.name).toBe('Centrum')
+    expect(stopGroup(await withFlags(1, 1), '1001')?.name).toBe('Centrum')
   })
 
   it('returns null for an unknown id', async () => {

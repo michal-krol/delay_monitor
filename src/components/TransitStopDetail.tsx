@@ -1,19 +1,25 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import type { GtfsLine } from '@/lib/gtfs/query'
+import type { GtfsLine, StopGroupMember } from '@/lib/gtfs/query'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
+import { CityWeatherCard } from './CityWeatherCard'
 import { LineBadge } from './LineBadge'
 import { ScheduleStatus } from './ScheduleStatus'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, ShareIcon, StarIcon } from './icons'
+
+/** Krótka etykieta słupka do przełącznika: numer słupka, inaczej peron, inaczej ulica. */
+function slupekLabel(member: StopGroupMember): string {
+  return member.code ?? member.platformCode ?? member.street ?? member.id
+}
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
@@ -51,13 +57,19 @@ export function TransitStopDetail({
   /** Nazwa z linku (`?nazwa=`) — nagłówek do czasu wczytania rozkładu, potem tablica ją nadpisuje. */
   initialName?: string
 }) {
-  const { data, error } = useTransitBoard(city, [stopId])
+  const [slupek, setSlupek] = useState<string | null>(null)
+  // Reset wyboru słupka przy zmianie przystanku — ten sam idiom co useTransitBoard.ts.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setSlupek(null), [stopId])
+  const { data, error } = useTransitBoard(city, [stopId], 20, slupek)
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
   const { share, status: shareStatus } = useShareUrl()
   const now = useSnapshotNow(data)
   const [lineFilter, setLineFilter] = useState<string | null>(null)
 
   const board = data?.stops[0] ?? null
+  const members = board?.members ?? []
+  const activeMember = slupek !== null ? members.find((m) => m.id === slupek) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
   const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }
   const key = favouriteKey(favourite)
@@ -89,12 +101,25 @@ export function TransitStopDetail({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stopName}</h1>
-                {board?.wheelchairAccessible === true && (
-                  <span title="Przystanek dostępny dla osób z niepełnosprawnością" className="text-text-secondary">
+                {board?.wheelchairNote != null && (
+                  <span
+                    title={
+                      board.wheelchairNote === 'inaccessible'
+                        ? 'Przystanek niedostępny dla osób poruszających się na wózku'
+                        : 'Część słupków tego przystanku niedostępna dla osób na wózku'
+                    }
+                    className="text-amber-600 dark:text-amber-400"
+                  >
                     <AccessibleIcon size={18} />
                   </span>
                 )}
               </div>
+              {activeMember !== null && (
+                <p className="mt-0.5 text-sm text-text-secondary">
+                  Słupek {slupekLabel(activeMember)}
+                  {activeMember.street !== null && ` · ${activeMember.street}`}
+                </p>
+              )}
               {board !== null && board.modes.length > 0 && (
                 <p className="mt-1 text-sm text-text-secondary">
                   {board.modes.map((mode) => MODE_LABEL[mode]).join(' · ')}
@@ -135,6 +160,50 @@ export function TransitStopDetail({
             </div>
           </div>
         </section>
+
+        {members.length > 1 && (
+          <section className="glass rounded-2xl p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-muted">Słupki tego przystanku</div>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              Różne słupki mogą obsługiwać inne linie i kierunki.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSlupek(null)}
+                aria-pressed={slupek === null}
+                className="rounded-full border px-2.5 py-1 text-xs transition"
+                style={
+                  slupek === null
+                    ? { background: 'var(--accent-gradient)', borderColor: 'transparent', color: '#fff' }
+                    : { borderColor: 'var(--surface-border)' }
+                }
+              >
+                Cały przystanek
+              </button>
+              {members.map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  onClick={() => setSlupek(member.id)}
+                  aria-pressed={slupek === member.id}
+                  title={[member.street, member.lines.map((l) => l.line).join(', ')].filter(Boolean).join(' · ')}
+                  className="rounded-full border px-2.5 py-1 text-xs tabular-nums transition"
+                  style={
+                    slupek === member.id
+                      ? { background: 'var(--accent-gradient)', borderColor: 'transparent', color: '#fff' }
+                      : { borderColor: 'var(--surface-border)' }
+                  }
+                >
+                  {slupekLabel(member)}
+                  {member.lines.length > 0 && (
+                    <span className="ml-1 text-text-muted">· {member.lines.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} />
@@ -184,6 +253,8 @@ export function TransitStopDetail({
       </div>
 
       <aside className="flex flex-col gap-4 lg:sticky lg:top-6">
+        <CityWeatherCard city={city} />
+
         <AsideCard title="Natężenie ruchu dziś">
           <HourlyTraffic
             hourly={summary?.hourly ?? null}

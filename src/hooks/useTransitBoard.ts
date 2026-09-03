@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { GtfsDeparture, GtfsMode, ScheduleState } from '@/lib/gtfs/types'
-import type { GtfsLine, StopSummary } from '@/lib/gtfs/query'
+import type { GtfsLine, StopGroupMember, StopSummary } from '@/lib/gtfs/query'
 
 export type TransitStopBoard = {
   stopId: string
@@ -10,8 +10,12 @@ export type TransitStopBoard = {
   modes: GtfsMode[]
   /** Linie obsługujące zespół, posortowane naturalnie. */
   lines: GtfsLine[]
-  /** Któryś słupek zespołu ma potwierdzoną dostępność (`wheelchair_boarding = 1`). */
-  wheelchairAccessible: boolean
+  /** Sygnał dostępności: `'inaccessible'` / `'partial'` / `null` (patrz `StopGroup.wheelchairNote`). */
+  wheelchairNote: 'inaccessible' | 'partial' | null
+  /** Słupki zespołu (Centrum 01, Centrum 02…) — do przełącznika. */
+  members: StopGroupMember[]
+  /** Aktywny słupek, gdy zawężono odjazdy do jednego; inaczej `null` (cały zespół). */
+  activeSlupek: string | null
   /** Fakty rozkładowe (liczba linii, odjazdy dziś, pierwszy/ostatni, wykres godzinowy). */
   summary: StopSummary
   departures: GtfsDeparture[]
@@ -39,7 +43,7 @@ export type TransitBoardResponse = {
 const REFRESH_INTERVAL_MS = 30000
 const LOADING_RETRY_DELAYS_MS = [1000, 2000, 3000, 5000, 8000, 15000]
 
-export function useTransitBoard(city: string | null, stopIds: string[], limit = 20) {
+export function useTransitBoard(city: string | null, stopIds: string[], limit = 20, slupek: string | null = null) {
   const [data, setData] = useState<TransitBoardResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const key = stopIds.join(',')
@@ -65,7 +69,8 @@ export function useTransitBoard(city: string | null, stopIds: string[], limit = 
       let loading = false
       try {
         const response = await fetch(
-          `/api/gtfs/board?city=${encodeURIComponent(city as string)}&stops=${key}&limit=${limit}`
+          `/api/gtfs/board?city=${encodeURIComponent(city as string)}&stops=${key}&limit=${limit}` +
+            (slupek !== null ? `&slupek=${encodeURIComponent(slupek)}` : '')
         )
         if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
         const json = (await response.json()) as TransitBoardResponse
@@ -92,7 +97,7 @@ export function useTransitBoard(city: string | null, stopIds: string[], limit = 
       clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [city, key, limit])
+  }, [city, key, limit, slupek])
 
   return { data, error }
 }

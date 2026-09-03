@@ -69,18 +69,27 @@ export async function GET(request: Request) {
     return schedule.serviceDates.indexOf(today) === -1 ? 1 : schedule.serviceDates.indexOf(today)
   })()
 
+  // Opcjonalne zawężenie do jednego słupka zespołu (Centrum 01 vs Centrum 02).
+  const rawSlupek = searchParams.get('slupek')
+  const slupek = rawSlupek !== null && GTFS_STOP_ID_PATTERN.test(rawSlupek) ? rawSlupek : null
+
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
     if (group === null) return null
-    const summary = stopSummary(schedule, id, todayIndex)
+    // Gdy podano `slupek` i należy on do tego zespołu — rozkład/odjazdy tylko z niego.
+    const scopeId = slupek !== null && group.members.some((m) => m.id === slupek) ? slupek : id
+    const summary = stopSummary(schedule, scopeId, todayIndex)
     return {
       stopId: id,
       name: group.name,
       modes: group.modes,
       lines: group.lines,
-      wheelchairAccessible: group.wheelchairAccessible,
+      wheelchairNote: group.wheelchairNote,
+      members: group.members,
+      /** Aktywny słupek, gdy zawężono; inaczej `null` (cały zespół). */
+      activeSlupek: scopeId === id ? null : scopeId,
       summary,
-      departures: nextDepartures(schedule, [id], now, limit),
+      departures: nextDepartures(schedule, [scopeId], now, limit),
     }
   })
 

@@ -20,6 +20,7 @@ function dep(over: Partial<GtfsDeparture> = {}): GtfsDeparture {
     platformCode: null,
     wheelchair: 0,
     frequencyBased: false,
+    onRequest: false,
     ...over,
   }
 }

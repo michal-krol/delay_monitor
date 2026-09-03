@@ -194,7 +194,13 @@ export default function LineDetailPage() {
                               </span>
                             )}
                           </span>
-                          {stop.wheelchair === 1 && <AccessibleIcon size={13} className="shrink-0 self-center text-text-muted" />}
+                          {stop.wheelchair === 2 && (
+                            <AccessibleIcon
+                              size={13}
+                              className="shrink-0 self-center text-amber-600 dark:text-amber-400"
+                              aria-label="Przystanek niedostępny dla osób na wózku"
+                            />
+                          )}
                           {passSec !== null ? (
                             <span className="shrink-0 font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">{clock(passSec)}</span>
                           ) : (
