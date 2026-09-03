@@ -211,6 +211,8 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const tripFrequencyBased: number[] = []
   /** base trip_id → indeksy wpisów (po jednym na dobę, w której kurs jest aktywny). */
   const tripEntriesById = new Map<string, number[]>()
+  /** base trip_id → (linia, kierunek, headsign) — do wzorca przebiegu linii. */
+  const tripMetaById = new Map<string, { routeIdx: number; direction: number; headsignIdx: number }>()
 
   const pushTrip = (
     baseTripId: string,
@@ -233,6 +235,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   for (const trip of input.trips) {
     const routeIdx = routeIndexById.get(trip.routeId) ?? -1
     const headsignIdx = internHeadsign(trip.headsign)
+    tripMetaById.set(trip.tripId, { routeIdx, direction: trip.directionId, headsignIdx })
     const isFrequency = frequencyTripIds.has(trip.tripId)
     for (let day = 0; day < 3; day += 1) {
       if (!activeSets[day].has(trip.serviceId)) continue
@@ -266,6 +269,28 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   // ── stop_times: gorąca pętla (bez Zod) ───────────────────────────────────
   /** Wzorzec kursu częstotliwościowego: przystanki z offsetami względnymi. */
   const freqPattern = new Map<string, { stopIdx: number; arrSec: number; depSec: number; seq: number }[]>()
+
+  // Reprezentatywny przebieg linii: akumulujemy słupki bieżącego kursu (plik
+  // jest pogrupowany po `trip_id`), a na zmianie kursu zapisujemy najdłuższy
+  // napotkany wzorzec dla pary (linia, kierunek). O(1) amortyzowane, bez skanu
+  // milionów zdarzeń per żądanie strony linii.
+  const routePatterns = new Map<string, { stops: number[]; headsignIdx: number }>()
+  let patternTripId = ''
+  let patternStops: { seq: number; stopIdx: number }[] = []
+  const flushPattern = () => {
+    if (patternStops.length > 0) {
+      const meta = tripMetaById.get(patternTripId)
+      if (meta !== undefined && meta.routeIdx >= 0) {
+        const key = `${meta.routeIdx}:${meta.direction}`
+        const existing = routePatterns.get(key)
+        if (existing === undefined || patternStops.length > existing.stops.length) {
+          const ordered = [...patternStops].sort((a, b) => a.seq - b.seq).map((point) => point.stopIdx)
+          routePatterns.set(key, { stops: ordered, headsignIdx: meta.headsignIdx })
+        }
+      }
+    }
+    patternStops = []
+  }
 
   let header: Map<string, number> | null = null
   let tripIdCol = 0
@@ -329,7 +354,26 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       continue
     }
 
+    if (tripId !== patternTripId) {
+      flushPattern()
+      patternTripId = tripId
+    }
+    patternStops.push({ seq, stopIdx })
+
     for (const entry of entries ?? []) addEvent(entry, stopIdx, effArr, effDep, seq)
+  }
+  flushPattern()
+
+  // Kursy częstotliwościowe (metro) też mają przebieg — z gotowego `freqPattern`.
+  for (const [tripId, pattern] of freqPattern) {
+    const meta = tripMetaById.get(tripId)
+    if (meta === undefined || meta.routeIdx < 0) continue
+    const key = `${meta.routeIdx}:${meta.direction}`
+    const existing = routePatterns.get(key)
+    if (existing === undefined || pattern.length > existing.stops.length) {
+      const ordered = [...pattern].sort((a, b) => a.seq - b.seq).map((point) => point.stopIdx)
+      routePatterns.set(key, { stops: ordered, headsignIdx: meta.headsignIdx })
+    }
   }
 
   // ── rozwinięcie frequencies (przy ładowaniu, przed CSR) ───────────────────
@@ -430,6 +474,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     groupRoutes,
     routes,
     routeIndexById,
+    routePatterns,
     tripIds,
     tripRoute: Int32Array.from(tripRoute),
     tripHeadsign: Int32Array.from(tripHeadsign),

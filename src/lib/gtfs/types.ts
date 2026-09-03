@@ -116,6 +116,13 @@ export type GtfsSchedule = {
   // --- linie ---
   routes: GtfsRoute[]
   routeIndexById: Map<string, number>
+  /**
+   * Klucz `${routeIdx}:${directionId}` → reprezentatywny przebieg linii:
+   * indeksy słupków w kolejności przystanków + internowany headsign. Najdłuższy
+   * napotkany wzorzec dla danej pary (linia, kierunek). Do strony linii
+   * (`/miasto/[city]/linia/[routeId]`), liczony raz przy ładowaniu.
+   */
+  routePatterns: Map<string, { stops: number[]; headsignIdx: number }>
 
   // --- kursy ---
   tripIds: string[]

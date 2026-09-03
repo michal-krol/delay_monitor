@@ -27,6 +27,22 @@ export type GtfsScheduleView = {
   droppedRows: number | null
 }
 
+/**
+ * Blok `schedule` w odpowiedziach tras `/api/gtfs/*` — jeden kształt, żeby
+ * `ScheduleStatus` po stronie klienta miał zawsze te same pola. `droppedRows`
+ * świadomie POMINIĘTE: trójstan jest w `/api/health`, nie tutaj.
+ */
+export function scheduleResponseBlock(view: GtfsScheduleView) {
+  return {
+    state: view.state,
+    loadedAt: view.loadedAt,
+    ageMs: view.ageMs,
+    phase: view.phase,
+    serviceDates: view.serviceDates,
+    feedVersion: view.feedVersion,
+  }
+}
+
 export type GtfsPoller = {
   /** fire-and-forget; NIGDY nie awaitowane w route handlerze. */
   ensureLoaded(): void

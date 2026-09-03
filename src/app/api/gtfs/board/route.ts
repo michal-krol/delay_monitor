@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { serviceDateWindow } from '@/lib/pkp/time'
 import { getCity } from '@/lib/gtfs/cities'
 import { getGtfsPoller } from '@/lib/gtfs/instance'
+import { scheduleResponseBlock } from '@/lib/gtfs/poller'
 import { nextDepartures, stopGroup, stopSummary } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 
@@ -54,14 +55,7 @@ export async function GET(request: Request) {
   const schedule = poller.getSchedule()
   const view = poller.getView()
 
-  const scheduleBlock = {
-    state: view.state,
-    loadedAt: view.loadedAt,
-    ageMs: view.ageMs,
-    phase: view.phase,
-    serviceDates: view.serviceDates,
-    feedVersion: view.feedVersion,
-  }
+  const scheduleBlock = scheduleResponseBlock(view)
 
   if (schedule === null) {
     return NextResponse.json({ city, schedule: scheduleBlock, stops: [], attribution: [] })

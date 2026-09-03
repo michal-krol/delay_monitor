@@ -177,6 +177,77 @@ export function linesByMode(schedule: GtfsSchedule): Record<GtfsMode, GtfsRoute[
   return grouped
 }
 
+/** Wiersz przeglądarki „Trasy" — plakietka linii z nazwą kierunkową. */
+export type LineListEntry = {
+  routeId: string
+  line: string
+  longName: string
+  color: string | null
+  textColor: '#000000' | '#ffffff'
+  mode: GtfsMode
+  kind: LineKind
+}
+
+function toLineListEntry(route: GtfsRoute): LineListEntry {
+  return {
+    routeId: route.id,
+    line: route.shortName || route.longName || route.id,
+    longName: route.longName,
+    color: route.color,
+    textColor: route.textColor,
+    mode: route.mode,
+    kind: route.kind,
+  }
+}
+
+/** Wszystkie linie miasta pogrupowane po rodzaju, posortowane naturalnie. */
+export function allLines(schedule: GtfsSchedule): Record<GtfsMode, LineListEntry[]> {
+  const byMode = linesByMode(schedule)
+  return {
+    metro: byMode.metro.map(toLineListEntry),
+    tram: byMode.tram.map(toLineListEntry),
+    bus: byMode.bus.map(toLineListEntry),
+    rail: byMode.rail.map(toLineListEntry),
+    other: byMode.other.map(toLineListEntry),
+  }
+}
+
+export type LineRouteStop = { stopId: string; groupId: string; name: string; wheelchair: 0 | 1 | 2 }
+export type LineRouteDirection = { directionId: number; headsign: string | null; stops: LineRouteStop[] }
+export type LineDetail = LineListEntry & { directions: LineRouteDirection[] }
+
+/**
+ * Przebieg linii w obu kierunkach — reprezentatywny wzorzec z `routePatterns`
+ * (najdłuższy napotkany przy ładowaniu). `null` = nieznane `routeId`.
+ * Zero pola opóźnienia — komunikacja miejska go nie ma.
+ */
+export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail | null {
+  const routeIdx = schedule.routeIndexById.get(routeId)
+  if (routeIdx === undefined) return null
+  const route = schedule.routes[routeIdx]
+
+  const directions: LineRouteDirection[] = []
+  for (const directionId of [0, 1, 2]) {
+    const pattern = schedule.routePatterns.get(`${routeIdx}:${directionId}`)
+    if (pattern === undefined) continue
+    directions.push({
+      directionId,
+      headsign: pattern.headsignIdx >= 0 ? schedule.headsigns[pattern.headsignIdx] : null,
+      stops: pattern.stops.map((stopIndex) => {
+        const groupId = schedule.stopGroupIds[stopIndex]
+        return {
+          stopId: schedule.stopIds[stopIndex],
+          groupId,
+          name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
+          wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
+        }
+      }),
+    })
+  }
+
+  return { ...toLineListEntry(route), directions }
+}
+
 export type TimetableEntry = {
   tripId: string
   departureSec: number

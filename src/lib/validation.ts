@@ -35,3 +35,11 @@ export const CITY_ID_PATTERN = /^[a-z]{2,8}$/
  * strażnik formatu i długości.
  */
 export const GTFS_STOP_ID_PATTERN = /^[A-Za-z0-9]{1,12}(?::[A-Za-z0-9]{1,6})?$/
+
+/**
+ * Identyfikator linii GTFS (`route_id`) — `M1`, `521`, `N16`, `L-1`. Jak przy
+ * przystankach: nigdy nie trafia do wychodzącego URL-a, jest kluczem do naszej
+ * `Map`; realną granicą zaufania jest `routeIndexById.get(id) === undefined`.
+ * Ten regex to tani strażnik formatu i długości.
+ */
+export const GTFS_ROUTE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,39}$/
