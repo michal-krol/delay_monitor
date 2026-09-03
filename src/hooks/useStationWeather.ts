@@ -46,6 +46,10 @@ export function useStationWeather(stationId: string): UseStationWeatherResult {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset na nową stację, ten sam wzorzec co useBoard.ts
     setResult({ status: 'loading' })
 
+    // Pusty identyfikator = obiekt nadrzędny jeszcze się nie wczytał (np.
+    // CityWeatherCard czeka na /api/cities). Nie bijemy w API z `stationId=`.
+    if (stationId === '') return
+
     fetch(`/api/weather?stationId=${stationId}`)
       .then(async (response) => {
         if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
