@@ -241,6 +241,17 @@ export function ArrowRightIcon(props: IconProps) {
   return base(<path d="m6 3 5 5-5 5" stroke="currentColor" strokeWidth={1.8} />, props, '0 0 16 16')
 }
 
+/** Dwie strzałki w przeciwnych kierunkach — przełącznik kierunku linii. */
+export function SwapIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M4 7h11l-3-3" stroke="currentColor" />
+      <path d="M16 13H5l3 3" stroke="currentColor" />
+    </>,
+    props
+  )
+}
+
 export function ShareIcon(props: IconProps) {
   return base(
     <>

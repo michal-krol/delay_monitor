@@ -297,20 +297,25 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   // jest pogrupowany po `trip_id`), a na zmianie kursu zapisujemy najdłuższy
   // napotkany wzorzec dla pary (linia, kierunek). O(1) amortyzowane, bez skanu
   // milionów zdarzeń per żądanie strony linii.
-  const routePatterns = new Map<string, { stops: number[]; headsignIdx: number }>()
+  const routePatterns = new Map<string, { stops: number[]; offsets: number[]; headsignIdx: number }>()
   let patternTripId = ''
-  let patternStops: { seq: number; stopIdx: number }[] = []
+  let patternStops: { seq: number; stopIdx: number; depSec: number }[] = []
+  /** Wzorzec z posortowanych po `seq` punktów: słupki + offsety sekundowe względem punktu startowego. */
+  const patternFrom = (points: { seq: number; stopIdx: number; depSec: number }[]) => {
+    const sorted = [...points].sort((a, b) => a.seq - b.seq)
+    const base = sorted[0].depSec
+    return { stops: sorted.map((p) => p.stopIdx), offsets: sorted.map((p) => p.depSec - base) }
+  }
+  const registerPattern = (key: string, points: { seq: number; stopIdx: number; depSec: number }[], headsignIdx: number) => {
+    const existing = routePatterns.get(key)
+    if (existing === undefined || points.length > existing.stops.length) {
+      routePatterns.set(key, { ...patternFrom(points), headsignIdx })
+    }
+  }
   const flushPattern = () => {
     if (patternStops.length > 0) {
       const meta = tripMetaById.get(patternTripId)
-      if (meta !== undefined && meta.routeIdx >= 0) {
-        const key = `${meta.routeIdx}:${meta.direction}`
-        const existing = routePatterns.get(key)
-        if (existing === undefined || patternStops.length > existing.stops.length) {
-          const ordered = [...patternStops].sort((a, b) => a.seq - b.seq).map((point) => point.stopIdx)
-          routePatterns.set(key, { stops: ordered, headsignIdx: meta.headsignIdx })
-        }
-      }
+      if (meta !== undefined && meta.routeIdx >= 0) registerPattern(`${meta.routeIdx}:${meta.direction}`, patternStops, meta.headsignIdx)
     }
     patternStops = []
   }
@@ -381,7 +386,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       flushPattern()
       patternTripId = tripId
     }
-    patternStops.push({ seq, stopIdx })
+    patternStops.push({ seq, stopIdx, depSec: effDep })
 
     for (const entry of entries ?? []) addEvent(entry, stopIdx, effArr, effDep, seq)
   }
@@ -391,12 +396,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   for (const [tripId, pattern] of freqPattern) {
     const meta = tripMetaById.get(tripId)
     if (meta === undefined || meta.routeIdx < 0) continue
-    const key = `${meta.routeIdx}:${meta.direction}`
-    const existing = routePatterns.get(key)
-    if (existing === undefined || pattern.length > existing.stops.length) {
-      const ordered = [...pattern].sort((a, b) => a.seq - b.seq).map((point) => point.stopIdx)
-      routePatterns.set(key, { stops: ordered, headsignIdx: meta.headsignIdx })
-    }
+    registerPattern(`${meta.routeIdx}:${meta.direction}`, pattern, meta.headsignIdx)
   }
 
   // ── rozwinięcie frequencies (przy ładowaniu, przed CSR) ───────────────────

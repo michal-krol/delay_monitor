@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DayTimetablePanel } from './DayTimetablePanel'
 import { jsonResponse } from '@/test-utils/http'
@@ -19,8 +20,25 @@ describe('DayTimetablePanel', () => {
     render(<DayTimetablePanel city="waw" stopId="7014M" routeId="M1" lineLabel="M1" />)
 
     expect(await screen.findByText('08')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/timetable?city=waw&stop=7014M&route=M1')
-    expect(screen.getByText('Cała doba — linia M1')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/timetable?city=waw&stop=7014M&route=M1&day=today')
+    expect(screen.getByText('Tabliczka dobowa — linia M1')).toBeInTheDocument()
+  })
+
+  it('switches the day board between today and tomorrow', async () => {
+    const fetchMock = vi.fn((url: string) =>
+      jsonResponse({
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1, phase: null, serviceDates: null, feedVersion: null },
+        entries: url.includes('day=tomorrow')
+          ? [{ tripId: 't2', departureSec: 9 * 3600, plannedAt: '', headsign: null, frequencyBased: false }]
+          : [{ tripId: 't1', departureSec: 8 * 3600, plannedAt: '', headsign: null, frequencyBased: false }],
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    render(<DayTimetablePanel city="waw" stopId="7014M" routeId="M1" lineLabel="M1" />)
+    expect(await screen.findByText('08')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Jutro' }))
+    expect(await screen.findByText('09')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/timetable?city=waw&stop=7014M&route=M1&day=tomorrow')
   })
 
   it('shows an error note when the fetch fails', async () => {

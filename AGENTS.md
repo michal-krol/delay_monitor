@@ -308,9 +308,11 @@ dziedziczy**. Rzeczy, które łatwo złamać:
   granicy Zod (`schema.ts`) → `#RRGGBB` albo `null`; `route_text_color`
   **ignorowany w całości**, kontrast liczymy sami (`contrastText`). `LineBadge`
   używa wyłącznie `style={{ background }}` ze zwalidowaną wartością.
-- **`schedule.routePatterns`** (przebieg linii per kierunek) jest akumulowany
-  w gorącej pętli `stop_times` — **nie skanuj milionów zdarzeń per żądanie**
-  strony linii. `lineDetail()` czyta gotowy indeks.
+- **`schedule.routePatterns`** (przebieg linii per kierunek + `offsets`
+  sekundowe względem przystanku startowego) jest akumulowany w gorącej pętli
+  `stop_times` — **nie skanuj milionów zdarzeń per żądanie** strony linii.
+  `lineDetail()` czyta gotowy indeks; strona linii liczy godzinę na kolejnych
+  przystankach jako `czas startowy + offsetSec` (bez dodatkowego zapytania).
 - **Kategoria dnia** (`serviceCategory` w `schema.ts` → `schedule.tripCategory`):
   najpierw token w `service_id` (`…:PcS` roboczy, `SbM` sobota, `NdM` niedziela,
   `PtS` piątek — konwencja WTP), potem rozkład dni tygodnia dat kursowania

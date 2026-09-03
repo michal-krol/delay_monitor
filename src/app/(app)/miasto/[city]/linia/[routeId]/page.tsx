@@ -5,15 +5,14 @@ import Link from 'next/link'
 import { notFound, useParams, useRouter } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
 import { LineBadge } from '@/components/LineBadge'
+import { LineTimetable } from '@/components/LineTimetable'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
-import { DayTimetable } from '@/components/DayTimetable'
 import { AttributionFooter } from '@/components/AttributionFooter'
-import { AccessibleIcon, ArrowRightIcon } from '@/components/icons'
+import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_LABEL } from '@/components/transitMode'
 import { useCityName } from '@/hooks/useCityName'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
-import type { ServiceCategory } from '@/lib/gtfs/schema'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 
 type LineResponse = {
@@ -25,13 +24,9 @@ type LineResponse = {
 
 const LOADING_RETRY_MS = [1000, 2000, 3000, 5000, 8000, 15000]
 const KIND_LABEL = { regular: '', night: 'linia nocna', express: 'linia przyspieszona', replacement: 'linia zastępcza' } as const
-const CATEGORY_LABEL: Record<ServiceCategory, string> = {
-  weekday: 'Dni robocze',
-  friday: 'Piątki',
-  saturday: 'Soboty',
-  sunday: 'Niedziele i święta',
-  other: 'Inne dni',
-}
+
+const clock = (sec: number) =>
+  `${String(Math.floor(sec / 3600) % 24).padStart(2, '0')}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}`
 
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
@@ -46,6 +41,9 @@ export default function LineDetailPage() {
   const cityName = useCityName(city)
   const [data, setData] = useState<LineResponse | null>(null)
   const [failed, setFailed] = useState(false)
+  const [dirIdx, setDirIdx] = useState(0)
+  const [stopSel, setStopSel] = useState(0)
+  const [selectedBaseSec, setSelectedBaseSec] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -77,6 +75,16 @@ export default function LineDetailPage() {
 
   const line = data?.line ?? null
   const loading = data === null && !failed
+  const directions = line?.directions ?? []
+  const direction = directions[Math.min(dirIdx, Math.max(0, directions.length - 1))]
+  const stops = direction?.stops ?? []
+  const selectedStop = stops[Math.min(stopSel, Math.max(0, stops.length - 1))]
+
+  function switchDirection(): void {
+    setDirIdx((i) => (i + 1) % Math.max(1, directions.length))
+    setStopSel(0)
+    setSelectedBaseSec(null)
+  }
 
   return (
     <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
@@ -100,58 +108,78 @@ export default function LineDetailPage() {
         <p className="text-sm text-red-700 dark:text-red-300">Nie udało się pobrać przebiegu linii.</p>
       ) : loading ? (
         <p className="text-sm text-text-secondary">Wczytuję przebieg linii…</p>
-      ) : line === null ? (
+      ) : line === null || direction === undefined ? (
         <p className="text-sm text-text-secondary">
           {data?.schedule.state === 'loading' ? 'Rozkład jeszcze się wczytuje.' : 'Nie znaleziono takiej linii w rozkładzie.'}
         </p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {line.directions.map((direction) => {
-            const destination = direction.headsign ?? direction.stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`
-            return (
-              <section key={direction.directionId} className="glass rounded-2xl p-4">
-                <h2 className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-foreground">
-                  {direction.origin !== null && <span className="text-text-secondary">{direction.origin}</span>}
-                  <ArrowRightIcon size={14} className="text-text-muted" />
-                  <span>{destination}</span>
-                </h2>
+        <>
+          <button
+            type="button"
+            onClick={switchDirection}
+            disabled={directions.length < 2}
+            aria-label="Zmień kierunek"
+            className="inline-flex w-fit items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold text-foreground transition enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
+            style={{ borderColor: 'var(--surface-border)' }}
+          >
+            <span>{direction.origin ?? stops[0]?.name}</span>
+            <ArrowRightIcon size={13} className="text-text-muted" />
+            <span>{direction.headsign ?? stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`}</span>
+            {directions.length >= 2 && <SwapIcon size={15} className="ml-1 text-indigo-600 dark:text-indigo-400" />}
+          </button>
 
-                <details className="mt-3 text-sm">
-                  <summary className="cursor-pointer text-text-secondary">Przystanki na trasie ({direction.stops.length})</summary>
-                  <ol className="mt-2 flex flex-col">
-                    {direction.stops.map((stop, index) => (
-                      <li key={`${stop.stopId}-${index}`} className="border-t py-2 first:border-t-0" style={{ borderColor: 'var(--surface-border)' }}>
-                        <Link
-                          href={`/miasto/${city}/przystanek/${encodeURIComponent(stop.groupId)}?nazwa=${encodeURIComponent(stop.name)}`}
-                          className="flex items-center gap-2 text-foreground hover:text-indigo-600 dark:hover:text-indigo-400"
-                        >
-                          <span className="flex-1">{stop.name}</span>
-                          {stop.wheelchair === 1 && <AccessibleIcon size={14} className="shrink-0 text-text-muted" />}
-                        </Link>
-                      </li>
-                    ))}
-                  </ol>
-                </details>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+            <section className="glass rounded-2xl p-4">
+              <h2 className="text-sm font-bold text-foreground">Trasa linii</h2>
+              <ol className="mt-2">
+                {stops.map((stop, index) => {
+                  const active = index === stopSel
+                  const passSec = selectedBaseSec !== null ? selectedBaseSec + stop.offsetSec : null
+                  return (
+                    <li key={`${stop.stopId}-${index}`} className="border-t first:border-t-0" style={{ borderColor: 'var(--surface-border)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setStopSel(index)}
+                        aria-pressed={active}
+                        className={`flex w-full items-center gap-2 py-2 text-left text-sm transition ${
+                          active ? 'font-semibold text-foreground' : 'text-text-secondary hover:text-foreground'
+                        }`}
+                      >
+                        <span className="flex-1">{stop.name}</span>
+                        {stop.wheelchair === 1 && <AccessibleIcon size={13} className="shrink-0 text-text-muted" />}
+                        {passSec !== null ? (
+                          <span className="shrink-0 font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">{clock(passSec)}</span>
+                        ) : (
+                          index > 0 && <span className="shrink-0 text-xs tabular-nums text-text-muted">+{Math.round(stop.offsetSec / 60)} min</span>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ol>
+            </section>
 
-                <div className="mt-4 flex flex-col gap-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                    Odjazdy z krańcówki{direction.origin !== null && ` — ${direction.origin}`}
-                  </p>
-                  {direction.departures.length === 0 ? (
-                    <p className="text-sm text-text-secondary">Brak odjazdów w rozkładzie okna.</p>
-                  ) : (
-                    direction.departures.map((block) => (
-                      <div key={block.category}>
-                        <h3 className="text-xs font-semibold text-text-secondary">{CATEGORY_LABEL[block.category]}</h3>
-                        <DayTimetable entries={block.times.map((sec) => ({ departureSec: sec, frequencyBased: block.frequencyBased }))} />
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-            )
-          })}
-        </div>
+            <section className="glass rounded-2xl p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop?.name}</h2>
+                {selectedStop !== undefined && (
+                  <Link
+                    href={`/miasto/${city}/przystanek/${encodeURIComponent(selectedStop.groupId)}?nazwa=${encodeURIComponent(selectedStop.name)}`}
+                    className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                  >
+                    pełna tablica przystanku →
+                  </Link>
+                )}
+              </div>
+              <LineTimetable
+                blocks={direction.departures}
+                offsetSec={selectedStop?.offsetSec ?? 0}
+                selectedBaseSec={selectedBaseSec}
+                onSelect={setSelectedBaseSec}
+              />
+            </section>
+          </div>
+        </>
       )}
 
       {data !== null && <AttributionFooter attribution={data.attribution} />}

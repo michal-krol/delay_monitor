@@ -216,25 +216,32 @@ export function allLines(schedule: GtfsSchedule): Record<GtfsMode, LineListEntry
   }
 }
 
-export type LineRouteStop = { stopId: string; groupId: string; name: string; wheelchair: 0 | 1 | 2 }
-/** Odjazdy z krańcówki w jednej kategorii dnia — sekcja rozkładu linii. */
+export type LineRouteStop = {
+  stopId: string
+  groupId: string
+  name: string
+  wheelchair: 0 | 1 | 2
+  /** Sekundy przejazdu od przystanku startowego (do przeliczenia godziny odjazdu na tym przystanku). */
+  offsetSec: number
+}
+/** Odjazdy z przystanku startowego w jednej kategorii dnia — sekcja rozkładu linii. */
 export type LineDepartureBlock = { category: ServiceCategory; times: number[]; frequencyBased: boolean }
 export type LineRouteDirection = {
   directionId: number
   headsign: string | null
-  /** Nazwa krańcówki początkowej (pierwszy przystanek przebiegu). */
+  /** Nazwa przystanku startowego (pierwszy przystanek przebiegu). */
   origin: string | null
   stops: LineRouteStop[]
-  /** Rozkład odjazdów z krańcówki, pogrupowany po kategorii dnia. */
+  /** Rozkład odjazdów z przystanku startowego, pogrupowany po kategorii dnia. */
   departures: LineDepartureBlock[]
 }
 export type LineDetail = LineListEntry & { directions: LineRouteDirection[] }
 
 /**
- * Odjazdy z krańcówki linii w danym kierunku, pogrupowane po kategorii dnia.
- * Skan wycinka CSR krańcówki (dziesiątki–setki zdarzeń), nie całej tablicy.
- * ponytail: widoczne tylko kategorie z okna [wczoraj, dziś, jutro]; pełny
- * tygodniowy rozkład wymagałby trzymania kursów spoza okna.
+ * Odjazdy z przystanku startowego linii w danym kierunku, pogrupowane po
+ * kategorii dnia. Skan wycinka CSR tego przystanku (dziesiątki–setki zdarzeń),
+ * nie całej tablicy. ponytail: widoczne tylko kategorie z okna [wczoraj, dziś,
+ * jutro]; pełny tygodniowy rozkład wymagałby trzymania kursów spoza okna.
  */
 function lineDepartures(schedule: GtfsSchedule, routeIdx: number, directionId: number, terminusStopIdx: number): LineDepartureBlock[] {
   const byCategory = new Map<number, { times: Set<number>; frequencyBased: boolean }>()
@@ -273,13 +280,14 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
   for (const directionId of [0, 1, 2]) {
     const pattern = schedule.routePatterns.get(`${routeIdx}:${directionId}`)
     if (pattern === undefined) continue
-    const stops = pattern.stops.map((stopIndex) => {
+    const stops = pattern.stops.map((stopIndex, order) => {
       const groupId = schedule.stopGroupIds[stopIndex]
       return {
         stopId: schedule.stopIds[stopIndex],
         groupId,
         name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
         wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
+        offsetSec: pattern.offsets[order] ?? 0,
       }
     })
     directions.push({
