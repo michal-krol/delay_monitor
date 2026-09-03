@@ -468,6 +468,165 @@ describe('ConnectionDetails', () => {
     expect(screen.queryByText('Pociąg jest tutaj')).not.toBeInTheDocument()
   })
 
+  // Pociąg bez ŻADNEJ realizacji (żaden przystanek `isConfirmed`, brak actuals,
+  // `trainStatus: 'S'` na stałe) — np. Warszawska Kolej Dojazdowa. Window trasy:
+  // odjazd 09:00Z (Gdańsk), przyjazd 11:20Z (Warszawa).
+  const SCHEDULE_ONLY_RESPONSE = {
+    ...RESPONSE,
+    trainStatus: 'S',
+    stops: [
+      { ...RESPONSE.stops[0], isConfirmed: false, actualDeparture: null, departureDelayMinutes: null, hasTrainStarted: false },
+      { ...RESPONSE.stops[1], isConfirmed: false, hasTrainStarted: false },
+    ],
+  }
+
+  it('projects the position from the schedule for a train with zero realization mid-route', async () => {
+    freezeClock('2026-08-01T10:00:00Z') // po odjeździe z Gdańska (09:00Z), przed przyjazdem do W-wy (11:20Z)
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(SCHEDULE_ONLY_RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="Os 1" />)
+    await waitForRoute()
+
+    // Zastrzeżenie widoczne
+    expect(screen.getByText('Brak potwierdzeń przejazdu z PKP.')).toBeInTheDocument()
+    // Znacznik pozycji z dopiskiem „wg rozkładu", na minionym przystanku (Gdańsk)
+    const here = screen.getAllByText('Pociąg jest tutaj — wg rozkładu')
+    expect(here).toHaveLength(1)
+    // eslint-disable-next-line testing-library/no-node-access -- wiersz przystanku, przy którym stoi znacznik
+    expect(here[0].closest('li')).toHaveTextContent('Gdańsk Główny')
+    // Nagłówek: „w trasie"
+    expect(screen.getAllByText('w trasie').length).toBeGreaterThan(0)
+    // Miniony przystanek „w trasie", przyszły „jeszcze nie przyjechał"
+    // eslint-disable-next-line testing-library/no-node-access
+    const future = routeList().getByText('Warszawa Centralna').closest('li')
+    expect(within(future as HTMLElement).getByText('jeszcze nie przyjechał')).toBeInTheDocument()
+  })
+
+  it('does not project before the scheduled departure — behaves exactly as today', async () => {
+    freezeClock('2026-08-01T08:00:00Z') // przed odjazdem z Gdańska
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(SCHEDULE_ONLY_RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="Os 1" />)
+    await waitForRoute()
+
+    expect(screen.queryByText('Brak potwierdzeń przejazdu z PKP.')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Pociąg jest tutaj/)).not.toBeInTheDocument()
+    // eslint-disable-next-line testing-library/no-node-access
+    const origin = routeList().getByText('Gdańsk Główny').closest('li')
+    expect(within(origin as HTMLElement).getByText('jeszcze nie wyjechał')).toBeInTheDocument()
+  })
+
+  it('does not project once the whole schedule is in the past — falls back to "brak danych"', async () => {
+    freezeClock('2026-08-01T12:00:00Z') // 40 min po planowym przyjeździe, wciąż zero potwierdzeń
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(SCHEDULE_ONLY_RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="Os 1" />)
+    await waitForRoute()
+
+    expect(screen.queryByText('Brak potwierdzeń przejazdu z PKP.')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Pociąg jest tutaj/)).not.toBeInTheDocument()
+    // eslint-disable-next-line testing-library/no-node-access
+    const future = routeList().getByText('Warszawa Centralna').closest('li')
+    expect(within(future as HTMLElement).getByText('brak danych')).toBeInTheDocument()
+  })
+
+  it('uses the real position (no "wg rozkładu") as soon as any stop is confirmed', async () => {
+    freezeClock('2026-08-01T10:00:00Z')
+    const response = {
+      ...SCHEDULE_ONLY_RESPONSE,
+      stops: [
+        { ...SCHEDULE_ONLY_RESPONSE.stops[0], isConfirmed: true, actualDeparture: '2026-08-01T09:05:00.000Z', departureDelayMinutes: 5 },
+        { ...SCHEDULE_ONLY_RESPONSE.stops[1], hasTrainStarted: true },
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="Os 1" />)
+    await waitForRoute()
+
+    expect(screen.queryByText('Brak potwierdzeń przejazdu z PKP.')).not.toBeInTheDocument()
+    const here = screen.getAllByText('Pociąg jest tutaj')
+    expect(here).toHaveLength(1)
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(here[0].closest('li')).toHaveTextContent('Gdańsk Główny')
+  })
+
+  it('does not project "w trasie" for a cancelled stop inside the schedule window', async () => {
+    freezeClock('2026-08-01T10:00:00Z')
+    const response = {
+      ...SCHEDULE_ONLY_RESPONSE,
+      stops: [
+        { ...SCHEDULE_ONLY_RESPONSE.stops[0], isCancelled: true },
+        SCHEDULE_ONLY_RESPONSE.stops[1],
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="Os 1" />)
+    await waitForRoute()
+
+    expect(screen.queryByText('Brak potwierdzeń przejazdu z PKP.')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Pociąg jest tutaj/)).not.toBeInTheDocument()
+    // eslint-disable-next-line testing-library/no-node-access
+    const row = routeList().getByText('Gdańsk Główny').closest('li')
+    expect(within(row as HTMLElement).getByText('odwołany')).toBeInTheDocument()
+  })
+
+  // Pociąg Z potwierdzeniami, ale PRZETERMINOWANYMI — SKM/KM/WKD, PKP potwierdza
+  // paczkami z opóźnieniem. Gdańsk potwierdzony (odjazd 09:00Z), dalej co ~20 min:
+  // Tczew 09:20, Malbork 09:40, Warszawa 11:20 — wszystko niepotwierdzone.
+  const STALE_CONFIRMED_RESPONSE = {
+    ...RESPONSE,
+    trainStatus: 'P',
+    stops: [
+      { ...RESPONSE.stops[0], isConfirmed: true, actualDeparture: '2026-08-01T09:00:00.000Z', departureDelayMinutes: 0, hasTrainStarted: false },
+      {
+        stationId: '4600', stationName: 'Tczew',
+        plannedArrival: '2026-08-01T09:20:00.000Z', actualArrival: null, arrivalDelayMinutes: null,
+        plannedDeparture: '2026-08-01T09:22:00.000Z', actualDeparture: null, departureDelayMinutes: null,
+        isCancelled: false, isConfirmed: false, platform: null, hasTrainStarted: true,
+      },
+      {
+        stationId: '4610', stationName: 'Malbork',
+        plannedArrival: '2026-08-01T09:40:00.000Z', actualArrival: null, arrivalDelayMinutes: null,
+        plannedDeparture: '2026-08-01T09:42:00.000Z', actualDeparture: null, departureDelayMinutes: null,
+        isCancelled: false, isConfirmed: false, platform: null, hasTrainStarted: true,
+      },
+      { ...RESPONSE.stops[1], hasTrainStarted: true },
+    ],
+  }
+
+  it('projects the marker forward from a stale confirmed stop (SKM/KM batched confirmations)', async () => {
+    freezeClock('2026-08-01T09:45:00Z') // rozkład stawia pociąg za Malborkiem (09:40), a PKP potwierdził tylko Gdańsk
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STALE_CONFIRMED_RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="R 1" />)
+    await waitForRoute()
+
+    // Nie mylić z trybem „zero potwierdzeń" — ten ma potwierdzony Gdańsk.
+    expect(screen.queryByText('Brak potwierdzeń przejazdu z PKP.')).not.toBeInTheDocument()
+    const here = screen.getAllByText('Pociąg jest tutaj — szacowane z rozkładu')
+    expect(here).toHaveLength(1)
+    // Marker przeskoczył z Gdańska (ostatni potwierdzony) na Malbork (projekcja).
+    // eslint-disable-next-line testing-library/no-node-access -- wiersz przystanku
+    expect(here[0].closest('li')).toHaveTextContent('Malbork')
+    expect(screen.getAllByText('w trasie').length).toBeGreaterThan(0)
+  })
+
+  it('keeps the plain marker on the confirmed stop while confirmations keep up (< 2 stops behind)', async () => {
+    freezeClock('2026-08-01T09:25:00Z') // rozkład ledwo za Tczewem (09:20) — tylko 1 przystanek za potwierdzeniem
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STALE_CONFIRMED_RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="R 1" />)
+    await waitForRoute()
+
+    expect(screen.queryByText(/szacowane z rozkładu/)).not.toBeInTheDocument()
+    const here = screen.getAllByText('Pociąg jest tutaj')
+    expect(here).toHaveLength(1)
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(here[0].closest('li')).toHaveTextContent('Gdańsk Główny')
+  })
+
   it('shows a dwell badge only for a stop long enough to matter', async () => {
     // Na żywym API 4880 z 7173 postojów trwa dokładnie minutę — plakietka przy
     // każdym z nich to szum. Próg jest częścią informacji, nie kosmetyką.
@@ -523,5 +682,86 @@ describe('ConnectionDetails', () => {
 
     expect(writeText).toHaveBeenCalledWith(window.location.href)
     expect(await screen.findByText('Skopiowano link')).toBeInTheDocument()
+  })
+
+  describe('background refresh', () => {
+    const CONFIRMED_SECOND_STOP = {
+      ...RESPONSE,
+      stops: [
+        RESPONSE.stops[0],
+        { ...RESPONSE.stops[1], isConfirmed: true, actualArrival: '2026-08-01T11:21:00.000Z', arrivalDelayMinutes: 1 },
+      ],
+    }
+
+    it('refetches on window focus once past the throttle window, updating stops without a skeleton flash', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(RESPONSE))
+        .mockImplementation(() => jsonResponse(CONFIRMED_SECOND_STOP))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      // <90 s od pierwszego pobrania — ignorowane (cache /api/train i tak trzyma 90 s)
+      vi.setSystemTime(new Date('2026-08-01T10:01:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await Promise.resolve()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      // >90 s — dociąga w tle
+      vi.setSystemTime(new Date('2026-08-01T10:02:00Z'))
+      window.dispatchEvent(new Event('focus'))
+
+      // eslint-disable-next-line testing-library/no-node-access
+      const wwaRow = () => routeList().getByText('Warszawa Centralna').closest('li') as HTMLElement
+      await vi.waitFor(() => expect(within(wwaRow()).getByText('+1 min')).toBeInTheDocument())
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      // Nigdy nie wróciło do stanu ładowania
+      expect(screen.queryByText('Wczytywanie trasy…')).not.toBeInTheDocument()
+    })
+
+    it('keeps the last good data (no error banner) when a background refetch fails', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(RESPONSE))
+        .mockImplementation(() => Promise.resolve(new Response('boom', { status: 500 })))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+      expect(screen.queryByText('Nie udało się pobrać szczegółów połączenia.')).not.toBeInTheDocument()
+      expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
+    })
+
+    it('stops refetching once the train has reached its final stop', async () => {
+      freezeClock('2026-08-01T12:00:00Z')
+      const arrived = {
+        ...RESPONSE,
+        stops: [
+          RESPONSE.stops[0],
+          { ...RESPONSE.stops[1], isConfirmed: true, actualArrival: '2026-08-01T11:25:00.000Z', arrivalDelayMinutes: 5 },
+        ],
+      }
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse(arrived))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      vi.setSystemTime(new Date('2026-08-01T12:10:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await Promise.resolve()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
   })
 })

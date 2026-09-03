@@ -97,9 +97,19 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
                i perony są aktualne, nieznane są opóźnienia.
                Dopisek o odwołaniach nie jest ozdobą: `isCancelled` istnieje
                wyłącznie w `/operations` (rozkład nie ma pola o odwołaniu), więc
-               w tym stanie odwołany dziś pociąg wygląda jak normalny kurs. */
+               w tym stanie odwołany dziś pociąg wygląda jak normalny kurs.
+               Poważniejsze niż `realizationIncomplete` niżej (brak CAŁEGO dnia,
+               nie kawałka) -- dlatego sprawdzane pierwsze. */
             <span className={WARNING_CLASS}>
               PKP nie podaje dziś danych o ruchu — godziny wg rozkładu, możliwe niewidoczne odwołania
+            </span>
+          ) : data.realizationIncomplete === true ? (
+            /* Poller nie dociągnął wszystkich stron `/operations` (budżet / limit
+               stron) -- część pociągów jest bez realizacji i renderuje się jako
+               „jeszcze nie wyjechał" mimo że jedzie. Reszta tablicy (godziny,
+               perony, pociągi z realizacją) jest aktualna. */
+            <span className={WARNING_CLASS}>
+              Duży ruch — część pociągów może być pokazana jako „jeszcze nie wyjechał”, mimo że jadą
             </span>
           ) : (
             <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>

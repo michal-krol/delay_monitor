@@ -186,6 +186,31 @@ describe('createLiveClient', () => {
     expect(result.truncated).toBe(true)
   })
 
+  it('requests a specific page when asked, so the poller can paginate a truncated set', async () => {
+    // Poller sam dociąga kolejne strony /operations (bramka budżetowa +
+    // limit stron), więc klient musi umieć poprosić o stronę > 1. `page`
+    // jest w swaggerze (patrz contract.test.ts), domyślnie 1.
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getOperations(['5100'], 3)
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(url.searchParams.get('page')).toBe('3')
+  })
+
+  it('defaults to page 1 when no page is given', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trains: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createLiveClient('secret-key')
+    await client.getOperations(['5100'])
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(url.searchParams.get('page')).toBe('1')
+  })
+
   it('throws PkpApiError with the response status on a non-ok response', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('unauthorized', { status: 401 }))
     vi.stubGlobal('fetch', fetchMock)

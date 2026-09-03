@@ -106,6 +106,122 @@ export function resolveCurrentStopIndex(stops: TrainDetailStop[]): number {
   return -1
 }
 
+/** Planowy czas zdarzenia na przystanku — przyjazd (bo pociąg dojeżdża, zanim odjedzie), w ostateczności odjazd (przystanek początkowy). `null` = brak dopasowanej trasy. */
+function scheduledStopTime(stop: TrainDetailStop): string | null {
+  return stop.plannedArrival ?? stop.plannedDeparture
+}
+
+/**
+ * Czy w panelu szczegółów połączenia pokazujemy pozycję SZACOWANĄ Z ROZKŁADU
+ * zamiast realnej. Wyłącznie dla `ConnectionDetails.tsx` — tablica
+ * (`board/transform.ts`) tego nie używa i jej zachowanie się nie zmienia
+ * (patrz AGENTS.md #2/#10 oraz plan „trains-schedule-position").
+ *
+ * `true` wtedy i tylko wtedy, gdy PKP nie daje ŻADNEGO sygnału realizacji, a wg
+ * rozkładu pociąg właśnie jedzie:
+ *  - jest lista przystanków,
+ *  - żaden przystanek nie jest `isConfirmed` — jakiekolwiek potwierdzenie znaczy,
+ *    że `resolveCurrentStopIndex` ma realne dane i to ono wygrywa,
+ *  - żaden przystanek nie jest `isCancelled` ORAZ `trainStatus !== 'X'`
+ *    (całościowe odwołanie); `Q` (częściowe) jest dopuszczone — zastrzeżenie w UI
+ *    to pokrywa,
+ *  - pierwszy i ostatni przystanek mają planowy czas (trasa dopasowana),
+ *  - `now` mieści się w [plan odjazdu z pierwszego, plan przyjazdu do ostatniego).
+ */
+export function isScheduleProjection(stops: TrainDetailStop[], trainStatus: string | null, now: Date): boolean {
+  if (stops.length === 0 || trainStatus === 'X') return false
+  if (stops.some((stop) => stop.isConfirmed || stop.isCancelled)) return false
+
+  const start = stops[0].plannedDeparture ?? stops[0].plannedArrival
+  const end = stops[stops.length - 1].plannedArrival ?? stops[stops.length - 1].plannedDeparture
+  if (start === null || end === null) return false
+
+  const nowMs = now.getTime()
+  return nowMs >= new Date(start).getTime() && nowMs < new Date(end).getTime()
+}
+
+/**
+ * Indeks przystanku, przy którym pociąg wg ROZKŁADU teraz jest — najwyższy `i`,
+ * dla którego planowy przyjazd (w ostateczności odjazd) już minął. `-1`, gdy
+ * żaden (guard; przy `isScheduleProjection() === true` nie powinno się zdarzyć).
+ * Przystanki bez planowego czasu są pomijane — traktowane jak jeszcze nieosiągnięte.
+ */
+export function resolveScheduledStopIndex(stops: TrainDetailStop[], now: Date): number {
+  const nowMs = now.getTime()
+  let index = -1
+  for (let i = 0; i < stops.length; i += 1) {
+    const at = scheduledStopTime(stops[i])
+    if (at !== null && new Date(at).getTime() <= nowMs) index = i
+  }
+  return index
+}
+
+/**
+ * Ile minut od planu potwierdzony przystanek pociąg opuścił (dodatnie =
+ * opóźniony). `null`, gdy nie da się policzyć.
+ */
+function anchorOffsetMs(stop: TrainDetailStop): number | null {
+  const actual = stop.actualDeparture ?? stop.actualArrival
+  const planned = stop.plannedDeparture ?? stop.plannedArrival
+  if (actual === null || planned === null) return null
+  return new Date(actual).getTime() - new Date(planned).getTime()
+}
+
+/**
+ * Indeks przystanku, na którym pociąg PRAWDOPODOBNIE jest — kotwiczy w ostatnim
+ * POTWIERDZONYM przystanku (znamy jego faktyczny czas) i zakłada tempo
+ * rozkładowe dalej: przystanek `k` jest osiągnięty, gdy `plan(k) + opóźnienie
+ * na kotwicy ≤ teraz`. `-1`, gdy nie ma potwierdzonej kotwicy albo brak jej
+ * czasów.
+ *
+ * Po co, skoro jest `resolveCurrentStopIndex`: na gęstych liniach (SKM/KM/WKD)
+ * PKP potwierdza przystanki PACZKAMI z kilkuminutowym opóźnieniem, więc
+ * „ostatni potwierdzony" bywa 3-5 przystanków za realną pozycją. Marker „Pociąg
+ * jest tutaj" stałby wtedy w miejscu, choć pociąg dawno pojechał dalej.
+ * Aktywne WYŁĄCZNIE gdy `isStalePositionProjection()` jest prawdą — patrz tam.
+ */
+export function resolveProjectedStopIndex(stops: TrainDetailStop[], now: Date): number {
+  const anchor = resolveCurrentStopIndex(stops)
+  if (anchor < 0) return -1
+  const offsetMs = anchorOffsetMs(stops[anchor])
+  if (offsetMs === null) return -1
+
+  const nowMs = now.getTime()
+  let index = anchor
+  for (let i = anchor + 1; i < stops.length; i += 1) {
+    const at = scheduledStopTime(stops[i])
+    if (at !== null && new Date(at).getTime() + offsetMs <= nowMs) index = i
+  }
+  return index
+}
+
+/**
+ * Czy w panelu szczegółów pokazujemy pozycję SZACOWANĄ Z ROZKŁADU, mimo że
+ * pociąg MA już potwierdzone przystanki — bo są przeterminowane. Odróżnienie od
+ * `isScheduleProjection` (tam PKP nie daje ŻADNEGO sygnału): tu jest kotwica
+ * w realnych danych, tylko rozkład stawia pociąg dalej niż ostatnie potwierdzenie.
+ *
+ * `true` wtedy i tylko wtedy, gdy:
+ *  - żaden przystanek nie jest `isCancelled` ORAZ `trainStatus !== 'X'`
+ *    (pociąg, który stanął/został odwołany, NIE jedzie dalej wg rozkładu),
+ *  - jest potwierdzona kotwica (`resolveCurrentStopIndex ≥ 0`) i NIE jest
+ *    przystankiem końcowym,
+ *  - `now` przed planowym przyjazdem do celu,
+ *  - projekcja stawia pociąg ≥ 2 przystanki za kotwicą — poniżej tego
+ *    potwierdzenia „nadążają" i wygrywa zwykły `resolveCurrentStopIndex`.
+ */
+export function isStalePositionProjection(stops: TrainDetailStop[], trainStatus: string | null, now: Date): boolean {
+  if (trainStatus === 'X' || stops.some((stop) => stop.isCancelled)) return false
+
+  const anchor = resolveCurrentStopIndex(stops)
+  if (anchor < 0 || anchor >= stops.length - 1) return false
+
+  const end = scheduledStopTime(stops[stops.length - 1])
+  if (end === null || now.getTime() >= new Date(end).getTime()) return false
+
+  return resolveProjectedStopIndex(stops, now) >= anchor + 2
+}
+
 /**
  * Łączy realizację (`operation`, czasy faktyczne) z trasą rozkładową (`route`,
  * czasy planowe + peron/tor) w pełną, przystanek-po-przystanku listę do panelu

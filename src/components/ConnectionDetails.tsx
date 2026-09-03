@@ -1,12 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { AlertCircleIcon, CalendarIcon, ClockIcon, InfoIcon, LinkIcon, PauseIcon, RouteIcon, ShareIcon, TrainIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
-import { resolveCurrentStopIndex, type TrainDetailStop } from '@/lib/board/trainDetail'
+import {
+  isScheduleProjection,
+  isStalePositionProjection,
+  resolveCurrentStopIndex,
+  resolveProjectedStopIndex,
+  resolveScheduledStopIndex,
+  type TrainDetailStop,
+} from '@/lib/board/trainDetail'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatClockTime } from '@/lib/format'
@@ -76,6 +83,20 @@ const NOTABLE_STOP_MINUTES = 3
 
 /** Odświeżanie samego odliczania „za ile" — bez żadnego zapytania do PKP (AGENTS.md #3). */
 const COUNTDOWN_TICK_MS = 30_000
+
+/**
+ * Najkrótszy odstęp między pobraniami `/api/train` w tle. Poniżej tego i tak
+ * trafiłoby w 90 s cache trasy po stronie serwera (`src/app/api/train/route.ts`),
+ * więc szybciej nie ma po co pytać PKP (AGENTS.md #3).
+ */
+const MIN_BACKGROUND_REFRESH_MS = 90_000
+
+/**
+ * Powolny timer dociągania danych w tle — tylko gdy karta jest widoczna i pociąg
+ * jeszcze jedzie. Rzadki, bo główny sygnał to powrót na kartę / focus okna; ten
+ * timer łapie tylko przypadek „patrzę na stronę bez przerwy 10+ min".
+ */
+const BACKGROUND_REFRESH_MS = 5 * 60_000
 
 const formatTime = formatClockTime
 
@@ -148,28 +169,65 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const [data, setData] = useState<TrainDetailApiResponse | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const { share, copied } = useShareUrl()
+  // Do sprawdzenia „czy jest jeszcze co odświeżać" wewnątrz efektu bez trzymania
+  // `data` w jego zależnościach — inaczej każdy refetch przepinałby listenery.
+  const dataRef = useRef<TrainDetailApiResponse | null>(null)
 
+  // Wejście = jednorazowy fetch, a strona żyje potem tylko licznikiem „za ile"
+  // (AGENTS.md #3) — więc marker „Pociąg jest tutaj", opóźnienia i statusy
+  // zostają zamrożone z chwili wczytania. Dociągamy je w tle: przy powrocie na
+  // kartę / focusie okna oraz powolnym timerem, ale nie częściej niż co
+  // `MIN_BACKGROUND_REFRESH_MS` (cache `/api/train` i tak trzyma 90 s) i nie po
+  // dojechaniu pociągu do stacji końcowej. Odświeżenie w tle jest CICHE — nie
+  // pokazuje szkieletu i nie wygasza działającej strony przy błędzie (#7).
   useEffect(() => {
     let cancelled = false
+    let lastFetchAt = 0
 
-    async function load(): Promise<void> {
+    async function load(mode: 'initial' | 'background'): Promise<void> {
+      if (mode === 'background' && Date.now() - lastFetchAt < MIN_BACKGROUND_REFRESH_MS) return
+      lastFetchAt = Date.now()
       try {
         const params = new URLSearchParams({ scheduleId, orderId, operatingDate })
         const response = await fetch(`/api/train?${params}`)
         if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
         const json = (await response.json()) as TrainDetailApiResponse
-        if (!cancelled) {
-          setData(json)
-          setStatus('ready')
-        }
+        if (cancelled) return
+        dataRef.current = json
+        setData(json)
+        setStatus('ready')
       } catch {
-        if (!cancelled) setStatus('error')
+        // Baner błędu tylko wtedy, gdy nie mamy jeszcze CZEGO pokazać. Nieudany
+        // refetch zostawia ostatni dobry stan (AGENTS.md #7).
+        if (!cancelled && mode === 'initial') setStatus('error')
       }
     }
 
-    void load()
+    // Pociąg, który dojechał do ostatniego przystanku (albo ma całą trasę
+    // odwołaną), już się nie zmieni — nie ma czego dociągać.
+    function journeyOver(): boolean {
+      const stops = dataRef.current?.stops
+      if (stops === undefined || stops.length === 0) return false
+      return stops[stops.length - 1].isConfirmed || stops.every((stop) => stop.isCancelled)
+    }
+
+    function backgroundRefresh(): void {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      if (journeyOver()) return
+      void load('background')
+    }
+
+    void load('initial')
+
+    document.addEventListener('visibilitychange', backgroundRefresh)
+    window.addEventListener('focus', backgroundRefresh)
+    const timer = window.setInterval(backgroundRefresh, BACKGROUND_REFRESH_MS)
+
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', backgroundRefresh)
+      window.removeEventListener('focus', backgroundRefresh)
+      window.clearInterval(timer)
     }
   }, [scheduleId, orderId, operatingDate])
 
@@ -190,18 +248,37 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // (patrz `resolveStopStatus`, `STALE_UNCONFIRMED_MS`).
   const stops = data?.stops ?? []
   const nowDate = new Date(now)
-  const stopStatuses = stops.map((stop) =>
+  // Pociąg bez ŻADNEJ realizacji, który wg rozkładu właśnie jedzie: pokazujemy
+  // szacowaną pozycję i status „w trasie" z jawnym zastrzeżeniem (patrz
+  // `isScheduleProjection`, plan „trains-schedule-position"). Decyzja żyje
+  // w czystej funkcji obok `resolveCurrentStopIndex`, nie w tym komponencie.
+  const scheduleMode = isScheduleProjection(stops, data?.trainStatus ?? null, nowDate)
+  // Pociąg Z potwierdzeniami, ale PRZETERMINOWANYMI — PKP na gęstych liniach
+  // (SKM/KM/WKD) potwierdza paczkami z opóźnieniem, więc „ostatni potwierdzony"
+  // bywa kilka przystanków za realną pozycją. Wtedy marker idzie z projekcji
+  // rozkładowej kotwiczonej w ostatnim potwierdzeniu (patrz `isStalePositionProjection`).
+  const staleProjection = !scheduleMode && isStalePositionProjection(stops, data?.trainStatus ?? null, nowDate)
+  const currentStopIndex = scheduleMode
+    ? resolveScheduledStopIndex(stops, nowDate)
+    : staleProjection
+      ? resolveProjectedStopIndex(stops, nowDate)
+      : resolveCurrentStopIndex(stops)
+  const stopStatuses = stops.map((stop, index) =>
     resolveStopStatus({
       isCancelled: stop.isCancelled,
       isConfirmed: stop.isConfirmed,
       delayMinutes: stopDelayMinutes(stop),
-      hasTrainStarted: stop.hasTrainStarted,
+      // W trybie rozkładowym każdy przystanek do bieżącego włącznie liczy się
+      // jako „pociąg tu już był" → `enRoute` zamiast `notStarted`/`unknown`.
+      hasTrainStarted: stop.hasTrainStarted || (scheduleMode && index <= currentStopIndex),
       plannedAt: stop.plannedDeparture ?? stop.plannedArrival,
       now: nowDate,
     })
   )
   const summary = summariseJourney(stops, { now: nowDate })
-  const currentStopIndex = resolveCurrentStopIndex(stops)
+  // Nagłówek i wykres prognozy idą tą samą ścieżką co wiersze: w trybie
+  // rozkładowym „w trasie", inaczej wynik `summariseJourney` bez zmian.
+  const overallStatus: RealizationStatus = scheduleMode ? 'enRoute' : summary.overallStatus
 
   // Utrudnienia zebrane z całej trasy — jedno utrudnienie potrafi dotyczyć
   // wielu przystanków, więc bez deduplikacji baner powtarzałby ten sam tekst.
@@ -296,7 +373,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     jeszcze nie ruszył"), a nie truizm „nie przyjechał"; ten
                     drugi ma sens tylko na ostatnim przystanku steppera niżej. */}
                 <DelayBadge
-                  status={summary.overallStatus}
+                  status={overallStatus}
                   delayMinutes={summary.arrivalDelayMinutes}
                   estimatedDelayMinutes={summary.estimatedArrivalDelayMinutes}
                 />
@@ -346,6 +423,23 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
           <div className="contents">
             {/* ── Przebieg trasy ─────────────────────────────────────── */}
             <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-2">
+              {/* Tryb rozkładowy: PKP nie potwierdza nic na tej trasie, a wg
+                  rozkładu pociąg jedzie. Pozycja i „w trasie" niżej są wtedy
+                  projekcją z rozkładu — trzeba to powiedzieć wprost. */}
+              {scheduleMode && (
+                <div className="glass flex items-start gap-3 rounded-2xl p-4">
+                  <span className="mt-0.5 shrink-0 text-text-muted">
+                    <InfoIcon size={17} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Brak potwierdzeń przejazdu z PKP.</p>
+                    <p className="text-sm text-text-secondary">
+                      Pozycja i status „w trasie” są szacowane z rozkładu. Jeśli pociąg został odwołany, nie zobaczysz
+                      tego tutaj.
+                    </p>
+                  </div>
+                </div>
+              )}
               <section className="glass rounded-2xl p-5 sm:p-6">
                 <SectionHeading>Przebieg trasy</SectionHeading>
                 {/* Pionowy stepper: kolumna znacznika ma `flex-direction: column`, więc
@@ -399,14 +493,17 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     const showStopMinutes = stopMinutes !== null && stopMinutes >= NOTABLE_STOP_MINUTES
                     const hasBadges = isCurrent || showStopMinutes || stopTypeName !== null || messages.length > 0
 
+                    // Klucz z indeksem, nie sam `stationId`: pociąg z zawrotką mija tę
+                    // samą stację dwa razy (np. PODLASIAK: Szczecin Dąbie) — bez indeksu
+                    // React myli oba wiersze przy odświeżaniu danych w tle.
                     return (
-                      <li key={stop.stationId} className="flex gap-3.5">
+                      <li key={`${stop.stationId}-${index}`} className="flex gap-3.5">
                         <div className="flex flex-col items-center pt-2.5">
                           {/* Halo z makiety na przystanku, na którym pociąg właśnie stoi —
                               jedyne miejsce w widoku odpowiadające „tu jesteśmy teraz",
                               więc jedyne, które je dostaje (jeden akcent, nie rozsypane efekty). */}
                           <span
-                            className={`h-3 w-3 shrink-0 rounded-full ${isCurrent ? 'breathe' : ''}`}
+                            className={`h-3 w-3 shrink-0 rounded-full ${isCurrent && !scheduleMode && !staleProjection ? 'breathe' : ''}`}
                             style={{
                               backgroundColor: STOP_COLOR[thisStatus],
                               boxShadow: isCurrent
@@ -496,7 +593,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                     }}
                                   >
                                     <TrainIcon size={12} />
-                                    Pociąg jest tutaj
+                                    {scheduleMode
+                                      ? 'Pociąg jest tutaj — wg rozkładu'
+                                      : staleProjection
+                                        ? 'Pociąg jest tutaj — szacowane z rozkładu'
+                                        : 'Pociąg jest tutaj'}
                                   </span>
                                 )}
                                 {showStopMinutes && (
@@ -609,7 +710,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 <DelayForecast
                   series={summary.delaySeries}
                   arrivalTime={arrivalTime}
-                  arrivalStatus={summary.overallStatus}
+                  arrivalStatus={overallStatus}
                   className="mt-4"
                 />
               </section>

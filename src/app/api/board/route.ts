@@ -62,6 +62,7 @@ export async function GET(request: Request) {
     poller.registerInterest(watchable)
   }
 
+  const diagnostics = poller.getDiagnostics()
   const now = Date.now()
   const snapshots = stationIds.map((stationId) => {
     const snapshot = poller.getSnapshot(stationId)
@@ -79,7 +80,12 @@ export async function GET(request: Request) {
     // Czy tablica stoi na samym rozkładzie, bo realizacja nie zna dzisiejszego
     // ruchu. Bez tego UI nie odróżnia „API nie odpowiada" od „są godziny, ale
     // nie znamy opóźnień" -- a to dwie różne wiadomości.
-    realizationStale: poller.getDiagnostics().realizationStale,
+    realizationStale: diagnostics.realizationStale,
+    // Realizacja niepełna: `/operations` miało kolejne strony, których poller nie
+    // dociągnął (budżet / limit stron). Część pociągów jest wtedy bez realizacji
+    // i pokaże się jako „jeszcze nie wyjechał" mimo że jadą -- inny komunikat niż
+    // `realizationStale` (tam brak CAŁEGO dnia; tu brakuje kawałka).
+    realizationIncomplete: diagnostics.operations.incomplete,
     throttled: poller.isThrottled(),
   })
 }

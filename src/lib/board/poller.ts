@@ -41,14 +41,23 @@ const LOW_BUDGET_DAILY_THRESHOLD = 50
 const LOW_BUDGET_HOURLY_THRESHOLD = 10
 
 /**
- * Ile zapytań w oknie godzinowym musi zostać, żeby poller pozwolił sobie na
- * DODATKOWE zapytanie „dociągnij obserwowane stacje" po ucięciu `/operations`
- * (patrz `runTickBody`). Wyżej niż `LOW_BUDGET_HOURLY_THRESHOLD`, bo ten
- * re-fetch to koszt drugiego `/operations` na cykl — na wielkim węźle potrafi
- * podwoić zużycie. Bufor nad progiem awaryjnym: gdy budżet się kurczy,
- * rezygnujemy z re-fetchu (przełykamy niepełne dane), a nie z rdzenia cyklu.
+ * Ile zapytań w oknie godzinowym musi zostać, żeby poller sięgnął po KOLEJNĄ
+ * stronę `/operations` (patrz `fetchAllOperations`). `/operations` zwraca 4-5
+ * dni kursowania naraz, bez filtra daty (AGENTS.md #9), więc obserwowany zestaw
+ * potrafi przekroczyć `OPERATIONS_PAGE_SIZE` i wymaga 2 stron. Wyżej niż
+ * `LOW_BUDGET_HOURLY_THRESHOLD`, bo każda strona to osobne zapytanie z limitu
+ * 100/h. Gdy budżet się kurczy, przerywamy paginację (zestaw zostaje niepełny,
+ * `operations.incomplete` → baner degradacji), a nie rdzeń cyklu.
  */
-const REFETCH_MIN_HOURLY_BUDGET = 20
+const PAGINATION_MIN_HOURLY_BUDGET = 20
+
+/**
+ * Twardy sufit liczby stron `/operations` na cykl — zabezpieczenie przed
+ * `hasNextPage` bez końca, nie normalny tryb. Cała Polska to ~6 stron
+ * (zmierzone: `totalCount≈29 000`), a o cały kraj poller i tak nie pyta;
+ * obserwowany zestaw realnie mieści się w 2-3.
+ */
+export const MAX_OPERATIONS_PAGES = 6
 
 /**
  * Stacja bez danych wymusza przebieg poza harmonogramem, żeby pokazać rozkład
@@ -136,48 +145,72 @@ export function hasUsablePlannedTimes(trains: RawTrainOperation[]): boolean {
   )
 }
 
-/**
- * Klucz przejazdu w odpowiedzi `/operations` — trójka identyfikatorów, ta sama
- * co w `disruptionTrainKey()`. Przejazd bez `operatingDate` jest pomijany przy
- * scalaniu (nie da się go jednoznacznie dopasować).
- */
-function operationTrainKey(train: RawTrainOperation): string | null {
-  return train.operatingDate === null ? null : `${train.scheduleId}-${train.orderId}-${train.operatingDate}`
+type OperationsFetch = {
+  trains: RawTrainOperation[]
+  stationNames: Record<string, string>
+  budget: RateLimitBudget
+  /**
+   * Zostały strony, których nie dociągnęliśmy — budżet spadł poniżej
+   * `PAGINATION_MIN_HOURLY_BUDGET`, padło pobranie którejś strony, albo trafiliśmy
+   * na `MAX_OPERATIONS_PAGES`. Wtedy część realizacji brakuje i UI ma o tym mówić
+   * wprost (patrz `diagnostics.operations.incomplete`, baner w `BoardStatus`),
+   * zamiast pokazywać wiersze bez realizacji jako „jeszcze nie wyjechał".
+   */
+  incomplete: boolean
 }
 
 /**
- * Scala przystanki „w górę trasy" z zapytania zbiorczego (obserwowane +
- * pomocnicze stacje) do listy z węższego, kompletnego zapytania o same
- * obserwowane stacje.
+ * Pełna realizacja dla `stationIds` — wszystkie strony `/operations`, nie jedna
+ * ucięta na `OPERATIONS_PAGE_SIZE`.
  *
- * Powód: `/operations` bez `fullRoutes` zwraca w `train.stations` **tylko te
- * przystanki, które były w zapytaniu**. Węższe zapytanie (same obserwowane
- * stacje) jest kompletne co do listy pociągów, ale każdy pociąg niesie wtedy
- * jeden przystanek — bez stacji pomocniczych nie ma z czego policzyć estymaty
- * „~+N min" (patrz `findUpstreamStops` w `transform.ts`). Zapytanie zbiorcze te
- * przystanki ma, tylko bywa ucięte na `OPERATIONS_PAGE_SIZE`. Bierzemy komplet
- * pociągów z węższego, a przystanki pomocnicze doklejamy z szerszego tam, gdzie
- * są. `base` decyduje o zbiorze pociągów; `withUpstream` tylko wzbogaca.
+ * `/operations` nie przyjmuje filtra daty (AGENTS.md #9) i zwraca 4-5 dni
+ * kursowania naraz, więc obserwowany zestaw na dużym węźle przekracza jedną
+ * stronę. Bez tego (poprzednio: jedna strona + warunkowy węższy re-fetch) trasa
+ * z `/schedules` bez dopasowanej realizacji trafiała na tablicę jako wiersz
+ * `stop: null` → status „jeszcze nie wyjechał" dla pociągu, który realnie jedzie.
+ *
+ * Paginacja jest bramkowana budżetem (jak wcześniej re-fetch): każda strona to
+ * osobne zapytanie z limitu 100/h. Gdy nie stać na kolejną — przerywamy
+ * i oznaczamy zestaw jako niepełny, zamiast po cichu gubić.
  */
-export function mergeUpstreamStops(
-  base: RawTrainOperation[],
-  withUpstream: RawTrainOperation[]
-): RawTrainOperation[] {
-  const extra = new Map<string, RawTrainOperation>()
-  for (const train of withUpstream) {
-    const key = operationTrainKey(train)
-    if (key !== null) extra.set(key, train)
+async function fetchAllOperations(client: PkpClient, stationIds: string[]): Promise<OperationsFetch> {
+  const trains: RawTrainOperation[] = []
+  let stationNames: Record<string, string> = {}
+  let budget: RateLimitBudget = { hourly: null, daily: null, hourlyLimit: null, dailyLimit: null }
+  let incomplete = false
+
+  for (let page = 1; page <= MAX_OPERATIONS_PAGES; page += 1) {
+    let res
+    try {
+      // Strona 1 bez jawnego argumentu — `getOperations(stationIds)` to nadal
+      // „daj pierwszą stronę", a domyślka klienta (`page = 1`) trzyma URL.
+      res = page === 1 ? await client.getOperations(stationIds) : await client.getOperations(stationIds, page)
+    } catch (err) {
+      // Brak nawet pierwszej strony to realna awaria — niech ją złapie
+      // try/catch cyklu. Padnięcie kolejnej strony zostawia to, co już mamy.
+      if (page === 1) throw err
+      console.error(`Poller: strona ${page} /operations nie dociągnięta — realizacja niepełna`, err)
+      incomplete = true
+      break
+    }
+
+    trains.push(...res.trains)
+    stationNames = { ...stationNames, ...res.stationNames }
+    budget = res.budget
+
+    if (!res.truncated) return { trains, stationNames, budget, incomplete: false }
+
+    if (page === MAX_OPERATIONS_PAGES) {
+      incomplete = true
+      break
+    }
+    if (budget.hourly !== null && budget.hourly < PAGINATION_MIN_HOURLY_BUDGET) {
+      incomplete = true
+      break
+    }
   }
 
-  return base.map((train) => {
-    const key = operationTrainKey(train)
-    const match = key === null ? undefined : extra.get(key)
-    if (match === undefined) return train
-
-    const seen = new Set(train.stations.map((stop) => stop.stationId))
-    const added = match.stations.filter((stop) => !seen.has(stop.stationId))
-    return added.length === 0 ? train : { ...train, stations: [...train.stations, ...added] }
-  })
+  return { trains, stationNames, budget, incomplete }
 }
 
 export type PollerStatus = 'ok' | 'configError' | 'degraded'
@@ -197,12 +230,14 @@ export type EndpointHealth = {
 }
 
 /**
- * `EndpointHealth` dla `/operations` plus fakt, że zbiorcze zapytanie (z
- * stacjami pomocniczymi) zostało ucięte na `OPERATIONS_PAGE_SIZE` i poller
- * musiał dociągnąć realizację obserwowanych stacji osobno. `false` przy
- * zwykłym cyklu — dotyczy wyłącznie wielkich węzłów w szczycie ruchu.
+ * `EndpointHealth` dla `/operations` plus fakt, że realizacja jest NIEPEŁNA:
+ * `/operations` miało kolejne strony, których poller nie dociągnął (budżet spadł
+ * poniżej `PAGINATION_MIN_HOURLY_BUDGET`, padło pobranie strony albo trafiliśmy
+ * na `MAX_OPERATIONS_PAGES`). `false` przy zwykłym cyklu — dotyczy wielkich
+ * węzłów w szczycie ruchu. Zasila baner „część pociągów może być pokazana jako
+ * »jeszcze nie wyjechał«" (`BoardStatus`).
  */
-export type OperationsHealth = EndpointHealth & { truncatedRefetch: boolean }
+export type OperationsHealth = EndpointHealth & { incomplete: boolean }
 
 /**
  * Migawka diagnostyczna cyklu — czego `PollerStatus` nie jest w stanie unieść.
@@ -350,7 +385,7 @@ export function createPoller(deps: PollerDeps): Poller {
   const emptyHealth = (): EndpointHealth => ({ ok: null, lastSuccessAt: null, records: null })
   const diagnostics: PollerDiagnostics = {
     realizationStale: false,
-    operations: { ...emptyHealth(), truncatedRefetch: false },
+    operations: { ...emptyHealth(), incomplete: false },
     schedules: { ...emptyHealth(), usedFullRouteFallback: false },
     disruptions: emptyHealth(),
     dataVersion: null,
@@ -455,56 +490,33 @@ export function createPoller(deps: PollerDeps): Poller {
 
     try {
       const [
-        result,
+        operationsResult,
         { routesByTrainId, routes, carrierNames, categoryNames, scheduleStationNames, ok: schedulesOk, usedFullRouteFallback },
         disruptions,
       ] = await Promise.all([
-        client.getOperations(operationsStationIds),
+        fetchAllOperations(client, operationsStationIds),
         fetchRoutesByTrainId(client, realActive),
         fetchDisruptions(client, realActive),
       ])
-      budget = result.budget
+      budget = operationsResult.budget
       const budgetLow = isBudgetLow(budget)
       currentIntervalMs = budgetLow ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
 
-      /**
-       * Zapytanie zbiorcze (obserwowane + pomocnicze stacje) potrafi na wielkim
-       * węźle przekroczyć `OPERATIONS_PAGE_SIZE` — wtedy tracilibyśmy realizację
-       * części dzisiejszych kursów obserwowanej stacji (status „nie wiadomo" na
-       * tablicy, niepełna próbka w kafelkach KPI). Dociągamy wtedy same
-       * obserwowane stacje osobnym, węższym zapytaniem (jedna stacja mieści się
-       * w limicie z zapasem — zmierzone: max ~1550 przejazdów) i z niego liczymy
-       * tablicę oraz statystyki; przystanki pomocnicze do estymaty doklejamy
-       * z (uciętej) odpowiedzi zbiorczej. Koszt: +1 zapytanie tylko dla
-       * węzłów w szczycie. Przy niskim budżecie odpuszczamy i przełykamy
-       * niepełne dane, jak dotąd.
-       */
-      const usedAuxStations = operationsStationIds.length > realActive.length
-      const canAffordRefetch =
-        !budgetLow && (budget.hourly === null || budget.hourly >= REFETCH_MIN_HOURLY_BUDGET)
-      let operationTrains = result.trains
-      let truncatedRefetch = false
-      if (result.truncated && usedAuxStations && canAffordRefetch) {
-        try {
-          const observed = await client.getOperations(realActive)
-          operationTrains = mergeUpstreamStops(observed.trains, result.trains)
-          truncatedRefetch = true
-          budget = observed.budget
-        } catch (err) {
-          console.error(
-            'Poller: dociągnięcie realizacji obserwowanych stacji po ucięciu /operations nie powiodło się — używam danych z ucięcia',
-            err
-          )
-        }
-      }
+      // `/operations` zwraca 4-5 dni kursowania naraz bez filtra daty (AGENTS.md
+      // #9), więc obserwowany zestaw na dużym węźle przekracza jedną stronę.
+      // `fetchAllOperations` dociąga wszystkie strony (bramka budżetowa jak
+      // wcześniej re-fetch); `incomplete` znaczy „zabrakło budżetu / stron na
+      // resztę" i zapala baner degradacji zamiast cichego „jeszcze nie wyjechał".
+      const operationTrains = operationsResult.trains
+      const operationsIncomplete = operationsResult.incomplete
 
       const disruptedTrains = indexDisruptedTrains(disruptions.disruptions)
       const fetchedAt = new Date(now()).toISOString()
 
       // /operations nie ma już (świadomie, patrz client.ts) własnego pełnego
-      // słownika nazw stacji — zasila go teraz /schedules. `result.stationNames`
-      // idzie na wierzch jako świeższe dla samej zapytanej stacji.
-      const mergedStationNames = { ...scheduleStationNames, ...result.stationNames }
+      // słownika nazw stacji — zasila go teraz /schedules. `operationsResult.stationNames`
+      // (scalony ze wszystkich stron) idzie na wierzch jako świeższy dla zapytanych stacji.
+      const mergedStationNames = { ...scheduleStationNames, ...operationsResult.stationNames }
       // Data warszawska, nie `new Date().toISOString().slice(0,10)` -- na
       // Railway proces chodzi w UTC, więc po 22:00 lokalnego czasu „dzisiaj"
       // rozjechałoby się o dobę i statystyki liczyłyby jutrzejszy rozkład
@@ -539,7 +551,7 @@ export function createPoller(deps: PollerDeps): Poller {
       const feedBroken = operationTrains.length > 0 && !hasUsablePlannedTimes(operationTrains)
 
       recordHealth(diagnostics.operations, true, operationTrains.length, fetchedAt)
-      diagnostics.operations.truncatedRefetch = truncatedRefetch
+      diagnostics.operations.incomplete = operationsIncomplete
       recordHealth(diagnostics.schedules, schedulesOk, routes.length, fetchedAt)
       diagnostics.schedules.usedFullRouteFallback = usedFullRouteFallback
       recordHealth(diagnostics.disruptions, disruptions.ok, disruptions.disruptions.length, fetchedAt)
@@ -617,14 +629,17 @@ export function createPoller(deps: PollerDeps): Poller {
        */
       diagnostics.realizationStale = realizationStale
       const scheduleOnly = scheduleSource !== null && builtAnyRow && realizationStale
-      status = feedBroken || scheduleOnly ? 'degraded' : 'ok'
+      // `operationsIncomplete`: brakuje części realizacji, bo nie dociągnęliśmy
+      // wszystkich stron /operations — wiersze bez dopasowania pokażą się jako
+      // „jeszcze nie wyjechał" mimo że jadą, więc UI musi to zasygnalizować.
+      status = feedBroken || scheduleOnly || operationsIncomplete ? 'degraded' : 'ok'
 
       // Przeliczone od zera z wyniku TEGO cyklu -- jak tylko śledzony
       // przystanek się potwierdzi (albo zniknie), jego stacja pomocnicza
       // sama wypada z następnego zapytania, bez osobnego wygaszania.
       // `collectUpstreamCandidates` czyta przystanki obserwowanych stacji i
       // trasę z `/schedules` (nie przystanki pomocnicze z `train.stations`),
-      // więc `operationTrains` (komplet po ewentualnym dociągnięciu) jest tu
+      // więc `operationTrains` (komplet ze wszystkich stron) jest tu
       // właściwym, pełniejszym wejściem.
       auxStationIds = collectUpstreamCandidates(realActive, operationTrains, routesByTrainId)
 

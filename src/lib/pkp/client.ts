@@ -160,7 +160,13 @@ export type TrainDetailResult = {
 
 export interface PkpClient {
   searchStations(query: string): Promise<Station[]>
-  getOperations(stationIds: string[]): Promise<GetOperationsResult>
+  /**
+   * Jedna strona realizacji. `page` (od 1) domyślnie 1 — poller sam dociąga
+   * kolejne strony po `truncated`, bo pełne dociąganie kosztuje z limitu
+   * 100/h i decyzja „ile stron" należy do niego, nie do klienta (patrz
+   * `fetchAllOperations` w `poller.ts`).
+   */
+  getOperations(stationIds: string[], page?: number): Promise<GetOperationsResult>
   getSchedules(stationIds: string[]): Promise<GetSchedulesResult>
   /**
    * Szczegóły jednego przejazdu — wywoływane dopiero po kliknięciu w wiersz
@@ -505,7 +511,7 @@ export function createLiveClient(
         .map((entry) => entry.station)
     },
 
-    async getOperations(stationIds: string[]): Promise<GetOperationsResult> {
+    async getOperations(stationIds: string[], page = 1): Promise<GetOperationsResult> {
       // Świadomie BEZ fullRoutes=true: dokładałoby pełną trasę (śr. 15
       // przystanków) do KAŻDEGO pociągu, choć transformOperations używa tylko
       // jednego przystanku na zapytaną stację — 8.6 MB zamiast 680 KB na
@@ -514,21 +520,20 @@ export function createLiveClient(
       // (fullRoute=true tam — patrz loadSchedules — ale cache 24h, nie co 90s).
       // Nie dopisuj tego z powrotem bez przeliczenia kosztu.
       // pageSize=5000 to maksimum dopuszczone przez swagger (domyślne 1000).
-      // Nie chodzi o tablicę (ta pokazuje kilkadziesiąt wierszy), tylko o
-      // statystyki stacji — liczą się z CAŁEGO dnia realizacji, więc ucięcie
-      // na pierwszej stronie zaniżałoby je po cichu. Jedna strona to nadal
-      // JEDNO zapytanie, więc koszt względem budżetu się nie zmienia.
-      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true&pageSize=${OPERATIONS_PAGE_SIZE}`
+      // `/operations` zwraca 4-5 dni kursowania naraz, bez filtra daty (AGENTS.md
+      // #9), więc obserwowany zestaw na dużym węźle przekracza jedną stronę.
+      // `page` wybiera stronę; kolejne dociąga poller (`fetchAllOperations`),
+      // bo każda to osobne zapytanie z limitu 100/h i decyzja „ile stron"
+      // należy do niego.
+      const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true&pageSize=${OPERATIONS_PAGE_SIZE}&page=${page}`
       const { json, response } = await fetchJsonWithRetry(url, apiKey, 'Pobranie realizacji nie powiodło się')
       const parsed = operationsResponseSchema.parse(json)
-      // Klient świadomie NIE dociąga kolejnych stron -- każda kosztowałaby
-      // osobne zapytanie z limitu 100/h. Głośno mówi, że sufit został
-      // przekroczony, i zwraca to jako `truncated`: poller decyduje wtedy, czy
-      // dla obserwowanych stacji potrzebne jest osobne, węższe zapytanie.
+      // `truncated` = są kolejne strony. Klient sam ich NIE dociąga — zwraca flagę,
+      // a poller decyduje (budżet, limit stron), czy iść po następną.
       const truncated = parsed.pagination?.hasNextPage === true
       if (truncated) {
         console.warn(
-          `PKP /operations: odpowiedź ucięta na ${OPERATIONS_PAGE_SIZE} pociągach (totalCount=${parsed.pagination?.totalCount ?? '?'}) — poller dociągnie realizację obserwowanych stacji osobno`
+          `PKP /operations: strona ${page} nie zmieściła całości (totalCount=${parsed.pagination?.totalCount ?? '?'}) — poller dociągnie kolejne`
         )
       }
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response), truncated }

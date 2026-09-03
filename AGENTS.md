@@ -77,6 +77,15 @@ przy 90 s zużywa ~40/h, więc zapas jest realny, ale nieduży.
   synchroniczny fetch do PKP przy każdym kliknięciu w niewidziany wcześniej
   pociąg, chroniony wyłącznie własnym cache'em 90 s (`createTtlCache()`).
   Licz jego koszt osobno od budżetu pollera, nie razem z nim.
+- `/api/network-stats` (widżet stanu sieci) też jest **poza cyklem pollera** —
+  `getOperationsStatistics` (cache 15 min), `getDisruptionCount` (20 min),
+  `getDailyCarrierCounts` (24 h), plus `getNameDictionaries` (współdzielony
+  cache klienta). Współdzielony dla wszystkich userów (jeden globalny widżet,
+  cache modułowy w `board/networkStats.ts`), więc ~7 zapytań/h niezależnie od
+  ruchu. Doliczaj to do budżetu obok pollera (~40/h) i `/api/train`.
+- `/api/weather` woła **Open-Meteo**, nie PKP — nie obciąża budżetu PKP w ogóle.
+  Ma własny cache 25 min per stacja + dedup żądań w locie (ten sam wzorzec co
+  `inFlight` w `/api/train`).
 - Kafelki KPI stacji, „najpopularniejsze kierunki", natężenie ruchu i „przez…"
   w wierszu **nie kosztują ani jednego zapytania**: liczą się w cyklu pollera
   z tego, co on i tak ma w ręku — całodniowej odpowiedzi `/operations` oraz
@@ -123,12 +132,22 @@ Cache w długo żyjącym procesie musi mieć TTL i limit wpisów — użyj
 
 ## 6. Sieć wyłącznie na krawędziach
 
-Cały HTTP siedzi w `src/lib/pkp/client.ts`. Logika domenowa (`lib/board/`) to
-czyste funkcje zależne od interfejsu `PkpClient`, nie od implementacji. Dzięki
-temu testy nie potrzebują ani sieci, ani klucza API — i to ma tak zostać.
+Cały HTTP siedzi w **dwóch** klientach: `src/lib/pkp/client.ts` (PKP PLK) oraz
+`src/lib/weather/client.ts` (Open-Meteo — bezkluczowe, jedyne poza PKP wyjście
+sieciowe aplikacji). Logika domenowa (`lib/board/`, `lib/weather/format.ts`) to
+czyste funkcje zależne od interfejsu (`PkpClient`) albo od czystego payloadu, nie
+od `fetch`. Dzięki temu testy nie potrzebują ani sieci, ani klucza API — i to ma
+tak zostać. Nowe źródło danych = nowy klient na krawędzi, nie `fetch` rozsiany
+po logice.
 
 Wybór live/mock następuje raz, przy starcie, w `lib/board/instance.ts`. Żaden
 inny moduł nie powinien wiedzieć, skąd pochodzą dane.
+
+Współrzędne stacji do pogody nie pochodzą z żadnego API — trzyma je statyczny
+`data/station-coordinates.json` (regenerowany przez
+`scripts/enrich-station-coords.mjs`). Plik jest w obrazie (`.next/standalone`,
+patrz #7 poniżej i zweryfikowane na produkcji 2026-09-01). Brak stacji w pliku =
+stan `available:false` w `/api/weather`, **cache'owany**, nie błąd.
 
 ## 7. UI nigdy nie jest pusty
 
@@ -147,11 +166,20 @@ Wyjątek: panel szczegółów połączenia (`/api/train`) **nie ma** snapshotu d
 pokazania przy awarii — to jednorazowy fetch po kliknięciu, nie dane z pollera.
 Pokazuje wtedy jawny komunikat błędu, nie ostatnie znane dane (bo ich nie ma).
 
+Widżet pogody: `available:false` (stacja bez współrzędnych w
+`data/station-coordinates.json`) to trwały, poprawny wynik — cache'owany, nie
+błąd. Dopiero błąd sieci/5xx z Open-Meteo daje stan błędu. Trzy stany, nie dwa,
+jak wszędzie: „wczytuje się", „brak lokalizacji", konkretna pogoda.
+
+Widżet stanu sieci (`board/networkStats.ts`) trzyma ostatnią udaną wartość
+każdego z trzech podzapytań osobno — błąd jednego degraduje do starych danych
+z tego jednego, świeże z pozostałych, zamiast czyścić całą kartę.
+
 ## 8. Fixture'y nie odwzorowują skali żywego API
 
 Mock ma **prawdziwe** ID stacji (Warszawa Centralna `33605`, Kraków Główny
-`80416`, Gdańsk Główny `7500` — te same co na żywo), ale to wciąż 14
-syntetycznych, ręcznie napisanych pociągów (`orderId` 101–114) zamiast
+`80416`, Gdańsk Główny `7500` — te same co na żywo), ale to wciąż 15
+syntetycznych, ręcznie napisanych pociągów (`orderId` 101–115) zamiast
 kilkudziesięciu-kilkuset i 6 kodów przewoźników zamiast 22. Nadają się do
 pracy nad UI — nie do wnioskowania o rzeczywistym natężeniu ruchu produkcji.
 
@@ -161,9 +189,12 @@ opóźnienie, pociąg opóźniony o ~6 h wciąż w trasie (`orderId 104`), odwo�
 w całości (`105`), częściowo odwołany (`106`), „jeszcze nie wyjechał" ze
 stacji początkowej (`107`, `trainStatus S`), świeżo potwierdzony odjazd
 (`108`), dwa utrudnienia (`109` kod słownikowy, `110` gotowy tekst PKP), kurs
-po północy (`112`, `arrivalDay: 1`) i przejazd bez dopasowanej trasy (`113`,
-`schedules` route z pustą listą przystanków). Mapowanie `orderId` → przypadek
-opisują komentarze w `src/lib/pkp/mock.test.ts`.
+po północy (`112`, `arrivalDay: 1`), przejazd bez dopasowanej trasy (`113`,
+`schedules` route z pustą listą przystanków) i pociąg bez ŻADNEJ realizacji,
+którego rozkład stawia w połowie trasy (`115`, `trainStatus S`, zero
+`isConfirmed`, okno trasy obejmuje „teraz" — pozycja „wg rozkładu" na
+szczegółach połączenia, patrz `isScheduleProjection` w `board/trainDetail.ts`).
+Mapowanie `orderId` → przypadek opisują komentarze w `src/lib/pkp/mock.test.ts`.
 
 Kształt odpowiedzi sprawdzaj w publicznym schemacie, nie zgaduj z fixture'ów:
 

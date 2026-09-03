@@ -17,29 +17,31 @@ import { findRouteForTrain } from './routeKey'
  * `/operations`, więc rozmiar odpowiedzi rośnie liniowo z tą liczbą, nie
  * eksploduje jak `fullRoutes=true` (patrz `client.ts`).
  *
- * Zmniejszone 10 → 6 (2026-09): na wielkim węźle w szczycie ruchu przy 10
- * kandydatach × 5 przystanków wstecz zbiorcze `/operations` przekraczało
- * `OPERATIONS_PAGE_SIZE` co cykl i poller musiał dociągać obserwowane stacje
- * osobnym zapytaniem (patrz `poller.ts`, `truncatedRefetch`). 6 wystarcza na
- * najbliższe „w trasie" połączenia, a odpowiedź zwykle mieści się w limicie.
+ * 10 → 6 (2026-09): każda stacja pomocnicza powiększa zbiorcze `/operations`
+ * (4-5 dni kursowania naraz, wielostronowe -- patrz `fetchAllOperations`
+ * w `poller.ts`). 6 wystarcza na najbliższe „w trasie" połączenia; przy
+ * `UPSTREAM_LOOKBACK_HOPS = 7` to do ~6×7×2 stacji na węzeł, wciąż pod
+ * `MAX_AUX_STATIONS` (150) po zsumowaniu wszystkich obserwowanych.
  */
 export const UPSTREAM_CANDIDATE_LIMIT = 6
 
 /**
  * Ile przystanków wstecz sprawdzamy szukając potwierdzonego, nie tylko
- * bezpośrednio poprzedni. Na gęstych liniach (SKM co 3-4 min) potwierdzenie
- * z PKP potrafi spóźnić się o kilka minut naraz -- czyli o KILKA kolejnych
- * przystanków, nie jeden (zaobserwowane na żywo: S3 10556, przystanek
- * bezpośrednio przed obserwowaną stacją jeszcze niepotwierdzony, trzy wstecz
- * już tak). Wciąż tylko więcej ID w TYM SAMYM zapytaniu `/operations`, nie
- * `fullRoutes=true` ani zapytanie per pociąg jak w `trainDetail.ts`.
+ * bezpośrednio poprzedni. Na gęstych liniach (SKM/KM co 2-3 min) potwierdzenie
+ * z PKP spóźnia się o KILKA kolejnych przystanków naraz. Wiarygodnym sygnałem
+ * „pociąg jedzie" dla wiersza tablicy jest wtedy TYLKO potwierdzony przystanek
+ * wstecz -- bo bulk `/operations?stations=X` zwraca `trainStatus` względem
+ * stopu X (`S`, dopóki pociąg nie dojedzie do X), mimo że globalnie jest `P`
+ * (zweryfikowane na żywo 2026-09-03: Warszawa Ursus, R1 19992 -- bulk `S`,
+ * `/operations/train/...` `P` z 5 potwierdzonymi; ostatni potwierdzony przystanek
+ * 5 hopów przed Ursus).
  *
- * Zmniejszone 5 → 3 (2026-09), tym samym powodem co `UPSTREAM_CANDIDATE_LIMIT`
- * wyżej: 3 przystanki wstecz pokrywają zaobserwowany przypadek (S3 10556),
- * a łączna liczba stacji pomocniczych (kandydaci × przystanki) spada tak, że
- * zbiorcze `/operations` przestaje się rutynowo ucinać.
+ * 5 → 3 (2026-09-01, żeby `/operations` przestało się ucinać) → 7 (2026-09-03):
+ * odkąd `fetchAllOperations` paginuje ucięte `/operations`, głębszy lookback nie
+ * grozi już cichą utratą danych, tylko kosztuje dodatkowe strony -- a `MAX_AUX_STATIONS`
+ * (150) i tak wciąż jest twardym sufitem łącznej liczby stacji pomocniczych.
  */
-export const UPSTREAM_LOOKBACK_HOPS = 3
+export const UPSTREAM_LOOKBACK_HOPS = 7
 
 /**
  * Twardy sufit łącznej liczby stacji pomocniczych na cykl, niezależny od

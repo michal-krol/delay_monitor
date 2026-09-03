@@ -74,6 +74,12 @@ export type BoardApiResponse = {
   status: 'ok' | 'configError' | 'degraded'
   /** Tablica stoi na rozkładzie, bo realizacja nie zna dzisiejszego ruchu -- patrz `/api/board`. */
   realizationStale?: boolean
+  /**
+   * Realizacja niepełna: `/operations` miało kolejne strony, których poller nie
+   * dociągnął (budżet / limit stron). Część pociągów bez realizacji pokaże się
+   * jako „jeszcze nie wyjechał" mimo że jadą -- patrz `/api/board`, `BoardStatus`.
+   */
+  realizationIncomplete?: boolean
   throttled: boolean
 }
 

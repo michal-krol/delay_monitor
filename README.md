@@ -1,11 +1,13 @@
 # Monitor opóźnień
 
-**Wersja 0.9 beta** — działa na produkcji, na prawdziwym kluczu API PKP PLK.
+**Wersja 0.9.10** — działa na produkcji, na prawdziwym kluczu API PKP PLK.
 Lista znanych ograniczeń: [sekcja niżej](#znane-ograniczenia-09-beta).
 
 Aplikacja webowa pokazująca opóźnienia pociągów na wybranych stacjach w czasie
 zbliżonym do rzeczywistego. Zapisujesz ulubione stacje, widzisz je razem na
-dashboardzie i rozwijasz dowolną do pełnej tablicy stacyjnej.
+Pulpicie i wchodzisz w dowolną do pełnego widoku stacji (kafelki KPI, tablica
+odjazdów/przyjazdów, pogoda, utrudnienia), a z każdego wiersza — do szczegółów
+połączenia przystanek po przystanku.
 
 Skala: użytek własny, kilka osób. Bez kont użytkowników, bez bazy danych. Ta
 skala jest założeniem projektowym, nie tymczasowym uproszczeniem — wynika z niej
@@ -59,14 +61,29 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
   nieznanej wartości.
   **Punktualności historycznej („w ciągu 7 dni") tu nie ma i nie będzie bez
   własnej bazy** — patrz „Znane ograniczenia".
-- **Prawa kolumna kontekstowa** — najpopularniejsze kierunki dzisiaj (klik
-  filtruje tablicę), utrudnienia dotyczące tej stacji i natężenie ruchu
-  w dobie (24 słupki, bieżąca godzina wyróżniona). Wszystko z tego samego,
-  już pobranego rozkładu i tych samych utrudnień co badge'e w wierszach —
-  zero dodatkowych zapytań.
+- **Prawa kolumna kontekstowa** (widok stacji) — najpopularniejsze kierunki
+  dzisiaj (klik filtruje tablicę), utrudnienia dotyczące tej stacji, natężenie
+  ruchu w dobie (24 słupki, bieżąca godzina wyróżniona) i pogoda dziś dla
+  stacji. Kierunki / utrudnienia / natężenie liczą się z tego samego, już
+  pobranego rozkładu i tych samych utrudnień co badge'e w wierszach — zero
+  dodatkowych zapytań do PKP.
+- **Pogoda dziś dla stacji** — temperatura, wiatr, wilgotność, ciśnienie,
+  min/max i wschód/zachód (`/api/weather`, Open-Meteo, cache 25 min).
+  Współrzędne z lokalnego `data/station-coordinates.json` — gdy stacji tam
+  nie ma, widżet mówi wprost „brak lokalizacji", nie udaje zera. Open-Meteo
+  jest bezkluczowe; to jedyne poza PKP wyjście sieciowe aplikacji.
+- **Widżet stanu sieci** (Pulpit) — ogólnopolska migawka: liczba pociągów dziś
+  wg statusu (zakończone / w trasie / niewyruszone / odwołane), punktualność
+  z wykresem „dziś", najczęstsi przewoźnicy i liczba zgłoszonych utrudnień na
+  sieci (`/api/network-stats`). Własny cache; błąd pojedynczego podzapytania
+  degraduje do ostatnich znanych danych zamiast czyścić kartę.
+- **Panel diagnostyki pollera** (pasek boczny) — źródło danych, stan pollera,
+  budżet zapytań i status per źródło PKP (`/operations`, `/schedules`,
+  `/disruptions`). Widoczny **wyłącznie** w dev i na środowisku staging —
+  na produkcji nie powstaje.
 - **Przewoźnik i kategoria** — dociągane z `/api/v1/schedules` (cache 24 h)
   i łączone z realizacją po `trainOrderId` (z fallbackiem na `orderId`,
-  patrz `routeKey()` w `board/transform.ts`). Pełna nazwa przewoźnika
+  patrz `routeKey()` / `findRouteForTrain()` w `board/routeKey.ts`). Pełna nazwa przewoźnika
   pochodzi ze słownika `dictionaries.carriers` dołączonego do tej samej
   odpowiedzi — bez dodatkowego zapytania. Dla sześciu kodów (IC, KM, SKM,
   ŁKA, Leo Express/LEO, PR) pokazujemy też logo, dla reszty samą nazwę.
@@ -121,39 +138,52 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
 ```
 src/
 ├── app/
-│   ├── api/{board,stations,train,health}/route.ts   endpointy HTTP PKP
-│   ├── api/gtfs/{board,lines,line,city-stats}/route.ts   endpointy GTFS
-│   ├── api/{cities,search}/route.ts             rejestr miast + zunifikowana wyszukiwarka
-│   ├── (app)/miasto/[city]/…                    ekran miasta, linia, przystanek
-│   ├── icon.svg                                 favicon
-│   ├── layout.tsx                              ThemeProvider, tło
-│   └── page.tsx                                strona główna
-├── components/                                 UI (React)
-│   ├── Dashboard, StationCard, FullBoard
-│   ├── ConnectionDetails                       panel szczegółów połączenia
-│   ├── StationSearch, EmptyState, BoardStatus
-│   ├── LineGrid, ModeFilter, DayTimetable, TransitStopDetail   UI komunikacji miejskiej
-│   └── DelayBadge, CarrierLogo, ConfigErrorBanner
-├── hooks/                                       useFavourites, useBoard, useTransitBoard
+│   ├── (app)/                                  route group ze wspólnym layoutem (Sidebar)
+│   │   ├── page.tsx                            Pulpit (ulubione + widżet stanu sieci)
+│   │   ├── odjazdy/[stationId]/page.tsx        widok stacji (KPI + tablica + kolumna)
+│   │   ├── polaczenie/[scheduleId]/[orderId]/[operatingDate]/page.tsx  szczegóły połączenia
+│   │   └── miasto/[city]/…                     ekran miasta, linia, przystanek (GTFS)
+│   ├── api/{board,stations,train,health,weather,network-stats}/route.ts   endpointy HTTP PKP
+│   ├── api/{cities,search}/route.ts            rejestr miast + zunifikowana wyszukiwarka
+│   ├── api/gtfs/{board,lines,line,city-stats}/route.ts   endpointy komunikacji miejskiej
+│   ├── icon.svg                                favicon
+│   └── layout.tsx                              ThemeProvider, tło
+├── components/                                 UI (React) — m.in.:
+│   ├── Dashboard, StationCard, FullBoard, BoardTable, TopBar, Sidebar
+│   ├── ConnectionDetails, DelayForecast        szczegóły połączenia + wykres prognozy
+│   ├── StationAside, StationStatsCards         prawa kolumna + kafelki KPI widoku stacji
+│   ├── NetworkStatsCard, PollerDiagnostics     widżet stanu sieci, panel diagnostyki (dev)
+│   ├── LineGrid, ModeFilter, LineTimetable, TransitStopDetail   UI komunikacji miejskiej
+│   ├── StationSearch, EmptyState, BoardStatus, InfoTooltip
+│   └── DelayBadge, CategoryBadge, CarrierLogo, icons, ConfigErrorBanner
+├── hooks/                                       useFavourites, useBoard, useNetworkStats,
+│                                                useStationWeather, useShareUrl, useTransitBoard,
+│                                                useCityContext, useSidebarCollapsed, useSnapshotNow
 └── lib/
     ├── config.ts                                walidacja zmiennych środowiskowych
     ├── validation.ts                            wspólne wzorce walidacji ID (API + URL)
     ├── urlState.ts                              stan widoku w adresie URL
-    ├── carriers.ts                              mapa kodów przewoźników → logo (nazwa: z API)
-    ├── cache.ts                                 cache z TTL i limitem wpisów
-    ├── search.ts                                normalizacja nazw stacji
-    ├── plural.ts                                polska odmiana przez liczbę
+    ├── carriers.ts / search.ts / plural.ts / format.ts / cache.ts
     ├── pkp/{client,mock,schema,types,time}.ts   warstwa danych PKP (live/mock)
-    ├── board/{poller,transform,trainDetail,realization,instance}.ts
-    │                                             logika domenowa PKP + poller
-    └── gtfs/{cities,client,zip,csv,schema,schedule,query,poller,mock,instance}.ts
-                                                  komunikacja miejska (offline, czyste funkcje)
+    ├── weather/{client,coordinates,format}.ts   warstwa danych Open-Meteo (pogoda)
+    ├── gtfs/{cities,client,zip,csv,schema,schedule,query,poller,mock,instance}.ts
+    │                                            komunikacja miejska (offline, czyste funkcje)
+    └── board/                                   logika domenowa (czyste funkcje) + poller
+        ├── poller, instance, transform
+        ├── realization, disruptions, journey    „czy się wydarzyło / o ile / utrudnienia"
+        ├── routeKey, stationStats, upstreamEstimate
+        ├── trainDetail, networkStats
+        └── resilience.test.ts                   scenariusze awarii feedu PKP
+data/station-coordinates.json   współrzędne stacji do widżetu pogody
+scripts/enrich-station-coords.mjs   regeneracja powyższego
 fixtures/          ręcznie napisane odpowiedzi API + feedy GTFS do trybu mock
 public/carriers/   logotypy przewoźników (SVG)
 ```
 
-Zasada: sieć wyłącznie na krawędziach (`lib/pkp/client.ts`), logika w środku
-jako czyste funkcje. Testy nie wymagają ani sieci, ani klucza API.
+Zasada: sieć wyłącznie na krawędziach — dwa klienty HTTP, `lib/pkp/client.ts`
+(PKP PLK) i `lib/weather/client.ts` (Open-Meteo). Logika w środku (`lib/board/`,
+`lib/weather/format.ts`) to czyste funkcje. Testy nie wymagają ani sieci, ani
+klucza API.
 
 ## Architektura — dwa niezależne rytmy
 
@@ -179,6 +209,12 @@ czeka na PKP** przy pierwszym kliknięciu danego pociągu (potem cache 90 s).
 Uzasadnienie: kliknięcie to zdarzenie rzadkie i jednorazowe, w przeciwieństwie
 do stałego cyklu pollera — nie ma co cache'ować z wyprzedzeniem czegoś, o co
 nikt jeszcze nie zapytał.
+
+Poza cyklem pollera stoją też **`/api/network-stats`** (widżet stanu sieci,
+własny cache modułowy: statystyki 15 min, utrudnienia 20 min, rozkład
+przewoźników 24 h — ~7 zapytań/h, wspólne dla wszystkich użytkowników) oraz
+**`/api/weather`** (Open-Meteo, nie PKP — nie obciąża budżetu PKP, cache
+25 min per stacja). Ich koszt liczy się osobno od pollera (AGENTS.md #3).
 
 Aplikacja działa **w jednej replice**. Dwie repliki to dwa pollery i podwójne
 zużycie limitu; skalowanie poziome jest świadomie wykluczone. Stan w pamięci
@@ -352,8 +388,8 @@ Zweryfikowane na żywo (2026-08-26), świadomie nieużywane dziś:
   z dławikiem 5 min (`board/poller.ts`, `maybeCheckDataVersion`).
 - **`GET /api/v1/operations/statistics?date=`** — zagregowane liczniki statusów
   (`notStarted`/`inProgress`/`completed`/`cancelled`/`partialCancelled`) dla
-  całego dnia, bez pobierania listy pociągów. Mógłby zasilić wskaźnik „stan
-  sieci" — nieużywane, bo appka nie ma dziś takiego widoku.
+  całego dnia, bez pobierania listy pociągów. **Używane od 0.9.10** — zasila
+  widżet stanu sieci (`board/networkStats.ts`, cache 15 min).
 - **`GET /api/v1/schedules/routes/{date}`** — lekka (650 KB dla całego kraju,
   bez przystanków) lista wszystkich tras na dany dzień. Nieużywane — appka
   zawsze filtruje po stacjach, nie potrzebuje globalnej listy.
@@ -365,8 +401,11 @@ Zweryfikowane na żywo (2026-08-26), świadomie nieużywane dziś:
 - **`GET /api/v1/dictionaries/stop-types`** i **`GET /api/v1/dictionaries/
   cities`** — typ przystanku (tylko wsiadanie/wysiadanie) i agregacja stacji
   po mieście. Nieużywane, brak dziś funkcji, która by z tego korzystała.
-- **`/disruptions`** — zbadane i świadomie odłożone, patrz [sekcja niżej]
-  (#zbadane-i-odłożone-przyczyna-opóźnienia).
+- **`/disruptions`** — **używane od 0.9.10**: badge utrudnień w wierszu tablicy
+  i sekcja w panelu szczegółów połączenia, plus licznik w widżecie stanu sieci
+  (`board/disruptions.ts`, cache 20 min). Pokrycie jest częściowe (tylko
+  sformalizowane zdarzenia PKP) — patrz [sekcja niżej](#zbadane-i-odłożone-przyczyna-opóźnienia),
+  gdzie opisany jest kompromis.
 
 ## Uruchomienie lokalne (tryb mock, bez klucza)
 
@@ -381,8 +420,8 @@ zawsze mieściły się w widocznym oknie. Fixture'y używają prawdziwych ID sta
 (Warszawa Centralna `33605`, Kraków Główny `80416`, Wrocław Główny `60103`,
 Gdańsk Główny `7500` — te same co na żywo), więc ulubione zapisane w trybie
 mock działają też po przełączeniu na `live`. Są jednak celowo małe (4 stacje,
-8 pociągów, 6 przewoźników) — wystarczają do pracy nad UI, nie odwzorowują
-realnego natężenia ruchu.
+15 pociągów `orderId` 101–115, 6 przewoźników) — wystarczają do pracy nad UI,
+nie odwzorowują realnego natężenia ruchu.
 
 ## Zmienne środowiskowe
 
@@ -390,6 +429,7 @@ realnego natężenia ruchu.
 |---|---|---|
 | `PKP_API_KEY` | brak | Klucz API. Brak → tryb mock |
 | `PKP_DATA_SOURCE` | `auto` | `auto` \| `live` \| `mock`. Jawny override |
+| `BOARD_SOURCE` | `schedule` | `schedule` \| `operations` — co wyznacza listę połączeń. **Tymczasowy**, do usunięcia ~2026-09-14 (AGENTS.md #10) |
 | `POLL_INTERVAL_MS` | `90000` | Interwał pollera |
 | `INTEREST_TTL_MS` | `300000` | Po tym czasie ciszy stacja przestaje być obserwowana |
 | `BOARD_SOURCE` | `schedule` | Co wyznacza listę połączeń tablicy (`schedule` \| `operations`) — tymczasowy przełącznik |
@@ -411,8 +451,15 @@ npm run typecheck
 npm run lint
 ```
 
-329 testów w 30 plikach (Vitest), bez sieci i bez klucza API. Testy komponentów
-działają na `jsdom` (docblock `// @vitest-environment jsdom`), reszta na
+825 testów w 62 plikach (Vitest), bez sieci i bez klucza API. Osobno 8 testów
+kontraktowych wobec swaggera PKP, uruchamianych na żądanie (wymagają sieci,
+bez klucza, bez kosztu limitu):
+
+```bash
+PKP_CONTRACT=1 npm run test -- contract
+```
+
+Testy komponentów działają na `jsdom` (docblock `// @vitest-environment jsdom`), reszta na
 środowisku `node`.
 
 Testy bezpieczeństwa są częścią tego samego pakietu — wstrzykiwanie parametrów,
@@ -441,6 +488,12 @@ Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
   (`AbortError` z naszego 8 s timeoutu, `ECONNRESET`/`ETIMEDOUT`) obserwowanych
   w logach produkcyjnych. Origin/destination do „Kierunku" pochodzą teraz
   z dopasowanej trasy `/schedules` zamiast z `/operations`,
+- **paginuje `/operations` do końca** (`fetchAllOperations`, parametr `page`) —
+  strona ma sufit 5000, a duży węzeł w szczycie generuje wielokrotność tego
+  (zmierzone: 9566 z obserwowanymi + pomocniczymi). Bramka budżetowa
+  (`PAGINATION_MIN_HOURLY_BUDGET = 20`), twardy sufit `MAX_OPERATIONS_PAGES = 6`;
+  urwana paginacja → `realizationIncomplete` + baner „Duży ruch…", nie ciche
+  zaniżenie. Zwykły cykl to i tak 1–2 strony = 1–2 zapytania,
 - dokłada zapytanie o `/schedules` (z `fullRoute=true`, żeby mieć origin/
   destination do „Kierunku" oraz pełne słowniki nazw), ale odpowiedź trzyma
   w cache 24 h dla danego zestawu stacji, więc w ustabilizowanym stanie
@@ -529,7 +582,7 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   gubiło trasę dla ok. połowy pociągów w skali dnia** (763 z 1533 na tej samej
   próbce) — `trainOrderId` z API bywa różny od `orderId` niemal zawsze, a to on
   jest prawdziwym wspólnym kluczem. Naprawione przez `routeKey()` w
-  `board/transform.ts` (fallback na `orderId`, gdy `trainOrderId` jest `null`).
+  `board/routeKey.ts` (fallback na `orderId`, gdy `trainOrderId` jest `null`).
 - **`fullRoutes=true` na `/operations` kosztował 12,7× więcej niż trzeba** —
   8.6 MB zamiast 680 KB dla tej samej stacji (Warszawa Centralna), na tym
   samym zapytaniu wykonywanym co 90 s. Powód: parametr dokłada pełną trasę do
@@ -595,7 +648,7 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   pokazuje `scheduleId-orderId` (np. `2026-424939627`), „Kierunek" — „—".
   Poprawne technicznie (to nadal stabilny klucz), ale dla pasażera nieczytelne.
 - **Fixture'y nie odwzorowują skali żywego API.** Używają prawdziwych ID stacji,
-  ale to wciąż 8 pociągów zamiast kilkudziesięciu-kilkuset i 6 kodów
+  ale to wciąż 15 pociągów zamiast kilkudziesięciu-kilkuset i 6 kodów
   przewoźników zamiast 22. Nadają się do pracy nad UI, nie do wnioskowania
   o rzeczywistym natężeniu ruchu.
 - **Logotypy tylko dla 6 przewoźników** (IC, KM, SKM, ŁKA, Leo Express/LEO, PR).
@@ -627,29 +680,37 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
 - **Feed `/operations` bywa zamrożony** — patrz zapisany incydent: PKP potrafi
   przez wiele godzin zwracać `200 OK` z danymi, w których każdy pociąg ma
   `trainStatus: "notStarted"` i zero potwierdzonych przystanków, mimo że dzień
-  operacyjny dawno się zaczął (zaobserwowane na żywo: `/operations/statistics`
-  pokazywało `notStarted: 7274, inProgress: 0, completed: 0` o 21:08). Aplikacja
-  nie odróżnia tego od realnie spokojnego dnia — kafelki KPI poprawnie pokazują
-  wtedy „brak danych" (próbka pusta), ale nic nie ostrzega, że to może być
-  awaria źródła, nie brak ruchu.
+  operacyjny dawno się zaczął. Od 0.9.10 poller **wykrywa** ten stan (m.in.
+  przez `/api/v1/data-version` — zamrożony `timestamp` + niezmienione GUID-y)
+  i zgłasza go jako `degraded` z `realizationStale`; tablica stoi wtedy na
+  samym rozkładzie i pisze „PKP nie podaje dziś danych o ruchu", zamiast
+  udawać spokojny dzień. Godziny i perony są wtedy w pełni aktualne — to
+  **inny** stan niż „nie udało się pobrać".
 - **Peron i tor są PLANOWE.** Pola `arrivalPlatform`/`arrivalTrack`/
   `departurePlatform`/`departureTrack` istnieją wyłącznie w rozkładzie
   (`/schedules`); zmiana peronu w ostatniej chwili nie jest w tym API
   reprezentowalna. UI nigdzie nie twierdzi, że peron jest „aktualny", i
   rozróżnia „2 / —" (znany peron, nieznany tor) od „nie podano" (nie wiadomo nic).
 - **Nie ma zdjęć stacji.** `/dictionaries/stations` zwraca dla stacji dokładnie
-  `id` i `name` — zero obrazów, współrzędnych i metadanych. Kafelek w nagłówku
-  jest generowany deterministycznie z nazwy (gradient + inicjały); wymiana na
-  prawdziwe zdjęcia to jeden komponent (`StationThumb`).
+  `id` i `name` — zero obrazów i metadanych. Kafelek w nagłówku jest generowany
+  deterministycznie z nazwy (gradient + inicjały); wymiana na prawdziwe zdjęcia
+  to jeden komponent (`StationThumb`). Współrzędne (do widżetu pogody) też nie
+  pochodzą z API — trzymamy je w lokalnym `data/station-coordinates.json`,
+  regenerowanym skryptem `scripts/enrich-station-coords.mjs`.
 - **Liczba odjazdów/przyjazdów „dzisiaj" pomija pociągi bez dopasowanej trasy.**
-  Liczy się z rozkładu (`/schedules`), a tablica pokazuje realizację
-  (`/operations`) — pociąg bez dopasowanej trasy pojawi się w tablicy, ale nie
-  w liczniku. To ta sama mniejszość co w pierwszym punkcie tej listy.
-- **`/operations` nie jest stronicowane po naszej stronie.** Pytamy o
-  `pageSize=5000` (maksimum wg swaggera); gdyby stacja miała więcej pozycji
-  w ciągu dnia, statystyki liczyłyby się z niepełnego dnia. Klient loguje
-  wtedy ostrzeżenie (`odpowiedź ucięta na 5000 pociągach`) zamiast po cichu
-  zaniżać liczby — jeśli pojawi się w logach, pobieranie wymaga przeprojektowania.
+  Liczy się z rozkładu (`/schedules`), a wiersz bez dopasowania mimo to trafia
+  na tablicę — pojawi się w tablicy, ale nie w liczniku. To ta sama mniejszość
+  co w pierwszym punkcie tej listy.
+- **`/operations` jest paginowane do końca** (`fetchAllOperations` w pollerze,
+  parametr `page` ze swaggera). Strona ma sufit 5000 pozycji, a na dużym węźle
+  w szczycie sam ruch obserwowanych stacji + fan-out stacji pomocniczych
+  przekracza go wielokrotnie (zmierzone: 9566). Poller dociąga kolejne strony
+  po `hasNextPage`, z bramką budżetową (`PAGINATION_MIN_HOURLY_BUDGET = 20`)
+  i sufitem `MAX_OPERATIONS_PAGES = 6`. Gdy paginacja się urwie (budżet / limit
+  stron / błąd), `/api/board` niesie `realizationIncomplete`, a `BoardStatus`
+  pokazuje baner „Duży ruch — część pociągów może być pokazana jako »jeszcze
+  nie wyjechał«" zamiast po cichu zaniżać dane (AGENTS.md #7). Koszt neutralny
+  względem dawnego bulk + warunkowy re-fetch: 2 strony = 2 zapytania.
 
 ## Bezpieczeństwo
 
@@ -696,43 +757,38 @@ traktować jak wejście spoza systemu. Obowiązujące zasady:
   proponuje downgrade do `next@9.3.3`. Wpis w `overrides` należy usunąć, gdy
   Next zaktualizuje je u siebie.
 
-## Zbadane i odłożone: przyczyna opóźnienia
+## Przyczyna opóźnienia — częściowo zaimplementowane (0.9.10)
 
 Pytanie brzmiało, czy da się pokazać, **dlaczego** pociąg jest opóźniony.
-Odpowiedź na podstawie publicznego schematu OpenAPI:
 
-- `/operations` — którego używamy — **nie ma** żadnego pola z przyczyną.
-  W całym schemacie odpowiedzi nie występuje `reason` ani `cause`.
-- Jest osobny endpoint **`/api/v1/disruptions`** („utrudnienia na liniach
-  kolejowych") zwracający `affectedRoutes[]` z parą `scheduleId` + `orderId`
-  — **dokładnie tym samym kluczem**, którego już używamy do złączenia
-  z `/schedules`.
+- `/operations` — **nie ma** żadnego pola z przyczyną. W całym schemacie
+  odpowiedzi nie występuje `reason` ani `cause`.
+- Osobny endpoint **`/api/v1/disruptions`** („utrudnienia na liniach
+  kolejowych") zwraca `affectedRoutes[]` z parą `scheduleId` + `orderId` —
+  tym samym kluczem, którego używamy do złączenia z `/schedules`.
 
-Czyli technicznie to ten sam wzorzec złączenia co obecnie, tylko z trzecim
-źródłem. Odłożone z trzech powodów, ostatni potwierdzony na żywo
-(2026-08-26, 32 utrudnienia dla 4 stacji):
+Od 0.9.10 to złączenie jest zaimplementowane (`board/disruptions.ts`): badge
+w wierszu tablicy, sekcja w panelu szczegółów połączenia i licznik w widżecie
+stanu sieci. `/disruptions` jest cache'owane 20 min (nie 24 h jak rozkład, bo
+utrudnienia zmieniają się w czasie).
 
-1. **Pokrycie będzie częściowe.** `/disruptions` to lista sformalizowanych
+Trzy ograniczenia z pierwotnej analizy (2026-08-26, 32 utrudnienia dla
+4 stacji) **nadal obowiązują** i dlatego to nie jest „przyczyna każdego
+opóźnienia":
+
+1. **Pokrycie jest częściowe.** `/disruptions` to lista sformalizowanych
    zdarzeń (awarie, roboty, wypadki). Kilkuminutowe opóźnienia operacyjne
-   najpewniej nie mają tam odpowiednika, więc większość wierszy i tak zostałaby
-   bez przyczyny. Rzeczywisty odsetek trafień jest niezmierzony.
-2. **Koszt limitu.** W przeciwieństwie do `/schedules` (cache 24 h, bo trasa
-   i przewoźnik się nie zmieniają) utrudnienia zmieniają się w czasie, więc nie
-   da się ich cache'ować równie agresywnie. To realnie trzecie zapytanie na
-   cykl pollera w systemie, gdzie 100/h już jest ciasne.
-3. **`message` nie jest gotowym tekstem.** Na żywych danych `message` to
+   nie mają tam odpowiednika — większość wierszy zostaje bez powiązanego
+   utrudnienia. Odsetek trafień na skali produkcji nadal niezmierzony.
+2. **`message` nie jest gotowym tekstem.** Na żywych danych `message` to
    klucz słownikowy (np. `"utr_40"`), dekodowany przez towarzyszący słownik
-   `disruptionTypes` (np. `utr_30` → „Strajk”) — a dokumentacja pola
-   (`/api/v1/fields/disruptions`) opisuje osobne pola `disruptionTypeCode`/
-   `startStationId`/`endStationId`, które **w praktyce nie występują** na
-   żadnym z 32 sprawdzonych rekordów. Część wartości w słowniku
-   `disruptionTypes` to dodatkowo szablony z placeholderami (`{stacja_
-   poczatkowa}`, `{stacja_koncowa}`) bez pól do ich podstawienia w samym
-   wpisie — więc pełne, czytelne zdanie wymagałoby więcej pracy niż samo
-   złączenie po kluczu.
-
-Gdyby do tego wracać, kolejność jest taka: najpierw zmierzyć pokrycie na
-żywych danych, potem zdecydować o częstotliwości odpytywania.
+   `disruptionTypes` (np. `utr_30` → „Strajk”). Część wartości to szablony
+   z placeholderami (`{stacja_poczatkowa}`, `{stacja_koncowa}`) bez pól do
+   ich podstawienia w samym wpisie — pełne, czytelne zdanie bywa więc
+   niepełne. Dokumentowane pola `disruptionTypeCode`/`startStationId`/
+   `endStationId` w praktyce nie występowały na żadnym z 32 rekordów.
+3. **Trzecie zapytanie na cykl pollera** w systemie, gdzie 100/h już jest
+   ciasne — świadomie przyjęte przy cache 20 min (patrz AGENTS.md #3).
 
 ## Licencja
 

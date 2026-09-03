@@ -128,6 +128,39 @@ describe('BoardStatus', () => {
     expect(screen.queryByText(/API nie odpowiada/)).not.toBeInTheDocument()
   })
 
+  // Trzeci wariant `degraded`: realizacja niepełna (poller nie dociągnął
+  // wszystkich stron `/operations`). Wiersze bez dopasowanej realizacji
+  // pokazują się jako „jeszcze nie wyjechał" mimo że jadą -- baner to prostuje.
+  it('ostrzega o niepełnej realizacji zamiast o niedostępnym API', () => {
+    render(
+      <BoardStatus
+        data={makeData({ status: 'degraded', realizationIncomplete: true })}
+        error={false}
+        fetchedAt={FETCHED_AT}
+        ageMs={1000}
+      />
+    )
+
+    expect(screen.getByText(/Duży ruch.*jeszcze nie wyjechał.*mimo że jadą/)).toBeInTheDocument()
+    expect(screen.queryByText(/API nie odpowiada/)).not.toBeInTheDocument()
+  })
+
+  // realizationStale (brak CAŁEGO dnia) jest poważniejszy niż realizationIncomplete
+  // (brakuje kawałka) -- gdy oba, wygrywa komunikat o braku danych o ruchu.
+  it('woli komunikat o braku danych o ruchu, gdy realizacja jest i nieaktualna, i niepełna', () => {
+    render(
+      <BoardStatus
+        data={makeData({ status: 'degraded', realizationStale: true, realizationIncomplete: true })}
+        error={false}
+        fetchedAt={FETCHED_AT}
+        ageMs={1000}
+      />
+    )
+
+    expect(screen.getByText(/PKP nie podaje dziś danych o ruchu/)).toBeInTheDocument()
+    expect(screen.queryByText(/Duży ruch/)).not.toBeInTheDocument()
+  })
+
   it('nadal mówi o niedostępnym API, gdy to pobranie zawiodło', () => {
     render(
       <BoardStatus

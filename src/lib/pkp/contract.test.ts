@@ -76,10 +76,11 @@ describe.skipIf(process.env.PKP_CONTRACT !== '1')('kontrakt: swagger PKP ↔ sch
       'isConfirmed',
       'isCancelled'
     )
-    // hasNextPage -> wykrywanie ucięcia (poller.ts, truncatedRefetch)
+    // hasNextPage -> `truncated`, którym poller steruje paginacją (fetchAllOperations)
     expectFields('PaginationInfoDto', 'totalCount', 'hasNextPage')
-    // withPlanned=true niesie planowe czasy; pageSize=5000 to nasz sufit
-    expectQueryParams('/api/v1/operations', 'stations', 'withPlanned', 'pageSize', 'fullRoutes')
+    // withPlanned=true niesie planowe czasy; pageSize=5000 to nasz sufit;
+    // page -> poller dociąga kolejne strony sam (fetchAllOperations)
+    expectQueryParams('/api/v1/operations', 'stations', 'withPlanned', 'pageSize', 'fullRoutes', 'page')
   })
 
   it('/schedules — pola rozkładu, na których stoi rawRouteSchema / rawRouteStopSchema', () => {

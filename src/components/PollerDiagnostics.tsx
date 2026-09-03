@@ -168,8 +168,8 @@ function DiagnosticsLegend() {
         <code>fullRoute</code>
       </li>
       <li>
-        <LegendTerm>Realizacja: dociągana osobno</LegendTerm> — zapytanie zbiorcze ucięte na limicie strony; realizację
-        obserwowanych stacji dociągnięto osobnym zapytaniem
+        <LegendTerm>Realizacja: niepełna</LegendTerm> — <code>/operations</code> miało kolejne strony, których nie
+        dociągnięto (budżet / limit stron); część pociągów bez realizacji
       </li>
       <li>
         <LegendTerm>Dane PKP</LegendTerm> — wiek znacznika wersji danych po stronie PKP (pojawia się tylko gdy feed
@@ -268,12 +268,12 @@ function Panel() {
                fakt istniał wyłącznie w logu serwera. */
             <Row label="Rozkład" value="tryb awaryjny" color={STATUS_TEXT.delayed} />
           )}
-          {health.feeds.operations.truncatedRefetch && (
-            /* Zapytanie zbiorcze (obserwowane + stacje pomocnicze) zostało
-               ucięte na limicie strony i poller dociągnął realizację samych
-               obserwowanych stacji osobnym zapytaniem — zdarza się na wielkich
-               węzłach w szczycie ruchu. */
-            <Row label="Realizacja" value="dociągana osobno" color={STATUS_TEXT.delayed} />
+          {health.feeds.operations.incomplete && (
+            /* `/operations` miało kolejne strony, których poller nie dociągnął
+               (budżet spadł poniżej progu albo trafiono na limit stron) —
+               część pociągów jest wtedy bez realizacji i pokaże się jako
+               „jeszcze nie wyjechał". Zdarza się na wielkich węzłach w szczycie. */
+            <Row label="Realizacja" value="niepełna" color={STATUS_TEXT.delayed} />
           )}
           {health.feeds.dataVersion !== null && (
             /* Pojawia się TYLKO wtedy, gdy feed wyglądał na zamrożony i poller
