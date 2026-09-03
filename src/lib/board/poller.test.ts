@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPoller, mergeUpstreamStops } from './poller'
+import { createPoller, MAX_OPERATIONS_PAGES } from './poller'
 import { PkpApiError } from '../pkp/client'
 import type { RawRoute, RawTrainOperation } from '../pkp/types'
 import { MAX_AUX_STATIONS } from './upstreamEstimate'
@@ -774,8 +774,8 @@ describe('createPoller', () => {
     })
   })
 
-  describe('re-fetch obserwowanych stacji po ucięciu /operations', () => {
-    /** Potwierdzony przystanek na `stationId` z zadanym opóźnieniem odjazdu -- do sprawdzenia, z której odpowiedzi liczą się statystyki. */
+  describe('paginacja /operations przy ucięciu', () => {
+    /** Potwierdzony przystanek na `stationId` z zadanym opóźnieniem odjazdu -- do sprawdzenia, że statystyki widzą wszystkie strony. */
     function makeConfirmedDelayed(scheduleId: string, orderId: string, stationId: string, delayMinutes: number): RawTrainOperation {
       const t = makeEnRouteTrain(scheduleId, orderId, stationId)
       return {
@@ -784,158 +784,72 @@ describe('createPoller', () => {
       }
     }
 
-    it('dociąga same obserwowane stacje, gdy zbiorcze zapytanie (z pomocniczymi) zostało ucięte', async () => {
+    it('dociąga kolejne strony po hasNextPage i scala pociągi ze wszystkich stron', async () => {
       const getOperations = vi
         .fn()
-        .mockResolvedValueOnce({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 }, truncated: false })
         .mockResolvedValueOnce({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 }, truncated: true })
-        .mockResolvedValue({ trains: [makeConfirmedDelayed('25', '1', '5100', 10)], stationNames: {}, budget: { hourly: 98, daily: 998 }, truncated: false })
-      const getSchedules = vi.fn().mockResolvedValue({
-        routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
-        carrierNames: {},
-        categoryNames: {},
-        stationNames: {},
-        usedFullRouteFallback: false,
-      })
-      const client = makePkpClient({ getOperations, getSchedules })
-      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
-
-      poller.registerInterest(['5100'])
-      await vi.advanceTimersByTimeAsync(0) // cykl 1: odkrywa upstream
-      await vi.advanceTimersByTimeAsync(90000) // cykl 2: zbiorcze ['5100','upstream'] ucięte -> re-fetch ['5100']
-
-      expect(getOperations).toHaveBeenCalledTimes(3)
-      expect(getOperations).toHaveBeenNthCalledWith(2, ['5100', 'upstream'])
-      expect(getOperations).toHaveBeenNthCalledWith(3, ['5100'])
-      expect(poller.getDiagnostics().operations.truncatedRefetch).toBe(true)
-      // Statystyki liczą się z węższego (kompletnego) zapytania, nie z ucięcia:
-      // ucięta odpowiedź nie zawierała potwierdzonego przejazdu.
-      expect(poller.getSnapshot('5100')?.stats.averageDelayMinutes).toBe(10)
-    })
-
-    it('nie dociąga, gdy nie było stacji pomocniczych w zapytaniu (nawet jeśli ucięte)', async () => {
-      const getOperations = vi
-        .fn()
-        .mockResolvedValue({ trains: [makeTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 }, truncated: true })
+        .mockResolvedValueOnce({ trains: [makeConfirmedDelayed('26', '2', '5100', 10)], stationNames: {}, budget: { hourly: 98, daily: 998 }, truncated: false })
       const client = makePkpClient({ getOperations })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
       await vi.advanceTimersByTimeAsync(0)
 
-      expect(getOperations).toHaveBeenCalledTimes(1)
-      expect(poller.getDiagnostics().operations.truncatedRefetch).toBe(false)
+      expect(getOperations).toHaveBeenNthCalledWith(1, ['5100'])
+      expect(getOperations).toHaveBeenNthCalledWith(2, ['5100'], 2)
+      // Pociąg wyłącznie ze strony 2 też trafia na tablicę...
+      const dep = poller.getSnapshot('5100')?.departures ?? []
+      expect(dep.map((r) => r.orderId).sort()).toEqual(['1', '2'])
+      // ...i statystyki liczą się z kompletu, nie z pierwszej strony.
+      expect(poller.getSnapshot('5100')?.stats.averageDelayMinutes).toBe(10)
+      expect(poller.getDiagnostics().operations.incomplete).toBe(false)
     })
 
-    it.each([
-      ['awaryjnie niskim (poniżej progu throttla)', { hourly: 4, daily: 900 }],
-      ['kurczącym się (nad progiem throttla, ale bez zapasu na drugie zapytanie)', { hourly: 15, daily: 900 }],
-    ])('odpuszcza re-fetch przy budżecie %s -- przełyka niepełne dane', async (_label, budget) => {
+    it('przerywa paginację, gdy budżet godzinowy spadł poniżej progu -- i oznacza zestaw jako niepełny', async () => {
       const getOperations = vi
         .fn()
-        .mockResolvedValueOnce({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 }, truncated: false })
-        .mockResolvedValue({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget, truncated: true })
-      const getSchedules = vi.fn().mockResolvedValue({
-        routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
-        carrierNames: {},
-        categoryNames: {},
-        stationNames: {},
-        usedFullRouteFallback: false,
-      })
-      const client = makePkpClient({ getOperations, getSchedules })
+        .mockResolvedValue({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 15, daily: 900 }, truncated: true })
+      const client = makePkpClient({ getOperations })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
       await vi.advanceTimersByTimeAsync(0)
-      await vi.advanceTimersByTimeAsync(90000)
 
-      expect(getOperations).toHaveBeenCalledTimes(2) // zbiorcze cykl 1 + cykl 2, bez re-fetch
-      expect(poller.getDiagnostics().operations.truncatedRefetch).toBe(false)
+      expect(getOperations).toHaveBeenCalledTimes(1) // strona 1 tak, po niej budżet za niski na kolejną
+      expect(poller.getDiagnostics().operations.incomplete).toBe(true)
+      expect(poller.getStatus()).toBe('degraded')
     })
 
-    it('nie wywraca cyklu, gdy samo dociągnięcie padnie -- używa danych z ucięcia', async () => {
+    it('gdy kolejna strona padnie, zachowuje pociągi z już pobranych stron i nie wywraca cyklu', async () => {
       const getOperations = vi
         .fn()
-        .mockResolvedValueOnce({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 }, truncated: false })
         .mockResolvedValueOnce({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 99, daily: 999 }, truncated: true })
-        .mockRejectedValue(new Error('re-fetch boom'))
-      const getSchedules = vi.fn().mockResolvedValue({
-        routes: [routeWithUpstream('25', '1', 'upstream', '5100')],
-        carrierNames: {},
-        categoryNames: {},
-        stationNames: {},
-        usedFullRouteFallback: false,
-      })
-      const client = makePkpClient({ getOperations, getSchedules })
+        .mockRejectedValue(new Error('strona 2 boom'))
+      const client = makePkpClient({ getOperations })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
       poller.registerInterest(['5100'])
       await vi.advanceTimersByTimeAsync(0)
-      await vi.advanceTimersByTimeAsync(90000)
 
-      expect(poller.getStatus()).toBe('ok')
-      expect(poller.getSnapshot('5100')).toBeDefined()
+      expect(poller.getStatus()).toBe('degraded')
+      expect(poller.getSnapshot('5100')?.departures).toHaveLength(1) // pociąg ze strony 1 został
+      expect(poller.getDiagnostics().operations.incomplete).toBe(true)
+      expect(poller.getDiagnostics().operations.ok).toBe(true) // strona 1 się udała
     })
-  })
-})
 
-describe('mergeUpstreamStops', () => {
-  function opTrain(scheduleId: string, orderId: string, stationIds: string[], operatingDate: string | null = '2026-08-01'): RawTrainOperation {
-    return {
-      scheduleId,
-      orderId,
-      trainOrderId: null,
-      operatingDate,
-      trainStatus: null,
-      stations: stationIds.map((stationId) => ({
-        stationId,
-        plannedArrival: null,
-        actualArrival: null,
-        plannedDeparture: null,
-        actualDeparture: null,
-        arrivalDelayMinutes: null,
-        departureDelayMinutes: null,
-        isCancelled: false,
-        isConfirmed: false,
-      })),
-    }
-  }
+    it('nie dociąga w nieskończoność -- przerywa na twardym limicie stron', async () => {
+      const getOperations = vi
+        .fn()
+        .mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 }, truncated: true })
+      const client = makePkpClient({ getOperations })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
 
-  it('dokleja przystanki z górnej trasy do kompletnej listy z węższego zapytania', () => {
-    const base = [opTrain('25', '1', ['5100'])]
-    const withUpstream = [opTrain('25', '1', ['5100', 'upstream-a', 'upstream-b'])]
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
 
-    const merged = mergeUpstreamStops(base, withUpstream)
-
-    expect(merged).toHaveLength(1)
-    expect(merged[0].stations.map((s) => s.stationId)).toEqual(['5100', 'upstream-a', 'upstream-b'])
-  })
-
-  it('o zbiorze pociągów decyduje `base` -- przejazd tylko z zapytania zbiorczego nie wchodzi', () => {
-    const base = [opTrain('25', '1', ['5100'])]
-    const withUpstream = [opTrain('25', '1', ['5100', 'upstream']), opTrain('99', '2', ['other'])]
-
-    const merged = mergeUpstreamStops(base, withUpstream)
-
-    expect(merged.map((t) => t.scheduleId)).toEqual(['25'])
-  })
-
-  it('nie duplikuje przystanku, który jest już w `base`', () => {
-    const base = [opTrain('25', '1', ['5100', 'upstream'])]
-    const withUpstream = [opTrain('25', '1', ['5100', 'upstream'])]
-
-    const merged = mergeUpstreamStops(base, withUpstream)
-
-    expect(merged[0]).toBe(base[0]) // brak zmian -> ta sama referencja
-  })
-
-  it('przepuszcza bez zmian przejazd bez operatingDate (nie da się dopasować)', () => {
-    const base = [opTrain('25', '1', ['5100'], null)]
-    const withUpstream = [opTrain('25', '1', ['5100', 'upstream'], null)]
-
-    const merged = mergeUpstreamStops(base, withUpstream)
-
-    expect(merged[0].stations.map((s) => s.stationId)).toEqual(['5100'])
+      expect(getOperations).toHaveBeenCalledTimes(MAX_OPERATIONS_PAGES)
+      expect(poller.getDiagnostics().operations.incomplete).toBe(true)
+    })
   })
 })
 

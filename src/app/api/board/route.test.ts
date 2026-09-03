@@ -18,7 +18,7 @@ vi.mock('@/lib/board/instance', () => ({
     getBudget: vi.fn(() => ({ hourly: 90, daily: 950 })),
     getStatus: vi.fn(() => 'ok'),
     isThrottled: vi.fn(() => false),
-    getDiagnostics: vi.fn(() => ({ realizationStale: false })),
+    getDiagnostics: vi.fn(() => ({ realizationStale: false, operations: { incomplete: false } })),
   },
 }))
 
@@ -132,6 +132,22 @@ describe('GET /api/board', () => {
     await GET(new Request('http://localhost/api/board?stations=5100,999999'))
 
     expect(poller.registerInterest).toHaveBeenCalledWith(['5100', '999999'])
+  })
+
+  it('flags realizationIncomplete when the poller could not fetch every /operations page', async () => {
+    // Niepełna realizacja: część pociągów bez dopasowania pokaże się jako
+    // „jeszcze nie wyjechał" mimo że jadą — UI musi to zasygnalizować (baner).
+    const { GET } = await import('./route')
+    const { poller } = await import('@/lib/board/instance')
+    vi.mocked(poller.getDiagnostics).mockReturnValueOnce({
+      realizationStale: false,
+      operations: { incomplete: true },
+    } as ReturnType<typeof poller.getDiagnostics>)
+
+    const response = await GET(new Request('http://localhost/api/board?stations=5100'))
+    const body = await response.json()
+
+    expect(body.realizationIncomplete).toBe(true)
   })
 
   it('passes the poller throttling flag through to the client', async () => {

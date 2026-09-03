@@ -17,11 +17,10 @@ import { findRouteForTrain } from './routeKey'
  * `/operations`, więc rozmiar odpowiedzi rośnie liniowo z tą liczbą, nie
  * eksploduje jak `fullRoutes=true` (patrz `client.ts`).
  *
- * Zmniejszone 10 → 6 (2026-09): na wielkim węźle w szczycie ruchu przy 10
- * kandydatach × 5 przystanków wstecz zbiorcze `/operations` przekraczało
- * `OPERATIONS_PAGE_SIZE` co cykl i poller musiał dociągać obserwowane stacje
- * osobnym zapytaniem (patrz `poller.ts`, `truncatedRefetch`). 6 wystarcza na
- * najbliższe „w trasie" połączenia, a odpowiedź zwykle mieści się w limicie.
+ * Zmniejszone 10 → 6 (2026-09): każda stacja pomocnicza powiększa zbiorcze
+ * `/operations`, a to i tak zwraca 4-5 dni kursowania naraz i bywa wielostronowe
+ * (patrz `fetchAllOperations` w `poller.ts`). 6 wystarcza na najbliższe „w
+ * trasie" połączenia, a każda stacja mniej to mniej stron do dociągnięcia.
  */
 export const UPSTREAM_CANDIDATE_LIMIT = 6
 
