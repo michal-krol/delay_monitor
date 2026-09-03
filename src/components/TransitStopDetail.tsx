@@ -68,7 +68,9 @@ export function TransitStopDetail({
   const [lineFilter, setLineFilter] = useState<string | null>(null)
 
   const board = data?.stops[0] ?? null
-  const members = board?.members ?? []
+  // Pomijamy „słupki" bez linii (stacje-rodzice metra, np. 7014M) — nie da się
+  // z nich odjechać, tylko zaśmiecają przełącznik.
+  const members = (board?.members ?? []).filter((m) => m.lines.length > 0)
   const activeMember = slupek !== null ? members.find((m) => m.id === slupek) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
   const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }

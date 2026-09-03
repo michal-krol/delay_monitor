@@ -400,6 +400,7 @@ export type StopSummary = {
 export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayIndex: number): StopSummary {
   const stopIndices = resolveStopIndices(schedule, groupId)
   const hourly = new Array<number>(24).fill(0)
+  const routeSet = new Set<number>()
   let count = 0
   let firstSec: number | null = null
   let lastSec: number | null = null
@@ -409,7 +410,10 @@ export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayI
     const hi = schedule.stopEventOffset[stopIndex + 1]
     for (let k = lo; k < hi; k += 1) {
       const eventIndex = schedule.stopEventOrder[k]
-      if (schedule.tripServiceDay[schedule.evTrip[eventIndex]] !== serviceDayIndex) continue
+      const trip = schedule.evTrip[eventIndex]
+      if (schedule.tripServiceDay[trip] !== serviceDayIndex) continue
+      const routeIdx = schedule.tripRoute[trip]
+      if (routeIdx >= 0) routeSet.add(routeIdx)
       const sec = schedule.evDepSec[eventIndex]
       count += 1
       if (firstSec === null || sec < firstSec) firstSec = sec
@@ -419,7 +423,9 @@ export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayI
   }
 
   return {
-    lineCount: groupLines(schedule, groupId).length,
+    // Liczba linii z faktycznych odjazdów „dziś" tego zakresu (słupek albo cały
+    // zespół) — nie z `groupRoutes`, które nie zna kluczy słupków.
+    lineCount: routeSet.size,
     departuresToday: count,
     firstDepartureSec: firstSec,
     lastDepartureSec: lastSec,
@@ -436,12 +442,12 @@ export type CityStats = {
   stopGroupCount: number
   /** Liczba środków transportu obecnych w feedzie (rodzaje z ≥1 linią). */
   modeCount: number
-  /** Liczba kursów w dobie „dziś". */
+  /** Liczba kursów w dobie „dziś" (jeden kurs = jeden przejazd pojazdu, NIE zdarzenie na słupku). */
   tripsToday: number
-  /** Sekunda pierwszego / ostatniego odjazdu dziś w całej sieci. `null` = brak. */
+  /** Sekunda pierwszego / ostatniego ROZPOCZĘTEGO kursu dziś. `null` = brak. */
   firstDepartureSec: number | null
   lastDepartureSec: number | null
-  /** 24 kubełki — kursy per godzina zegarowa doby. */
+  /** 24 kubełki — liczba kursów rozpoczętych w danej godzinie zegarowej (spójne z `tripsToday`). */
   hourly: number[]
 }
 
@@ -462,17 +468,25 @@ export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats
   const busKinds: Record<LineKind, number> = { regular: 0, night: 0, express: 0, replacement: 0 }
   for (const route of byMode.bus) busKinds[route.kind] += 1
 
-  const hourly = new Array<number>(24).fill(0)
-  let tripsToday = 0
-  for (let trip = 0; trip < schedule.tripIds.length; trip += 1) {
-    if (schedule.tripServiceDay[trip] === todayIndex) tripsToday += 1
+  // Pierwszy odjazd każdego kursu „dziś" — jeden skan zdarzeń. Wcześniej `hourly`
+  // liczyło ZDARZENIA na słupkach (~1 mln/dobę) obok `tripsToday` liczącego kursy
+  // (~35 tys.) — dwie różne skale w jednym widżecie. Teraz oba liczą kursy.
+  const firstDep = new Int32Array(schedule.tripIds.length).fill(-1)
+  for (let e = 0; e < schedule.evCount; e += 1) {
+    const trip = schedule.evTrip[e]
+    if (schedule.tripServiceDay[trip] !== todayIndex) continue
+    const sec = schedule.evDepSec[e]
+    if (firstDep[trip] === -1 || sec < firstDep[trip]) firstDep[trip] = sec
   }
 
+  const hourly = new Array<number>(24).fill(0)
+  let tripsToday = 0
   let firstSec: number | null = null
   let lastSec: number | null = null
-  for (let e = 0; e < schedule.evCount; e += 1) {
-    if (schedule.tripServiceDay[schedule.evTrip[e]] !== todayIndex) continue
-    const sec = schedule.evDepSec[e]
+  for (let trip = 0; trip < firstDep.length; trip += 1) {
+    const sec = firstDep[trip]
+    if (sec === -1) continue
+    tripsToday += 1
     if (firstSec === null || sec < firstSec) firstSec = sec
     if (lastSec === null || sec > lastSec) lastSec = sec
     hourly[Math.floor(sec / 3600) % 24] += 1

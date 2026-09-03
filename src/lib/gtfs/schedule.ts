@@ -317,22 +317,32 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const freqPattern = new Map<string, { stopIdx: number; arrSec: number; depSec: number; seq: number }[]>()
 
   // Reprezentatywny przebieg linii: akumulujemy słupki bieżącego kursu (plik
-  // jest pogrupowany po `trip_id`), a na zmianie kursu zapisujemy najdłuższy
-  // napotkany wzorzec dla pary (linia, kierunek). O(1) amortyzowane, bez skanu
-  // milionów zdarzeń per żądanie strony linii.
+  // jest pogrupowany po `trip_id`), a na zmianie kursu rejestrujemy wzorzec.
+  // Wybieramy NAJCZĘSTSZY przebieg dla pary (linia, kierunek), nie najdłuższy —
+  // „najdłuższy" łapał kursy nietypowe (zjazdy do zajezdni z `exceptional=0`,
+  // wydłużone objazdy), przez co strona linii pokazywała zły przystanek
+  // startowy i tylko jedną kategorię dnia. O(1) amortyzowane.
   const routePatterns = new Map<string, { stops: number[]; offsets: number[]; headsignIdx: number }>()
+  /** `${routeKey}#${sygnatura słupków}` → ile kursów miało dokładnie ten przebieg. */
+  const patternSeen = new Map<string, number>()
+  /** `${routeKey}` → aktualnie wybrany wzorzec + jego licznik. */
+  const patternPick = new Map<string, { stops: number[]; offsets: number[]; headsignIdx: number; count: number }>()
   let patternTripId = ''
   let patternStops: { seq: number; stopIdx: number; depSec: number }[] = []
-  /** Wzorzec z posortowanych po `seq` punktów: słupki + offsety sekundowe względem punktu startowego. */
-  const patternFrom = (points: { seq: number; stopIdx: number; depSec: number }[]) => {
-    const sorted = [...points].sort((a, b) => a.seq - b.seq)
-    const base = sorted[0].depSec
-    return { stops: sorted.map((p) => p.stopIdx), offsets: sorted.map((p) => p.depSec - base) }
-  }
-  const registerPattern = (key: string, points: { seq: number; stopIdx: number; depSec: number }[], headsignIdx: number) => {
-    const existing = routePatterns.get(key)
-    if (existing === undefined || points.length > existing.stops.length) {
-      routePatterns.set(key, { ...patternFrom(points), headsignIdx })
+  const registerPattern = (key: string, sorted: { seq: number; stopIdx: number; depSec: number }[], headsignIdx: number) => {
+    const signature = sorted.map((p) => p.stopIdx).join(',')
+    const seenKey = `${key}#${signature}`
+    const count = (patternSeen.get(seenKey) ?? 0) + 1
+    patternSeen.set(seenKey, count)
+    const best = patternPick.get(key)
+    if (best === undefined || count > best.count || (count === best.count && sorted.length > best.stops.length)) {
+      const base = sorted[0].depSec
+      patternPick.set(key, {
+        stops: sorted.map((p) => p.stopIdx),
+        offsets: sorted.map((p) => p.depSec - base),
+        headsignIdx,
+        count,
+      })
     }
   }
   const flushTrip = () => {
@@ -436,7 +446,13 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   for (const [tripId, pattern] of freqPattern) {
     const meta = tripMetaById.get(tripId)
     if (meta === undefined || meta.routeIdx < 0 || meta.exceptional) continue
-    registerPattern(`${meta.routeIdx}:${meta.direction}`, pattern, meta.headsignIdx)
+    const sorted = [...pattern].sort((a, b) => a.seq - b.seq)
+    registerPattern(`${meta.routeIdx}:${meta.direction}`, sorted, meta.headsignIdx)
+  }
+
+  // Finalizacja: najczęstszy wzorzec per (linia, kierunek) → `routePatterns`.
+  for (const [key, pick] of patternPick) {
+    routePatterns.set(key, { stops: pick.stops, offsets: pick.offsets, headsignIdx: pick.headsignIdx })
   }
 
   // ── rozwinięcie frequencies (przy ładowaniu, przed CSR) ───────────────────

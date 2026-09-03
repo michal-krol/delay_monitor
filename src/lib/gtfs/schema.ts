@@ -186,15 +186,22 @@ export const tripSchema = z
     direction_id: z.string().optional(),
     exceptional: z.string().optional(),
   })
-  .transform((row) => ({
-    routeId: row.route_id,
-    serviceId: row.service_id,
-    tripId: row.trip_id,
-    headsign: optional(row.trip_headsign) ?? null,
-    directionId: (row.direction_id === '0' ? 0 : row.direction_id === '1' ? 1 : 2) as 0 | 1 | 2,
-    /** `exceptional=1` — zjazd do zajezdni / kurs techniczny. Nie reprezentuje linii. */
-    exceptional: optional(row.exceptional) === '1',
-  }))
+  .transform((row) => {
+    const headsign = optional(row.trip_headsign) ?? null
+    return {
+      routeId: row.route_id,
+      serviceId: row.service_id,
+      tripId: row.trip_id,
+      headsign,
+      directionId: (row.direction_id === '0' ? 0 : row.direction_id === '1' ? 1 : 2) as 0 | 1 | 2,
+      /**
+       * Kurs nie reprezentuje linii: `exceptional=1` LUB nagłówek „Zjazd do
+       * zajezdni" / „Wyjazd z zajezdni" (konwencja WTP — feed bywa niespójny
+       * z flagą `exceptional`, zaobserwowano zjazd z `exceptional=0`).
+       */
+      exceptional: optional(row.exceptional) === '1' || /zajezdn/i.test(headsign ?? ''),
+    }
+  })
 
 // --- calendar.txt / calendar_dates.txt ---
 
