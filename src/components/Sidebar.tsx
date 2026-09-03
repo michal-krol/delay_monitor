@@ -5,7 +5,7 @@ import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { HomeIcon, ListIcon, StarIcon, BellIcon, RouteIcon, MapIcon, SettingsIcon, ChevronRightIcon } from './icons'
 import { PollerDiagnostics } from './PollerDiagnostics'
 
-type ActiveItem = 'pulpit' | 'odjazdy'
+type ActiveItem = 'pulpit' | 'odjazdy' | 'trasy'
 
 type Props = {
   // Opcjonalny -- jedyny prawdziwy wpis nawigacji to "Pulpit"; reszta jest
@@ -31,17 +31,17 @@ type NavItem =
   | { kind: 'disabled'; label: string; icon: typeof HomeIcon; badge?: number; title?: string }
 
 /**
- * „Odjazdy / Przyjazdy" prowadzi na `/miasto` — trasa dobiera domyślne miasto
- * (ostatnie z `useCityContext` albo to z największą liczbą stacji kolejowych)
- * i przekierowuje. Przełącznik miasta jest w treści tamtego ekranu, nie w menu.
- * „Trasy" czeka na etap 4.
+ * „Odjazdy / Przyjazdy" prowadzi na `/miasto`, „Trasy" na `/linie` — obie trasy
+ * dobierają domyślne miasto (ostatnie z `useCityContext` albo to z największą
+ * liczbą stacji kolejowych) i przekierowują. Przełącznik miasta jest w treści
+ * tamtych ekranów, nie w menu.
  */
 const NAV_ITEMS: NavItem[] = [
   { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
   { kind: 'active', key: 'odjazdy', href: '/miasto', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
   { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
   { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
-  { kind: 'disabled', label: 'Trasy', icon: RouteIcon },
+  { kind: 'active', key: 'trasy', href: '/linie', label: 'Trasy', icon: RouteIcon },
   { kind: 'disabled', label: 'Mapa', icon: MapIcon },
   { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
 ]

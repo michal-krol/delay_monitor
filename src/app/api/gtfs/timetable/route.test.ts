@@ -49,6 +49,14 @@ async function call(qs: string) {
 }
 
 describe('GET /api/gtfs/timetable', () => {
+  it('rejects a malformed city with 400', async () => {
+    expect((await call('city=..%2Fx&stop=100101&route=20')).response.status).toBe(400)
+  })
+
+  it('rejects an unknown city with 400', async () => {
+    expect((await call('city=zzz&stop=100101&route=20')).response.status).toBe(400)
+  })
+
   it('rejects a malformed stop id with 400 and no echo', async () => {
     const { response, body } = await call('city=waw&stop=..%2Fx&route=20')
     expect(response.status).toBe(400)

@@ -10,18 +10,12 @@ import type { GtfsLine } from '@/lib/gtfs/query'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
 import { LineBadge } from './LineBadge'
+import { DayTimetablePanel } from './DayTimetablePanel'
 import { ScheduleStatus } from './ScheduleStatus'
 import { TransitDepartureList } from './TransitDepartureList'
+import { MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, ShareIcon, StarIcon } from './icons'
 
-const MODE_LABEL: Record<GtfsMode, string> = {
-  metro: 'metro',
-  tram: 'tramwaj',
-  bus: 'autobus',
-  rail: 'kolej strefowa',
-  other: 'inne',
-}
-const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
 /** `sec` może przekroczyć 86400 (kurs po północy) — zwijamy do zegara doby. */
@@ -187,6 +181,15 @@ export function TransitStopDetail({
           )}
 
           <TransitDepartureList departures={departures} loading={loading} />
+
+          {lineFilter !== null && (
+            <DayTimetablePanel
+              city={city}
+              stopId={stopId}
+              routeId={lineFilter}
+              lineLabel={board?.lines.find((line) => line.routeId === lineFilter)?.line ?? lineFilter}
+            />
+          )}
         </section>
       </div>
 

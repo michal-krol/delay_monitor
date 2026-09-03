@@ -1,6 +1,6 @@
 'use client'
 
-import { notFound, useParams, useRouter } from 'next/navigation'
+import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
 import { TransitStopDetail } from '@/components/TransitStopDetail'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
@@ -20,11 +20,12 @@ export default function TransitStopPage() {
   }
 
   const router = useRouter()
+  const initialName = useSearchParams().get('nazwa') ?? undefined
 
   return (
     <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
       <TopBar backLabel="Wróć do miasta" onBack={() => router.push(`/miasto/${city}`)} />
-      <TransitStopDetail city={city} stopId={stopId} />
+      <TransitStopDetail city={city} stopId={stopId} initialName={initialName} />
     </main>
   )
 }

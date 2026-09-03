@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
+import { LineGrid } from './LineGrid'
 import { StationCard } from './StationCard'
 import { TransitDepartureList } from './TransitDepartureList'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
@@ -168,6 +169,33 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
       expect(badge?.getAttribute('style') ?? '', `payload: ${payload}`).not.toContain(payload)
       expect((window as unknown as Record<string, unknown>).__xss, `payload: ${payload}`).toBeUndefined()
 
+      unmount()
+    }
+  })
+
+  it('wroga nazwa kierunkowa linii (route_long_name) w LineGrid renderuje się jako tekst', () => {
+    for (const payload of PAYLOADS) {
+      const { container, unmount } = render(
+        <LineGrid
+          city="waw"
+          filter="all"
+          linesByMode={{
+            metro: [],
+            tram: [],
+            bus: [{ routeId: payload, line: payload, longName: payload, color: payload, textColor: '#000000', mode: 'bus', kind: 'regular' }],
+            rail: [],
+            other: [],
+          }}
+        />
+      )
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('script'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('iframe'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      const badge = container.querySelector('[style]')
+      expect(badge?.getAttribute('style') ?? '', `payload: ${payload}`).not.toContain(payload)
+      expect((window as unknown as Record<string, unknown>).__xss, `payload: ${payload}`).toBeUndefined()
       unmount()
     }
   })

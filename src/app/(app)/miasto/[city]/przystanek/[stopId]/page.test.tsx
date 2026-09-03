@@ -11,6 +11,7 @@ const params = { city: 'waw', stopId: '7014M' }
 vi.mock('next/navigation', () => ({
   useParams: () => params,
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams('nazwa=Centrum'),
   notFound: () => notFound(),
 }))
 
@@ -68,10 +69,11 @@ describe('TransitStopPage', () => {
     expect(() => render(<TransitStopPage />)).toThrow('NEXT_NOT_FOUND')
   })
 
-  it('shows loading skeletons and the raw id before the board arrives', () => {
+  it('shows loading skeletons and the name from the link before the board arrives', () => {
     useTransitBoard.mockReturnValue({ data: null, error: null })
     const { container } = render(<TransitStopPage />)
-    expect(screen.getByRole('heading', { name: '7014M' })).toBeInTheDocument()
+    // Nazwa z `?nazwa=` w nagłówku, dopóki tablica się nie wczyta.
+    expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
   })
