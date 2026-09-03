@@ -121,7 +121,10 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
 ```
 src/
 ├── app/
-│   ├── api/{board,stations,train,health}/route.ts   endpointy HTTP
+│   ├── api/{board,stations,train,health}/route.ts   endpointy HTTP PKP
+│   ├── api/gtfs/{board,lines,line,timetable,city-stats}/route.ts   endpointy GTFS
+│   ├── api/{cities,search}/route.ts             rejestr miast + zunifikowana wyszukiwarka
+│   ├── (app)/miasto/[city]/…                    ekran miasta, linia, przystanek
 │   ├── icon.svg                                 favicon
 │   ├── layout.tsx                              ThemeProvider, tło
 │   └── page.tsx                                strona główna
@@ -129,8 +132,9 @@ src/
 │   ├── Dashboard, StationCard, FullBoard
 │   ├── ConnectionDetails                       panel szczegółów połączenia
 │   ├── StationSearch, EmptyState, BoardStatus
+│   ├── LineGrid, ModeFilter, DayTimetable, TransitStopDetail   UI komunikacji miejskiej
 │   └── DelayBadge, CarrierLogo, ConfigErrorBanner
-├── hooks/                                       useFavourites, useBoard
+├── hooks/                                       useFavourites, useBoard, useTransitBoard
 └── lib/
     ├── config.ts                                walidacja zmiennych środowiskowych
     ├── validation.ts                            wspólne wzorce walidacji ID (API + URL)
@@ -140,9 +144,11 @@ src/
     ├── search.ts                                normalizacja nazw stacji
     ├── plural.ts                                polska odmiana przez liczbę
     ├── pkp/{client,mock,schema,types,time}.ts   warstwa danych PKP (live/mock)
-    └── board/{poller,transform,trainDetail,realization,instance}.ts
-                                                  logika domenowa + poller
-fixtures/          ręcznie napisane odpowiedzi API do trybu mock
+    ├── board/{poller,transform,trainDetail,realization,instance}.ts
+    │                                             logika domenowa PKP + poller
+    └── gtfs/{cities,client,zip,csv,schema,schedule,query,poller,mock,instance}.ts
+                                                  komunikacja miejska (offline, czyste funkcje)
+fixtures/          ręcznie napisane odpowiedzi API + feedy GTFS do trybu mock
 public/carriers/   logotypy przewoźników (SVG)
 ```
 
@@ -164,6 +170,9 @@ odpytuje PKP rzadko, bo to kosztuje limit. Dziesięciu użytkowników zużywa
 tyle samo budżetu co jeden. `/api/board` nigdy nie czeka na PKP — czyta
 snapshot z pamięci i zwraca natychmiast.
 
+Od 0.9 dochodzi **trzeci rytm** — komunikacja miejska z feedów GTFS (patrz
+niżej) — z własnym, dobowym cyklem, niezależnym od dwóch powyższych.
+
 `/api/train` (szczegóły połączenia) to celowy wyjątek od tego wzorca —
 wywoływane dopiero po kliknięciu w wiersz, nie z pollera, więc **realnie
 czeka na PKP** przy pierwszym kliknięciu danego pociągu (potem cache 90 s).
@@ -175,6 +184,58 @@ Aplikacja działa **w jednej replice**. Dwie repliki to dwa pollery i podwójne
 zużycie limitu; skalowanie poziome jest świadomie wykluczone. Stan w pamięci
 ginie przy restarcie — pierwszy użytkownik po deployu czeka jedną rundę
 pollera.
+
+## Komunikacja miejska (GTFS)
+
+Druga dziedzina obok kolei PKP: miejski transport publiczny z **statycznych
+feedów GTFS**. Warszawa jest pierwszym miastem, nie jedynym — kolejne dochodzą
+jednym wpisem w `src/lib/gtfs/cities.ts`, bez nowego kodu.
+
+**Zakres świadomie wykluczony: opóźnienia miejskie.** Nikt ich dla Warszawy
+nie publikuje. W typach GTFS nie istnieje żadne pole opóźnienia ani „czasu
+faktycznego" — komunikat to zawsze „rozkład", **nigdy „na czas"**. Docelowo
+(etap 5) dojdą pozycje pojazdów.
+
+```
+Przeglądarka ──▶ /api/gtfs/{board,lines,line,timetable,city-stats}
+                        │ odczyt z pamięci, natychmiast
+                        ▼
+                 GtfsPoller (per miasto)
+                        │ ładowanie RAZ: ~107 MB ZIP, ~3 s parse, TTL bezczynności
+                        ▼
+                 mkuran.pl/gtfs/warsaw/gtfs.user_facing.zip
+```
+
+- **Ładowanie leniwe i jednorazowe.** Poller miasta powstaje przy pierwszym
+  wejściu na `/miasto/[city]`. `stop_times.txt` (7,95 mln wierszy) parsuje się
+  bez Zod, do kolumnowych tablic typowanych, z jawnymi strażnikami i licznikiem
+  odrzuconych wierszy. Potem tylko odczyt z pamięci; przeładowanie ~03:40 czasu
+  miasta po zmianie doby.
+- **`/api/gtfs/*` nigdy nie czekają na pobranie.** `ensureLoaded()` jest
+  fire-and-forget, `getSchedule()` zwraca `null` dopóki nie gotowe, a klient
+  ponawia z narastającym backoffem. Faza ładowania jest widoczna w UI
+  („wczytuję rozkład — przystanki i linie"), nie ukryta pod spinnerem.
+- **Hierarchia:** miasto → linia (`/miasto/[city]/linia/[routeId]`, przebieg
+  w obu kierunkach) → przystanek (`/miasto/[city]/przystanek/[stopId]`, tablica
+  + tabliczka dobowa) → rozkład. Stoi obok kolejowej stacja → połączenie →
+  przebieg trasy.
+- **Tryb mock domyślny** (`GTFS_DATA_SOURCE=mock`): `npm run dev`, `npm run
+  test` i CI są zerowo-sieciowe. Fixture'y to zwykłe `.txt` w
+  `fixtures/gtfs/<city>/`. Railway ustawia `live` jawnie.
+- **Wyłącznik:** `GTFS_ENABLED=false` wyłącza cały podprojekt bez wdrożenia
+  cofnięcia — monitor PKP działa nietknięty. `GTFS_CITIES` wyłącza pojedyncze
+  miasto.
+
+**Ścieżka odwrotu.** Feed mkurana to wygodny agregat (metro + ZTM + kontrola
+jakości). Gdyby zniknął: oficjalny `gtfs.ztm.waw.pl/last` niesie ten sam
+rozkład ZTM **bez metra** — zmiana `staticUrl` w rejestrze + druga pozycja
+w `attributions` w feedzie, metro traci się do czasu osobnego źródła.
+
+Kontrakt wobec publicznego schematu feedu (poza CI, wymaga sieci, bez kosztu):
+
+```bash
+GTFS_CONTRACT=1 npm run test -- gtfs/contract
+```
 
 ## Czas i strefy — najłatwiejsza rzecz do zepsucia
 
@@ -331,6 +392,11 @@ realnego natężenia ruchu.
 | `PKP_DATA_SOURCE` | `auto` | `auto` \| `live` \| `mock`. Jawny override |
 | `POLL_INTERVAL_MS` | `90000` | Interwał pollera |
 | `INTEREST_TTL_MS` | `300000` | Po tym czasie ciszy stacja przestaje być obserwowana |
+| `BOARD_SOURCE` | `schedule` | Co wyznacza listę połączeń tablicy (`schedule` \| `operations`) — tymczasowy przełącznik |
+| `GTFS_ENABLED` | `true` | Wyłącznik podprojektu komunikacji miejskiej |
+| `GTFS_CITIES` | `waw` | Lista miast GTFS do włączenia, po przecinku |
+| `GTFS_DATA_SOURCE` | `mock` | `mock` \| `live`. `live` = ~107 MB pobrania na miasto |
+| `GTFS_IDLE_TTL_MS` | `3600000` | Po tym czasie bezczynności poller miasta zwalnia rozkład |
 | `PORT` | `3000` | Ustawiane przez Railway |
 
 `PKP_DATA_SOURCE=live` bez `PKP_API_KEY` jest błędem konfiguracji — aplikacja
