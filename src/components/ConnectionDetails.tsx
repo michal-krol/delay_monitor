@@ -6,7 +6,14 @@ import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { AlertCircleIcon, CalendarIcon, ClockIcon, InfoIcon, LinkIcon, PauseIcon, RouteIcon, ShareIcon, TrainIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
-import { isScheduleProjection, resolveCurrentStopIndex, resolveScheduledStopIndex, type TrainDetailStop } from '@/lib/board/trainDetail'
+import {
+  isScheduleProjection,
+  isStalePositionProjection,
+  resolveCurrentStopIndex,
+  resolveProjectedStopIndex,
+  resolveScheduledStopIndex,
+  type TrainDetailStop,
+} from '@/lib/board/trainDetail'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatClockTime } from '@/lib/format'
@@ -246,7 +253,16 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // `isScheduleProjection`, plan „trains-schedule-position"). Decyzja żyje
   // w czystej funkcji obok `resolveCurrentStopIndex`, nie w tym komponencie.
   const scheduleMode = isScheduleProjection(stops, data?.trainStatus ?? null, nowDate)
-  const currentStopIndex = scheduleMode ? resolveScheduledStopIndex(stops, nowDate) : resolveCurrentStopIndex(stops)
+  // Pociąg Z potwierdzeniami, ale PRZETERMINOWANYMI — PKP na gęstych liniach
+  // (SKM/KM/WKD) potwierdza paczkami z opóźnieniem, więc „ostatni potwierdzony"
+  // bywa kilka przystanków za realną pozycją. Wtedy marker idzie z projekcji
+  // rozkładowej kotwiczonej w ostatnim potwierdzeniu (patrz `isStalePositionProjection`).
+  const staleProjection = !scheduleMode && isStalePositionProjection(stops, data?.trainStatus ?? null, nowDate)
+  const currentStopIndex = scheduleMode
+    ? resolveScheduledStopIndex(stops, nowDate)
+    : staleProjection
+      ? resolveProjectedStopIndex(stops, nowDate)
+      : resolveCurrentStopIndex(stops)
   const stopStatuses = stops.map((stop, index) =>
     resolveStopStatus({
       isCancelled: stop.isCancelled,
@@ -487,7 +503,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                               jedyne miejsce w widoku odpowiadające „tu jesteśmy teraz",
                               więc jedyne, które je dostaje (jeden akcent, nie rozsypane efekty). */}
                           <span
-                            className={`h-3 w-3 shrink-0 rounded-full ${isCurrent && !scheduleMode ? 'breathe' : ''}`}
+                            className={`h-3 w-3 shrink-0 rounded-full ${isCurrent && !scheduleMode && !staleProjection ? 'breathe' : ''}`}
                             style={{
                               backgroundColor: STOP_COLOR[thisStatus],
                               boxShadow: isCurrent
@@ -577,7 +593,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                     }}
                                   >
                                     <TrainIcon size={12} />
-                                    {scheduleMode ? 'Pociąg jest tutaj — wg rozkładu' : 'Pociąg jest tutaj'}
+                                    {scheduleMode
+                                      ? 'Pociąg jest tutaj — wg rozkładu'
+                                      : staleProjection
+                                        ? 'Pociąg jest tutaj — szacowane z rozkładu'
+                                        : 'Pociąg jest tutaj'}
                                   </span>
                                 )}
                                 {showStopMinutes && (

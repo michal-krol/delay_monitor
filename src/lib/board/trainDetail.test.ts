@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTrainDetailStops,
   isScheduleProjection,
+  isStalePositionProjection,
   resolveCurrentStopIndex,
+  resolveProjectedStopIndex,
   resolveScheduledStopIndex,
   type TrainDetailStop,
 } from './trainDetail'
@@ -528,6 +530,71 @@ describe('resolveScheduledStopIndex', () => {
       detailStop({ stationId: 'C', plannedArrival: '2026-08-01T12:00:00.000Z' }),
     ]
     expect(resolveScheduledStopIndex(withGap, new Date('2026-08-01T11:00:00.000Z'))).toBe(0)
+  })
+})
+
+// Gęsta linia: A odjazd 10:00 (potwierdzony), potem B..E co ~30 min.
+const D = (hhmm: string) => `2026-08-01T${hhmm}:00.000Z`
+const staleRoute: TrainDetailStop[] = [
+  detailStop({ stationId: 'A', plannedDeparture: D('10:00'), actualDeparture: D('10:00'), isConfirmed: true }),
+  detailStop({ stationId: 'B', plannedArrival: D('11:00'), plannedDeparture: D('11:02') }),
+  detailStop({ stationId: 'C', plannedArrival: D('12:00'), plannedDeparture: D('12:02') }),
+  detailStop({ stationId: 'D', plannedArrival: D('12:30'), plannedDeparture: D('12:32') }),
+  detailStop({ stationId: 'E', plannedArrival: D('13:00') }),
+]
+
+describe('resolveProjectedStopIndex', () => {
+  it('projects forward from the last confirmed stop at schedule pace', () => {
+    // Kotwica A o 10:00 bez opóźnienia; o 12:05 minęły plany B (11:00) i C (12:00), nie D (12:30).
+    expect(resolveProjectedStopIndex(staleRoute, new Date(D('12:05')))).toBe(2)
+  })
+
+  it('shifts the projection by the delay measured at the anchor', () => {
+    // Kotwica A wyjechała 10:10 (+10 min) -> plany przesunięte: o 12:05 minął tylko B (proj 11:10), nie C (proj 12:10).
+    const late = staleRoute.map((s, i) => (i === 0 ? { ...s, actualDeparture: D('10:10') } : s))
+    expect(resolveProjectedStopIndex(late, new Date(D('12:05')))).toBe(1)
+  })
+
+  it('returns the anchor itself when now has not passed the next stop', () => {
+    expect(resolveProjectedStopIndex(staleRoute, new Date(D('10:30')))).toBe(0)
+  })
+
+  it('returns -1 when the anchor has no usable actual/planned time', () => {
+    const noActual = staleRoute.map((s, i) => (i === 0 ? { ...s, actualDeparture: null } : s))
+    expect(resolveProjectedStopIndex(noActual, new Date(D('12:05')))).toBe(-1)
+  })
+
+  it('returns -1 when no stop is confirmed', () => {
+    expect(resolveProjectedStopIndex(projectionRoute, new Date(D('11:30')))).toBe(-1)
+  })
+})
+
+describe('isStalePositionProjection', () => {
+  it('is true when the schedule places the train >=2 stops past the last confirmed one', () => {
+    expect(isStalePositionProjection(staleRoute, 'S', new Date(D('12:05')))).toBe(true)
+  })
+
+  it('is false while confirmations keep up (schedule is only one stop ahead)', () => {
+    expect(isStalePositionProjection(staleRoute, 'S', new Date(D('11:05')))).toBe(false)
+  })
+
+  it('is false when the last confirmed stop is the destination', () => {
+    const allConfirmed = staleRoute.map((s) => ({ ...s, isConfirmed: true, actualArrival: s.plannedArrival, actualDeparture: s.plannedDeparture }))
+    expect(isStalePositionProjection(allConfirmed, 'S', new Date(D('12:05')))).toBe(false)
+  })
+
+  it('is false once the scheduled arrival at the destination has passed', () => {
+    expect(isStalePositionProjection(staleRoute, 'S', new Date(D('13:30')))).toBe(false)
+  })
+
+  it('is false when any stop is cancelled or the whole train is cancelled (trainStatus X)', () => {
+    const withCancel = staleRoute.map((s, i) => (i === 2 ? { ...s, isCancelled: true } : s))
+    expect(isStalePositionProjection(withCancel, 'S', new Date(D('12:05')))).toBe(false)
+    expect(isStalePositionProjection(staleRoute, 'X', new Date(D('12:05')))).toBe(false)
+  })
+
+  it('is false with zero confirmations — that is isScheduleProjection territory', () => {
+    expect(isStalePositionProjection(projectionRoute, 'S', new Date(D('11:30')))).toBe(false)
   })
 })
 

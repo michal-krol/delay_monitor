@@ -572,6 +572,61 @@ describe('ConnectionDetails', () => {
     expect(within(row as HTMLElement).getByText('odwołany')).toBeInTheDocument()
   })
 
+  // Pociąg Z potwierdzeniami, ale PRZETERMINOWANYMI — SKM/KM/WKD, PKP potwierdza
+  // paczkami z opóźnieniem. Gdańsk potwierdzony (odjazd 09:00Z), dalej co ~20 min:
+  // Tczew 09:20, Malbork 09:40, Warszawa 11:20 — wszystko niepotwierdzone.
+  const STALE_CONFIRMED_RESPONSE = {
+    ...RESPONSE,
+    trainStatus: 'P',
+    stops: [
+      { ...RESPONSE.stops[0], isConfirmed: true, actualDeparture: '2026-08-01T09:00:00.000Z', departureDelayMinutes: 0, hasTrainStarted: false },
+      {
+        stationId: '4600', stationName: 'Tczew',
+        plannedArrival: '2026-08-01T09:20:00.000Z', actualArrival: null, arrivalDelayMinutes: null,
+        plannedDeparture: '2026-08-01T09:22:00.000Z', actualDeparture: null, departureDelayMinutes: null,
+        isCancelled: false, isConfirmed: false, platform: null, hasTrainStarted: true,
+      },
+      {
+        stationId: '4610', stationName: 'Malbork',
+        plannedArrival: '2026-08-01T09:40:00.000Z', actualArrival: null, arrivalDelayMinutes: null,
+        plannedDeparture: '2026-08-01T09:42:00.000Z', actualDeparture: null, departureDelayMinutes: null,
+        isCancelled: false, isConfirmed: false, platform: null, hasTrainStarted: true,
+      },
+      { ...RESPONSE.stops[1], hasTrainStarted: true },
+    ],
+  }
+
+  it('projects the marker forward from a stale confirmed stop (SKM/KM batched confirmations)', async () => {
+    freezeClock('2026-08-01T09:45:00Z') // rozkład stawia pociąg za Malborkiem (09:40), a PKP potwierdził tylko Gdańsk
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STALE_CONFIRMED_RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="R 1" />)
+    await waitForRoute()
+
+    // Nie mylić z trybem „zero potwierdzeń" — ten ma potwierdzony Gdańsk.
+    expect(screen.queryByText('Brak potwierdzeń przejazdu z PKP.')).not.toBeInTheDocument()
+    const here = screen.getAllByText('Pociąg jest tutaj — szacowane z rozkładu')
+    expect(here).toHaveLength(1)
+    // Marker przeskoczył z Gdańska (ostatni potwierdzony) na Malbork (projekcja).
+    // eslint-disable-next-line testing-library/no-node-access -- wiersz przystanku
+    expect(here[0].closest('li')).toHaveTextContent('Malbork')
+    expect(screen.getAllByText('w trasie').length).toBeGreaterThan(0)
+  })
+
+  it('keeps the plain marker on the confirmed stop while confirmations keep up (< 2 stops behind)', async () => {
+    freezeClock('2026-08-01T09:25:00Z') // rozkład ledwo za Tczewem (09:20) — tylko 1 przystanek za potwierdzeniem
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STALE_CONFIRMED_RESPONSE)))
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="R 1" />)
+    await waitForRoute()
+
+    expect(screen.queryByText(/szacowane z rozkładu/)).not.toBeInTheDocument()
+    const here = screen.getAllByText('Pociąg jest tutaj')
+    expect(here).toHaveLength(1)
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(here[0].closest('li')).toHaveTextContent('Gdańsk Główny')
+  })
+
   it('shows a dwell badge only for a stop long enough to matter', async () => {
     // Na żywym API 4880 z 7173 postojów trwa dokładnie minutę — plakietka przy
     // każdym z nich to szum. Próg jest częścią informacji, nie kosmetyką.
