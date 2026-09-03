@@ -177,6 +177,50 @@ describe('PollerDiagnostics', () => {
     expect(screen.queryByText(/błąd konfiguracji/)).not.toBeInTheDocument()
   })
 
+  it('shows the GTFS section: source, cities ready, per-city feed age and version', async () => {
+    stubHealth({
+      ...HEALTHY,
+      gtfs: {
+        dataSource: 'mock',
+        cities: {
+          warszawa: { state: 'ready', loadedAt: '2026-08-01T12:00:00.000Z', feedVersion: 'mock-1', droppedRows: 0 },
+          krakow: { state: 'failed', loadedAt: null, feedVersion: null, droppedRows: null },
+        },
+      },
+    })
+    render(<PollerDiagnostics collapsed={false} />)
+
+    expect(await screen.findByText('Komunikacja miejska')).toBeInTheDocument()
+    expect(screen.getByText('1 / 2')).toBeInTheDocument() // gotowe / wszystkie
+    expect(screen.getByText(/mock-1 · /)).toBeInTheDocument()
+    // failed → wiek „—", nigdy 0.
+    expect(screen.getByText(/— · —/)).toBeInTheDocument()
+  })
+
+  it('sums droppedRows only across cities that were parsed, never counting null as 0', async () => {
+    stubHealth({
+      ...HEALTHY,
+      gtfs: {
+        dataSource: 'live',
+        cities: {
+          warszawa: { state: 'ready', loadedAt: '2026-08-01T12:00:00.000Z', feedVersion: 'v1', droppedRows: 12 },
+          krakow: { state: 'idle', loadedAt: null, feedVersion: null, droppedRows: null },
+        },
+      },
+    })
+    render(<PollerDiagnostics collapsed={false} />)
+
+    expect(await screen.findByText('Odrzucone wiersze')).toBeInTheDocument()
+    expect(screen.getByText('12')).toBeInTheDocument()
+  })
+
+  it('omits the GTFS section when the subproject is disabled', async () => {
+    stubHealth({ ...HEALTHY, gtfs: { enabled: false } })
+    render(<PollerDiagnostics collapsed={false} />)
+    await screen.findByText('live')
+    expect(screen.queryByText('Komunikacja miejska')).not.toBeInTheDocument()
+  })
+
   it('survives a server that does not report feeds at all', async () => {
     // Panel deweloperski nie ma prawa wywrócić paska bocznego -- ta sama
     // zasada co pusty catch przy błędzie fetcha.

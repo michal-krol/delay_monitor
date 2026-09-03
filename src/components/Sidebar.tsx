@@ -5,7 +5,7 @@ import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { HomeIcon, ListIcon, StarIcon, BellIcon, RouteIcon, MapIcon, SettingsIcon, ChevronRightIcon } from './icons'
 import { PollerDiagnostics } from './PollerDiagnostics'
 
-type ActiveItem = 'pulpit'
+type ActiveItem = 'pulpit' | 'odjazdy' | 'trasy'
 
 type Props = {
   // Opcjonalny -- jedyny prawdziwy wpis nawigacji to "Pulpit"; reszta jest
@@ -28,14 +28,20 @@ function environmentLabel(branch: string): string {
 
 type NavItem =
   | { kind: 'active'; key: ActiveItem; href: string; label: string; icon: typeof HomeIcon }
-  | { kind: 'disabled'; label: string; icon: typeof HomeIcon; badge?: number }
+  | { kind: 'disabled'; label: string; icon: typeof HomeIcon; badge?: number; title?: string }
 
+/**
+ * „Odjazdy / Przyjazdy" prowadzi na `/miasto`, „Trasy" na `/linie` — obie trasy
+ * dobierają domyślne miasto (ostatnie z `useCityContext` albo to z największą
+ * liczbą stacji kolejowych) i przekierowują. Przełącznik miasta jest w treści
+ * tamtych ekranów, nie w menu.
+ */
 const NAV_ITEMS: NavItem[] = [
   { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
-  { kind: 'disabled', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
+  { kind: 'active', key: 'odjazdy', href: '/miasto', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
+  { kind: 'active', key: 'trasy', href: '/linie', label: 'Trasy', icon: RouteIcon },
   { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
   { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
-  { kind: 'disabled', label: 'Trasy', icon: RouteIcon },
   { kind: 'disabled', label: 'Mapa', icon: MapIcon },
   { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
 ]
@@ -124,7 +130,7 @@ export function Sidebar({ activeItem }: Props) {
               key={item.label}
               aria-disabled="true"
               aria-label={item.label}
-              title="Wkrótce"
+              title={item.title ?? 'Wkrótce'}
               className="flex cursor-not-allowed items-center justify-between gap-3 rounded-[10px] px-3 py-2.5 text-sm text-text-muted opacity-50"
             >
               <div className="flex items-center gap-3">

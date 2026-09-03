@@ -1,11 +1,14 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { ArrowLeftIcon, ShareIcon } from './icons'
 import { ThemeToggle } from './ThemeToggle'
 
 type HeaderVariant = {
   title: string
   subtitle: string
+  /** Kontrolki po prawej stronie nagłówka (np. wybór miasta), przed `ThemeToggle`. */
+  actions?: ReactNode
   backLabel?: never
   onBack?: never
 }
@@ -46,6 +49,7 @@ export function TopBar(props: Props) {
       )}
 
       <div className="flex shrink-0 items-center gap-2">
+        {!isBackVariant && props.actions}
         {isBackVariant && props.onShare !== undefined && (
           <button
             type="button"

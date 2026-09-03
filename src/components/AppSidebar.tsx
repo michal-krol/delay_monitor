@@ -12,5 +12,14 @@ import { Sidebar } from './Sidebar'
  */
 export function AppSidebar() {
   const pathname = usePathname()
-  return <Sidebar activeItem={pathname === '/' ? 'pulpit' : undefined} />
+  const isLines = pathname === '/linie' || /^\/miasto\/[^/]+\/lini[ae]/.test(pathname)
+  const activeItem =
+    pathname === '/'
+      ? 'pulpit'
+      : isLines
+        ? 'trasy'
+        : pathname === '/miasto' || pathname.startsWith('/miasto/')
+          ? 'odjazdy'
+          : undefined
+  return <Sidebar activeItem={activeItem} />
 }

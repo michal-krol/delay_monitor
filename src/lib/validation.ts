@@ -15,3 +15,33 @@ export const STATION_ID_PATTERN = /^\d{1,10}$/
 
 /** Data kursowania (yyyy-MM-dd) — parametr `/api/train` i `/operations/train/...`. */
 export const OPERATING_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Slug miasta w warstwie GTFS — pełna nazwa bez polskich znaków (`warszawa`,
+ * `krakow`), segment trasy (`/miasto/[city]`) i klucz do rejestru miast, który
+ * wybiera feed. Musi być sprawdzony wobec rejestru u wejścia każdego handlera
+ * GTFS: to on decyduje, skąd pobieramy dane. Tylko małe litery ASCII — trafia
+ * do adresu URL i do kluczy `Map`.
+ */
+export const CITY_ID_PATTERN = /^[a-z]{2,24}$/
+
+/**
+ * Identyfikatory przystanków GTFS NIE są liczbami (inaczej niż w PKP):
+ * `100101` (zespół+słupek), `7014M` (stacja metra), `7014M:P1` (peron metra).
+ * Osobny wzorzec, NIE rozluźnienie `STATION_ID_PATTERN` — tamten chroni
+ * identyfikatory trafiające do zapytań kierowanych do PKP i musi zostać ścisły.
+ *
+ * W odróżnieniu od PKP identyfikator GTFS nigdy nie trafia do wychodzącego
+ * URL-a — jest wyłącznie kluczem do naszej własnej `Map`. Realną granicą
+ * zaufania jest `stopIndexById.get(id) === undefined → null`; ten regex to tani
+ * strażnik formatu i długości.
+ */
+export const GTFS_STOP_ID_PATTERN = /^[A-Za-z0-9]{1,12}(?::[A-Za-z0-9]{1,6})?$/
+
+/**
+ * Identyfikator linii GTFS (`route_id`) — `M1`, `521`, `N16`, `L-1`. Jak przy
+ * przystankach: nigdy nie trafia do wychodzącego URL-a, jest kluczem do naszej
+ * `Map`; realną granicą zaufania jest `routeIndexById.get(id) === undefined`.
+ * Ten regex to tani strażnik formatu i długości.
+ */
+export const GTFS_ROUTE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,39}$/

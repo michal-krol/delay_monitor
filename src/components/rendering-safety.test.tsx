@@ -2,7 +2,9 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
+import { LineGrid } from './LineGrid'
 import { StationCard } from './StationCard'
+import { TransitDepartureList } from './TransitDepartureList'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { jsonResponse } from '@/test-utils/http'
 
@@ -125,6 +127,76 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
 
       unmount()
       vi.unstubAllGlobals()
+    }
+  })
+
+  it('ładunki w danych GTFS (route_color, route_long_name, trip_headsign, stop_name) renderują się jako tekst', () => {
+    for (const payload of PAYLOADS) {
+      const { container, unmount } = render(
+        <TransitDepartureList
+          departures={[
+            {
+              tripId: payload,
+              routeId: payload,
+              line: payload,
+              mode: 'bus',
+              lineKind: 'regular',
+              // route_color surowy z cudzego serwera — LineBadge dostaje go jako `color`.
+              color: payload,
+              headsign: payload,
+              plannedAt: '2026-09-02T14:30:00+02:00',
+              departureSec: 52200,
+              serviceDate: '2026-09-02',
+              stopId: payload,
+              platformCode: payload,
+              wheelchair: 0,
+              frequencyBased: false,
+            },
+          ]}
+        />
+      )
+
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('script'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('iframe'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('svg[onload]'), `payload: ${payload}`).toBeNull()
+      // Niezaufany route_color nie może wejść do wartości CSS jako cokolwiek poza
+      // zwalidowanym #RRGGBB — LineBadge pada wtedy na neutralny token.
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      const badge = container.querySelector('[style]')
+      expect(badge?.getAttribute('style') ?? '', `payload: ${payload}`).not.toContain(payload)
+      expect((window as unknown as Record<string, unknown>).__xss, `payload: ${payload}`).toBeUndefined()
+
+      unmount()
+    }
+  })
+
+  it('wroga nazwa kierunkowa linii (route_long_name) w LineGrid renderuje się jako tekst', () => {
+    for (const payload of PAYLOADS) {
+      const { container, unmount } = render(
+        <LineGrid
+          city="warszawa"
+          filter="all"
+          linesByMode={{
+            metro: [],
+            tram: [],
+            bus: [{ routeId: payload, line: payload, longName: payload, color: payload, textColor: '#000000', mode: 'bus', kind: 'regular' }],
+            rail: [],
+            other: [],
+          }}
+        />
+      )
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('script'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('iframe'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      const badge = container.querySelector('[style]')
+      expect(badge?.getAttribute('style') ?? '', `payload: ${payload}`).not.toContain(payload)
+      expect((window as unknown as Record<string, unknown>).__xss, `payload: ${payload}`).toBeUndefined()
+      unmount()
     }
   })
 

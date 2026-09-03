@@ -21,6 +21,11 @@ type Props = {
   isFavourite: boolean
   onToggleFavourite: () => void
   onClose: () => void
+  /**
+   * Osadzone pod wyszukiwarką na ekranie miasta — przycisk „wstecz" i
+   * `ThemeToggle` rysuje wtedy ekran nadrzędny, więc wewnętrzny „✕" znika.
+   */
+  embedded?: boolean
 }
 
 export type Direction = 'departures' | 'arrivals'
@@ -64,7 +69,7 @@ export function TabButton({ active, onClick, children }: { active: boolean; onCl
   )
 }
 
-export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, onClose }: Props) {
+export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, onClose, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
@@ -182,10 +187,15 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 <ShareIcon size={15} />
                 Udostępnij
               </button>
-              <IconButton onClick={onClose} label="Zamknij">
-                <CloseIcon size={15} />
-              </IconButton>
-              <ThemeToggle />
+              {/* Osadzone: przycisk „wstecz" i motyw rysuje ekran nadrzędny. */}
+              {!embedded && (
+                <>
+                  <IconButton onClick={onClose} label="Zamknij">
+                    <CloseIcon size={15} />
+                  </IconButton>
+                  <ThemeToggle />
+                </>
+              )}
             </div>
           </div>
         </section>

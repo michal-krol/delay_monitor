@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
+import type { Favourite } from '@/hooks/useFavourites'
 import { jsonResponse } from '@/test-utils/http'
 
 // BoardTable (rendered via FocusedStation in the focused branch) navigates via useRouter().
@@ -10,13 +11,21 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }))
 
+// Karty przystanków miejskich odpytują własny endpoint — mockujemy hook.
+vi.mock('@/hooks/useTransitBoard', () => ({
+  useTransitBoard: () => ({
+    data: { stops: [{ stopId: '7014M', name: 'Świętokrzyska', modes: ['metro'], departures: [] }], schedule: { state: 'ready' }, attribution: [] },
+    error: null,
+  }),
+}))
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const FAVOURITES = [
-  { id: '5100', name: 'Warszawa Centralna' },
-  { id: '5136', name: 'Kraków Główny' },
+const FAVOURITES: Favourite[] = [
+  { kind: 'pkp', id: '5100', name: 'Warszawa Centralna' },
+  { kind: 'pkp', id: '5136', name: 'Kraków Główny' },
 ]
 
 /** Karta na dashboardzie znaleziona po nazwie stacji w jej nagłówku. */
@@ -173,7 +182,23 @@ describe('Dashboard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Usuń z ulubionych: Kraków Główny' }))
 
-    expect(onRemove).toHaveBeenCalledWith('5136')
+    expect(onRemove).toHaveBeenCalledWith('pkp:5136')
+  })
+
+  it('renders a transit stop card for a gtfs favourite alongside station cards (Pulpit is above cities)', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <Dashboard
+        favourites={[...FAVOURITES, { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }]}
+        onExpand={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Świętokrzyska' })).toBeInTheDocument()
+    expect(screen.getByText('Rozkład — warszawa')).toBeInTheDocument()
   })
 
   it('drops stale snapshots for stations that are no longer favourites', async () => {

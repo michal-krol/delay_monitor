@@ -309,3 +309,60 @@ PKP_CONTRACT=1 npm run test -- contract
 
 `src/lib/pkp/contract.test.ts` pyta wyłącznie o obecność pól i parametrów —
 to ich zniknięcie robi ciche awarie (2026-08-30: `withPlanned`/`fullRoute`).
+
+## 13. Komunikacja miejska (GTFS) to osobna dziedzina, nie rozszerzenie PKP
+
+Podprojekt `src/lib/gtfs/` żyje obok warstwy PKP i **niczego z niej nie
+dziedziczy**. Rzeczy, które łatwo złamać:
+
+- **Zero pola opóźnienia.** W `src/lib/gtfs/types.ts` nie istnieje
+  `delayMinutes`/`actualAt`/`predictedAt` i nie ma go w żadnej odpowiedzi
+  `/api/gtfs/*`. Nikt nie publikuje opóźnień miejskich dla Warszawy —
+  docelowo (etap 5) wystarczą pozycje pojazdów. Brak pola jest mechanizmem
+  kontrolnym: komunikat to zawsze „rozkład", **nigdy „na czas"**.
+- **Trzy niezależne rytmy.** PKP poller (90 s) ↔ przeglądarka (`/api/board`,
+  30 s) ↔ GTFS poller (raz na dobę + TTL bezczynności). GTFS ładuje się **raz**
+  (~107 MB, ~3 s parse), potem tylko czyta się z pamięci. `/api/gtfs/*` nigdy
+  nie czekają na pobranie feedu — `ensureLoaded()` jest fire-and-forget,
+  `getSchedule()` zwraca `null` dopóki nie gotowe, a klient ponawia.
+- **Rejestr miast (`gtfs/cities.ts`) to jedyne miejsce z logiką per-miasto.**
+  Kolejne miasto = jeden wpis w `REGISTRY`, zero nowego kodu (test odbioru:
+  `cities.test.ts`). Slug miasta to **pełna nazwa bez polskich znaków**
+  (`warszawa`, `krakow`), nie trzyliterowy kod — `[a-z]{2,24}`, katalog fixture'a
+  = slug (`fixtures/gtfs/warszawa/`). Słów „wtp"/„ztm" nie ma nigdzie poza tym
+  plikiem i fixture'ami.
+- **Identyfikatory GTFS (`stop`, `route`) nigdy nie trafiają do wychodzącego
+  URL-a** — są kluczami do `Map` w pamięci. Realną granicą zaufania jest
+  `stopIndexById.get(id) === undefined` / `routeIndexById.get(id) === undefined
+  → null` (200, nie 400 — konwencja nieznanego ID). Regexy w `validation.ts`
+  (`GTFS_STOP_ID_PATTERN`, `GTFS_ROUTE_ID_PATTERN`) to tani strażnik formatu.
+  `city` **natomiast** MUSI być sprawdzone wobec rejestru — wybiera feed.
+- **`route_color` to niezaufany string z cudzego serwera.** Walidacja na
+  granicy Zod (`schema.ts`) → `#RRGGBB` albo `null`; `route_text_color`
+  **ignorowany w całości**, kontrast liczymy sami (`contrastText`). `LineBadge`
+  używa wyłącznie `style={{ background }}` ze zwalidowaną wartością.
+- **`schedule.routePatterns`** (przebieg linii per kierunek + `offsets`
+  sekundowe względem przystanku startowego) jest akumulowany w gorącej pętli
+  `stop_times` — **nie skanuj milionów zdarzeń per żądanie** strony linii.
+  `lineDetail()` czyta gotowy indeks; strona linii liczy godzinę na kolejnych
+  przystankach jako `czas startowy + offsetSec` (bez dodatkowego zapytania).
+- **Kategoria dnia** (`serviceCategory` w `schema.ts` → `schedule.tripCategory`):
+  najpierw token w `service_id` (`…:PcS` roboczy, `SbM` sobota, `NdM` niedziela,
+  `PtS` piątek — konwencja WTP), potem rozkład dni tygodnia dat kursowania
+  (feed z `calendar.txt`). Sekcje rozkładu linii („dni robocze"/„soboty"/
+  „niedziele i święta") biorą się stąd — widoczne tylko kategorie z okna
+  `[wczoraj, dziś, jutro]`. Fixture mocka (`fixtures/gtfs/warszawa/`) modeluje
+  wszystkie trzy: linia `20` ma warianty `PcS`/`SbS`/`NdS`
+  (`{{DZIS}}`/`{{JUTRO}}`/`{{WCZORAJ}}`).
+- **Rozkład wyznacza doby `[wczoraj, dziś, jutro]`** — `/operations`-owy problem
+  z #9 tu nie występuje (GTFS nie ma feedu realizacji), ale liczenie „dziś"
+  nadal idzie przez `serviceDateWindow()` i indeks doby, nie przez `new Date()`.
+
+Kontrakt wobec publicznego schematu feedu (poza CI, wymaga sieci, bez kosztu):
+
+```bash
+GTFS_CONTRACT=1 npm run test -- gtfs/contract
+```
+
+`GTFS_DATA_SOURCE=mock` (domyślnie) trzyma `npm run dev`/`test`/CI zerowo-
+sieciowe. Fixture'y w `fixtures/gtfs/<city>/` to zwykłe `.txt`, bez ZIP-a.
