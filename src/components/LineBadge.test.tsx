@@ -4,17 +4,21 @@ import { describe, expect, it } from 'vitest'
 import { LineBadge } from './LineBadge'
 
 describe('LineBadge', () => {
-  it('renders the line number and applies a validated colour inline', () => {
-    render(<LineBadge line="M1" color="#0000bb" mode="metro" />)
-    const badge = screen.getByText('M1')
-    expect(badge).toHaveStyle({ background: '#0000bb' })
-    // Kontrast liczony samodzielnie — granat → biały tekst.
-    expect(badge).toHaveStyle({ color: '#ffffff' })
+  it('renders a plain badge with no href', () => {
+    render(<LineBadge line="20" color={null} mode="tram" />)
+    expect(screen.getByText('20')).toBeInTheDocument()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
-  it('falls back to a neutral token when the feed had no valid colour', () => {
-    render(<LineBadge line="20" color={null} mode="tram" />)
-    const badge = screen.getByText('20')
-    expect(badge.getAttribute('style')).toContain('var(--surface-border)')
+  it('wraps in a link to the line details when href is given', () => {
+    render(<LineBadge line="M1" color="#0000bb" mode="metro" href="/miasto/waw/linia/M1" />)
+    const link = screen.getByRole('link', { name: 'Linia M1' })
+    expect(link).toHaveAttribute('href', '/miasto/waw/linia/M1')
+  })
+
+  it('falls back to the neutral token for a colour that is not #rrggbb', () => {
+    render(<LineBadge line="X" color={'red; background:url(x)' as string} mode="bus" />)
+    const badge = screen.getByText('X')
+    expect(badge.getAttribute('style') ?? '').not.toContain('url(x)')
   })
 })

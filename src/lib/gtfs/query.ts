@@ -302,51 +302,6 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
   return { ...toLineListEntry(route), directions }
 }
 
-export type TimetableEntry = {
-  tripId: string
-  departureSec: number
-  plannedAt: string
-  headsign: string | null
-  frequencyBased: boolean
-}
-
-/**
- * Pełna tabliczka dobowa dla pary (przystanek/zespół, linia) w danej dobie
- * kursowania (`serviceDayIndex` 0/1/2). Klasyczna tabliczka na słupku.
- */
-export function dayTimetable(
-  schedule: GtfsSchedule,
-  stopId: string,
-  routeId: string,
-  serviceDayIndex: number
-): TimetableEntry[] {
-  const routeIdx = schedule.routeIndexById.get(routeId)
-  if (routeIdx === undefined) return []
-  const stopIndices = resolveStopIndices(schedule, stopId)
-
-  const entries: TimetableEntry[] = []
-  for (const stopIndex of stopIndices) {
-    const lo = schedule.stopEventOffset[stopIndex]
-    const hi = schedule.stopEventOffset[stopIndex + 1]
-    for (let k = lo; k < hi; k += 1) {
-      const eventIndex = schedule.stopEventOrder[k]
-      const trip = schedule.evTrip[eventIndex]
-      if (schedule.tripRoute[trip] !== routeIdx) continue
-      if (schedule.tripServiceDay[trip] !== serviceDayIndex) continue
-      const headsignIdx = schedule.tripHeadsign[trip]
-      entries.push({
-        tripId: schedule.tripIds[trip],
-        departureSec: schedule.evDepSec[eventIndex],
-        plannedAt: isoInZone(schedule.evAbsSec[eventIndex] * 1000, schedule.timezone),
-        headsign: headsignIdx >= 0 ? schedule.headsigns[headsignIdx] : null,
-        frequencyBased: schedule.tripFrequencyBased[trip] === 1,
-      })
-    }
-  }
-  entries.sort((a, b) => a.departureSec - b.departureSec)
-  return entries
-}
-
 export type StopSummary = {
   lineCount: number
   /** Liczba odjazdów zespołu w dobie `serviceDayIndex`. */

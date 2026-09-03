@@ -57,6 +57,12 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByText('Piaski')).not.toBeInTheDocument()
   })
 
+  it('links a departure-row line badge to the line details', () => {
+    render(<TransitStopDetail city="waw" stopId="7014M" />)
+    const link = screen.getAllByRole('link', { name: 'Linia M1' })[0]
+    expect(link).toHaveAttribute('href', '/miasto/waw/linia/M1')
+  })
+
   it('hides the internal share button when embedded', () => {
     render(<TransitStopDetail city="waw" stopId="7014M" embedded />)
     expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()

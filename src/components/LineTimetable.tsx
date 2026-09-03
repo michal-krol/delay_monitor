@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import type { LineDepartureBlock } from '@/lib/gtfs/query'
 import type { ServiceCategory } from '@/lib/gtfs/schema'
 
@@ -40,50 +41,54 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect }: 
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b" style={{ borderColor: 'var(--surface-border)' }}>
-            <th className="w-10 py-2 pr-2 text-right text-xs font-semibold text-text-muted">godz.</th>
             {blocks.map((block) => (
-              <th key={block.category} className="px-2 py-2 text-left text-xs font-semibold text-text-secondary">
-                {CATEGORY_LABEL[block.category]}
-              </th>
+              <Fragment key={block.category}>
+                <th className="w-10 px-2 py-2 text-right text-xs font-semibold text-text-muted">godz.</th>
+                <th className="px-2 py-2 text-left text-xs font-semibold text-text-secondary">
+                  {CATEGORY_LABEL[block.category]}
+                </th>
+              </Fragment>
             ))}
           </tr>
         </thead>
         <tbody>
           {hours.map((hour) => (
             <tr key={hour} className="border-b align-baseline" style={{ borderColor: 'var(--surface-border)' }}>
-              <th scope="row" className="py-1.5 pr-2 text-right font-bold tabular-nums text-foreground">
-                {twoDigit(hour % 24)}
-              </th>
               {blocks.map((block) => {
                 const cells = block.times
                   .map((base) => ({ base, disp: base + offsetSec }))
                   .filter((cell) => Math.floor(cell.disp / 3600) === hour)
                   .sort((a, b) => a.disp - b.disp)
                 return (
-                  <td key={block.category} className="px-2 py-1.5">
-                    <span className="flex flex-wrap gap-x-1.5 gap-y-1">
-                      {cells.map((cell) => {
-                        const on = cell.base === selectedBaseSec
-                        const minute = twoDigit(Math.floor((cell.disp % 3600) / 60))
-                        return (
-                          <button
-                            key={cell.base}
-                            type="button"
-                            aria-pressed={on}
-                            aria-label={`${twoDigit(hour % 24)}:${minute}`}
-                            onClick={() => onSelect(on ? null : cell.base)}
-                            className={`rounded px-1 tabular-nums transition ${
-                              on ? 'font-bold text-white' : 'text-text-secondary hover:text-foreground'
-                            }`}
-                            style={on ? { background: 'var(--accent-gradient)' } : undefined}
-                          >
-                            {minute}
-                            {block.frequencyBased && <span className="text-text-muted">~</span>}
-                          </button>
-                        )
-                      })}
-                    </span>
-                  </td>
+                  <Fragment key={block.category}>
+                    <th scope="row" className="px-2 py-1.5 text-right font-bold tabular-nums text-foreground">
+                      {twoDigit(hour % 24)}
+                    </th>
+                    <td className="px-2 py-1.5">
+                      <span className="flex flex-wrap gap-x-1.5 gap-y-1">
+                        {cells.map((cell) => {
+                          const on = cell.base === selectedBaseSec
+                          const minute = twoDigit(Math.floor((cell.disp % 3600) / 60))
+                          return (
+                            <button
+                              key={cell.base}
+                              type="button"
+                              aria-pressed={on}
+                              aria-label={`${twoDigit(hour % 24)}:${minute}`}
+                              onClick={() => onSelect(on ? null : cell.base)}
+                              className={`rounded px-1 tabular-nums transition ${
+                                on ? 'font-bold text-white' : 'text-text-secondary hover:text-foreground'
+                              }`}
+                              style={on ? { background: 'var(--accent-gradient)' } : undefined}
+                            >
+                              {minute}
+                              {block.frequencyBased && <span className="text-text-muted">~</span>}
+                            </button>
+                          )
+                        })}
+                      </span>
+                    </td>
+                  </Fragment>
                 )
               })}
             </tr>

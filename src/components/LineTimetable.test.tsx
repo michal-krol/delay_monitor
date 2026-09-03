@@ -15,6 +15,8 @@ describe('LineTimetable', () => {
     render(<LineTimetable blocks={blocks} offsetSec={480} selectedBaseSec={null} onSelect={() => {}} />)
     expect(screen.getByRole('columnheader', { name: 'Poniedziałek – Piątek' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Soboty' })).toBeInTheDocument()
+    // kolumna „godz." powielona przy każdej kategorii
+    expect(screen.getAllByRole('columnheader', { name: 'godz.' })).toHaveLength(2)
     // 06:00 + 8 min = 06:08
     expect(screen.getByRole('button', { name: '06:08' })).toBeInTheDocument()
     // sobota 08:00 + 8 min

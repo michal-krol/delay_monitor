@@ -145,7 +145,7 @@ function WeatherStat({ icon, label, value }: { icon: React.ReactNode; label: str
  * wartość stanu: „brak danych lokalizacyjnych" to coś innego niż „nie udało
  * się pobrać" (AGENTS.md #7 -- różne komunikaty dla różnych przyczyn).
  */
-function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
+export function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
   if (weather.status === 'loading') return <EmptyHint>Wczytywanie pogody…</EmptyHint>
   if (weather.status === 'error') return <EmptyHint>Nie udało się pobrać pogody.</EmptyHint>
   if (weather.status === 'unavailable') return <EmptyHint>Brak danych lokalizacyjnych dla tej stacji.</EmptyHint>

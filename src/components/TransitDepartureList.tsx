@@ -6,6 +6,8 @@ type Props = {
   loading?: boolean
   /** Nagłówek listy — domyślnie „Rozkład". NIGDY „na czas": komunikacja miejska nie ma realizacji. */
   emptyMessage?: string
+  /** Gdy podane — plakietka linii linkuje do jej szczegółów (`/miasto/[city]/linia/[routeId]`). */
+  city?: string
 }
 
 /** `plannedAt` niesie już offset strefy miasta — HH:MM wycinamy wprost z ISO. */
@@ -16,7 +18,7 @@ const clock = (iso: string) => iso.slice(11, 16)
  * celowe: tu nie ma opóźnień, więc nie ma kolumny statusu — jest „rozkład".
  * Nic nie udaje danych, których nie ma (niezmiennik #7 w układzie ekranu).
  */
-export function TransitDepartureList({ departures, loading = false, emptyMessage = 'Brak odjazdów w rozkładzie' }: Props) {
+export function TransitDepartureList({ departures, loading = false, emptyMessage = 'Brak odjazdów w rozkładzie', city }: Props) {
   if (loading) {
     return (
       <ul className="mt-3 space-y-2" aria-hidden="true">
@@ -44,7 +46,13 @@ export function TransitDepartureList({ departures, loading = false, emptyMessage
           >
             {clock(departure.plannedAt)}
           </time>
-          <LineBadge line={departure.line} color={departure.color} mode={departure.mode} size="sm" />
+          <LineBadge
+            line={departure.line}
+            color={departure.color}
+            mode={departure.mode}
+            size="sm"
+            href={city !== undefined ? `/miasto/${city}/linia/${encodeURIComponent(departure.routeId)}` : undefined}
+          />
           <span className="min-w-0 flex-1 truncate text-sm text-foreground">
             {departure.headsign ?? '—'}
           </span>

@@ -10,7 +10,6 @@ import type { GtfsLine } from '@/lib/gtfs/query'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
 import { LineBadge } from './LineBadge'
-import { DayTimetablePanel } from './DayTimetablePanel'
 import { ScheduleStatus } from './ScheduleStatus'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
@@ -180,16 +179,7 @@ export function TransitStopDetail({
             </div>
           )}
 
-          <TransitDepartureList departures={departures} loading={loading} />
-
-          {lineFilter !== null && (
-            <DayTimetablePanel
-              city={city}
-              stopId={stopId}
-              routeId={lineFilter}
-              lineLabel={board?.lines.find((line) => line.routeId === lineFilter)?.line ?? lineFilter}
-            />
-          )}
+          <TransitDepartureList departures={departures} loading={loading} city={city} />
         </section>
       </div>
 
@@ -214,7 +204,13 @@ export function TransitStopDetail({
                   <div className="flex flex-wrap items-center gap-1.5">
                     {lines.map((line) => (
                       <span key={line.routeId} className="inline-flex items-center gap-1">
-                        <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
+                        <LineBadge
+                          line={line.line}
+                          color={line.color}
+                          mode={line.mode}
+                          size="sm"
+                          href={`/miasto/${city}/linia/${encodeURIComponent(line.routeId)}`}
+                        />
                         {LINE_KIND_LABEL[line.kind] !== '' && (
                           <span className="text-[10px] text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
                         )}

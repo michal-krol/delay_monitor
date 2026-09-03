@@ -10,7 +10,7 @@ const MODE_ROWS: { mode: GtfsMode; label: string; icon: typeof BusIcon }[] = [
   { mode: 'metro', label: 'metro', icon: MetroIcon },
   { mode: 'tram', label: 'tramwaj', icon: TramIcon },
   { mode: 'bus', label: 'autobus', icon: BusIcon },
-  { mode: 'rail', label: 'kolej strefowa', icon: TrainIcon },
+  { mode: 'rail', label: 'kolej', icon: TrainIcon },
 ]
 
 /** `sec` może przekroczyć 86400 (kurs po północy) — zwijamy do zegara doby. */

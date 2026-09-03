@@ -22,11 +22,16 @@ describe('ScheduleStatus', () => {
     expect(screen.getByText(/rozkład przejazdów/)).toBeInTheDocument()
   })
 
-  it('shows the ready line with the "current as of" date (today = middle of the window)', () => {
+  it('shows the ready line with the "Aktualizacja" timestamp from loadedAt', () => {
     render(<ScheduleStatus schedule={block({})} cityName="Warszawa" />)
     expect(screen.getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()
-    // serviceDates[1] = 2026-09-02 (środa)
-    expect(screen.getByText(/aktualny na .*2 września/)).toBeInTheDocument()
+    expect(screen.getByText(/Aktualizacja: .*2 września 2026/)).toBeInTheDocument()
+  })
+
+  it('uses a custom title when given (line detail page)', () => {
+    render(<ScheduleStatus schedule={block({})} cityName="Warszawa" title="Rozkład jazdy linii 20" />)
+    expect(screen.getByText(/Rozkład jazdy linii 20/)).toBeInTheDocument()
+    expect(screen.queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
   })
 
   it('surfaces a failed refresh with the age of the still-served data', () => {

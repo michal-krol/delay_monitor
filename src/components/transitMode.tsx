@@ -6,7 +6,7 @@ export const MODE_LABEL: Record<GtfsMode, string> = {
   metro: 'metro',
   tram: 'tramwaj',
   bus: 'autobus',
-  rail: 'kolej strefowa',
+  rail: 'kolej',
   other: 'inne',
 }
 

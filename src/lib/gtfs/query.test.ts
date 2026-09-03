@@ -4,7 +4,6 @@ import { contrastText, lineKindFrom, modeFromRouteType } from './schema'
 import {
   allLines,
   cityStats,
-  dayTimetable,
   groupLines,
   lineDetail,
   linesByMode,
@@ -217,25 +216,6 @@ describe('linesByMode', () => {
   })
 })
 
-describe('dayTimetable', () => {
-  it('returns every departure of a (stop, route) for the service day, time-sorted', async () => {
-    const schedule = await make({
-      trips: [
-        { routeId: '1', serviceId: 'S', tripId: 'x', headsign: 'A', directionId: 0 },
-        { routeId: '1', serviceId: 'S', tripId: 'y', headsign: 'A', directionId: 0 },
-      ],
-      stopTimeLines: [
-        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
-        'x,1001,22:00:00,22:00:00,1',
-        'y,1001,06:00:00,06:00:00,1',
-      ],
-    })
-    const entries = dayTimetable(schedule, '1001', '1', 1)
-    expect(entries.map((e) => e.departureSec)).toEqual([6 * 3600, 22 * 3600])
-    expect(dayTimetable(schedule, '1001', '1', 0)).toEqual([])
-  })
-})
-
 describe('edge cases', () => {
   it('nextDepartures on a bare stop id (not a group) still works', async () => {
     const schedule = await make({
@@ -245,12 +225,6 @@ describe('edge cases', () => {
     })
     expect(nextDepartures(schedule, ['900001'], waw0902(11), 5)).toHaveLength(1)
     expect(nextDepartures(schedule, ['nieznany'], waw0902(11), 5)).toEqual([])
-  })
-
-  it('dayTimetable returns [] for an unknown route or stop', async () => {
-    const schedule = await make({})
-    expect(dayTimetable(schedule, '1001', 'ghost', 1)).toEqual([])
-    expect(dayTimetable(schedule, 'ghost', '1', 1)).toEqual([])
   })
 
   it('searchStops returns [] for a blank query', async () => {

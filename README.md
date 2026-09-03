@@ -122,7 +122,7 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
 src/
 ├── app/
 │   ├── api/{board,stations,train,health}/route.ts   endpointy HTTP PKP
-│   ├── api/gtfs/{board,lines,line,timetable,city-stats}/route.ts   endpointy GTFS
+│   ├── api/gtfs/{board,lines,line,city-stats}/route.ts   endpointy GTFS
 │   ├── api/{cities,search}/route.ts             rejestr miast + zunifikowana wyszukiwarka
 │   ├── (app)/miasto/[city]/…                    ekran miasta, linia, przystanek
 │   ├── icon.svg                                 favicon
@@ -197,7 +197,7 @@ faktycznego" — komunikat to zawsze „rozkład", **nigdy „na czas"**. Docelo
 (etap 5) dojdą pozycje pojazdów.
 
 ```
-Przeglądarka ──▶ /api/gtfs/{board,lines,line,timetable,city-stats}
+Przeglądarka ──▶ /api/gtfs/{board,lines,line,city-stats}
                         │ odczyt z pamięci, natychmiast
                         ▼
                  GtfsPoller (per miasto)
@@ -216,9 +216,9 @@ Przeglądarka ──▶ /api/gtfs/{board,lines,line,timetable,city-stats}
   ponawia z narastającym backoffem. Faza ładowania jest widoczna w UI
   („wczytuję rozkład — przystanki i linie"), nie ukryta pod spinnerem.
 - **Hierarchia:** miasto → linia (`/miasto/[city]/linia/[routeId]`, przebieg
-  w obu kierunkach) → przystanek (`/miasto/[city]/przystanek/[stopId]`, tablica
-  + tabliczka dobowa) → rozkład. Stoi obok kolejowej stacja → połączenie →
-  przebieg trasy.
+  w obu kierunkach + rozkład godzinowy z kolumnami dni) → przystanek
+  (`/miasto/[city]/przystanek/[stopId]`, tablica odjazdów) → rozkład. Stoi obok
+  kolejowej stacja → połączenie → przebieg trasy.
 - **Tryb mock domyślny** (`GTFS_DATA_SOURCE=mock`): `npm run dev`, `npm run
   test` i CI są zerowo-sieciowe. Fixture'y to zwykłe `.txt` w
   `fixtures/gtfs/<city>/`. Railway ustawia `live` jawnie.

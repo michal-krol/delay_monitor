@@ -18,7 +18,7 @@ vi.mock('next/navigation', () => ({
 
 const LINE = {
   city: 'waw',
-  schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: ['2026-09-01', '2026-09-02', '2026-09-03'], feedVersion: 'v1' },
+  schedule: { state: 'ready', loadedAt: '2026-09-03T09:15:00.000Z', ageMs: 1000, phase: null, serviceDates: ['2026-09-01', '2026-09-02', '2026-09-03'], feedVersion: 'v1' },
   line: {
     routeId: '20',
     line: '20',
@@ -56,11 +56,11 @@ const LINE = {
 function stubFetch(lineBody: unknown = LINE) {
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) =>
-      url.startsWith('/api/gtfs/line')
-        ? jsonResponse(lineBody)
-        : jsonResponse({ cities: [{ id: 'waw', name: 'Warszawa' }] })
-    )
+    vi.fn((url: string) => {
+      if (url.startsWith('/api/gtfs/line')) return jsonResponse(lineBody)
+      if (url.startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
+      return jsonResponse({ cities: [{ id: 'waw', name: 'Warszawa', railStations: [{ id: '33605', name: 'Warszawa Centralna' }] }] })
+    })
   )
 }
 
@@ -95,12 +95,22 @@ describe('LineDetailPage', () => {
     expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()
   })
 
+  it('shows the right-side panel with a line info card, weather, and the "Aktualizacja" timestamp', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    expect(screen.getByRole('heading', { name: 'Linia 20' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pogoda dziś — Warszawa' })).toBeInTheDocument()
+    expect(screen.getByText(/Rozkład jazdy linii 20/)).toBeInTheDocument()
+    expect(screen.getByText(/Aktualizacja:/)).toBeInTheDocument()
+  })
+
   it('switches direction with the toggle', async () => {
     stubFetch()
     const user = userEvent.setup()
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
-    expect(screen.getByRole('heading', { name: 'Trasa linii' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Rozkład — Centrum' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
     expect(screen.getByRole('heading', { name: 'Rozkład — Dworzec Centralny' })).toBeInTheDocument()

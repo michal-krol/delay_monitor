@@ -3,6 +3,8 @@ import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 type Props = {
   schedule: TransitBoardResponse['schedule']
   cityName: string
+  /** Nagłówek linijki — domyślnie „Rozkład jazdy — {miasto}". Strona linii podaje „Rozkład jazdy linii 20". */
+  title?: string
   /** Bieżący błąd sieci z hooka — dokłada się jako chip, nie zastępuje wieku. */
   error?: boolean
 }
@@ -15,9 +17,15 @@ function formatAge(ageMs: number): string {
   return `${Math.floor(minutes / 60)} h ${minutes % 60} min`
 }
 
-/** `yyyy-MM-dd` → „środa, 3 września" (data doby „dziś" z okna rozkładu). */
-function formatServiceDate(iso: string): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })
+/** ISO → „3 września 2026, 14:23" — kiedy poller ostatnio wczytał rozkład. */
+function formatUpdated(iso: string): string {
+  return new Date(iso).toLocaleString('pl-PL', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -34,7 +42,9 @@ const PHASE_LABEL: Record<string, string> = {
  * FAZĄ (nazwa fazy niepokoi mniej niż licznik sekund). `droppedRows` nie ma
  * w tej odpowiedzi — trójstan jest w `/api/health`.
  */
-export function ScheduleStatus({ schedule, cityName, error = false }: Props) {
+export function ScheduleStatus({ schedule, cityName, title, error = false }: Props) {
+  const heading = title ?? `Rozkład jazdy — ${cityName}`
+
   if (schedule.state === 'loading') {
     return (
       <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
@@ -51,9 +61,9 @@ export function ScheduleStatus({ schedule, cityName, error = false }: Props) {
 
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-      <span>Rozkład jazdy — {cityName}</span>
-      {schedule.serviceDates !== null && (
-        <span className="text-text-muted">· aktualny na {formatServiceDate(schedule.serviceDates[1])}</span>
+      <span>{heading}</span>
+      {schedule.loadedAt !== null && (
+        <span className="text-text-muted">· Aktualizacja: {formatUpdated(schedule.loadedAt)}</span>
       )}
       <span className="contents" aria-live="polite">
         {(schedule.state === 'failed' || stale) && schedule.ageMs !== null && (
