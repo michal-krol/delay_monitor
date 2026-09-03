@@ -5,7 +5,15 @@ Wersjonowanie semantyczne.
 
 ## [Niewydane]
 
-### Zmienione
+## [0.9.10] — 2026-09-03
+
+Duża tura: przebudowa interfejsu wg makiety (własne trasy zamiast modali, nowy
+system wizualny, widok stacji z kafelkami KPI i kolumną kontekstową), widżet
+pogody, widżet stanu sieci, panel diagnostyki pollera oraz — najważniejsze pod
+spodem — **odwrócenie kierunku zależności danych**: listę połączeń wyznacza teraz
+rozkład, nie realizacja.
+
+### Architektura danych
 
 - **Rozkład wyznacza teraz listę połączeń, realizacja ją wzbogaca** —
   odwrócenie kierunku zależności w `board/transform.ts`. Powód zmierzony na
@@ -24,7 +32,9 @@ Wersjonowanie semantyczne.
   różnica: `operations` → 0 odjazdów, `schedule` → 42 odjazdy i 42 przyjazdy.
 
   Przełącznik `BOARD_SOURCE=schedule|operations` (domyślnie `schedule`)
-  pozwala wrócić bez wdrażania kodu. Tymczasowy.
+  pozwala wrócić bez wdrażania kodu. **Tymczasowy** — do usunięcia nie
+  wcześniej niż ~2026-09-14 (dwa tygodnie zdrowego feedu od naprawy 31.08),
+  patrz AGENTS.md #10.
 
 - **`degraded` obejmuje przypadek „są godziny, ale nie znamy opóźnień"** —
   tablica stojąca na samym rozkładzie nie może wyglądać na w pełni sprawną.
@@ -32,13 +42,109 @@ Wersjonowanie semantyczne.
   odpowiada — pokazujemy ostatnie znane dane" od „PKP nie podaje dziś danych
   o ruchu — godziny wg rozkładu".
 
+- **Wariant trasy per (przejazd, dzień)** — `/schedules` (okno dziś+jutro,
+  `fullRoute=true`) zwraca osobny rekord trasy dla każdego dnia kursowania tego
+  samego przejazdu. Zmierzone na żywo: 2008 tras dla jednej stacji, 1657
+  unikalnych kluczy przejazdu; zwykła `Map` „ostatni wygrywa" zostawiała
+  w 217 przypadkach rekord z niewłaściwego dnia (910 zamiast 1094 dzisiejszych
+  odjazdów). `indexRoutesByTrain()` / `findRouteForTrain()` w `board/routeKey.ts`
+  trzymają wariant per dzień plus rezerwę bez daty (AGENTS.md #9).
+
+- **Wykrywanie zamrożonego feedu + odtwarzanie planu z rozkładu** — poller
+  rozpoznaje, że realizacja PKP stanęła (HTTP 200, kształt OK, ale dane sprzed
+  dni) i zgłasza to jako `degraded` z `realizationStale`, zamiast czyścić widok.
+
+- **`/operations` paginowane do końca** — poller brał dotąd tylko pierwszą stronę
+  (sufit 5000) plus warunkowy węższy re-fetch; na dużym węźle w szczycie oba
+  zapytania przekraczały 5000 (zmierzone na dev: 6382 dla samych obserwowanych,
+  9566 z pomocniczymi), a ~1400 realizacji znikało po cichu co cykl — trasa
+  z rozkładu bez dopasowanej realizacji trafiała wtedy na tablicę jako „jeszcze
+  nie wyjechał" dla pociągu, który realnie jedzie. `fetchAllOperations()`
+  dociąga wszystkie strony po `hasNextPage` (`client.getOperations(ids, page?)`,
+  parametr ze swaggera), z bramką budżetową (`PAGINATION_MIN_HOURLY_BUDGET = 20`)
+  i twardym sufitem `MAX_OPERATIONS_PAGES = 6`. Koszt neutralny: 2 strony = 2
+  zapytania, tyle samo co dawny bulk + re-fetch. Zweryfikowane na żywym kluczu:
+  15 obserwowanych stacji → `totalCount` 8314 → `records` 8314, `incomplete` false.
+- **`realizationIncomplete` gdy paginacja się urwie** (budżet / limit stron /
+  błąd) — `/api/board` niesie flagę, `BoardStatus` pokazuje baner „Duży ruch —
+  część pociągów może być pokazana jako »jeszcze nie wyjechał«" zamiast po cichu
+  udawać sprawną tablicę (AGENTS.md #7). Usunięte: `mergeUpstreamStops`,
+  `operationTrainKey`, gałąź warunkowego re-fetchu; `truncatedRefetch` →
+  `operations.incomplete` w diagnostyce.
+- **`UPSTREAM_LOOKBACK_HOPS` 3 → 7** — na gęstych liniach podmiejskich (SKM/KM)
+  ostatni potwierdzony przystanek bywa 5+ hopów przed obserwowaną stacją;
+  `HOPS = 3` (kompromis z 2026-09-01, gdy `/operations` się ucinało) nie łapał
+  takiego pociągu i wisiał on jako „jeszcze nie wyjechał". Odkąd
+  `fetchAllOperations` paginuje, głębszy lookback nie grozi utratą danych —
+  `MAX_AUX_STATIONS` (150) wciąż jest twardym sufitem.
+
 ### Dodane
 
-- **Diagnostyka per źródło PKP** w karcie w pasku bocznym i w `/api/health`:
+- **Widok stacji wg makiety** — `/odjazdy/[stationId]` jako pełna strona
+  (route group `(app)`): nagłówek z aktualnością danych / ulubionymi /
+  „Udostępnij", cztery kafelki KPI („Odjazdy dzisiaj", „Przyjazdy dzisiaj",
+  „Średnie opóźnienie", „Punktualność" — `board/stationStats.ts`, liczone
+  w cyklu pollera, **zero dodatkowych zapytań do PKP**) i prawa kolumna
+  kontekstowa (najpopularniejsze kierunki, utrudnienia na tej stacji,
+  natężenie ruchu w dobie). Stary adres `/?focus={id}` przekierowuje tutaj —
+  widok stacji jest jeden, nie dwa (AGENTS.md #2).
+
+- **Szczegóły połączenia jako własna trasa** — `/polaczenie/[scheduleId]/[orderId]/[operatingDate]`
+  zamiast modala: przebieg trasy przystanek-po-przystanku, wykres prognozy do
+  celu, panel „informacje o połączeniu". Dane dociągane w tle przy powrocie na
+  kartę / focus okna.
+
+- **Pozycja „wg rozkładu" na `/polaczenie`** — dla pociągu bez żadnej realizacji,
+  którego rozkład stawia w połowie trasy (`isScheduleProjection` w
+  `board/trainDetail.ts`), oraz — od ostatniej poprawki — dla pociągu, którego
+  PKP potwierdza przystanki paczkami z opóźnieniem, więc „ostatni potwierdzony"
+  jest 3–5 przystanków za realną pozycją. `resolveProjectedStopIndex()` kotwiczy
+  w ostatnim potwierdzonym przystanku i zakłada dalej tempo rozkładowe;
+  `isStalePositionProjection()` włącza ten tryb tylko gdy projekcja stawia
+  pociąg ≥ 2 przystanki za kotwicą i sama się wyłącza, gdy PKP nadgoni. Marker
+  „Pociąg jest tutaj — szacowane z rozkładu", bez pulsu. **Wyłącznie
+  `/polaczenie`** — tablica stacji nietknięta, projekcja stoi na `isConfirmed`
+  + rozkładzie, nie na `predictedArrival` PKP (AGENTS.md #2).
+
+- **Widżet pogody dziś dla stacji** — w prawej kolumnie widoku stacji
+  (`/api/weather`, Open-Meteo, cache 25 min). Współrzędne z
+  `data/station-coordinates.json` (statyczny plik, regenerowany przez
+  `scripts/enrich-station-coords.mjs`); brak współrzędnych = jawny stan „brak
+  lokalizacji", nie błąd. Open-Meteo jest bezkluczowe i stanowi drugie, poza
+  PKP, wyjście sieciowe aplikacji (AGENTS.md #6).
+
+- **Widżet stanu sieci** — ogólnopolska karta (`/api/network-stats`,
+  `board/networkStats.ts`): liczba pociągów dziś wg statusu, punktualność
+  z sparkline „dziś", najpopularniejsi przewoźnicy, liczba utrudnień na sieci.
+  Własny cache modułowy (statystyki 15 min, utrudnienia 20 min, rozkład
+  przewoźników 24 h), błąd któregokolwiek podzapytania degraduje łagodnie do
+  ostatnich znanych danych. **Konsument budżetu zapytań poza cyklem pollera** —
+  ~7 zapytań/h, liczony osobno (AGENTS.md #3).
+
+- **Panel diagnostyki pollera** w pasku bocznym — źródło danych, stan pollera,
+  budżet zapytań i status per źródło PKP. Widoczny **wyłącznie** w dev/staging
+  (`showDiagnostics()` = `false` na produkcji, allowlista nie denylista).
+
+- **Diagnostyka per źródło PKP** w `/api/health` i w karcie w pasku bocznym:
   dla `/operations`, `/schedules` i `/disruptions` osobno — czy ostatnia próba
   się powiodła, kiedy udało się ostatnio i ile rekordów przyszło. Wcześniej
-  awarie rozkładu i utrudnień degradowały cicho, zostawiając `status: 'ok'`,
-  więc z aplikacji nie dało się odczytać, które źródło zawodzi.
+  awarie rozkładu i utrudnień degradowały cicho, zostawiając `status: 'ok'`.
+
+- **Utrudnienia na trasie** (`/disruptions`, `board/disruptions.ts`) — badge
+  w wierszu tablicy i sekcja w panelu szczegółów połączenia, plus licznik
+  w widżecie stanu sieci. Dopasowanie i dekodowanie treści w jednym miejscu,
+  używane przez tablicę i panel (ten sam wzorzec co `realization.ts`).
+
+- **Opóźnione pociągi zostają na tablicy** — wcześniej wypadały z okna;
+  teraz zostają widoczne z pełnym statusem, plus legenda diagnostyki.
+
+- **Ostrzeżenie o możliwych niewidocznych odwołaniach** — gdy tablica stoi na
+  samym rozkładzie (brak realizacji), UI sygnalizuje, że odwołania mogą nie
+  być widoczne.
+
+- **Plakietka niewyruszonego pociągu pokazuje prognozowane opóźnienie** —
+  szacunek ze stacji bezpośrednio poprzedzającej (`board/upstreamEstimate.ts`),
+  z zastrzeżeniem w tooltipie, że to estymata, nie potwierdzony fakt.
 
 - **`/api/v1/data-version` jako sygnał zamrożenia danych** — wołane warunkowo,
   dopiero gdy feed wygląda na zamrożony, z dławikiem 5 min. Rozstrzyga „to my
@@ -54,6 +160,34 @@ Wersjonowanie semantyczne.
   24 h, czyli przestaje działać dokładnie w dłuższej awarii, kiedy jest
   najbardziej potrzebny.
 
+- **Testy kontraktowe wobec swaggera PKP** (`src/lib/pkp/contract.test.ts`,
+  `PKP_CONTRACT=1`) — sprawdzają obecność pól i parametrów, na których stoi
+  `schema.ts` (2026-08-30 zniknięcie `withPlanned`/`fullRoute` zrobiło cichą
+  awarię).
+
+### Zmienione
+
+- **Nowy system wizualny** — dociągnięcie do makiety Claude Design: krój
+  Manrope, przebudowane tokeny kolorów, wspólna biblioteka ikon
+  (`src/components/icons.tsx`), nasycone tokeny statusów identyczne w obu
+  motywach (WCAG AA), pasek boczny (`Sidebar`) wyniesiony do layoutu, `TopBar`
+  z wariantami nagłówka i powrotu, kolapsowalny pasek boczny z persystowanym,
+  walidowanym stanem. Wersja aplikacji i środowisko widoczne w nagłówku paska
+  bocznego.
+
+- **Pełna tablica** — okno od 5 min wstecz do 3 h naprzód (maks. 40 pozycji,
+  domyślnie 10 + „Pokaż więcej połączeń" po stronie klienta), kierunek
+  z przystankami pośrednimi („przez …, +N przystanków"), peron i tor jako dwie
+  osobne wartości, pasek akcentu w kolorze statusu, błysk tła wiersza przy
+  zmianie opóźnienia (wyłączony przy `prefers-reduced-motion`). Poniżej `sm`
+  wiersz układa się w kartę bez dublowania treści dla czytników ekranu.
+
+- **Przełącznik motywu** — przeniesiony z paska bocznego do stałej ikony
+  w prawym górnym rogu.
+
+- **Godziny na tablicy zawsze w strefie warszawskiej** — nie w strefie
+  przeglądarki.
+
 ### Naprawione
 
 - **Klucz cache'u rozkładu nie zawierał okna dat** — przy TTL 24 h rozkład
@@ -62,8 +196,41 @@ Wersjonowanie semantyczne.
   bieżącego. Niewidoczne, dopóki listę wyznaczała realizacja; po przepięciu
   oznaczałoby pustą tablicę.
 
+- **Nieudane wczytanie współrzędnych** nie gaśnie już na stałe ani nie udaje
+  braku lokalizacji — rozróżnia „nie znamy współrzędnych tej stacji" od „nie
+  udało się teraz pobrać".
+
 - **Progi pokrycia kodu** (89/87/89/91) i **testy w obu strefach czasowych**
   w CI — `TZ` nie było ustawiane nigdzie, mimo wymogu z AGENTS.md #1.
+
+- Drobiazgi UI — mobilny status w osobnym wierszu, mobilna tablica chowała
+  status i peron, `reduced-motion` tylko na błysku, panele boczne przypięte do
+  okna przy długiej liście połączeń, legenda statusów renderowana przez portal
+  (nie obcięta, w pełni kryjąca), ponowienie zapytania po timeout (`AbortError`),
+  hydration mismatch w nagłówku tablicy.
+
+### Dostępność
+
+- Obsługa klawiatury w wyszukiwarce, `Escape` zamyka legendę, węższy
+  `aria-live` na linijce statusu (nie na całej tablicy).
+
+### Infrastruktura
+
+- `next.config.ts` — rozbudowane nagłówki bezpieczeństwa; `turbopack.root`
+  przypięty do katalogu projektu (worktree agentów myliło lockfile).
+- `Dockerfile` — `ARG RAILWAY_GIT_BRANCH` / `RAILWAY_ENVIRONMENT_NAME`
+  w etapie budowania (bez tego etykieta gałęzi/środowiska w UI była martwa na
+  produkcji).
+- CI odpala się przy pushu na `main` **i** `dev` (Railway deployuje z obu);
+  bezpośrednie pushe na `dev` przechodzą przez bramkę jakości.
+- Pokrycie kodu mierzone w CI; testy uruchamiane w `Europe/Warsaw` i `UTC`.
+- `.claude/launch.json` przestał być śledzony.
+
+### Testy
+
+- 150 → 825 (8 pominiętych = kontrakt swaggera, `PKP_CONTRACT=1`). Nowe pliki:
+  `board/resilience`, `board/routeKey`, `board/stationStats`,
+  `board/networkStats`, `pkp/contract`, `lib/validation`, cały `lib/weather/`.
 
 ## [0.9.9] — 2026-08-06
 
