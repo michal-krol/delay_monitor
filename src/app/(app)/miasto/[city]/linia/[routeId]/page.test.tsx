@@ -85,7 +85,7 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveTextContent('Centrum')
     expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveTextContent('Dworzec Centralny')
     // kolumny rozkładu obok siebie — sobota nie pod dniami roboczymi
-    expect(screen.getByRole('columnheader', { name: 'Poniedziałek – Czwartek' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Dni robocze' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Soboty' })).toBeInTheDocument()
     // pełna trasa widoczna od razu (bez rozwijania), z linkiem do tablicy przystanku
     expect(screen.getByRole('link', { name: /pełna tablica słupka/ })).toHaveAttribute(
