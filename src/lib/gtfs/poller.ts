@@ -60,6 +60,10 @@ export type GtfsPollerDeps = {
   now?: () => number
   setTimer?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>
   clearTimer?: (handle: ReturnType<typeof setTimeout>) => void
+  /** Wołane gdy rusza ładowanie rozkładu — `instance.ts` startuje wtedy poller pozycji. */
+  onWake?: () => void
+  /** Wołane gdy timer bezczynności zwalnia rozkład — `instance.ts` zatrzymuje poller pozycji. */
+  onIdle?: () => void
 }
 
 /**
@@ -107,6 +111,7 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
         status = 'idle'
         phase = null
         loadedAtMs = null
+        deps.onIdle?.()
         if (reloadTimer !== null) {
           clearTimer(reloadTimer)
           reloadTimer = null
@@ -134,6 +139,7 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   function startLoad(): void {
     if (loadInFlight || disposed) return
     loadInFlight = true
+    deps.onWake?.()
     if (schedule === null) status = 'loading'
     phase = 'start'
 

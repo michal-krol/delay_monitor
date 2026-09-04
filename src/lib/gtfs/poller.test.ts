@@ -110,6 +110,42 @@ describe('createGtfsPoller', () => {
     poller.dispose()
   })
 
+  it('calls onWake when a load starts and onIdle when the idle timer clears the schedule', async () => {
+    vi.setSystemTime(new Date('2026-09-02T09:00:00Z'))
+    const onWake = vi.fn()
+    const onIdle = vi.fn()
+    const deferreds: Deferred[] = []
+    const load = vi.fn(
+      () =>
+        new Promise<GtfsSchedule>((resolve, reject) => {
+          deferreds.push({ resolve, reject })
+        })
+    )
+    const poller = createGtfsPoller({
+      city: CITY,
+      load,
+      idleTtlMs: 60 * 60 * 1000,
+      onWake,
+      onIdle,
+    })
+
+    poller.ensureLoaded()
+    expect(onWake).toHaveBeenCalledTimes(1)
+
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getSchedule()).not.toBeNull()
+    expect(onIdle).not.toHaveBeenCalled()
+
+    // Brak zainteresowania przez > idleTtlMs; puść pętlę sprawdzającą.
+    vi.setSystemTime(new Date('2026-09-02T11:30:00Z'))
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
+
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    expect(poller.getView().status).toBe('idle')
+    poller.dispose()
+  })
+
   it('releases the schedule from memory after the idle TTL with no interest', async () => {
     const { poller, deferreds } = setup('2026-09-02T09:00:00Z', 60 * 60 * 1000)
     poller.ensureLoaded()

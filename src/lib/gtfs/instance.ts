@@ -9,12 +9,22 @@ import { createLiveClient, type GtfsClient } from './client'
 import { loadSchedule } from './loader'
 import { createMockClient } from './mock'
 import { createGtfsPoller, type GtfsPoller } from './poller'
+import { fetchVehicleFeed, mockVehicleFeed, type VehicleFeedResult } from './vehicleClient'
+import { createVehiclePoller, type VehiclePoller } from './vehiclePoller'
 
 const config = loadConfig()
 const pollers = new Map<string, GtfsPoller>()
+const vehiclePollers = new Map<string, VehiclePoller>()
 
 function clientFor(city: CityFeed): GtfsClient {
   return config.gtfs.dataSource === 'mock' ? createMockClient(city) : createLiveClient(city)
+}
+
+function vehicleFeedFor(city: CityFeed): () => Promise<VehicleFeedResult> {
+  if (config.gtfs.dataSource === 'mock') return mockVehicleFeed(city)
+  const url = city.vehiclesUrl
+  if (url === null) return async () => ({ positions: [], droppedPositions: 0, feedTime: null })
+  return () => fetchVehicleFeed(url)
 }
 
 /**
@@ -30,14 +40,26 @@ export function getGtfsPoller(cityId: string): GtfsPoller | null {
 
   let poller = pollers.get(cityId)
   if (poller === undefined) {
+    const vehiclePoller = createVehiclePoller({
+      fetchFeed: vehicleFeedFor(city),
+      pollMs: config.gtfs.vehiclePollMs,
+    })
+    vehiclePollers.set(cityId, vehiclePoller)
     poller = createGtfsPoller({
       city,
       idleTtlMs: config.gtfs.idleTtlMs,
       load: (feedCity, now, onPhase) => loadSchedule(clientFor(feedCity), feedCity, { now, onPhase }),
+      onWake: () => vehiclePoller.ensureRunning(),
+      onIdle: () => vehiclePoller.stop(),
     })
     pollers.set(cityId, poller)
   }
   return poller
+}
+
+/** Poller pozycji pojazdów miasta bez tworzenia nowego — do `/api/health` i tras GTFS. */
+export function peekVehiclePoller(cityId: string): VehiclePoller | null {
+  return vehiclePollers.get(cityId) ?? null
 }
 
 /** Istniejący poller miasta bez tworzenia nowego — do `/api/health` (samo raportowanie). */
@@ -55,4 +77,6 @@ export function enabledGtfsCities(): CityFeed[] {
 export function __disposeAllGtfsPollers(): void {
   for (const poller of pollers.values()) poller.dispose()
   pollers.clear()
+  for (const vp of vehiclePollers.values()) vp.dispose()
+  vehiclePollers.clear()
 }
