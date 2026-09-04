@@ -375,7 +375,7 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
         stopId: schedule.stopIds[stopIndex],
         groupId,
         name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
-        code: schedule.stopCodes[stopIndex] ?? null,
+        code: schedule.stopCodes[stopIndex] ?? schedule.stopPlatforms[stopIndex] ?? null,
         wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
         offsetSec: pattern.offsets[order] ?? 0,
       }

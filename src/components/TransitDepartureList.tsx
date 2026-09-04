@@ -64,12 +64,12 @@ export function TransitDepartureList({
           <span className="min-w-0 flex-1 truncate text-sm text-foreground">
             {departure.headsign ?? '—'}
           </span>
-          {showSlupek && departure.stopCode !== null && (
+          {showSlupek && (departure.stopCode ?? departure.platformCode) !== null && (
             <span
-              title={`Odjazd ze słupka ${departure.stopCode}`}
+              title={`Odjazd ze słupka ${departure.stopCode ?? departure.platformCode}`}
               className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
             >
-              słup. {departure.stopCode}
+              słup. {departure.stopCode ?? departure.platformCode}
             </span>
           )}
           {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
