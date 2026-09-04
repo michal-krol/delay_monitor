@@ -68,9 +68,9 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('2 przyst.')).toBeInTheDocument()
   })
 
-  it('shows "tuż odjechał" at stopsAway 0', () => {
+  it('shows "zaraz będzie" (approaching, not departed) at stopsAway 0', () => {
     render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 0, ageSec: 15 } })]} />)
-    expect(screen.getByText(/tuż odjechał|zaraz będzie/)).toBeInTheDocument()
+    expect(screen.getByText('zaraz będzie')).toBeInTheDocument()
   })
 
   it('shows skeletons while loading', () => {

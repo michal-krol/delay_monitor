@@ -560,7 +560,8 @@ export function vehiclesInService(
 /**
  * Ile przystanków przed `stopIdx` jest teraz pojazd realizujący `tripId` —
  * czysty rzut pozycji (`projectVehicle`) na przebieg linii. `stopsAway === 0`
- * = „pojazd na odcinku tuż przed tym przystankiem". `null` gdy: brak pozycji
+ * = „pojazd na odcinku tuż przed tym przystankiem" — zbliża się, NIE odjechał
+ * (przyszłe odjazdy). `null` gdy: brak pozycji
  * dla `tripId`, pojazd poza trasą, `stopIdx` nie leży na przebiegu, albo pojazd
  * ten przystanek już minął (`stopsAway < 0` NIE wychodzi jako liczba ujemna).
  * Zero pola opóźnienia — niesie tylko dystans w przystankach i wiek danych.

@@ -24,9 +24,10 @@ export type TransitStopBoard = {
   summary: StopSummary
   /**
    * `vehicle` = pozycja pojazdu realizującego ten kurs, wyrażona jako dystans
-   * w przystankach od obserwowanego słupka (`stopsAway`, 0 = „tuż odjechał")
-   * plus wiek danych. `null` gdy brak feedu pozycji, pytano o cały zespół albo
-   * pojazd ten przystanek już minął. Zero pola opóźnienia (#13).
+   * w przystankach od obserwowanego słupka (`stopsAway`, 0 = „zaraz będzie" —
+   * pojazd jest na odcinku tuż przed tym przystankiem, zbliża się) plus wiek
+   * danych. `null` gdy brak feedu pozycji, pytano o cały zespół albo pojazd
+   * ten przystanek już minął. Zero pola opóźnienia (#13).
    */
   departures: (GtfsDeparture & { vehicle: { stopsAway: number; ageSec: number } | null })[]
 }

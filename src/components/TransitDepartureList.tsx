@@ -77,7 +77,7 @@ export function TransitDepartureList({
               title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
               className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300"
             >
-              {departure.vehicle.stopsAway === 0 ? 'tuż odjechał' : `${departure.vehicle.stopsAway} przyst.`}
+              {departure.vehicle.stopsAway === 0 ? 'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
             </span>
           )}
           {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
