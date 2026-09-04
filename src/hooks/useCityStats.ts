@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import type { CityStats } from '@/lib/gtfs/query'
+import type { GtfsMode } from '@/lib/gtfs/types'
 
 export type CityStatsResponse = {
   city: string
   state: 'loading' | 'ready' | 'failed'
   stats: CityStats | null
+  /** Pozycje pojazdów (etap 5) — `null` = feed nie gotowy, NIGDY nie renderuj jako 0 (#7). */
+  vehiclesInService?: Record<GtfsMode, number> | null
+  vehiclesUnmatched?: number | null
+  vehicleFeed?: { state: string; ageMs: number | null }
 }
 
 /**

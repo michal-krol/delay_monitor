@@ -22,7 +22,8 @@ function clock(sec: number): string {
  * Widżet sieci komunikacji miejskiej wybranego miasta — odpowiednik
  * `NetworkStatsCard` dla kolei. Wszystko z rozkładu: liczba linii per środek,
  * rodzaje autobusów, natężenie ruchu w dobie, pierwszy/ostatni kurs.
- * BEZ „w trasie teraz" — to dochodzi z pozycjami pojazdów w etapie 5.
+ * „W trasie teraz" dochodzi z pozycji pojazdów (etap 5) — „—" dopóki feed
+ * nie gotowy (`vehiclesInService === null`), NIGDY 0 (#7).
  */
 export function CityTransitWidget({ city, cityName }: { city: string; cityName: string }) {
   const { data, error } = useCityStats(city)
@@ -81,6 +82,29 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
             {stats.tripsToday.toLocaleString('pl-PL')} {pluralPl(stats.tripsToday, 'kurs', 'kursy', 'kursów')} dziś
           </p>
         )}
+        {stats !== null &&
+          (() => {
+            const vs = data?.state === 'ready' ? data.vehiclesInService : undefined
+            const total = vs === undefined || vs === null ? null : (Object.values(vs) as number[]).reduce((a, b) => a + b, 0)
+            return (
+              <p className="mt-2 text-xs text-text-muted">
+                W trasie teraz:{' '}
+                {total === null ? (
+                  <span>—</span>
+                ) : (
+                  <>
+                    <span className="font-semibold text-foreground tabular-nums">{total.toLocaleString('pl-PL')}</span>
+                    {vs !== null && vs !== undefined && (
+                      <span>
+                        {' '}
+                        · {vs.metro} metro · {vs.tram} tram · {vs.bus} autobus
+                      </span>
+                    )}
+                  </>
+                )}
+              </p>
+            )
+          })()}
       </AsideCard>
     </div>
   )
