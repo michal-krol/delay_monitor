@@ -71,6 +71,24 @@ describe('useLineVehicles', () => {
     await vi.waitFor(() => expect(result.current.error).toBe('500'))
   })
 
+  it('skips a tick while the tab is hidden, reschedules instead of fetching', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => jsonResponse({ vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 5000 } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderHook(() => useLineVehicles('warszawa', '20', 0))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1) // hidden -> nie odpytał
+
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił
+  })
+
   it('does not fetch for an unknown direction (2)', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } }))
     vi.stubGlobal('fetch', fetchMock)
