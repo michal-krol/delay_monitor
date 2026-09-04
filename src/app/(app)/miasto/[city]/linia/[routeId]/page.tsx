@@ -9,11 +9,10 @@ import { LineTimetable } from '@/components/LineTimetable'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageAside } from '@/components/aside'
-import { WeatherCard } from '@/components/StationAside'
+import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
-import { useStationWeather } from '@/hooks/useStationWeather'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
@@ -93,10 +92,6 @@ export default function LineDetailPage() {
 
   const entry = useMemo(() => cities.find((option) => option.id === city) ?? null, [cities, city])
   const cityName = entry?.name ?? city
-  // ponytail: pogoda linii ≈ pogoda głównej stacji kolejowej miasta; osobny
-  // endpoint po lat/lon przystanku, gdyby to okazało się za grube przybliżenie.
-  const railStationId = entry?.railStations?.[0]?.id ?? ''
-  const weather = useStationWeather(railStationId)
 
   const line = data?.line ?? null
   const loading = data === null && !failed
@@ -328,9 +323,7 @@ export default function LineDetailPage() {
           </AsideCard>
         )}
 
-        <AsideCard title={`Pogoda dziś — ${cityName}`}>
-          <WeatherCard weather={weather} />
-        </AsideCard>
+        <CityWeatherCard city={city} />
 
         {showVehicles && direction !== undefined && (
           <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
