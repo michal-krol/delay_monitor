@@ -30,7 +30,7 @@ describe('CityTransitWidget', () => {
     expect(screen.getByText('Wczytuję rozkład…')).toBeInTheDocument()
   })
 
-  it('lists line counts per mode with the bus-kind breakdown and no "in transit"', () => {
+  it('lists line counts per mode with the bus-kind breakdown', () => {
     hookState.current = { data: { city: 'warszawa', state: 'ready', stats }, error: null }
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('metro')).toBeInTheDocument()
@@ -38,8 +38,38 @@ describe('CityTransitWidget', () => {
     expect(screen.getByText(/5 przyspieszonych/)).toBeInTheDocument()
     // kolej strefowa ma 0 linii — wiersz odsiany
     expect(screen.queryByText('kolej strefowa')).not.toBeInTheDocument()
-    expect(screen.queryByText(/w trasie|w trakcie jazdy/i)).not.toBeInTheDocument()
     expect(screen.getByText(/Pierwszy kurs 04:00, ostatni 02:00/)).toBeInTheDocument()
+  })
+
+  it('shows "W trasie teraz" with the total and per-mode split when the vehicle feed is ready', () => {
+    hookState.current = {
+      data: {
+        city: 'warszawa',
+        state: 'ready',
+        stats,
+        vehiclesInService: { metro: 4, tram: 10, bus: 30, rail: 0, other: 0 },
+        vehiclesUnmatched: 2,
+        vehicleFeed: { state: 'ready', ageMs: 5000 },
+      },
+      error: null,
+    }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText(/W trasie teraz/)).toBeInTheDocument()
+    expect(screen.getByText('44')).toBeInTheDocument()
+    expect(screen.getByText(/4 metro · 10 tram · 30 autobus/)).toBeInTheDocument()
+  })
+
+  it('shows "—" (never 0) for "W trasie teraz" when the vehicle feed is not ready', () => {
+    hookState.current = {
+      data: { city: 'warszawa', state: 'ready', stats, vehiclesInService: null, vehiclesUnmatched: null, vehicleFeed: { state: 'loading', ageMs: null } },
+      error: null,
+    }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    const line = screen.getByText(
+      (_, el) => el?.tagName === 'P' && /W trasie teraz/.test(el.textContent ?? ''),
+    )
+    expect(line.textContent).toContain('—')
+    expect(line.textContent).not.toContain('0')
   })
 
   it('shows an error note when stats cannot load', () => {

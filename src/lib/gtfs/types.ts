@@ -133,16 +133,19 @@ export type GtfsSchedule = {
    * Klucz `${routeIdx}:${directionId}` → reprezentatywny przebieg linii:
    * indeksy słupków w kolejności przystanków, `offsets` (sekundy względem
    * przystanku startowego — do przeliczenia godziny na kolejnych przystankach)
-   * i internowany headsign. Najdłuższy napotkany wzorzec dla pary
-   * (linia, kierunek). Do strony linii, liczony raz przy ładowaniu.
+   * i internowany headsign. Najczęstszy napotkany wzorzec dla pary
+   * (linia, kierunek). `onRequest` — per słupek 0/1: przystanek na żądanie
+   * (`pickup_type`/`drop_off_type` = 3). Do strony linii, liczony raz przy ładowaniu.
    */
-  routePatterns: Map<string, { stops: number[]; offsets: number[]; headsignIdx: number }>
+  routePatterns: Map<string, { stops: number[]; offsets: number[]; headsignIdx: number; onRequest: number[] }>
   /**
    * `${routeIdx}:${directionId}` → takt linii częstotliwościowej (metro):
    * najkrótszy/najdłuższy headway [s] i okno kursowania. Strona linii pokazuje
    * „co 2–4 min (05:00–01:00)" zamiast siatki minut.
    */
   routeFrequency: Map<string, { startSec: number; endSec: number; minHeadway: number; maxHeadway: number }>
+  /** Klucz = `trip_id` z `trips.txt` (ten sam co w `vehicles.json`) → linia + kierunek. Kursy techniczne pominięte. */
+  tripPatternRef: Map<string, { routeIdx: number; direction: number }>
 
   /**
    * Indeks rozkładu linii — JEDEN wpis na kurs, z KAŻDEJ doby (także spoza okna

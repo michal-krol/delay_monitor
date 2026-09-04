@@ -278,6 +278,14 @@ npm run check   # = typecheck && lint && test
   problem #9 tu nie występuje (brak feedu realizacji), ale „dziś" idzie przez
   `serviceDateWindow()` i indeks doby, nie `new Date()`. `cityStats.hourly` liczy
   KURSY (pierwszy odjazd kursu per godzina), nie zdarzenia — `sum(hourly) === tripsToday`.
+- **Pozycje pojazdów (etap 5a).** `vehicles.json` (mkuran, ~450 KB, 15 s) → osobny
+  `VehiclePoller` per miasto, cykl życia SPIĘTY z pollerem rozkładu (`onWake`/`onIdle`
+  w `GtfsPollerDeps`). `vehicleProject.ts` (czysty) rzutuje `trip_id` z feedu — ten
+  sam co w `stop_times.txt` — na `routePatterns` po sekwencji przystanków (bez
+  `shapes.txt`). ZERO pola opóźnienia: `VehicleOnRoute` niesie `afterStopOrder` +
+  `fraction` + `ageSec`, nigdy „ile spóźniony". Pozycja > 2 km od trasy / nieznany
+  `trip_id` → `null`. `mockVehicleFeed` degraduje do pustego wyniku dla braku ORAZ
+  uszkodzonego fixture'a (JSON.parse w try). Alerty (`alerts.json`) = etap 5b.
 
 Kontrakt: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (sieć, bez kosztu).
 `GTFS_DATA_SOURCE=mock` (domyślnie) trzyma dev/test/CI zerowo-sieciowe. Fixture'y

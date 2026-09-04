@@ -1,7 +1,8 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
 import { contrastText, lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
+import type { VehiclePosition } from '@/lib/gtfs/vehicles'
 import { serviceDateWindow } from '@/lib/pkp/time'
 
 const [, TODAY] = serviceDateWindow(new Date(), 'Europe/Warsaw')
@@ -11,7 +12,19 @@ const getView = vi.fn(() => ({ state: schedule === null ? 'loading' : 'ready' })
 const getGtfsPoller = vi.fn((city: string) =>
   city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView } : null
 )
-vi.mock('@/lib/gtfs/instance', () => ({ getGtfsPoller: (...a: [string]) => getGtfsPoller(...a) }))
+
+type FakeVehiclePoller = { getView: () => { state: string; ageMs: number | null }; getPositions: () => VehiclePosition[] }
+let vehiclePoller: FakeVehiclePoller | null = null
+vi.mock('@/lib/gtfs/instance', () => ({
+  getGtfsPoller: (...a: [string]) => getGtfsPoller(...a),
+  peekVehiclePoller: () => vehiclePoller,
+}))
+
+const pos = (tripId: string): VehiclePosition => ({ id: tripId, tripId, lat: 52, lon: 21, sideNumber: '1', bearing: null, timestamp: '' })
+
+beforeEach(() => {
+  vehiclePoller = null
+})
 
 beforeAll(async () => {
   schedule = await buildSchedule({
@@ -59,5 +72,31 @@ describe('GET /api/gtfs/city-stats', () => {
     expect(body.state).toBe('loading')
     expect(body.stats).toBeNull()
     schedule = kept
+  })
+
+  it('reports vehicle fields as null (never zeros) when no vehicle poller is present', async () => {
+    const { body } = await call('city=warszawa')
+    expect(body.vehiclesInService).toBeNull()
+    expect(body.vehiclesUnmatched).toBeNull()
+    expect(body.vehicleFeed).toEqual({ state: 'loading', ageMs: null })
+  })
+
+  it('reports vehicle fields as null when the vehicle poller is not ready', async () => {
+    vehiclePoller = { getView: () => ({ state: 'failed', ageMs: 4000 }), getPositions: () => [pos('t')] }
+    const { body } = await call('city=warszawa')
+    expect(body.vehiclesInService).toBeNull()
+    expect(body.vehiclesUnmatched).toBeNull()
+    expect(body.vehicleFeed).toEqual({ state: 'failed', ageMs: 4000 })
+  })
+
+  it('counts vehicles in service per mode from a ready poller', async () => {
+    vehiclePoller = {
+      getView: () => ({ state: 'ready', ageMs: 1200 }),
+      getPositions: () => [pos('t'), pos('t'), pos('ghost')],
+    }
+    const { body } = await call('city=warszawa')
+    expect(body.vehiclesInService).toEqual({ metro: 0, tram: 2, bus: 0, rail: 0, other: 0 })
+    expect(body.vehiclesUnmatched).toBe(1)
+    expect(body.vehicleFeed).toEqual({ state: 'ready', ageMs: 1200 })
   })
 })

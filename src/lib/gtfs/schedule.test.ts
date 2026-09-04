@@ -320,3 +320,26 @@ describe('buildSchedule — strażniki stop_times', () => {
     expect(schedule.evAbsSec[a]).toBeLessThan(schedule.evAbsSec[b])
   })
 })
+
+describe('buildSchedule — tripPatternRef', () => {
+  it('exposes tripPatternRef keyed by the raw trip_id, skipping technical trips', async () => {
+    const schedule = await buildSchedule(
+      makeInput({
+        routes: [route('20', 0, '20')],
+        trips: [
+          { routeId: '20', serviceId: 'S', tripId: '2026-09-04:20:PtS:2:0903', headsign: 'Piaski', directionId: 1 },
+          { routeId: '20', serviceId: 'S', tripId: 'depot', headsign: 'Zjazd do zajezdni', directionId: 0, exceptional: true },
+          { routeId: 'ghost', serviceId: 'S', tripId: 'noroute', headsign: 'X', directionId: 0 },
+        ],
+        stopTimeLines: [
+          'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+          '2026-09-04:20:PtS:2:0903,1001,06:00:00,06:00:00,1',
+          'depot,1001,07:00:00,07:00:00,1',
+        ],
+      })
+    )
+    expect(schedule.tripPatternRef.get('2026-09-04:20:PtS:2:0903')).toEqual({ routeIdx: 0, direction: 1 })
+    expect(schedule.tripPatternRef.has('depot')).toBe(false) // kurs techniczny (exceptional)
+    expect(schedule.tripPatternRef.has('noroute')).toBe(false) // linia nieznana
+  })
+})

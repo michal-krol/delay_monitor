@@ -4,8 +4,11 @@ import { describe, expect, it } from 'vitest'
 import { TransitDepartureList } from './TransitDepartureList'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 
-function dep(over: Partial<GtfsDeparture> = {}): GtfsDeparture {
+type Dep = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
+
+function dep(over: Partial<Dep> = {}): Dep {
   return {
+    vehicle: null,
     tripId: 't',
     routeId: '20',
     line: '20',
@@ -52,6 +55,22 @@ describe('TransitDepartureList', () => {
   it('labels a night line, leaving a regular one unlabelled', () => {
     render(<TransitDepartureList departures={[dep({ lineKind: 'night' }), dep({ lineKind: 'regular' })]} />)
     expect(screen.getByText('nocna')).toBeInTheDocument()
+  })
+
+  it('tags the słupek with the bare code, never the word "słupek"', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showSlupek />)
+    expect(screen.getByText('06')).toBeInTheDocument()
+    expect(screen.queryByText(/słup\./i)).not.toBeInTheDocument()
+  })
+
+  it('shows a vehicle chip when a departure has a live vehicle', () => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 15 } })]} />)
+    expect(screen.getByText('2 przyst.')).toBeInTheDocument()
+  })
+
+  it('shows "zaraz będzie" (approaching, not departed) at stopsAway 0', () => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 0, ageSec: 15 } })]} />)
+    expect(screen.getByText('zaraz będzie')).toBeInTheDocument()
   })
 
   it('shows skeletons while loading', () => {

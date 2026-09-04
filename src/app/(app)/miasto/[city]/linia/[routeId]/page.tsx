@@ -14,6 +14,7 @@ import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { useStationWeather } from '@/hooks/useStationWeather'
+import { useLineVehicles } from '@/hooks/useLineVehicles'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
@@ -104,6 +105,12 @@ export default function LineDetailPage() {
   const stops = direction?.stops ?? []
   const selectedStop = stops[Math.min(stopSel, Math.max(0, stops.length - 1))]
 
+  // Endpoint pozycji przyjmuje wyłącznie kierunek 0/1; przebieg bywa oznaczony
+  // `2` (nieznany) — wtedy hook nie pyta i nie renderujemy markerów ani karty.
+  const vehicleDir = direction?.directionId === 1 ? 1 : 0
+  const showVehicles = direction !== undefined && (direction.directionId === 0 || direction.directionId === 1)
+  const liveVehicles = useLineVehicles(city, routeId, showVehicles ? vehicleDir : 2)
+
   function switchDirection(): void {
     setDirIdx((i) => (i + 1) % Math.max(1, directions.length))
     setStopSel(0)
@@ -169,14 +176,48 @@ export default function LineDetailPage() {
                     return (
                       <li key={`${stop.stopId}-${index}`} className="flex gap-3">
                         <div className="flex flex-col items-center pt-1.5">
-                          <span
-                            className={`h-2.5 w-2.5 shrink-0 rounded-full border-2 ${
-                              active ? 'border-indigo-500 bg-indigo-500' : 'border-[var(--surface-border)]'
-                            }`}
-                            style={!active && (first || last) ? { background: 'var(--foreground)' } : undefined}
-                            aria-hidden="true"
-                          />
-                          {!last && <span className="mt-1 w-0.5 flex-1" style={{ background: 'var(--surface-border)' }} aria-hidden="true" />}
+                          {first || last ? (
+                            <span
+                              className="h-2.5 w-2.5 shrink-0"
+                              style={{ background: active ? 'var(--accent-solid)' : 'var(--foreground)' }}
+                              aria-hidden="true"
+                            />
+                          ) : stop.onRequest ? (
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full border-2 bg-transparent"
+                              style={{ borderColor: active ? 'var(--accent-solid)' : 'var(--foreground)' }}
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ background: active ? 'var(--accent-solid)' : 'var(--foreground)' }}
+                              aria-hidden="true"
+                            />
+                          )}
+                          {!last && (
+                            <span className="relative mt-1 w-0.5 flex-1" style={{ background: 'var(--surface-border)' }} aria-hidden="true">
+                              {showVehicles &&
+                                liveVehicles.vehicles
+                                  .filter((v) => v.afterStopOrder === index)
+                                  .map((v) => (
+                                    <span
+                                      key={v.sideNumber + v.tripId}
+                                      title={`Pojazd ${v.sideNumber}${v.ageSec > 60 ? ` · ${Math.round(v.ageSec / 60)} min temu` : ''}`}
+                                      className="absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-[9px] font-bold text-white shadow"
+                                      style={{
+                                        top: `${v.fraction * 100}%`,
+                                        // Bez rotacji: geograficzny azymut na pionowej, schematycznej
+                                        // osi czasu nie wskazuje niczego sensownego. `v.bearing` zostaje
+                                        // w typie/API — może się przydać na mapie.
+                                        transform: 'translateY(-50%)',
+                                      }}
+                                    >
+                                      ▲
+                                    </span>
+                                  ))}
+                            </span>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -189,14 +230,24 @@ export default function LineDetailPage() {
                           <span className={`min-w-0 flex-1 ${first || last ? 'font-semibold text-foreground' : ''}`}>
                             {stop.name}
                             {stop.code !== null && (
-                              <span className="ml-1.5 rounded bg-black/5 px-1 text-[10px] font-semibold tabular-nums text-text-secondary dark:bg-white/10">
-                                słup. {stop.code}
+                              <span className="ml-1 text-[11px] font-semibold tabular-nums text-text-muted">{stop.code}</span>
+                            )}
+                            {stop.onRequest && (
+                              <span
+                                title="Przystanek na żądanie"
+                                className="ml-1.5 rounded border px-1 text-[10px] font-bold text-amber-700 dark:text-amber-300"
+                                style={{ borderColor: 'var(--surface-border)' }}
+                              >
+                                NŻ
                               </span>
                             )}
                             {(first || last) && (
                               <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-text-muted">
                                 {first ? 'początek' : 'koniec'}
                               </span>
+                            )}
+                            {stop.street !== null && (
+                              <span className="ml-2 text-[11px] text-text-muted">{stop.street}</span>
                             )}
                           </span>
                           {stop.wheelchair === 2 && (
@@ -216,6 +267,11 @@ export default function LineDetailPage() {
                     )
                   })}
                 </ol>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted">
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} /> przystanek</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} /> na żądanie (NŻ)</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2" style={{ background: 'var(--foreground)' }} /> przystanek krańcowy</span>
+                </div>
               </section>
 
               <section className="glass rounded-2xl p-4">
@@ -275,6 +331,33 @@ export default function LineDetailPage() {
         <AsideCard title={`Pogoda dziś — ${cityName}`}>
           <WeatherCard weather={weather} />
         </AsideCard>
+
+        {showVehicles && direction !== undefined && (
+          <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
+            {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
+              <p className="text-xs text-red-600 dark:text-red-400">Nie udało się pobrać pozycji.</p>
+            ) : liveVehicles.feed.state === 'loading' ? (
+              <p className="text-xs text-text-muted">Wczytuję pozycje…</p>
+            ) : liveVehicles.vehicles.length === 0 ? (
+              <p className="text-xs text-text-muted">Brak pojazdów w trasie w tym kierunku.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5 text-xs">
+                {liveVehicles.vehicles
+                  .slice()
+                  .sort((a, b) => a.afterStopOrder - b.afterStopOrder)
+                  .map((v) => (
+                    <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
+                      <span className="text-foreground">#{v.sideNumber}</span>
+                      <span className="text-text-muted">
+                        za „{stops[v.afterStopOrder]?.name ?? '—'}”
+                        {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </AsideCard>
+        )}
       </PageAside>
     </>
   )

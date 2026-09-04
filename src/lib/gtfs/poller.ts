@@ -60,6 +60,10 @@ export type GtfsPollerDeps = {
   now?: () => number
   setTimer?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>
   clearTimer?: (handle: ReturnType<typeof setTimeout>) => void
+  /** Wołane gdy rusza ładowanie rozkładu — `instance.ts` startuje wtedy poller pozycji. */
+  onWake?: () => void
+  /** Wołane gdy timer bezczynności zwalnia rozkład — `instance.ts` zatrzymuje poller pozycji. */
+  onIdle?: () => void
 }
 
 /**
@@ -102,14 +106,22 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
     if (idleTimer !== null) clearTimer(idleTimer)
     idleTimer = setTimer(() => {
       if (disposed) return
-      if (schedule !== null && now() - lastInterestAt > deps.idleTtlMs) {
-        schedule = null
-        status = 'idle'
-        phase = null
-        loadedAtMs = null
-        if (reloadTimer !== null) {
-          clearTimer(reloadTimer)
-          reloadTimer = null
+      if (now() - lastInterestAt > deps.idleTtlMs) {
+        // Zainteresowanie wygasło. Zwolnij handle (`ensureLoaded` re-uzbraja
+        // timer tylko gdy `idleTimer === null`) i zatrzymaj poller pozycji
+        // NIEZALEŻNIE od tego, czy statyczny feed w ogóle się załadował —
+        // inaczej przy `status === 'failed'` poller pozycji zostawał na zawsze.
+        idleTimer = null
+        deps.onIdle?.()
+        if (schedule !== null) {
+          schedule = null
+          status = 'idle'
+          phase = null
+          loadedAtMs = null
+          if (reloadTimer !== null) {
+            clearTimer(reloadTimer)
+            reloadTimer = null
+          }
         }
       } else {
         scheduleIdleTimer()
@@ -134,6 +146,7 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   function startLoad(): void {
     if (loadInFlight || disposed) return
     loadInFlight = true
+    deps.onWake?.()
     if (schedule === null) status = 'loading'
     phase = 'start'
 

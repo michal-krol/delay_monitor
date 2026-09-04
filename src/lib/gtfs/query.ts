@@ -6,6 +6,8 @@ import { isoInZone } from '@/lib/pkp/time'
 import { normalizeForSearch } from '@/lib/search'
 import type { ServiceCategory } from './schema'
 import type { GtfsDeparture, GtfsMode, GtfsRoute, GtfsSchedule, LineKind } from './types'
+import { projectVehicle } from './vehicleProject'
+import type { VehiclePosition } from './vehicles'
 
 /** Kod `tripCategory` (0-4) → nazwa kategorii dnia. Kolejność sekcji rozkładu. */
 export const SERVICE_CATEGORIES: ServiceCategory[] = ['weekday', 'friday', 'saturday', 'sunday', 'other']
@@ -271,9 +273,13 @@ export type LineRouteStop = {
   name: string
   /** `stop_code` — numer słupka („07"), żeby user wiedział, z którego słupka jedzie linia. */
   code: string | null
+  /** `street_name` — ulica, przy której stoi słupek. `null` gdy feed nie podaje. */
+  street: string | null
   wheelchair: 0 | 1 | 2
   /** Sekundy przejazdu od przystanku startowego (do przeliczenia godziny odjazdu na tym przystanku). */
   offsetSec: number
+  /** Przystanek na żądanie (`pickup_type`/`drop_off_type` = 3) na tym przebiegu. */
+  onRequest: boolean
 }
 /** Odjazdy z przystanku startowego w jednej kategorii dnia — sekcja rozkładu linii. */
 export type LineDepartureBlock = { category: ServiceCategory; times: number[]; frequencyBased: boolean }
@@ -376,8 +382,10 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
         groupId,
         name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
         code: schedule.stopCodes[stopIndex] ?? schedule.stopPlatforms[stopIndex] ?? null,
+        street: schedule.stopStreets[stopIndex] ?? null,
         wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
         offsetSec: pattern.offsets[order] ?? 0,
+        onRequest: pattern.onRequest[order] === 1,
       }
     })
     const originStopIdx = pattern.stops[0]
@@ -524,6 +532,60 @@ export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats
     lastDepartureSec: lastSec,
     hourly,
   }
+}
+
+/**
+ * Ilu pojazdów jedzie teraz per rodzaj środka — czysty rzut pozycji z feedu
+ * (`vehicles.json`) na linie rozkładu przez `tripPatternRef`. Zero pola
+ * opóźnienia. Pozycja z nieznanym `tripId` idzie do `unmatched`, NIE do kubełka.
+ */
+export function vehiclesInService(
+  schedule: GtfsSchedule,
+  positions: VehiclePosition[]
+): { counts: Record<GtfsMode, number>; unmatched: number } {
+  const counts: Record<GtfsMode, number> = { metro: 0, tram: 0, bus: 0, rail: 0, other: 0 }
+  let unmatched = 0
+  for (const p of positions) {
+    const ref = schedule.tripPatternRef.get(p.tripId)
+    const route = ref === undefined ? undefined : schedule.routes[ref.routeIdx]
+    if (route === undefined) {
+      unmatched += 1
+      continue
+    }
+    counts[route.mode] += 1
+  }
+  return { counts, unmatched }
+}
+
+/**
+ * Ile przystanków przed `stopIdx` jest teraz pojazd realizujący `tripId` —
+ * czysty rzut pozycji (`projectVehicle`) na przebieg linii. `stopsAway === 0`
+ * = „pojazd na odcinku tuż przed tym przystankiem" — zbliża się, NIE odjechał
+ * (przyszłe odjazdy). `null` gdy: brak pozycji
+ * dla `tripId`, pojazd poza trasą, `stopIdx` nie leży na przebiegu, albo pojazd
+ * ten przystanek już minął (`stopsAway < 0` NIE wychodzi jako liczba ujemna).
+ * Zero pola opóźnienia — niesie tylko dystans w przystankach i wiek danych.
+ */
+export function vehicleForStop(
+  schedule: GtfsSchedule,
+  positions: VehiclePosition[],
+  tripId: string,
+  stopIdx: number,
+  nowMs: number
+): { stopsAway: number; ageSec: number } | null {
+  const position = positions.find((p) => p.tripId === tripId)
+  if (position === undefined) return null
+  const on = projectVehicle(schedule, position, nowMs)
+  if (on === null) return null
+  const ref = schedule.tripPatternRef.get(tripId)
+  if (ref === undefined) return null
+  const pattern = schedule.routePatterns.get(`${ref.routeIdx}:${ref.direction}`)
+  if (pattern === undefined) return null
+  const thisOrder = pattern.stops.indexOf(stopIdx)
+  if (thisOrder < 0) return null
+  const stopsAway = thisOrder - on.afterStopOrder - 1
+  if (stopsAway < 0) return null
+  return { stopsAway, ageSec: on.ageSec }
 }
 
 export type StopSearchResult = { id: string; name: string }

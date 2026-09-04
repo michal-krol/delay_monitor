@@ -5,6 +5,21 @@ Wersjonowanie semantyczne.
 
 ## [Niewydane]
 
+### Dodane
+
+- **Komunikacja miejska: pozycje pojazdów na żywo (etap 5a)** — marker na osi
+  czasu linii, „za którym przystankiem" na karcie „Pojazdy w trasie", „W trasie
+  teraz" w widżecie sieci. Osobny `VehiclePoller` per miasto (15 s), cykl życia
+  spięty z pollerem rozkładu; `vehicleProject.ts` rzutuje `trip_id` na przebieg
+  linii po sekwencji przystanków (bez `shapes.txt`). Zero pola opóźnienia —
+  `VehicleOnRoute` niesie tylko pozycję i wiek (AGENTS.md #13).
+- **Rozkład linii: trzy stałe kolumny tygodniowe** (Dni robocze / Soboty /
+  Niedziele i święta) zawsze widoczne. Oś czasu linii wg legendy WTP: glify
+  ●/○/■ (zwykły / na żądanie / krańcowy), nazwy ulic, badge „NŻ".
+- **Model słupków** — słupek jako „{nazwa} {kod}" („Saska 01"), przełącznik
+  słupków zespołu, odjazd tagowany numerem słupka. Słowo „słupek" zniknęło
+  z etykiet interfejsu.
+
 ### Poprawki
 
 - **Prawa kolumna kontekstowa ujednolicona** — jeden komponent `PageAside`
@@ -18,6 +33,14 @@ Wersjonowanie semantyczne.
   „Pogoda dziś" dla stacji początkowej, na górze prawej kolumny.
 - **Karta pogody linii widoczna też podczas ładowania rozkładu** — wcześniej cała
   prawa kolumna `/miasto/[city]/linia/[id]` znikała, dopóki nie dojechał przebieg.
+- **Ikona wózka na przystanku miejskim** — feed WTP oznacza `wheelchair_boarding=1`
+  (wartość domyślna) na ~89% słupków; ikonę pokazujemy tylko dla `2` (niedostępny).
+- **Rozkład linii nie gubi kolumn „Soboty"/„Niedziele"** poza weekendem —
+  kategorie z pełnego feedu (indeks `run*`), nie z okna [wczoraj, dziś, jutro].
+- **Reprezentatywny przebieg linii = najczęstszy, nie najdłuższy** — „najdłuższy"
+  łapał zjazdy do zajezdni (linia 4: „Gocławek → Zjazd do zajezdni Annopol").
+- **KPI „w trasie" spójne** — `cityStats.hourly` liczy kursy (nie zdarzenia na
+  słupkach), `sum(hourly) === tripsToday`.
 
 ### Proces
 

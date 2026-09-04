@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { serviceDateWindow } from '@/lib/pkp/time'
 import { getCity } from '@/lib/gtfs/cities'
-import { getGtfsPoller } from '@/lib/gtfs/instance'
+import { getGtfsPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
 import { scheduleResponseBlock } from '@/lib/gtfs/poller'
-import { nextDepartures, stopGroup, stopSummary } from '@/lib/gtfs/query'
+import { nextDepartures, stopGroup, stopSummary, vehicleForStop } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 
 /** Przeniesione z `/api/board`: realny użytkownik obserwuje kilka przystanków. */
@@ -73,6 +73,19 @@ export async function GET(request: Request) {
   const rawSlupek = searchParams.get('slupek')
   const slupek = rawSlupek !== null && GTFS_STOP_ID_PATTERN.test(rawSlupek) ? rawSlupek : null
 
+  // Pozycje pojazdów — poza cyklem pollera (raz na dobę + TTL, patrz #13); tu
+  // tylko czytamy to, co ma w ręku. Jak `/api/gtfs/vehicles`: przy `'failed'`
+  // dalej serwujemy ostatnie znane pozycje (niezmiennik #7 — ostatnie-znane-
+  // z-wiekiem, nie pusto). Tag „za przystankiem" bywa wtedy przeterminowany;
+  // ta odpowiedź nie niesie wieku feedu pozycji — sygnałem świeżości jest wiek
+  // `schedule`. Pomijamy tylko `'loading'`/`'idle'`/brak pollera.
+  const vehiclePoller = peekVehiclePoller(city)
+  const vehicleState = vehiclePoller?.getView().state
+  const positions =
+    vehiclePoller !== null && (vehicleState === 'ready' || vehicleState === 'failed')
+      ? vehiclePoller.getPositions()
+      : []
+
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
     if (group === null) return null
@@ -81,6 +94,16 @@ export async function GET(request: Request) {
     // przełącznikiem — inaczej „Cały przystanek" nie działałby na deep-linku.
     const scopeId = slupek !== null && group.members.some((m) => m.id === slupek) ? slupek : null
     const summary = stopSummary(schedule, scopeId ?? group.id, todayIndex)
+    // Indeks obserwowanego przystanku w przebiegu — do policzenia „ile przystanków
+    // stąd" jest pojazd. `undefined` (pytano o cały zespół, nie o słupek) → brak tagu.
+    const scopeStopIdx = schedule.stopIndexById.get(scopeId ?? group.id)
+    const departures = nextDepartures(schedule, [scopeId ?? group.id], now, limit).map((d) => ({
+      ...d,
+      vehicle:
+        positions.length > 0 && scopeStopIdx !== undefined
+          ? vehicleForStop(schedule, positions, d.tripId, scopeStopIdx, now)
+          : null,
+    }))
     return {
       stopId: id,
       /** Id zespołu (gdy pytano o słupek, `stopId` bywa słupkiem). */
@@ -95,7 +118,7 @@ export async function GET(request: Request) {
       /** Aktywny słupek, gdy zawężono jawnym `?slupek=`; inaczej `null`. */
       activeSlupek: scopeId,
       summary,
-      departures: nextDepartures(schedule, [scopeId ?? group.id], now, limit),
+      departures,
     }
   })
 

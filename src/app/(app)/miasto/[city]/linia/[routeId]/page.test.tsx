@@ -33,8 +33,9 @@ const LINE = {
         headsign: 'Dworzec Centralny',
         origin: 'Centrum',
         stops: [
-          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', wheelchair: 1, offsetSec: 0 },
-          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', wheelchair: 0, offsetSec: 480 },
+          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', street: 'Marszałkowska', wheelchair: 1, offsetSec: 0, onRequest: false },
+          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', street: 'Prosta', wheelchair: 0, offsetSec: 300, onRequest: true },
+          { stopId: '500801', groupId: '5008', name: 'Metro Politechnika', code: '14', street: 'Waryńskiego', wheelchair: 0, offsetSec: 600, onRequest: false },
         ],
         departures: [
           { category: 'weekday', times: [6 * 3600, 6 * 3600 + 1200], frequencyBased: false },
@@ -45,7 +46,7 @@ const LINE = {
         directionId: 1,
         headsign: 'Centrum',
         origin: 'Dworzec Centralny',
-        stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', code: null, wheelchair: 0, offsetSec: 0 }],
+        stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', code: null, street: null, wheelchair: 0, offsetSec: 0, onRequest: false }],
         departures: [{ category: 'weekday', times: [6 * 3600 + 600], frequencyBased: false }],
       },
     ],
@@ -58,6 +59,13 @@ function stubFetch(lineBody: unknown = LINE) {
     'fetch',
     vi.fn((url: string) => {
       if (url.startsWith('/api/gtfs/line')) return jsonResponse(lineBody)
+      if (url.startsWith('/api/gtfs/vehicles'))
+        return jsonResponse({
+          vehicles: [
+            { sideNumber: '3801', tripId: 't', routeId: '20', directionId: 0, afterStopOrder: 0, fraction: 0.5, ageSec: 10, headsign: 'x', bearing: null },
+          ],
+          feed: { state: 'ready', ageMs: 5000 },
+        })
       if (url.startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
       return jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [{ id: '33605', name: 'Warszawa Centralna' }] }] })
     })
@@ -85,7 +93,7 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveTextContent('Centrum')
     expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveTextContent('Dworzec Centralny')
     // kolumny rozkładu obok siebie — sobota nie pod dniami roboczymi
-    expect(screen.getByRole('columnheader', { name: 'Poniedziałek – Czwartek' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Dni robocze' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Soboty' })).toBeInTheDocument()
     // pełna trasa widoczna od razu (bez rozwijania), z linkiem do tablicy przystanku
     expect(screen.getByRole('link', { name: /pełna tablica słupka/ })).toHaveAttribute(
@@ -103,6 +111,14 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'Pogoda dziś — Warszawa' })).toBeInTheDocument()
     expect(screen.getByText(/Rozkład jazdy linii 20/)).toBeInTheDocument()
     expect(screen.getByText(/Aktualizacja:/)).toBeInTheDocument()
+  })
+
+  it('lists live vehicles in service in the aside, without a delay', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    expect(await screen.findByRole('heading', { name: /Pojazdy w trasie/ })).toBeInTheDocument()
+    expect(await screen.findByText('#3801')).toBeInTheDocument()
   })
 
   it('switches direction with the toggle', async () => {
@@ -123,8 +139,20 @@ describe('LineDetailPage', () => {
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     // wybór odjazdu 06:00 z przystanku startowego (Centrum)
     await user.click(screen.getByRole('button', { name: '06:00' }))
-    // Rondo ONZ (+480 s) pokazuje 06:08 na trasie
-    expect(screen.getByText('06:08')).toBeInTheDocument()
+    // Rondo ONZ (+300 s) pokazuje 06:05 na trasie
+    expect(screen.getByText('06:05')).toBeInTheDocument()
+  })
+
+  it('renders stop-type glyphs, request badge and street names on the route', async () => {
+    stubFetch() // LINE fixture already has a request stop + streets after this task's edit
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    // request stop badge
+    expect(screen.getByText('NŻ')).toBeInTheDocument()
+    // street name shown somewhere on the route
+    expect(screen.getByText('Marszałkowska')).toBeInTheDocument()
+    // mini-legend
+    expect(screen.getByText(/na żądanie/i)).toBeInTheDocument()
   })
 
   it('explains an unknown line instead of rendering an empty page', async () => {
