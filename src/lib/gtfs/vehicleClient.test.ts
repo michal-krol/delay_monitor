@@ -1,3 +1,6 @@
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { fetchVehicleFeed, mockVehicleFeed } from './vehicleClient'
 import { getCity } from './cities'
@@ -36,6 +39,14 @@ describe('mockVehicleFeed', () => {
 
   it('returns an empty result when the fixture is missing', async () => {
     const feed = mockVehicleFeed(getCity('warszawa')!, 'no/such/root')
+    expect(await feed()).toEqual({ positions: [], droppedPositions: 0, feedTime: null })
+  })
+
+  it('degrades to an empty result when the fixture is malformed, not a throw', async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'veh-'))
+    mkdirSync(path.join(root, 'warszawa'))
+    writeFileSync(path.join(root, 'warszawa', 'vehicles.json'), '{ not json')
+    const feed = mockVehicleFeed(getCity('warszawa')!, root)
     expect(await feed()).toEqual({ positions: [], droppedPositions: 0, feedTime: null })
   })
 })

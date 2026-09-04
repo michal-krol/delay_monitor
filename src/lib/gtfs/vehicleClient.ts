@@ -32,13 +32,13 @@ export function mockVehicleFeed(
 ): () => Promise<VehicleFeedResult> {
   const file = path.join(root, city.id, 'vehicles.json')
   return async () => {
-    let raw: string
     try {
-      raw = await readFile(file, 'utf8')
+      const raw = await readFile(file, 'utf8')
+      const now = new Date().toISOString()
+      return parseVehicleFeed(JSON.parse(raw.replaceAll('{{NOW}}', now)))
     } catch {
+      // Brak pliku LUB uszkodzony JSON — poller degraduje do ostatnich znanych.
       return { positions: [], droppedPositions: 0, feedTime: null }
     }
-    const now = new Date().toISOString()
-    return parseVehicleFeed(JSON.parse(raw.replaceAll('{{NOW}}', now)))
   }
 }
