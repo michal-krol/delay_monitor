@@ -312,6 +312,28 @@ describe('lineDetail', () => {
     expect(lineDetail(schedule, 'nope')).toBeNull()
   })
 
+  it('marks a request stop and carries the street on the line route', async () => {
+    const schedule = await make({
+      routes: [route('20', 0, '20')],
+      stops: [
+        { id: '100101', name: 'Rondo', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1, street: 'Marszałkowska' },
+        { id: '100201', name: 'Piaski', lat: 52.01, lon: 21.01, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1, street: 'Modlińska' },
+      ],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'Piaski', directionId: 0 }],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence,pickup_type,drop_off_type',
+        't,100101,06:00:00,06:00:00,1,0,0',
+        't,100201,06:05:00,06:05:00,2,3,3',
+      ],
+    })
+    const dir = schedule.routePatterns.get(`0:0`)
+    expect(dir?.onRequest).toEqual([0, 1])
+
+    const detail = lineDetail(schedule, '20')!
+    expect(detail.directions[0].stops.map((s) => s.onRequest)).toEqual([false, true])
+    expect(detail.directions[0].stops.map((s) => s.street)).toEqual(['Marszałkowska', 'Modlińska'])
+  })
+
   it('builds the representative run for each direction from the schedule', async () => {
     const schedule = await make({
       routes: [route('20', 0, '20')],

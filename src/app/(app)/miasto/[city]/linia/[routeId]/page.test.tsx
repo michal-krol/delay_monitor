@@ -33,8 +33,8 @@ const LINE = {
         headsign: 'Dworzec Centralny',
         origin: 'Centrum',
         stops: [
-          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', wheelchair: 1, offsetSec: 0 },
-          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', wheelchair: 0, offsetSec: 480 },
+          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', street: null, wheelchair: 1, offsetSec: 0, onRequest: false },
+          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', street: null, wheelchair: 0, offsetSec: 480, onRequest: false },
         ],
         departures: [
           { category: 'weekday', times: [6 * 3600, 6 * 3600 + 1200], frequencyBased: false },
@@ -45,7 +45,7 @@ const LINE = {
         directionId: 1,
         headsign: 'Centrum',
         origin: 'Dworzec Centralny',
-        stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', code: null, wheelchair: 0, offsetSec: 0 }],
+        stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', code: null, street: null, wheelchair: 0, offsetSec: 0, onRequest: false }],
         departures: [{ category: 'weekday', times: [6 * 3600 + 600], frequencyBased: false }],
       },
     ],

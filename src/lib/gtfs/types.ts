@@ -134,9 +134,10 @@ export type GtfsSchedule = {
    * indeksy słupków w kolejności przystanków, `offsets` (sekundy względem
    * przystanku startowego — do przeliczenia godziny na kolejnych przystankach)
    * i internowany headsign. Najdłuższy napotkany wzorzec dla pary
-   * (linia, kierunek). Do strony linii, liczony raz przy ładowaniu.
+   * (linia, kierunek). `onRequest` — per słupek 0/1: przystanek na żądanie
+   * (`pickup_type`/`drop_off_type` = 3). Do strony linii, liczony raz przy ładowaniu.
    */
-  routePatterns: Map<string, { stops: number[]; offsets: number[]; headsignIdx: number }>
+  routePatterns: Map<string, { stops: number[]; offsets: number[]; headsignIdx: number; onRequest: number[] }>
   /**
    * `${routeIdx}:${directionId}` → takt linii częstotliwościowej (metro):
    * najkrótszy/najdłuższy headway [s] i okno kursowania. Strona linii pokazuje

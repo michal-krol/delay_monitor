@@ -271,9 +271,13 @@ export type LineRouteStop = {
   name: string
   /** `stop_code` — numer słupka („07"), żeby user wiedział, z którego słupka jedzie linia. */
   code: string | null
+  /** `street_name` — ulica, przy której stoi słupek. `null` gdy feed nie podaje. */
+  street: string | null
   wheelchair: 0 | 1 | 2
   /** Sekundy przejazdu od przystanku startowego (do przeliczenia godziny odjazdu na tym przystanku). */
   offsetSec: number
+  /** Przystanek na żądanie (`pickup_type`/`drop_off_type` = 3) na tym przebiegu. */
+  onRequest: boolean
 }
 /** Odjazdy z przystanku startowego w jednej kategorii dnia — sekcja rozkładu linii. */
 export type LineDepartureBlock = { category: ServiceCategory; times: number[]; frequencyBased: boolean }
@@ -376,8 +380,10 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
         groupId,
         name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
         code: schedule.stopCodes[stopIndex] ?? schedule.stopPlatforms[stopIndex] ?? null,
+        street: schedule.stopStreets[stopIndex] ?? null,
         wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
         offsetSec: pattern.offsets[order] ?? 0,
+        onRequest: pattern.onRequest[order] === 1,
       }
     })
     const originStopIdx = pattern.stops[0]
