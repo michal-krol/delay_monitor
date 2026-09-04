@@ -9,10 +9,19 @@ const LINE_20 = '/miasto/warszawa/linia/20'
 // z pollerem rozkładu przy pierwszym trafieniu /api/gtfs/* — strona ponawia.
 const READY = 45_000
 
-test('linia: marker pojazdu na osi + karta „Pojazdy w trasie" ze znakiem bocznym', async ({ page }) => {
+test('linia: marker pojazdu na osi + karta „Pojazdy w trasie" ze znakiem bocznym', async ({ page }, testInfo) => {
   await page.goto(LINE_20)
-  await expect(page.getByRole('heading', { name: 'Linia 20' })).toBeVisible({ timeout: READY })
-  await expect(page.getByText(/#380\d/).first()).toBeVisible({ timeout: READY })
+  // Nagłówek „Trasa linii" renderuje się na każdym viewporcie (nagłówek „Linia 20"
+  // to tytuł karty w PageAside → `hidden xl:flex`, nie ma go na mobile).
+  await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
+  // Marker na osi trasy renderuje się na każdym viewporcie (jest w <ol>, nie w aside).
+  await expect(page.getByTitle(/^Pojazd 380\d/).first()).toBeVisible({ timeout: READY })
+
+  // Karta „Pojazdy w trasie" żyje w PageAside (`hidden xl:flex`) — asercje listy
+  // aside tylko na desktopie; marker na osi (wyżej) sprawdzamy na każdym viewporcie.
+  if (testInfo.project.name === 'desktop-chromium') {
+    await expect(page.getByText(/#380\d/).first()).toBeVisible({ timeout: READY })
+  }
 })
 
 test('widżet sieci: „W trasie teraz" pokazuje liczbę, nie „—"', async ({ page }, testInfo) => {
@@ -27,8 +36,9 @@ test('widżet sieci: „W trasie teraz" pokazuje liczbę, nie „—"', async ({
 
 test('a11y: strona linii z markerami pojazdów bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(LINE_20)
-  await expect(page.getByRole('heading', { name: 'Linia 20' })).toBeVisible({ timeout: READY })
-  await expect(page.getByText(/#380\d/).first()).toBeVisible({ timeout: READY })
+  // Precondition widoczna na każdym viewporcie (nagłówek trasy + marker na osi, nie karta aside).
+  await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
+  await expect(page.getByTitle(/^Pojazd 380\d/).first()).toBeVisible({ timeout: READY })
 
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
