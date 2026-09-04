@@ -40,13 +40,17 @@ export async function GET(request: Request) {
 
   let vehicles: ReturnType<typeof projectVehicle>[] = []
   if (schedule !== null && vehiclePoller !== null) {
-    const now = Date.now()
-    vehicles = vehiclePoller
-      .getPositions()
-      .map((p) => projectVehicle(schedule, p, now))
-      .filter(
-        (v): v is NonNullable<typeof v> => v !== null && v.routeId === route && v.directionId === direction
-      )
+    const routeIdx = schedule.routeIndexById.get(route)
+    if (routeIdx !== undefined) {
+      const now = Date.now()
+      // Pre-filtr po `routeIdx` (klucz w pamięci) zanim `projectVehicle` policzy
+      // rzut na trasę — ~1,5 tys. pozycji miasta, z których jedna linia to ~1%.
+      vehicles = vehiclePoller
+        .getPositions()
+        .filter((p) => schedule.tripPatternRef.get(p.tripId)?.routeIdx === routeIdx)
+        .map((p) => projectVehicle(schedule, p, now))
+        .filter((v): v is NonNullable<typeof v> => v !== null && v.directionId === direction)
+    }
   }
 
   return NextResponse.json({
