@@ -1,6 +1,20 @@
 import type { ReactNode } from 'react'
 import { pluralPl } from '@/lib/plural'
 
+/**
+ * Prawa kolumna kontekstowa — pozycjonowanie wspólne dla czterech ekranów
+ * (pulpit, miasto, linie, linia). Dzieci to karty. Schowana poniżej `xl`, żeby
+ * nie ściskać treści głównej na węższych ekranach (#7). Zakłada, że rodzic jest
+ * `flex`-rzędem — `(app)/layout.tsx` nim jest.
+ */
+export function PageAside({ children }: { children: ReactNode }) {
+  return (
+    <aside className="hidden w-72 shrink-0 self-start sticky top-0 max-h-dvh overflow-y-auto py-7 pr-8 xl:flex xl:flex-col xl:gap-4">
+      {children}
+    </aside>
+  )
+}
+
 /** Karta prawej kolumny kontekstowej — wspólna dla widoku stacji i przystanku. */
 export function AsideCard({ title, children }: { title: string; children: ReactNode }) {
   return (

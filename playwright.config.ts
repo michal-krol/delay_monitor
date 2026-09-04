@@ -25,7 +25,12 @@ export default defineConfig({
     { name: 'mobile-safari', use: { ...devices['iPhone 15'] } },
   ],
   webServer: {
-    command: `npm run build && npm run start -- --port ${PORT}`,
+    // `--webpack` poza CI: w worktree agenta (`.claude/worktrees/**`) `node_modules`
+    // leży w głównym checkoutcie, powyżej `turbopack.root` z `next.config.ts`, więc
+    // build Turbopackiem pada („Symlink node_modules … points out of the filesystem
+    // root"). Webpack rozwiązuje pakiety w górę drzewa i buduje normalnie. CI ma
+    // świeży checkout z `node_modules` na miejscu — tam zostaje Turbopack.
+    command: `npm run build${process.env.CI ? '' : ' -- --webpack'} && npm run start -- --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
