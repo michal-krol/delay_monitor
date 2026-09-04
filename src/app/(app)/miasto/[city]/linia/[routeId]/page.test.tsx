@@ -33,8 +33,9 @@ const LINE = {
         headsign: 'Dworzec Centralny',
         origin: 'Centrum',
         stops: [
-          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', street: null, wheelchair: 1, offsetSec: 0, onRequest: false },
-          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', street: null, wheelchair: 0, offsetSec: 480, onRequest: false },
+          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', street: 'Marszałkowska', wheelchair: 1, offsetSec: 0, onRequest: false },
+          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', street: 'Prosta', wheelchair: 0, offsetSec: 300, onRequest: true },
+          { stopId: '500801', groupId: '5008', name: 'Metro Politechnika', code: '14', street: 'Waryńskiego', wheelchair: 0, offsetSec: 600, onRequest: false },
         ],
         departures: [
           { category: 'weekday', times: [6 * 3600, 6 * 3600 + 1200], frequencyBased: false },
@@ -123,8 +124,20 @@ describe('LineDetailPage', () => {
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     // wybór odjazdu 06:00 z przystanku startowego (Centrum)
     await user.click(screen.getByRole('button', { name: '06:00' }))
-    // Rondo ONZ (+480 s) pokazuje 06:08 na trasie
-    expect(screen.getByText('06:08')).toBeInTheDocument()
+    // Rondo ONZ (+300 s) pokazuje 06:05 na trasie
+    expect(screen.getByText('06:05')).toBeInTheDocument()
+  })
+
+  it('renders stop-type glyphs, request badge and street names on the route', async () => {
+    stubFetch() // LINE fixture already has a request stop + streets after this task's edit
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    // request stop badge
+    expect(screen.getByText('NŻ')).toBeInTheDocument()
+    // street name shown somewhere on the route
+    expect(screen.getByText('Marszałkowska')).toBeInTheDocument()
+    // mini-legend
+    expect(screen.getByText(/na żądanie/i)).toBeInTheDocument()
   })
 
   it('explains an unknown line instead of rendering an empty page', async () => {
