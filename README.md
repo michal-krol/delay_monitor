@@ -474,6 +474,24 @@ Railway i wyłapuje błędy stref, których lokalna maszyna w Polsce nie pokaże
 TZ=UTC npm run test
 ```
 
+`npm run check` (= `typecheck && lint && test`) uruchamia się też automatycznie
+przed każdym `git push` — hook `.githooks/pre-push`, włączany raz na klon:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+### Testy UI (e2e)
+
+Osobny pakiet regresji interfejsu (`@playwright/test`), tryb mock, bez sieci —
+desktop + mobile + WebKit. W CI jako job `e2e` (kontener Playwright), obok
+`quality`. Patrz AGENTS.md #16.
+
+```bash
+npx playwright install --with-deps   # raz
+npm run e2e
+```
+
 ## Limity API i działanie pollera
 
 Basic pozwala na 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller

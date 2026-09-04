@@ -12,7 +12,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "e2e": "playwright test"
   },
   "comment:overrides": "next@16.2.12 to najnowsza stabilna wersja, a zakres podatnosci obejmuje wszystkie wydania - `npm audit fix` proponuje downgrade do next@9.3.3. Zamiast tego wymuszamy bezpieczne wersje zaleznosci przechodnich: sharp (uzywany wylacznie przez optymalizator obrazow Next, ktorego nie uzywamy) i postcss (build-time, Tailwind). Do usuniecia, gdy Next zaktualizuje je u siebie.",
   "overrides": {
@@ -27,6 +29,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",

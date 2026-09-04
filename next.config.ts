@@ -109,7 +109,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // ponytail: `next start` nie działa z output:standalone, a kopiowanie
+  // static/public do .next/standalone (jak w Dockerfile) to zbędny narzut
+  // w teście — pakiet e2e (playwright.config.ts) buduje bez standalone.
+  output: process.env.E2E ? undefined : "standalone",
 
   // Patrz `projectRoot` wyżej -- w worktree Next inaczej wybiera lockfile
   // głównego checkoutu i ostrzega o „multiple lockfiles".

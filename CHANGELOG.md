@@ -5,6 +5,22 @@ Wersjonowanie semantyczne.
 
 ## [Niewydane]
 
+### Proces
+
+- **Przepływ `lokalnie → dev → main`** spisany w AGENTS.md #12 — feature branch
+  scala się do `dev` (staging Railway) przez PR, dopiero zielony `dev` idzie na
+  `main` (produkcja). Koniec pushowania feature'ów prosto na `main`.
+- **`npm run check`** (`typecheck && lint && test`) + hook `.githooks/pre-push`
+  odpalający go przed każdym `git push` (`git config core.hooksPath .githooks`).
+- **Automatyczne testy UI (e2e)** — `@playwright/test` + `@axe-core/playwright`,
+  `npm run e2e`, smoke desktop/mobile/WebKit w trybie mock, osobny job `e2e`
+  w CI. AGENTS.md #16.
+- **AGENTS.md #14/#15** — proces pracy nad zmianą (analiza oparta o źródła, TDD,
+  weryfikacja UI, pass spójności przyczynowo-skutkowej) i ekonomia działań
+  agenta.
+- Commity i PR-y po angielsku (Conventional Commits); dokumentacja zostaje po
+  polsku. `.github/pull_request_template.md`.
+
 ## [0.9.10] — 2026-09-03
 
 Duża tura: przebudowa interfejsu wg makiety (własne trasy zamiast modali, nowy

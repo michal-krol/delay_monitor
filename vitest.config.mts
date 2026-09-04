@@ -23,7 +23,8 @@ export default defineConfig({
      * CI zawsze widziało poprawny zestaw -- ale lokalnie mylące i kilka razy
      * wolniejsze.
      */
-    exclude: [...configDefaults.exclude, '**/.claude/**'],
+    // `e2e/**` to Playwright (`*.spec.ts`), nie Vitest -- patrz AGENTS.md #16.
+    exclude: [...configDefaults.exclude, '**/.claude/**', 'e2e/**'],
     environment: 'node',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
