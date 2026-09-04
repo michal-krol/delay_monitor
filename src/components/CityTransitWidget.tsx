@@ -85,7 +85,9 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
         {stats !== null &&
           (() => {
             const vs = data?.state === 'ready' ? data.vehiclesInService : undefined
-            const total = vs === undefined || vs === null ? null : (Object.values(vs) as number[]).reduce((a, b) => a + b, 0)
+            // Suma trzech WYŚWIETLANYCH środków — inaczej `rail`/`other` w feedzie
+            // rozjeżdżają liczbę z rozbiciem obok.
+            const total = vs === undefined || vs === null ? null : vs.metro + vs.tram + vs.bus
             return (
               <p className="mt-2 text-xs text-text-muted">
                 W trasie teraz:{' '}
