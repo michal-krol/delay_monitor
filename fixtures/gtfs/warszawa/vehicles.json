@@ -1,0 +1,7 @@
+{
+  "time": "{{NOW}}",
+  "positions": [
+    { "id": "V/20/1", "timestamp": "{{NOW}}", "lat": 52.23155, "lon": 21.00555, "side_number": "3801", "trip_id": "20-wd-0-1", "bearing": -110.0 },
+    { "id": "V/20/2", "timestamp": "{{NOW}}", "lat": 52.2325, "lon": 21.0, "side_number": "3802", "trip_id": "20-wd-0-2", "bearing": -110.0 }
+  ]
+}
