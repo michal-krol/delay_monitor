@@ -5,6 +5,16 @@ Wersjonowanie semantyczne.
 
 ## [Niewydane]
 
+### Dodane
+
+- **Komunikacja miejska: pozycje pojazdów na żywo (etap 5a)** — marker na osi
+  czasu linii, „za którym przystankiem" na karcie „Pojazdy w trasie", „W trasie
+  teraz" w widżecie sieci. Osobny `VehiclePoller` per miasto (15 s), cykl życia
+  spięty z pollerem rozkładu; `vehicleProject.ts` rzutuje `trip_id` na przebieg
+  linii po sekwencji przystanków (bez `shapes.txt`). Zero pola opóźnienia —
+  `VehicleOnRoute` niesie tylko pozycję i wiek (AGENTS.md #13). Oś czasu linii
+  przebudowana wg legendy WTP (glify ●/○/■, nazwy ulic, NŻ).
+
 ### Proces
 
 - **Przepływ `lokalnie → dev → main`** spisany w AGENTS.md #12 — feature branch
