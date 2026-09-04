@@ -91,6 +91,25 @@ describe('GET /api/gtfs/board', () => {
     expect(JSON.stringify(body)).not.toMatch(/delayMinutes|actualAt|predictedAt/)
   })
 
+  it('exposes group members (code/street/lines) and wheelchairNote', async () => {
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
+    expect(body.stops[0].members).toHaveLength(2)
+    expect(body.stops[0].members.map((m: { id: string }) => m.id)).toEqual(['100101', '100102'])
+    expect(body.stops[0].wheelchairNote).toBeNull() // słupki wheelchair=1 → brak sygnału
+    expect(body.stops[0].activeSlupek).toBeNull()
+  })
+
+  it('?slupek= scopes departures to one member of the group', async () => {
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100101')
+    expect(body.stops[0].activeSlupek).toBe('100101')
+    expect(body.stops[0].departures.every((d: { stopId: string }) => d.stopId === '100101')).toBe(true)
+  })
+
+  it('ignores a ?slupek= that is not in the group (falls back to whole group)', async () => {
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100109')
+    expect(body.stops[0].activeSlupek).toBeNull()
+  })
+
   it('returns state=loading with empty stops while the schedule is not ready', async () => {
     const kept = schedule
     schedule = null
