@@ -76,20 +76,26 @@ export async function GET(request: Request) {
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
     if (group === null) return null
-    // Gdy podano `slupek` i należy on do tego zespołu — rozkład/odjazdy tylko z niego.
-    const scopeId = slupek !== null && group.members.some((m) => m.id === slupek) ? slupek : id
-    const summary = stopSummary(schedule, scopeId, todayIndex)
+    // Zawężenie do jednego słupka WYŁĄCZNIE przez jawny `?slupek=`. Klient
+    // (TransitStopDetail) inicjuje go z `requestedMember`, ale sam steruje
+    // przełącznikiem — inaczej „Cały przystanek" nie działałby na deep-linku.
+    const scopeId = slupek !== null && group.members.some((m) => m.id === slupek) ? slupek : null
+    const summary = stopSummary(schedule, scopeId ?? group.id, todayIndex)
     return {
       stopId: id,
+      /** Id zespołu (gdy pytano o słupek, `stopId` bywa słupkiem). */
+      groupId: group.id,
+      /** Słupek, o który pytano wprost (deep-link z trasy linii); `null` = cały zespół. */
+      requestedMember: group.requestedMemberId,
       name: group.name,
       modes: group.modes,
       lines: group.lines,
       wheelchairNote: group.wheelchairNote,
       members: group.members,
-      /** Aktywny słupek, gdy zawężono; inaczej `null` (cały zespół). */
-      activeSlupek: scopeId === id ? null : scopeId,
+      /** Aktywny słupek, gdy zawężono jawnym `?slupek=`; inaczej `null`. */
+      activeSlupek: scopeId,
       summary,
-      departures: nextDepartures(schedule, [scopeId], now, limit),
+      departures: nextDepartures(schedule, [scopeId ?? group.id], now, limit),
     }
   })
 

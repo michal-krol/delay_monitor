@@ -18,6 +18,7 @@ function dep(over: Partial<GtfsDeparture> = {}): GtfsDeparture {
     serviceDate: '2026-09-02',
     stopId: '100101',
     platformCode: null,
+    stopCode: null,
     wheelchair: 0,
     frequencyBased: false,
     onRequest: false,

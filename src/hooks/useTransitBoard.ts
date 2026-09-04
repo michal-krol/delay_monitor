@@ -6,6 +6,10 @@ import type { GtfsLine, StopGroupMember, StopSummary } from '@/lib/gtfs/query'
 
 export type TransitStopBoard = {
   stopId: string
+  /** Id zespołu (`stopId` bywa słupkiem przy deep-linku z trasy linii). */
+  groupId: string
+  /** Słupek, o który pytano wprost; `null` = cały zespół. Klient inicjuje z tego przełącznik. */
+  requestedMember: string | null
   name: string
   modes: GtfsMode[]
   /** Linie obsługujące zespół, posortowane naturalnie. */

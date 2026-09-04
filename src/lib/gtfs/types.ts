@@ -75,6 +75,8 @@ export type GtfsDeparture = {
   serviceDate: string
   stopId: string
   platformCode: string | null
+  /** `stop_code` — numer słupka w zespole („07"), z którego rusza ten kurs. `null` gdy feed nie podaje. */
+  stopCode: string | null
   wheelchair: 0 | 1 | 2
   /** Zdarzenie pochodzi z rozwinięcia `frequencies.txt` (metro, częste linie). */
   frequencyBased: boolean

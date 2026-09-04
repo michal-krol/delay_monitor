@@ -188,6 +188,11 @@ export default function LineDetailPage() {
                         >
                           <span className={`min-w-0 flex-1 ${first || last ? 'font-semibold text-foreground' : ''}`}>
                             {stop.name}
+                            {stop.code !== null && (
+                              <span className="ml-1.5 rounded bg-black/5 px-1 text-[10px] font-semibold tabular-nums text-text-secondary dark:bg-white/10">
+                                słup. {stop.code}
+                              </span>
+                            )}
                             {(first || last) && (
                               <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-text-muted">
                                 {first ? 'początek' : 'koniec'}
@@ -218,10 +223,10 @@ export default function LineDetailPage() {
                   <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop?.name}</h2>
                   {selectedStop !== undefined && (
                     <Link
-                      href={`/miasto/${city}/przystanek/${encodeURIComponent(selectedStop.groupId)}?nazwa=${encodeURIComponent(selectedStop.name)}`}
+                      href={`/miasto/${city}/przystanek/${encodeURIComponent(selectedStop.stopId)}?nazwa=${encodeURIComponent(selectedStop.name)}`}
                       className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                     >
-                      pełna tablica przystanku →
+                      pełna tablica słupka →
                     </Link>
                   )}
                 </div>

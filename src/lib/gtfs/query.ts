@@ -35,10 +35,19 @@ function eventDeparture(schedule: GtfsSchedule, eventIndex: number): GtfsDepartu
     serviceDate: schedule.serviceDates[day],
     stopId: schedule.stopIds[stopIdx],
     platformCode: schedule.stopPlatforms[stopIdx],
+    /** Numer słupka w zespole (`stop_code`, „01"/„07") — z którego słupka rusza ten kurs. */
+    stopCode: schedule.stopCodes[stopIdx] ?? null,
     wheelchair: schedule.stopWheelchair[stopIdx] as 0 | 1 | 2,
     frequencyBased: schedule.tripFrequencyBased[trip] === 1,
     onRequest: schedule.evOnRequest[eventIndex] === 1,
   }
+}
+
+/** Id zespołu dla dowolnego `id` (zespół albo słupek). `null` = nieznane. */
+export function groupIdOf(schedule: GtfsSchedule, id: string): string | null {
+  if (schedule.groupMembers.has(id)) return id
+  const index = schedule.stopIndexById.get(id)
+  return index === undefined ? null : schedule.stopGroupIds[index]
 }
 
 /** Indeksy słupków wskazane przez `id` — sam słupek albo cały zespół. */
@@ -112,6 +121,8 @@ export type GtfsLine = { routeId: string; line: string; color: string | null; mo
 export type StopGroup = {
   id: string
   name: string
+  /** Słupek podany w żądaniu wprost (deep-link z trasy linii); `null` = pytano o cały zespół. */
+  requestedMemberId: string | null
   members: StopGroupMember[]
   /** Rodzaje transportu obsługujące ten zespół — do plakietek/filtra. */
   modes: GtfsMode[]
@@ -171,18 +182,26 @@ function stopLinesOf(schedule: GtfsSchedule, stopIndex: number): GtfsLine[] {
 }
 
 export function stopGroup(schedule: GtfsSchedule, id: string): StopGroup | null {
-  const memberIndices = schedule.groupMembers.get(id) ?? (schedule.stopIndexById.has(id) ? [schedule.stopIndexById.get(id)!] : [])
+  // Zawsze zwracamy CAŁY zespół — nawet gdy `id` wskazuje pojedynczy słupek
+  // (`701307`). Słupek podany wprost = `requestedMemberId`, żeby UI mógł go od
+  // razu podświetlić w przełączniku (deep-link z trasy linii).
+  const groupId = groupIdOf(schedule, id)
+  if (groupId === null) return null
+  const requestedMemberId = schedule.groupMembers.has(id) ? null : id
+
+  const memberIndices = schedule.groupMembers.get(groupId) ?? []
   if (memberIndices.length === 0) return null
 
-  const lines = groupLines(schedule, id)
+  const lines = groupLines(schedule, groupId)
   const modeOrder = new Map(MODE_ORDER.map((mode, index) => [mode, index]))
   const modes = [...new Set(lines.map((entry) => entry.mode))].sort(
     (a, b) => (modeOrder.get(a) ?? 99) - (modeOrder.get(b) ?? 99)
   )
 
   return {
-    id,
-    name: schedule.groupName.get(id) ?? schedule.stopNames[memberIndices[0]] ?? id,
+    id: groupId,
+    requestedMemberId,
+    name: schedule.groupName.get(groupId) ?? schedule.stopNames[memberIndices[0]] ?? groupId,
     members: memberIndices.map((stopIndex) => ({
       id: schedule.stopIds[stopIndex],
       name: schedule.stopNames[stopIndex],
@@ -250,6 +269,8 @@ export type LineRouteStop = {
   stopId: string
   groupId: string
   name: string
+  /** `stop_code` — numer słupka („07"), żeby user wiedział, z którego słupka jedzie linia. */
+  code: string | null
   wheelchair: 0 | 1 | 2
   /** Sekundy przejazdu od przystanku startowego (do przeliczenia godziny odjazdu na tym przystanku). */
   offsetSec: number
@@ -354,6 +375,7 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
         stopId: schedule.stopIds[stopIndex],
         groupId,
         name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
+        code: schedule.stopCodes[stopIndex] ?? null,
         wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
         offsetSec: pattern.offsets[order] ?? 0,
       }
