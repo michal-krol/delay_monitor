@@ -451,9 +451,9 @@ npm run typecheck
 npm run lint
 ```
 
-825 testów w 62 plikach (Vitest), bez sieci i bez klucza API. Osobno 8 testów
-kontraktowych wobec swaggera PKP, uruchamianych na żądanie (wymagają sieci,
-bez klucza, bez kosztu limitu):
+~1040 testów w ~103 plikach (Vitest), bez sieci i bez klucza API. Osobno testy
+kontraktowe wobec swaggera PKP, uruchamiane na żądanie (wymagają sieci, bez
+klucza, bez kosztu limitu):
 
 ```bash
 PKP_CONTRACT=1 npm run test -- contract
