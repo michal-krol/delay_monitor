@@ -1,0 +1,4 @@
+#!/bin/sh
+# Bramka jakości przed pushem — patrz AGENTS.md #12.
+# Włączenie (raz na klon): git config core.hooksPath .githooks
+npm run check

@@ -290,14 +290,24 @@ nie trafia do repozytorium. Nie dodawaj go z powrotem.
 
 ## 12. Bramka jakości
 
-Commity trafiają bezpośrednio na `main`, z którego deployuje Railway. Przed
-oddaniem pracy:
+Przepływ: **lokalnie → `dev` → `main`**. Feature branch (worktree) scala się do
+`dev` przez PR; Railway stawia staging z `dev`, na którym klika się i testuje;
+dopiero zielony `dev` idzie PR-em do `main` → produkcja. Nie pushuj feature'a
+prosto na `main`.
+
+Lokalnie przed każdym pushem (hook `pre-push`, `git config core.hooksPath
+.githooks` raz na klon — konfiguracja `.git/` jest współdzielona przez worktree):
 
 ```bash
-npm run typecheck && npm run lint && npm run test
+npm run check   # = typecheck && lint && test
 ```
 
-Zmiany widoczne w interfejsie weryfikuj w przeglądarce, nie tylko testami.
+`TZ=UTC npm run test` dodatkowo przy logice czasu (#1). Zmiany widoczne w
+interfejsie: `npm run e2e` (#16) i weryfikacja w przeglądarce, nie tylko testami;
+pełne klikane QA na deployu `dev`.
+
+Commity i PR-y **po angielsku**, Conventional Commits (`feat:`/`refactor:`/
+`docs:`). README, CHANGELOG i ten plik zostają po polsku.
 
 Dotykając `src/lib/pkp/schema.ts` albo parametrów zapytań w `client.ts`,
 sprawdź kontrakt wobec publicznego swaggera PKP (poza CI, wymaga sieci, bez
@@ -366,3 +376,81 @@ GTFS_CONTRACT=1 npm run test -- gtfs/contract
 
 `GTFS_DATA_SOURCE=mock` (domyślnie) trzyma `npm run dev`/`test`/CI zerowo-
 sieciowe. Fixture'y w `fixtures/gtfs/<city>/` to zwykłe `.txt`, bez ZIP-a.
+
+## 14. Proces pracy nad zmianą
+
+Skalowany rozmiarem zadania. Zmiana trywialna (literówka, jednolinijkowiec,
+czysty refactor bez zmiany zachowania) = fix + test + bramka (#12), bez reszty
+ceremonii. Pełna ścieżka dotyczy nowego zachowania i niebanalnych poprawek błędów.
+
+1. **Analiza = burza mózgów oparta o dane i źródła.** Zanim powstanie kod:
+   przedstaw przypadek własnymi słowami, wypisz założenia, zadaj userowi otwarte
+   pytania. Opieraj się na źródłach, nie na zgadywaniu z fixture'ów, i **wymień,
+   z których korzystałeś**:
+   - **API** — swagger (`curl -s https://pdp-api.plk-sa.pl/swagger/v1/swagger.json`),
+     realny payload `/operations` przy kluczu, żywy feed GTFS (#8, #9, #13).
+   - **Dokumentacja** — `node_modules/next/dist/docs/` (to nie jest ten Next.js,
+     który znasz — patrz góra pliku), publiczny schemat feedu GTFS, swagger PKP.
+   - **Wiedza wewnętrzna** — niezmienniki z tego pliku, `README.md`, `MEMORY.md`,
+     poprzednie handoffy w `docs/`, `CHANGELOG.md`.
+   - **Sieć** — dobre praktyki i referencyjne implementacje, gdy temat tego wymaga.
+
+   (`superpowers:brainstorming`)
+2. **UI / design.** Jeśli zadanie dotyka wyglądu lub nowego widoku — ustal
+   z userem kierunek (albo zaprojektuj wariant i pokaż) zanim wejdziesz w kod.
+3. **TDD.** Nowe zachowanie lub bug → najpierw czerwony test, potem kod. Testy
+   leżą obok kodu (`*.test.ts`). Regresja z produkcji → test na dosłownym
+   payloadzie, jak `schema.test.ts`. (`superpowers:test-driven-development`)
+4. **Bramka jakości** — patrz #12. Zmiana UI → dodatkowo `npm run e2e` (#16).
+5. **Weryfikacja UI.** Zmiana widoczna w interfejsie → sprawdzenie w przeglądarce;
+   nowy interaktywny przepływ → e2e desktop + mobile (#16) i zrzut. Pełne klikane
+   QA na deployu `dev`, nie tylko lokalnie.
+6. **Spójność i związek przyczynowo-skutkowy — zawsze na końcu.** Przeczytaj
+   własny diff obok niezmienników: czy zmiana faktycznie wywołuje zamierzony
+   efekt end-to-end? Czy typy, testy, `CHANGELOG`, ten plik i kod mówią to samo?
+   Czy nie wprowadziłeś sprzeczności z istniejącym niezmiennikiem?
+   (`superpowers:verification-before-completion`)
+7. **Self-review i sugestie.** Jeden przebieg pod kątem nadmiarowości i reużycia
+   (`/ponytail-review` lub `/simplify`). Refaktor wart osobnej zmiany — zgłoś,
+   nie doklejaj do bieżącego diffa. Jeśli zbudowane dane lub funkcja umożliwiają
+   wartościowe, dotąd nierealizowane użycie — dopisz 1–2 zdania sugestii
+   (kandydat na `spawn_task` albo wpis do `MEMORY.md`), nie realizuj w tym diffie.
+   (`superpowers:requesting-code-review`)
+
+## 15. Ekonomia działań i wypowiedzi
+
+Sesje są drogie w tokenach. Domyślnie:
+
+- Nie powtarzaj ustalonych faktów, nie streszczaj planu, którego nikt nie prosił,
+  nie opisuj wariantów, których nie wybierasz. Zmiana najpierw, potem maks. 3
+  krótkie linijki.
+- Tryb plan: **jeden** Explore agent, nie trzy — mapę repo masz w tym pliku.
+- Nie czytaj ponownie pliku, który właśnie zmieniłeś (Edit i tak by zawył).
+- Duże zrzuty (`git diff`, `curl`, logi) zawężaj ścieżką/`head`; czytaj przez
+  Grep/Read, nie `cat` w bashu.
+- Jedno zadanie = jedna sesja. Do nowego tematu nowa sesja, nie `/compact`
+  długiej.
+- ponytail pilnuje minimalizmu *kodu*, caveman — *języka wypowiedzi* (oba
+  aktywne stale przez plugin); ta sekcja spina je z *działaniami* w sesji.
+
+## 16. Automatyczne testy UI (e2e)
+
+`npm run e2e` to **wersjonowany pakiet regresji UI** (`@playwright/test`),
+w trybie mock i zerowo-sieciowy jak reszta testów (#6, #8): serwer stawiany
+przez `webServer` bez klucza PKP i z `GTFS_DATA_SOURCE=mock`, `/api/weather`
+zablokowane w kontekście (stan `available:false` jest poprawny — #7). Odpalany
+lokalnie przy zmianach UI i w CI (osobny job `e2e`, poza szybkim `quality`).
+
+- Projekty: `desktop-chromium`, `mobile-chromium` (`devices['Pixel 7']`),
+  `mobile-safari` (`devices['iPhone 15']`). Kolejny viewport = wpis w
+  `playwright.config.ts`, nie nowy kod.
+- Nowy widok lub interaktywny przepływ → dołóż smoke w `e2e/` przy desktop
+  i mobile + skan a11y (`@axe-core/playwright`, fail na `serious`/`critical`).
+  Lokatory **semantyczne** (rola/nazwa), nie CSS — stabilne między layoutami.
+- Trzy stany wskaźników z #7 obowiązują też tu: test nie może przechodzić na
+  kaflu „0" przy zepsutym pobraniu.
+- playwright-skill (MCP) to co innego — eksploracja i jednorazowe sprawdzenia na
+  żądanie, nie regresja.
+
+`ponytail:` snapshoty wizualne (`toHaveScreenshot`) świadomie pominięte — dodać
+dopiero, gdy realna regresja wizualna ugryzie; wtedy baseline w kontenerze CI.
