@@ -132,7 +132,7 @@ export default function CityLinesPage() {
       {data !== null && <AttributionFooter attribution={data.attribution} />}
     </main>
 
-      <aside className="shrink-0 px-4 pb-6 sm:px-8 xl:w-72 xl:self-start xl:px-0 xl:pr-8 xl:pt-24">
+      <aside className="shrink-0 px-4 pb-6 sm:px-8 xl:sticky xl:top-0 xl:max-h-dvh xl:w-72 xl:self-start xl:overflow-y-auto xl:px-0 xl:pr-8 xl:pt-7">
         <CityWeatherCard city={city} />
       </aside>
     </div>

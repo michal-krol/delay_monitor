@@ -18,6 +18,9 @@ import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatClockTime } from '@/lib/format'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { useStationWeather } from '@/hooks/useStationWeather'
+import { AsideCard } from './aside'
+import { WeatherCard } from './StationAside'
 
 type TrainDetailApiResponse = {
   scheduleId: string
@@ -169,6 +172,10 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const [data, setData] = useState<TrainDetailApiResponse | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const { share, copied } = useShareUrl()
+  // Pogoda punktu startu trasy — `stops[0]` to stacja początkowa (`stationId`
+  // to identyfikator PKP, ten sam, którym kluczuje `/api/weather`). Pusty ciąg
+  // przed odpowiedzią = hook nie bije w API (AGENTS.md #3).
+  const originWeather = useStationWeather(data?.stops[0]?.stationId ?? '')
   // Do sprawdzenia „czy jest jeszcze co odświeżać" wewnątrz efektu bez trzymania
   // `data` w jego zależnościach — inaczej każdy refetch przepinałby listenery.
   const dataRef = useRef<TrainDetailApiResponse | null>(null)
@@ -673,6 +680,10 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
 
             {/* ── Prawa kolumna ──────────────────────────────────────── */}
             <aside className="flex flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
+              <AsideCard title={`Pogoda dziś — ${data.stops[0].stationName}`}>
+                <WeatherCard weather={originWeather} />
+              </AsideCard>
+
               <section className="glass rounded-2xl p-5">
                 <SectionHeading>Informacje o połączeniu</SectionHeading>
                 <dl className="mt-2 divide-y" style={{ borderColor: 'var(--surface-border)' }}>

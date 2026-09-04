@@ -98,6 +98,23 @@ describe('ConnectionDetails', () => {
     expect(screen.getByText(/peron 3 · tor 1/)).toBeInTheDocument()
   })
 
+  it('shows a weather card for the origin station in the right column', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.startsWith('/api/weather')
+          ? jsonResponse({ available: false, reason: 'no-location' })
+          : jsonResponse(RESPONSE)
+      )
+    )
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await waitForRoute()
+
+    // Gdańsk Główny to pierwszy przystanek (`stops[0]`) — pogoda punktu startu.
+    expect(screen.getByRole('heading', { name: 'Pogoda dziś — Gdańsk Główny' })).toBeInTheDocument()
+  })
+
   it('shows the resolved carrier/category name instead of the raw code, when known', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
 
@@ -685,6 +702,12 @@ describe('ConnectionDetails', () => {
   })
 
   describe('background refresh', () => {
+    // Poza `/api/train` komponent bije jeszcze w `/api/weather` (pogoda punktu
+    // startu) — te testy pilnują throttlingu samego pobierania trasy, więc
+    // liczą tylko wywołania `/api/train`.
+    const trainCalls = (m: ReturnType<typeof vi.fn>) =>
+      m.mock.calls.filter(([url]) => String(url).includes('/api/train')).length
+
     const CONFIRMED_SECOND_STOP = {
       ...RESPONSE,
       stops: [
@@ -703,13 +726,13 @@ describe('ConnectionDetails', () => {
 
       render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
       await waitForRoute()
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(trainCalls(fetchMock)).toBe(1)
 
       // <90 s od pierwszego pobrania — ignorowane (cache /api/train i tak trzyma 90 s)
       vi.setSystemTime(new Date('2026-08-01T10:01:00Z'))
       window.dispatchEvent(new Event('focus'))
       await Promise.resolve()
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(trainCalls(fetchMock)).toBe(1)
 
       // >90 s — dociąga w tle
       vi.setSystemTime(new Date('2026-08-01T10:02:00Z'))
@@ -718,7 +741,7 @@ describe('ConnectionDetails', () => {
       // eslint-disable-next-line testing-library/no-node-access
       const wwaRow = () => routeList().getByText('Warszawa Centralna').closest('li') as HTMLElement
       await vi.waitFor(() => expect(within(wwaRow()).getByText('+1 min')).toBeInTheDocument())
-      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(trainCalls(fetchMock)).toBe(2)
       // Nigdy nie wróciło do stanu ładowania
       expect(screen.queryByText('Wczytywanie trasy…')).not.toBeInTheDocument()
     })
@@ -736,7 +759,7 @@ describe('ConnectionDetails', () => {
 
       vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
       window.dispatchEvent(new Event('focus'))
-      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() => expect(trainCalls(fetchMock)).toBe(2))
 
       expect(screen.queryByText('Nie udało się pobrać szczegółów połączenia.')).not.toBeInTheDocument()
       expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
@@ -756,12 +779,12 @@ describe('ConnectionDetails', () => {
 
       render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
       await waitForRoute()
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(trainCalls(fetchMock)).toBe(1)
 
       vi.setSystemTime(new Date('2026-08-01T12:10:00Z'))
       window.dispatchEvent(new Event('focus'))
       await Promise.resolve()
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(trainCalls(fetchMock)).toBe(1)
     })
   })
 })

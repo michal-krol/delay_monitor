@@ -139,6 +139,14 @@ describe('LineDetailPage', () => {
     expect(await screen.findByText('Rozkład jeszcze się wczytuje.')).toBeInTheDocument()
   })
 
+  it('keeps the weather card in the right column even before the line loads', async () => {
+    stubFetch({ ...LINE, line: null, schedule: { ...LINE.schedule, state: 'loading' } })
+    render(<LineDetailPage />)
+    expect(await screen.findByRole('heading', { name: 'Pogoda dziś — Warszawa' })).toBeInTheDocument()
+    // Karta „Linia X" zależy od danych linii — jej brak podczas ładowania jest w porządku.
+    expect(screen.queryByRole('heading', { name: /^Linia / })).not.toBeInTheDocument()
+  })
+
   it('shows an error state when the line fetch fails', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => (url.startsWith('/api/gtfs/line') ? Promise.reject(new Error('x')) : jsonResponse({ cities: [] }))))
     render(<LineDetailPage />)

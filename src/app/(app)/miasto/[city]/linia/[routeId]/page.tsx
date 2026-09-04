@@ -244,8 +244,8 @@ export default function LineDetailPage() {
         {data !== null && <AttributionFooter attribution={data.attribution} />}
       </main>
 
-      {line !== null && direction !== undefined && (
-        <aside className="flex shrink-0 flex-col gap-4 px-4 pb-6 sm:px-8 xl:w-72 xl:self-start xl:px-0 xl:pr-8 xl:pt-24">
+      <aside className="flex shrink-0 flex-col gap-4 px-4 pb-6 sm:px-8 xl:sticky xl:top-0 xl:max-h-dvh xl:w-72 xl:self-start xl:overflow-y-auto xl:px-0 xl:pr-8 xl:pt-7">
+        {line !== null && direction !== undefined && (
           <AsideCard title={`Linia ${line.line}`}>
             <dl className="flex flex-col gap-1.5 text-xs">
               <div className="flex justify-between gap-2">
@@ -270,12 +270,12 @@ export default function LineDetailPage() {
               ) : null}
             </dl>
           </AsideCard>
+        )}
 
-          <AsideCard title={`Pogoda dziś — ${cityName}`}>
-            <WeatherCard weather={weather} />
-          </AsideCard>
-        </aside>
-      )}
+        <AsideCard title={`Pogoda dziś — ${cityName}`}>
+          <WeatherCard weather={weather} />
+        </AsideCard>
+      </aside>
     </div>
   )
 }

@@ -5,6 +5,17 @@ Wersjonowanie semantyczne.
 
 ## [Niewydane]
 
+### Poprawki
+
+- **Prawa kolumna kontekstowa wyrównana do góry na każdym ekranie** — listy linii
+  i szczegóły linii miały `xl:pt-24` (ręcznie zgadnięty odstęp „pod TopBar"),
+  przez co widżet pogody zaczynał się ~4 rem poniżej tytułu strony. Teraz ten sam
+  wzorzec co Pulpit/miasto: `sticky top-0` + `pt-7`.
+- **Widżet pogody na ekranie szczegółów połączenia** (`/polaczenie/...`) — karta
+  „Pogoda dziś" dla stacji początkowej, na górze prawej kolumny.
+- **Karta pogody linii widoczna też podczas ładowania rozkładu** — wcześniej cała
+  prawa kolumna `/miasto/[city]/linia/[id]` znikała, dopóki nie dojechał przebieg.
+
 ### Proces
 
 - **Przepływ `lokalnie → dev → main`** spisany w AGENTS.md #12 — feature branch
