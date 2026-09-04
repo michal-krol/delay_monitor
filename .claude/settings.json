@@ -1,0 +1,39 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": { "source": "git", "url": "https://github.com/anthropics/claude-plugins-official.git" }
+    },
+    "agricidaniel-claude-obsidian": {
+      "source": { "source": "git", "url": "https://github.com/AgriciDaniel/claude-obsidian.git" }
+    },
+    "ui-ux-pro-max-skill": {
+      "source": { "source": "git", "url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git" }
+    },
+    "taste-skill": {
+      "source": { "source": "git", "url": "https://github.com/leonxlnx/taste-skill.git" }
+    },
+    "ponytail": {
+      "source": { "source": "git", "url": "https://github.com/DietrichGebert/ponytail.git" }
+    },
+    "playwright-skill": {
+      "source": { "source": "git", "url": "https://github.com/lackeyjb/playwright-skill.git" }
+    },
+    "caveman": {
+      "source": { "source": "git", "url": "https://github.com/JuliusBrussee/caveman.git" }
+    },
+    "openai-codex": {
+      "source": { "source": "git", "url": "https://github.com/openai/codex-plugin-cc.git" }
+    }
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "ponytail@ponytail": true,
+    "caveman@caveman": true,
+    "taste-skill@taste-skill": true,
+    "ui-ux-pro-max@ui-ux-pro-max-skill": true,
+    "claude-obsidian@agricidaniel-claude-obsidian": true,
+    "playwright@claude-plugins-official": true,
+    "playwright-skill@playwright-skill": true,
+    "codex@openai-codex": true
+  }
+}

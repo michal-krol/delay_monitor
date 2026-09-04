@@ -20,6 +20,9 @@ Wersjonowanie semantyczne.
   agenta.
 - Commity i PR-y po angielsku (Conventional Commits); dokumentacja zostaje po
   polsku. `.github/pull_request_template.md`.
+- **`.claude/settings.json`** (wersjonowany) przypina wtyczki agenta dla całego
+  repo: `superpowers`, `ponytail`, `caveman`, `taste-skill`, `ui-ux-pro-max`,
+  `claude-obsidian`, `playwright`, `codex`. AGENTS.md #17.
 
 ## [0.9.10] — 2026-09-03
 

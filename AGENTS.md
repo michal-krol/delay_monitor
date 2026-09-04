@@ -454,3 +454,17 @@ lokalnie przy zmianach UI i w CI (osobny job `e2e`, poza szybkim `quality`).
 
 `ponytail:` snapshoty wizualne (`toHaveScreenshot`) świadomie pominięte — dodać
 dopiero, gdy realna regresja wizualna ugryzie; wtedy baseline w kontenerze CI.
+
+## 17. Wtyczki projektu są przypięte w `.claude/settings.json`
+
+Wersjonowany `.claude/settings.json` przypina zestaw wtyczek dla **każdej sesji
+w repo** (wszystkie worktree, CLI i aplikacja): `superpowers`, `ponytail`,
+`caveman`, `taste-skill`, `ui-ux-pro-max`, `claude-obsidian`, `playwright`(+skill),
+`codex`. Pierwsze wejście po sklonowaniu = jednorazowy prompt zaufania do obcych
+marketplace'ów — to normalne.
+
+Konsekwencja dla #15: ten zestaw to stały narzut ~kilkudziesięciu opisów skilli
+na sesję. Świadoma wymiana — te skille są w projekcie realnie używane. Nie
+rozszerzaj listy bez policzenia kosztu; zawężasz przez `/plugin` per sesja.
+
+`.claude/settings.local.json` (gitignore) zostaje na prywatne nadpisania.
