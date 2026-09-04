@@ -13,7 +13,7 @@ const blocks: LineDepartureBlock[] = [
 describe('LineTimetable', () => {
   it('renders a column per day category and a row per hour, with the stop offset applied', () => {
     render(<LineTimetable blocks={blocks} offsetSec={480} selectedBaseSec={null} onSelect={() => {}} />)
-    expect(screen.getByRole('columnheader', { name: 'Poniedziałek – Piątek' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Poniedziałek – Czwartek' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Soboty' })).toBeInTheDocument()
     // kolumna „godz." powielona przy każdej kategorii
     expect(screen.getAllByRole('columnheader', { name: 'godz.' })).toHaveLength(2)

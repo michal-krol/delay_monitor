@@ -149,8 +149,10 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
               serviceDate: '2026-09-02',
               stopId: payload,
               platformCode: payload,
+              stopCode: payload,
               wheelchair: 0,
               frequencyBased: false,
+              onRequest: false,
             },
           ]}
         />

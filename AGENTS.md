@@ -243,16 +243,41 @@ npm run check   # = typecheck && lint && test
 - **`schedule.routePatterns`** (przebieg per kierunek + `offsets` sekundowe od
   przystanku startowego) akumulowany w gorącej pętli `stop_times` — nie skanuj
   milionów zdarzeń per żądanie strony linii. `lineDetail()` czyta gotowy indeks;
-  strona liczy godzinę jako `czas startowy + offsetSec`.
-- **Kategoria dnia** (`serviceCategory` w `schema.ts` → `schedule.tripCategory`):
-  najpierw token w `service_id` (`PcS` roboczy, `SbM` sobota, `NdM` niedziela, `PtS`
-  piątek — konwencja WTP), potem rozkład dni tygodnia dat kursowania (`calendar.txt`).
-  Sekcje rozkładu linii biorą się stąd — widoczne tylko kategorie z okna
-  `[wczoraj, dziś, jutro]`. Fixture modeluje wszystkie trzy (linia `20`:
-  `PcS`/`SbS`/`NdS`).
-- **Rozkład wyznacza doby `[wczoraj, dziś, jutro]`** — problem #9 tu nie występuje
-  (brak feedu realizacji), ale „dziś" idzie przez `serviceDateWindow()` i indeks
-  doby, nie przez `new Date()`.
+  strona liczy godzinę jako `czas startowy + offsetSec`. Wybieramy **najczęstszy**
+  przebieg (linia, kierunek), NIE najdłuższy — najdłuższy łapał zjazdy do zajezdni
+  i objazdy (linia 4: „Gocławek → Zjazd do zajezdni" zamiast „Żerań Wschodni →
+  Metro Wilanowska"). **Nie wracaj do `points.length > existing.stops.length`.**
+- **Kurs techniczny = `exceptional=1` LUB nagłówek `/zajezdn/i`** (`tripSchema`) —
+  feed WTP bywa niespójny (zjazd z `exceptional=0`, 2026-09-04). Nie zasila
+  `routePatterns` ani indeksu `run*`.
+- **Kategoria dnia** (`serviceCategory` → `schedule.tripCategory`): najpierw token
+  w `service_id` (`PcS` roboczy pon–czw, `SbS` sobota, `NdS` niedziela/święto, `PtS`
+  piątek — WTP ma OSOBNY rozkład piątkowy), potem dni tygodnia dat kursowania.
+- **Kolumny dni w rozkładzie linii NIE są z okna `[wczoraj, dziś, jutro]`.** Indeks
+  `run*` w `schedule.ts` (jeden wpis/kurs, KAŻDA doba kursowania, z pierwszego
+  słupka) → `lineDeparturesFromRuns()` daje komplet kategorii niezależnie od dnia —
+  inaczej „Soboty"/„Niedziele" znikały w środku tygodnia. **Wyjątek: metro**
+  (`frequencies.txt`) nie ma `run*` → fallback `lineDeparturesFromEvents()` na CSR,
+  więc metro pokazuje tylko kategorie z okna. `run*` iterowany liniowo per żądanie
+  (~35 tys., ~1 ms) — jeśli urośnie, indeks per-route.
+- **Zespół vs słupek.** `stopGroup(id)` ZAWSZE zwraca cały zespół, nawet gdy `id`
+  to jeden słupek (`groupIdOf()`); wtedy `requestedMemberId` niesie ten słupek
+  (deep-link z trasy linii → przełącznik go podświetla). `members` z `code`
+  (`stop_code`), `street` (`street_name`), per-słupkowymi `lines`. Zawężenie tylko
+  jawnym `/api/gtfs/board?slupek=<id>` — nie auto-scope z `stopId`, inaczej „Cały
+  przystanek" nie działa na deep-linku. `GtfsDeparture.stopCode` / `LineRouteStop.code`
+  (fallback na `platform_code`) — user widzi, z którego słupka jedzie („Centrum" =
+  9 fizycznie odległych słupków). `cleanGroupName()` NO-OP na żywym feedzie, mock
+  go używa („Centrum 01").
+- **`wheelchair_boarding` — sygnał to `2`, nie `1`.** WTP daje `1` (DOMYŚLNE) na
+  ~89% słupków, `2` (NIEdostępny) na ~11%. `StopGroup.wheelchairNote` =
+  `'inaccessible'` / `'partial'` / `null`; ikona TYLKO dla `2`. **Nie oznaczaj `1`.**
+- **Przystanek na żądanie** = `pickup_type`/`drop_off_type` = `3` w `stop_times`
+  (`schedule.evOnRequest` → `GtfsDeparture.onRequest`).
+- **Rozkład wyznacza doby `[wczoraj, dziś, jutro]`** dla TABLICY ODJAZDÓW (CSR) —
+  problem #9 tu nie występuje (brak feedu realizacji), ale „dziś" idzie przez
+  `serviceDateWindow()` i indeks doby, nie `new Date()`. `cityStats.hourly` liczy
+  KURSY (pierwszy odjazd kursu per godzina), nie zdarzenia — `sum(hourly) === tripsToday`.
 
 Kontrakt: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (sieć, bez kosztu).
 `GTFS_DATA_SOURCE=mock` (domyślnie) trzyma dev/test/CI zerowo-sieciowe. Fixture'y

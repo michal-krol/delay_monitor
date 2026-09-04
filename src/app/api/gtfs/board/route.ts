@@ -69,18 +69,33 @@ export async function GET(request: Request) {
     return schedule.serviceDates.indexOf(today) === -1 ? 1 : schedule.serviceDates.indexOf(today)
   })()
 
+  // Opcjonalne zawężenie do jednego słupka zespołu (Centrum 01 vs Centrum 02).
+  const rawSlupek = searchParams.get('slupek')
+  const slupek = rawSlupek !== null && GTFS_STOP_ID_PATTERN.test(rawSlupek) ? rawSlupek : null
+
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
     if (group === null) return null
-    const summary = stopSummary(schedule, id, todayIndex)
+    // Zawężenie do jednego słupka WYŁĄCZNIE przez jawny `?slupek=`. Klient
+    // (TransitStopDetail) inicjuje go z `requestedMember`, ale sam steruje
+    // przełącznikiem — inaczej „Cały przystanek" nie działałby na deep-linku.
+    const scopeId = slupek !== null && group.members.some((m) => m.id === slupek) ? slupek : null
+    const summary = stopSummary(schedule, scopeId ?? group.id, todayIndex)
     return {
       stopId: id,
+      /** Id zespołu (gdy pytano o słupek, `stopId` bywa słupkiem). */
+      groupId: group.id,
+      /** Słupek, o który pytano wprost (deep-link z trasy linii); `null` = cały zespół. */
+      requestedMember: group.requestedMemberId,
       name: group.name,
       modes: group.modes,
       lines: group.lines,
-      wheelchairAccessible: group.wheelchairAccessible,
+      wheelchairNote: group.wheelchairNote,
+      members: group.members,
+      /** Aktywny słupek, gdy zawężono jawnym `?slupek=`; inaczej `null`. */
+      activeSlupek: scopeId,
       summary,
-      departures: nextDepartures(schedule, [id], now, limit),
+      departures: nextDepartures(schedule, [scopeId ?? group.id], now, limit),
     }
   })
 

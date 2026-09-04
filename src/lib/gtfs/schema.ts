@@ -147,12 +147,14 @@ export const stopSchema = z
   .object({
     stop_id: z.string().min(1),
     stop_name: z.string().optional(),
+    stop_code: z.string().optional(),
     stop_lat: z.coerce.number().optional(),
     stop_lon: z.coerce.number().optional(),
     location_type: z.string().optional(),
     parent_station: z.string().optional(),
     platform_code: z.string().optional(),
     wheelchair_boarding: z.string().optional(),
+    street_name: z.string().optional(),
   })
   .transform((row) => {
     const wheelchairRaw = optional(row.wheelchair_boarding)
@@ -160,12 +162,16 @@ export const stopSchema = z
     return {
       id: row.stop_id,
       name: optional(row.stop_name) ?? '',
+      /** Numer słupka w zespole (`stop_code`, np. „01", „06") — do rozróżniania słupków. */
+      code: optional(row.stop_code) ?? null,
       lat: row.stop_lat ?? 0,
       lon: row.stop_lon ?? 0,
       locationType: optional(row.location_type) ?? '0',
       parentId: optional(row.parent_station) ?? null,
       platformCode: optional(row.platform_code) ?? null,
       wheelchair: wheelchair as 0 | 1 | 2,
+      /** Ulica, przy której stoi słupek (`street_name`) — dwie krawędzie zespołu się tak rozróżniają. */
+      street: optional(row.street_name) ?? null,
     }
   })
 
@@ -178,14 +184,24 @@ export const tripSchema = z
     trip_id: z.string().min(1),
     trip_headsign: z.string().optional(),
     direction_id: z.string().optional(),
+    exceptional: z.string().optional(),
   })
-  .transform((row) => ({
-    routeId: row.route_id,
-    serviceId: row.service_id,
-    tripId: row.trip_id,
-    headsign: optional(row.trip_headsign) ?? null,
-    directionId: (row.direction_id === '0' ? 0 : row.direction_id === '1' ? 1 : 2) as 0 | 1 | 2,
-  }))
+  .transform((row) => {
+    const headsign = optional(row.trip_headsign) ?? null
+    return {
+      routeId: row.route_id,
+      serviceId: row.service_id,
+      tripId: row.trip_id,
+      headsign,
+      directionId: (row.direction_id === '0' ? 0 : row.direction_id === '1' ? 1 : 2) as 0 | 1 | 2,
+      /**
+       * Kurs nie reprezentuje linii: `exceptional=1` LUB nagłówek „Zjazd do
+       * zajezdni" / „Wyjazd z zajezdni" (konwencja WTP — feed bywa niespójny
+       * z flagą `exceptional`, zaobserwowano zjazd z `exceptional=0`).
+       */
+      exceptional: optional(row.exceptional) === '1' || /zajezdn/i.test(headsign ?? ''),
+    }
+  })
 
 // --- calendar.txt / calendar_dates.txt ---
 

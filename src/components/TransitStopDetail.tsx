@@ -1,19 +1,25 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import type { GtfsLine } from '@/lib/gtfs/query'
+import type { GtfsLine, StopGroupMember } from '@/lib/gtfs/query'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
+import { CityWeatherCard } from './CityWeatherCard'
 import { LineBadge } from './LineBadge'
 import { ScheduleStatus } from './ScheduleStatus'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, ShareIcon, StarIcon } from './icons'
+
+/** Numer słupka do plakietki: `stop_code` („07"), inaczej peron, inaczej „—". */
+function slupekNumber(member: StopGroupMember): string {
+  return member.code ?? member.platformCode ?? '—'
+}
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
@@ -51,13 +57,34 @@ export function TransitStopDetail({
   /** Nazwa z linku (`?nazwa=`) — nagłówek do czasu wczytania rozkładu, potem tablica ją nadpisuje. */
   initialName?: string
 }) {
-  const { data, error } = useTransitBoard(city, [stopId])
+  // `undefined` = jeszcze nie wybrano (idź za słupkiem z deep-linku),
+  // `null` = user jawnie wybrał cały zespół, `string` = wybrany słupek.
+  const [slupekChoice, setSlupekChoice] = useState<string | null | undefined>(undefined)
+  const [lineFilter, setLineFilter] = useState<string | null>(null)
+  const [requestedMember, setRequestedMember] = useState<string | null>(null)
+  // Reset przy zmianie przystanku — ten sam idiom co useTransitBoard.ts.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSlupekChoice(undefined)
+    setRequestedMember(null)
+  }, [stopId])
+  // Efektywny słupek: jawny wybór usera, inaczej słupek z deep-linku (echo serwera).
+  const effSlupek = slupekChoice === undefined ? requestedMember : slupekChoice
+  const { data, error } = useTransitBoard(city, [stopId], 20, effSlupek)
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
   const { share, status: shareStatus } = useShareUrl()
   const now = useSnapshotNow(data)
-  const [lineFilter, setLineFilter] = useState<string | null>(null)
 
   const board = data?.stops[0] ?? null
+  // Po pierwszej odpowiedzi zapamiętaj, czy pytano wprost o słupek (deep-link z trasy linii).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (board?.requestedMember != null) setRequestedMember(board.requestedMember)
+  }, [board?.requestedMember])
+  // Pomijamy „słupki" bez linii (stacje-rodzice metra, np. 7014M) — nie da się
+  // z nich odjechać, tylko zaśmiecają przełącznik.
+  const members = (board?.members ?? []).filter((m) => m.lines.length > 0)
+  const activeMember = effSlupek !== null ? members.find((m) => m.id === effSlupek) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
   const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }
   const key = favouriteKey(favourite)
@@ -89,12 +116,25 @@ export function TransitStopDetail({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stopName}</h1>
-                {board?.wheelchairAccessible === true && (
-                  <span title="Przystanek dostępny dla osób z niepełnosprawnością" className="text-text-secondary">
+                {board?.wheelchairNote != null && (
+                  <span
+                    title={
+                      board.wheelchairNote === 'inaccessible'
+                        ? 'Przystanek niedostępny dla osób poruszających się na wózku'
+                        : 'Część słupków tego przystanku niedostępna dla osób na wózku'
+                    }
+                    className="text-amber-600 dark:text-amber-400"
+                  >
                     <AccessibleIcon size={18} />
                   </span>
                 )}
               </div>
+              {activeMember !== null && (
+                <p className="mt-0.5 text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                  Słupek {slupekNumber(activeMember)}
+                  {activeMember.street !== null && <span className="text-text-secondary"> · {activeMember.street}</span>}
+                </p>
+              )}
               {board !== null && board.modes.length > 0 && (
                 <p className="mt-1 text-sm text-text-secondary">
                   {board.modes.map((mode) => MODE_LABEL[mode]).join(' · ')}
@@ -135,6 +175,60 @@ export function TransitStopDetail({
             </div>
           </div>
         </section>
+
+        {members.length > 1 && (
+          <section className="glass rounded-2xl p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-muted">
+              Słupki tego przystanku · {members.length}
+            </div>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              To zespół osobnych słupków — każdy z własnymi liniami i kierunkiem.
+              Wybierz słupek, z którego wsiadasz lub wysiadasz.
+            </p>
+            <div className="mt-2.5 flex flex-col gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSlupekChoice(null)}
+                aria-pressed={effSlupek === null}
+                className="rounded-xl border px-3 py-2 text-left text-xs transition"
+                style={
+                  effSlupek === null
+                    ? { background: 'var(--accent-gradient)', borderColor: 'transparent', color: '#fff' }
+                    : { borderColor: 'var(--surface-border)' }
+                }
+              >
+                Cały przystanek — wszystkie słupki razem
+              </button>
+              {members.map((member) => {
+                const on = effSlupek === member.id
+                return (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => setSlupekChoice(member.id)}
+                    aria-pressed={on}
+                    className="flex items-baseline gap-2 rounded-xl border px-3 py-2 text-left transition"
+                    style={
+                      on
+                        ? { background: 'var(--accent-gradient)', borderColor: 'transparent', color: '#fff' }
+                        : { borderColor: 'var(--surface-border)' }
+                    }
+                  >
+                    <span className="shrink-0 text-sm font-bold tabular-nums">
+                      Słupek {slupekNumber(member)}
+                    </span>
+                    {member.street !== null && (
+                      <span className={on ? 'text-white/80 text-xs' : 'text-text-muted text-xs'}>{member.street}</span>
+                    )}
+                    <span className={`ml-auto shrink-0 text-[11px] ${on ? 'text-white/90' : 'text-text-secondary'}`}>
+                      {member.lines.map((l) => l.line).join(' · ')}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} />
@@ -179,11 +273,18 @@ export function TransitStopDetail({
             </div>
           )}
 
-          <TransitDepartureList departures={departures} loading={loading} city={city} />
+          <TransitDepartureList
+            departures={departures}
+            loading={loading}
+            city={city}
+            showSlupek={activeMember === null && members.length > 1}
+          />
         </section>
       </div>
 
       <aside className="flex flex-col gap-4 lg:sticky lg:top-6">
+        <CityWeatherCard city={city} />
+
         <AsideCard title="Natężenie ruchu dziś">
           <HourlyTraffic
             hourly={summary?.hourly ?? null}

@@ -35,9 +35,19 @@ function eventDeparture(schedule: GtfsSchedule, eventIndex: number): GtfsDepartu
     serviceDate: schedule.serviceDates[day],
     stopId: schedule.stopIds[stopIdx],
     platformCode: schedule.stopPlatforms[stopIdx],
+    /** Numer słupka w zespole (`stop_code`, „01"/„07") — z którego słupka rusza ten kurs. */
+    stopCode: schedule.stopCodes[stopIdx] ?? null,
     wheelchair: schedule.stopWheelchair[stopIdx] as 0 | 1 | 2,
     frequencyBased: schedule.tripFrequencyBased[trip] === 1,
+    onRequest: schedule.evOnRequest[eventIndex] === 1,
   }
+}
+
+/** Id zespołu dla dowolnego `id` (zespół albo słupek). `null` = nieznane. */
+export function groupIdOf(schedule: GtfsSchedule, id: string): string | null {
+  if (schedule.groupMembers.has(id)) return id
+  const index = schedule.stopIndexById.get(id)
+  return index === undefined ? null : schedule.stopGroupIds[index]
 }
 
 /** Indeksy słupków wskazane przez `id` — sam słupek albo cały zespół. */
@@ -96,7 +106,13 @@ export type StopGroupMember = {
   lat: number
   lon: number
   platformCode: string | null
+  /** `stop_code` — numer słupka w zespole („01", „06"). `null` gdy feed nie podaje. */
+  code: string | null
+  /** `street_name` — ulica, przy której stoi słupek. Rozróżnia krawędzie zespołu. */
+  street: string | null
   wheelchair: 0 | 1 | 2
+  /** Linie zatrzymujące się NA TYM słupku (nie w całym zespole). */
+  lines: GtfsLine[]
 }
 
 /** Jedna linia obsługująca zespół — plakietka w wyszukiwarce i w szczegółach. */
@@ -105,16 +121,20 @@ export type GtfsLine = { routeId: string; line: string; color: string | null; mo
 export type StopGroup = {
   id: string
   name: string
+  /** Słupek podany w żądaniu wprost (deep-link z trasy linii); `null` = pytano o cały zespół. */
+  requestedMemberId: string | null
   members: StopGroupMember[]
   /** Rodzaje transportu obsługujące ten zespół — do plakietek/filtra. */
   modes: GtfsMode[]
   /** Linie obsługujące zespół, posortowane naturalnie. */
   lines: GtfsLine[]
   /**
-   * Czy któryś słupek zespołu ma POTWIERDZONĄ dostępność (`wheelchair_boarding = 1`).
-   * `0` w GTFS = brak informacji, nie „niedostępny" — nie pokazujemy nic w tym wypadku.
+   * Sygnał dostępności zespołu. Feed WTP daje `wheelchair_boarding = 1` na ~89%
+   * słupków (wartość DOMYŚLNA — nie oznaczamy), więc jedyny wartościowy sygnał to
+   * `2` = NIEdostępny. `'inaccessible'` = wszystkie słupki oznaczone `2`,
+   * `'partial'` = część, `null` = brak sygnału (nic nie pokazujemy).
    */
-  wheelchairAccessible: boolean
+  wheelchairNote: 'inaccessible' | 'partial' | null
 }
 
 const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
@@ -147,30 +167,59 @@ export function groupLines(schedule: GtfsSchedule, groupId: string): GtfsLine[] 
     .map(lineOf)
 }
 
+/** Linie zatrzymujące się na JEDNYM słupku — skan jego wycinka CSR (okno [wczoraj, dziś, jutro]). */
+function stopLinesOf(schedule: GtfsSchedule, stopIndex: number): GtfsLine[] {
+  const set = new Set<number>()
+  for (let k = schedule.stopEventOffset[stopIndex]; k < schedule.stopEventOffset[stopIndex + 1]; k += 1) {
+    const routeIdx = schedule.tripRoute[schedule.evTrip[schedule.stopEventOrder[k]]]
+    if (routeIdx >= 0) set.add(routeIdx)
+  }
+  return [...set]
+    .map((index) => schedule.routes[index])
+    .filter((route): route is GtfsRoute => route !== undefined)
+    .sort(compareLine)
+    .map(lineOf)
+}
+
 export function stopGroup(schedule: GtfsSchedule, id: string): StopGroup | null {
-  const memberIndices = schedule.groupMembers.get(id) ?? (schedule.stopIndexById.has(id) ? [schedule.stopIndexById.get(id)!] : [])
+  // Zawsze zwracamy CAŁY zespół — nawet gdy `id` wskazuje pojedynczy słupek
+  // (`701307`). Słupek podany wprost = `requestedMemberId`, żeby UI mógł go od
+  // razu podświetlić w przełączniku (deep-link z trasy linii).
+  const groupId = groupIdOf(schedule, id)
+  if (groupId === null) return null
+  const requestedMemberId = schedule.groupMembers.has(id) ? null : id
+
+  const memberIndices = schedule.groupMembers.get(groupId) ?? []
   if (memberIndices.length === 0) return null
 
-  const lines = groupLines(schedule, id)
+  const lines = groupLines(schedule, groupId)
   const modeOrder = new Map(MODE_ORDER.map((mode, index) => [mode, index]))
   const modes = [...new Set(lines.map((entry) => entry.mode))].sort(
     (a, b) => (modeOrder.get(a) ?? 99) - (modeOrder.get(b) ?? 99)
   )
 
   return {
-    id,
-    name: schedule.groupName.get(id) ?? schedule.stopNames[memberIndices[0]] ?? id,
+    id: groupId,
+    requestedMemberId,
+    name: schedule.groupName.get(groupId) ?? schedule.stopNames[memberIndices[0]] ?? groupId,
     members: memberIndices.map((stopIndex) => ({
       id: schedule.stopIds[stopIndex],
       name: schedule.stopNames[stopIndex],
       lat: schedule.stopLat[stopIndex],
       lon: schedule.stopLon[stopIndex],
       platformCode: schedule.stopPlatforms[stopIndex],
+      code: schedule.stopCodes[stopIndex] ?? null,
+      street: schedule.stopStreets[stopIndex] ?? null,
       wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
+      lines: stopLinesOf(schedule, stopIndex),
     })),
     modes,
     lines,
-    wheelchairAccessible: memberIndices.some((stopIndex) => schedule.stopWheelchair[stopIndex] === 1),
+    wheelchairNote: (() => {
+      const flagged = memberIndices.filter((stopIndex) => schedule.stopWheelchair[stopIndex] === 2).length
+      if (flagged === 0) return null
+      return flagged === memberIndices.length ? 'inaccessible' : 'partial'
+    })(),
   }
 }
 
@@ -220,6 +269,8 @@ export type LineRouteStop = {
   stopId: string
   groupId: string
   name: string
+  /** `stop_code` — numer słupka („07"), żeby user wiedział, z którego słupka jedzie linia. */
+  code: string | null
   wheelchair: 0 | 1 | 2
   /** Sekundy przejazdu od przystanku startowego (do przeliczenia godziny odjazdu na tym przystanku). */
   offsetSec: number
@@ -239,11 +290,49 @@ export type LineDetail = LineListEntry & { directions: LineRouteDirection[] }
 
 /**
  * Odjazdy z przystanku startowego linii w danym kierunku, pogrupowane po
- * kategorii dnia. Skan wycinka CSR tego przystanku (dziesiątki–setki zdarzeń),
- * nie całej tablicy. ponytail: widoczne tylko kategorie z okna [wczoraj, dziś,
- * jutro]; pełny tygodniowy rozkład wymagałby trzymania kursów spoza okna.
+ * kategorii dnia — z indeksu `run*` (JEDEN wpis na kurs, KAŻDA doba, także spoza
+ * okna [wczoraj, dziś, jutro]). Dzięki temu kolumny „soboty" / „niedziele" są
+ * zawsze widoczne, niezależnie od tego, jaki dziś dzień tygodnia.
+ * `originGroupId` — zespół przystanku startowego przebiegu (kurs może ruszać
+ * z dowolnego słupka tego zespołu).
  */
-function lineDepartures(schedule: GtfsSchedule, routeIdx: number, directionId: number, terminusStopIdx: number): LineDepartureBlock[] {
+function lineDeparturesFromRuns(
+  schedule: GtfsSchedule,
+  routeIdx: number,
+  directionId: number,
+  originGroupId: string
+): LineDepartureBlock[] {
+  const frequencyBased = schedule.routeFrequency.has(`${routeIdx}:${directionId}`)
+  const byCategory = new Map<number, Set<number>>()
+  for (let i = 0; i < schedule.runCount; i += 1) {
+    if (schedule.runRoute[i] !== routeIdx || schedule.runDir[i] !== directionId) continue
+    if (schedule.stopGroupIds[schedule.runFirstStop[i]] !== originGroupId) continue
+    const code = schedule.runCat[i]
+    const bucket = byCategory.get(code) ?? new Set<number>()
+    bucket.add(schedule.runDepSec[i])
+    byCategory.set(code, bucket)
+  }
+  return [...byCategory.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([code, times]) => ({
+      category: SERVICE_CATEGORIES[code] ?? 'other',
+      times: [...times].sort((a, b) => a - b),
+      frequencyBased,
+    }))
+}
+
+/**
+ * Fallback dla linii częstotliwościowych (metro) — nie mają wpisów `run*`
+ * (rozwijane z `frequencies.txt`), więc bierzemy je z wycinka CSR przystanku
+ * startowego. Okno [wczoraj, dziś, jutro] wystarcza: metro kursuje podobnie
+ * każdego dnia.
+ */
+function lineDeparturesFromEvents(
+  schedule: GtfsSchedule,
+  routeIdx: number,
+  directionId: number,
+  terminusStopIdx: number
+): LineDepartureBlock[] {
   const byCategory = new Map<number, { times: Set<number>; frequencyBased: boolean }>()
   const lo = schedule.stopEventOffset[terminusStopIdx]
   const hi = schedule.stopEventOffset[terminusStopIdx + 1]
@@ -286,16 +375,29 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
         stopId: schedule.stopIds[stopIndex],
         groupId,
         name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIndex],
+        code: schedule.stopCodes[stopIndex] ?? schedule.stopPlatforms[stopIndex] ?? null,
         wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
         offsetSec: pattern.offsets[order] ?? 0,
       }
     })
+    const originStopIdx = pattern.stops[0]
+    const runsBlocks =
+      originStopIdx !== undefined
+        ? lineDeparturesFromRuns(schedule, routeIdx, directionId, schedule.stopGroupIds[originStopIdx])
+        : []
+    // Linie częstotliwościowe (metro) nie mają wpisów `run*` — fallback na CSR.
+    const departures =
+      runsBlocks.length > 0
+        ? runsBlocks
+        : originStopIdx !== undefined
+          ? lineDeparturesFromEvents(schedule, routeIdx, directionId, originStopIdx)
+          : []
     directions.push({
       directionId,
       headsign: pattern.headsignIdx >= 0 ? schedule.headsigns[pattern.headsignIdx] : null,
       origin: stops[0]?.name ?? null,
       stops,
-      departures: pattern.stops.length > 0 ? lineDepartures(schedule, routeIdx, directionId, pattern.stops[0]) : [],
+      departures,
     })
   }
 
@@ -320,6 +422,7 @@ export type StopSummary = {
 export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayIndex: number): StopSummary {
   const stopIndices = resolveStopIndices(schedule, groupId)
   const hourly = new Array<number>(24).fill(0)
+  const routeSet = new Set<number>()
   let count = 0
   let firstSec: number | null = null
   let lastSec: number | null = null
@@ -329,7 +432,10 @@ export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayI
     const hi = schedule.stopEventOffset[stopIndex + 1]
     for (let k = lo; k < hi; k += 1) {
       const eventIndex = schedule.stopEventOrder[k]
-      if (schedule.tripServiceDay[schedule.evTrip[eventIndex]] !== serviceDayIndex) continue
+      const trip = schedule.evTrip[eventIndex]
+      if (schedule.tripServiceDay[trip] !== serviceDayIndex) continue
+      const routeIdx = schedule.tripRoute[trip]
+      if (routeIdx >= 0) routeSet.add(routeIdx)
       const sec = schedule.evDepSec[eventIndex]
       count += 1
       if (firstSec === null || sec < firstSec) firstSec = sec
@@ -339,7 +445,9 @@ export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayI
   }
 
   return {
-    lineCount: groupLines(schedule, groupId).length,
+    // Liczba linii z faktycznych odjazdów „dziś" tego zakresu (słupek albo cały
+    // zespół) — nie z `groupRoutes`, które nie zna kluczy słupków.
+    lineCount: routeSet.size,
     departuresToday: count,
     firstDepartureSec: firstSec,
     lastDepartureSec: lastSec,
@@ -356,12 +464,12 @@ export type CityStats = {
   stopGroupCount: number
   /** Liczba środków transportu obecnych w feedzie (rodzaje z ≥1 linią). */
   modeCount: number
-  /** Liczba kursów w dobie „dziś". */
+  /** Liczba kursów w dobie „dziś" (jeden kurs = jeden przejazd pojazdu, NIE zdarzenie na słupku). */
   tripsToday: number
-  /** Sekunda pierwszego / ostatniego odjazdu dziś w całej sieci. `null` = brak. */
+  /** Sekunda pierwszego / ostatniego ROZPOCZĘTEGO kursu dziś. `null` = brak. */
   firstDepartureSec: number | null
   lastDepartureSec: number | null
-  /** 24 kubełki — kursy per godzina zegarowa doby. */
+  /** 24 kubełki — liczba kursów rozpoczętych w danej godzinie zegarowej (spójne z `tripsToday`). */
   hourly: number[]
 }
 
@@ -382,17 +490,25 @@ export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats
   const busKinds: Record<LineKind, number> = { regular: 0, night: 0, express: 0, replacement: 0 }
   for (const route of byMode.bus) busKinds[route.kind] += 1
 
-  const hourly = new Array<number>(24).fill(0)
-  let tripsToday = 0
-  for (let trip = 0; trip < schedule.tripIds.length; trip += 1) {
-    if (schedule.tripServiceDay[trip] === todayIndex) tripsToday += 1
+  // Pierwszy odjazd każdego kursu „dziś" — jeden skan zdarzeń. Wcześniej `hourly`
+  // liczyło ZDARZENIA na słupkach (~1 mln/dobę) obok `tripsToday` liczącego kursy
+  // (~35 tys.) — dwie różne skale w jednym widżecie. Teraz oba liczą kursy.
+  const firstDep = new Int32Array(schedule.tripIds.length).fill(-1)
+  for (let e = 0; e < schedule.evCount; e += 1) {
+    const trip = schedule.evTrip[e]
+    if (schedule.tripServiceDay[trip] !== todayIndex) continue
+    const sec = schedule.evDepSec[e]
+    if (firstDep[trip] === -1 || sec < firstDep[trip]) firstDep[trip] = sec
   }
 
+  const hourly = new Array<number>(24).fill(0)
+  let tripsToday = 0
   let firstSec: number | null = null
   let lastSec: number | null = null
-  for (let e = 0; e < schedule.evCount; e += 1) {
-    if (schedule.tripServiceDay[schedule.evTrip[e]] !== todayIndex) continue
-    const sec = schedule.evDepSec[e]
+  for (let trip = 0; trip < firstDep.length; trip += 1) {
+    const sec = firstDep[trip]
+    if (sec === -1) continue
+    tripsToday += 1
     if (firstSec === null || sec < firstSec) firstSec = sec
     if (lastSec === null || sec > lastSec) lastSec = sec
     hourly[Math.floor(sec / 3600) % 24] += 1

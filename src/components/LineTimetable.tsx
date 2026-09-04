@@ -3,7 +3,8 @@ import type { LineDepartureBlock } from '@/lib/gtfs/query'
 import type { ServiceCategory } from '@/lib/gtfs/schema'
 
 const CATEGORY_LABEL: Record<ServiceCategory, string> = {
-  weekday: 'Poniedziałek – Piątek',
+  // WTP ma osobny rozkład piątkowy (`PtS`), więc dzień roboczy to pon–czw.
+  weekday: 'Poniedziałek – Czwartek',
   friday: 'Piątek',
   saturday: 'Soboty',
   sunday: 'Niedziele i święta',

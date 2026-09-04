@@ -13,6 +13,8 @@ export type GtfsMode = 'metro' | 'tram' | 'bus' | 'rail' | 'other'
 export type GtfsStop = {
   id: string
   name: string
+  /** `stop_code` — numer słupka w zespole („01", „06"). `null` gdy feed nie podaje. */
+  code: string | null
   lat: number
   lon: number
   /** Id zespołu przystankowego (patrz `groupStopId` w schedule.ts). */
@@ -21,9 +23,12 @@ export type GtfsStop = {
   parentId: string | null
   /** `platform_code`, gdy podane. */
   platformCode: string | null
+  /** `street_name` — ulica, przy której stoi słupek. Rozróżnia krawędzie zespołu. */
+  street: string | null
   /**
-   * `wheelchair_boarding` — TRÓJSTANOWE. GTFS `0` znaczy „brak informacji",
-   * nie „niedostępny". Nie zwijać do boolean.
+   * `wheelchair_boarding` — TRÓJSTANOWE. GTFS `1` = dostępny (w feedzie WTP
+   * DOMYŚLNY, ~89% słupków → nie oznaczaj), `2` = NIEdostępny (~11% → warto
+   * ostrzec), `0` = brak informacji.
    */
   wheelchair: 0 | 1 | 2
 }
@@ -70,9 +75,13 @@ export type GtfsDeparture = {
   serviceDate: string
   stopId: string
   platformCode: string | null
+  /** `stop_code` — numer słupka w zespole („07"), z którego rusza ten kurs. `null` gdy feed nie podaje. */
+  stopCode: string | null
   wheelchair: 0 | 1 | 2
   /** Zdarzenie pochodzi z rozwinięcia `frequencies.txt` (metro, częste linie). */
   frequencyBased: boolean
+  /** Przystanek na żądanie dla tego kursu (`pickup_type`/`drop_off_type` = 3). */
+  onRequest: boolean
 }
 
 /** Stan wczytywania rozkładu — wystawiany przez poller i trasę API. */
@@ -104,6 +113,10 @@ export type GtfsSchedule = {
   /** Id zespołu per przystanek (równoległe do `stopIds`). */
   stopGroupIds: string[]
   stopPlatforms: (string | null)[]
+  /** `stop_code` per słupek — numer słupka w zespole. */
+  stopCodes: (string | null)[]
+  /** `street_name` per słupek. */
+  stopStreets: (string | null)[]
   stopWheelchair: Uint8Array
   stopIndexById: Map<string, number>
   /** Id zespołu → indeksy przystanków (słupków) w nim. */
@@ -124,6 +137,28 @@ export type GtfsSchedule = {
    * (linia, kierunek). Do strony linii, liczony raz przy ładowaniu.
    */
   routePatterns: Map<string, { stops: number[]; offsets: number[]; headsignIdx: number }>
+  /**
+   * `${routeIdx}:${directionId}` → takt linii częstotliwościowej (metro):
+   * najkrótszy/najdłuższy headway [s] i okno kursowania. Strona linii pokazuje
+   * „co 2–4 min (05:00–01:00)" zamiast siatki minut.
+   */
+  routeFrequency: Map<string, { startSec: number; endSec: number; minHeadway: number; maxHeadway: number }>
+
+  /**
+   * Indeks rozkładu linii — JEDEN wpis na kurs, z KAŻDEJ doby (także spoza okna
+   * `[wczoraj, dziś, jutro]`), z pierwszego przystanku kursu. Równoległe tablice
+   * (`runCount` wpisów). Strona linii buduje z tego kolumny dni — dzięki temu
+   * „soboty"/„niedziele" są zawsze widoczne. Kursy techniczne (`exceptional`) pominięte.
+   */
+  runRoute: Int32Array
+  runDir: Uint8Array
+  /** Kategoria dnia — patrz `tripCategory`. */
+  runCat: Uint8Array
+  /** Indeks pierwszego słupka kursu. */
+  runFirstStop: Uint32Array
+  /** Sekunda odjazdu z pierwszego słupka (0…~100000, może przekroczyć 86400). */
+  runDepSec: Int32Array
+  runCount: number
 
   // --- kursy ---
   tripIds: string[]
@@ -149,6 +184,8 @@ export type GtfsSchedule = {
   /** Absolutny czas (epoka, sekundy) — jedyne miejsce, gdzie data spotkała zegar. */
   evAbsSec: Float64Array
   evSeq: Uint16Array
+  /** 1 = przystanek na żądanie dla tego kursu (`pickup_type`/`drop_off_type` = 3). */
+  evOnRequest: Uint8Array
   /** Liczba faktycznie użytych zdarzeń (tablice mogą być większe — rosną przez podwajanie). */
   evCount: number
 

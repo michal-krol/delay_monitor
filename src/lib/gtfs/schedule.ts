@@ -24,12 +24,14 @@ import type { GtfsRoute, GtfsSchedule } from './types'
 export type ParsedStop = {
   id: string
   name: string
+  code?: string | null
   lat: number
   lon: number
   locationType: string
   parentId: string | null
   platformCode: string | null
   wheelchair: 0 | 1 | 2
+  street?: string | null
 }
 
 export type ParsedTrip = {
@@ -38,6 +40,8 @@ export type ParsedTrip = {
   tripId: string
   headsign: string | null
   directionId: 0 | 1 | 2
+  /** `exceptional=1` — zjazd do zajezdni / kurs techniczny. Domyślnie `false`. */
+  exceptional?: boolean
 }
 
 export type ParsedFrequency = {
@@ -74,7 +78,7 @@ export type BuildScheduleInput = {
 }
 
 /** Rosnąca tablica typowana — podwajanie zamiast transientu z tablic JS. */
-function grower<T extends Int32Array | Uint32Array | Uint16Array | Float64Array>(Ctor: new (n: number) => T) {
+function grower<T extends Int32Array | Uint32Array | Uint16Array | Uint8Array | Float64Array>(Ctor: new (n: number) => T) {
   let arr = new Ctor(1024)
   let len = 0
   return {
@@ -155,6 +159,8 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const stopParent = new Int32Array(n).fill(-1)
   const stopGroupIds: string[] = new Array(n)
   const stopPlatforms: (string | null)[] = new Array(n)
+  const stopCodes: (string | null)[] = new Array(n)
+  const stopStreets: (string | null)[] = new Array(n)
   const stopWheelchair = new Uint8Array(n)
   const stopIndexById = new Map<string, number>()
 
@@ -164,6 +170,8 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     stopLat[index] = stop.lat
     stopLon[index] = stop.lon
     stopPlatforms[index] = stop.platformCode
+    stopCodes[index] = stop.code ?? null
+    stopStreets[index] = stop.street ?? null
     stopWheelchair[index] = stop.wheelchair
     stopIndexById.set(stop.id, index)
   })
@@ -231,8 +239,11 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const tripFrequencyBased: number[] = []
   /** base trip_id → indeksy wpisów (po jednym na dobę, w której kurs jest aktywny). */
   const tripEntriesById = new Map<string, number[]>()
-  /** base trip_id → (linia, kierunek, headsign) — do wzorca przebiegu linii. */
-  const tripMetaById = new Map<string, { routeIdx: number; direction: number; headsignIdx: number }>()
+  /** base trip_id → meta — do wzorca przebiegu i indeksu rozkładu linii (`lineRuns`). */
+  const tripMetaById = new Map<
+    string,
+    { routeIdx: number; direction: number; headsignIdx: number; category: number; exceptional: boolean }
+  >()
 
   const pushTrip = (
     baseTripId: string,
@@ -257,9 +268,9 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   for (const trip of input.trips) {
     const routeIdx = routeIndexById.get(trip.routeId) ?? -1
     const headsignIdx = internHeadsign(trip.headsign)
-    tripMetaById.set(trip.tripId, { routeIdx, direction: trip.directionId, headsignIdx })
     const isFrequency = frequencyTripIds.has(trip.tripId)
     const category = categoryOf(trip.serviceId)
+    tripMetaById.set(trip.tripId, { routeIdx, direction: trip.directionId, headsignIdx, category, exceptional: trip.exceptional === true })
     for (let day = 0; day < 3; day += 1) {
       if (!activeSets[day].has(trip.serviceId)) continue
       const entry = pushTrip(trip.tripId, routeIdx, headsignIdx, day, trip.directionId, category, isFrequency)
@@ -277,9 +288,10 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const evDepG = grower(Int32Array)
   const evAbsG = grower(Float64Array)
   const evSeqG = grower(Uint16Array)
+  const evOnReqG = grower(Uint8Array)
   let droppedStopTimes = 0
 
-  const addEvent = (tripEntry: number, stopIdx: number, arrSec: number, depSec: number, seq: number) => {
+  const addEvent = (tripEntry: number, stopIdx: number, arrSec: number, depSec: number, seq: number, onRequest: boolean) => {
     evTripG.push(tripEntry)
     evStopG.push(stopIdx)
     evArrG.push(arrSec)
@@ -287,35 +299,64 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     // GTFS: czas przystanku = (południe doby − 12 h) + offset sekundowy.
     evAbsG.push(noonEpochSec[tripServiceDay[tripEntry]] - 12 * 3600 + depSec)
     evSeqG.push(seq > 0xffff ? 0xffff : seq)
+    evOnReqG.push(onRequest ? 1 : 0)
   }
+
+  // ── indeks rozkładu linii: JEDEN wpis na kurs (dowolna doba, także spoza
+  // okna [wczoraj, dziś, jutro]), z pierwszego przystanku kursu. Strona linii
+  // czyta go zamiast wycinka CSR — dzięki temu kolumny „soboty" / „niedziele"
+  // są zawsze, niezależnie od tego, jaki dziś dzień. Kursy techniczne pomijamy.
+  const runRouteG = grower(Int32Array)
+  const runDirG = grower(Uint8Array)
+  const runCatG = grower(Uint8Array)
+  const runFirstStopG = grower(Uint32Array)
+  const runDepSecG = grower(Int32Array)
 
   // ── stop_times: gorąca pętla (bez Zod) ───────────────────────────────────
   /** Wzorzec kursu częstotliwościowego: przystanki z offsetami względnymi. */
   const freqPattern = new Map<string, { stopIdx: number; arrSec: number; depSec: number; seq: number }[]>()
 
   // Reprezentatywny przebieg linii: akumulujemy słupki bieżącego kursu (plik
-  // jest pogrupowany po `trip_id`), a na zmianie kursu zapisujemy najdłuższy
-  // napotkany wzorzec dla pary (linia, kierunek). O(1) amortyzowane, bez skanu
-  // milionów zdarzeń per żądanie strony linii.
+  // jest pogrupowany po `trip_id`), a na zmianie kursu rejestrujemy wzorzec.
+  // Wybieramy NAJCZĘSTSZY przebieg dla pary (linia, kierunek), nie najdłuższy —
+  // „najdłuższy" łapał kursy nietypowe (zjazdy do zajezdni z `exceptional=0`,
+  // wydłużone objazdy), przez co strona linii pokazywała zły przystanek
+  // startowy i tylko jedną kategorię dnia. O(1) amortyzowane.
   const routePatterns = new Map<string, { stops: number[]; offsets: number[]; headsignIdx: number }>()
+  /** `${routeKey}#${sygnatura słupków}` → ile kursów miało dokładnie ten przebieg. */
+  const patternSeen = new Map<string, number>()
+  /** `${routeKey}` → aktualnie wybrany wzorzec + jego licznik. */
+  const patternPick = new Map<string, { stops: number[]; offsets: number[]; headsignIdx: number; count: number }>()
   let patternTripId = ''
   let patternStops: { seq: number; stopIdx: number; depSec: number }[] = []
-  /** Wzorzec z posortowanych po `seq` punktów: słupki + offsety sekundowe względem punktu startowego. */
-  const patternFrom = (points: { seq: number; stopIdx: number; depSec: number }[]) => {
-    const sorted = [...points].sort((a, b) => a.seq - b.seq)
-    const base = sorted[0].depSec
-    return { stops: sorted.map((p) => p.stopIdx), offsets: sorted.map((p) => p.depSec - base) }
-  }
-  const registerPattern = (key: string, points: { seq: number; stopIdx: number; depSec: number }[], headsignIdx: number) => {
-    const existing = routePatterns.get(key)
-    if (existing === undefined || points.length > existing.stops.length) {
-      routePatterns.set(key, { ...patternFrom(points), headsignIdx })
+  const registerPattern = (key: string, sorted: { seq: number; stopIdx: number; depSec: number }[], headsignIdx: number) => {
+    const signature = sorted.map((p) => p.stopIdx).join(',')
+    const seenKey = `${key}#${signature}`
+    const count = (patternSeen.get(seenKey) ?? 0) + 1
+    patternSeen.set(seenKey, count)
+    const best = patternPick.get(key)
+    if (best === undefined || count > best.count || (count === best.count && sorted.length > best.stops.length)) {
+      const base = sorted[0].depSec
+      patternPick.set(key, {
+        stops: sorted.map((p) => p.stopIdx),
+        offsets: sorted.map((p) => p.depSec - base),
+        headsignIdx,
+        count,
+      })
     }
   }
-  const flushPattern = () => {
+  const flushTrip = () => {
     if (patternStops.length > 0) {
       const meta = tripMetaById.get(patternTripId)
-      if (meta !== undefined && meta.routeIdx >= 0) registerPattern(`${meta.routeIdx}:${meta.direction}`, patternStops, meta.headsignIdx)
+      if (meta !== undefined && meta.routeIdx >= 0 && !meta.exceptional) {
+        const sorted = [...patternStops].sort((a, b) => a.seq - b.seq)
+        registerPattern(`${meta.routeIdx}:${meta.direction}`, sorted, meta.headsignIdx)
+        runRouteG.push(meta.routeIdx)
+        runDirG.push(meta.direction)
+        runCatG.push(meta.category)
+        runFirstStopG.push(sorted[0].stopIdx)
+        runDepSecG.push(sorted[0].depSec)
+      }
     }
     patternStops = []
   }
@@ -326,6 +367,8 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   let arrCol = 0
   let depCol = 0
   let seqCol = 0
+  let pickupCol = -1
+  let dropoffCol = -1
   let fastTrip = false
 
   for await (const rawLine of input.stopTimeLines) {
@@ -339,11 +382,12 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       arrCol = header.get('arrival_time') ?? 0
       depCol = header.get('departure_time') ?? 0
       seqCol = header.get('stop_sequence') ?? 0
+      pickupCol = header.get('pickup_type') ?? -1
+      dropoffCol = header.get('drop_off_type') ?? -1
       fastTrip = tripIdCol === 0
       continue
     }
 
-    // ~64% wierszy ginie tu, bez pełnego parsowania.
     let tripId: string
     if (fastTrip && !line.includes('"')) {
       const comma = line.indexOf(',')
@@ -353,9 +397,10 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       tripId = parsed[tripIdCol] ?? ''
     }
 
-    const entries = tripEntriesById.get(tripId)
+    // Kurs nieznany (spoza `trips.txt`) — pomijamy całkowicie.
+    const meta = tripMetaById.get(tripId)
     const isFreq = frequencyTripIds.has(tripId)
-    if (entries === undefined && !isFreq) continue
+    if (meta === undefined && !isFreq) continue
 
     const row = line.includes('"') ? parseCsvLine(line) : line.split(',')
     const arrSec = parseGtfsSeconds(row[arrCol] ?? '')
@@ -373,6 +418,8 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     const effDep = depSec ?? arrSec ?? 0
     const seqNum = Number(row[seqCol])
     const seq = Number.isFinite(seqNum) && seqNum >= 0 ? seqNum : 0
+    const onRequest =
+      (pickupCol >= 0 && row[pickupCol] === '3') || (dropoffCol >= 0 && row[dropoffCol] === '3')
 
     if (isFreq) {
       const point = { stopIdx, arrSec: effArr, depSec: effDep, seq }
@@ -382,24 +429,36 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       continue
     }
 
+    // Wszystkie kursy zasilają `routePatterns`/`lineRuns` (także spoza okna).
     if (tripId !== patternTripId) {
-      flushPattern()
+      flushTrip()
       patternTripId = tripId
     }
     patternStops.push({ seq, stopIdx, depSec: effDep })
 
-    for (const entry of entries ?? []) addEvent(entry, stopIdx, effArr, effDep, seq)
+    // Zdarzenia (CSR, tablica odjazdów) tylko dla dób z okna.
+    const entries = tripEntriesById.get(tripId)
+    if (entries !== undefined) for (const entry of entries) addEvent(entry, stopIdx, effArr, effDep, seq, onRequest)
   }
-  flushPattern()
+  flushTrip()
 
   // Kursy częstotliwościowe (metro) też mają przebieg — z gotowego `freqPattern`.
   for (const [tripId, pattern] of freqPattern) {
     const meta = tripMetaById.get(tripId)
-    if (meta === undefined || meta.routeIdx < 0) continue
-    registerPattern(`${meta.routeIdx}:${meta.direction}`, pattern, meta.headsignIdx)
+    if (meta === undefined || meta.routeIdx < 0 || meta.exceptional) continue
+    const sorted = [...pattern].sort((a, b) => a.seq - b.seq)
+    registerPattern(`${meta.routeIdx}:${meta.direction}`, sorted, meta.headsignIdx)
+  }
+
+  // Finalizacja: najczęstszy wzorzec per (linia, kierunek) → `routePatterns`.
+  for (const [key, pick] of patternPick) {
+    routePatterns.set(key, { stops: pick.stops, offsets: pick.offsets, headsignIdx: pick.headsignIdx })
   }
 
   // ── rozwinięcie frequencies (przy ładowaniu, przed CSR) ───────────────────
+  // `${routeIdx}:${direction}` → takt: najkrótszy/najdłuższy headway i okno kursowania.
+  // Strona linii pokazuje dla metra „co 2–4 min (05:00–01:00)" zamiast siatki minut.
+  const routeFrequency = new Map<string, { startSec: number; endSec: number; minHeadway: number; maxHeadway: number }>()
   let droppedFrequencies = 0
   for (const frequency of input.frequencies) {
     const { startSec, endSec, headwaySecs, tripId } = frequency
@@ -409,13 +468,23 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       continue
     }
     const pattern = freqPattern.get(tripId)
-    const templates = tripEntriesById.get(tripId)
-    if (pattern === undefined || pattern.length === 0 || templates === undefined) {
+    const meta = tripMetaById.get(tripId)
+    if (pattern === undefined || pattern.length === 0 || meta === undefined || meta.routeIdx < 0 || meta.exceptional) {
       droppedFrequencies += 1
       continue
     }
-    const patternFirstDep = pattern[0].depSec
+    const freqKey = `${meta.routeIdx}:${meta.direction}`
+    const cur = routeFrequency.get(freqKey)
+    routeFrequency.set(freqKey, {
+      startSec: Math.min(cur?.startSec ?? startSec, startSec),
+      endSec: Math.max(cur?.endSec ?? endSec, endSec),
+      minHeadway: Math.min(cur?.minHeadway ?? headwaySecs, headwaySecs),
+      maxHeadway: Math.max(cur?.maxHeadway ?? headwaySecs, headwaySecs),
+    })
 
+    const templates = tripEntriesById.get(tripId)
+    if (templates === undefined) continue
+    const patternFirstDep = pattern[0].depSec
     for (const template of templates) {
       const day = tripServiceDay[template]
       const routeIdx = tripRoute[template]
@@ -428,7 +497,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
         const shift = t - patternFirstDep
         const instance = pushTrip(tripId, routeIdx, headsignIdx, day, direction, category, true)
         for (const point of pattern) {
-          addEvent(instance, point.stopIdx, point.arrSec + shift, point.depSec + shift, point.seq)
+          addEvent(instance, point.stopIdx, point.arrSec + shift, point.depSec + shift, point.seq, false)
         }
       }
     }
@@ -441,7 +510,15 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const evDepSec = evDepG.finish()
   const evAbsSec = evAbsG.finish()
   const evSeq = evSeqG.finish()
+  const evOnRequest = evOnReqG.finish()
   const evCount = evTrip.length
+
+  const runRoute = runRouteG.finish()
+  const runDir = runDirG.finish()
+  const runCat = runCatG.finish()
+  const runFirstStop = runFirstStopG.finish()
+  const runDepSec = runDepSecG.finish()
+  const runCount = runRoute.length
 
   // ── indeks CSR: przystanek → zdarzenia posortowane po evAbsSec ────────────
   const stopEventOffset = new Uint32Array(n + 1)
@@ -491,6 +568,8 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     stopParent,
     stopGroupIds,
     stopPlatforms,
+    stopCodes,
+    stopStreets,
     stopWheelchair,
     stopIndexById,
     groupMembers,
@@ -499,6 +578,13 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     routes,
     routeIndexById,
     routePatterns,
+    routeFrequency,
+    runRoute,
+    runDir,
+    runCat,
+    runFirstStop,
+    runDepSec,
+    runCount,
     tripIds,
     tripRoute: Int32Array.from(tripRoute),
     tripHeadsign: Int32Array.from(tripHeadsign),
@@ -513,6 +599,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     evDepSec,
     evAbsSec,
     evSeq,
+    evOnRequest,
     evCount,
     stopEventOffset,
     stopEventOrder,

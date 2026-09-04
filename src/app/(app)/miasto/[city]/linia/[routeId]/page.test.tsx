@@ -33,8 +33,8 @@ const LINE = {
         headsign: 'Dworzec Centralny',
         origin: 'Centrum',
         stops: [
-          { stopId: '100101', groupId: '1001', name: 'Centrum', wheelchair: 1, offsetSec: 0 },
-          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', wheelchair: 0, offsetSec: 480 },
+          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', wheelchair: 1, offsetSec: 0 },
+          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', wheelchair: 0, offsetSec: 480 },
         ],
         departures: [
           { category: 'weekday', times: [6 * 3600, 6 * 3600 + 1200], frequencyBased: false },
@@ -45,7 +45,7 @@ const LINE = {
         directionId: 1,
         headsign: 'Centrum',
         origin: 'Dworzec Centralny',
-        stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', wheelchair: 0, offsetSec: 0 }],
+        stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', code: null, wheelchair: 0, offsetSec: 0 }],
         departures: [{ category: 'weekday', times: [6 * 3600 + 600], frequencyBased: false }],
       },
     ],
@@ -85,12 +85,12 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveTextContent('Centrum')
     expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveTextContent('Dworzec Centralny')
     // kolumny rozkładu obok siebie — sobota nie pod dniami roboczymi
-    expect(screen.getByRole('columnheader', { name: 'Poniedziałek – Piątek' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Poniedziałek – Czwartek' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Soboty' })).toBeInTheDocument()
     // pełna trasa widoczna od razu (bez rozwijania), z linkiem do tablicy przystanku
-    expect(screen.getByRole('link', { name: /pełna tablica przystanku/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /pełna tablica słupka/ })).toHaveAttribute(
       'href',
-      '/miasto/warszawa/przystanek/1001?nazwa=Centrum'
+      '/miasto/warszawa/przystanek/100101?nazwa=Centrum'
     )
     expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()
   })

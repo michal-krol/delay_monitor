@@ -114,25 +114,55 @@ describe('stopGroup', () => {
     // Linie z `groupRoutes` — posortowane, metro przed tramwajem w `modes`.
     expect(group?.lines.map((line) => line.line)).toEqual(['20', 'M1'])
     expect(group?.modes).toEqual(['metro', 'tram'])
-    expect(group?.wheelchairAccessible).toBe(false) // słupki wheelchair=0
+    expect(group?.wheelchairNote).toBeNull() // słupki wheelchair=0 → brak sygnału
   })
 
-  it('flags wheelchairAccessible only for a confirmed (1) member, not unknown (0)', async () => {
-    const schedule = await make({
-      stops: [
-        { id: '100101', name: 'Centrum 01', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 1 as const },
-        { id: '100102', name: 'Centrum 02', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 as const },
-      ],
-      trips: [{ routeId: '1', serviceId: 'S', tripId: 't', headsign: 'A', directionId: 0 }],
-      stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 't,100101,12:00:00,12:00:00,1'],
-    })
-    expect(stopGroup(schedule, '1001')?.wheelchairAccessible).toBe(true)
+  it('wheelchairNote: `2` na wszystkich słupkach = inaccessible, na części = partial, `1`/`0` = null', async () => {
+    const withFlags = (a: 0 | 1 | 2, b: 0 | 1 | 2) =>
+      make({
+        stops: [
+          { id: '100101', name: 'Centrum 01', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: a },
+          { id: '100102', name: 'Centrum 02', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: b },
+        ],
+        trips: [{ routeId: '1', serviceId: 'S', tripId: 't', headsign: 'A', directionId: 0 }],
+        stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 't,100101,12:00:00,12:00:00,1'],
+      })
+    expect(stopGroup(await withFlags(2, 2), '1001')?.wheelchairNote).toBe('inaccessible')
+    expect(stopGroup(await withFlags(2, 0), '1001')?.wheelchairNote).toBe('partial')
+    expect(stopGroup(await withFlags(1, 1), '1001')?.wheelchairNote).toBeNull()
     // Sama nazwa zespołu bez numeru słupka.
-    expect(stopGroup(schedule, '1001')?.name).toBe('Centrum')
+    expect(stopGroup(await withFlags(1, 1), '1001')?.name).toBe('Centrum')
   })
 
   it('returns null for an unknown id', async () => {
     expect(stopGroup(await make({}), 'nope')).toBeNull()
+  })
+
+  it('given a bare słupek id returns the WHOLE group + requestedMemberId (deep-link z trasy linii)', async () => {
+    const schedule = await make({
+      stops: [
+        { id: '100107', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 1, code: '07', street: 'Marszałkowska' },
+        { id: '100106', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 1, code: '06', street: 'Al. Jerozolimskie' },
+      ],
+      trips: [
+        { routeId: '4', serviceId: 'S', tripId: 'a', headsign: 'X', directionId: 0 },
+        { routeId: '128', serviceId: 'S', tripId: 'b', headsign: 'Y', directionId: 0 },
+      ],
+      routes: [route('4', 0, '4'), route('128', 3, '128')],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        'a,100107,12:00:00,12:00:00,1',
+        'b,100106,12:05:00,12:05:00,1',
+      ],
+    })
+    const group = stopGroup(schedule, '100107')
+    expect(group?.id).toBe('1001')
+    expect(group?.requestedMemberId).toBe('100107')
+    expect(group?.members.map((m) => m.id)).toEqual(['100107', '100106'])
+    expect(group?.members.find((m) => m.id === '100107')?.lines.map((l) => l.line)).toEqual(['4'])
+    expect(group?.members.find((m) => m.id === '100106')?.lines.map((l) => l.line)).toEqual(['128'])
+    // Pytanie o zespół → requestedMemberId null.
+    expect(stopGroup(schedule, '1001')?.requestedMemberId).toBeNull()
   })
 })
 

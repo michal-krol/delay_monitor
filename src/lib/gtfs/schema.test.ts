@@ -10,6 +10,7 @@ import {
   routeSchema,
   serviceCategory,
   stopSchema,
+  tripSchema,
 } from './schema'
 
 describe('normalizeRouteColor', () => {
@@ -112,6 +113,25 @@ describe('stopSchema', () => {
   it('carries parent_station only when non-empty', () => {
     expect(stopSchema.parse({ stop_id: '7014M:P1', parent_station: '7014M' }).parentId).toBe('7014M')
     expect(stopSchema.parse({ stop_id: '1001', parent_station: '' }).parentId).toBeNull()
+  })
+
+  it('stop_code / street_name carried through', () => {
+    const s = stopSchema.parse({ stop_id: '701307', stop_code: '07', street_name: 'Marszałkowska' })
+    expect(s.code).toBe('07')
+    expect(s.street).toBe('Marszałkowska')
+  })
+})
+
+describe('tripSchema — kurs techniczny', () => {
+  const base = { route_id: '4', service_id: 'S', trip_id: 't', direction_id: '0' }
+  it('exceptional=1 → true', () => {
+    expect(tripSchema.parse({ ...base, exceptional: '1' }).exceptional).toBe(true)
+  })
+  it('nagłówek „Zjazd do zajezdni" → true nawet przy exceptional=0 (feed WTP bywa niespójny)', () => {
+    expect(tripSchema.parse({ ...base, exceptional: '0', trip_headsign: 'Zjazd do zajezdni Annopol' }).exceptional).toBe(true)
+  })
+  it('zwykły kurs → false', () => {
+    expect(tripSchema.parse({ ...base, exceptional: '0', trip_headsign: 'Metro Wilanowska' }).exceptional).toBe(false)
   })
 })
 

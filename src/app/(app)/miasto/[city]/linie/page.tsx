@@ -8,6 +8,7 @@ import { ModeFilter, type ModeValue } from '@/components/ModeFilter'
 import { LineGrid } from '@/components/LineGrid'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
+import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { normalizeForSearch } from '@/lib/search'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineListEntry } from '@/lib/gtfs/query'
@@ -97,6 +98,7 @@ export default function CityLinesPage() {
   const loading = data === null && !failed
 
   return (
+    <div className="flex min-w-0 flex-1 flex-col xl:flex-row">
     <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
       <TopBar
         title={`Trasy — ${cityName}`}
@@ -129,5 +131,10 @@ export default function CityLinesPage() {
 
       {data !== null && <AttributionFooter attribution={data.attribution} />}
     </main>
+
+      <aside className="shrink-0 px-4 pb-6 sm:px-8 xl:w-72 xl:self-start xl:px-0 xl:pr-8 xl:pt-24">
+        <CityWeatherCard city={city} />
+      </aside>
+    </div>
   )
 }
