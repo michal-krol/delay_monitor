@@ -106,15 +106,22 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
     if (idleTimer !== null) clearTimer(idleTimer)
     idleTimer = setTimer(() => {
       if (disposed) return
-      if (schedule !== null && now() - lastInterestAt > deps.idleTtlMs) {
-        schedule = null
-        status = 'idle'
-        phase = null
-        loadedAtMs = null
+      if (now() - lastInterestAt > deps.idleTtlMs) {
+        // Zainteresowanie wygasło. Zwolnij handle (`ensureLoaded` re-uzbraja
+        // timer tylko gdy `idleTimer === null`) i zatrzymaj poller pozycji
+        // NIEZALEŻNIE od tego, czy statyczny feed w ogóle się załadował —
+        // inaczej przy `status === 'failed'` poller pozycji zostawał na zawsze.
+        idleTimer = null
         deps.onIdle?.()
-        if (reloadTimer !== null) {
-          clearTimer(reloadTimer)
-          reloadTimer = null
+        if (schedule !== null) {
+          schedule = null
+          status = 'idle'
+          phase = null
+          loadedAtMs = null
+          if (reloadTimer !== null) {
+            clearTimer(reloadTimer)
+            reloadTimer = null
+          }
         }
       } else {
         scheduleIdleTimer()

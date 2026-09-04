@@ -162,4 +162,57 @@ describe('createGtfsPoller', () => {
     expect(poller.getView().droppedRows).toBeNull()
     poller.dispose()
   })
+
+  it('re-arms the idle timer after an idle-clear so a later idle period fires onIdle again', async () => {
+    vi.setSystemTime(new Date('2026-09-02T09:00:00Z'))
+    const onIdle = vi.fn()
+    const deferreds: Deferred[] = []
+    const load = vi.fn(
+      () => new Promise<GtfsSchedule>((resolve, reject) => { deferreds.push({ resolve, reject }) })
+    )
+    const poller = createGtfsPoller({ city: CITY, load, idleTtlMs: 60 * 60 * 1000, onIdle })
+
+    poller.ensureLoaded()
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+
+    // First idle period.
+    vi.setSystemTime(new Date('2026-09-02T11:30:00Z'))
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    expect(poller.getView().status).toBe('idle')
+
+    // Fresh interest re-arms the idle machinery.
+    poller.ensureLoaded()
+    deferreds[1].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getSchedule()).not.toBeNull()
+
+    // Second idle period must fire onIdle again.
+    vi.setSystemTime(new Date('2026-09-02T14:30:00Z'))
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
+    expect(onIdle).toHaveBeenCalledTimes(2)
+    poller.dispose()
+  })
+
+  it('fires onIdle when interest is lost even if the static feed never loaded', async () => {
+    vi.setSystemTime(new Date('2026-09-02T09:00:00Z'))
+    const onIdle = vi.fn()
+    const deferreds: Deferred[] = []
+    const load = vi.fn(
+      () => new Promise<GtfsSchedule>((resolve, reject) => { deferreds.push({ resolve, reject }) })
+    )
+    const poller = createGtfsPoller({ city: CITY, load, idleTtlMs: 60 * 60 * 1000, onIdle })
+
+    poller.ensureLoaded()
+    deferreds[0].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getSchedule()).toBeNull()
+    expect(poller.getView().status).toBe('failed')
+
+    vi.setSystemTime(new Date('2026-09-02T11:30:00Z'))
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    poller.dispose()
+  })
 })
