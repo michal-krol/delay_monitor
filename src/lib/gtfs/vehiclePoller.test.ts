@@ -46,6 +46,28 @@ describe('createVehiclePoller', () => {
     expect(poller.getPositions()).toEqual([])
   })
 
+  it('stop() during an in-flight fetch discards its result and can restart', async () => {
+    let resolveFetch: (v: { positions: ReturnType<typeof pos>[]; droppedPositions: number; feedTime: string | null }) => void = () => {}
+    let calls = 0
+    const { poller } = harness(() => {
+      calls += 1
+      return new Promise((resolve) => { resolveFetch = resolve })
+    })
+    poller.ensureRunning()
+    await vi.waitFor(() => expect(poller.getView().state).toBe('loading'))
+    poller.stop()
+    resolveFetch({ positions: [pos('A')], droppedPositions: 0, feedTime: 't' })
+    await Promise.resolve()
+    expect(poller.getView().state).toBe('idle')
+    expect(poller.getPositions()).toEqual([])
+
+    poller.ensureRunning()
+    resolveFetch({ positions: [pos('B')], droppedPositions: 0, feedTime: 't' })
+    await vi.waitFor(() => expect(poller.getView().state).toBe('ready'))
+    expect(calls).toBe(2)
+    expect(poller.getPositions()).toHaveLength(1)
+  })
+
   it('ensureRunning() twice does not double the timer', () => {
     let starts = 0
     const { poller } = harness(async () => { starts += 1; return { positions: [], droppedPositions: 0, feedTime: null } })

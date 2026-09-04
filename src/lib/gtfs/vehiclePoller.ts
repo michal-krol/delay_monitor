@@ -38,6 +38,7 @@ export function createVehiclePoller(deps: VehiclePollerDeps): VehiclePoller {
   const now = deps.now ?? (() => Date.now())
   const setTimer = deps.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
   const clearTimer = deps.clearTimer ?? ((h) => clearTimeout(h))
+  const pollMs = deps.pollMs
 
   let state: VehiclePollerView['state'] = 'idle'
   let positions: VehiclePosition[] = []
@@ -46,6 +47,9 @@ export function createVehiclePoller(deps: VehiclePollerDeps): VehiclePoller {
   let inFlight = false
   let timer: ReturnType<typeof setTimeout> | null = null
   let disposed = false
+  // Bumped by stop()/dispose(); a load() started before the bump discards its
+  // result instead of resurrecting positions after a stop.
+  let runToken = 0
 
   function schedule(): void {
     if (disposed) return
@@ -53,25 +57,26 @@ export function createVehiclePoller(deps: VehiclePollerDeps): VehiclePoller {
       timer = null
       void load()
       schedule()
-    }, deps.pollMs)
+    }, pollMs)
   }
 
   async function load(): Promise<void> {
     if (inFlight || disposed) return
     inFlight = true
+    const token = runToken
     if (state === 'idle') state = 'loading'
     try {
       const result = await deps.fetchFeed()
-      if (disposed) return
+      if (disposed || token !== runToken) return
       positions = result.positions
       droppedPositions = result.droppedPositions
       fetchedAtMs = now()
       state = 'ready'
     } catch {
-      if (disposed) return
+      if (disposed || token !== runToken) return
       state = 'failed' // positions / fetchedAtMs nietknięte — UI pokaże wiek
     } finally {
-      inFlight = false
+      if (token === runToken) inFlight = false
     }
   }
 
@@ -84,6 +89,8 @@ export function createVehiclePoller(deps: VehiclePollerDeps): VehiclePoller {
       }
     },
     stop() {
+      runToken += 1 // orphan any in-flight fetch so it can't resurrect state
+      inFlight = false
       if (timer !== null) clearTimer(timer)
       timer = null
       positions = []
@@ -105,6 +112,7 @@ export function createVehiclePoller(deps: VehiclePollerDeps): VehiclePoller {
     },
     dispose() {
       disposed = true
+      runToken += 1
       if (timer !== null) clearTimer(timer)
       timer = null
       positions = []
