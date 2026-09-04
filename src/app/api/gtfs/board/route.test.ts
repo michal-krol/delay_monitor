@@ -21,8 +21,15 @@ const getGtfsPoller = vi.fn((city: string) =>
   city === 'warszawa' ? { ensureLoaded, getSchedule: () => schedule, getView } : null
 )
 
+/** Podmieniany per-test: `null` = brak feedu pozycji, obiekt = udawany poller. */
+let vehiclePoller: {
+  getView: () => { state: string }
+  getPositions: () => { tripId: string; lat: number; lon: number; sideNumber: string; bearing: number | null; timestamp: string; id: string }[]
+} | null = null
+
 vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (...args: [string]) => getGtfsPoller(...args),
+  peekVehiclePoller: () => vehiclePoller,
 }))
 
 beforeAll(async () => {
@@ -52,7 +59,11 @@ beforeAll(async () => {
       date: date.replace(/-/g, ''),
       added: true,
     })),
-    stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 't,100101,12:00:00,12:00:00,1'],
+    stopTimeLines: [
+      'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+      't,100101,12:00:00,12:00:00,1',
+      't,100102,12:05:00,12:05:00,2',
+    ],
   })
 })
 
@@ -108,6 +119,28 @@ describe('GET /api/gtfs/board', () => {
   it('ignores a ?slupek= that is not in the group (falls back to whole group)', async () => {
     const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100109')
     expect(body.stops[0].activeSlupek).toBeNull()
+  })
+
+  it('departure.vehicle is null when no vehicle poller is ready', async () => {
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100101')
+    expect(body.stops[0].departures[0].vehicle).toBeNull()
+  })
+
+  it('tags a departure with its vehicle distance in stops (ready poller + matching position)', async () => {
+    vehiclePoller = {
+      getView: () => ({ state: 'ready' }),
+      getPositions: () => [
+        { id: 'v', tripId: 't', lat: 52, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() },
+      ],
+    }
+    try {
+      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100102')
+      expect(typeof body.stops[0].departures[0].vehicle.stopsAway).toBe('number')
+      expect(body.stops[0].departures[0].vehicle.stopsAway).toBe(0) // pojazd na odcinku tuż przed 100102
+      expect(JSON.stringify(body)).not.toMatch(/delayMinutes|actualAt|predictedAt/)
+    } finally {
+      vehiclePoller = null
+    }
   })
 
   it('returns state=loading with empty stops while the schedule is not ready', async () => {

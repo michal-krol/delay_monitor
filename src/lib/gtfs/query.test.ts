@@ -11,6 +11,7 @@ import {
   searchStops,
   stopGroup,
   stopSummary,
+  vehicleForStop,
   vehiclesInService,
 } from './query'
 import type { GtfsRoute } from './types'
@@ -254,6 +255,42 @@ describe('vehiclesInService', () => {
     expect(r.counts.tram).toBe(1)
     expect(r.counts.bus).toBe(2)
     expect(r.unmatched).toBe(1)
+  })
+})
+
+describe('vehicleForStop', () => {
+  it('locates a vehicle N stops before the given stop, null once it has passed', async () => {
+    const schedule = await make({
+      routes: [route('20', 0, '20')],
+      stops: [
+        { id: 'A', name: 'A', lat: 52.20, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+        { id: 'B', name: 'B', lat: 52.22, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+        { id: 'C', name: 'C', lat: 52.24, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+      ],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 'T', headsign: 'C', directionId: 0 }],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        'T,A,06:00:00,06:00:00,1', 'T,B,06:05:00,06:05:00,2', 'T,C,06:10:00,06:10:00,3',
+      ],
+    })
+    const idxC = schedule.stopIndexById.get('C')!
+    const idxA = schedule.stopIndexById.get('A')!
+    const near = { id: 'v', tripId: 'T', lat: 52.205, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }
+    expect(vehicleForStop(schedule, [near], 'T', idxC, Date.now())?.stopsAway).toBe(1) // between A and B, heading to C
+    expect(vehicleForStop(schedule, [near], 'T', idxA, Date.now())).toBeNull() // already passed A
+  })
+
+  it('null when no position matches the trip', async () => {
+    const schedule = await make({
+      routes: [route('20', 0, '20')],
+      stops: [stop('1001', 'A'), stop('2002', 'B')],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 'T', headsign: 'B', directionId: 0 }],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        'T,1001,06:00:00,06:00:00,1', 'T,2002,06:05:00,06:05:00,2',
+      ],
+    })
+    expect(vehicleForStop(schedule, [], 'T', schedule.stopIndexById.get('2002')!, Date.now())).toBeNull()
   })
 })
 

@@ -6,6 +6,7 @@ import { isoInZone } from '@/lib/pkp/time'
 import { normalizeForSearch } from '@/lib/search'
 import type { ServiceCategory } from './schema'
 import type { GtfsDeparture, GtfsMode, GtfsRoute, GtfsSchedule, LineKind } from './types'
+import { projectVehicle } from './vehicleProject'
 import type { VehiclePosition } from './vehicles'
 
 /** Kod `tripCategory` (0-4) → nazwa kategorii dnia. Kolejność sekcji rozkładu. */
@@ -554,6 +555,36 @@ export function vehiclesInService(
     counts[route.mode] += 1
   }
   return { counts, unmatched }
+}
+
+/**
+ * Ile przystanków przed `stopIdx` jest teraz pojazd realizujący `tripId` —
+ * czysty rzut pozycji (`projectVehicle`) na przebieg linii. `stopsAway === 0`
+ * = „pojazd na odcinku tuż przed tym przystankiem". `null` gdy: brak pozycji
+ * dla `tripId`, pojazd poza trasą, `stopIdx` nie leży na przebiegu, albo pojazd
+ * ten przystanek już minął (`stopsAway < 0` NIE wychodzi jako liczba ujemna).
+ * Zero pola opóźnienia — niesie tylko dystans w przystankach i wiek danych.
+ */
+export function vehicleForStop(
+  schedule: GtfsSchedule,
+  positions: VehiclePosition[],
+  tripId: string,
+  stopIdx: number,
+  nowMs: number
+): { stopsAway: number; ageSec: number } | null {
+  const position = positions.find((p) => p.tripId === tripId)
+  if (position === undefined) return null
+  const on = projectVehicle(schedule, position, nowMs)
+  if (on === null) return null
+  const ref = schedule.tripPatternRef.get(tripId)
+  if (ref === undefined) return null
+  const pattern = schedule.routePatterns.get(`${ref.routeIdx}:${ref.direction}`)
+  if (pattern === undefined) return null
+  const thisOrder = pattern.stops.indexOf(stopIdx)
+  if (thisOrder < 0) return null
+  const stopsAway = thisOrder - on.afterStopOrder - 1
+  if (stopsAway < 0) return null
+  return { stopsAway, ageSec: on.ageSec }
 }
 
 export type StopSearchResult = { id: string; name: string }
