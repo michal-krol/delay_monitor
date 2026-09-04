@@ -207,7 +207,10 @@ export default function LineDetailPage() {
                                       className="absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-[9px] font-bold text-white shadow"
                                       style={{
                                         top: `${v.fraction * 100}%`,
-                                        transform: `translateY(-50%)${v.bearing !== null ? ` rotate(${v.bearing}deg)` : ''}`,
+                                        // Bez rotacji: geograficzny azymut na pionowej, schematycznej
+                                        // osi czasu nie wskazuje niczego sensownego. `v.bearing` zostaje
+                                        // w typie/API — może się przydać na mapie.
+                                        transform: 'translateY(-50%)',
                                       }}
                                     >
                                       ▲
@@ -330,7 +333,7 @@ export default function LineDetailPage() {
         </AsideCard>
 
         {showVehicles && direction !== undefined && (
-          <AsideCard title={`Pojazdy w trasie — ${direction.headsign ?? ''}`}>
+          <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
             {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
               <p className="text-xs text-red-600 dark:text-red-400">Nie udało się pobrać pozycji.</p>
             ) : liveVehicles.feed.state === 'loading' ? (
