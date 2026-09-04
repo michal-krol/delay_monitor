@@ -10,6 +10,7 @@ import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { FullBoard } from '@/components/FullBoard'
 import { TransitStopDetail } from '@/components/TransitStopDetail'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
+import { PageAside } from '@/components/aside'
 import { ArrowLeftIcon } from '@/components/icons'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useCityContext } from '@/hooks/useCityContext'
@@ -132,10 +133,10 @@ export default function CityPage() {
       {/* Prawa kolumna: widżet sieci komunikacji miejskiej — tylko gdy nie ma
           otwartego panelu szczegółów (ten ma własną kolumnę). */}
       {!hasSelection && (
-        <aside className="hidden w-80 shrink-0 self-start sticky top-0 max-h-dvh overflow-y-auto py-7 pr-8 xl:flex xl:flex-col xl:gap-4">
+        <PageAside>
           <CityWeatherCard city={city} />
           <CityTransitWidget city={city} cityName={cityName} />
-        </aside>
+        </PageAside>
       )}
     </>
   )

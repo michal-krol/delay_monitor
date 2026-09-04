@@ -8,7 +8,7 @@ import { LineBadge } from '@/components/LineBadge'
 import { LineTimetable } from '@/components/LineTimetable'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
-import { AsideCard } from '@/components/aside'
+import { AsideCard, PageAside } from '@/components/aside'
 import { WeatherCard } from '@/components/StationAside'
 import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_LABEL } from '@/components/transitMode'
@@ -111,7 +111,7 @@ export default function LineDetailPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-0 xl:flex-row">
+    <>
       <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
         <TopBar backLabel="Wróć do linii" onBack={() => router.push(`/miasto/${city}/linie`)} />
 
@@ -244,7 +244,7 @@ export default function LineDetailPage() {
         {data !== null && <AttributionFooter attribution={data.attribution} />}
       </main>
 
-      <aside className="flex shrink-0 flex-col gap-4 px-4 pb-6 sm:px-8 xl:sticky xl:top-0 xl:max-h-dvh xl:w-72 xl:self-start xl:overflow-y-auto xl:px-0 xl:pr-8 xl:pt-7">
+      <PageAside>
         {line !== null && direction !== undefined && (
           <AsideCard title={`Linia ${line.line}`}>
             <dl className="flex flex-col gap-1.5 text-xs">
@@ -275,7 +275,7 @@ export default function LineDetailPage() {
         <AsideCard title={`Pogoda dziś — ${cityName}`}>
           <WeatherCard weather={weather} />
         </AsideCard>
-      </aside>
-    </div>
+      </PageAside>
+    </>
   )
 }
