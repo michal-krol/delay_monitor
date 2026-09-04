@@ -6,20 +6,16 @@ import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import type { GtfsLine, StopGroupMember } from '@/lib/gtfs/query'
+import type { GtfsLine } from '@/lib/gtfs/query'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
 import { CityWeatherCard } from './CityWeatherCard'
 import { LineBadge } from './LineBadge'
 import { ScheduleStatus } from './ScheduleStatus'
+import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, ShareIcon, StarIcon } from './icons'
-
-/** Numer słupka do plakietki: `stop_code` („07"), inaczej peron, inaczej „—". */
-function slupekNumber(member: StopGroupMember): string {
-  return member.code ?? member.platformCode ?? '—'
-}
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
@@ -131,7 +127,7 @@ export function TransitStopDetail({
               </div>
               {activeMember !== null && (
                 <p className="mt-0.5 text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                  Słupek {slupekNumber(activeMember)}
+                  {stopDisplayName(stopName, activeMember.code ?? activeMember.platformCode)}
                   {activeMember.street !== null && <span className="text-text-secondary"> · {activeMember.street}</span>}
                 </p>
               )}
@@ -215,7 +211,7 @@ export function TransitStopDetail({
                     }
                   >
                     <span className="shrink-0 text-sm font-bold tabular-nums">
-                      Słupek {slupekNumber(member)}
+                      {stopDisplayName(stopName, member.code ?? member.platformCode)}
                     </span>
                     {member.street !== null && (
                       <span className={on ? 'text-white/80 text-xs' : 'text-text-muted text-xs'}>{member.street}</span>

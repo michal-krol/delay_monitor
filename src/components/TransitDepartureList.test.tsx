@@ -54,6 +54,12 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('nocna')).toBeInTheDocument()
   })
 
+  it('tags the słupek with the bare code, never the word "słupek"', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showSlupek />)
+    expect(screen.getByText('06')).toBeInTheDocument()
+    expect(screen.queryByText(/słup\./i)).not.toBeInTheDocument()
+  })
+
   it('shows skeletons while loading', () => {
     const { container } = render(<TransitDepartureList departures={[]} loading />)
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access

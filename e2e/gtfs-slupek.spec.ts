@@ -16,19 +16,19 @@ test('przystanek miejski: przełącznik słupków zespołu', async ({ page }) =>
   const switcher = page.getByText('Słupki tego przystanku', { exact: false })
   await expect(switcher).toBeVisible({ timeout: READY })
 
-  // „Cały przystanek" + jeden przycisk na słupek, semantyczne nazwy.
+  // „Cały przystanek" + jeden przycisk na słupek, konwencja WTP „Centrum 02".
   await expect(page.getByRole('button', { name: /Cały przystanek/ })).toBeVisible()
-  const slupek02 = page.getByRole('button', { name: /^Słupek 02/ })
+  const slupek02 = page.getByRole('button', { name: /^Centrum 02/ })
   await expect(slupek02).toBeVisible()
 
   // Wybór słupka: nagłówek dostaje podtytuł, przycisk jest wciśnięty.
   await slupek02.click()
   await expect(slupek02).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByText(/^Słupek 02/).first()).toBeVisible()
+  await expect(page.getByText(/^Centrum 02/).first()).toBeVisible()
 
   // Powrót do całego zespołu — odjazdy tagowane numerem słupka.
   await page.getByRole('button', { name: /Cały przystanek/ }).click()
-  await expect(page.getByText(/^słup\. \d+/).first()).toBeVisible({ timeout: READY })
+  await expect(page.getByText(/^0\d$/).first()).toBeVisible({ timeout: READY })
 
   // Widżet pogody w kontekście miasta obecny na każdym ekranie GTFS (#5 / to ważne).
   await expect(page.getByRole('heading', { name: /Pogoda dziś/ })).toBeVisible()
@@ -37,7 +37,7 @@ test('przystanek miejski: przełącznik słupków zespołu', async ({ page }) =>
 test('przystanek miejski: deep-link słupka od razu go podświetla', async ({ page }) => {
   await page.goto('/miasto/warszawa/przystanek/100101')
   await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: /^Słupek 01/ })).toHaveAttribute('aria-pressed', 'true', {
+  await expect(page.getByRole('button', { name: /^Centrum 01/ })).toHaveAttribute('aria-pressed', 'true', {
     timeout: READY,
   })
 })
