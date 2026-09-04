@@ -11,6 +11,7 @@ import {
   searchStops,
   stopGroup,
   stopSummary,
+  vehiclesInService,
 } from './query'
 import type { GtfsRoute } from './types'
 
@@ -231,6 +232,28 @@ describe('cityStats', () => {
     expect(stats.lastDepartureSec).toBe(24 * 3600 + 15 * 60)
     expect(stats.hourly[6]).toBe(1)
     expect(stats.hourly[0]).toBe(1) // 24:15 → kubełek 0
+  })
+})
+
+describe('vehiclesInService', () => {
+  it('counts vehicles in service per mode, tallies unmatched', async () => {
+    const schedule = await make({
+      routes: [route('20', 0, '20'), route('128', 3, '128')],
+      trips: [
+        { routeId: '20', serviceId: 'S', tripId: 'tram1', headsign: 'x', directionId: 0 },
+        { routeId: '128', serviceId: 'S', tripId: 'bus1', headsign: 'y', directionId: 0 },
+      ],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        'tram1,1001,06:00:00,06:00:00,1',
+        'bus1,1001,06:05:00,06:05:00,1',
+      ],
+    })
+    const p = (tripId: string) => ({ id: tripId, tripId, lat: 52, lon: 21, sideNumber: '1', bearing: null, timestamp: '' })
+    const r = vehiclesInService(schedule, [p('tram1'), p('bus1'), p('bus1'), p('ghost')])
+    expect(r.counts.tram).toBe(1)
+    expect(r.counts.bus).toBe(2)
+    expect(r.unmatched).toBe(1)
   })
 })
 

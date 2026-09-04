@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { serviceDateWindow } from '@/lib/pkp/time'
 import { getCity } from '@/lib/gtfs/cities'
-import { getGtfsPoller } from '@/lib/gtfs/instance'
-import { cityStats } from '@/lib/gtfs/query'
+import { getGtfsPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
+import { cityStats, vehiclesInService } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
 /**
@@ -27,13 +27,30 @@ export async function GET(request: Request) {
   const schedule = poller.getSchedule()
   const view = poller.getView()
 
+  // Pozycje pojazdów (etap 5) — poza cyklem rozkładu, własny rytm. `null`
+  // (nie obiekt zer) dopóki poller nieobecny albo nie `ready` (niezmiennik #7).
+  const vehiclePoller = peekVehiclePoller(city)
+  const vv = vehiclePoller?.getView()
+  const ready = schedule !== null && vehiclePoller !== null && vv?.state === 'ready'
+  const inService = ready ? vehiclesInService(schedule, vehiclePoller.getPositions()) : null
+  const vehicleFields = {
+    vehiclesInService: inService?.counts ?? null,
+    vehiclesUnmatched: inService?.unmatched ?? null,
+    vehicleFeed: { state: vv?.state ?? 'loading', ageMs: vv?.ageMs ?? null },
+  }
+
   if (schedule === null) {
-    return NextResponse.json({ city, state: view.state, stats: null })
+    return NextResponse.json({ city, state: view.state, stats: null, ...vehicleFields })
   }
 
   const timezone = getCity(city)!.timezone
   const today = serviceDateWindow(new Date(), timezone)[1]
   const todayIndex = Math.max(0, schedule.serviceDates.indexOf(today))
 
-  return NextResponse.json({ city, state: 'ready' as const, stats: cityStats(schedule, todayIndex) })
+  return NextResponse.json({
+    city,
+    state: 'ready' as const,
+    stats: cityStats(schedule, todayIndex),
+    ...vehicleFields,
+  })
 }

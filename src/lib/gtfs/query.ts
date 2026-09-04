@@ -6,6 +6,7 @@ import { isoInZone } from '@/lib/pkp/time'
 import { normalizeForSearch } from '@/lib/search'
 import type { ServiceCategory } from './schema'
 import type { GtfsDeparture, GtfsMode, GtfsRoute, GtfsSchedule, LineKind } from './types'
+import type { VehiclePosition } from './vehicles'
 
 /** Kod `tripCategory` (0-4) → nazwa kategorii dnia. Kolejność sekcji rozkładu. */
 export const SERVICE_CATEGORIES: ServiceCategory[] = ['weekday', 'friday', 'saturday', 'sunday', 'other']
@@ -530,6 +531,29 @@ export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats
     lastDepartureSec: lastSec,
     hourly,
   }
+}
+
+/**
+ * Ilu pojazdów jedzie teraz per rodzaj środka — czysty rzut pozycji z feedu
+ * (`vehicles.json`) na linie rozkładu przez `tripPatternRef`. Zero pola
+ * opóźnienia. Pozycja z nieznanym `tripId` idzie do `unmatched`, NIE do kubełka.
+ */
+export function vehiclesInService(
+  schedule: GtfsSchedule,
+  positions: VehiclePosition[]
+): { counts: Record<GtfsMode, number>; unmatched: number } {
+  const counts: Record<GtfsMode, number> = { metro: 0, tram: 0, bus: 0, rail: 0, other: 0 }
+  let unmatched = 0
+  for (const p of positions) {
+    const ref = schedule.tripPatternRef.get(p.tripId)
+    const route = ref === undefined ? undefined : schedule.routes[ref.routeIdx]
+    if (route === undefined) {
+      unmatched += 1
+      continue
+    }
+    counts[route.mode] += 1
+  }
+  return { counts, unmatched }
 }
 
 export type StopSearchResult = { id: string; name: string }
