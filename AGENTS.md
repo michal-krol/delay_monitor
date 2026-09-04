@@ -366,13 +366,16 @@ dziedziczy**. Rzeczy, które łatwo złamać:
   ma wpisów `run*` — fallback `lineDeparturesFromEvents()` na wycinek CSR, więc
   metro pokazuje tylko kategorie z okna. `run*` iterujemy liniowo per żądanie
   strony linii (~35 tys. wpisów, ~1 ms) — jeśli urośnie, indeks per-route.
-- **Zespół vs słupek.** `stopGroup()` zwraca `members: StopGroupMember[]`
-  z `code` (`stop_code` — numer słupka „01"/„06"), `street` (`street_name`)
-  i per-słupkowymi `lines`. `/api/gtfs/board?slupek=<id>` zawęża odjazdy
-  i podsumowanie do jednego słupka (zespół „Centrum" ma 9 fizycznie odległych
-  słupków z różnymi liniami). `cleanGroupName()` obcina „ 01" z nazwy —
-  na żywym feedzie WTP to NO-OP (numer jest w `stop_code`, nie w nazwie),
-  ale mock go używa (konwencja fixture „Centrum 01").
+- **Zespół vs słupek.** `stopGroup(id)` ZAWSZE zwraca cały zespół — nawet gdy
+  `id` to pojedynczy słupek (`groupIdOf()` rozwiązuje). Wtedy `requestedMemberId`
+  niesie ten słupek (deep-link z trasy linii → przełącznik go podświetla).
+  `members: StopGroupMember[]` z `code` (`stop_code` „01"/„06"), `street`
+  (`street_name`), per-słupkowymi `lines`. Zawężenie WYŁĄCZNIE jawnym
+  `/api/gtfs/board?slupek=<id>` — nie auto-scope z `stopId`, inaczej „Cały
+  przystanek" nie działa na deep-linku. `GtfsDeparture.stopCode` /
+  `LineRouteStop.code` — user widzi, z którego słupka jedzie (zespół „Centrum"
+  = 9 fizycznie odległych słupków). `cleanGroupName()` — NO-OP na żywym feedzie
+  (numer w `stop_code`, nie w nazwie), mock go używa („Centrum 01").
 - **`wheelchair_boarding` — sygnał to `2`, nie `1`.** Feed WTP daje `1`
   (DOMYŚLNE) na ~89% słupków, `2` (NIEdostępny) na ~11%. `StopGroup.wheelchairNote`
   = `'inaccessible'` (wszystkie słupki `2`) / `'partial'` / `null`. Ikona
