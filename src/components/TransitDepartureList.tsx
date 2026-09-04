@@ -2,7 +2,7 @@ import type { GtfsDeparture } from '@/lib/gtfs/types'
 import { LineBadge } from './LineBadge'
 
 type Props = {
-  departures: GtfsDeparture[]
+  departures: (GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null })[]
   loading?: boolean
   /** Nagłówek listy — domyślnie „Rozkład". NIGDY „na czas": komunikacja miejska nie ma realizacji. */
   emptyMessage?: string
@@ -70,6 +70,14 @@ export function TransitDepartureList({
               className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
             >
               {departure.stopCode ?? departure.platformCode}
+            </span>
+          )}
+          {departure.vehicle != null && (
+            <span
+              title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
+              className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300"
+            >
+              {departure.vehicle.stopsAway === 0 ? 'tuż odjechał' : `${departure.vehicle.stopsAway} przyst.`}
             </span>
           )}
           {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
