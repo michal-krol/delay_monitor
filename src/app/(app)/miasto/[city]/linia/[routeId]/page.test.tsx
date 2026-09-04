@@ -59,6 +59,13 @@ function stubFetch(lineBody: unknown = LINE) {
     'fetch',
     vi.fn((url: string) => {
       if (url.startsWith('/api/gtfs/line')) return jsonResponse(lineBody)
+      if (url.startsWith('/api/gtfs/vehicles'))
+        return jsonResponse({
+          vehicles: [
+            { sideNumber: '3801', tripId: 't', routeId: '20', directionId: 0, afterStopOrder: 0, fraction: 0.5, ageSec: 10, headsign: 'x', bearing: null },
+          ],
+          feed: { state: 'ready', ageMs: 5000 },
+        })
       if (url.startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
       return jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [{ id: '33605', name: 'Warszawa Centralna' }] }] })
     })
@@ -104,6 +111,14 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'Pogoda dziś — Warszawa' })).toBeInTheDocument()
     expect(screen.getByText(/Rozkład jazdy linii 20/)).toBeInTheDocument()
     expect(screen.getByText(/Aktualizacja:/)).toBeInTheDocument()
+  })
+
+  it('lists live vehicles in service in the aside, without a delay', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    expect(await screen.findByRole('heading', { name: /Pojazdy w trasie/ })).toBeInTheDocument()
+    expect(await screen.findByText('#3801')).toBeInTheDocument()
   })
 
   it('switches direction with the toggle', async () => {
