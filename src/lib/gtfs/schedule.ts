@@ -280,6 +280,15 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     }
   }
 
+  // trip_id → linia + kierunek, do dopasowania pozycji pojazdów (`vehicles.json`).
+  // Tylko kursy liniowe: znana linia, nie techniczne. O(kursy).
+  const tripPatternRef = new Map<string, { routeIdx: number; direction: number }>()
+  for (const [tripId, meta] of tripMetaById) {
+    if (meta.routeIdx >= 0 && !meta.exceptional) {
+      tripPatternRef.set(tripId, { routeIdx: meta.routeIdx, direction: meta.direction })
+    }
+  }
+
   // ── zdarzenia ─────────────────────────────────────────────────────────────
   const noonEpochSec = serviceDates.map((date) => Math.round(serviceDayNoonEpoch(date, timezone) / 1000))
   const evTripG = grower(Uint32Array)
@@ -592,6 +601,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     routeIndexById,
     routePatterns,
     routeFrequency,
+    tripPatternRef,
     runRoute,
     runDir,
     runCat,
