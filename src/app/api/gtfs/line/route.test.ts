@@ -8,7 +8,11 @@ const getView = vi.fn(() => ({ state: schedule === null ? 'loading' : 'ready', l
 const getGtfsPoller = vi.fn((city: string) =>
   city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView } : null
 )
-vi.mock('@/lib/gtfs/instance', () => ({ getGtfsPoller: (...a: [string]) => getGtfsPoller(...a) }))
+let alertPoller: { getAlerts: () => { id: string; routes: string[]; effect: string; link: string; title: string; body: string }[] } | null = null
+vi.mock('@/lib/gtfs/instance', () => ({
+  getGtfsPoller: (...a: [string]) => getGtfsPoller(...a),
+  peekAlertPoller: () => alertPoller,
+}))
 
 beforeAll(async () => {
   schedule = await buildSchedule({
@@ -83,5 +87,25 @@ describe('GET /api/gtfs/line', () => {
     expect(body.schedule.state).toBe('loading')
     expect(body.line).toBeNull()
     schedule = kept
+  })
+
+  it('alerts is [] when no alert poller exists yet', async () => {
+    const { body } = await call('city=warszawa&route=20')
+    expect(body.alerts).toEqual([])
+  })
+
+  it('returns alerts matching this line\'s short name', async () => {
+    alertPoller = {
+      getAlerts: () => [
+        { id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' },
+        { id: 'b', routes: ['999'], effect: 'DETOUR', link: '', title: 'Inna linia', body: 'b' },
+      ],
+    }
+    try {
+      const { body } = await call('city=warszawa&route=20')
+      expect(body.alerts).toEqual([{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }])
+    } finally {
+      alertPoller = null
+    }
   })
 })

@@ -51,6 +51,7 @@ const LINE = {
       },
     ],
   },
+  alerts: [],
   attribution: ['ZTM'],
 }
 
@@ -179,5 +180,16 @@ describe('LineDetailPage', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => (url.startsWith('/api/gtfs/line') ? Promise.reject(new Error('x')) : jsonResponse({ cities: [] }))))
     render(<LineDetailPage />)
     expect(await screen.findByText('Nie udało się pobrać przebiegu linii.')).toBeInTheDocument()
+  })
+
+  it('shows an alert banner when the line has an active disruption', async () => {
+    stubFetch({
+      ...LINE,
+      alerts: [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: 'https://www.wtp.waw.pl/x/', title: 'Utrudnienia na linii 20', body: 'Treść.' }],
+    })
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
+    expect(screen.getByText('Treść.')).toBeInTheDocument()
   })
 })

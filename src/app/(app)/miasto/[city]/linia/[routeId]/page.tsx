@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { notFound, useParams, useRouter } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
+import { AlertBanner } from '@/components/AlertBanner'
 import { LineBadge } from '@/components/LineBadge'
 import { LineTimetable } from '@/components/LineTimetable'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
@@ -22,6 +23,7 @@ type LineResponse = {
   city: string
   schedule: TransitBoardResponse['schedule']
   line: LineDetail | null
+  alerts: import('@/lib/gtfs/alerts').AlertRecord[]
   attribution: string[]
 }
 type CityEntry = { id: string; name: string; railStations: { id: string; name: string }[] }
@@ -127,6 +129,7 @@ export default function LineDetailPage() {
               {MODE_LABEL[line.mode]}
               {KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · {KIND_LABEL[line.kind]}</span>}
             </p>
+            {data !== null && data.alerts.length > 0 && <AlertBanner alerts={data.alerts} />}
             {data !== null && (
               <ScheduleStatus schedule={data.schedule} cityName={cityName} title={`Rozkład jazdy linii ${line.line}`} error={failed} />
             )}
