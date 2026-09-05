@@ -118,6 +118,10 @@ export function CloseIcon(props: IconProps) {
   return base(<path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth={2} />, props, '0 0 16 16')
 }
 
+export function MenuIcon(props: IconProps) {
+  return base(<path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" />, props)
+}
+
 export function LinkIcon(props: IconProps) {
   return base(
     <>
