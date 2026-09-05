@@ -50,4 +50,55 @@ describe('projectVehicle', () => {
     const p = { id: 'x', tripId: 'T', lat: 52.5, lon: 21.5, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }
     expect(projectVehicle(s, p, Date.now())).toBeNull()
   })
+
+  it('falls back to ageSec 0 for an unparseable timestamp, still returns a projection', async () => {
+    const s = await schedule()
+    const p = { id: 'x', tripId: 'T', lat: 52.21, lon: 21.0, sideNumber: '1', bearing: null, timestamp: 'not-a-date' }
+    const r = projectVehicle(s, p, Date.now())!
+    expect(r).not.toBeNull()
+    expect(r.ageSec).toBe(0)
+  })
+
+  it('returns null for a trip whose pattern has only one stop', async () => {
+    const s = await buildSchedule({
+      feedVersion: null,
+      serviceDates: ['2026-09-03', '2026-09-04', '2026-09-05'] as [string, string, string],
+      timezone: 'Europe/Warsaw',
+      attribution: [],
+      routes: [{ id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular', color: null, textColor: '#000000' }],
+      stops: [{ id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 }],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 'T', headsign: null, directionId: 0 }],
+      frequencies: [],
+      calendars: [],
+      calendarDates: [{ serviceId: 'S', date: '20260904', added: true }],
+      stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 'T,A,06:00:00,06:00:00,1'],
+    })
+    const p = { id: 'x', tripId: 'T', lat: 52.2, lon: 21.0, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }
+    expect(projectVehicle(s, p, Date.now())).toBeNull()
+  })
+
+  it('carries a null headsign when the trip has none', async () => {
+    const s = await buildSchedule({
+      feedVersion: null,
+      serviceDates: ['2026-09-03', '2026-09-04', '2026-09-05'] as [string, string, string],
+      timezone: 'Europe/Warsaw',
+      attribution: [],
+      routes: [{ id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular', color: null, textColor: '#000000' }],
+      stops: [
+        { id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+        { id: 'B', name: 'B', lat: 52.22, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+      ],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 'T', headsign: null, directionId: 0 }],
+      frequencies: [],
+      calendars: [],
+      calendarDates: [{ serviceId: 'S', date: '20260904', added: true }],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        'T,A,06:00:00,06:00:00,1',
+        'T,B,06:10:00,06:10:00,2',
+      ],
+    })
+    const p = { id: 'x', tripId: 'T', lat: 52.21, lon: 21.0, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }
+    expect(projectVehicle(s, p, Date.now())!.headsign).toBeNull()
+  })
 })

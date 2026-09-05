@@ -3,6 +3,7 @@ import {
   __disposeAllGtfsPollers,
   enabledGtfsCities,
   getGtfsPoller,
+  peekGtfsPoller,
   peekVehiclePoller,
 } from './instance'
 
@@ -34,5 +35,22 @@ describe('gtfs instance registry', () => {
 
   it('enabledGtfsCities lists the registry entries enabled by config', () => {
     expect(enabledGtfsCities().map((city) => city.id)).toEqual(['warszawa'])
+  })
+
+  it('peekGtfsPoller is null before interest, resolves to the same instance after', () => {
+    expect(peekGtfsPoller('warszawa')).toBeNull()
+    const created = getGtfsPoller('warszawa')
+    expect(peekGtfsPoller('warszawa')).toBe(created)
+  })
+
+  it('disposeAll clears both registries — peek returns null for schedule and vehicle poller alike', () => {
+    getGtfsPoller('warszawa')!.ensureLoaded()
+    expect(peekGtfsPoller('warszawa')).not.toBeNull()
+    expect(peekVehiclePoller('warszawa')).not.toBeNull()
+
+    __disposeAllGtfsPollers()
+
+    expect(peekGtfsPoller('warszawa')).toBeNull()
+    expect(peekVehiclePoller('warszawa')).toBeNull()
   })
 })

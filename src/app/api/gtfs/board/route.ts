@@ -74,17 +74,14 @@ export async function GET(request: Request) {
   const slupek = rawSlupek !== null && GTFS_STOP_ID_PATTERN.test(rawSlupek) ? rawSlupek : null
 
   // Pozycje pojazdów — poza cyklem pollera (raz na dobę + TTL, patrz #13); tu
-  // tylko czytamy to, co ma w ręku. Jak `/api/gtfs/vehicles`: przy `'failed'`
-  // dalej serwujemy ostatnie znane pozycje (niezmiennik #7 — ostatnie-znane-
-  // z-wiekiem, nie pusto). Tag „za przystankiem" bywa wtedy przeterminowany;
-  // ta odpowiedź nie niesie wieku feedu pozycji — sygnałem świeżości jest wiek
-  // `schedule`. Pomijamy tylko `'loading'`/`'idle'`/brak pollera.
+  // tylko czytamy to, co ma w ręku. `VehiclePoller.getPositions()` sam trzyma
+  // niezmiennik #7: `[]` dopóki nie ma pierwszego udanego pobrania, ostatnie
+  // znane pozycje przy `'failed'` (nigdy pusto po sukcesie). Bez własnej bramki
+  // stanu tutaj — jak `/api/gtfs/vehicles`. Tag „za przystankiem" bywa wtedy
+  // przeterminowany; ta odpowiedź nie niesie wieku feedu pozycji — sygnałem
+  // świeżości jest wiek `schedule`.
   const vehiclePoller = peekVehiclePoller(city)
-  const vehicleState = vehiclePoller?.getView().state
-  const positions =
-    vehiclePoller !== null && (vehicleState === 'ready' || vehicleState === 'failed')
-      ? vehiclePoller.getPositions()
-      : []
+  const positions = vehiclePoller?.getPositions() ?? []
 
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)

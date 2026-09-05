@@ -17,6 +17,11 @@ const VIEWS = [
     path: '/miasto/warszawa/linie',
     ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: 'Trasy — Warszawa' }),
   },
+  {
+    name: 'ekran miasta GTFS',
+    path: '/miasto/warszawa',
+    ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: /Odjazdy i przyjazdy/ }),
+  },
 ]
 
 for (const view of VIEWS) {
