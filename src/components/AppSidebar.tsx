@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
+import { activeItemFromPath } from './navItems'
 
 /**
  * `Sidebar` renderowany raz w `(app)/layout.tsx`, a nie osobno w każdej stronie
@@ -11,15 +12,5 @@ import { Sidebar } from './Sidebar'
  * w menu (reszta pozycji to wyłączone „Wkrótce").
  */
 export function AppSidebar() {
-  const pathname = usePathname()
-  const isLines = pathname === '/linie' || /^\/miasto\/[^/]+\/lini[ae]/.test(pathname)
-  const activeItem =
-    pathname === '/'
-      ? 'pulpit'
-      : isLines
-        ? 'trasy'
-        : pathname === '/miasto' || pathname.startsWith('/miasto/')
-          ? 'odjazdy'
-          : undefined
-  return <Sidebar activeItem={activeItem} />
+  return <Sidebar activeItem={activeItemFromPath(usePathname())} />
 }
