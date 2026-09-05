@@ -4,8 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCityStats } from './useCityStats'
 import { jsonResponse } from '@/test-utils/http'
 
-const body = (state: 'ready' | 'loading' | 'failed') =>
-  jsonResponse({ city: 'warszawa', state, stats: state === 'ready' ? { tripsToday: 10 } : null })
+const body = (state: 'ready' | 'loading' | 'failed', alerts: unknown[] | null = []) =>
+  jsonResponse({
+    city: 'warszawa',
+    state,
+    stats: state === 'ready' ? { tripsToday: 10 } : null,
+    alerts,
+    alertFeed: { state: alerts === null ? 'loading' : 'ready', ageMs: alerts === null ? null : 1000 },
+  })
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
@@ -41,6 +47,26 @@ describe('useCityStats', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     await vi.advanceTimersByTimeAsync(2000)
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('keeps retrying (bounded) when the schedule is ready but the alert feed has not finished its first fetch yet', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('ready', null))
+    vi.stubGlobal('fetch', fetchMock)
+    renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('stops retrying once the alert feed also has data, even if schedule was ready first', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('ready', []))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.data?.state).toBe('ready'))
+    await vi.advanceTimersByTimeAsync(20000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('surfaces a fetch error', async () => {

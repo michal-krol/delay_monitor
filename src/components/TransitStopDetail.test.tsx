@@ -21,6 +21,7 @@ const board = {
   members: [],
   activeSlupek: null,
   summary: { lineCount: 2, departuresToday: 44, firstDepartureSec: 18000, lastDepartureSec: 90600, hourly: new Array(24).fill(2) },
+  alerts: [],
   departures: [
     { tripId: 'a', routeId: 'M1', line: 'M1', mode: 'metro', color: '#0000bb', headsign: 'Kabaty', plannedAt: '2026-09-02T14:30:00+02:00', departureSec: 52200, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: true, onRequest: false, vehicle: null },
     { tripId: 'b', routeId: '20', line: '20', mode: 'tram', color: null, headsign: 'Piaski', plannedAt: '2026-09-02T14:35:00+02:00', departureSec: 52500, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: false, onRequest: false, vehicle: null },
@@ -120,6 +121,21 @@ describe('TransitStopDetail', () => {
     await userEvent.click(wholeGroup)
     expect(wholeGroup).toHaveAttribute('aria-pressed', 'true')
     expect(slupek02).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('shows an alert banner when the stop board carries an active alert', () => {
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ ...board, alerts: [{ id: 'a', routes: ['M1'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii M1', body: 'Treść.' }] }],
+        attribution: [],
+      },
+      error: null,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getByText('Utrudnienia na linii M1')).toBeInTheDocument()
+    expect(screen.getByText('Treść.')).toBeInTheDocument()
   })
 
   it('pins as a gtfs favourite carrying the city', async () => {

@@ -7,6 +7,7 @@ import { useShareUrl } from '@/hooks/useShareUrl'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
+import { AlertBanner } from './AlertBanner'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
 import { CityWeatherCard } from './CityWeatherCard'
@@ -171,6 +172,8 @@ export function TransitStopDetail({
             </div>
           </div>
         </section>
+
+        {board !== null && board.alerts.length > 0 && <AlertBanner alerts={board.alerts} />}
 
         {members.length > 1 && (
           <section className="glass rounded-2xl p-4">

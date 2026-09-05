@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { CityStats } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 
@@ -12,6 +13,9 @@ export type CityStatsResponse = {
   vehiclesInService?: Record<GtfsMode, number> | null
   vehiclesUnmatched?: number | null
   vehicleFeed?: { state: string; ageMs: number | null }
+  /** Alerty (etap 5b) — `null` = feed nie gotowy, NIGDY nie renderuj jako [] (#7). */
+  alerts?: AlertRecord[] | null
+  alertFeed?: { state: string; ageMs: number | null }
 }
 
 /**
@@ -45,7 +49,11 @@ export function useCityStats(city: string | null) {
           if (cancelled) return
           setData(json)
           setError(null)
-          if (json.state === 'loading' && retry < LOADING_RETRY_DELAYS_MS.length) {
+          // Ponawiamy też, gdy sam rozkład jest już `ready`, ale poller alertów
+          // (rytm 5 min, niezależny od rozkładu) jeszcze nie skończył pierwszego
+          // pobrania (`alerts == null`) — inaczej widżet utyka na „Wczytuję…"
+          // na czas życia komponentu. Ta sama, ograniczona drabinka ponowień.
+          if ((json.state === 'loading' || json.alerts == null) && retry < LOADING_RETRY_DELAYS_MS.length) {
             timer = setTimeout(tick, LOADING_RETRY_DELAYS_MS[retry++])
           }
         })

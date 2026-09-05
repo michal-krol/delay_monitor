@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { serviceDateWindow } from '@/lib/pkp/time'
 import { getCity } from '@/lib/gtfs/cities'
-import { getGtfsPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
+import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
 import { cityStats, vehiclesInService } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
@@ -39,8 +39,21 @@ export async function GET(request: Request) {
     vehicleFeed: { state: vv?.state ?? 'loading', ageMs: vv?.ageMs ?? null },
   }
 
+  // Alerty (etap 5b) — poza cyklem rozkładu, własny rytm 5 min. `null` (nie
+  // pusta tablica) dopóki poller nieobecny albo nie `ready` — to JEDYNE
+  // miejsce, gdzie „0 aktywnych" i „nie wiadomo" muszą się wizualnie różnić
+  // (kafelek liczbowy, #7). `line`/`board` zwracają `[]` w tej sytuacji —
+  // tam pusta lista nic nie kłamie, bo baner po prostu się nie renderuje.
+  const alertPoller = peekAlertPoller(city)
+  const ap = alertPoller?.getView()
+  const alertsReady = alertPoller !== null && ap?.state === 'ready'
+  const alertFields = {
+    alerts: alertsReady ? alertPoller.getAlerts() : null,
+    alertFeed: { state: ap?.state ?? 'loading', ageMs: ap?.ageMs ?? null },
+  }
+
   if (schedule === null) {
-    return NextResponse.json({ city, state: view.state, stats: null, ...vehicleFields })
+    return NextResponse.json({ city, state: view.state, stats: null, ...vehicleFields, ...alertFields })
   }
 
   const timezone = getCity(city)!.timezone
@@ -52,5 +65,6 @@ export async function GET(request: Request) {
     state: 'ready' as const,
     stats: cityStats(schedule, todayIndex),
     ...vehicleFields,
+    ...alertFields,
   })
 }

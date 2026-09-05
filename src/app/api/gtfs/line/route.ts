@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getGtfsPoller } from '@/lib/gtfs/instance'
+import { getGtfsPoller, peekAlertPoller } from '@/lib/gtfs/instance'
 import { scheduleResponseBlock } from '@/lib/gtfs/poller'
-import { lineDetail } from '@/lib/gtfs/query'
+import { alertsForRoutes, lineDetail } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 
 /**
@@ -33,14 +33,22 @@ export async function GET(request: Request) {
   const schedule = poller.getSchedule()
   const scheduleBlock = scheduleResponseBlock(poller.getView())
 
+  const alertPoller = peekAlertPoller(city)
+  const routeIdx = schedule !== null ? schedule.routeIndexById.get(route) : undefined
+  const alerts =
+    schedule !== null && alertPoller !== null && routeIdx !== undefined
+      ? alertsForRoutes(schedule, alertPoller.getAlerts(), new Set([routeIdx]))
+      : []
+
   if (schedule === null) {
-    return NextResponse.json({ city, schedule: scheduleBlock, line: null, attribution: [] })
+    return NextResponse.json({ city, schedule: scheduleBlock, line: null, alerts, attribution: [] })
   }
 
   return NextResponse.json({
     city,
     schedule: scheduleBlock,
     line: lineDetail(schedule, route),
+    alerts,
     attribution: schedule.attribution,
   })
 }

@@ -7,6 +7,9 @@ Wersjonowanie semantyczne.
 
 ### Dodane
 
+- **Alerty GTFS (`alerts.json`, etap 5b)** — baner utrudnień na stronie linii
+  i w panelu przystanku (dopasowanie po linii — feed nie zna przystanków),
+  licznik aktywnych utrudnień w widżecie miasta. Zero pola opóźnienia.
 - **Komunikacja miejska: pozycje pojazdów na żywo (etap 5a)** — marker na osi
   czasu linii, „za którym przystankiem" na karcie „Pojazdy w trasie", „W trasie
   teraz" w widżecie sieci. Osobny `VehiclePoller` per miasto (15 s), cykl życia
