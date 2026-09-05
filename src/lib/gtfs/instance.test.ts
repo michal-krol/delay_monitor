@@ -3,6 +3,7 @@ import {
   __disposeAllGtfsPollers,
   enabledGtfsCities,
   getGtfsPoller,
+  peekAlertPoller,
   peekGtfsPoller,
   peekVehiclePoller,
 } from './instance'
@@ -31,6 +32,22 @@ describe('gtfs instance registry', () => {
     expect(vp).not.toBeNull()
     // onWake → ensureRunning() ruszyło pobranie pozycji
     expect(['loading', 'ready']).toContain(vp!.getView().state)
+  })
+
+  it('spins up an alert poller alongside the schedule poller on first interest', () => {
+    expect(peekAlertPoller('warszawa')).toBeNull()
+    getGtfsPoller('warszawa')!.ensureLoaded()
+    const ap = peekAlertPoller('warszawa')
+    expect(ap).not.toBeNull()
+    // onWake → ensureRunning() ruszyło pobranie alertów
+    expect(['loading', 'ready']).toContain(ap!.getView().state)
+  })
+
+  it('disposeAll clears the alert registry too', () => {
+    getGtfsPoller('warszawa')!.ensureLoaded()
+    expect(peekAlertPoller('warszawa')).not.toBeNull()
+    __disposeAllGtfsPollers()
+    expect(peekAlertPoller('warszawa')).toBeNull()
   })
 
   it('enabledGtfsCities lists the registry entries enabled by config', () => {

@@ -30,7 +30,7 @@ describe('loadConfig', () => {
   })
 
   describe('GTFS', () => {
-    it('defaults: enabled, mock, single city warszawa, 1h idle TTL, 15s vehicle poll', () => {
+    it('defaults: enabled, mock, single city warszawa, 1h idle TTL, 15s vehicle poll, 5min alert poll', () => {
       const { gtfs } = loadConfig({})
       expect(gtfs).toEqual({
         enabled: true,
@@ -38,7 +38,12 @@ describe('loadConfig', () => {
         dataSource: 'mock',
         idleTtlMs: 3600000,
         vehiclePollMs: 15000,
+        alertPollMs: 300000,
       })
+    })
+
+    it('parses GTFS_ALERT_POLL_MS from env', () => {
+      expect(loadConfig({ GTFS_ALERT_POLL_MS: '60000' }).gtfs.alertPollMs).toBe(60000)
     })
 
     it('GTFS_ENABLED=false actually disables (not coerced to true)', () => {
