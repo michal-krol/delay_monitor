@@ -34,6 +34,11 @@ describe('AlertBanner', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
+  it('omits the link when it is not https:// (defense in depth, even though alerts.ts already scrubs this)', () => {
+    render(<AlertBanner alerts={[alert({ link: 'javascript:window.__xss=true' })]} />)
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
   it('renders one entry per alert when there are several', () => {
     render(<AlertBanner alerts={[alert({ id: 'a' }), alert({ id: 'b', title: 'Drugi alert' })]} />)
     expect(screen.getByText('Utrudnienia w kursowaniu linii 20')).toBeInTheDocument()

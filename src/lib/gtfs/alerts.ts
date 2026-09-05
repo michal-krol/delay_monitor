@@ -29,7 +29,10 @@ const alertSchema = z
     id: r.id,
     routes: r.routes ?? [],
     effect: r.effect ?? 'UNKNOWN_EFFECT',
-    link: r.link ?? '',
+    // Feed obcy (#4) — `link` trafia prosto do `<a href>` (`AlertBanner`), więc
+    // tylko `https://` przechodzi; wszystko inne (np. `javascript:`) → '',
+    // co `AlertBanner` już traktuje jako „brak linku".
+    link: r.link !== undefined && r.link.startsWith('https://') ? r.link : '',
     title: r.title ?? '',
     body: r.body ?? '',
   }))

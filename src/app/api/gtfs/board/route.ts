@@ -94,7 +94,11 @@ export async function GET(request: Request) {
     // przełącznikiem — inaczej „Cały przystanek" nie działałby na deep-linku.
     const scopeId = slupek !== null && group.members.some((m) => m.id === slupek) ? slupek : null
     const summary = stopSummary(schedule, scopeId ?? group.id, todayIndex)
-    const groupRouteIdxs = schedule.groupRoutes.get(scopeId ?? group.id) ?? new Set<number>()
+    // `groupRoutes` jest kluczowany WYŁĄCZNIE id zespołu (nigdy słupka, patrz
+    // `query.ts` przy `lineCount`) — alerty dotyczą linii, a linie słupka są
+    // zawsze podzbiorem linii całego zespołu, więc dopasowanie zawsze idzie
+    // po zespole, niezależnie od zawężenia `?slupek=`.
+    const groupRouteIdxs = schedule.groupRoutes.get(group.id) ?? new Set<number>()
     const alerts = alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
     // Indeks obserwowanego przystanku w przebiegu — do policzenia „ile przystanków
     // stąd" jest pojazd. `undefined` (pytano o cały zespół, nie o słupek) → brak tagu.

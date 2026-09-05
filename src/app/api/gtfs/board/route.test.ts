@@ -176,4 +176,21 @@ describe('GET /api/gtfs/board', () => {
       alertPoller = null
     }
   })
+
+  it('stop.alerts still matches when scoped to one słupek (?slupek=), not keyed by member id', async () => {
+    // Regresja: `schedule.groupRoutes` jest kluczowany wyłącznie id zespołu
+    // (`1001`), nigdy słupka (`100101`) — dopasowanie alertów musi zawsze iść
+    // po zespole, inaczej `?slupek=` cichnie baner (patrz komentarz przy
+    // `groupRouteIdxs` w route.ts).
+    alertPoller = {
+      getAlerts: () => [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }],
+    }
+    try {
+      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100101')
+      expect(body.stops[0].activeSlupek).toBe('100101')
+      expect(body.stops[0].alerts).toEqual([{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }])
+    } finally {
+      alertPoller = null
+    }
+  })
 })

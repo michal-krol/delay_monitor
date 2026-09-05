@@ -50,6 +50,16 @@ describe('parseAlertFeed', () => {
     expect(r.alerts[0]).toMatchObject({ effect: 'UNKNOWN_EFFECT', link: '', title: '', body: '' })
   })
 
+  it('drops a non-https:// link to empty string instead of passing it through (XSS via <a href>)', () => {
+    const r = parseAlertFeed({ alerts: [{ ...good, link: 'javascript:alert(1)' }] })
+    expect(r.alerts[0].link).toBe('')
+  })
+
+  it('keeps an http:// (non-https) link out too', () => {
+    const r = parseAlertFeed({ alerts: [{ ...good, link: 'http://example.invalid' }] })
+    expect(r.alerts[0].link).toBe('')
+  })
+
   it('returns empty on a shape that is not the feed', () => {
     expect(parseAlertFeed(null)).toEqual({ alerts: [], droppedAlerts: 0, feedTime: null })
     expect(parseAlertFeed({ nope: 1 })).toEqual({ alerts: [], droppedAlerts: 0, feedTime: null })

@@ -49,7 +49,11 @@ export function useCityStats(city: string | null) {
           if (cancelled) return
           setData(json)
           setError(null)
-          if (json.state === 'loading' && retry < LOADING_RETRY_DELAYS_MS.length) {
+          // Ponawiamy też, gdy sam rozkład jest już `ready`, ale poller alertów
+          // (rytm 5 min, niezależny od rozkładu) jeszcze nie skończył pierwszego
+          // pobrania (`alerts == null`) — inaczej widżet utyka na „Wczytuję…"
+          // na czas życia komponentu. Ta sama, ograniczona drabinka ponowień.
+          if ((json.state === 'loading' || json.alerts == null) && retry < LOADING_RETRY_DELAYS_MS.length) {
             timer = setTimeout(tick, LOADING_RETRY_DELAYS_MS[retry++])
           }
         })

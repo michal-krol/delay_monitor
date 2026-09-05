@@ -91,6 +91,20 @@ describe('CityTransitWidget', () => {
     expect(screen.getByText('Brak aktywnych utrudnień.')).toBeInTheDocument()
   })
 
+  it('shows a distinct error note (not "Wczytuję…") when the alert feed failed', () => {
+    hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: null, alertFeed: { state: 'failed', ageMs: null } }, error: null }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText('Nie udało się pobrać utrudnień.')).toBeInTheDocument()
+    expect(screen.queryByText('Wczytuję…')).not.toBeInTheDocument()
+  })
+
+  it('still shows "Wczytuję…" (not the error note) while the alert feed is merely loading, not failed', () => {
+    hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: null, alertFeed: { state: 'loading', ageMs: null } }, error: null }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText('Wczytuję…')).toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się pobrać utrudnień.')).not.toBeInTheDocument()
+  })
+
   it('lists active alert titles with a count when the feed has entries', () => {
     hookState.current = {
       data: {

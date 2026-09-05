@@ -112,7 +112,12 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
       <AsideCard title="Utrudnienia">
         {(() => {
           const alerts = data?.state === 'ready' ? (data.alerts ?? null) : null
-          if (alerts === null) return <p className="text-xs text-text-muted">Wczytuję…</p>
+          if (alerts === null) {
+            if (data?.alertFeed?.state === 'failed') {
+              return <p className="text-xs text-red-600 dark:text-red-400">Nie udało się pobrać utrudnień.</p>
+            }
+            return <p className="text-xs text-text-muted">Wczytuję…</p>
+          }
           if (alerts.length === 0) return <p className="text-xs text-text-muted">Brak aktywnych utrudnień.</p>
           return (
             <div className="flex flex-col gap-1.5">
