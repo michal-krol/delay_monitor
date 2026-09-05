@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { CityStats } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 
@@ -12,6 +13,9 @@ export type CityStatsResponse = {
   vehiclesInService?: Record<GtfsMode, number> | null
   vehiclesUnmatched?: number | null
   vehicleFeed?: { state: string; ageMs: number | null }
+  /** Alerty (etap 5b) — `null` = feed nie gotowy, NIGDY nie renderuj jako [] (#7). */
+  alerts?: AlertRecord[] | null
+  alertFeed?: { state: string; ageMs: number | null }
 }
 
 /**
