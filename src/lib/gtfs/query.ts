@@ -4,6 +4,7 @@
  */
 import { isoInZone } from '@/lib/pkp/time'
 import { normalizeForSearch } from '@/lib/search'
+import type { AlertRecord } from './alerts'
 import type { ServiceCategory } from './schema'
 import type { GtfsDeparture, GtfsMode, GtfsRoute, GtfsSchedule, LineKind } from './types'
 import { projectVehicle } from './vehicleProject'
@@ -586,6 +587,24 @@ export function vehicleForStop(
   const stopsAway = thisOrder - on.afterStopOrder - 1
   if (stopsAway < 0) return null
   return { stopsAway, ageSec: on.ageSec }
+}
+
+/**
+ * Dopasowanie alertów do zbioru linii (indeksów `routes`). Feed `alerts.json`
+ * nie zna przystanków — jedyny klucz to `route.shortName` (#13). Wołający
+ * dostarcza zbiór: jedna linia (strona linii) albo `groupRoutes.get(groupId)`
+ * (przystanek). Miasto (widżet globalny) nie woła tej funkcji — zwraca całą
+ * listę bez filtra.
+ */
+export function alertsForRoutes(
+  schedule: GtfsSchedule,
+  alerts: AlertRecord[],
+  routeIdxs: ReadonlySet<number>
+): AlertRecord[] {
+  if (routeIdxs.size === 0 || alerts.length === 0) return []
+  const shortNames = new Set<string>()
+  for (const idx of routeIdxs) shortNames.add(schedule.routes[idx].shortName)
+  return alerts.filter((a) => a.routes.some((r) => shortNames.has(r)))
 }
 
 export type StopSearchResult = { id: string; name: string }

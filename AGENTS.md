@@ -285,7 +285,19 @@ npm run check   # = typecheck && lint && test
   `shapes.txt`). ZERO pola opóźnienia: `VehicleOnRoute` niesie `afterStopOrder` +
   `fraction` + `ageSec`, nigdy „ile spóźniony". Pozycja > 2 km od trasy / nieznany
   `trip_id` → `null`. `mockVehicleFeed` degraduje do pustego wyniku dla braku ORAZ
-  uszkodzonego fixture'a (JSON.parse w try). Alerty (`alerts.json`) = etap 5b.
+  uszkodzonego fixture'a (JSON.parse w try).
+- **Alerty (etap 5b).** `alerts.json` (mkuran) → osobny `AlertPoller` per miasto,
+  ten sam cykl życia co `VehiclePoller` (`onWake`/`onIdle`, rytm 5 min). Feed nie
+  zna przystanków — `alertsForRoutes()` dopasowuje po `route_short_name`, jedynym
+  wspólnym kluczu z rozkładem. ZERO pola opóźnienia: `AlertRecord` niesie tylko
+  treść ogłoszenia. `htmlbody` (obcy HTML) świadomie nigdy nie parsowany, odrzucany
+  na granicy Zod (`alerts.ts`); `link` przechodzi wyłącznie jako `https://` (inaczej
+  `''` — trafia do `<a href>` w `AlertBanner`, zaufany feed to nie jest). Dwie
+  konwencje „brak danych jeszcze": `/api/gtfs/city-stats` zwraca `alerts: null`
+  dopóki poller nie jest `ready` — jedyne miejsce w tym podsystemie, gdzie
+  null≠[] ma znaczenie (kafelek liczbowy, #7); `/api/gtfs/line` i `/api/gtfs/board`
+  zawsze zwracają `alerts: []` (nigdy `null`) — to pola doklejane do listy, nie
+  osobny licznik, więc pusta lista po prostu nie renderuje banera.
 
 Kontrakt: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (sieć, bez kosztu).
 `GTFS_DATA_SOURCE=mock` (domyślnie) trzyma dev/test/CI zerowo-sieciowe. Fixture'y

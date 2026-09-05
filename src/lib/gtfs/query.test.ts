@@ -3,6 +3,7 @@ import { buildSchedule, type BuildScheduleInput } from './schedule'
 import { contrastText, lineKindFrom, modeFromRouteType } from './schema'
 import {
   allLines,
+  alertsForRoutes,
   cityStats,
   groupLines,
   lineDetail,
@@ -14,6 +15,7 @@ import {
   vehicleForStop,
   vehiclesInService,
 } from './query'
+import type { AlertRecord } from './alerts'
 import type { GtfsRoute } from './types'
 
 const TZ = 'Europe/Warsaw'
@@ -350,6 +352,37 @@ describe('searchStops', () => {
     expect(results[0].name).toBe('Świętokrzyska')
     expect(results.map((r) => r.name)).toContain('Rondo ONZ - Świętokrzyska')
     expect(searchStops(schedule, 'dworz', 5).map((r) => r.id)).toEqual(['3003'])
+  })
+})
+
+describe('alertsForRoutes', () => {
+  const alert = (routes: string[]): AlertRecord => ({ id: `a-${routes.join('-')}`, routes, effect: 'DETOUR', link: '', title: 't', body: 'b' })
+  const scheduleWith20 = () => make({ routes: [route('20', 0, '20'), route('M1', 1, 'M1')] })
+
+  it('returns [] for an empty route set without touching the alert list', async () => {
+    const s = await scheduleWith20()
+    expect(alertsForRoutes(s, [alert(['20'])], new Set())).toEqual([])
+  })
+
+  it('returns [] when no alert matches the given routes', async () => {
+    const s = await scheduleWith20()
+    const routeIdx = s.routeIndexById.get('20')!
+    expect(alertsForRoutes(s, [alert(['999'])], new Set([routeIdx]))).toEqual([])
+  })
+
+  it('matches an alert whose routes include the short name of a requested route', async () => {
+    const s = await scheduleWith20()
+    const routeIdx = s.routeIndexById.get('20')!
+    const a = alert(['20'])
+    expect(alertsForRoutes(s, [a], new Set([routeIdx]))).toEqual([a])
+  })
+
+  it('does not duplicate an alert matching more than one requested route', async () => {
+    const s = await scheduleWith20()
+    const idx20 = s.routeIndexById.get('20')!
+    const a = alert(['20', 'M1'])
+    // Zbiór zawierający tylko jedną z dwóch linii alertu wciąż daje jedno trafienie.
+    expect(alertsForRoutes(s, [a], new Set([idx20]))).toEqual([a])
   })
 })
 

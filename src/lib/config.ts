@@ -35,6 +35,7 @@ const envSchema = z.object({
   GTFS_DATA_SOURCE: z.enum(['live', 'mock']).default('mock'),
   GTFS_IDLE_TTL_MS: z.coerce.number().int().positive().default(3600000),
   GTFS_VEHICLE_POLL_MS: z.coerce.number().int().positive().default(15000),
+  GTFS_ALERT_POLL_MS: z.coerce.number().int().positive().default(300000),
   // Świadomie BEZ `PORT`: serwer czyta `process.env.PORT` sam (Next w trybie
   // standalone, patrz Dockerfile), więc parsowanie go tutaj tworzyło pole,
   // które nikt nigdy nie odczytał -- i sugerowało, że to my o porcie decydujemy.
@@ -51,6 +52,7 @@ export type GtfsConfig = {
   dataSource: DataSource
   idleTtlMs: number
   vehiclePollMs: number
+  alertPollMs: number
 }
 
 export type AppConfig = {
@@ -88,6 +90,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       dataSource: parsed.GTFS_DATA_SOURCE,
       idleTtlMs: parsed.GTFS_IDLE_TTL_MS,
       vehiclePollMs: parsed.GTFS_VEHICLE_POLL_MS,
+      alertPollMs: parsed.GTFS_ALERT_POLL_MS,
     },
   }
 }

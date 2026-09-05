@@ -9,7 +9,15 @@ import { pluralPl } from '@/lib/plural'
  */
 export function PageAside({ children }: { children: ReactNode }) {
   return (
-    <aside className="hidden w-72 shrink-0 self-start sticky top-0 max-h-dvh overflow-y-auto py-7 pr-8 xl:flex xl:flex-col xl:gap-4">
+    // `tabIndex`/`aria-label`: `max-h-dvh overflow-y-auto` czyni z tej kolumny
+    // region przewijalny; gdy karty przekroczą wysokość ekranu, użytkownik
+    // klawiatury musi móc go sfokusować i przewinąć strzałkami (axe
+    // `scrollable-region-focusable`, WCAG 2.1.1).
+    <aside
+      tabIndex={0}
+      aria-label="Panel kontekstowy"
+      className="hidden w-72 shrink-0 self-start sticky top-0 max-h-dvh overflow-y-auto py-7 pr-8 xl:flex xl:flex-col xl:gap-4"
+    >
       {children}
     </aside>
   )

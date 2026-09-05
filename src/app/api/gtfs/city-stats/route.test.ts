@@ -15,15 +15,22 @@ const getGtfsPoller = vi.fn((city: string) =>
 
 type FakeVehiclePoller = { getView: () => { state: string; ageMs: number | null }; getPositions: () => VehiclePosition[] }
 let vehiclePoller: FakeVehiclePoller | null = null
+type FakeAlertPoller = {
+  getView: () => { state: string; ageMs: number | null }
+  getAlerts: () => { id: string; routes: string[]; effect: string; link: string; title: string; body: string }[]
+}
+let alertPoller: FakeAlertPoller | null = null
 vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (...a: [string]) => getGtfsPoller(...a),
   peekVehiclePoller: () => vehiclePoller,
+  peekAlertPoller: () => alertPoller,
 }))
 
 const pos = (tripId: string): VehiclePosition => ({ id: tripId, tripId, lat: 52, lon: 21, sideNumber: '1', bearing: null, timestamp: '' })
 
 beforeEach(() => {
   vehiclePoller = null
+  alertPoller = null
 })
 
 beforeAll(async () => {
@@ -98,5 +105,25 @@ describe('GET /api/gtfs/city-stats', () => {
     expect(body.vehiclesInService).toEqual({ metro: 0, tram: 2, bus: 0, rail: 0, other: 0 })
     expect(body.vehiclesUnmatched).toBe(1)
     expect(body.vehicleFeed).toEqual({ state: 'ready', ageMs: 1200 })
+  })
+
+  it('alerts is null (not []) until the alert poller is ready', async () => {
+    const { body } = await call('city=warszawa')
+    expect(body.alerts).toBeNull()
+    expect(body.alertFeed.state).toBe('loading')
+  })
+
+  it('returns the alert list once the poller is ready', async () => {
+    alertPoller = {
+      getView: () => ({ state: 'ready', ageMs: 3000 }),
+      getAlerts: () => [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 't', body: 'b' }],
+    }
+    try {
+      const { body } = await call('city=warszawa')
+      expect(body.alerts).toHaveLength(1)
+      expect(body.alertFeed).toEqual({ state: 'ready', ageMs: 3000 })
+    } finally {
+      alertPoller = null
+    }
   })
 })

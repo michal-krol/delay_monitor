@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { AlertBanner } from './AlertBanner'
 import { FullBoard } from './FullBoard'
 import { LineGrid } from './LineGrid'
 import { StationCard } from './StationCard'
@@ -198,6 +199,40 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
       const badge = container.querySelector('[style]')
       expect(badge?.getAttribute('style') ?? '', `payload: ${payload}`).not.toContain(payload)
       expect((window as unknown as Record<string, unknown>).__xss, `payload: ${payload}`).toBeUndefined()
+      unmount()
+    }
+  })
+
+  it('ładunki w GTFS alertach (title, body, link) renderują się bezpiecznie w AlertBanner', () => {
+    for (const payload of PAYLOADS) {
+      const { container, unmount } = render(
+        <AlertBanner
+          alerts={[
+            {
+              id: 'A/1',
+              routes: ['20'],
+              effect: 'REDUCED_SERVICE',
+              link: payload,
+              title: payload,
+              body: payload,
+            },
+          ]}
+        />
+      )
+
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('script'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('iframe'), `payload: ${payload}`).toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(container.querySelector('svg[onload]'), `payload: ${payload}`).toBeNull()
+      // Niezaufany `link` nie może wejść do `href` poza zwalidowanym `https://` —
+      // ani `javascript:...`, ani inny nie-https link renderuje kotwicę wcale.
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      const anchor = container.querySelector('a')
+      expect(anchor?.getAttribute('href') ?? null, `payload: ${payload}`).not.toBe(payload)
+      expect((window as unknown as Record<string, unknown>).__xss, `payload: ${payload}`).toBeUndefined()
+
       unmount()
     }
   })
