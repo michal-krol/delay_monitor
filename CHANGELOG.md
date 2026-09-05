@@ -7,6 +7,12 @@ Wersjonowanie semantyczne.
 
 ### Dodane
 
+- **Nawigacja mobilna (hamburger)** — poniżej `sm` pasek boczny był chowany
+  całkowicie, przez co Pulpit / Odjazdy / Trasy były niedostępne na telefonie.
+  Cienki pasek app-level z hamburgerem + wysuwana szuflada (przyciemnione tło,
+  zamyka: tło / link / Escape / zmiana trasy, blokada scrolla, focus-trap,
+  `role="dialog"`). Szuflada i pasek desktop dzielą jedną listę pozycji
+  (`navItems.tsx`).
 - **Alerty GTFS (`alerts.json`, etap 5b)** — baner utrudnień na stronie linii
   i w panelu przystanku (dopasowanie po linii — feed nie zna przystanków),
   licznik aktywnych utrudnień w widżecie miasta. Zero pola opóźnienia.
