@@ -27,9 +27,13 @@ let vehiclePoller: {
   getPositions: () => { tripId: string; lat: number; lon: number; sideNumber: string; bearing: number | null; timestamp: string; id: string }[]
 } | null = null
 
+/** Podmieniany per-test: `null` = brak feedu alertów, obiekt = udawany poller. */
+let alertPoller: { getAlerts: () => { id: string; routes: string[]; effect: string; link: string; title: string; body: string }[] } | null = null
+
 vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (...args: [string]) => getGtfsPoller(...args),
   peekVehiclePoller: () => vehiclePoller,
+  peekAlertPoller: () => alertPoller,
 }))
 
 beforeAll(async () => {
@@ -151,5 +155,25 @@ describe('GET /api/gtfs/board', () => {
     expect(body.schedule.phase).toBe('stop_times')
     expect(body.stops).toEqual([])
     schedule = kept
+  })
+
+  it('stop.alerts is [] when no alert poller exists yet', async () => {
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
+    expect(body.stops[0].alerts).toEqual([])
+  })
+
+  it('stop.alerts matches by the group\'s lines (route short name "20" from the fixture)', async () => {
+    alertPoller = {
+      getAlerts: () => [
+        { id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' },
+        { id: 'b', routes: ['999'], effect: 'DETOUR', link: '', title: 'Inna linia', body: 'b' },
+      ],
+    }
+    try {
+      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
+      expect(body.stops[0].alerts).toEqual([{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }])
+    } finally {
+      alertPoller = null
+    }
   })
 })

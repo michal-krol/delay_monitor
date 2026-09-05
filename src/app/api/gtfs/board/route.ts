@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { serviceDateWindow } from '@/lib/pkp/time'
 import { getCity } from '@/lib/gtfs/cities'
-import { getGtfsPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
+import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
 import { scheduleResponseBlock } from '@/lib/gtfs/poller'
-import { nextDepartures, stopGroup, stopSummary, vehicleForStop } from '@/lib/gtfs/query'
+import { alertsForRoutes, nextDepartures, stopGroup, stopSummary, vehicleForStop } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 
 /** Przeniesione z `/api/board`: realny użytkownik obserwuje kilka przystanków. */
@@ -83,6 +83,9 @@ export async function GET(request: Request) {
   const vehiclePoller = peekVehiclePoller(city)
   const positions = vehiclePoller?.getPositions() ?? []
 
+  const alertPoller = peekAlertPoller(city)
+  const allAlerts = alertPoller?.getAlerts() ?? []
+
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
     if (group === null) return null
@@ -91,6 +94,8 @@ export async function GET(request: Request) {
     // przełącznikiem — inaczej „Cały przystanek" nie działałby na deep-linku.
     const scopeId = slupek !== null && group.members.some((m) => m.id === slupek) ? slupek : null
     const summary = stopSummary(schedule, scopeId ?? group.id, todayIndex)
+    const groupRouteIdxs = schedule.groupRoutes.get(scopeId ?? group.id) ?? new Set<number>()
+    const alerts = alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
     // Indeks obserwowanego przystanku w przebiegu — do policzenia „ile przystanków
     // stąd" jest pojazd. `undefined` (pytano o cały zespół, nie o słupek) → brak tagu.
     const scopeStopIdx = schedule.stopIndexById.get(scopeId ?? group.id)
@@ -115,6 +120,7 @@ export async function GET(request: Request) {
       /** Aktywny słupek, gdy zawężono jawnym `?slupek=`; inaczej `null`. */
       activeSlupek: scopeId,
       summary,
+      alerts,
       departures,
     }
   })

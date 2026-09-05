@@ -32,6 +32,7 @@ const { mockBoard, mockTransit } = vi.hoisted(() => ({
           modes: ['metro'],
           lines: [{ routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro' }],
           summary: { lineCount: 1, departuresToday: 40, firstDepartureSec: 18000, lastDepartureSec: 90000, hourly: new Array(24).fill(1) },
+          alerts: [],
           departures: [],
         },
       ],

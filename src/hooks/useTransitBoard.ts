@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { GtfsDeparture, GtfsMode, ScheduleState } from '@/lib/gtfs/types'
 import type { GtfsLine, StopGroupMember, StopSummary } from '@/lib/gtfs/query'
 
@@ -22,6 +23,8 @@ export type TransitStopBoard = {
   activeSlupek: string | null
   /** Fakty rozkładowe (liczba linii, odjazdy dziś, pierwszy/ostatni, wykres godzinowy). */
   summary: StopSummary
+  /** Alerty tej linii/przystanku (przez linie zespołu) — nigdy pole opóźnienia (#13). */
+  alerts: AlertRecord[]
   /**
    * `vehicle` = pozycja pojazdu realizującego ten kurs, wyrażona jako dystans
    * w przystankach od obserwowanego słupka (`stopsAway`, 0 = „zaraz będzie" —
