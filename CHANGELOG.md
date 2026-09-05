@@ -7,6 +7,12 @@ Wersjonowanie semantyczne.
 
 ### Dodane
 
+- **Nawigacja mobilna (hamburger)** — poniżej `sm` pasek boczny był chowany
+  całkowicie, przez co Pulpit / Odjazdy / Trasy były niedostępne na telefonie.
+  Cienki pasek app-level z hamburgerem + wysuwana szuflada (przyciemnione tło,
+  zamyka: tło / link / Escape / zmiana trasy, blokada scrolla, focus-trap,
+  `role="dialog"`). Szuflada i pasek desktop dzielą jedną listę pozycji
+  (`navItems.tsx`).
 - **Komunikacja miejska: pozycje pojazdów na żywo (etap 5a)** — marker na osi
   czasu linii, „za którym przystankiem" na karcie „Pojazdy w trasie", „W trasie
   teraz" w widżecie sieci. Osobny `VehiclePoller` per miasto (15 s), cykl życia
