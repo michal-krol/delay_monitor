@@ -43,6 +43,24 @@ test('przystanek miejski: mapa pokazuje jeden pin na słupek i steruje przełąc
   await expect(page.getByRole('tab', { name: /^Centrum 0\d/, selected: true })).toBeVisible()
 })
 
+test('przystanek miejski: „Powiększ mapę" otwiera pełnoekranowy widok z podglądem odjazdów w popupie', async ({ page }) => {
+  await page.goto(CENTRUM)
+  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+
+  await page.getByRole('button', { name: 'Powiększ mapę' }).click()
+  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.locator('.maplibregl-marker')).toHaveCount(4)
+  await expectTilesRendered(dialog.locator('canvas'))
+
+  // Powiększony popup ma podgląd odjazdów tego słupka -- mini nie (za mało miejsca).
+  await dialog.locator('.maplibregl-marker').first().click()
+  await expect(page.locator('.maplibregl-popup-content').getByText(/^\d{2}:\d{2} →/).first()).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(dialog).not.toBeVisible()
+})
+
 test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten sam fetch, zero nowego zapytania)', async ({
   page,
 }) => {
@@ -61,6 +79,17 @@ test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten s
 test('a11y: przystanek miejski z mapą bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(CENTRUM)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
+
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+})
+
+test('a11y: powiększona mapa (dialog) bez naruszeń serious/critical', async ({ page }) => {
+  await page.goto(CENTRUM)
+  await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
+  await page.getByRole('button', { name: 'Powiększ mapę' }).click()
+  await expect(page.getByRole('dialog').locator('.maplibregl-marker').first()).toBeVisible()
 
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))

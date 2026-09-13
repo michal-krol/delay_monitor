@@ -41,6 +41,14 @@ function clockOfSec(sec: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+/** Ikona pinu na mapie: pierwszy tryb wg priorytetu prezentacji (`MODE_ORDER`) obecny na słupku. */
+function primaryMode(lines: GtfsLine[]): GtfsMode {
+  for (const mode of MODE_ORDER) {
+    if (lines.some((l) => l.mode === mode)) return mode
+  }
+  return 'other'
+}
+
 function SummaryCard({ label, value, hint, className = '' }: { label: string; value: string; hint?: string; className?: string }) {
   return (
     <div className={`glass rounded-2xl p-4 ${className}`.trim()}>
@@ -151,8 +159,28 @@ export function TransitStopDetail({
   const summary = board?.summary
 
   const mapPins = useMemo(
-    () => members.map((m) => ({ id: m.id, lat: m.lat, lon: m.lon, label: stopDisplayName(stopName, m.code ?? m.platformCode) })),
-    [members, stopName]
+    () =>
+      members.map((m) => {
+        // Powiększona mapa (MapView.tsx) pokazuje 2 najbliższe odjazdy TEGO słupka w
+        // popupie — dane już mamy w `board.departures`, zero nowego zapytania. Gdy
+        // `effSlupek` zawęża odpowiedź do jednego słupka, pozostałe piny po prostu
+        // nie dostają podglądu (degradacja, nie błąd).
+        const preview = (board?.departures ?? [])
+          .filter((d) => d.stopId === m.id)
+          .slice()
+          .sort((a, b) => a.departureSec - b.departureSec)
+          .slice(0, 2)
+          .map((d) => `${clockOfSec(d.departureSec)} → ${d.headsign ?? d.line}`)
+        return {
+          id: m.id,
+          lat: m.lat,
+          lon: m.lon,
+          label: stopDisplayName(stopName, m.code ?? m.platformCode),
+          mode: primaryMode(m.lines),
+          preview,
+        }
+      }),
+    [members, stopName, board]
   )
 
   return (

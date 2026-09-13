@@ -1,18 +1,18 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { MapPin } from './MapView'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { MapView } from './MapView'
 
-const markerEl = document.createElement('div')
+type PopupMock = { setDOMContent: (node: HTMLElement) => PopupMock; content: HTMLElement | null }
 
 vi.mock('maplibre-gl', () => {
   const marker = {
     setLngLat: vi.fn().mockReturnThis(),
     setPopup: vi.fn().mockReturnThis(),
     addTo: vi.fn().mockReturnThis(),
-    getElement: vi.fn(() => markerEl),
     remove: vi.fn(),
   }
   const map = { fitBounds: vi.fn(), remove: vi.fn() }
@@ -26,13 +26,21 @@ vi.mock('maplibre-gl', () => {
       return marker
     }),
     Popup: vi.fn(function Popup() {
-      return { setText: vi.fn().mockReturnThis() }
+      const p: PopupMock = { content: null, setDOMContent: (node) => ((p.content = node), p) }
+      return p
     }),
     LngLatBounds: vi.fn(function LngLatBounds() {
       return { extend: vi.fn() }
     }),
   }
 })
+
+function markerElementAt(callIndex: number): HTMLElement {
+  const call = vi.mocked(maplibregl.Marker).mock.calls[callIndex]
+  const options = call?.[0]
+  if (options === undefined) throw new Error(`Marker nie zostało wywołane dla indeksu ${callIndex}`)
+  return options.element as HTMLElement
+}
 
 describe('MapView', () => {
   beforeEach(() => {
@@ -67,12 +75,32 @@ describe('MapView', () => {
     expect(mapCall.center).toEqual([21.0, 52.1])
   })
 
+  it('renderuje ikonę trybu w markerze (reużyta z transitMode.tsx, zero duplikacji SVG)', async () => {
+    render(<MapView pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Tramwaj X', mode: 'tram' }]} ariaLabel="Mapa" />)
+
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
+    const element = markerElementAt(0)
+    // Marker to zamockowany DOM node spoza drzewa renderowanego przez RTL
+    // (prawdziwy MapLibre sam wstawiłby go do canvasu mapy) — `screen`/`within` go nie widzą.
+    // eslint-disable-next-line testing-library/no-node-access
+    await waitFor(() => expect(element.querySelector('svg')).not.toBeNull())
+  })
+
+  it('bez `mode` renderuje neutralną ikonę lokalizacji zamiast się wywalać', async () => {
+    render(<MapView pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Stacja' }]} ariaLabel="Mapa" />)
+
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
+    const element = markerElementAt(0)
+    // eslint-disable-next-line testing-library/no-node-access -- jak wyżej
+    await waitFor(() => expect(element.querySelector('svg')).not.toBeNull())
+  })
+
   it('klik na pin woła onPinClick z jego id', async () => {
     const onPinClick = vi.fn()
     render(<MapView pins={[{ id: 'slupek-1', lat: 52.1, lon: 21.0, label: 'Słupek 1' }]} onPinClick={onPinClick} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
-    markerEl.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    markerElementAt(0).dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     expect(onPinClick).toHaveBeenCalledWith('slupek-1')
   })
@@ -100,6 +128,70 @@ describe('MapView', () => {
     const workerCallOrder = vi.mocked(maplibregl.setWorkerUrl).mock.invocationCallOrder[0]
     const mapCallOrder = vi.mocked(maplibregl.Map).mock.invocationCallOrder[0]
     expect(workerCallOrder).toBeLessThan(mapCallOrder)
+  })
+
+  it('mini popup pokazuje sam label, bez `preview`/`href` nawet gdy podane', async () => {
+    render(
+      <MapView
+        pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Centrum 02', preview: ['18:12 → Kutno'], href: '/station/1' }]}
+        ariaLabel="Mapa"
+      />
+    )
+
+    await waitFor(() => expect(maplibregl.Popup).toHaveBeenCalledTimes(1))
+    const content = vi.mocked(maplibregl.Popup).mock.results[0].value.content as HTMLElement
+    expect(content.textContent).toContain('Centrum 02')
+    expect(content.textContent).not.toContain('Kutno')
+    // `content` to węzeł przechwycony z zamockowanego `Popup.setDOMContent`, nigdy nie
+    // trafia do drzewa renderowanego przez RTL -- prawdziwy MapLibre wstawiłby go do popupu.
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(content.querySelector('a')).toBeNull()
+  })
+
+  describe('powiększenie na pełny ekran', () => {
+    const PIN: MapPin = { id: 'a', lat: 52.1, lon: 21.0, label: 'Centrum 02', preview: ['18:12 → Kutno', '18:20 → Łódź'], href: '/station/1' }
+
+    it('przycisk „Powiększ mapę" otwiera dialog i montuje drugą mapę z bogatym popupem', async () => {
+      const user = userEvent.setup()
+      render(<MapView pins={[PIN]} ariaLabel="Mapa przystanku Centrum" />)
+      await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+
+      await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+
+      const dialog = screen.getByRole('dialog', { name: 'Mapa przystanku Centrum' })
+      expect(dialog).toBeInTheDocument()
+      await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(2))
+
+      const richContent = vi.mocked(maplibregl.Popup).mock.results.at(-1)?.value.content as HTMLElement
+      expect(richContent.textContent).toContain('Centrum 02')
+      expect(richContent.textContent).toContain('18:12 → Kutno')
+      // eslint-disable-next-line testing-library/no-node-access -- jak w teście mini popupu wyżej
+      expect(richContent.querySelector('a')).toHaveAttribute('href', '/station/1')
+    })
+
+    it('Escape zamyka dialog i odmontowuje powiększoną mapę', async () => {
+      const user = userEvent.setup()
+      render(<MapView pins={[PIN]} ariaLabel="Mapa" />)
+      await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+      await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(2))
+      const fullscreenMap = vi.mocked(maplibregl.Map).mock.results[1].value
+
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(fullscreenMap.remove).toHaveBeenCalled()
+    })
+
+    it('klik w tło zamyka dialog', async () => {
+      const user = userEvent.setup()
+      render(<MapView pins={[PIN]} ariaLabel="Mapa" />)
+      await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      await user.click(screen.getByTestId('map-fullscreen-backdrop'))
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
   })
 })
 

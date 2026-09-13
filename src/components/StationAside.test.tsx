@@ -51,6 +51,7 @@ function renderAside(overrides: Partial<React.ComponentProps<typeof StationAside
     weather: READY_WEATHER,
     stationName: 'Warszawa Centralna',
     stationId: '33605',
+    mapPreview: [],
     ...overrides,
   }
   render(<StationAside {...props} />)
@@ -65,7 +66,11 @@ describe('StationAside', () => {
     // dostępną: nazwa dostępna przycina wkład każdego elementu z osobna, więc
     // spacja rozdzielająca nazwę stacji od liczby w niej nie przetrwa. To, co
     // widzi i czyta użytkownik, jest tu właściwym przedmiotem asercji.
-    const labels = screen.getAllByRole('button').map((button) => button.textContent)
+    // Pomijamy przycisk „Powiększ mapę" (karta Mapa) -- ta sama kolumna, inny temat.
+    const labels = screen
+      .getAllByRole('button')
+      .filter((button) => button.getAttribute('aria-label') !== 'Powiększ mapę')
+      .map((button) => button.textContent)
 
     // 24 -> „połączenia" (końcówka 4 poza nastkami), 1 -> „połączenie",
     // 2 -> „połączenia" -- polska odmiana przez `pluralPl`, nie sztywne „połączeń".
@@ -101,6 +106,7 @@ describe('StationAside', () => {
         currentHour={8}
         stationName="Warszawa Centralna"
         stationId="33605"
+        mapPreview={[]}
         weather={READY_WEATHER}
       />
     )
@@ -118,6 +124,7 @@ describe('StationAside', () => {
         currentHour={8}
         stationName="Warszawa Centralna"
         stationId="33605"
+        mapPreview={[]}
         weather={READY_WEATHER}
       />
     )
@@ -135,6 +142,7 @@ describe('StationAside', () => {
         currentHour={8}
         stationName="Warszawa Centralna"
         stationId="33605"
+        mapPreview={[]}
         weather={READY_WEATHER}
       />
     )
@@ -151,6 +159,7 @@ describe('StationAside', () => {
         currentHour={8}
         stationName="Warszawa Centralna"
         stationId="33605"
+        mapPreview={[]}
         weather={READY_WEATHER}
       />
     )
@@ -193,6 +202,7 @@ describe('StationAside', () => {
           currentHour={8}
         stationName="Warszawa Centralna"
         stationId="33605"
+        mapPreview={[]}
           weather={{ status: 'error' }}
         />
       )
