@@ -16,7 +16,25 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
  *
  * Kontrolka atrybucji MapLibre zostaje włączona — wymóg licencji ODbL/OSM
  * danych OpenFreeMap.
+ *
+ * `setWorkerUrl` PRZED pierwszym `new Map()` -- MapLibre w wersji ESM tworzy
+ * swój Web Worker przez `import.meta.url`-owy odczyt `maplibre-gl-worker.mjs`
+ * z paczki npm; webpack (Next.js production build) rozwiązuje to na PUSTY
+ * string, więc `new Worker("", {type:"module"})` żąda bieżącej strony HTML
+ * zamiast skryptu -- mapa dostaje transform (piny widać, pozycjonowane
+ * synchronicznie z `center`/`zoom`), ale worker nigdy nie startuje, więc
+ * canvas zostaje całkowicie pusty (żadnych kafelków, nawet warstwy `background`).
+ * Zaobserwowane na produkcyjnym buildzie (`next build && next start`), NIE w
+ * `next dev` -- stąd łatwo przeoczyć lokalnie. Naprawa: własna kopia skryptu
+ * workera jako statyczny asset (`public/maplibre-gl-worker.mjs`, ten sam plik
+ * co `node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs`). Worker
+ * statycznie importuje `./maplibre-gl-shared.mjs` (kod współdzielony z
+ * głównym wątkiem) -- musi być wendorowany OBOK, pod tą samą ścieżką
+ * względną, inaczej worker startuje i po cichu pada na 404 tego importu.
+ * Oba pliki pilnowane testem porównującym z `node_modules` przy zmianie
+ * wersji zależności.
  */
+const WORKER_URL = '/maplibre-gl-worker.mjs'
 export function MapView({
   pins,
   onPinClick,
@@ -46,6 +64,7 @@ export function MapView({
     import('maplibre-gl').then((lib) => {
       if (cancelled || containerRef.current === null) return
 
+      lib.setWorkerUrl(WORKER_URL)
       map = new lib.Map({
         container: containerRef.current,
         style: STYLE_URL,

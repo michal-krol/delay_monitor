@@ -113,6 +113,26 @@ ten jeden host; `next.config.test.ts` pilnuje, że to JEDYNY obcy origin w CSP.
 Nie „naprawiaj" tego przez przepięcie na serwerowy proxy kafelków — to nie
 jest przeoczenie.
 
+**Pułapka:** MapLibre w wersji ESM tworzy swój Web Worker przez
+`import.meta.url`-owy odczyt `maplibre-gl-worker.mjs` z paczki npm — webpack
+(Next.js production build, NIE `next dev`) rozwiązuje to na pusty string,
+więc `new Worker("", {type:"module"})` żąda bieżącej strony HTML zamiast
+skryptu. Efekt: piny i atrybucja renderują się normalnie (pozycjonowane
+synchronicznie z `center`/`zoom` przy `new Map()`), ale kafelki nigdy się nie
+rysują — canvas zostaje pusty, bez żadnego błędu w konsoli poza jednym
+kryptycznym „non-JavaScript MIME type". Łapie tylko `npm run build && npm run
+start`/prawdziwy deploy, nigdy `next dev` — stąd raz trafiło na produkcję
+niezauważone przy lokalnym QA. Naprawa: `public/maplibre-gl-worker.mjs` +
+`public/maplibre-gl-shared.mjs` (worker statycznie importuje ten drugi) jako
+wendorowane, bajt-w-bajt kopie z `node_modules/maplibre-gl/dist/`, plus
+`maplibregl.setWorkerUrl('/maplibre-gl-worker.mjs')` PRZED pierwszym
+`new Map()`. `MapView.test.tsx` pilnuje zgodności kopii z `node_modules` przy
+aktualizacji zależności; `e2e/map.spec.ts` renderuje kafelki naprawdę (nie
+tylko piny) i mierzy rozmiar PNG canvasu — `toDataURL`/`readPixels` bez
+`preserveDrawingBuffer` potrafią zwrócić przezroczysty odczyt mimo poprawnego
+rysowania, więc **nie weryfikuj renderu mapy przez surowy odczyt bufora
+WebGL** — tylko przez zrzut ekranu/lokatora (kompozytor, nie bufor).
+
 ## 7. UI nigdy nie jest pusty
 
 Przy awarii API pokazujemy ostatni dobry snapshot + jego wiek, nie czyścimy widoku.

@@ -9,6 +9,7 @@ import '@testing-library/jest-dom/vitest'
  * to własnym `vi.mock` ze szpiegami, gdy trzeba asercji na wywołaniach.
  */
 vi.mock('maplibre-gl', () => ({
+  setWorkerUrl: () => {},
   Map: class {
     fitBounds() {}
     remove() {}

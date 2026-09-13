@@ -1,0 +1,6 @@
+# Wendorowane kopie MapLibre GL JS (MapView.tsx) muszą zostać bajt-w-bajt
+# tym samym plikiem co node_modules/maplibre-gl/dist/ -- MapView.test.tsx to
+# pilnuje. Bez -text Git na Windows (core.autocrlf=true) przepisuje LF na
+# CRLF przy checkout/commit i test fałszywie pada.
+public/maplibre-gl-worker.mjs -text
+public/maplibre-gl-shared.mjs -text
