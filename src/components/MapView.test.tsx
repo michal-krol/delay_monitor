@@ -18,6 +18,7 @@ vi.mock('maplibre-gl', () => {
   const map = { fitBounds: vi.fn(), remove: vi.fn() }
   // Funkcje zwykłe, nie strzałkowe — `new` na mocku strzałkowym rzuca „not a constructor".
   return {
+    setWorkerUrl: vi.fn(),
     Map: vi.fn(function Map() {
       return map
     }),
@@ -87,5 +88,32 @@ describe('MapView', () => {
 
     expect(maplibregl.Map).toHaveBeenCalledTimes(1)
     expect(vi.mocked(maplibregl.Map).mock.results[0]?.value.remove).not.toHaveBeenCalled()
+  })
+
+  it('ustawia workerUrl na własny statyczny asset przed konstrukcją mapy', async () => {
+    render(<MapView pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa" />)
+
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+    // Bez tego `new Worker("", {type:"module"})` w buildzie produkcyjnym --
+    // patrz komentarz w MapView.tsx. Musi się wykonać PRZED `new Map(...)`.
+    expect(maplibregl.setWorkerUrl).toHaveBeenCalledWith('/maplibre-gl-worker.mjs')
+    const workerCallOrder = vi.mocked(maplibregl.setWorkerUrl).mock.invocationCallOrder[0]
+    const mapCallOrder = vi.mocked(maplibregl.Map).mock.invocationCallOrder[0]
+    expect(workerCallOrder).toBeLessThan(mapCallOrder)
+  })
+})
+
+describe('public/maplibre-gl-worker.mjs + maplibre-gl-shared.mjs (wendorowane kopie)', () => {
+  // ponytail: brak automatycznego kopiowania przy buildzie -- to jedyny
+  // strażnik przed cichym rozjazdem po `npm update maplibre-gl`. Jeśli któryś
+  // padnie: `cp node_modules/maplibre-gl/dist/maplibre-gl-{worker,shared}.mjs public/`.
+  it.each(['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs'])('%s jest bajt-w-bajt tym samym plikiem co w node_modules', async (file) => {
+    const { readFile } = await import('node:fs/promises')
+    const path = await import('node:path')
+    const [vendored, source] = await Promise.all([
+      readFile(path.join(process.cwd(), 'public', file), 'utf-8'),
+      readFile(path.join(process.cwd(), 'node_modules/maplibre-gl/dist', file), 'utf-8'),
+    ])
+    expect(vendored).toBe(source)
   })
 })
