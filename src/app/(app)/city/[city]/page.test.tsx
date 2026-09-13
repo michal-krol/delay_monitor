@@ -78,7 +78,7 @@ describe('CityPage', () => {
     expect(await screen.findByText('stacje kolejowe')).toBeInTheDocument()
   })
 
-  it('navigates with ?stacja= when a rail result is picked, ?przystanek= for a transit result', async () => {
+  it('navigates with ?station= when a rail result is picked, ?stop= for a transit result', async () => {
     const user = userEvent.setup()
     vi.stubGlobal(
       'fetch',
@@ -96,11 +96,11 @@ describe('CityPage', () => {
     render(<CityPage />)
     await user.type(await screen.findByRole('combobox', { name: /szukaj/i }), 'war')
     await user.click(await screen.findByRole('option', { name: 'Warszawa Centralna' }))
-    expect(push).toHaveBeenCalledWith('/miasto/warszawa?stacja=33605&nazwa=Warszawa%20Centralna')
+    expect(push).toHaveBeenCalledWith('/city/warszawa?station=33605&name=Warszawa%20Centralna')
   })
 
-  it('embeds the transit stop detail when ?przystanek= is set', () => {
-    search = 'przystanek=7014M&nazwa=%C5%9Awi%C4%99tokrzyska'
+  it('embeds the transit stop detail when ?stop= is set', () => {
+    search = 'stop=7014M&name=%C5%9Awi%C4%99tokrzyska'
     render(<CityPage />)
     // useTransitBoard jest zmockowany synchronicznie — panel renderuje się od razu.
     expect(screen.getByRole('heading', { name: 'Świętokrzyska' })).toBeInTheDocument()

@@ -70,8 +70,8 @@ export async function GET(request: Request) {
   })()
 
   // Opcjonalne zawężenie do jednego słupka zespołu (Centrum 01 vs Centrum 02).
-  const rawSlupek = searchParams.get('slupek')
-  const slupek = rawSlupek !== null && GTFS_STOP_ID_PATTERN.test(rawSlupek) ? rawSlupek : null
+  const rawMember = searchParams.get('member')
+  const member = rawMember !== null && GTFS_STOP_ID_PATTERN.test(rawMember) ? rawMember : null
 
   // Pozycje pojazdów — poza cyklem pollera (raz na dobę + TTL, patrz #13); tu
   // tylko czytamy to, co ma w ręku. `VehiclePoller.getPositions()` sam trzyma
@@ -89,15 +89,15 @@ export async function GET(request: Request) {
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
     if (group === null) return null
-    // Zawężenie do jednego słupka WYŁĄCZNIE przez jawny `?slupek=`. Klient
+    // Zawężenie do jednego słupka WYŁĄCZNIE przez jawny `?member=`. Klient
     // (TransitStopDetail) inicjuje go z `requestedMember`, ale sam steruje
     // przełącznikiem — inaczej „Cały przystanek" nie działałby na deep-linku.
-    const scopeId = slupek !== null && group.members.some((m) => m.id === slupek) ? slupek : null
+    const scopeId = member !== null && group.members.some((m) => m.id === member) ? member : null
     const summary = stopSummary(schedule, scopeId ?? group.id, todayIndex)
     // `groupRoutes` jest kluczowany WYŁĄCZNIE id zespołu (nigdy słupka, patrz
     // `query.ts` przy `lineCount`) — alerty dotyczą linii, a linie słupka są
     // zawsze podzbiorem linii całego zespołu, więc dopasowanie zawsze idzie
-    // po zespole, niezależnie od zawężenia `?slupek=`.
+    // po zespole, niezależnie od zawężenia `?member=`.
     const groupRouteIdxs = schedule.groupRoutes.get(group.id) ?? new Set<number>()
     const alerts = alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
     // Indeks obserwowanego przystanku w przebiegu — do policzenia „ile przystanków
@@ -121,8 +121,8 @@ export async function GET(request: Request) {
       lines: group.lines,
       wheelchairNote: group.wheelchairNote,
       members: group.members,
-      /** Aktywny słupek, gdy zawężono jawnym `?slupek=`; inaczej `null`. */
-      activeSlupek: scopeId,
+      /** Aktywny słupek, gdy zawężono jawnym `?member=`; inaczej `null`. */
+      activeMember: scopeId,
       summary,
       alerts,
       departures,

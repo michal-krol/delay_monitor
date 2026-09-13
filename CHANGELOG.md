@@ -28,8 +28,36 @@ Wersjonowanie semantyczne.
 - **Model słupków** — słupek jako „{nazwa} {kod}" („Saska 01"), przełącznik
   słupków zespołu, odjazd tagowany numerem słupka. Słowo „słupek" zniknęło
   z etykiet interfejsu.
+- **Breadcrumb w całej aplikacji** — brakował na `/station/[id]` (tablica PKP)
+  i `/connection/...` (szczegóły połączenia); pierwszy segment tam, gdzie
+  strona źródłowa jest niejednoznaczna (`/connection/...`), renderuje się jako
+  zwykły tekst zamiast zgadywać link. Drugi segment aktualizuje się do
+  prawdziwej nazwy po odpowiedzi API, nie zamraża tymczasowej z linku.
+
+### Zmienione
+
+- **Adresy URL po angielsku** — routing i parametry, nie interfejs (ten zostaje
+  po polsku): `/miasto`→`/city`, `/linie`→`/lines`, `/miasto/[city]/linia`→
+  `/city/[city]/line`, `/przystanek`→`/stop`, `/odjazdy/[id]`→`/station/[id]`,
+  `/polaczenie/...`→`/connection/...`; parametry `nazwa/stacja/przystanek/
+  kierunek`→`name/station/stop/direction`; API `?slupek=`→`?member=`
+  (`/api/gtfs/board`, pole odpowiedzi `activeSlupek`→`activeMember`).
+  **Łamiąca zmiana** — świadomie bez przekierowań ze starych adresów.
 
 ### Poprawki
+
+- **Peron metra w URL-u przystanku (`7014M:P1`) dawał 404** — hydracja
+  dynamicznego segmentu Next.js 16.2.12 gubi dwukropek w `useParams()`
+  (`encodeURIComponent`/`decodeURIComponent` klucza cache'a w drzewie routera
+  nie są symetryczne dla `:`). Link „pełna tablica słupka →" i karta Pulpitu
+  kodują teraz `:`→`-` w segmencie ścieżki (`encodeStopIdForPathSegment`/
+  `decodeStopIdFromPathSegment`, `src/lib/validation.ts`) — jedyny znak w tym
+  formacie, którego dotyka `encodeURIComponent`.
+
+- **Wspólna rama strony `PageShell`** (`src/components/aside.tsx`) — siedem
+  stron przestało duplikować `<main className="...">` + opcjonalny
+  `PageAside` osobno; jedno źródło prawdy zamiast rozjeżdżających się kopii
+  (`gap-5` vs `gap-6`).
 
 - **Prawa kolumna kontekstowa ujednolicona** — jeden komponent `PageAside`
   (`src/components/aside.tsx`) na pulpicie, w widoku miasta oraz na liście linii

@@ -264,7 +264,7 @@ npm run check   # = typecheck && lint && test
   to jeden słupek (`groupIdOf()`); wtedy `requestedMemberId` niesie ten słupek
   (deep-link z trasy linii → przełącznik go podświetla). `members` z `code`
   (`stop_code`), `street` (`street_name`), per-słupkowymi `lines`. Zawężenie tylko
-  jawnym `/api/gtfs/board?slupek=<id>` — nie auto-scope z `stopId`, inaczej „Cały
+  jawnym `/api/gtfs/board?member=<id>` — nie auto-scope z `stopId`, inaczej „Cały
   przystanek" nie działa na deep-linku. `GtfsDeparture.stopCode` / `LineRouteStop.code`
   (fallback na `platform_code`) — user widzi, z którego słupka jedzie („Centrum" =
   9 fizycznie odległych słupków). `cleanGroupName()` NO-OP na żywym feedzie, mock

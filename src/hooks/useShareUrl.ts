@@ -10,7 +10,7 @@ const CONFIRMATION_MS = 2500
  * jest (telefony), schowek wszędzie indziej.
  *
  * Adresy widoków tej aplikacji są kanoniczne i odtwarzalne (np.
- * `/polaczenie/{scheduleId}/{orderId}/{operatingDate}`), więc nie ma czego
+ * `/connection/{scheduleId}/{orderId}/{operatingDate}`), więc nie ma czego
  * budować — oddajemy dokładnie to, co jest w pasku adresu.
  *
  * Jedna implementacja dla obu miejsc wywołania (górny pasek i karta

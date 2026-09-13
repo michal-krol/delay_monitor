@@ -14,7 +14,7 @@ type HeaderVariant = {
 }
 
 /**
- * Strona-trasa (np. `/polaczenie/...`) nie zawsze zna adres strony-źródła
+ * Strona-trasa (np. `/connection/...`) nie zawsze zna adres strony-źródła
  * (mogła to być zakładka Odjazdy albo Przyjazdy pełnej tablicy) — stąd
  * `onBack` zamiast stałego `href`: cofa przez `router.back()`/`router.push('/')`
  * wybrane przez wywołującego, nie przez `TopBar`.

@@ -8,12 +8,12 @@ import { EmptyState } from '@/components/EmptyState'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { TopBar } from '@/components/TopBar'
 import { NetworkStatsCard } from '@/components/NetworkStatsCard'
-import { PageAside } from '@/components/aside'
+import { PageShell } from '@/components/aside'
 import { STATION_ID_PATTERN } from '@/lib/validation'
 
 // `/` nie ma dynamicznego segmentu, więc build próbuje ją prerenderować
 // statycznie -- useSearchParams() wymaga wtedy granicy <Suspense> (inaczej
-// błąd "missing-suspense-with-csr-bailout"), inaczej niż na /odjazdy/[stationId],
+// błąd "missing-suspense-with-csr-bailout"), inaczej niż na /station/[stationId],
 // gdzie sam dynamiczny segment już wyklucza prerender. Fallback `null` to
 // dokładnie to, co strona i tak pokazywała wcześniej przez `!loaded`.
 export default function Page() {
@@ -33,12 +33,12 @@ function PulpitPage() {
   const focusedStationId = rawFocus && STATION_ID_PATTERN.test(rawFocus) ? rawFocus : null
 
   function goToBoard(station: StationOption): void {
-    router.push(`/odjazdy/${station.id}?name=${encodeURIComponent(station.name)}`)
+    router.push(`/station/${station.id}?name=${encodeURIComponent(station.name)}`)
   }
 
   /**
    * `?focus=` to stary adres rozwiniętej stacji na pulpicie. Widok stacji jest
-   * teraz jeden — pełna strona `/odjazdy/{id}` z kafelkami KPI i prawą kolumną
+   * teraz jeden — pełna strona `/station/{id}` z kafelkami KPI i prawą kolumną
    * — więc stare linki przekierowujemy, zamiast utrzymywać drugi, uboższy
    * widok tej samej rzeczy (to właśnie ten rodzaj rozjazdu, o którym mówi
    * AGENTS.md #2).
@@ -52,7 +52,7 @@ function PulpitPage() {
       (favourite) => favourite.kind === 'pkp' && favourite.id === focusedStationId
     )?.name
     const query = name === undefined ? '' : `?name=${encodeURIComponent(name)}`
-    router.replace(`/odjazdy/${focusedStationId}${query}`)
+    router.replace(`/station/${focusedStationId}${query}`)
   }, [focusedStationId, loaded, favourites, router])
 
   if (!loaded) return null
@@ -61,22 +61,15 @@ function PulpitPage() {
   if (focusedStationId !== null) return null
 
   return (
-    <>
-      <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-5 sm:px-8 sm:py-7">
-        <TopBar title="Pulpit" subtitle="Twoje ulubione stacje i najbliższe odjazdy" />
-        <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />
+    <PageShell aside={<NetworkStatsCard />}>
+      <TopBar title="Pulpit" subtitle="Twoje ulubione stacje i najbliższe odjazdy" />
+      <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />
 
-        {favourites.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <Dashboard favourites={favourites} onExpand={goToBoard} onRemove={removeFavourite} />
-        )}
-      </main>
-      {/* Tylko Pulpit -- pozostałe strony (/odjazdy, /polaczenie) celowo bez
-          trzeciej kolumny, patrz plan (Faza 3). */}
-      <PageAside>
-        <NetworkStatsCard />
-      </PageAside>
-    </>
+      {favourites.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <Dashboard favourites={favourites} onExpand={goToBoard} onRemove={removeFavourite} />
+      )}
+    </PageShell>
   )
 }

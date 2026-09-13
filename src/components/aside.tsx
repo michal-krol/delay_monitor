@@ -5,7 +5,8 @@ import { pluralPl } from '@/lib/plural'
  * Prawa kolumna kontekstowa — pozycjonowanie wspólne dla czterech ekranów
  * (pulpit, miasto, linie, linia). Dzieci to karty. Schowana poniżej `xl`, żeby
  * nie ściskać treści głównej na węższych ekranach (#7). Zakłada, że rodzic jest
- * `flex`-rzędem — `(app)/layout.tsx` nim jest.
+ * `flex`-rzędem — `(app)/layout.tsx` nim jest. Zwykle przez `PageShell`
+ * niżej, nie bezpośrednio — patrz tam.
  */
 export function PageAside({ children }: { children: ReactNode }) {
   return (
@@ -20,6 +21,25 @@ export function PageAside({ children }: { children: ReactNode }) {
     >
       {children}
     </aside>
+  )
+}
+
+/**
+ * Rama treści wspólna dla wszystkich stron `(app)` (dawniej N kopii tego
+ * samego `<main className="…">` w każdej stronie, z rozjeżdżającymi się
+ * detalami — patrz docs/superpowers/specs/2026-09-13-nav-ux-recommendations.md
+ * §B1). `aside` pominięte = strona bez trzeciej kolumny — świadoma decyzja
+ * wywołującego, nie awaria: `FullBoard`/`ConnectionDetails`/`TransitStopDetail`
+ * mają WŁASNĄ, wewnętrzną siatkę main+aside (bo muszą działać też osadzone
+ * w liście, gdzie ta zewnętrzna kolumna jest już zajęta czymś innym), więc ich
+ * strony celowo nie dublują drugiej.
+ */
+export function PageShell({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
+  return (
+    <>
+      <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">{children}</main>
+      {aside !== undefined && <PageAside>{aside}</PageAside>}
+    </>
   )
 }
 

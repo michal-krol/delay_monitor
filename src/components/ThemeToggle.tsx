@@ -9,7 +9,7 @@ import { SunIcon, MoonIcon } from './icons'
  * części Sidebara (gdzie miał etykietę "Tryb ciemny" + osobny suwak) do
  * prawego górnego rogu, obok innych przycisków-ikon (np. `BellIcon` w
  * `TopBar`), na wyraźną prośbę użytkownika. Wydzielony z `Sidebar`, żeby ten
- * sam przycisk dało się osadzić też w `FullBoard` (strona `/odjazdy/[stationId]`
+ * sam przycisk dało się osadzić też w `FullBoard` (strona `/station/[stationId]`
  * nie renderuje `TopBar` i inaczej straciłaby możliwość przełączania motywu).
  */
 export function ThemeToggle() {

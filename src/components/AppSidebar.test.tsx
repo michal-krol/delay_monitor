@@ -24,17 +24,17 @@ describe('AppSidebar', () => {
   })
 
   it('marks nothing as current on a station or connection page', () => {
-    usePathname.mockReturnValue('/odjazdy/33605')
+    usePathname.mockReturnValue('/station/33605')
     render(<AppSidebar />)
     expect(screen.getByRole('link', { name: 'Pulpit' })).not.toHaveAttribute('aria-current')
   })
 
   it('marks "Odjazdy / Przyjazdy" on a city page, "Trasy" on a line page', () => {
-    usePathname.mockReturnValue('/miasto/warszawa')
+    usePathname.mockReturnValue('/city/warszawa')
     const { rerender } = render(<AppSidebar />)
     expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).toHaveAttribute('aria-current', 'page')
 
-    usePathname.mockReturnValue('/miasto/warszawa/linia/20')
+    usePathname.mockReturnValue('/city/warszawa/line/20')
     rerender(<AppSidebar />)
     expect(screen.getByRole('link', { name: 'Trasy' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).not.toHaveAttribute('aria-current')

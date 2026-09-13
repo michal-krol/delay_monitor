@@ -102,7 +102,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   // Odtworzenie zakładki z linku — raz, po zamontowaniu (patrz identyczny
   // wzorzec i uzasadnienie w page.tsx). Nieprawidłowy/uszkodzony parametr jest
   // po prostu ignorowany. Szczegóły połączenia mają teraz własną trasę
-  // (`/polaczenie/...`) z własnym adresem — nie ma już czego odtwarzać tutaj.
+  // (`/connection/...`) z własnym adresem — nie ma już czego odtwarzać tutaj.
   useEffect(() => {
     const tab = readUrlParam('tab')
     if (tab === 'departures' || tab === 'arrivals') {
@@ -114,7 +114,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
     // pasuje do niczego i tablica wychodzi pusta. Przycinamy jednak długość,
     // żeby spreparowany link nie wstrzyknął kilobajta tekstu do plakietki
     // filtra (AGENTS.md #4: wejście spoza aplikacji jest zawsze wrogie).
-    const destination = readUrlParam('kierunek')
+    const destination = readUrlParam('direction')
     if (destination !== null && destination !== '' && destination.length <= MAX_DESTINATION_FILTER_LENGTH) {
       setDestinationFilter(destination)
     }
@@ -131,7 +131,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   // komuś wysłać. Ten sam `replaceState` co `tab` -- filtrowanie listy nie ma
   // zaśmiecać historii cofania.
   useEffect(() => {
-    patchUrlParams({ kierunek: destinationFilter })
+    patchUrlParams({ direction: destinationFilter })
   }, [destinationFilter])
 
   // Zamknięcie całej tablicy (powrót do dashboardu) musi wyczyścić `tab` —
@@ -139,7 +139,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   // zamknięcia, przez wciąż obecny w URL-u wpis.
   useEffect(() => {
     return () => {
-      patchUrlParams({ tab: null, kierunek: null })
+      patchUrlParams({ tab: null, direction: null })
     }
   }, [])
 

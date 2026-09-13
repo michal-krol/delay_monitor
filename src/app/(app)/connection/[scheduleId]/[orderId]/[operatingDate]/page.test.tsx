@@ -26,7 +26,7 @@ vi.mock('next/navigation', () => ({
 
 global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch // never resolves — testujemy tylko walidację wejścia, nie stan po fetchu
 
-describe('Page (/polaczenie/...)', () => {
+describe('Page (/connection/...)', () => {
   beforeEach(() => {
     notFound.mockClear()
     searchParamsValue = new URLSearchParams()

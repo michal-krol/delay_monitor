@@ -99,7 +99,7 @@ describe('LineDetailPage', () => {
     // pełna trasa widoczna od razu (bez rozwijania), z linkiem do tablicy przystanku
     expect(screen.getByRole('link', { name: /pełna tablica słupka/ })).toHaveAttribute(
       'href',
-      '/miasto/warszawa/przystanek/100101?nazwa=Centrum'
+      '/city/warszawa/stop/100101?name=Centrum'
     )
     expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()
   })

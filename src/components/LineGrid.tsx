@@ -33,7 +33,7 @@ export function LineGrid({ linesByMode, city, filter }: Props) {
             {linesByMode[mode].map((entry) => (
               <li key={entry.routeId}>
                 <Link
-                  href={`/miasto/${city}/linia/${encodeURIComponent(entry.routeId)}`}
+                  href={`/city/${city}/line/${encodeURIComponent(entry.routeId)}`}
                   title={entry.longName}
                   aria-label={`Linia ${entry.line} — ${entry.longName}`}
                   className="inline-flex rounded-md outline-none ring-offset-2 transition focus-visible:ring-2 focus-visible:ring-indigo-500 hover:opacity-80"

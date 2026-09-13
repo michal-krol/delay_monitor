@@ -30,7 +30,7 @@ describe('CityPicker', () => {
   it('navigates and stores the context on change', async () => {
     render(<CityPicker cities={cities} current="warszawa" />)
     await userEvent.selectOptions(screen.getByRole('combobox'), 'krakow')
-    expect(push).toHaveBeenCalledWith('/miasto/krakow')
+    expect(push).toHaveBeenCalledWith('/city/krakow')
     expect(JSON.parse(window.localStorage.getItem('monitor.cityContext.v2') ?? 'null')).toBe('krakow')
   })
 

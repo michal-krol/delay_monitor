@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 // Mock ma prawdziwe ID: Warszawa Centralna 33605 (AGENTS.md #8).
 const STATION = { id: '33605', name: 'Warszawa Centralna' }
-const boardUrl = `/odjazdy/${STATION.id}?name=${encodeURIComponent(STATION.name)}`
+const boardUrl = `/station/${STATION.id}?name=${encodeURIComponent(STATION.name)}`
 
 test('pulpit: pusty stan z wyszukiwarką stacji', async ({ page }) => {
   await page.goto('/')
@@ -29,11 +29,11 @@ test('tablica → wiersze połączeń → szczegóły połączenia po kliknięci
   }).toPass({ timeout: 40_000 })
 
   await rowButton.click()
-  await expect(page).toHaveURL(/\/polaczenie\//)
+  await expect(page).toHaveURL(/\/connection\//)
 })
 
 test('linie GTFS: przeglądarka linii miasta pokazuje siatkę linii', async ({ page }) => {
-  await page.goto('/miasto/warszawa/linie')
+  await page.goto('/city/warszawa/lines')
 
   await expect(page.getByRole('heading', { name: 'Trasy — Warszawa' })).toBeVisible()
   await expect(page.getByLabel('Szukaj linii')).toBeVisible()

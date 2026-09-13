@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
+import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { TransitDepartureList } from './TransitDepartureList'
 
 type Props = {
@@ -47,7 +48,7 @@ export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
       )}
 
       <Link
-        href={`/miasto/${city}/przystanek/${encodeURIComponent(stopId)}`}
+        href={`/city/${city}/stop/${encodeStopIdForPathSegment(stopId)}`}
         aria-label={`Pokaż przystanek: ${name}`}
         className="absolute inset-0 rounded-2xl focus:outline-none"
       />

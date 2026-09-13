@@ -16,9 +16,20 @@ import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, ShareIcon, StarIcon } from './icons'
+import { AccessibleIcon, MapIcon, ShareIcon, StarIcon } from './icons'
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
+
+type StopTab = 'departures' | 'lines' | 'schedule' | 'alerts'
+const STOP_TABS: { key: StopTab; label: string }[] = [
+  { key: 'departures', label: 'Najbliższe odjazdy' },
+  { key: 'lines', label: 'Wszystkie linie' },
+  { key: 'schedule', label: 'Pełny rozkład' },
+  { key: 'alerts', label: 'Komunikaty' },
+]
+/** Odjazdy pobierane w jednej, wspólnej dla obu tabów odjazdowych liczbie — „Najbliższe" tnie do podglądu, „Pełny rozkład" pokazuje całość. */
+const SCHEDULE_FETCH_LIMIT = 60
+const NEAREST_PREVIEW_COUNT = 10
 
 /** `sec` może przekroczyć 86400 (kurs po północy) — zwijamy do zegara doby. */
 function clockOfSec(sec: number): string {
@@ -47,18 +58,27 @@ export function TransitStopDetail({
   stopId,
   embedded = false,
   initialName,
+  onNameResolved,
 }: {
   city: string
   stopId: string
   embedded?: boolean
-  /** Nazwa z linku (`?nazwa=`) — nagłówek do czasu wczytania rozkładu, potem tablica ją nadpisuje. */
+  /** Nazwa z linku (`?name=`) — nagłówek do czasu wczytania rozkładu, potem tablica ją nadpisuje. */
   initialName?: string
+  /**
+   * Wywoływane z ostateczną nazwą przystanku, gdy tablica ją zna — dla
+   * rodzica, który renderuje własny breadcrumb NAD tym komponentem i inaczej
+   * pokazywałby surowe `stopId` nawet po wczytaniu (dwa źródła nazwy w jednym
+   * widoku, tego dotyczy AGENTS.md #2 duplikacji logiki).
+   */
+  onNameResolved?: (name: string) => void
 }) {
   // `undefined` = jeszcze nie wybrano (idź za słupkiem z deep-linku),
   // `null` = user jawnie wybrał cały zespół, `string` = wybrany słupek.
   const [slupekChoice, setSlupekChoice] = useState<string | null | undefined>(undefined)
   const [lineFilter, setLineFilter] = useState<string | null>(null)
   const [requestedMember, setRequestedMember] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<StopTab>('departures')
   // Reset przy zmianie przystanku — ten sam idiom co useTransitBoard.ts.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -67,7 +87,9 @@ export function TransitStopDetail({
   }, [stopId])
   // Efektywny słupek: jawny wybór usera, inaczej słupek z deep-linku (echo serwera).
   const effSlupek = slupekChoice === undefined ? requestedMember : slupekChoice
-  const { data, error } = useTransitBoard(city, [stopId], 20, effSlupek)
+  // Jedno zapytanie na obie zakładki odjazdowe — „Pełny rozkład" pokazuje całą
+  // listę do `SCHEDULE_FETCH_LIMIT`, „Najbliższe" tnie ją do podglądu niżej.
+  const { data, error } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effSlupek)
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
   const { share, status: shareStatus } = useShareUrl()
   const now = useSnapshotNow(data)
@@ -78,6 +100,10 @@ export function TransitStopDetail({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (board?.requestedMember != null) setRequestedMember(board.requestedMember)
   }, [board?.requestedMember])
+  useEffect(() => {
+    if (board?.name != null) onNameResolved?.(board.name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `onNameResolved` to callback rodzica, nie stan śledzony tu
+  }, [board?.name])
   // Pomijamy „słupki" bez linii (stacje-rodzice metra, np. 7014M) — nie da się
   // z nich odjechać, tylko zaśmiecają przełącznik.
   const members = (board?.members ?? []).filter((m) => m.lines.length > 0)
@@ -173,8 +199,6 @@ export function TransitStopDetail({
           </div>
         </section>
 
-        {board !== null && board.alerts.length > 0 && <AlertBanner alerts={board.alerts} />}
-
         {members.length > 1 && (
           <section className="glass rounded-2xl p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -184,11 +208,12 @@ export function TransitStopDetail({
               To zespół osobnych słupków — każdy z własnymi liniami i kierunkiem.
               Wybierz słupek, z którego wsiadasz lub wysiadasz.
             </p>
-            <div className="mt-2.5 flex flex-col gap-1.5">
+            <div role="tablist" aria-label="Słupek przystanku" className="mt-2.5 flex flex-col gap-1.5">
               <button
                 type="button"
+                role="tab"
                 onClick={() => setSlupekChoice(null)}
-                aria-pressed={effSlupek === null}
+                aria-selected={effSlupek === null}
                 className="rounded-xl border px-3 py-2 text-left text-xs transition"
                 style={
                   effSlupek === null
@@ -204,8 +229,9 @@ export function TransitStopDetail({
                   <button
                     key={member.id}
                     type="button"
+                    role="tab"
                     onClick={() => setSlupekChoice(member.id)}
-                    aria-pressed={on}
+                    aria-selected={on}
                     className="flex items-baseline gap-2 rounded-xl border px-3 py-2 text-left transition"
                     style={
                       on
@@ -243,46 +269,126 @@ export function TransitStopDetail({
         </div>
 
         <section className="glass rounded-2xl p-5">
-          {board !== null && board.lines.length > 1 && (
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          <div role="tablist" aria-label="Widok przystanku" className="mb-3 flex flex-wrap items-center gap-1.5">
+            {STOP_TABS.map((tab) => (
               <button
+                key={tab.key}
                 type="button"
-                onClick={() => setLineFilter(null)}
-                aria-pressed={lineFilter === null}
-                className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                  lineFilter === null ? 'text-white' : 'text-text-secondary'
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  activeTab === tab.key ? 'text-white' : 'text-text-secondary'
                 }`}
-                style={lineFilter === null ? { background: 'var(--accent-gradient)', borderColor: 'transparent' } : { borderColor: 'var(--surface-border)' }}
+                style={
+                  activeTab === tab.key
+                    ? { background: 'var(--accent-gradient)', borderColor: 'transparent' }
+                    : { borderColor: 'var(--surface-border)' }
+                }
               >
-                Wszystkie linie
+                {tab.label}
+                {tab.key === 'alerts' && board !== null && board.alerts.length > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: activeTab === tab.key ? '#fff' : 'var(--status-delayed-bg)' }}
+                  />
+                )}
               </button>
-              {board.lines.map((line) => (
-                <button
-                  key={line.routeId}
-                  type="button"
-                  onClick={() => setLineFilter(lineFilter === line.routeId ? null : line.routeId)}
-                  aria-pressed={lineFilter === line.routeId}
-                  className="rounded-full"
-                >
-                  <span style={{ opacity: lineFilter !== null && lineFilter !== line.routeId ? 0.4 : 1 }}>
-                    <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
-                  </span>
-                </button>
-              ))}
-            </div>
+            ))}
+          </div>
+
+          {(activeTab === 'departures' || activeTab === 'schedule') && (
+            <>
+              {board !== null && board.lines.length > 1 && (
+                <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setLineFilter(null)}
+                    aria-pressed={lineFilter === null}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                      lineFilter === null ? 'text-white' : 'text-text-secondary'
+                    }`}
+                    style={lineFilter === null ? { background: 'var(--accent-gradient)', borderColor: 'transparent' } : { borderColor: 'var(--surface-border)' }}
+                  >
+                    Wszystkie
+                  </button>
+                  {board.lines.map((line) => (
+                    <button
+                      key={line.routeId}
+                      type="button"
+                      onClick={() => setLineFilter(lineFilter === line.routeId ? null : line.routeId)}
+                      aria-pressed={lineFilter === line.routeId}
+                      className="rounded-full"
+                    >
+                      <span style={{ opacity: lineFilter !== null && lineFilter !== line.routeId ? 0.4 : 1 }}>
+                        <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <TransitDepartureList
+                departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
+                loading={loading}
+                city={city}
+                showSlupek={activeMember === null && members.length > 1}
+              />
+            </>
           )}
 
-          <TransitDepartureList
-            departures={departures}
-            loading={loading}
-            city={city}
-            showSlupek={activeMember === null && members.length > 1}
-          />
+          {activeTab === 'lines' &&
+            (linesByMode.length === 0 ? (
+              <p className="text-sm text-text-muted">—</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {linesByMode.map(([mode, lines]) => (
+                  <div key={mode}>
+                    <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">
+                      {MODE_LABEL[mode]}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {lines.map((line) => (
+                        <span key={line.routeId} className="inline-flex items-center gap-1.5">
+                          <LineBadge
+                            line={line.line}
+                            color={line.color}
+                            mode={line.mode}
+                            href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
+                          />
+                          {LINE_KIND_LABEL[line.kind] !== '' && (
+                            <span className="text-xs text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+
+          {activeTab === 'alerts' &&
+            (board === null || board.alerts.length === 0 ? (
+              <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla tego przystanku.</p>
+            ) : (
+              <AlertBanner alerts={board.alerts} />
+            ))}
         </section>
       </div>
 
       <aside className="flex flex-col gap-4 lg:sticky lg:top-6">
         <CityWeatherCard city={city} />
+
+        {/* ponytail: placeholder, brak biblioteki mapowej w projekcie —
+            konkretna mini-mapa to osobne zadanie (nowa zależność + koszt
+            hostingu kafelków, do policzenia osobno, patrz AGENTS.md #6). */}
+        <AsideCard title="Mapa">
+          <div className="flex flex-col items-center gap-2 py-4 text-center">
+            <MapIcon size={22} className="text-text-muted" />
+            <p className="text-xs text-text-muted">Mapa przystanku pojawi się tutaj wkrótce.</p>
+          </div>
+        </AsideCard>
 
         <AsideCard title="Natężenie ruchu dziś">
           <HourlyTraffic
@@ -309,7 +415,7 @@ export function TransitStopDetail({
                           color={line.color}
                           mode={line.mode}
                           size="sm"
-                          href={`/miasto/${city}/linia/${encodeURIComponent(line.routeId)}`}
+                          href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
                         />
                         {LINE_KIND_LABEL[line.kind] !== '' && (
                           <span className="text-[10px] text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>

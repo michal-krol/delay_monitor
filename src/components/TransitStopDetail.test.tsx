@@ -19,7 +19,7 @@ const board = {
   ],
   wheelchairNote: null,
   members: [],
-  activeSlupek: null,
+  activeMember: null,
   summary: { lineCount: 2, departuresToday: 44, firstDepartureSec: 18000, lastDepartureSec: 90600, hourly: new Array(24).fill(2) },
   alerts: [],
   departures: [
@@ -65,6 +65,17 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()
   })
 
+  it('reports the resolved stop name once the board loads, for a parent breadcrumb', () => {
+    const onNameResolved = vi.fn()
+    render(<TransitStopDetail city="warszawa" stopId="7014M" onNameResolved={onNameResolved} />)
+    expect(onNameResolved).toHaveBeenCalledWith('Świętokrzyska')
+  })
+
+  it('shows a map placeholder in the aside — no map library wired up yet', () => {
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getByText('Mapa przystanku pojawi się tutaj wkrótce.')).toBeInTheDocument()
+  })
+
   it('filters the board by line when a line chip is clicked', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.getByText('Kabaty')).toBeInTheDocument()
@@ -78,7 +89,7 @@ describe('TransitStopDetail', () => {
   it('links a departure-row line badge to the line details', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     const link = screen.getAllByRole('link', { name: 'Linia M1' })[0]
-    expect(link).toHaveAttribute('href', '/miasto/warszawa/linia/M1')
+    expect(link).toHaveAttribute('href', '/city/warszawa/line/M1')
   })
 
   it('hides the internal share button when embedded', () => {
@@ -97,33 +108,33 @@ describe('TransitStopDetail', () => {
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     expect(screen.getByText('Słupki tego przystanku · 2')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Centrum 01/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Centrum 02/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^Centrum 01/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^Centrum 02/ })).toBeInTheDocument()
   })
 
-  it('clicking a słupek scopes the header subtitle and presses that button only', async () => {
+  it('clicking a słupek scopes the header subtitle and selects that tab only', async () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
 
-    const wholeGroup = screen.getByRole('button', { name: /Cały przystanek/ })
-    const slupek02 = screen.getByRole('button', { name: /^Centrum 02/ })
-    expect(wholeGroup).toHaveAttribute('aria-pressed', 'true')
+    const wholeGroup = screen.getByRole('tab', { name: /Cały przystanek/ })
+    const slupek02 = screen.getByRole('tab', { name: /^Centrum 02/ })
+    expect(wholeGroup).toHaveAttribute('aria-selected', 'true')
 
     await userEvent.click(slupek02)
-    expect(slupek02).toHaveAttribute('aria-pressed', 'true')
-    expect(wholeGroup).toHaveAttribute('aria-pressed', 'false')
+    expect(slupek02).toHaveAttribute('aria-selected', 'true')
+    expect(wholeGroup).toHaveAttribute('aria-selected', 'false')
     // podtytuł nagłówka + przycisk przełącznika oba noszą „Centrum 02"
     expect(screen.getAllByText(/^Centrum 02/)).toHaveLength(2)
 
     await userEvent.click(wholeGroup)
-    expect(wholeGroup).toHaveAttribute('aria-pressed', 'true')
-    expect(slupek02).toHaveAttribute('aria-pressed', 'false')
+    expect(wholeGroup).toHaveAttribute('aria-selected', 'true')
+    expect(slupek02).toHaveAttribute('aria-selected', 'false')
   })
 
-  it('shows an alert banner when the stop board carries an active alert', () => {
+  it('flags the Komunikaty tab and shows the alert once opened, when the board carries an active alert', async () => {
     useTransitBoard.mockReturnValue({
       data: {
         city: 'warszawa',
@@ -134,8 +145,35 @@ describe('TransitStopDetail', () => {
       error: null,
     })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    const alertsTab = screen.getByRole('tab', { name: /Komunikaty/ })
+    expect(screen.queryByText('Utrudnienia na linii M1')).not.toBeInTheDocument()
+
+    await userEvent.click(alertsTab)
     expect(screen.getByText('Utrudnienia na linii M1')).toBeInTheDocument()
     expect(screen.getByText('Treść.')).toBeInTheDocument()
+  })
+
+  it('shows a neutral message on the Komunikaty tab when there are no alerts', async () => {
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
+    expect(screen.getByText('Aktualnie brak komunikatów dla tego przystanku.')).toBeInTheDocument()
+  })
+
+  it('shows all lines grouped by mode on the Wszystkie linie tab', async () => {
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    await userEvent.click(screen.getByRole('tab', { name: 'Wszystkie linie' }))
+    // "metro"/"tramwaj" jako etykieta trybu renderują się też w nagłówku i w
+    // karcie aside — liczymy wystąpienia zamiast zakładać jedno.
+    expect(screen.getAllByText('metro').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('tramwaj').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: 'Linia M1' }).length).toBeGreaterThan(0)
+  })
+
+  it('shows the full fetched departure list on Pełny rozkład, not just the nearest preview', async () => {
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    await userEvent.click(screen.getByRole('tab', { name: 'Pełny rozkład' }))
+    expect(screen.getByText('Kabaty')).toBeInTheDocument()
+    expect(screen.getByText('Piaski')).toBeInTheDocument()
   })
 
   it('pins as a gtfs favourite carrying the city', async () => {
