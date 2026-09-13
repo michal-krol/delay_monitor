@@ -14,6 +14,7 @@ import { CloseIcon, ShareIcon, StarIcon } from './icons'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { formatClockTime } from '@/lib/format'
 
 type Props = {
   stationId: string
@@ -97,6 +98,19 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   const rows = useMemo(
     () => (destinationFilter === null ? allRows : allRows.filter((row) => row.headsign === destinationFilter)),
     [allRows, destinationFilter]
+  )
+
+  // Popup powiększonej mapy (`MapView.tsx`) — zawsze ODJAZDY, niezależnie od
+  // aktywnej zakładki Odjazdy/Przyjazdy (podgląd na mapie to zawsze „skąd
+  // wyjadę"). Dane już mamy w snapshocie, zero nowego zapytania.
+  const mapPreview = useMemo(
+    () =>
+      (snapshot?.departures ?? [])
+        .slice()
+        .sort((a, b) => new Date(a.plannedAt).getTime() - new Date(b.plannedAt).getTime())
+        .slice(0, 2)
+        .map((row) => `${formatClockTime(row.plannedAt)} → ${row.headsign ?? row.trainLabel}`),
+    [snapshot]
   )
 
   // Odtworzenie zakładki z linku — raz, po zamontowaniu (patrz identyczny
@@ -257,6 +271,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             weather={weather}
             stationName={stationName}
             stationId={stationId}
+            mapPreview={mapPreview}
           />
         </aside>
       )}

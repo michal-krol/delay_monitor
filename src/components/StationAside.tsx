@@ -234,6 +234,8 @@ type Props = {
   stationName: string
   /** Do pinu na mapie -- lat/lon idzie z `weather.location` (ten sam fetch, zero nowego zapytania). */
   stationId: string
+  /** 2 najbliższe odjazdy, gotowe linijki („18:12 → Kutno") — do popupu powiększonej mapy (`MapView.tsx`). Puste = brak podglądu, nie błąd. */
+  mapPreview: string[]
 }
 
 export function StationAside({
@@ -246,10 +248,14 @@ export function StationAside({
   weather,
   stationName,
   stationId,
+  mapPreview,
 }: Props) {
   const mapPins = useMemo(
-    () => (weather.status === 'ready' ? [{ id: stationId, lat: weather.location.lat, lon: weather.location.lon, label: stationName }] : []),
-    [weather, stationId, stationName]
+    () =>
+      weather.status === 'ready'
+        ? [{ id: stationId, lat: weather.location.lat, lon: weather.location.lon, label: stationName, mode: 'rail' as const, preview: mapPreview }]
+        : [],
+    [weather, stationId, stationName, mapPreview]
   )
 
   return (

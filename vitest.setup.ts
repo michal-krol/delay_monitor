@@ -24,13 +24,10 @@ vi.mock('maplibre-gl', () => ({
     addTo() {
       return this
     }
-    getElement() {
-      return document.createElement('div')
-    }
     remove() {}
   },
   Popup: class {
-    setText() {
+    setDOMContent() {
       return this
     }
   },
