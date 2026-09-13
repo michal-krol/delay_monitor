@@ -4,6 +4,15 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
 
+let search = ''
+const push = vi.fn()
+const replace = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push, replace }),
+  useSearchParams: () => new URLSearchParams(search),
+  usePathname: () => '/city/warszawa/stop/1001',
+}))
+
 const useTransitBoard = vi.fn()
 vi.mock('@/hooks/useTransitBoard', () => ({ useTransitBoard: () => useTransitBoard() }))
 
@@ -42,6 +51,9 @@ const groupBoard = {
 
 beforeEach(() => {
   window.localStorage.clear()
+  search = ''
+  push.mockClear()
+  replace.mockClear()
   useTransitBoard.mockReturnValue({
     data: {
       city: 'warszawa',
@@ -174,6 +186,55 @@ describe('TransitStopDetail', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Pełny rozkład' }))
     expect(screen.getByText('Kabaty')).toBeInTheDocument()
     expect(screen.getByText('Piaski')).toBeInTheDocument()
+  })
+
+  it('preselects the słupek named in `?slupek=` when nothing has been clicked yet', () => {
+    useTransitBoard.mockReturnValue({
+      data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
+      error: null,
+    })
+    search = 'slupek=100102'
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    expect(screen.getByRole('tab', { name: /^Centrum 02/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('ignores a malformed `?slupek=` and falls back to the whole group', () => {
+    useTransitBoard.mockReturnValue({
+      data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
+      error: null,
+    })
+    search = 'slupek=..%2F..'
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    expect(screen.getByRole('tab', { name: /Cały przystanek/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('writes the clicked słupek to the URL via router.replace, keeping other params', async () => {
+    useTransitBoard.mockReturnValue({
+      data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
+      error: null,
+    })
+    search = 'name=Centrum'
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    await userEvent.click(screen.getByRole('tab', { name: /^Centrum 02/ }))
+    expect(replace).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum&slupek=100102', { scroll: false })
+  })
+
+  it('highlights the nearest upcoming departure on the Najbliższe odjazdy tab, not on Pełny rozkład', async () => {
+    const soon = new Date(Date.now() + 5 * 60_000).toISOString()
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ ...board, departures: [{ ...board.departures[0], plannedAt: soon }, board.departures[1]] }],
+        attribution: [],
+      },
+      error: null,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getByText('Najbliższy odjazd')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Pełny rozkład' }))
+    expect(screen.queryByText('Najbliższy odjazd')).not.toBeInTheDocument()
   })
 
   it('pins as a gtfs favourite carrying the city', async () => {

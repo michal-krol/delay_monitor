@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
+import { GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 import { AlertBanner } from './AlertBanner'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
@@ -16,7 +18,7 @@ import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, MapIcon, ShareIcon, StarIcon } from './icons'
+import { AccessibleIcon, CheckIcon, MapIcon, ShareIcon, StarIcon } from './icons'
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
@@ -38,9 +40,9 @@ function clockOfSec(sec: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-function SummaryCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function SummaryCard({ label, value, hint, className = '' }: { label: string; value: string; hint?: string; className?: string }) {
   return (
-    <div className="glass rounded-2xl p-4">
+    <div className={`glass rounded-2xl p-4 ${className}`.trim()}>
       <div className="text-xs font-medium uppercase tracking-wide text-text-muted">{label}</div>
       <div className="mt-1 font-heading text-2xl font-extrabold tracking-tight text-foreground">{value}</div>
       {hint !== undefined && <div className="text-xs text-text-secondary">{hint}</div>}
@@ -73,20 +75,36 @@ export function TransitStopDetail({
    */
   onNameResolved?: (name: string) => void
 }) {
-  // `undefined` = jeszcze nie wybrano (idź za słupkiem z deep-linku),
-  // `null` = user jawnie wybrał cały zespół, `string` = wybrany słupek.
+  // `undefined` = jeszcze nie wybrano w tej sesji (idź za `?slupek=` albo
+  // deep-linkiem), `null` = user jawnie wybrał cały zespół, `string` = wybrany słupek.
   const [slupekChoice, setSlupekChoice] = useState<string | null | undefined>(undefined)
   const [lineFilter, setLineFilter] = useState<string | null>(null)
   const [requestedMember, setRequestedMember] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<StopTab>('departures')
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   // Reset przy zmianie przystanku — ten sam idiom co useTransitBoard.ts.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSlupekChoice(undefined)
     setRequestedMember(null)
   }, [stopId])
-  // Efektywny słupek: jawny wybór usera, inaczej słupek z deep-linku (echo serwera).
-  const effSlupek = slupekChoice === undefined ? requestedMember : slupekChoice
+  const rawUrlSlupek = searchParams.get('slupek')
+  const urlSlupek = rawUrlSlupek !== null && GTFS_STOP_ID_PATTERN.test(rawUrlSlupek) ? rawUrlSlupek : null
+  // Priorytet: jawny klik w tej sesji > `?slupek=` z URL > deep-link po segmencie
+  // ścieżki (echo serwera) > cały zespół. Nieznany/zły `?slupek=` cicho ignorowany
+  // (AGENTS.md #4) — serwer i tak odrzuci nieznany słupek i wróci do całego zespołu.
+  const effSlupek = slupekChoice !== undefined ? slupekChoice : (urlSlupek ?? requestedMember)
+
+  function selectSlupek(memberId: string | null): void {
+    setSlupekChoice(memberId)
+    const next = new URLSearchParams(searchParams.toString())
+    if (memberId === null) next.delete('slupek')
+    else next.set('slupek', memberId)
+    const qs = next.toString()
+    router.replace(qs.length > 0 ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
   // Jedno zapytanie na obie zakładki odjazdowe — „Pełny rozkład" pokazuje całą
   // listę do `SCHEDULE_FETCH_LIMIT`, „Najbliższe" tnie ją do podglądu niżej.
   const { data, error } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effSlupek)
@@ -134,7 +152,7 @@ export function TransitStopDetail({
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
       <div className="flex min-w-0 flex-col gap-5">
-        <section className="glass rounded-2xl p-5">
+        <section className="glass-strong glow-ring rounded-2xl p-5" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -152,6 +170,9 @@ export function TransitStopDetail({
                   </span>
                 )}
               </div>
+              {members.length > 1 && (
+                <p className="mt-0.5 text-sm text-text-secondary">Zespół przystanków komunikacyjnych · {members.length} słupków</p>
+              )}
               {activeMember !== null && (
                 <p className="mt-0.5 text-sm font-medium text-indigo-600 dark:text-indigo-400">
                   {stopDisplayName(stopName, activeMember.code ?? activeMember.platformCode)}
@@ -159,6 +180,8 @@ export function TransitStopDetail({
                 </p>
               )}
               {board !== null && board.modes.length > 0 && (
+                // Jeden `<p>` z jednym tekstowym węzłem — świadomie, nie chipy per tryb:
+                // `page.test.tsx` odpytuje `/metro · tramwaj/` jako ciągły tekst.
                 <p className="mt-1 text-sm text-text-secondary">
                   {board.modes.map((mode) => MODE_LABEL[mode]).join(' · ')}
                 </p>
@@ -179,7 +202,7 @@ export function TransitStopDetail({
                 <button
                   type="button"
                   onClick={() => void share()}
-                  className="inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                  className="card-hover inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
                   style={{ borderColor: 'var(--surface-border)' }}
                 >
                   <ShareIcon size={15} />
@@ -190,7 +213,7 @@ export function TransitStopDetail({
                 type="button"
                 onClick={() => (pinned ? removeFavourite(key) : addFavourite(favourite))}
                 aria-label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                className="card-hover grid h-9 w-9 shrink-0 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
                 style={{ borderColor: 'var(--surface-border)' }}
               >
                 <StarIcon size={15} className={pinned ? 'fill-current text-amber-400' : ''} />
@@ -208,45 +231,67 @@ export function TransitStopDetail({
               To zespół osobnych słupków — każdy z własnymi liniami i kierunkiem.
               Wybierz słupek, z którego wsiadasz lub wysiadasz.
             </p>
-            <div role="tablist" aria-label="Słupek przystanku" className="mt-2.5 flex flex-col gap-1.5">
+            <div
+              role="tablist"
+              aria-label="Słupek przystanku"
+              className="mt-2.5 grid grid-flow-col auto-cols-[minmax(11rem,1fr)] gap-2 overflow-x-auto pb-1 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3"
+            >
               <button
                 type="button"
                 role="tab"
-                onClick={() => setSlupekChoice(null)}
+                onClick={() => selectSlupek(null)}
                 aria-selected={effSlupek === null}
-                className="rounded-xl border px-3 py-2 text-left text-xs transition"
+                className={`card-hover relative rounded-xl border px-3 py-2.5 text-left text-xs transition ${effSlupek === null ? 'ring-2 ring-indigo-500 glow-ring' : ''}`}
                 style={
                   effSlupek === null
-                    ? { background: 'var(--accent-gradient)', borderColor: 'transparent', color: '#fff' }
+                    ? ({ borderColor: 'transparent', '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties)
                     : { borderColor: 'var(--surface-border)' }
                 }
               >
-                Cały przystanek — wszystkie słupki razem
+                {effSlupek === null && (
+                  <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
+                    <CheckIcon size={10} />
+                  </span>
+                )}
+                <span className="font-semibold">Cały przystanek</span>
+                <span className="mt-0.5 block text-text-secondary">wszystkie słupki razem</span>
               </button>
               {members.map((member) => {
                 const on = effSlupek === member.id
+                const visibleLines = member.lines.slice(0, 5)
+                const overflow = member.lines.length - visibleLines.length
                 return (
                   <button
                     key={member.id}
                     type="button"
                     role="tab"
-                    onClick={() => setSlupekChoice(member.id)}
+                    onClick={() => selectSlupek(member.id)}
                     aria-selected={on}
-                    className="flex items-baseline gap-2 rounded-xl border px-3 py-2 text-left transition"
+                    className={`card-hover relative flex flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left transition ${on ? 'ring-2 ring-indigo-500 glow-ring' : ''}`}
                     style={
                       on
-                        ? { background: 'var(--accent-gradient)', borderColor: 'transparent', color: '#fff' }
+                        ? ({ borderColor: 'transparent', '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties)
                         : { borderColor: 'var(--surface-border)' }
                     }
                   >
-                    <span className="shrink-0 text-sm font-bold tabular-nums">
+                    {on && (
+                      <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
+                        <CheckIcon size={10} />
+                      </span>
+                    )}
+                    {/* Jeden węzeł tekstowy jak dawniej — nazwa dostępna przycisku musi
+                        zaczynać się dokładnie od "Centrum 02" (testy jednostkowe/e2e
+                        odpytują ten prefiks przez `getByText`/`getByRole(...,{name})`,
+                        które nie łączą tekstu rozbitego na sąsiednie elementy). */}
+                    <span className="pr-5 font-heading text-base font-extrabold tabular-nums text-foreground">
                       {stopDisplayName(stopName, member.code ?? member.platformCode)}
                     </span>
-                    {member.street !== null && (
-                      <span className={on ? 'text-white/80 text-xs' : 'text-text-muted text-xs'}>{member.street}</span>
-                    )}
-                    <span className={`ml-auto shrink-0 text-[11px] ${on ? 'text-white/90' : 'text-text-secondary'}`}>
-                      {member.lines.map((l) => l.line).join(' · ')}
+                    {member.street !== null && <span className="text-xs text-text-muted">{member.street}</span>}
+                    <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                      {visibleLines.map((line) => (
+                        <LineBadge key={line.routeId} line={line.line} color={line.color} mode={line.mode} size="sm" />
+                      ))}
+                      {overflow > 0 && <span className="text-[11px] text-text-muted">+{overflow}</span>}
                     </span>
                   </button>
                 )
@@ -256,8 +301,8 @@ export function TransitStopDetail({
         )}
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} />
-          <SummaryCard label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" />
+          <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />
+          <SummaryCard label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" className="card-hover" />
           <SummaryCard
             label="Pierwszy / ostatni"
             value={
@@ -265,6 +310,7 @@ export function TransitStopDetail({
                 ? `${clockOfSec(summary.firstDepartureSec)}–${clockOfSec(summary.lastDepartureSec)}`
                 : '—'
             }
+            className="card-hover"
           />
         </div>
 
@@ -334,6 +380,8 @@ export function TransitStopDetail({
                 loading={loading}
                 city={city}
                 showSlupek={activeMember === null && members.length > 1}
+                now={now}
+                highlightFirst={activeTab === 'departures'}
               />
             </>
           )}
@@ -383,14 +431,16 @@ export function TransitStopDetail({
         {/* ponytail: placeholder, brak biblioteki mapowej w projekcie —
             konkretna mini-mapa to osobne zadanie (nowa zależność + koszt
             hostingu kafelków, do policzenia osobno, patrz AGENTS.md #6). */}
-        <AsideCard title="Mapa">
-          <div className="flex flex-col items-center gap-2 py-4 text-center">
-            <MapIcon size={22} className="text-text-muted" />
+        <AsideCard title="Mapa" className="card-hover">
+          <div className="flex flex-col items-center gap-2 py-5 text-center">
+            <span className="glow-ring breathe grid h-11 w-11 place-items-center rounded-full" style={{ '--glow-color': 'rgba(99, 102, 241, 0.3)' } as CSSProperties}>
+              <MapIcon size={22} className="text-text-muted" />
+            </span>
             <p className="text-xs text-text-muted">Mapa przystanku pojawi się tutaj wkrótce.</p>
           </div>
         </AsideCard>
 
-        <AsideCard title="Natężenie ruchu dziś">
+        <AsideCard title="Natężenie ruchu dziś" className="card-hover">
           <HourlyTraffic
             hourly={summary?.hourly ?? null}
             loading={loading}
@@ -399,7 +449,7 @@ export function TransitStopDetail({
           />
         </AsideCard>
 
-        <AsideCard title="Linie na tym przystanku">
+        <AsideCard title="Linie na tym przystanku" className="card-hover">
           {linesByMode.length === 0 ? (
             <p className="text-xs text-text-muted">—</p>
           ) : (

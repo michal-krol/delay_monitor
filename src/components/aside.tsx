@@ -44,9 +44,9 @@ export function PageShell({ children, aside }: { children: ReactNode; aside?: Re
 }
 
 /** Karta prawej kolumny kontekstowej — wspólna dla widoku stacji i przystanku. */
-export function AsideCard({ title, children }: { title: string; children: ReactNode }) {
+export function AsideCard({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <section className="glass rounded-2xl p-4">
+    <section className={`glass rounded-2xl p-4 ${className}`.trim()}>
       <h3 className="font-heading text-sm font-bold tracking-tight text-foreground">{title}</h3>
       <div className="mt-3">{children}</div>
     </section>

@@ -14,8 +14,9 @@ let cityParam = 'warszawa'
 let search = ''
 vi.mock('next/navigation', () => ({
   useParams: () => ({ city: cityParam }),
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(search),
+  usePathname: () => `/city/${cityParam}`,
   notFound: () => notFound(),
 }))
 // Stabilna referencja — świeży obiekt co render zapętliłby useSnapshotNow.
