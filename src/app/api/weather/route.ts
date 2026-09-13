@@ -14,7 +14,7 @@ const CACHE_TTL_MS = 25 * 60_000
 const CACHE_MAX_ENTRIES = 300
 
 export type WeatherApiResponse =
-  | { available: true; weather: OpenMeteoSnapshot & { fetchedAt: string } }
+  | { available: true; weather: OpenMeteoSnapshot & { fetchedAt: string }; location: { lat: number; lon: number } }
   | { available: false; reason: 'no-location' }
 
 const cache = createTtlCache<WeatherApiResponse>({ ttlMs: CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
@@ -32,7 +32,7 @@ async function loadWeather(stationId: string): Promise<WeatherApiResponse> {
   if (coordinates === null) return { available: false, reason: 'no-location' }
 
   const snapshot = await fetchOpenMeteoWeather(coordinates.lat, coordinates.lon)
-  return { available: true, weather: { ...snapshot, fetchedAt: new Date().toISOString() } }
+  return { available: true, weather: { ...snapshot, fetchedAt: new Date().toISOString() }, location: coordinates }
 }
 
 export async function GET(request: Request) {

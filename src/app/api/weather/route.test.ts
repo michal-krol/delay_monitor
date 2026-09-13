@@ -73,6 +73,7 @@ describe('GET /api/weather', () => {
     expect(body.available).toBe(true)
     expect(body.weather).toMatchObject(SNAPSHOT)
     expect(typeof body.weather.fetchedAt).toBe('string')
+    expect(body.location).toEqual({ lat: 52.2288207, lon: 21.00316 })
   })
 
   it('maps a 5xx WeatherApiError to 502', async () => {

@@ -14,11 +14,12 @@ import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
 import { CityWeatherCard } from './CityWeatherCard'
 import { LineBadge } from './LineBadge'
+import { MapView } from './MapView'
 import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, CheckIcon, MapIcon, ShareIcon, StarIcon } from './icons'
+import { AccessibleIcon, CheckIcon, ShareIcon, StarIcon } from './icons'
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
@@ -124,7 +125,7 @@ export function TransitStopDetail({
   }, [board?.name])
   // Pomijamy „słupki" bez linii (stacje-rodzice metra, np. 7014M) — nie da się
   // z nich odjechać, tylko zaśmiecają przełącznik.
-  const members = (board?.members ?? []).filter((m) => m.lines.length > 0)
+  const members = useMemo(() => (board?.members ?? []).filter((m) => m.lines.length > 0), [board])
   const activeMember = effSlupek !== null ? members.find((m) => m.id === effSlupek) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
   const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }
@@ -148,6 +149,11 @@ export function TransitStopDetail({
   }, [board])
 
   const summary = board?.summary
+
+  const mapPins = useMemo(
+    () => members.map((m) => ({ id: m.id, lat: m.lat, lon: m.lon, label: stopDisplayName(stopName, m.code ?? m.platformCode) })),
+    [members, stopName]
+  )
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
@@ -428,17 +434,11 @@ export function TransitStopDetail({
       <aside className="flex flex-col gap-4 lg:sticky lg:top-6">
         <CityWeatherCard city={city} />
 
-        {/* ponytail: placeholder, brak biblioteki mapowej w projekcie —
-            konkretna mini-mapa to osobne zadanie (nowa zależność + koszt
-            hostingu kafelków, do policzenia osobno, patrz AGENTS.md #6). */}
-        <AsideCard title="Mapa" className="card-hover">
-          <div className="flex flex-col items-center gap-2 py-5 text-center">
-            <span className="glow-ring breathe grid h-11 w-11 place-items-center rounded-full" style={{ '--glow-color': 'rgba(99, 102, 241, 0.3)' } as CSSProperties}>
-              <MapIcon size={22} className="text-text-muted" />
-            </span>
-            <p className="text-xs text-text-muted">Mapa przystanku pojawi się tutaj wkrótce.</p>
-          </div>
-        </AsideCard>
+        {mapPins.length > 0 && (
+          <AsideCard title="Mapa" className="card-hover">
+            <MapView pins={mapPins} onPinClick={setSlupekChoice} ariaLabel={`Mapa przystanku ${stopName}`} />
+          </AsideCard>
+        )}
 
         <AsideCard title="Natężenie ruchu dziś" className="card-hover">
           <HourlyTraffic

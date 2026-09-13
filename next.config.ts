@@ -80,7 +80,18 @@ function showDiagnostics(): boolean {
  * Mimo tego ustępstwa polityka nadal odcina to, co najważniejsze: ładowanie
  * skryptów i połączenia do obcych origin, osadzanie strony w ramce, wtyczki
  * oraz przejęcie `<base>`.
+ *
+ * Jedyny świadomy wyjątek od „obcych origin": `tiles.openfreemap.org` w
+ * `connect-src`, dla mapy (`MapView.tsx`, MapLibre GL JS). To pierwszy w tym
+ * projekcie przypadek przeglądarki rozmawiającej bezpośrednio z serwerem
+ * spoza naszego -- self-hosting piramidy kafelków mapy jest poza skalą tego
+ * projektu (AGENTS.md #6 dokumentuje wyjątek). MapLibre pobiera styl, kafelki
+ * wektorowe, glify i sprite'y przez `fetch`/XHR z JEDNEGO hosta -- stąd tylko
+ * `connect-src`, nie `img-src`. `worker-src blob:` -- MapLibre dekoduje
+ * kafelki w Web Workerze tworzonym z blob URL-a.
  */
+const MAP_TILES_ORIGIN = "https://tiles.openfreemap.org";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   // 'unsafe-eval' wyłącznie w dev — wymaga go hot reload Turbopacka.
@@ -88,8 +99,9 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  // Przeglądarka rozmawia wyłącznie z naszym serwerem; w dev dochodzi websocket HMR.
-  `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+  // Przeglądarka rozmawia z naszym serwerem oraz kafelkami mapy; w dev dochodzi websocket HMR.
+  `connect-src 'self' ${MAP_TILES_ORIGIN}${isDev ? " ws: wss:" : ""}`,
+  "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -1,7 +1,9 @@
 'use client'
 
+import { useMemo } from 'react'
 import type { StationInsights } from '@/lib/board/stationStats'
 import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
+import { MapView } from './MapView'
 import {
   AlertCircleIcon,
   ChevronRightIcon,
@@ -230,6 +232,8 @@ type Props = {
    * (`FullBoard`), więc bez osobnego zapytania -- podana z zewnątrz.
    */
   stationName: string
+  /** Do pinu na mapie -- lat/lon idzie z `weather.location` (ten sam fetch, zero nowego zapytania). */
+  stationId: string
 }
 
 export function StationAside({
@@ -241,7 +245,13 @@ export function StationAside({
   currentHour,
   weather,
   stationName,
+  stationId,
 }: Props) {
+  const mapPins = useMemo(
+    () => (weather.status === 'ready' ? [{ id: stationId, lat: weather.location.lat, lon: weather.location.lon, label: stationName }] : []),
+    [weather, stationId, stationName]
+  )
+
   return (
     <div className="flex flex-col gap-4">
       <AsideCard title="Najpopularniejsze kierunki">
@@ -261,6 +271,11 @@ export function StationAside({
       <AsideCard title={`Pogoda dziś — ${stationName}`}>
         <WeatherCard weather={weather} />
       </AsideCard>
+      {mapPins.length > 0 && (
+        <AsideCard title="Mapa">
+          <MapView pins={mapPins} ariaLabel={`Mapa stacji ${stationName}`} />
+        </AsideCard>
+      )}
     </div>
   )
 }

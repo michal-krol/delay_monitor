@@ -104,6 +104,15 @@ Współrzędne stacji do pogody: statyczny `data/station-coordinates.json` (rege
 `scripts/enrich-station-coords.mjs`), jest w obrazie (`.next/standalone`). Brak stacji
 = `available:false` w `/api/weather`, **cache'owane, nie błąd**.
 
+**Wyjątek od „sieć wyłącznie na krawędziach": kafelki mapy.** `MapView.tsx`
+(MapLibre GL JS + `tiles.openfreemap.org`, darmowe bez klucza/limitu, ODbL) to
+jedyny w projekcie przypadek przeglądarki rozmawiającej bezpośrednio z obcym
+originem — świadomie, bo self-hosting piramidy kafelków jest poza skalą tego
+projektu. `next.config.ts` (`connect-src`, `worker-src`) ma dopisany dokładnie
+ten jeden host; `next.config.test.ts` pilnuje, że to JEDYNY obcy origin w CSP.
+Nie „naprawiaj" tego przez przepięcie na serwerowy proxy kafelków — to nie
+jest przeoczenie.
+
 ## 7. UI nigdy nie jest pusty
 
 Przy awarii API pokazujemy ostatni dobry snapshot + jego wiek, nie czyścimy widoku.
