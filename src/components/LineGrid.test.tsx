@@ -26,7 +26,7 @@ describe('LineGrid', () => {
   it('links each line to its route page and keeps the accessible name', () => {
     render(<LineGrid linesByMode={lines} city="warszawa" filter="all" />)
     const link = screen.getByRole('link', { name: 'Linia M1 — M1 długa' })
-    expect(link).toHaveAttribute('href', '/miasto/warszawa/linia/M1')
+    expect(link).toHaveAttribute('href', '/city/warszawa/line/M1')
   })
 
   it('shows a section per mode with a count, ordered metro→tram→bus', () => {

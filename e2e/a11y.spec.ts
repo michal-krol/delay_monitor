@@ -9,17 +9,17 @@ const VIEWS = [
   { name: 'pulpit', path: '/', ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: 'Pulpit' }) },
   {
     name: 'tablica stacji',
-    path: '/odjazdy/33605?name=Warszawa%20Centralna',
+    path: '/station/33605?name=Warszawa%20Centralna',
     ready: (p: import('@playwright/test').Page) => p.getByRole('tablist', { name: 'Kierunek' }),
   },
   {
     name: 'linie GTFS',
-    path: '/miasto/warszawa/linie',
+    path: '/city/warszawa/lines',
     ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: 'Trasy — Warszawa' }),
   },
   {
     name: 'ekran miasta GTFS',
-    path: '/miasto/warszawa',
+    path: '/city/warszawa',
     ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: /Odjazdy i przyjazdy/ }),
   },
 ]

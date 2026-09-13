@@ -41,6 +41,13 @@ type Props = {
   orderId: string
   operatingDate: string
   trainLabel: string
+  /**
+   * Wywoływane z ostatecznym numerem pociągu, gdy `/api/train` odpowie — dla
+   * rodzica renderującego breadcrumb NAD tym komponentem, żeby nie utknął na
+   * tymczasowym `trainLabel` z linku po wczytaniu prawdziwych danych (ten sam
+   * powód co `onNameResolved` w `TransitStopDetail`).
+   */
+  onLabelResolved?: (label: string) => void
 }
 
 type Status = 'loading' | 'error' | 'ready'
@@ -167,7 +174,7 @@ function MetaItem({
   )
 }
 
-export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLabel }: Props) {
+export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLabel, onLabelResolved }: Props) {
   const [status, setStatus] = useState<Status>('loading')
   const [data, setData] = useState<TrainDetailApiResponse | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -299,6 +306,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // Nazwa własna pociągu tylko wtedy, gdy nie jest już całym tytułem —
   // „WARTA" pod nagłówkiem „WARTA" to nie informacja, to powtórzenie.
   const routeNameSuffix = data?.routeName !== null && data?.routeName !== undefined && data.routeName !== trainNumber ? data.routeName : null
+
+  useEffect(() => {
+    if (status === 'ready') onLabelResolved?.(trainNumber)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `onLabelResolved` to callback rodzica, nie stan śledzony tu
+  }, [status, trainNumber])
 
   const arrivalTime = formatTime(summary.destination?.displayAt ?? null)
   const countdown = formatCountdown(summary.destination?.displayAt ?? null, now)

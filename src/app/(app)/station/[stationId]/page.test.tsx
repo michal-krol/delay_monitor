@@ -35,7 +35,7 @@ vi.mock('@/hooks/useBoard', () => ({
   useBoard: () => ({ data: null, error: null }),
 }))
 
-describe('Page (/odjazdy/[stationId])', () => {
+describe('Page (/station/[stationId])', () => {
   beforeEach(() => {
     notFound.mockClear()
     searchParamsValue = new URLSearchParams()

@@ -45,7 +45,7 @@ describe('useCityContext', () => {
   })
 
   it('does not touch the URL', async () => {
-    window.history.replaceState(null, '', '/miasto/warszawa')
+    window.history.replaceState(null, '', '/city/warszawa')
     const { result } = renderHook(() => useCityContext())
     await waitFor(() => expect(result.current.loaded).toBe(true))
     act(() => result.current.setCity('warszawa'))

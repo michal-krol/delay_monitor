@@ -53,7 +53,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Pokaż pełną tablicę: Warszawa Centralna/ }))
-    expect(push).toHaveBeenCalledWith('/odjazdy/33605?name=Warszawa%20Centralna')
+    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna')
   })
 
   it('przekierowuje stary adres ?focus= na widok stacji, zachowując nazwę z ulubionych', () => {
@@ -62,7 +62,7 @@ describe('Page (Pulpit)', () => {
 
     // `replace`, nie `push` -- przekierowanie nie ma zostawiać wpisu w
     // historii, bo „wstecz" wracałoby na adres, który znów przekierowuje.
-    expect(replace).toHaveBeenCalledWith('/odjazdy/33605?name=Warszawa%20Centralna')
+    expect(replace).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna')
     expect(push).not.toHaveBeenCalled()
   })
 
@@ -70,7 +70,7 @@ describe('Page (Pulpit)', () => {
     searchParamsSeed = 'focus=999999999'
     render(<Page />)
 
-    expect(replace).toHaveBeenCalledWith('/odjazdy/999999999')
+    expect(replace).toHaveBeenCalledWith('/station/999999999')
   })
 
   it('ignoruje po cichu nieprawidłowe ?focus= i pokazuje zwykły pulpit', () => {
@@ -130,7 +130,7 @@ describe('Page (Pulpit)', () => {
     await user.click(await screen.findByRole('option', { name: 'Kraków Główny' }))
 
     // encodeURIComponent (not form-encoding) — spaces become %20, same contract as the card click.
-    expect(push).toHaveBeenCalledWith('/odjazdy/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
+    expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
 
     vi.useRealTimers()
     vi.unstubAllGlobals()

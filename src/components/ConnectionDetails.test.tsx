@@ -98,6 +98,25 @@ describe('ConnectionDetails', () => {
     expect(screen.getByText(/peron 3 · tor 1/)).toBeInTheDocument()
   })
 
+  it('reports the resolved train number once loaded, for a parent breadcrumb', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+    const onLabelResolved = vi.fn()
+
+    render(
+      <ConnectionDetails
+        scheduleId="2026"
+        orderId="12345"
+        operatingDate="2026-08-01"
+        trainLabel="EIC 1"
+        onLabelResolved={onLabelResolved}
+      />
+    )
+    expect(onLabelResolved).not.toHaveBeenCalled()
+
+    await waitForRoute()
+    expect(onLabelResolved).toHaveBeenCalledWith('EIC Grunwald')
+  })
+
   it('shows a weather card for the origin station in the right column', async () => {
     vi.stubGlobal(
       'fetch',

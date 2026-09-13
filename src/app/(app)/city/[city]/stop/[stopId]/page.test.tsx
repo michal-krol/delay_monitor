@@ -11,7 +11,7 @@ const params = { city: 'warszawa', stopId: '7014M' }
 vi.mock('next/navigation', () => ({
   useParams: () => params,
   useRouter: () => ({ push: vi.fn() }),
-  useSearchParams: () => new URLSearchParams('nazwa=Centrum'),
+  useSearchParams: () => new URLSearchParams('name=Centrum'),
   notFound: () => notFound(),
 }))
 
@@ -73,7 +73,7 @@ describe('TransitStopPage', () => {
   it('shows loading skeletons and the name from the link before the board arrives', () => {
     useTransitBoard.mockReturnValue({ data: null, error: null })
     const { container } = render(<TransitStopPage />)
-    // Nazwa z `?nazwa=` w nagłówku, dopóki tablica się nie wczyta.
+    // Nazwa z `?name=` w nagłówku, dopóki tablica się nie wczyta.
     expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)

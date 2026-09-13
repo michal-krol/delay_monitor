@@ -7,7 +7,7 @@
 export type CityFeed = {
   /**
    * Slug miasta — pełna nazwa bez polskich znaków (`warszawa`, `krakow`), nie
-   * trzyliterowy kod. Segment trasy `/miasto/[city]`, prefiks przestrzeni
+   * trzyliterowy kod. Segment trasy `/city/[city]`, prefiks przestrzeni
    * identyfikatorów, klucz do tego rejestru. `[a-z]{2,24}`, walidowany u wejścia.
    */
   id: string

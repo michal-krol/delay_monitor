@@ -8,7 +8,7 @@ type NavItem =
   | { kind: 'disabled'; label: string; icon: typeof HomeIcon; title?: string }
 
 /**
- * „Odjazdy / Przyjazdy" prowadzi na `/miasto`, „Trasy" na `/linie` — obie trasy
+ * „Odjazdy / Przyjazdy" prowadzi na `/city`, „Trasy" na `/lines` — obie trasy
  * dobierają domyślne miasto (ostatnie z `useCityContext` albo to z największą
  * liczbą stacji kolejowych) i przekierowują. Przełącznik miasta jest w treści
  * tamtych ekranów, nie w menu. Współdzielone przez `Sidebar` (desktop) i
@@ -16,8 +16,8 @@ type NavItem =
  */
 export const NAV_ITEMS: NavItem[] = [
   { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
-  { kind: 'active', key: 'odjazdy', href: '/miasto', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
-  { kind: 'active', key: 'trasy', href: '/linie', label: 'Trasy', icon: RouteIcon },
+  { kind: 'active', key: 'odjazdy', href: '/city', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
+  { kind: 'active', key: 'trasy', href: '/lines', label: 'Trasy', icon: RouteIcon },
   { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
   { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
   { kind: 'disabled', label: 'Mapa', icon: MapIcon },
@@ -26,12 +26,12 @@ export const NAV_ITEMS: NavItem[] = [
 
 /**
  * Pozycja menu odpowiadająca adresowi. Tylko trzy trasy mają odpowiednik w menu;
- * strony bez niego (np. `/odjazdy/[stationId]`, `/polaczenie/...`) → `undefined`.
+ * strony bez niego (np. `/station/[stationId]`, `/connection/...`) → `undefined`.
  */
 export function activeItemFromPath(pathname: string): ActiveItem | undefined {
   if (pathname === '/') return 'pulpit'
-  if (pathname === '/linie' || /^\/miasto\/[^/]+\/lini[ae]/.test(pathname)) return 'trasy'
-  if (pathname === '/miasto' || pathname.startsWith('/miasto/')) return 'odjazdy'
+  if (pathname === '/lines' || /^\/city\/[^/]+\/lines?/.test(pathname)) return 'trasy'
+  if (pathname === '/city' || pathname.startsWith('/city/')) return 'odjazdy'
   return undefined
 }
 

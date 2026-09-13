@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ConnectionDetails } from '@/components/ConnectionDetails'
 import { TopBar } from '@/components/TopBar'
+import { Breadcrumb } from '@/components/Breadcrumb'
+import { PageShell } from '@/components/aside'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
 import { useShareUrl } from '@/hooks/useShareUrl'
 
@@ -40,6 +43,7 @@ export default function Page() {
   // `train` = tymczasowy tytuł widoczny przed odpowiedzią `/api/train` —
   // zamiennik dzisiejszego propa `trainLabel` z dawnego modala.
   const trainLabel = searchParams.get('train') ?? ''
+  const [resolvedLabel, setResolvedLabel] = useState<string | null>(null)
 
   // `router.back()` bez wcześniejszej historii w tej karcie (wejście przez
   // wklejony/otwarty w nowej karcie link) zostawia użytkownika poza aplikacją
@@ -57,19 +61,24 @@ export default function Page() {
   }
 
   return (
-    <>
-      <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-5 sm:px-8 sm:py-7">
-        {/* Nie znamy tu adresu strony-źródła — mogła to być zakładka Odjazdy
-            albo Przyjazdy pełnej tablicy — więc `onBack` (router.back()), nie
-            stały `backHref`. */}
-        <TopBar onBack={handleBack} backLabel="Powrót do wyników" onShare={() => void share()} />
-        <ConnectionDetails
-          scheduleId={scheduleId}
-          orderId={orderId}
-          operatingDate={operatingDate}
-          trainLabel={trainLabel}
-        />
-      </main>
-    </>
+    <PageShell>
+      {/* Pierwszy segment bez `href`, nie zgadujemy: nie znamy tu adresu
+          strony-źródła (mogła to być zakładka Odjazdy albo Przyjazdy pełnej
+          tablicy, PKP albo GTFS) — ten sam powód co `onBack` niżej zamiast
+          stałego `backHref`. `Breadcrumb` renderuje element bez `href` jako
+          zwykły tekst, nie link donikąd. */}
+      <Breadcrumb items={[{ label: 'Tablica odjazdów' }, { label: resolvedLabel ?? (trainLabel || 'Połączenie') }]} />
+      {/* Nie znamy tu adresu strony-źródła — mogła to być zakładka Odjazdy
+          albo Przyjazdy pełnej tablicy — więc `onBack` (router.back()), nie
+          stały `backHref`. */}
+      <TopBar onBack={handleBack} backLabel="Powrót do wyników" onShare={() => void share()} />
+      <ConnectionDetails
+        scheduleId={scheduleId}
+        orderId={orderId}
+        operatingDate={operatingDate}
+        trainLabel={trainLabel}
+        onLabelResolved={setResolvedLabel}
+      />
+    </PageShell>
   )
 }

@@ -62,17 +62,17 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Pulpit' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('„Odjazdy / Przyjazdy" prowadzi na /miasto (trasa dobiera domyślne miasto)', () => {
+  it('„Odjazdy / Przyjazdy" prowadzi na /city (trasa dobiera domyślne miasto)', () => {
     render(<Sidebar activeItem="odjazdy" />)
     const link = screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })
-    expect(link).toHaveAttribute('href', '/miasto')
+    expect(link).toHaveAttribute('href', '/city')
     expect(link).toHaveAttribute('aria-current', 'page')
   })
 
-  it('„Trasy" prowadzi na /linie (trasa dobiera domyślne miasto)', () => {
+  it('„Trasy" prowadzi na /lines (trasa dobiera domyślne miasto)', () => {
     render(<Sidebar activeItem="trasy" />)
     const link = screen.getByRole('link', { name: 'Trasy' })
-    expect(link).toHaveAttribute('href', '/linie')
+    expect(link).toHaveAttribute('href', '/lines')
     expect(link).toHaveAttribute('aria-current', 'page')
   })
 

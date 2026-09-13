@@ -23,7 +23,7 @@ describe('TransitStopCard', () => {
     expect(screen.getByText(/Rozkład — warszawa/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Pokaż przystanek/ })).toHaveAttribute(
       'href',
-      '/miasto/warszawa/przystanek/7014M'
+      '/city/warszawa/stop/7014M'
     )
   })
 

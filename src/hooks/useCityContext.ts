@@ -5,17 +5,17 @@ import { z } from 'zod'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
 // v2: slug miasta zmienił się z trzyliterowego kodu na pełną nazwę bez polskich
-// znaków (`warszawa`) — stary wpis `v1` jest po cichu porzucany, trasa `/miasto`
+// znaków (`warszawa`) — stary wpis `v1` jest po cichu porzucany, trasa `/city`
 // dobiera wtedy domyślne miasto od nowa.
 const STORAGE_KEY = 'monitor.cityContext.v2'
 
 /**
  * Wybrane miasto na ekranie Odjazdy/Przyjazdy. `null` = jeszcze nie wybrano
- * (stan przejściowy przy pierwszej wizycie — trasa `/miasto` dobiera wtedy
+ * (stan przejściowy przy pierwszej wizycie — trasa `/city` dobiera wtedy
  * domyślne miasto). NIE ma już kontekstu „Cała Polska" — ekran jest zawsze
  * przypisany do konkretnego miasta, a Pulpit nie ma żadnego kontekstu.
  *
- * Źródłem prawdy jest segment ścieżki `/miasto/[city]`; tu trzymamy tylko
+ * Źródłem prawdy jest segment ścieżki `/city/[city]`; tu trzymamy tylko
  * `localStorage` (żeby menu wracało do ostatniego miasta) + wspólny stan
  * między instancjami hooka.
  */

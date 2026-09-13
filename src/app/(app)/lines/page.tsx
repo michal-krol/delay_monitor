@@ -7,10 +7,10 @@ import { useCityContext } from '@/hooks/useCityContext'
 type CityOption = { id: string; railStations: { id: string }[] }
 
 /**
- * `/linie` bez segmentu — menu „Trasy" tu prowadzi. Dobiera miasto (jak
- * `/miasto`) i przekierowuje na `/miasto/[city]/linie`. Nie renderuje treści.
+ * `/lines` bez segmentu — menu „Trasy" tu prowadzi. Dobiera miasto (jak
+ * `/city`) i przekierowuje na `/city/[city]/lines`. Nie renderuje treści.
  */
-export default function LinieIndex() {
+export default function LinesIndex() {
   const router = useRouter()
   const { city, loaded } = useCityContext()
   const [status, setStatus] = useState<'resolving' | 'empty'>('resolving')
@@ -18,7 +18,7 @@ export default function LinieIndex() {
   useEffect(() => {
     if (!loaded) return
     if (city !== null) {
-      router.replace(`/miasto/${city}/linie`)
+      router.replace(`/city/${city}/lines`)
       return
     }
     let cancelled = false
@@ -31,7 +31,7 @@ export default function LinieIndex() {
           setStatus('empty')
           return
         }
-        router.replace(`/miasto/${top.id}/linie`)
+        router.replace(`/city/${top.id}/lines`)
       })
       .catch(() => {
         if (!cancelled) setStatus('empty')

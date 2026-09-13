@@ -18,7 +18,7 @@ export const OPERATING_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 /**
  * Slug miasta w warstwie GTFS — pełna nazwa bez polskich znaków (`warszawa`,
- * `krakow`), segment trasy (`/miasto/[city]`) i klucz do rejestru miast, który
+ * `krakow`), segment trasy (`/city/[city]`) i klucz do rejestru miast, który
  * wybiera feed. Musi być sprawdzony wobec rejestru u wejścia każdego handlera
  * GTFS: to on decyduje, skąd pobieramy dane. Tylko małe litery ASCII — trafia
  * do adresu URL i do kluczy `Map`.
@@ -37,6 +37,28 @@ export const CITY_ID_PATTERN = /^[a-z]{2,24}$/
  * strażnik formatu i długości.
  */
 export const GTFS_STOP_ID_PATTERN = /^[A-Za-z0-9]{1,12}(?::[A-Za-z0-9]{1,6})?$/
+
+/**
+ * `:` w GTFS stop ID (peron metra, `7014M:P1`) łamie hydrację dynamicznego
+ * segmentu Next.js 16.2.12 w komponencie klienckim (`useParams()`): drzewo
+ * routera przenosi wartość parametru jako klucz cache'a zakodowany
+ * `encodeURIComponent` (`node_modules/next/dist/client/route-params.js`,
+ * `canonicalizeURLPart`/`getParamValueFromCacheKey`), ale klient nigdy go nie
+ * dekoduje z powrotem — `useParams()` dostaje dosłowne `"7014M%3AP1"`, więc
+ * `GTFS_STOP_ID_PATTERN` odrzuca i strona 404-uje. Dotyczy WYŁĄCZNIE `:` —
+ * to jedyny znak w tym formacie, którego `encodeURIComponent` w ogóle rusza
+ * (`-`, `.`, `_` są dla niego identycznością). Budując segment ścieżki
+ * (`/city/[city]/stop/[stopId]`) podmieniamy `:` na `-` (nieużywane gdzie
+ * indziej w tym formacie) — segment przechodzi przez Next niezmieniony,
+ * `decodeStopIdFromPathSegment` odwraca podmianę po stronie strony.
+ */
+export function encodeStopIdForPathSegment(stopId: string): string {
+  return stopId.replace(':', '-')
+}
+
+export function decodeStopIdFromPathSegment(pathSegment: string): string {
+  return pathSegment.replace('-', ':')
+}
 
 /**
  * Identyfikator linii GTFS (`route_id`) — `M1`, `521`, `N16`, `L-1`. Jak przy

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import LinieIndex from './page'
+import MiastoIndex from './page'
 import { __resetCityContext } from '@/hooks/useCityContext'
 import { jsonResponse } from '@/test-utils/http'
 
@@ -15,13 +15,14 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-describe('LinieIndex', () => {
-  it('redirects to the stored city line browser without a network call', async () => {
+describe('MiastoIndex', () => {
+  it('redirects to the stored city without a network call', async () => {
     window.localStorage.setItem('monitor.cityContext.v2', JSON.stringify('krakow'))
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    render(<LinieIndex />)
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/krakow/linie'))
+
+    render(<MiastoIndex />)
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/city/krakow'))
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -32,18 +33,19 @@ describe('LinieIndex', () => {
         jsonResponse({
           cities: [
             { id: 'krakow', railStations: [{ id: '1' }] },
-            { id: 'warszawa', railStations: [{ id: '1' }, { id: '2' }] },
+            { id: 'warszawa', railStations: [{ id: '1' }, { id: '2' }, { id: '3' }] },
           ],
         })
       )
     )
-    render(<LinieIndex />)
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/miasto/warszawa/linie'))
+    render(<MiastoIndex />)
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/city/warszawa'))
   })
 
   it('shows a message when there are no configured cities', async () => {
     vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [] })))
-    render(<LinieIndex />)
+    render(<MiastoIndex />)
     expect(await screen.findByText(/Brak skonfigurowanych miast/)).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
   })
 })

@@ -56,7 +56,7 @@ describe('CityLinesPage', () => {
     stubFetch()
     render(<CityLinesPage />)
     const link = await screen.findByRole('link', { name: /Linia M1/ })
-    expect(link).toHaveAttribute('href', '/miasto/warszawa/linia/M1')
+    expect(link).toHaveAttribute('href', '/city/warszawa/line/M1')
     expect(await screen.findByRole('heading', { name: 'Trasy — Warszawa' })).toBeInTheDocument()
     expect(screen.getByText('Przeglądarka linii komunikacji miejskiej')).toBeInTheDocument()
   })

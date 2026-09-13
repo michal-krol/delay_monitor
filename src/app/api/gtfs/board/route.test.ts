@@ -111,22 +111,22 @@ describe('GET /api/gtfs/board', () => {
     expect(body.stops[0].members).toHaveLength(2)
     expect(body.stops[0].members.map((m: { id: string }) => m.id)).toEqual(['100101', '100102'])
     expect(body.stops[0].wheelchairNote).toBeNull() // słupki wheelchair=1 → brak sygnału
-    expect(body.stops[0].activeSlupek).toBeNull()
+    expect(body.stops[0].activeMember).toBeNull()
   })
 
-  it('?slupek= scopes departures to one member of the group', async () => {
-    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100101')
-    expect(body.stops[0].activeSlupek).toBe('100101')
+  it('?member= scopes departures to one member of the group', async () => {
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&member=100101')
+    expect(body.stops[0].activeMember).toBe('100101')
     expect(body.stops[0].departures.every((d: { stopId: string }) => d.stopId === '100101')).toBe(true)
   })
 
-  it('ignores a ?slupek= that is not in the group (falls back to whole group)', async () => {
-    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100109')
-    expect(body.stops[0].activeSlupek).toBeNull()
+  it('ignores a ?member= that is not in the group (falls back to whole group)', async () => {
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&member=100109')
+    expect(body.stops[0].activeMember).toBeNull()
   })
 
   it('departure.vehicle is null when no vehicle poller is ready', async () => {
-    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100101')
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&member=100101')
     expect(body.stops[0].departures[0].vehicle).toBeNull()
   })
 
@@ -138,7 +138,7 @@ describe('GET /api/gtfs/board', () => {
       ],
     }
     try {
-      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100102')
+      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&member=100102')
       expect(typeof body.stops[0].departures[0].vehicle.stopsAway).toBe('number')
       expect(body.stops[0].departures[0].vehicle.stopsAway).toBe(0) // pojazd na odcinku tuż przed 100102
       expect(JSON.stringify(body)).not.toMatch(/delayMinutes|actualAt|predictedAt/)
@@ -177,17 +177,17 @@ describe('GET /api/gtfs/board', () => {
     }
   })
 
-  it('stop.alerts still matches when scoped to one słupek (?slupek=), not keyed by member id', async () => {
+  it('stop.alerts still matches when scoped to one słupek (?member=), not keyed by member id', async () => {
     // Regresja: `schedule.groupRoutes` jest kluczowany wyłącznie id zespołu
     // (`1001`), nigdy słupka (`100101`) — dopasowanie alertów musi zawsze iść
-    // po zespole, inaczej `?slupek=` cichnie baner (patrz komentarz przy
+    // po zespole, inaczej `?member=` cichnie baner (patrz komentarz przy
     // `groupRouteIdxs` w route.ts).
     alertPoller = {
       getAlerts: () => [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }],
     }
     try {
-      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&slupek=100101')
-      expect(body.stops[0].activeSlupek).toBe('100101')
+      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001&member=100101')
+      expect(body.stops[0].activeMember).toBe('100101')
       expect(body.stops[0].alerts).toEqual([{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }])
     } finally {
       alertPoller = null

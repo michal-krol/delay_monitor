@@ -5,7 +5,7 @@ import { alertsForRoutes, lineDetail } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 
 /**
- * Przebieg jednej linii w obu kierunkach (`/miasto/[city]/linia/[routeId]`).
+ * Przebieg jednej linii w obu kierunkach (`/city/[city]/line/[routeId]`).
  * `route` NIGDY nie trafia do wychodzącego URL-a — jest kluczem do naszej `Map`.
  * Realną granicą zaufania jest `lineDetail(...) === null → line: null` (200, nie
  * 400 — konwencja nieznanego ID z `/api/gtfs/board`); regex to tani strażnik.

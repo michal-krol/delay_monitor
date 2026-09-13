@@ -6,7 +6,7 @@ type Props = {
   loading?: boolean
   /** Nagłówek listy — domyślnie „Rozkład". NIGDY „na czas": komunikacja miejska nie ma realizacji. */
   emptyMessage?: string
-  /** Gdy podane — plakietka linii linkuje do jej szczegółów (`/miasto/[city]/linia/[routeId]`). */
+  /** Gdy podane — plakietka linii linkuje do jej szczegółów (`/city/[city]/line/[routeId]`). */
   city?: string
   /** Pokaż numer słupka przy każdym odjeździe (widok całego zespołu Centrum 01/02…). */
   showSlupek?: boolean
@@ -59,7 +59,7 @@ export function TransitDepartureList({
             color={departure.color}
             mode={departure.mode}
             size="sm"
-            href={city !== undefined ? `/miasto/${city}/linia/${encodeURIComponent(departure.routeId)}` : undefined}
+            href={city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined}
           />
           <span className="min-w-0 flex-1 truncate text-sm text-foreground">
             {departure.headsign ?? '—'}

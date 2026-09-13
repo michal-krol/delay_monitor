@@ -8,7 +8,7 @@ import { PollerDiagnostics } from './PollerDiagnostics'
 type Props = {
   // Opcjonalny -- jedyny prawdziwy wpis nawigacji to "Pulpit"; reszta jest
   // `kind: 'disabled'` (patrz NAV_ITEMS w navItems.tsx), więc strony bez
-  // odpowiednika w menu (np. /odjazdy/[stationId], /polaczenie/...) nie mają
+  // odpowiednika w menu (np. /station/[stationId], /connection/...) nie mają
   // czego podświetlić.
   activeItem?: ActiveItem
 }

@@ -14,7 +14,7 @@ export type CityOption = { id: string; name: string; railStations: { id: string 
 export function CityPicker({
   cities,
   current,
-  hrefFor = (id) => `/miasto/${id}`,
+  hrefFor = (id) => `/city/${id}`,
 }: {
   cities: CityOption[]
   current: string

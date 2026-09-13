@@ -7,11 +7,11 @@ import { useCityContext } from '@/hooks/useCityContext'
 type CityOption = { id: string; railStations: { id: string }[] }
 
 /**
- * `/miasto` bez segmentu — menu „Odjazdy / Przyjazdy" tu prowadzi. Dobiera
+ * `/city` bez segmentu — menu „Odjazdy / Przyjazdy" tu prowadzi. Dobiera
  * miasto (ostatnie z kontekstu albo to z największą liczbą stacji kolejowych)
- * i przekierowuje na `/miasto/[city]`. Nie renderuje treści na stałe.
+ * i przekierowuje na `/city/[city]`. Nie renderuje treści na stałe.
  */
-export default function MiastoIndex() {
+export default function CityIndex() {
   const router = useRouter()
   const { city, loaded } = useCityContext()
   const [status, setStatus] = useState<'resolving' | 'empty'>('resolving')
@@ -19,7 +19,7 @@ export default function MiastoIndex() {
   useEffect(() => {
     if (!loaded) return
     if (city !== null) {
-      router.replace(`/miasto/${city}`)
+      router.replace(`/city/${city}`)
       return
     }
     let cancelled = false
@@ -32,7 +32,7 @@ export default function MiastoIndex() {
           setStatus('empty')
           return
         }
-        router.replace(`/miasto/${top.id}`)
+        router.replace(`/city/${top.id}`)
       })
       .catch(() => {
         if (!cancelled) setStatus('empty')

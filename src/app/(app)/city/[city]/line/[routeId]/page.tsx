@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { notFound, useParams, useRouter } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
+import { Breadcrumb } from '@/components/Breadcrumb'
 import { AlertBanner } from '@/components/AlertBanner'
 import { LineBadge } from '@/components/LineBadge'
 import { LineTimetable } from '@/components/LineTimetable'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
-import { AsideCard, PageAside } from '@/components/aside'
+import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_LABEL } from '@/components/transitMode'
@@ -17,7 +18,7 @@ import { pluralPl } from '@/lib/plural'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
-import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
+import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
 
 type LineResponse = {
   city: string
@@ -114,10 +115,75 @@ export default function LineDetailPage() {
     setSelectedBaseSec(null)
   }
 
-  return (
+  const asideContent = (
     <>
-      <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
-        <TopBar backLabel="Wróć do linii" onBack={() => router.push(`/miasto/${city}/linie`)} />
+      {line !== null && direction !== undefined && (
+        <AsideCard title={`Linia ${line.line}`}>
+          <dl className="flex flex-col gap-1.5 text-xs">
+            <div className="flex justify-between gap-2">
+              <dt className="text-text-muted">Rodzaj</dt>
+              <dd className="text-foreground">{MODE_LABEL[line.mode]}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-text-muted">Kierunki</dt>
+              <dd className="text-foreground">{directions.length}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-text-muted">Przystanki</dt>
+              <dd className="text-foreground">{stops.length}</dd>
+            </div>
+            {direction.departures[0]?.times.length ? (
+              <div className="flex justify-between gap-2">
+                <dt className="text-text-muted">Pierwszy / ostatni</dt>
+                <dd className="tabular-nums text-foreground">
+                  {clock(direction.departures[0].times[0])}–{clock(direction.departures[0].times.at(-1)!)}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </AsideCard>
+      )}
+
+      <CityWeatherCard city={city} />
+
+      {showVehicles && direction !== undefined && (
+        <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
+          {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
+            <p className="text-xs text-red-600 dark:text-red-400">Nie udało się pobrać pozycji.</p>
+          ) : liveVehicles.feed.state === 'loading' ? (
+            <p className="text-xs text-text-muted">Wczytuję pozycje…</p>
+          ) : liveVehicles.vehicles.length === 0 ? (
+            <p className="text-xs text-text-muted">Brak pojazdów w trasie w tym kierunku.</p>
+          ) : (
+            <ul className="flex flex-col gap-1.5 text-xs">
+              {liveVehicles.vehicles
+                .slice()
+                .sort((a, b) => a.afterStopOrder - b.afterStopOrder)
+                .map((v) => (
+                  <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
+                    <span className="text-foreground">#{v.sideNumber}</span>
+                    <span className="text-text-muted">
+                      za „{stops[v.afterStopOrder]?.name ?? '—'}”
+                      {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </AsideCard>
+      )}
+    </>
+  )
+
+  return (
+    <PageShell aside={asideContent}>
+      <Breadcrumb
+        items={[
+          { label: 'Trasy', href: `/city/${city}/lines` },
+          { label: line?.longName ?? routeId },
+        ]}
+      />
+      <TopBar backLabel="Wróć do linii" onBack={() => router.push(`/city/${city}/lines`)} />
 
         {line !== null && (
           <div className="flex flex-col gap-2">
@@ -277,7 +343,7 @@ export default function LineDetailPage() {
                   <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop?.name}</h2>
                   {selectedStop !== undefined && (
                     <Link
-                      href={`/miasto/${city}/przystanek/${encodeURIComponent(selectedStop.stopId)}?nazwa=${encodeURIComponent(selectedStop.name)}`}
+                      href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
                       className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                     >
                       pełna tablica słupka →
@@ -296,65 +362,6 @@ export default function LineDetailPage() {
         )}
 
         {data !== null && <AttributionFooter attribution={data.attribution} />}
-      </main>
-
-      <PageAside>
-        {line !== null && direction !== undefined && (
-          <AsideCard title={`Linia ${line.line}`}>
-            <dl className="flex flex-col gap-1.5 text-xs">
-              <div className="flex justify-between gap-2">
-                <dt className="text-text-muted">Rodzaj</dt>
-                <dd className="text-foreground">{MODE_LABEL[line.mode]}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-text-muted">Kierunki</dt>
-                <dd className="text-foreground">{directions.length}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-text-muted">Przystanki</dt>
-                <dd className="text-foreground">{stops.length}</dd>
-              </div>
-              {direction.departures[0]?.times.length ? (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-text-muted">Pierwszy / ostatni</dt>
-                  <dd className="tabular-nums text-foreground">
-                    {clock(direction.departures[0].times[0])}–{clock(direction.departures[0].times.at(-1)!)}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-          </AsideCard>
-        )}
-
-        <CityWeatherCard city={city} />
-
-        {showVehicles && direction !== undefined && (
-          <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
-            {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
-              <p className="text-xs text-red-600 dark:text-red-400">Nie udało się pobrać pozycji.</p>
-            ) : liveVehicles.feed.state === 'loading' ? (
-              <p className="text-xs text-text-muted">Wczytuję pozycje…</p>
-            ) : liveVehicles.vehicles.length === 0 ? (
-              <p className="text-xs text-text-muted">Brak pojazdów w trasie w tym kierunku.</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5 text-xs">
-                {liveVehicles.vehicles
-                  .slice()
-                  .sort((a, b) => a.afterStopOrder - b.afterStopOrder)
-                  .map((v) => (
-                    <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
-                      <span className="text-foreground">#{v.sideNumber}</span>
-                      <span className="text-text-muted">
-                        za „{stops[v.afterStopOrder]?.name ?? '—'}”
-                        {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
-                      </span>
-                    </li>
-                  ))}
-              </ul>
-            )}
-          </AsideCard>
-        )}
-      </PageAside>
-    </>
+    </PageShell>
   )
 }

@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright'
 
 // Mock feed: fixtures/gtfs/warszawa/vehicles.json ma 2 pozycje na kursach
 // linii 20 (`20-wd-0-1`/`20-wd-0-2`), side_number 3801 / 3802. AGENTS.md #13.
-const LINE_20 = '/miasto/warszawa/linia/20'
+const LINE_20 = '/city/warszawa/line/20'
 
 // GTFS mock parsuje się raz przy starcie serwera, a poller pojazdów budzi się
 // z pollerem rozkładu przy pierwszym trafieniu /api/gtfs/* — strona ponawia.
@@ -27,7 +27,7 @@ test('linia: marker pojazdu na osi + karta „Pojazdy w trasie" ze znakiem boczn
 test('widżet sieci: „W trasie teraz" pokazuje liczbę, nie „—"', async ({ page }, testInfo) => {
   // Widżet sieci renderuje się dopiero od `xl` (`hidden xl:flex` w page.tsx).
   test.skip(testInfo.project.name !== 'desktop-chromium', 'widżet sieci tylko na desktopie')
-  await page.goto('/miasto/warszawa')
+  await page.goto('/city/warszawa')
   const line = page.getByText(/W trasie teraz/)
   await expect(line).toBeVisible({ timeout: READY })
   // feed mock jest gotowy => konkretna liczba, nigdy „—" (#7: null ≠ 0).

@@ -27,7 +27,7 @@ brak bazy, jedna replika i cały mechanizm oszczędzania limitu opisany niżej.
   Escape). Ignoruje polskie znaki, więc „wroclaw" znajduje „Wrocław Główny".
   Rozróżnia „szukam", „brak stacji o tej nazwie" i „nie udało się pobrać
   listy" — nie chowa awarii pod pustą listą.
-- **Widok stacji** — jedna strona `/odjazdy/{id}`: nagłówek (nazwa, aktualność
+- **Widok stacji** — jedna strona `/station/{id}`: nagłówek (nazwa, aktualność
   danych, ulubione, „Udostępnij"), cztery kafelki KPI, tablica i prawa kolumna
   kontekstowa. Stary adres `/?focus={id}` przekierowuje tutaj — widok stacji
   jest jeden, nie dwa.
@@ -243,7 +243,7 @@ Przeglądarka ──▶ /api/gtfs/{board,lines,line,city-stats}
 ```
 
 - **Ładowanie leniwe i jednorazowe.** Poller miasta powstaje przy pierwszym
-  wejściu na `/miasto/[city]`. `stop_times.txt` (7,95 mln wierszy) parsuje się
+  wejściu na `/city/[city]`. `stop_times.txt` (7,95 mln wierszy) parsuje się
   bez Zod, do kolumnowych tablic typowanych, z jawnymi strażnikami i licznikiem
   odrzuconych wierszy. Potem tylko odczyt z pamięci; przeładowanie ~03:40 czasu
   miasta po zmianie doby.
@@ -251,9 +251,9 @@ Przeglądarka ──▶ /api/gtfs/{board,lines,line,city-stats}
   fire-and-forget, `getSchedule()` zwraca `null` dopóki nie gotowe, a klient
   ponawia z narastającym backoffem. Faza ładowania jest widoczna w UI
   („wczytuję rozkład — przystanki i linie"), nie ukryta pod spinnerem.
-- **Hierarchia:** miasto → linia (`/miasto/[city]/linia/[routeId]`, przebieg
+- **Hierarchia:** miasto → linia (`/city/[city]/line/[routeId]`, przebieg
   w obu kierunkach + rozkład godzinowy z kolumnami dni) → przystanek
-  (`/miasto/[city]/przystanek/[stopId]`, tablica odjazdów) → rozkład. Stoi obok
+  (`/city/[city]/stop/[stopId]`, tablica odjazdów) → rozkład. Stoi obok
   kolejowej stacja → połączenie → przebieg trasy.
 - **Tryb mock domyślny** (`GTFS_DATA_SOURCE=mock`): `npm run dev`, `npm run
   test` i CI są zerowo-sieciowe. Fixture'y to zwykłe `.txt` w

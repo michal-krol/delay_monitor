@@ -31,8 +31,8 @@ describe('MobileNav', () => {
     expect(screen.getByRole('button', { name: /zamknij menu/i })).toHaveFocus()
     // szuflada niesie te same 3 działające pozycje co pasek desktop
     expect(screen.getByRole('link', { name: 'Pulpit' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).toHaveAttribute('href', '/miasto')
-    expect(screen.getByRole('link', { name: 'Trasy' })).toHaveAttribute('href', '/linie')
+    expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).toHaveAttribute('href', '/city')
+    expect(screen.getByRole('link', { name: 'Trasy' })).toHaveAttribute('href', '/lines')
     // blokada scrolla tła
     expect(document.body.style.overflow).toBe('hidden')
   })
@@ -73,7 +73,7 @@ describe('MobileNav', () => {
     await userEvent.click(screen.getByRole('button', { name: /otwórz menu/i }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
-    pathname.mockReturnValue('/miasto/warszawa')
+    pathname.mockReturnValue('/city/warszawa')
     rerender(<MobileNav />)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -81,7 +81,7 @@ describe('MobileNav', () => {
   })
 
   it('marks the current route in the drawer via aria-current', async () => {
-    pathname.mockReturnValue('/miasto/warszawa/linia/20')
+    pathname.mockReturnValue('/city/warszawa/line/20')
     render(<MobileNav />)
     await userEvent.click(screen.getByRole('button', { name: /otwórz menu/i }))
     expect(screen.getByRole('link', { name: 'Trasy' })).toHaveAttribute('aria-current', 'page')
