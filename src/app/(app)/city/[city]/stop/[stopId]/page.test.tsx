@@ -10,8 +10,9 @@ const notFound = vi.fn(() => {
 const params = { city: 'warszawa', stopId: '7014M' }
 vi.mock('next/navigation', () => ({
   useParams: () => params,
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams('name=Centrum'),
+  usePathname: () => '/city/warszawa/stop/7014M',
   notFound: () => notFound(),
 }))
 

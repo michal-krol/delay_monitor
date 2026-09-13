@@ -42,6 +42,16 @@ test('przystanek miejski: deep-link słupka od razu go podświetla', async ({ pa
   })
 })
 
+test('przystanek miejski: `?slupek=` w URL od razu podświetla słupek i klik go aktualizuje', async ({ page }) => {
+  await page.goto(`${CENTRUM}?slupek=100102`)
+  await expect(page.getByRole('tab', { name: /^Centrum 02/ })).toHaveAttribute('aria-selected', 'true', {
+    timeout: READY,
+  })
+
+  await page.getByRole('tab', { name: /^Centrum 01/ }).click()
+  await expect(page).toHaveURL(/slupek=100101/)
+})
+
 test('słupek metra z dwukropkiem w ID: link z linii prowadzi do tablicy, nie 404', async ({ page }) => {
   // Regresja: `7014M:P1` (peron metra, AGENTS.md #13) — `:` w GTFS stop ID
   // gubi się w hydracji dynamicznego segmentu Next.js przy przejściu klientem
