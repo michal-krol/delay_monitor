@@ -36,13 +36,14 @@ describe('nagłówki bezpieczeństwa', () => {
     expect(csp).toContain("object-src 'none'")
   })
 
-  it('ogranicza pobieranie zasobów i połączenia do własnego origin', async () => {
+  it('ogranicza pobieranie zasobów i połączenia do własnego origin poza jednym udokumentowanym wyjątkiem mapy', async () => {
     const csp = (await headersFor('/')).get('Content-Security-Policy') ?? ''
 
     expect(csp).toContain("default-src 'self'")
     expect(csp).toContain("connect-src 'self'")
-    // Gdyby ktoś dopisał obcy host, poniższe przestanie być prawdą.
-    expect(csp).not.toMatch(/https?:\/\//)
+    // Jedyny dopuszczalny obcy host w całej polityce: kafelki mapy (AGENTS.md #6,
+    // MapView.tsx). Gdyby ktoś dopisał kolejny obcy host, poniższe przestanie być prawdą.
+    expect(csp.match(/https?:\/\/[^\s;]+/g)).toEqual(['https://tiles.openfreemap.org'])
     expect(csp).not.toContain('*')
   })
 

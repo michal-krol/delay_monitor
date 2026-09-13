@@ -28,6 +28,7 @@ const READY_WEATHER: UseStationWeatherResult = {
     },
     fetchedAt: '2026-08-30T18:50:00+02:00',
   },
+  location: { lat: 52.2297, lon: 21.0122 },
 }
 
 const INSIGHTS: StationInsights = {
@@ -49,6 +50,7 @@ function renderAside(overrides: Partial<React.ComponentProps<typeof StationAside
     currentHour: 8,
     weather: READY_WEATHER,
     stationName: 'Warszawa Centralna',
+    stationId: '33605',
     ...overrides,
   }
   render(<StationAside {...props} />)
@@ -98,6 +100,7 @@ describe('StationAside', () => {
         loading
         currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
         weather={READY_WEATHER}
       />
     )
@@ -114,6 +117,7 @@ describe('StationAside', () => {
         loading={false}
         currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
         weather={READY_WEATHER}
       />
     )
@@ -130,6 +134,7 @@ describe('StationAside', () => {
         loading={false}
         currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
         weather={READY_WEATHER}
       />
     )
@@ -145,6 +150,7 @@ describe('StationAside', () => {
         loading={false}
         currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
         weather={READY_WEATHER}
       />
     )
@@ -186,6 +192,7 @@ describe('StationAside', () => {
           loading={false}
           currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
           weather={{ status: 'error' }}
         />
       )
@@ -207,6 +214,18 @@ describe('StationAside', () => {
       expect(screen.getByText('13° / 26°')).toBeInTheDocument()
       expect(screen.getByText('2.3 mm · 2%')).toBeInTheDocument()
       expect(screen.getByText('Open-Meteo')).toBeInTheDocument()
+    })
+  })
+
+  describe('mapa stacji', () => {
+    it('pokazuje pin, gdy znamy lokalizację (ten sam fetch co pogoda)', () => {
+      renderAside({ weather: READY_WEATHER })
+      expect(screen.getByRole('region', { name: 'Mapa stacji Warszawa Centralna' })).toBeInTheDocument()
+    })
+
+    it('nie renderuje karty mapy bez znanej lokalizacji', () => {
+      renderAside({ weather: { status: 'unavailable' } })
+      expect(screen.queryByRole('region', { name: /Mapa stacji/ })).not.toBeInTheDocument()
     })
   })
 })

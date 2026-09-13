@@ -83,9 +83,18 @@ describe('TransitStopDetail', () => {
     expect(onNameResolved).toHaveBeenCalledWith('Świętokrzyska')
   })
 
-  it('shows a map placeholder in the aside — no map library wired up yet', () => {
+  it('shows no map card when the group has no member with lat/lon (parent station, no members)', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    expect(screen.getByText('Mapa przystanku pojawi się tutaj wkrótce.')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /^Mapa przystanku/ })).not.toBeInTheDocument()
+  })
+
+  it('shows a map card with one pin per słupek when the group has members', () => {
+    useTransitBoard.mockReturnValue({
+      data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
+      error: null,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    expect(screen.getByRole('region', { name: 'Mapa przystanku Centrum' })).toBeInTheDocument()
   })
 
   it('filters the board by line when a line chip is clicked', async () => {

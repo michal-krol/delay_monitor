@@ -256,6 +256,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             currentHour={new Date(now).getHours()}
             weather={weather}
             stationName={stationName}
+            stationId={stationId}
           />
         </aside>
       )}
