@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
+import { trapTab } from '@/lib/focusTrap'
 import { MODE_ICON } from './transitMode'
 import { ExpandIcon, CloseIcon, MapIcon } from './icons'
 
@@ -163,6 +164,7 @@ export function MapView({
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   // Sygnatura TOŻSAMOŚCI/POZYCJI pinów, celowo BEZ `mode`/`preview`/`href`.
   // Dwa powody: (1) wołający (np. `TransitStopDetail`) przelicza `pins` na
@@ -202,6 +204,7 @@ export function MapView({
     document.body.style.overflow = 'hidden'
     function onKeyDown(event: KeyboardEvent): void {
       if (event.key === 'Escape') setExpanded(false)
+      trapTab(event, dialogRef.current)
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
@@ -239,7 +242,7 @@ export function MapView({
               className="absolute inset-0 bg-black/60"
               aria-hidden="true"
             />
-            <div role="dialog" aria-modal="true" aria-label={ariaLabel} className="absolute inset-4 overflow-hidden rounded-2xl shadow-2xl sm:inset-10">
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={ariaLabel} className="absolute inset-4 overflow-hidden rounded-2xl shadow-2xl sm:inset-10">
               <div ref={fullscreenContainerRef} className="h-full w-full" />
               <button
                 ref={closeButtonRef}

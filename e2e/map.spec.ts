@@ -61,6 +61,48 @@ test('przystanek miejski: „Powiększ mapę" otwiera pełnoekranowy widok z pod
   await expect(dialog).not.toBeVisible()
 })
 
+test('przystanek miejski: kliknięcie tła zamyka pełnoekranową mapę', async ({ page }) => {
+  await page.goto(CENTRUM)
+  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await page.getByRole('button', { name: 'Powiększ mapę' }).click()
+  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  await expect(dialog).toBeVisible()
+
+  // Dialog ma margines (inset-4 / sm:inset-10) -- róg viewportu to samo tło.
+  await page.mouse.click(3, 3)
+  await expect(dialog).not.toBeVisible()
+})
+
+test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', async ({ page, browserName }) => {
+  // WebKit domyślnie pomija przyciski w kolejności Tab (Full Keyboard Access).
+  test.skip(browserName === 'webkit', 'Tab w Safari zależy od ustawień systemu')
+  await page.goto(CENTRUM)
+  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await page.getByRole('button', { name: 'Powiększ mapę' }).click()
+  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  await expect(dialog).toBeVisible()
+  // MapLibre przebudowuje atrybucję (linki) po załadowaniu stylu -- Tab przed tym gubi fokus na body.
+  await expectTilesRendered(dialog.locator('canvas'))
+  await expect(dialog.getByRole('link', { name: 'MapLibre' })).toBeVisible()
+
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press('Tab')
+    const active = await page.evaluate(() => ({
+      inside: document.activeElement?.closest('[role="dialog"]') != null,
+      el: document.activeElement?.outerHTML.slice(0, 120),
+    }))
+    expect(active.inside, `Tab #${i + 1} wyszedł poza dialog: ${active.el}`).toBe(true)
+  }
+})
+
+test('przystanek miejski: zablokowane kafelki nie psują strony (piny i reszta widoku żyją)', async ({ page }) => {
+  await page.route('**/tiles.openfreemap.org/**', (route) => route.abort())
+  await page.goto(CENTRUM)
+  await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
+  await expect(page.locator('.maplibregl-marker')).toHaveCount(4, { timeout: READY })
+  await expect(page.getByRole('tab', { name: /^Centrum 0\d/ }).first()).toBeVisible()
+})
+
 test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten sam fetch, zero nowego zapytania)', async ({
   page,
 }) => {
@@ -77,6 +119,16 @@ test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten s
 })
 
 test('a11y: przystanek miejski z mapą bez naruszeń serious/critical', async ({ page }) => {
+  await page.goto(CENTRUM)
+  await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
+
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+})
+
+test('a11y: przystanek miejski z mapą w trybie ciemnym bez naruszeń serious/critical', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto(CENTRUM)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
 

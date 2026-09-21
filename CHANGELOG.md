@@ -7,6 +7,12 @@ Wersjonowanie semantyczne.
 
 ### Dodane
 
+- **Mapa (MapLibre GL + OpenFreeMap)** — mapa lokalizacji na stronie stacji PKP
+  i przystanku miejskiego: piny z ikoną trybu, popup z najbliższymi odjazdami,
+  widok pełnoekranowy (Escape / tło / focus-trap), klik pinu przełącza słupek.
+  Jedyny obcy origin w CSP: `tiles.openfreemap.org` (AGENTS.md #6). Worker
+  MapLibre wendorowany w `public/` (bez tego kafelki nie rysują się w buildzie
+  produkcyjnym); zgodność z `node_modules` pilnuje `MapView.test.tsx`.
 - **Nawigacja mobilna (hamburger)** — poniżej `sm` pasek boczny był chowany
   całkowicie, przez co Pulpit / Odjazdy / Trasy były niedostępne na telefonie.
   Cienki pasek app-level z hamburgerem + wysuwana szuflada (przyciemnione tło,
