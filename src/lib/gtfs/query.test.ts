@@ -427,6 +427,24 @@ describe('lineDetail', () => {
     expect(detail.directions[0].stops.map((s) => s.street)).toEqual(['Marszałkowska', 'Modlińska'])
   })
 
+  it('carries stop coordinates so the line page can draw the route', async () => {
+    const schedule = await make({
+      routes: [route('20', 0, '20')],
+      stops: [
+        { id: '100101', name: 'Rondo', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1, street: null },
+        { id: '100201', name: 'Piaski', lat: 52.01, lon: 21.01, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1, street: null },
+      ],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'Piaski', directionId: 0 }],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        't,100101,06:00:00,06:00:00,1',
+        't,100201,06:05:00,06:05:00,2',
+      ],
+    })
+    const stops = lineDetail(schedule, '20')!.directions[0].stops
+    expect(stops.map((s) => [s.lat, s.lon])).toEqual([[52, 21], [52.01, 21.01]])
+  })
+
   it('builds the representative run for each direction from the schedule', async () => {
     const schedule = await make({
       routes: [route('20', 0, '20')],

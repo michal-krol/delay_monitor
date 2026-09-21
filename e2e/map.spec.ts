@@ -147,3 +147,32 @@ test('a11y: powiększona mapa (dialog) bez naruszeń serious/critical', async ({
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
+
+// Mock: linia 20 ma 2 pojazdy (fixtures/gtfs/warszawa/vehicles.json, side_number 380x) -- patrz gtfs-vehicles.spec.ts.
+const LINE_20 = '/city/warszawa/line/20'
+
+test('linia: mapa trasy rysuje piny przystanków i pojazdy, klik pinu wybiera przystanek', async ({ page }) => {
+  await page.goto(LINE_20)
+  const map = page.getByRole('region', { name: 'Mapa trasy linii 20' })
+  await expect(map).toBeVisible({ timeout: READY })
+  await expectTilesRendered(map.locator('canvas'))
+  // Pojazdy z tego samego pollingu co karta „Pojazdy w trasie" (zero nowych zapytań).
+  await expect(map.getByTestId('map-mover').first()).toBeVisible({ timeout: READY })
+
+  const stopPins = map.locator('.maplibregl-marker:not([data-testid="map-mover"])')
+  const count = await stopPins.count()
+  expect(count).toBeGreaterThanOrEqual(2)
+  // Lista przystanków trasy: dokładnie jeden przycisk `aria-pressed` (wybrany). Domyślnie pierwszy.
+  const selected = page.locator('ol button[aria-pressed="true"]')
+  const before = await selected.innerText()
+  await stopPins.nth(1).click()
+  await expect(selected).not.toHaveText(before)
+})
+
+test('a11y: strona linii z mapą trasy bez naruszeń serious/critical', async ({ page }) => {
+  await page.goto(LINE_20)
+  await expect(page.getByRole('region', { name: 'Mapa trasy linii 20' })).toBeVisible({ timeout: READY })
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+})

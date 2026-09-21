@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { notFound, useParams, useRouter } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
@@ -8,6 +8,7 @@ import { Breadcrumb } from '@/components/Breadcrumb'
 import { AlertBanner } from '@/components/AlertBanner'
 import { LineBadge } from '@/components/LineBadge'
 import { LineTimetable } from '@/components/LineTimetable'
+import { MapView, type MapMover, type MapPin } from '@/components/MapView'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
@@ -18,6 +19,7 @@ import { pluralPl } from '@/lib/plural'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
+import { vehicleLatLon } from '@/lib/gtfs/vehiclePosition'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
 
 type LineResponse = {
@@ -29,6 +31,8 @@ type LineResponse = {
 }
 type CityEntry = { id: string; name: string; railStations: { id: string; name: string }[] }
 
+// Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
+const NO_STOPS: LineDetail['directions'][number]['stops'] = []
 const LOADING_RETRY_MS = [1000, 2000, 3000, 5000, 8000, 15000]
 const KIND_LABEL = { regular: '', night: 'linia nocna', express: 'linia przyspieszona', replacement: 'linia zastępcza' } as const
 
@@ -100,7 +104,7 @@ export default function LineDetailPage() {
   const loading = data === null && !failed
   const directions = line?.directions ?? []
   const direction = directions[Math.min(dirIdx, Math.max(0, directions.length - 1))]
-  const stops = direction?.stops ?? []
+  const stops = direction?.stops ?? NO_STOPS
   const selectedStop = stops[Math.min(stopSel, Math.max(0, stops.length - 1))]
 
   // Endpoint pozycji przyjmuje wyłącznie kierunek 0/1; przebieg bywa oznaczony
@@ -108,6 +112,33 @@ export default function LineDetailPage() {
   const vehicleDir = direction?.directionId === 1 ? 1 : 0
   const showVehicles = direction !== undefined && (direction.directionId === 0 || direction.directionId === 1)
   const liveVehicles = useLineVehicles(city, routeId, showVehicles ? vehicleDir : 2)
+
+  // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam słupek może wystąpić
+  // dwa razy), pojazdy z tego samego pollingu co karta „Pojazdy w trasie" -- zero nowych zapytań.
+  const mapPins = useMemo<MapPin[]>(
+    () =>
+      stops.map((stop, index) => ({
+        id: String(index),
+        lat: stop.lat,
+        lon: stop.lon,
+        label: stop.code !== null ? `${stop.name} ${stop.code}` : stop.name,
+        mode: line?.mode,
+        href: `/city/${city}/stop/${encodeStopIdForPathSegment(stop.stopId)}?name=${encodeURIComponent(stop.name)}`,
+      })),
+    [stops, line?.mode, city]
+  )
+  const mapRoute = useMemo(() => ({ points: stops, color: line?.color ?? null }), [stops, line?.color])
+  const mapMovers = useMemo<MapMover[]>(() => {
+    if (!showVehicles) return []
+    const movers: MapMover[] = []
+    for (const v of liveVehicles.vehicles) {
+      const at = vehicleLatLon(stops, v)
+      if (at === null) continue
+      movers.push({ id: v.sideNumber + v.tripId, ...at, label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”` })
+    }
+    return movers
+  }, [showVehicles, liveVehicles.vehicles, stops])
+  const onMapPinClick = useCallback((id: string) => setStopSel(Number(id)), [])
 
   function switchDirection(): void {
     setDirIdx((i) => (i + 1) % Math.max(1, directions.length))
@@ -225,6 +256,20 @@ export default function LineDetailPage() {
               <span>{direction.headsign ?? stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`}</span>
               {directions.length >= 2 && <SwapIcon size={15} className="ml-1 text-indigo-600 dark:text-indigo-400" />}
             </button>
+
+            {/* W treści głównej, nie w aside: aside jest `hidden xl:flex`, a mapa ma działać też na telefonie. */}
+            {stops.length >= 2 && (
+              <section className="glass rounded-2xl p-4">
+                <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
+                <MapView
+                  pins={mapPins}
+                  route={mapRoute}
+                  movers={mapMovers}
+                  onPinClick={onMapPinClick}
+                  ariaLabel={`Mapa trasy linii ${line.line}`}
+                />
+              </section>
+            )}
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
               <section className="glass rounded-2xl p-4">

@@ -13,6 +13,13 @@ Wersjonowanie semantyczne.
   Jedyny obcy origin w CSP: `tiles.openfreemap.org` (AGENTS.md #6). Worker
   MapLibre wendorowany w `public/` (bez tego kafelki nie rysują się w buildzie
   produkcyjnym); zgodność z `node_modules` pilnuje `MapView.test.tsx`.
+- **Mapa trasy na stronie linii** — przystanki przebiegu jako piny (klik wybiera
+  przystanek na liście, popup linkuje do tablicy słupka), linia po kolejnych
+  przystankach w kolorze linii i pojazdy na żywo. Pozycja pojazdu jest liczona po
+  stronie klienta z `afterStopOrder`/`fraction` i współrzędnych przystanków
+  (`LineRouteStop.lat/lon`) — surowe lat/lon pojazdu nadal nie wychodzi z serwera,
+  zero nowych zapytań, zero pola opóźnienia (#13). Geometria: linia prosta po
+  przystankach (feed nie ma `shapes.txt`).
 - **Nawigacja mobilna (hamburger)** — poniżej `sm` pasek boczny był chowany
   całkowicie, przez co Pulpit / Odjazdy / Trasy były niedostępne na telefonie.
   Cienki pasek app-level z hamburgerem + wysuwana szuflada (przyciemnione tło,
