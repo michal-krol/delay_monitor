@@ -342,7 +342,10 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   // „najdłuższy" łapał kursy nietypowe (zjazdy do zajezdni z `exceptional=0`,
   // wydłużone objazdy), przez co strona linii pokazywała zły przystanek
   // startowy i tylko jedną kategorię dnia. O(1) amortyzowane.
-  const routePatterns = new Map<string, { stops: number[]; offsets: number[]; headsignIdx: number; onRequest: number[] }>()
+  const routePatterns = new Map<
+    string,
+    { stops: number[]; offsets: number[]; headsignIdx: number; onRequest: number[]; shape: Float32Array | null }
+  >()
   /** `${routeKey}#${sygnatura słupków}` → ile kursów miało dokładnie ten przebieg. */
   const patternSeen = new Map<string, number>()
   /** `${routeKey}` → aktualnie wybrany wzorzec + jego licznik. */

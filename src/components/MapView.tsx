@@ -23,7 +23,7 @@ export type MapPin = {
 
 /** Ruchomy punkt (pojazd) — markery aktualizowane w miejscu, bez przebudowy mapy. */
 export type MapMover = { id: string; lat: number; lon: number; label: string }
-/** Trasa rysowana jako linia prosta po kolejnych punktach (brak `shapes.txt` w feedzie). */
+/** Trasa rysowana po kolejnych punktach — kontur ulic z `shapes.txt` gdy wzorzec go ma, inaczej łamana po przystankach (`schedule.ts`/`query.ts` decydują, MapView tylko rysuje). */
 export type MapRoute = { points: { lat: number; lon: number }[]; color: string | null }
 
 type MoverHandle = { sync: (movers: MapMover[]) => void }

@@ -19,7 +19,6 @@ import { pluralPl } from '@/lib/plural'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
-import { vehicleLatLon } from '@/lib/gtfs/vehiclePosition'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
 
 type LineResponse = {
@@ -127,16 +126,18 @@ export default function LineDetailPage() {
       })),
     [stops, line?.mode, city]
   )
-  const mapRoute = useMemo(() => ({ points: stops, color: line?.color ?? null }), [stops, line?.color])
+  const mapRoute = useMemo(
+    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, color: line?.color ?? null }),
+    [direction?.shape, stops, line?.color]
+  )
   const mapMovers = useMemo<MapMover[]>(() => {
     if (!showVehicles) return []
-    const movers: MapMover[] = []
-    for (const v of liveVehicles.vehicles) {
-      const at = vehicleLatLon(stops, v)
-      if (at === null) continue
-      movers.push({ id: v.sideNumber + v.tripId, ...at, label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”` })
-    }
-    return movers
+    return liveVehicles.vehicles.map((v) => ({
+      id: v.sideNumber + v.tripId,
+      lat: v.lat,
+      lon: v.lon,
+      label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”`,
+    }))
   }, [showVehicles, liveVehicles.vehicles, stops])
   const onMapPinClick = useCallback((id: string) => setStopSel(Number(id)), [])
 

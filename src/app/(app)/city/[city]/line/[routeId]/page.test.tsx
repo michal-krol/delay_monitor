@@ -77,7 +77,19 @@ function stubFetch(lineBody: unknown = LINE) {
       if (url.startsWith('/api/gtfs/vehicles'))
         return jsonResponse({
           vehicles: [
-            { sideNumber: '3801', tripId: 't', routeId: '20', directionId: 0, afterStopOrder: 0, fraction: 0.5, ageSec: 10, headsign: 'x', bearing: null },
+            {
+              sideNumber: '3801',
+              tripId: 't',
+              routeId: '20',
+              directionId: 0,
+              afterStopOrder: 0,
+              fraction: 0.5,
+              lat: 52.015,
+              lon: 21.012,
+              ageSec: 10,
+              headsign: 'x',
+              bearing: null,
+            },
           ],
           feed: { state: 'ready', ageMs: 5000 },
         })
@@ -95,7 +107,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('LineDetailPage', () => {
-  it('draws the route map from the stops, with live vehicles interpolated between them', async () => {
+  it('draws the route map from the stops, with vehicles at their raw feed position', async () => {
     stubFetch()
     render(<LineDetailPage />)
     const map = await screen.findByTestId('map')
@@ -103,9 +115,9 @@ describe('LineDetailPage', () => {
     expect(map).toHaveTextContent('3 pins, 3 route points')
     const mover = await screen.findByTestId('mover')
     expect(mover).toHaveTextContent('#3801 · za „Centrum”')
-    // afterStopOrder 0, fraction 0.5 -> środek odcinka Centrum (52, 21) – Rondo ONZ (52.02, 21.02)
-    expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.01)
-    expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.01)
+    // Pozycja pojazdu na mapie to surowe lat/lon z feedu (nie interpolacja po przystankach).
+    expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.015)
+    expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.012)
   })
 
   it('calls notFound for a malformed route id', () => {
