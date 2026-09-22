@@ -35,11 +35,14 @@
 import { writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { matchStationName } from './lib/stationNameMatch.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUTPUT_PATH = path.join(__dirname, '..', 'data', 'station-coordinates.json')
 const PLK_BASE_URL = 'https://pdp-api.plk-sa.pl'
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
+const OVERPASS_RADIUS_M = 5000
 // Nominatim wymaga identyfikującego User-Agent (polityka OSM) -- podmień na
 // swój kontakt, jeśli uruchamiasz to poza jednorazowym developmentem.
 const USER_AGENT = 'delay-monitor-station-coords-script/1.0 (one-off enrichment run)'
@@ -99,6 +102,29 @@ async function geocodeWithFallback(name) {
   return { lat: null, lon: null, source: 'failed' }
 }
 
+/**
+ * Węzły kolejowe (stacja/przystanek) w promieniu wokół już znanej
+ * współrzędnej miejscowości (fallback z pierwszego przebiegu). Overpass jest
+ * publiczny, bez klucza -- ten sam duch rate-limitu co Nominatim wyżej, nie
+ * uruchamiać w pętli/cron.
+ */
+async function overpassSearch(lat, lon) {
+  const query = `[out:json][timeout:25];node["railway"~"station|halt"](around:${OVERPASS_RADIUS_M},${lat},${lon});out;`
+  const res = await fetch(OVERPASS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain', 'User-Agent': USER_AGENT },
+    body: query,
+  })
+  if (!res.ok) {
+    console.warn(`  Overpass ${res.status} dla (${lat}, ${lon})`)
+    return []
+  }
+  const body = await res.json()
+  return body.elements
+    .filter((el) => el.tags?.name)
+    .map((el) => ({ name: el.tags.name, lat: el.lat, lon: el.lon }))
+}
+
 function loadExisting() {
   if (!existsSync(OUTPUT_PATH)) return {}
   try {
@@ -110,6 +136,41 @@ function loadExisting() {
 
 function save(result) {
   writeFileSync(OUTPUT_PATH, JSON.stringify(result, null, 2) + '\n', 'utf-8')
+}
+
+/**
+ * Drugi przebieg: dla wpisów, którym pierwszy przebieg (Nominatim, wyżej) nie
+ * dał realnej stacji (`city-fallback`/`failed`), szuka węzła kolejowego w
+ * Overpass wokół już znanej współrzędnej miejscowości. Ten sam plik wynikowy,
+ * ta sama zasada wznawialności: pomija wpisy już `source: 'osm-railway'`.
+ */
+async function upgradeFallbackEntries() {
+  const result = loadExisting()
+  const todo = Object.entries(result).filter(([, entry]) => entry.source === 'city-fallback' || entry.source === 'failed')
+  console.log(`Do ulepszenia (city-fallback/failed): ${todo.length}`)
+
+  let upgraded = 0
+  for (let i = 0; i < todo.length; i += 1) {
+    const [id, entry] = todo[i]
+    if (entry.lat !== null && entry.lon !== null) {
+      const candidates = await overpassSearch(entry.lat, entry.lon)
+      const match = matchStationName(candidates, entry.name)
+      if (match !== null) {
+        result[id] = { name: entry.name, lat: match.lat, lon: match.lon, source: 'osm-railway' }
+        upgraded += 1
+      }
+    }
+
+    if (i % 25 === 0 || i === todo.length - 1) {
+      save(result)
+      console.log(`[${i + 1}/${todo.length}] ${entry.name} -> ${result[id].source}`)
+    }
+    await sleep(RATE_LIMIT_MS)
+  }
+
+  save(result)
+  console.log(`\n--- Podsumowanie ulepszenia ---`)
+  console.log(`Ulepszonych do 'osm-railway': ${upgraded}/${todo.length}`)
 }
 
 async function main() {
@@ -153,7 +214,9 @@ async function main() {
   console.log(`\nZapisano do ${OUTPUT_PATH}`)
 }
 
-main().catch((err) => {
+const mode = process.argv.includes('--upgrade-fallback') ? 'upgrade' : 'geocode'
+const run = mode === 'upgrade' ? upgradeFallbackEntries : main
+run().catch((err) => {
   console.error(err)
   process.exit(1)
 })
