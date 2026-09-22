@@ -356,7 +356,7 @@ describe('buildSchedule — shapes', () => {
         ...trips.map((t, i) => `${t.tripId},1001,0${6 + i}:00:00,0${6 + i}:00:00,1`),
         ...trips.map((t, i) => `${t.tripId},2002,0${6 + i}:10:00,0${6 + i}:10:00,2`),
       ],
-      shapeLines,
+      shapeLines: shapeLines !== undefined ? async () => shapeLines : undefined,
     })
 
   it('attaches the shape belonging to the winning pattern', async () => {
@@ -454,6 +454,36 @@ describe('buildSchedule — shapes', () => {
     )
     const pattern = schedule.routePatterns.get('0:0')!
     expect(Array.from(pattern.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
+  })
+
+  it('reads shapes.txt lazily — the factory is not called until stop_times.txt is fully consumed', async () => {
+    let stopTimesExhausted = false
+    async function* stopTimeGen() {
+      yield 'trip_id,stop_id,arrival_time,departure_time,stop_sequence'
+      yield 't,1001,06:00:00,06:00:00,1'
+      yield 't,2002,06:10:00,06:10:00,2'
+      stopTimesExhausted = true
+    }
+    let calledTooEarly = false
+    const shapeLines = async () => {
+      if (!stopTimesExhausted) calledTooEarly = true
+      return [
+        'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+        '20-0,1,52.1,21.0,0',
+        '20-0,2,52.2,21.05,100',
+      ]
+    }
+    const schedule = await buildSchedule(
+      makeInput({
+        routes: [route('20', 0, '20')],
+        stops: [stop('1001', 'A'), stop('2002', 'B')],
+        trips: [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        stopTimeLines: stopTimeGen(),
+        shapeLines,
+      })
+    )
+    expect(calledTooEarly).toBe(false)
+    expect(schedule.routePatterns.get('0:0')!.shape).not.toBeNull()
   })
 
   it('drops a shape row with a non-numeric lat/lon, keeping the valid points', async () => {

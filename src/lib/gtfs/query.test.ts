@@ -28,7 +28,7 @@ function stop(id: string, name: string, parentId: string | null = null) {
   return { id, name, lat: 52, lon: 21, locationType: '0', parentId, platformCode: null, wheelchair: 0 as const }
 }
 
-function make(over: Partial<BuildScheduleInput>) {
+function make(over: Partial<Omit<BuildScheduleInput, 'shapeLines'>> & { shapeLines?: string[] }) {
   return buildSchedule({
     feedVersion: 'v1',
     serviceDates: DATES,
@@ -41,7 +41,7 @@ function make(over: Partial<BuildScheduleInput>) {
     calendars: [],
     calendarDates: over.calendarDates ?? [{ serviceId: 'S', date: '20260902', added: true }],
     stopTimeLines: over.stopTimeLines ?? [],
-    shapeLines: over.shapeLines,
+    shapeLines: over.shapeLines !== undefined ? async () => over.shapeLines! : undefined,
   })
 }
 

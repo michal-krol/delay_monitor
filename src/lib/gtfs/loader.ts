@@ -91,11 +91,15 @@ export async function loadSchedule(
   const stopTimeStream = await client.readEntry('stop_times.txt')
   if (stopTimeStream === null) throw new Error('Brak stop_times.txt w feedzie GTFS.')
 
-  // 7b. shapes.txt — opcjonalny (żaden zapis w schedule.ts nie zależy od
-  // kolejności odczytu wpisów zipa, patrz zip.ts: dostęp losowy przez
-  // centralny katalog). Brak pliku → `undefined` → `routePatterns[*].shape` zostaje `null`.
+  // 7b. shapes.txt — czytany LENIWIE wewnątrz `buildSchedule`, dopiero po
+  // pełnym wyczerpaniu strumienia `stop_times.txt`. NIE odczytywać go tutaj
+  // eagerly: na żywym kliencie drugie żądanie zakresowe do tego samego URL-a
+  // (`shapes.txt`), wystawione zanim `stop_times.txt` zostanie skonsumowany,
+  // psuje jeszcze otwartą odpowiedź stop_times — zaobserwowane: 100% wierszy
+  // odrzuconych mimo poprawnego kształtu pliku. `zip.ts` jest bezstanowe
+  // (dostęp losowy przez centralny katalog), ale sam transport HTTP na żywym
+  // feedzie NIE toleruje dwóch nakładających się żądań zakresowych.
   phase('shapes')
-  const shapeStream = await client.readEntry('shapes.txt')
 
   const schedule = await buildSchedule({
     feedVersion: feedVersionBefore,
@@ -109,7 +113,7 @@ export async function loadSchedule(
     calendars,
     calendarDates,
     stopTimeLines: stopTimeStream,
-    shapeLines: shapeStream ?? undefined,
+    shapeLines: () => client.readEntry('shapes.txt'),
   })
 
   // 8. feed_info — musi się równać krokowi 1

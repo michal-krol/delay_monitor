@@ -77,8 +77,15 @@ export type BuildScheduleInput = {
   calendarDates: ParsedCalendarDate[]
   /** Surowe linie `stop_times.txt` WŁĄCZNIE z wierszem nagłówka. */
   stopTimeLines: AsyncIterable<string> | Iterable<string>
-  /** Surowe linie `shapes.txt` WŁĄCZNIE z nagłówkiem, gdy feed go ma. `undefined` = brak pliku. */
-  shapeLines?: AsyncIterable<string> | Iterable<string>
+  /**
+   * Fabryka strumienia `shapes.txt` (WŁĄCZNIE z nagłówkiem), wołana LENIWIE —
+   * dopiero po pełnym wyczerpaniu `stopTimeLines`. Nie eagerly-resolved
+   * `AsyncIterable` — na żywym kliencie drugie żądanie zakresowe do tego
+   * samego URL-a, wystawione zanim strumień `stop_times.txt` zostanie
+   * skonsumowany, psuje jeszcze otwartą odpowiedź stop_times (zaobserwowane:
+   * 100% wierszy odrzuconych). `undefined` = feed nie ma pliku.
+   */
+  shapeLines?: () => Promise<AsyncIterable<string> | Iterable<string> | null>
 }
 
 /** Rosnąca tablica typowana — podwajanie zamiast transientu z tablic JS. */
@@ -494,6 +501,9 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     for (const pick of patternPick.values()) if (pick.shapeId !== null) neededShapeIds.add(pick.shapeId)
 
     if (neededShapeIds.size > 0) {
+      // Wołane DOPIERO teraz — po pełnym wyczerpaniu `stopTimeLines` powyżej
+      // (patrz doc-comment `BuildScheduleInput.shapeLines`).
+      const shapeLines = await input.shapeLines()
       const rawShapePoints = new Map<string, { seq: number; lat: number; lon: number }[]>()
       let shapeHeader: Map<string, number> | null = null
       let shapeIdCol = 0
@@ -502,7 +512,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       let shapeLonCol = 0
       let fastShape = false
 
-      for await (const rawLine of input.shapeLines) {
+      if (shapeLines !== null) for await (const rawLine of shapeLines) {
         const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
         if (line === '') continue
 
