@@ -43,6 +43,7 @@ function makeInput(over: Overrides): BuildScheduleInput {
     // podają własne `calendarDates`.
     calendarDates: over.calendarDates ?? [{ serviceId: 'S', date: '20260902', added: true }],
     stopTimeLines: over.stopTimeLines ?? [],
+    shapeLines: over.shapeLines,
   }
 }
 
@@ -341,5 +342,133 @@ describe('buildSchedule — tripPatternRef', () => {
     expect(schedule.tripPatternRef.get('2026-09-04:20:PtS:2:0903')).toEqual({ routeIdx: 0, direction: 1 })
     expect(schedule.tripPatternRef.has('depot')).toBe(false) // kurs techniczny (exceptional)
     expect(schedule.tripPatternRef.has('noroute')).toBe(false) // linia nieznana
+  })
+})
+
+describe('buildSchedule — shapes', () => {
+  const twoStopInput = (trips: BuildScheduleInput['trips'], shapeLines?: string[]) =>
+    makeInput({
+      routes: [route('20', 0, '20')],
+      stops: [stop('1001', 'A'), stop('2002', 'B')],
+      trips,
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        ...trips.map((t, i) => `${t.tripId},1001,0${6 + i}:00:00,0${6 + i}:00:00,1`),
+        ...trips.map((t, i) => `${t.tripId},2002,0${6 + i}:10:00,0${6 + i}:10:00,2`),
+      ],
+      shapeLines,
+    })
+
+  it('attaches the shape belonging to the winning pattern', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput(
+        [
+          { routeId: '20', serviceId: 'S', tripId: 't1', headsign: 'B', directionId: 0, shapeId: '20-0' },
+          { routeId: '20', serviceId: 'S', tripId: 't2', headsign: 'B', directionId: 0, shapeId: '20-0' },
+        ],
+        [
+          'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+          '20-0,1,52.1,21.0,0',
+          '20-0,2,52.2,21.05,100',
+        ]
+      )
+    )
+    const pattern = schedule.routePatterns.get('0:0')!
+    expect(Array.from(pattern.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
+  })
+
+  it('ignores shape rows for a shape_id no winning pattern needs', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput(
+        [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        [
+          'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+          '20-0,1,52.1,21.0,0',
+          '20-0,2,52.2,21.05,100',
+          '99-9,1,10.0,10.0,0',
+          '99-9,2,20.0,20.0,0',
+        ]
+      )
+    )
+    const pattern = schedule.routePatterns.get('0:0')!
+    expect(Array.from(pattern.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
+  })
+
+  it('sorts shape points by shape_pt_sequence regardless of row order', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput(
+        [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        [
+          'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+          '20-0,3,52.3,21.1,200',
+          '20-0,1,52.1,21.0,0',
+          '20-0,2,52.2,21.05,100',
+        ]
+      )
+    )
+    const pattern = schedule.routePatterns.get('0:0')!
+    expect(Array.from(pattern.shape!)).toEqual([
+      Math.fround(52.1), Math.fround(21.0),
+      Math.fround(52.2), Math.fround(21.05),
+      Math.fround(52.3), Math.fround(21.1),
+    ])
+  })
+
+  it('leaves shape null when the feed has no shapes.txt stream, even with shape_id set on trips', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput([{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }])
+    )
+    expect(schedule.routePatterns.get('0:0')!.shape).toBeNull()
+  })
+
+  it('drops a shape with fewer than 2 points to null', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput(
+        [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        ['shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled', '20-0,1,52.1,21.0,0']
+      )
+    )
+    expect(schedule.routePatterns.get('0:0')!.shape).toBeNull()
+  })
+
+  it('leaves shape null when the referenced shape_id is missing from shapes.txt entirely', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput(
+        [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        [
+          'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+          '99-9,1,10.0,10.0,0',
+          '99-9,2,20.0,20.0,0',
+        ]
+      )
+    )
+    expect(schedule.routePatterns.get('0:0')!.shape).toBeNull()
+  })
+
+  it('reads shape columns by header name when shape_id is not the first column', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput(
+        [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        ['shape_pt_sequence,shape_id,shape_pt_lat,shape_pt_lon', '1,20-0,52.1,21.0', '2,20-0,52.2,21.05']
+      )
+    )
+    const pattern = schedule.routePatterns.get('0:0')!
+    expect(Array.from(pattern.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
+  })
+
+  it('drops a shape row with a non-numeric lat/lon, keeping the valid points', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput(
+        [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        [
+          'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+          '20-0,1,52.1,21.0,0',
+          '20-0,2,notanumber,notanumber,50',
+          '20-0,3,52.2,21.05,100',
+        ]
+      )
+    )
+    const pattern = schedule.routePatterns.get('0:0')!
+    expect(Array.from(pattern.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
   })
 })

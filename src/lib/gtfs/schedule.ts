@@ -42,6 +42,8 @@ export type ParsedTrip = {
   directionId: 0 | 1 | 2
   /** `exceptional=1` — zjazd do zajezdni / kurs techniczny. Domyślnie `false`. */
   exceptional?: boolean
+  /** `shape_id` z `trips.txt`, do dociągnięcia geometrii z `shapes.txt`. `undefined`/`''` → `null`. */
+  shapeId?: string | null
 }
 
 export type ParsedFrequency = {
@@ -75,6 +77,8 @@ export type BuildScheduleInput = {
   calendarDates: ParsedCalendarDate[]
   /** Surowe linie `stop_times.txt` WŁĄCZNIE z wierszem nagłówka. */
   stopTimeLines: AsyncIterable<string> | Iterable<string>
+  /** Surowe linie `shapes.txt` WŁĄCZNIE z nagłówkiem, gdy feed go ma. `undefined` = brak pliku. */
+  shapeLines?: AsyncIterable<string> | Iterable<string>
 }
 
 /** Rosnąca tablica typowana — podwajanie zamiast transientu z tablic JS. */
@@ -242,7 +246,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   /** base trip_id → meta — do wzorca przebiegu i indeksu rozkładu linii (`lineRuns`). */
   const tripMetaById = new Map<
     string,
-    { routeIdx: number; direction: number; headsignIdx: number; category: number; exceptional: boolean }
+    { routeIdx: number; direction: number; headsignIdx: number; category: number; exceptional: boolean; shapeId: string | null }
   >()
 
   const pushTrip = (
@@ -270,7 +274,14 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     const headsignIdx = internHeadsign(trip.headsign)
     const isFrequency = frequencyTripIds.has(trip.tripId)
     const category = categoryOf(trip.serviceId)
-    tripMetaById.set(trip.tripId, { routeIdx, direction: trip.directionId, headsignIdx, category, exceptional: trip.exceptional === true })
+    tripMetaById.set(trip.tripId, {
+      routeIdx,
+      direction: trip.directionId,
+      headsignIdx,
+      category,
+      exceptional: trip.exceptional === true,
+      shapeId: trip.shapeId ?? null,
+    })
     for (let day = 0; day < 3; day += 1) {
       if (!activeSets[day].has(trip.serviceId)) continue
       const entry = pushTrip(trip.tripId, routeIdx, headsignIdx, day, trip.directionId, category, isFrequency)
@@ -337,14 +348,15 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   /** `${routeKey}` → aktualnie wybrany wzorzec + jego licznik. */
   const patternPick = new Map<
     string,
-    { stops: number[]; offsets: number[]; headsignIdx: number; onRequest: number[]; count: number }
+    { stops: number[]; offsets: number[]; headsignIdx: number; onRequest: number[]; count: number; shapeId: string | null }
   >()
   let patternTripId = ''
   let patternStops: { seq: number; stopIdx: number; depSec: number; onRequest: boolean }[] = []
   const registerPattern = (
     key: string,
     sorted: { seq: number; stopIdx: number; depSec: number; onRequest: boolean }[],
-    headsignIdx: number
+    headsignIdx: number,
+    shapeId: string | null
   ) => {
     const signature = sorted.map((p) => p.stopIdx).join(',')
     const seenKey = `${key}#${signature}`
@@ -358,6 +370,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
         offsets: sorted.map((p) => p.depSec - base),
         onRequest: sorted.map((p) => (p.onRequest ? 1 : 0)),
         headsignIdx,
+        shapeId,
         count,
       })
     }
@@ -367,7 +380,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       const meta = tripMetaById.get(patternTripId)
       if (meta !== undefined && meta.routeIdx >= 0 && !meta.exceptional) {
         const sorted = [...patternStops].sort((a, b) => a.seq - b.seq)
-        registerPattern(`${meta.routeIdx}:${meta.direction}`, sorted, meta.headsignIdx)
+        registerPattern(`${meta.routeIdx}:${meta.direction}`, sorted, meta.headsignIdx, meta.shapeId)
         runRouteG.push(meta.routeIdx)
         runDirG.push(meta.direction)
         runCatG.push(meta.category)
@@ -464,7 +477,74 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     const meta = tripMetaById.get(tripId)
     if (meta === undefined || meta.routeIdx < 0 || meta.exceptional) continue
     const sorted = [...pattern].sort((a, b) => a.seq - b.seq).map((p) => ({ ...p, onRequest: false }))
-    registerPattern(`${meta.routeIdx}:${meta.direction}`, sorted, meta.headsignIdx)
+    registerPattern(`${meta.routeIdx}:${meta.direction}`, sorted, meta.headsignIdx, meta.shapeId)
+  }
+
+  // ── shapes: kontur ulic per wygrany wzorzec (linia, kierunek) ────────────
+  // Zbieramy TYLKO `shape_id` potrzebne wygranym wzorcom (setki, nie cały
+  // feed) — prefiltr przez pierwszą kolumnę przed pełnym parsem CSV, jak
+  // `fastTrip` w pętli stop_times. Ręczny parser, nie Zod/`parseRows` — ten
+  // sam powód co `stop_times.txt` (nagłówek pliku), tylko mniejsza skala.
+  const shapeById = new Map<string, Float32Array>()
+  if (input.shapeLines !== undefined) {
+    const neededShapeIds = new Set<string>()
+    for (const pick of patternPick.values()) if (pick.shapeId !== null) neededShapeIds.add(pick.shapeId)
+
+    if (neededShapeIds.size > 0) {
+      const rawShapePoints = new Map<string, { seq: number; lat: number; lon: number }[]>()
+      let shapeHeader: Map<string, number> | null = null
+      let shapeIdCol = 0
+      let shapeSeqCol = 0
+      let shapeLatCol = 0
+      let shapeLonCol = 0
+      let fastShape = false
+
+      for await (const rawLine of input.shapeLines) {
+        const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+        if (line === '') continue
+
+        if (shapeHeader === null) {
+          shapeHeader = headerIndex(line)
+          shapeIdCol = shapeHeader.get('shape_id') ?? 0
+          shapeSeqCol = shapeHeader.get('shape_pt_sequence') ?? 0
+          shapeLatCol = shapeHeader.get('shape_pt_lat') ?? 0
+          shapeLonCol = shapeHeader.get('shape_pt_lon') ?? 0
+          fastShape = shapeIdCol === 0
+          continue
+        }
+
+        let shapeId: string
+        if (fastShape && !line.includes('"')) {
+          const comma = line.indexOf(',')
+          shapeId = comma === -1 ? line : line.slice(0, comma)
+        } else {
+          shapeId = parseCsvLine(line)[shapeIdCol] ?? ''
+        }
+        if (!neededShapeIds.has(shapeId)) continue
+
+        const row = line.includes('"') ? parseCsvLine(line) : line.split(',')
+        const lat = Number(row[shapeLatCol])
+        const lon = Number(row[shapeLonCol])
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
+        const seqNum = Number(row[shapeSeqCol])
+        const seq = Number.isFinite(seqNum) ? seqNum : 0
+
+        const points = rawShapePoints.get(shapeId)
+        if (points === undefined) rawShapePoints.set(shapeId, [{ seq, lat, lon }])
+        else points.push({ seq, lat, lon })
+      }
+
+      for (const [shapeId, points] of rawShapePoints) {
+        if (points.length < 2) continue
+        const sorted = [...points].sort((a, b) => a.seq - b.seq)
+        const flat = new Float32Array(sorted.length * 2)
+        sorted.forEach((p, i) => {
+          flat[i * 2] = p.lat
+          flat[i * 2 + 1] = p.lon
+        })
+        shapeById.set(shapeId, flat)
+      }
+    }
   }
 
   // Finalizacja: najczęstszy wzorzec per (linia, kierunek) → `routePatterns`.
@@ -474,6 +554,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       offsets: pick.offsets,
       headsignIdx: pick.headsignIdx,
       onRequest: pick.onRequest,
+      shape: pick.shapeId !== null ? (shapeById.get(pick.shapeId) ?? null) : null,
     })
   }
 
