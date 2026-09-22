@@ -252,7 +252,8 @@ Przeglądarka ──▶ /api/gtfs/{board,lines,line,city-stats}
   ponawia z narastającym backoffem. Faza ładowania jest widoczna w UI
   („wczytuję rozkład — przystanki i linie"), nie ukryta pod spinnerem.
 - **Hierarchia:** miasto → linia (`/city/[city]/line/[routeId]`, przebieg
-  w obu kierunkach + rozkład godzinowy z kolumnami dni) → przystanek
+  w obu kierunkach — z `shapes.txt` gdy feed go ma, inaczej łamana po
+  przystankach — + rozkład godzinowy z kolumnami dni) → przystanek
   (`/city/[city]/stop/[stopId]`, tablica odjazdów) → rozkład. Stoi obok
   kolejowej stacja → połączenie → przebieg trasy.
 - **Tryb mock domyślny** (`GTFS_DATA_SOURCE=mock`): `npm run dev`, `npm run
