@@ -79,4 +79,19 @@ describe('loadSchedule', () => {
     )
     expect(schedule.routes).toHaveLength(1)
   })
+
+  it('wires shapes.txt through to the route pattern end-to-end', async () => {
+    const schedule = await loadSchedule(
+      fakeClient({
+        'trips.txt': 'route_id,service_id,trip_id,trip_headsign,direction_id,shape_id\n1,S,t,Plac,0,sh-1\n',
+        'shapes.txt':
+          'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled\nsh-1,1,52.1,21.0,0\nsh-1,2,52.2,21.05,100\n',
+      }),
+      CITY,
+      { now: NOW }
+    )
+    const pattern = schedule.routePatterns.get('0:0')
+    expect(pattern?.shape).not.toBeNull()
+    expect(Array.from(pattern!.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
+  })
 })

@@ -91,6 +91,12 @@ export async function loadSchedule(
   const stopTimeStream = await client.readEntry('stop_times.txt')
   if (stopTimeStream === null) throw new Error('Brak stop_times.txt w feedzie GTFS.')
 
+  // 7b. shapes.txt — opcjonalny (żaden zapis w schedule.ts nie zależy od
+  // kolejności odczytu wpisów zipa, patrz zip.ts: dostęp losowy przez
+  // centralny katalog). Brak pliku → `undefined` → `routePatterns[*].shape` zostaje `null`.
+  phase('shapes')
+  const shapeStream = await client.readEntry('shapes.txt')
+
   const schedule = await buildSchedule({
     feedVersion: feedVersionBefore,
     serviceDates,
@@ -103,6 +109,7 @@ export async function loadSchedule(
     calendars,
     calendarDates,
     stopTimeLines: stopTimeStream,
+    shapeLines: shapeStream ?? undefined,
   })
 
   // 8. feed_info — musi się równać krokowi 1
