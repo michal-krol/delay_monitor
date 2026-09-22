@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
@@ -12,8 +12,9 @@ import {
   resolveCurrentStopIndex,
   resolveProjectedStopIndex,
   resolveScheduledStopIndex,
-  type TrainDetailStop,
 } from '@/lib/board/trainDetail'
+import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
+import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatClockTime } from '@/lib/format'
@@ -33,7 +34,7 @@ type TrainDetailApiResponse = {
   categoryName: string | null
   routeName: string | null
   nationalNumber: string | null
-  stops: TrainDetailStop[]
+  stops: TrainDetailStopWithCoords[]
 }
 
 type Props = {
@@ -260,7 +261,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // liczone raz na render (nie w map), żeby wszystkie wiersze — i nagłówek —
   // miały ten sam punkt odniesienia dla „plan dawno minął"
   // (patrz `resolveStopStatus`, `STALE_UNCONFIRMED_MS`).
-  const stops = data?.stops ?? []
+  // useMemo (nie zwykła `??`): mapPins/mapMovers niżej zależą od tożsamości
+  // `stops` -- bez tego React Compiler nie może dowieść, że `data?.stops ?? []`
+  // jest stabilne między renderami (tick zegara `now` co 30s renderuje na nowo,
+  // ale `data` się nie zmienia), i odmawia memoizacji tamtych hooków.
+  const stops = useMemo<TrainDetailStopWithCoords[]>(() => data?.stops ?? [], [data?.stops])
   const nowDate = new Date(now)
   // Pociąg bez ŻADNEJ realizacji, który wg rozkładu właśnie jedzie: pokazujemy
   // szacowaną pozycję i status „w trasie" z jawnym zastrzeżeniem (patrz
@@ -297,6 +302,31 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // Utrudnienia zebrane z całej trasy — jedno utrudnienie potrafi dotyczyć
   // wielu przystanków, więc bez deduplikacji baner powtarzałby ten sam tekst.
   const routeDisruptions = [...new Set(stops.flatMap((stop) => stop.disruptionMessages ?? []))]
+
+  // Mapa trasy: tylko przystanki z rzeczywistymi współrzędnymi (AGENTS.md #6 —
+  // reszta po prostu nie dostaje pina, polilinia łączy się dłuższym odcinkiem
+  // do następnego punktu, bez dashed-line/nowego stanu w MapView). Marker
+  // zawsze podpisany jako szacowany (AGENTS.md #7) -- `resolveInterpolatedPosition`
+  // nigdy nie zwraca "pewnej" pozycji.
+  const mapPins = useMemo<MapPin[]>(
+    () =>
+      stops.reduce<MapPin[]>((pins, stop, index) => {
+        if (typeof stop.lat !== 'number' || typeof stop.lon !== 'number') return pins
+        pins.push({ id: `${stop.stationId}-${index}`, lat: stop.lat, lon: stop.lon, label: stop.stationName, mode: 'rail' })
+        return pins
+      }, []),
+    [stops]
+  )
+  const mapRoute = useMemo(
+    () => ({ points: mapPins.map(({ lat, lon }) => ({ lat, lon })), color: null }),
+    [mapPins]
+  )
+  const mapMovers = useMemo<MapMover[]>(() => {
+    const position = resolveInterpolatedPosition(stops, data?.trainStatus ?? null, new Date(now))
+    return position === null
+      ? []
+      : [{ id: 'train', lat: position.lat, lon: position.lon, label: 'Pociąg — szacowane wg rozkładu' }]
+  }, [stops, data?.trainStatus, now])
 
   const categoryLabel = data?.category ?? null
   const trainNumber =
@@ -652,6 +682,13 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   })}
                 </ol>
               </section>
+
+              {mapPins.length >= 2 && (
+                <section className="glass rounded-2xl p-4">
+                  <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
+                  <MapView pins={mapPins} route={mapRoute} movers={mapMovers} ariaLabel={`Mapa trasy pociągu ${trainNumber}`} />
+                </section>
+              )}
 
               {/* Baner utrudnień: „brak wyników" i „nie udało się sprawdzić" to dwa
                   różne komunikaty (AGENTS.md #7) — ten mówi wyłącznie to pierwsze.

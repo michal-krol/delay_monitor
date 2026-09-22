@@ -6,6 +6,41 @@ import { ConnectionDetails } from './ConnectionDetails'
 import { formatClockTime } from '@/lib/format'
 import { jsonResponse } from '@/test-utils/http'
 
+vi.mock('maplibre-gl', () => {
+  const marker = {
+    setLngLat: vi.fn().mockReturnThis(),
+    setPopup: vi.fn().mockReturnThis(),
+    addTo: vi.fn().mockReturnThis(),
+    remove: vi.fn(),
+    getPopup: vi.fn(() => ({ setDOMContent: vi.fn() })),
+  }
+  const map = {
+    fitBounds: vi.fn(),
+    remove: vi.fn(),
+    isStyleLoaded: vi.fn(() => true),
+    once: vi.fn(),
+    getSource: vi.fn(() => undefined),
+    addSource: vi.fn(),
+    addLayer: vi.fn(),
+  }
+  return {
+    setWorkerUrl: vi.fn(),
+    Map: vi.fn(function Map() {
+      return map
+    }),
+    Marker: vi.fn(function Marker() {
+      return marker
+    }),
+    Popup: vi.fn(function Popup() {
+      const p = { content: null as HTMLElement | null, setDOMContent: (node: HTMLElement) => ((p.content = node), p) }
+      return p
+    }),
+    LngLatBounds: vi.fn(function LngLatBounds() {
+      return { extend: vi.fn() }
+    }),
+  }
+})
+
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.useRealTimers()
@@ -805,5 +840,31 @@ describe('ConnectionDetails', () => {
       await Promise.resolve()
       expect(trainCalls(fetchMock)).toBe(1)
     })
+  })
+})
+
+describe('route map', () => {
+  it('does not render a map section when stops have no coordinates (existing fixtures, no lat/lon keys)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(RESPONSE)))
+    freezeClock('2026-08-01T10:00:00.000Z')
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
+
+    expect(await screen.findByText('EIC Grunwald')).toBeInTheDocument()
+    expect(screen.queryByText('Mapa trasy')).not.toBeInTheDocument()
+  })
+
+  it('renders the map with a marker once at least two stops carry coordinates', async () => {
+    const withCoords = {
+      ...RESPONSE,
+      stops: [
+        { ...RESPONSE.stops[0], lat: 54.355, lon: 18.646 },
+        { ...RESPONSE.stops[1], lat: 52.2288207, lon: 21.00316 },
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(withCoords)))
+    freezeClock('2026-08-01T10:00:00.000Z')
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
+
+    expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
   })
 })
