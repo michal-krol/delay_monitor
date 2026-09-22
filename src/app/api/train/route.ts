@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { client } from '@/lib/board/instance'
 import { PkpApiError, type GetDisruptionsResult, type NameDictionaries } from '@/lib/pkp/client'
 import { buildTrainDetailStops, type TrainDetailStop } from '@/lib/board/trainDetail'
+import { attachStopCoordinates } from './coordinates'
+import type { TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
 import { createTtlCache } from '@/lib/cache'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
 
@@ -40,7 +42,7 @@ export type TrainDetailApiResponse = {
    * „IC 2706". `null` tylko wtedy, gdy trasy w ogóle nie udało się dopasować.
    */
   nationalNumber: string | null
-  stops: TrainDetailStop[]
+  stops: TrainDetailStopWithCoords[]
 }
 
 const cache = createTtlCache<TrainDetailApiResponse>({ ttlMs: CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
@@ -75,13 +77,14 @@ async function loadTrainDetail(scheduleId: string, orderId: string, operatingDat
       ? await client.getDisruptions(stationIds, operatingDate, operatingDate).catch((): GetDisruptionsResult => EMPTY_DISRUPTIONS)
       : EMPTY_DISRUPTIONS
 
-  const stops: TrainDetailStop[] = buildTrainDetailStops(
+  const rawStops: TrainDetailStop[] = buildTrainDetailStops(
     detail.operation,
     detail.route,
     detail.stationNames,
     disruptionsResult.disruptions,
     disruptionsResult.disruptionTypes
   )
+  const stops = await attachStopCoordinates(rawStops)
 
   const carrierCode = detail.route?.carrierCode ?? null
   const category = detail.route?.commercialCategorySymbol ?? null
