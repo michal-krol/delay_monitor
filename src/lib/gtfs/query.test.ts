@@ -41,6 +41,7 @@ function make(over: Partial<BuildScheduleInput>) {
     calendars: [],
     calendarDates: over.calendarDates ?? [{ serviceId: 'S', date: '20260902', added: true }],
     stopTimeLines: over.stopTimeLines ?? [],
+    shapeLines: over.shapeLines,
   })
 }
 
@@ -542,5 +543,31 @@ describe('lineDetail', () => {
     })
     const detail = lineDetail(schedule, 'M1')!
     expect(detail.directions[0].stops.map((s) => s.name)).toEqual(['Świętokrzyska', 'Kabaty'])
+  })
+
+  it('returns shape only for the direction that has one, null for its sibling', async () => {
+    const schedule = await make({
+      routes: [route('20', 0, '20')],
+      stops: [stop('1001', 'A'), stop('2002', 'B')],
+      trips: [
+        { routeId: '20', serviceId: 'S', tripId: 't0', headsign: 'B', directionId: 0, shapeId: '20-0' },
+        { routeId: '20', serviceId: 'S', tripId: 't1', headsign: 'A', directionId: 1 },
+      ],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        't0,1001,06:00:00,06:00:00,1',
+        't0,2002,06:10:00,06:10:00,2',
+        't1,2002,07:00:00,07:00:00,1',
+        't1,1001,07:10:00,07:10:00,2',
+      ],
+      shapeLines: [
+        'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+        '20-0,1,52.1,21.0,0',
+        '20-0,2,52.2,21.05,100',
+      ],
+    })
+    const detail = lineDetail(schedule, '20')!
+    expect(detail.directions[0].shape).toEqual([[52.1, 21], [52.2, 21.05]])
+    expect(detail.directions[1].shape).toBeNull()
   })
 })

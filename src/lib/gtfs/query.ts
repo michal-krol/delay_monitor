@@ -294,6 +294,8 @@ export type LineRouteDirection = {
   stops: LineRouteStop[]
   /** Rozkład odjazdów z przystanku startowego, pogrupowany po kategorii dnia. */
   departures: LineDepartureBlock[]
+  /** Kontur ulic z `shapes.txt` jako `[lat, lon]`, zaokrąglone do 5 miejsc po przecinku. `null` = wzorzec go nie ma — strona linii spada na łamaną po przystankach. */
+  shape: [number, number][] | null
 }
 export type LineDetail = LineListEntry & { directions: LineRouteDirection[] }
 
@@ -364,6 +366,14 @@ function lineDeparturesFromEvents(
     }))
 }
 
+const round5 = (value: number): number => Math.round(value * 100000) / 100000
+
+function shapeToPoints(shape: Float32Array): [number, number][] {
+  const points: [number, number][] = []
+  for (let i = 0; i < shape.length; i += 2) points.push([round5(shape[i]), round5(shape[i + 1])])
+  return points
+}
+
 /**
  * Przebieg linii w obu kierunkach — reprezentatywny wzorzec z `routePatterns`
  * (najdłuższy napotkany przy ładowaniu). `null` = nieznane `routeId`.
@@ -411,6 +421,7 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
       origin: stops[0]?.name ?? null,
       stops,
       departures,
+      shape: pattern.shape !== null ? shapeToPoints(pattern.shape) : null,
     })
   }
 
