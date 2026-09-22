@@ -176,3 +176,43 @@ test('a11y: strona linii z mapą trasy bez naruszeń serious/critical', async ({
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
+
+// Mock rebases operatingDate do dzisiejszej daty warszawskiej (mock.ts,
+// warsawDateString) -- ta sama formuła tu, żeby URL trafił w rebase'owany fixture.
+function warsawToday(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Warsaw' })
+}
+
+// Mock: pociąg 104 w trasie, ~6h opóźnienia, realne stacje (Gdańsk Główny 7500...) -- AGENTS.md #8.
+const TRAIN_104 = `/connection/2026/104/${warsawToday()}`
+// Mock: pociąg 107, trainStatus 'S', jeszcze nie wyjechał -- AGENTS.md #8.
+const TRAIN_107 = `/connection/2026/107/${warsawToday()}`
+
+test('połączenie: mapa trasy rysuje piny i marker pozycji dla pociągu w trasie', async ({ page }) => {
+  await page.goto(TRAIN_104)
+  const mapSection = page.locator('section', { has: page.getByRole('heading', { name: 'Mapa trasy' }) })
+  await expect(mapSection).toBeVisible({ timeout: READY })
+  await expectTilesRendered(mapSection.locator('canvas'))
+  await expect(page.locator('.maplibregl-marker')).not.toHaveCount(0)
+})
+
+test('połączenie: mapa nie pokazuje zmyślonej pozycji dla pociągu, który jeszcze nie wyjechał (107)', async ({ page }) => {
+  await page.goto(TRAIN_107)
+  const mapHeading = page.getByRole('heading', { name: 'Mapa trasy' })
+  // Mapa może się w ogóle nie wyrenderować (< 2 piny z coords) albo
+  // wyrenderować bez markera -- obie poprawne, niedopuszczalna jest tylko
+  // zmyślona pozycja pociągu przed odjazdem.
+  if (await mapHeading.isVisible().catch(() => false)) {
+    const mapSection = page.locator('section', { has: mapHeading })
+    await expectTilesRendered(mapSection.locator('canvas'))
+    await expect(mapSection.getByTestId('map-mover')).toHaveCount(0)
+  }
+})
+
+test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', async ({ page }) => {
+  await page.goto(TRAIN_104)
+  await expect(page.getByRole('heading', { name: 'Mapa trasy' })).toBeVisible({ timeout: READY })
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+})
