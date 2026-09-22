@@ -277,6 +277,8 @@ export type LineRouteStop = {
   /** `street_name` — ulica, przy której stoi słupek. `null` gdy feed nie podaje. */
   street: string | null
   wheelchair: 0 | 1 | 2
+  lat: number
+  lon: number
   /** Sekundy przejazdu od przystanku startowego (do przeliczenia godziny odjazdu na tym przystanku). */
   offsetSec: number
   /** Przystanek na żądanie (`pickup_type`/`drop_off_type` = 3) na tym przebiegu. */
@@ -385,6 +387,8 @@ export function lineDetail(schedule: GtfsSchedule, routeId: string): LineDetail 
         code: schedule.stopCodes[stopIndex] ?? schedule.stopPlatforms[stopIndex] ?? null,
         street: schedule.stopStreets[stopIndex] ?? null,
         wheelchair: schedule.stopWheelchair[stopIndex] as 0 | 1 | 2,
+        lat: schedule.stopLat[stopIndex],
+        lon: schedule.stopLon[stopIndex],
         offsetSec: pattern.offsets[order] ?? 0,
         onRequest: pattern.onRequest[order] === 1,
       }

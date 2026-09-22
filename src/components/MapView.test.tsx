@@ -14,8 +14,17 @@ vi.mock('maplibre-gl', () => {
     setPopup: vi.fn().mockReturnThis(),
     addTo: vi.fn().mockReturnThis(),
     remove: vi.fn(),
+    getPopup: vi.fn(() => ({ setDOMContent: vi.fn() })),
   }
-  const map = { fitBounds: vi.fn(), remove: vi.fn() }
+  const map = {
+    fitBounds: vi.fn(),
+    remove: vi.fn(),
+    isStyleLoaded: vi.fn(() => true),
+    once: vi.fn(),
+    getSource: vi.fn(() => undefined),
+    addSource: vi.fn(),
+    addLayer: vi.fn(),
+  }
   // Funkcje zwykłe, nie strzałkowe — `new` na mocku strzałkowym rzuca „not a constructor".
   return {
     setWorkerUrl: vi.fn(),
@@ -116,6 +125,52 @@ describe('MapView', () => {
 
     expect(maplibregl.Map).toHaveBeenCalledTimes(1)
     expect(vi.mocked(maplibregl.Map).mock.results[0]?.value.remove).not.toHaveBeenCalled()
+  })
+
+  describe('trasa i ruchome punkty (mapa linii)', () => {
+    const PIN: MapPin = { id: 'a', lat: 52, lon: 21, label: 'A' }
+    const ROUTE = { points: [{ lat: 52, lon: 21 }, { lat: 52.01, lon: 21.02 }], color: '#E2001A' }
+
+    it('rysuje trasę jako linię po punktach (lon, lat) w kolorze linii', async () => {
+      render(<MapView pins={[PIN]} route={ROUTE} ariaLabel="Mapa" />)
+      await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+      const map = vi.mocked(maplibregl.Map).mock.results[0].value
+      await waitFor(() => expect(map.addSource).toHaveBeenCalledTimes(1))
+      expect(map.addSource.mock.calls[0][1].data.geometry.coordinates).toEqual([[21, 52], [21.02, 52.01]])
+      expect(map.addLayer.mock.calls[0][0].paint['line-color']).toBe('#E2001A')
+    })
+
+    it('niezaufany kolor (nie #RRGGBB) zastępuje kolorem domyślnym', async () => {
+      render(<MapView pins={[PIN]} route={{ ...ROUTE, color: 'red;background:url(x)' }} ariaLabel="Mapa" />)
+      await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+      const map = vi.mocked(maplibregl.Map).mock.results[0].value
+      await waitFor(() => expect(map.addLayer).toHaveBeenCalledTimes(1))
+      expect(map.addLayer.mock.calls[0][0].paint['line-color']).toBe('#4f46e5')
+    })
+
+    it('bez `route` nie dodaje warstwy', async () => {
+      render(<MapView pins={[PIN]} ariaLabel="Mapa" />)
+      await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
+      expect(vi.mocked(maplibregl.Map).mock.results[0].value.addLayer).not.toHaveBeenCalled()
+    })
+
+    it('pojazdy: marker per pojazd, aktualizacja w miejscu bez przebudowy mapy, usunięcie po zniknięciu', async () => {
+      const mover = { id: 'v1', lat: 52.001, lon: 21.001, label: '#1' }
+      const { rerender } = render(<MapView pins={[PIN]} movers={[mover]} ariaLabel="Mapa" />)
+      // 1 pin + 1 pojazd
+      await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
+      const marker = vi.mocked(maplibregl.Marker).mock.results[0].value
+
+      marker.setLngLat.mockClear()
+      rerender(<MapView pins={[PIN]} movers={[{ ...mover, lat: 52.002 }]} ariaLabel="Mapa" />)
+      expect(maplibregl.Marker).toHaveBeenCalledTimes(2)
+      expect(maplibregl.Map).toHaveBeenCalledTimes(1)
+      expect(marker.setLngLat).toHaveBeenCalledWith([21.001, 52.002])
+
+      marker.remove.mockClear()
+      rerender(<MapView pins={[PIN]} movers={[]} ariaLabel="Mapa" />)
+      expect(marker.remove).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('ustawia workerUrl na własny statyczny asset przed konstrukcją mapy', async () => {

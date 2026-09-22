@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { trapTab } from '@/lib/focusTrap'
 import { CloseIcon, MenuIcon } from './icons'
 import { activeItemFromPath, NavList } from './navItems'
 
@@ -42,21 +43,7 @@ export function MobileNav() {
         close()
         return
       }
-      if (event.key !== 'Tab') return
-      // Prosty focus-trap: Tab poza szufladą wraca na jej początek/koniec.
-      const focusables = drawerRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled])',
-      )
-      if (focusables === undefined || focusables.length === 0) return
-      const first = focusables[0]
-      const last = focusables[focusables.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
+      trapTab(event, drawerRef.current)
     }
 
     document.addEventListener('keydown', onKeyDown)

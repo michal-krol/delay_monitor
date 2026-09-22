@@ -5,6 +5,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
 import { jsonResponse } from '@/test-utils/http'
 
+// Prawdziwy MapLibre nie działa w jsdom (WebGL) -- stub sprawdza tylko, co strona mu przekazuje.
+vi.mock('@/components/MapView', () => ({
+  MapView: ({ pins, movers, route, ariaLabel }: { pins: unknown[]; movers?: { label: string; lat: number; lon: number }[]; route?: { points: unknown[] }; ariaLabel: string }) => (
+    <div data-testid="map" aria-label={ariaLabel}>
+      {pins.length} pins, {route?.points.length ?? 0} route points
+      {(movers ?? []).map((m) => (
+        <span key={m.label} data-testid="mover" data-lat={m.lat} data-lon={m.lon}>
+          {m.label}
+        </span>
+      ))}
+    </div>
+  ),
+}))
+
 const push = vi.fn()
 const notFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
@@ -33,9 +47,9 @@ const LINE = {
         headsign: 'Dworzec Centralny',
         origin: 'Centrum',
         stops: [
-          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', street: 'Marszałkowska', wheelchair: 1, offsetSec: 0, onRequest: false },
-          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', street: 'Prosta', wheelchair: 0, offsetSec: 300, onRequest: true },
-          { stopId: '500801', groupId: '5008', name: 'Metro Politechnika', code: '14', street: 'Waryńskiego', wheelchair: 0, offsetSec: 600, onRequest: false },
+          { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', street: 'Marszałkowska', wheelchair: 1, lat: 52, lon: 21, offsetSec: 0, onRequest: false },
+          { stopId: '700201', groupId: '7002', name: 'Rondo ONZ', code: '02', street: 'Prosta', wheelchair: 0, lat: 52.02, lon: 21.02, offsetSec: 300, onRequest: true },
+          { stopId: '500801', groupId: '5008', name: 'Metro Politechnika', code: '14', street: 'Waryńskiego', wheelchair: 0, lat: 52.04, lon: 21.02, offsetSec: 600, onRequest: false },
         ],
         departures: [
           { category: 'weekday', times: [6 * 3600, 6 * 3600 + 1200], frequencyBased: false },
@@ -46,7 +60,7 @@ const LINE = {
         directionId: 1,
         headsign: 'Centrum',
         origin: 'Dworzec Centralny',
-        stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', code: null, street: null, wheelchair: 0, offsetSec: 0, onRequest: false }],
+        stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', code: null, street: null, wheelchair: 0, lat: 52.1, lon: 21.1, offsetSec: 0, onRequest: false }],
         departures: [{ category: 'weekday', times: [6 * 3600 + 600], frequencyBased: false }],
       },
     ],
@@ -81,6 +95,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('LineDetailPage', () => {
+  it('draws the route map from the stops, with live vehicles interpolated between them', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    const map = await screen.findByTestId('map')
+    expect(map).toHaveAccessibleName('Mapa trasy linii 20')
+    expect(map).toHaveTextContent('3 pins, 3 route points')
+    const mover = await screen.findByTestId('mover')
+    expect(mover).toHaveTextContent('#3801 · za „Centrum”')
+    // afterStopOrder 0, fraction 0.5 -> środek odcinka Centrum (52, 21) – Rondo ONZ (52.02, 21.02)
+    expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.01)
+    expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.01)
+  })
+
   it('calls notFound for a malformed route id', () => {
     params.routeId = 'a/b'
     expect(() => render(<LineDetailPage />)).toThrow('NEXT_NOT_FOUND')
