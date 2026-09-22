@@ -133,6 +133,18 @@ tylko piny) i mierzy rozmiar PNG canvasu — `toDataURL`/`readPixels` bez
 rysowania, więc **nie weryfikuj renderu mapy przez surowy odczyt bufora
 WebGL** — tylko przez zrzut ekranu/lokatora (kompozytor, nie bufor).
 
+Dwie kolejne pułapki `MapView.tsx` (obie raz zepsuły popup pinu):
+
+- **`Marker` sam toggle'uje swój popup** — `_onMapClick`, rejestrowany w
+  `addTo()`, słucha `click` całej mapy. Nie wołaj `marker.togglePopup()`
+  z własnego listenera na elemencie pinu: podwójny toggle = popup otwiera się
+  i od razu zamyka.
+- **`pinsKey` = tylko `id:lat:lon:label`** — bez `preview`/`href`/`mode`.
+  Klik pinu GTFS wybiera słupek → refetch → zmienia się `preview`; gdyby był
+  w kluczu, mapa reinicjalizuje się w trakcie kliknięcia i niszczy świeży
+  popup. Analogicznie `routeKey` (`points.length:color`) — sygnatura treści,
+  nie pełny obiekt.
+
 ## 7. UI nigdy nie jest pusty
 
 Przy awarii API pokazujemy ostatni dobry snapshot + jego wiek, nie czyścimy widoku.
