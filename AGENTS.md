@@ -322,11 +322,18 @@ npm run check   # = typecheck && lint && test
 - **Pozycje pojazdów (etap 5a).** `vehicles.json` (mkuran, ~450 KB, 15 s) → osobny
   `VehiclePoller` per miasto, cykl życia SPIĘTY z pollerem rozkładu (`onWake`/`onIdle`
   w `GtfsPollerDeps`). `vehicleProject.ts` (czysty) rzutuje `trip_id` z feedu — ten
-  sam co w `stop_times.txt` — na `routePatterns` po sekwencji przystanków (bez
-  `shapes.txt`). ZERO pola opóźnienia: `VehicleOnRoute` niesie `afterStopOrder` +
-  `fraction` + `ageSec`, nigdy „ile spóźniony". Pozycja > 2 km od trasy / nieznany
-  `trip_id` → `null`. `mockVehicleFeed` degraduje do pustego wyniku dla braku ORAZ
-  uszkodzonego fixture'a (JSON.parse w try).
+  sam co w `stop_times.txt` — na `routePatterns` po sekwencji przystanków.
+  `VehicleOnRoute` niesie surowe `lat`/`lon` z feedu OBOK `afterStopOrder`+`fraction`
+  (mapa trasy rysuje pojazd w prawdziwej pozycji, oś czasu linii dalej liczy z
+  rzutu) — nadal ZERO pola opóźnienia: nigdy „ile spóźniony". Pozycja > 2 km od
+  trasy / nieznany `trip_id` → `null`. `mockVehicleFeed` degraduje do pustego
+  wyniku dla braku ORAZ uszkodzonego fixture'a (JSON.parse w try).
+- **Kształty tras (`shapes.txt`).** Feed MA `shapes.txt` (`shape_id` w
+  `trips.txt` bywa wypełniony) — wcześniejsza notatka o jego braku była błędna.
+  `schedule.ts` akumuluje kształt WYŁĄCZNIE dla wygranego wzorca (linia,
+  kierunek) przy ładowaniu — nigdy per żądanie, nigdy dla nieużywanych
+  `shape_id`. Brak pliku / `shape_id` / <2 punktów → `null`, strona linii
+  spada wtedy na łamaną po przystankach (`MapRoute.points = stops`).
 - **Alerty (etap 5b).** `alerts.json` (mkuran) → osobny `AlertPoller` per miasto,
   ten sam cykl życia co `VehiclePoller` (`onWake`/`onIdle`, rytm 5 min). Feed nie
   zna przystanków — `alertsForRoutes()` dopasowuje po `route_short_name`, jedynym

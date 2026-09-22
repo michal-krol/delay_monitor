@@ -22,6 +22,12 @@ describe('ScheduleStatus', () => {
     expect(screen.getByText(/rozkład przejazdów/)).toBeInTheDocument()
   })
 
+  it('shows the shapes phase by its Polish label, not the raw English key', () => {
+    render(<ScheduleStatus schedule={block({ state: 'loading', phase: 'shapes', ageMs: null, loadedAt: null })} cityName="Warszawa" />)
+    expect(screen.queryByText(/· shapes/)).not.toBeInTheDocument()
+    expect(screen.getByText(/kształty tras/)).toBeInTheDocument()
+  })
+
   it('shows the ready line with the "Aktualizacja" timestamp from loadedAt', () => {
     render(<ScheduleStatus schedule={block({})} cityName="Warszawa" />)
     expect(screen.getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()

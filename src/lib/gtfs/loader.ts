@@ -91,6 +91,16 @@ export async function loadSchedule(
   const stopTimeStream = await client.readEntry('stop_times.txt')
   if (stopTimeStream === null) throw new Error('Brak stop_times.txt w feedzie GTFS.')
 
+  // 7b. shapes.txt — fabryka zamiast eagerly odczytanego strumienia: `readEntry`
+  // wywoływany DOPIERO gdy `buildSchedule` faktycznie potrzebuje kształtów
+  // (schedule.ts sprawdza to po zbudowaniu `patternPick` — część linii nie ma
+  // `shape_id` wcale). Oszczędza żądanie sieciowe, gdy nie jest potrzebne;
+  // NIE jest już wymagane dla poprawności (patrz `linesFromResponse` w
+  // `client.ts` — właściwa poprawka błędu „100% odrzuconych wierszy
+  // stop_times" leży tam, w `readline.createInterface` startującym eagerly).
+  // `phase('shapes')` ustawiany W ŚRODKU fabryki (nie tutaj) — inaczej
+  // widoczna faza „shapes" obejmowałaby cały, najdłuższy odczyt stop_times.
+
   const schedule = await buildSchedule({
     feedVersion: feedVersionBefore,
     serviceDates,
@@ -103,6 +113,10 @@ export async function loadSchedule(
     calendars,
     calendarDates,
     stopTimeLines: stopTimeStream,
+    shapeLines: () => {
+      phase('shapes')
+      return client.readEntry('shapes.txt')
+    },
   })
 
   // 8. feed_info — musi się równać krokowi 1

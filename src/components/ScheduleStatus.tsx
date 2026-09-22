@@ -33,6 +33,7 @@ const PHASE_LABEL: Record<string, string> = {
   feed_info: 'wersja feedu',
   tabele: 'przystanki i linie',
   stop_times: 'rozkład przejazdów',
+  shapes: 'kształty tras',
   weryfikacja: 'weryfikacja',
 }
 

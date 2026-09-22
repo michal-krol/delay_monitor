@@ -38,6 +38,14 @@ describe('projectVehicle', () => {
     expect(r.ageSec).toBeLessThan(5)
   })
 
+  it('carries the raw vehicle lat/lon through from the position', async () => {
+    const s = await schedule()
+    const p = { id: 'V/20/1', tripId: 'T', lat: 52.2123, lon: 21.0045, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }
+    const r = projectVehicle(s, p, Date.now())!
+    expect(r.lat).toBe(52.2123)
+    expect(r.lon).toBe(21.0045)
+  })
+
   it('returns null for an unknown trip_id', async () => {
     const s = await schedule()
     expect(

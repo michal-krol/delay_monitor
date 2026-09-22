@@ -10,6 +10,9 @@ export type VehicleOnRoute = {
   afterStopOrder: number
   /** Postęp na odcinku [afterStopOrder, +1], 0..1. */
   fraction: number
+  /** Surowe współrzędne pojazdu z feedu (`vehicles.json`), do rysowania na mapie. */
+  lat: number
+  lon: number
   ageSec: number
   headsign: string | null
   bearing: number | null
@@ -77,6 +80,8 @@ export function projectVehicle(
     directionId: ref.direction,
     afterStopOrder: best.order,
     fraction: best.t,
+    lat: position.lat,
+    lon: position.lon,
     ageSec,
     headsign: pattern.headsignIdx >= 0 ? schedule.headsigns[pattern.headsignIdx] : null,
     bearing: position.bearing,
