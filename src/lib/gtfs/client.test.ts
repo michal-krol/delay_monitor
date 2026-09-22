@@ -52,6 +52,19 @@ describe('createLiveClient', () => {
     expect(await client.getFeedVersion()).toBe('2026-09-02:1')
   })
 
+  it('does not drop lines (including the header) when the consumer starts iterating after a delay', async () => {
+    const client = createLiveClient(CITY, { fetch: rangeResponder(archive()) })
+    const stream = await client.readEntry('stops.txt')
+    // Loader.ts obtains a stream and may do other async work (e.g. another
+    // readEntry call) before consuming it — the stream must not lose lines
+    // to that delay. `readline.createInterface` starts flowing the
+    // underlying response body IMMEDIATELY on creation; a consumer that
+    // attaches late can lose everything that arrived before it attached.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const lines = await collect(stream)
+    expect(lines).toEqual(['stop_id,stop_name', '100101,Centrum', '100102,Centrum'])
+  })
+
   it('returns null for an entry the archive does not carry', async () => {
     const client = createLiveClient(CITY, { fetch: rangeResponder(archive()) })
     expect(await client.readEntry('calendar.txt')).toBeNull()

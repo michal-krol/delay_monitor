@@ -55,6 +55,7 @@ const LINE = {
           { category: 'weekday', times: [6 * 3600, 6 * 3600 + 1200], frequencyBased: false },
           { category: 'saturday', times: [8 * 3600], frequencyBased: false },
         ],
+        shape: null,
       },
       {
         directionId: 1,
@@ -62,6 +63,7 @@ const LINE = {
         origin: 'Dworzec Centralny',
         stops: [{ stopId: '500801', groupId: '5008', name: 'Dworzec Centralny', code: null, street: null, wheelchair: 0, lat: 52.1, lon: 21.1, offsetSec: 0, onRequest: false }],
         departures: [{ category: 'weekday', times: [6 * 3600 + 600], frequencyBased: false }],
+        shape: null,
       },
     ],
   },
@@ -118,6 +120,24 @@ describe('LineDetailPage', () => {
     // Pozycja pojazdu na mapie to surowe lat/lon z feedu (nie interpolacja po przystankach).
     expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.015)
     expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.012)
+  })
+
+  it('draws the shape polyline instead of the stop-to-stop chord when the direction has one', async () => {
+    const shape: [number, number][] = [
+      [52, 21],
+      [52.01, 21.005],
+      [52.02, 21.02],
+      [52.03, 21.015],
+      [52.04, 21.02],
+    ]
+    stubFetch({
+      ...LINE,
+      line: { ...LINE.line, directions: [{ ...LINE.line.directions[0], shape }, LINE.line.directions[1]] },
+    })
+    render(<LineDetailPage />)
+    const map = await screen.findByTestId('map')
+    // 3 przystanki, ale 5 punktów kształtu — mapa ma rysować kształt, nie łamaną po przystankach.
+    expect(map).toHaveTextContent('3 pins, 5 route points')
   })
 
   it('calls notFound for a malformed route id', () => {

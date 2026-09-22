@@ -536,11 +536,15 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
         if (!neededShapeIds.has(shapeId)) continue
 
         const row = line.includes('"') ? parseCsvLine(line) : line.split(',')
-        const lat = Number(row[shapeLatCol])
-        const lon = Number(row[shapeLonCol])
+        const latRaw = row[shapeLatCol]
+        const lonRaw = row[shapeLonCol]
+        // `Number('')` jest `0` — puste pole to NIE (0,0), tylko brak danych.
+        if (latRaw === undefined || latRaw.trim() === '' || lonRaw === undefined || lonRaw.trim() === '') continue
+        const lat = Number(latRaw)
+        const lon = Number(lonRaw)
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
         const seqNum = Number(row[shapeSeqCol])
-        const seq = Number.isFinite(seqNum) ? seqNum : 0
+        const seq = Number.isFinite(seqNum) && seqNum >= 0 ? seqNum : 0
 
         const points = rawShapePoints.get(shapeId)
         if (points === undefined) rawShapePoints.set(shapeId, [{ seq, lat, lon }])

@@ -377,6 +377,58 @@ describe('buildSchedule — shapes', () => {
     expect(Array.from(pattern.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
   })
 
+  it('attaches the winning pattern shape, not a losing competitor pattern with a different shape', async () => {
+    const schedule = await buildSchedule(
+      makeInput({
+        routes: [route('20', 0, '20')],
+        stops: [stop('1001', 'A'), stop('2002', 'B'), stop('3003', 'C')],
+        trips: [
+          { routeId: '20', serviceId: 'S', tripId: 't1', headsign: 'B', directionId: 0, shapeId: 'shape-common' },
+          { routeId: '20', serviceId: 'S', tripId: 't2', headsign: 'B', directionId: 0, shapeId: 'shape-common' },
+          { routeId: '20', serviceId: 'S', tripId: 't3', headsign: 'C', directionId: 0, shapeId: 'shape-rare' },
+        ],
+        stopTimeLines: [
+          'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+          't1,1001,06:00:00,06:00:00,1',
+          't1,2002,06:10:00,06:10:00,2',
+          't2,1001,07:00:00,07:00:00,1',
+          't2,2002,07:10:00,07:10:00,2',
+          't3,1001,08:00:00,08:00:00,1',
+          't3,2002,08:10:00,08:10:00,2',
+          't3,3003,08:20:00,08:20:00,3',
+        ],
+        shapeLines: async () => [
+          'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+          'shape-common,1,52.1,21.0,0',
+          'shape-common,2,52.2,21.05,100',
+          'shape-rare,1,60.0,30.0,0',
+          'shape-rare,2,61.0,31.0,100',
+        ],
+      })
+    )
+    const pattern = schedule.routePatterns.get('0:0')!
+    // [A,B] wins (2 trips) over [A,B,C] (1 trip) — the shape must follow the winner, not the loser.
+    expect(pattern.stops.length).toBe(2)
+    expect(Array.from(pattern.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
+  })
+
+  it('leaves shape null when the shapeLines factory resolves to null (client found no shapes.txt entry)', async () => {
+    const schedule = await buildSchedule(
+      makeInput({
+        routes: [route('20', 0, '20')],
+        stops: [stop('1001', 'A'), stop('2002', 'B')],
+        trips: [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        stopTimeLines: [
+          'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+          't,1001,06:00:00,06:00:00,1',
+          't,2002,06:10:00,06:10:00,2',
+        ],
+        shapeLines: async () => null,
+      })
+    )
+    expect(schedule.routePatterns.get('0:0')!.shape).toBeNull()
+  })
+
   it('ignores shape rows for a shape_id no winning pattern needs', async () => {
     const schedule = await buildSchedule(
       twoStopInput(
@@ -494,6 +546,22 @@ describe('buildSchedule — shapes', () => {
           'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
           '20-0,1,52.1,21.0,0',
           '20-0,2,notanumber,notanumber,50',
+          '20-0,3,52.2,21.05,100',
+        ]
+      )
+    )
+    const pattern = schedule.routePatterns.get('0:0')!
+    expect(Array.from(pattern.shape!)).toEqual([Math.fround(52.1), Math.fround(21.0), Math.fround(52.2), Math.fround(21.05)])
+  })
+
+  it('drops a shape row with an EMPTY lat/lon instead of treating it as (0,0)', async () => {
+    const schedule = await buildSchedule(
+      twoStopInput(
+        [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'B', directionId: 0, shapeId: '20-0' }],
+        [
+          'shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon,shape_dist_traveled',
+          '20-0,1,52.1,21.0,0',
+          '20-0,2,,,50',
           '20-0,3,52.2,21.05,100',
         ]
       )

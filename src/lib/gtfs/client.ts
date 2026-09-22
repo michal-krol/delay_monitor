@@ -81,12 +81,25 @@ async function rangeRequest(
   return response
 }
 
+/**
+ * `readline.createInterface()` zaczyna ciągnąć bajty z `decoded` NATYCHMIAST
+ * przy tworzeniu, nie dopiero przy pierwszym `for await`. Konsument, który
+ * dołącza się z opóźnieniem (np. `loader.ts` robi coś innego async między
+ * `readEntry()` a konsumpcją strumienia), traci wszystko, co przyszło
+ * wcześniej — zaobserwowane: całe `stop_times.txt` (7,96 mln wierszy)
+ * odrzucone, bo nawet wiersz nagłówka zniknął. Owinięcie w generator
+ * asynchroniczny (`yield*`) odsuwa START odczytu do momentu pierwszego
+ * `.next()` konsumenta, więc opóźnienie przed konsumpcją nie kosztuje ani
+ * jednej linii — zweryfikowane (`client.test.ts`) i niezależnie odtworzone.
+ */
 async function linesFromResponse(response: Response, method: number): Promise<AsyncIterable<string>> {
   if (response.body === null) throw new Error('Pusta odpowiedź na żądanie zakresowe wpisu.')
   const raw = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0])
   // Wpis metodą 8 to surowy deflate — `createInflateRaw` czyta go wprost.
   const decoded = method === 8 ? raw.pipe(createInflateRaw()) : raw
-  return createInterface({ input: decoded, crlfDelay: Infinity })
+  return (async function* () {
+    yield* createInterface({ input: decoded, crlfDelay: Infinity })
+  })()
 }
 
 export function createLiveClient(city: CityFeed, deps: { fetch?: RangeFetch } = {}): GtfsClient {
