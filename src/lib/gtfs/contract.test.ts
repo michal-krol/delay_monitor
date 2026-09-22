@@ -58,10 +58,17 @@ describe.skipIf(process.env.GTFS_CONTRACT !== '1')('kontrakt: feed mkuran ↔ wa
     }
   })
 
-  it('trips.txt niesie route_id, service_id, trip_id, trip_headsign', async () => {
+  it('trips.txt niesie route_id, service_id, trip_id, trip_headsign, shape_id', async () => {
     const cols = await columns('trips.txt')
-    for (const required of ['route_id', 'service_id', 'trip_id', 'trip_headsign']) {
+    for (const required of ['route_id', 'service_id', 'trip_id', 'trip_headsign', 'shape_id']) {
       expect(cols, `trips.${required} zniknęło z feedu`).toContain(required)
+    }
+  })
+
+  it('shapes.txt niesie shape_id, shape_pt_sequence, shape_pt_lat, shape_pt_lon', async () => {
+    const cols = await columns('shapes.txt')
+    for (const required of ['shape_id', 'shape_pt_sequence', 'shape_pt_lat', 'shape_pt_lon']) {
+      expect(cols, `shapes.${required} zniknęło z feedu`).toContain(required)
     }
   })
 })
