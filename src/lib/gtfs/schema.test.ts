@@ -135,6 +135,17 @@ describe('tripSchema — kurs techniczny', () => {
   })
 })
 
+describe('tripSchema — shape_id', () => {
+  const base = { route_id: '20', service_id: 'S', trip_id: 't', direction_id: '0' }
+  it('carries a non-empty shape_id as shapeId', () => {
+    expect(tripSchema.parse({ ...base, shape_id: '20-0' }).shapeId).toBe('20-0')
+  })
+  it('empty or missing shape_id → null', () => {
+    expect(tripSchema.parse({ ...base, shape_id: '' }).shapeId).toBeNull()
+    expect(tripSchema.parse(base).shapeId).toBeNull()
+  })
+})
+
 describe('frequencySchema', () => {
   it('parses the boundary case row', () => {
     const freq = frequencySchema.parse({

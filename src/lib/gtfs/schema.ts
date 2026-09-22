@@ -185,6 +185,7 @@ export const tripSchema = z
     trip_headsign: z.string().optional(),
     direction_id: z.string().optional(),
     exceptional: z.string().optional(),
+    shape_id: z.string().optional(),
   })
   .transform((row) => {
     const headsign = optional(row.trip_headsign) ?? null
@@ -200,6 +201,7 @@ export const tripSchema = z
        * z flagą `exceptional`, zaobserwowano zjazd z `exceptional=0`).
        */
       exceptional: optional(row.exceptional) === '1' || /zajezdn/i.test(headsign ?? ''),
+      shapeId: optional(row.shape_id) ?? null,
     }
   })
 
