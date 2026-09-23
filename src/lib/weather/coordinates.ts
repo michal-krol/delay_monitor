@@ -6,7 +6,7 @@ export type StationCoordinatesEntry = {
   name: string
   lat: number | null
   lon: number | null
-  source: 'station' | 'city-fallback' | 'failed'
+  source: 'station' | 'city-fallback' | 'osm-railway' | 'failed'
 }
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'station-coordinates.json')

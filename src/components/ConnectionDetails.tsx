@@ -1,19 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { AlertCircleIcon, CalendarIcon, ClockIcon, InfoIcon, LinkIcon, PauseIcon, RouteIcon, ShareIcon, TrainIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
-import {
-  isScheduleProjection,
-  isStalePositionProjection,
-  resolveCurrentStopIndex,
-  resolveProjectedStopIndex,
-  resolveScheduledStopIndex,
-  type TrainDetailStop,
-} from '@/lib/board/trainDetail'
+import { resolvePositionAnchor } from '@/lib/board/trainDetail'
+import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
+import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatClockTime } from '@/lib/format'
@@ -33,7 +28,7 @@ type TrainDetailApiResponse = {
   categoryName: string | null
   routeName: string | null
   nationalNumber: string | null
-  stops: TrainDetailStop[]
+  stops: TrainDetailStopWithCoords[]
 }
 
 type Props = {
@@ -260,23 +255,24 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // liczone raz na render (nie w map), żeby wszystkie wiersze — i nagłówek —
   // miały ten sam punkt odniesienia dla „plan dawno minął"
   // (patrz `resolveStopStatus`, `STALE_UNCONFIRMED_MS`).
-  const stops = data?.stops ?? []
+  // useMemo (nie zwykła `??`): mapPins/mapMovers niżej zależą od tożsamości
+  // `stops` -- bez tego React Compiler nie może dowieść, że `data?.stops ?? []`
+  // jest stabilne między renderami (tick zegara `now` co 30s renderuje na nowo,
+  // ale `data` się nie zmienia), i odmawia memoizacji tamtych hooków.
+  const stops = useMemo<TrainDetailStopWithCoords[]>(() => data?.stops ?? [], [data?.stops])
   const nowDate = new Date(now)
   // Pociąg bez ŻADNEJ realizacji, który wg rozkładu właśnie jedzie: pokazujemy
   // szacowaną pozycję i status „w trasie" z jawnym zastrzeżeniem (patrz
-  // `isScheduleProjection`, plan „trains-schedule-position"). Decyzja żyje
-  // w czystej funkcji obok `resolveCurrentStopIndex`, nie w tym komponencie.
-  const scheduleMode = isScheduleProjection(stops, data?.trainStatus ?? null, nowDate)
-  // Pociąg Z potwierdzeniami, ale PRZETERMINOWANYMI — PKP na gęstych liniach
-  // (SKM/KM/WKD) potwierdza paczkami z opóźnieniem, więc „ostatni potwierdzony"
-  // bywa kilka przystanków za realną pozycją. Wtedy marker idzie z projekcji
-  // rozkładowej kotwiczonej w ostatnim potwierdzeniu (patrz `isStalePositionProjection`).
-  const staleProjection = !scheduleMode && isStalePositionProjection(stops, data?.trainStatus ?? null, nowDate)
-  const currentStopIndex = scheduleMode
-    ? resolveScheduledStopIndex(stops, nowDate)
-    : staleProjection
-      ? resolveProjectedStopIndex(stops, nowDate)
-      : resolveCurrentStopIndex(stops)
+  // `isScheduleProjection`, plan „trains-schedule-position"). Pociąg Z
+  // potwierdzeniami, ale PRZETERMINOWANYMI (gęste linie SKM/KM/WKD potwierdzają
+  // paczkami z opóźnieniem) idzie z projekcji rozkładowej kotwiczonej w ostatnim
+  // potwierdzeniu (patrz `isStalePositionProjection`). Wybór trybu i indeksu —
+  // `resolvePositionAnchor` (trainDetail.ts) — WSPÓLNY z markerem na mapie
+  // (`mapPosition.ts`), żeby oś i mapa nigdy nie pokazały dwóch różnych pozycji.
+  const positionAnchor = resolvePositionAnchor(stops, data?.trainStatus ?? null, nowDate)
+  const scheduleMode = positionAnchor.mode === 'schedule'
+  const staleProjection = positionAnchor.mode === 'stale'
+  const currentStopIndex = positionAnchor.index
   const stopStatuses = stops.map((stop, index) =>
     resolveStopStatus({
       isCancelled: stop.isCancelled,
@@ -297,6 +293,31 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // Utrudnienia zebrane z całej trasy — jedno utrudnienie potrafi dotyczyć
   // wielu przystanków, więc bez deduplikacji baner powtarzałby ten sam tekst.
   const routeDisruptions = [...new Set(stops.flatMap((stop) => stop.disruptionMessages ?? []))]
+
+  // Mapa trasy: tylko przystanki z rzeczywistymi współrzędnymi (AGENTS.md #6 —
+  // reszta po prostu nie dostaje pina, polilinia łączy się dłuższym odcinkiem
+  // do następnego punktu, bez dashed-line/nowego stanu w MapView). Marker
+  // zawsze podpisany jako szacowany (AGENTS.md #7) -- `resolveInterpolatedPosition`
+  // nigdy nie zwraca "pewnej" pozycji.
+  const mapPins = useMemo<MapPin[]>(
+    () =>
+      stops.reduce<MapPin[]>((pins, stop, index) => {
+        if (typeof stop.lat !== 'number' || typeof stop.lon !== 'number') return pins
+        pins.push({ id: `${stop.stationId}-${index}`, lat: stop.lat, lon: stop.lon, label: stop.stationName, mode: 'rail' })
+        return pins
+      }, []),
+    [stops]
+  )
+  const mapRoute = useMemo(
+    () => ({ points: mapPins.map(({ lat, lon }) => ({ lat, lon })), color: null }),
+    [mapPins]
+  )
+  const mapMovers = useMemo<MapMover[]>(() => {
+    const position = resolveInterpolatedPosition(stops, data?.trainStatus ?? null, new Date(now))
+    return position === null
+      ? []
+      : [{ id: 'train', lat: position.lat, lon: position.lon, label: 'Pociąg — szacowane wg rozkładu' }]
+  }, [stops, data?.trainStatus, now])
 
   const categoryLabel = data?.category ?? null
   const trainNumber =
@@ -652,6 +673,19 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   })}
                 </ol>
               </section>
+
+              {mapPins.length >= 2 && (
+                <section className="glass rounded-2xl p-4">
+                  <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
+                  <MapView pins={mapPins} route={mapRoute} movers={mapMovers} ariaLabel={`Mapa trasy pociągu ${trainNumber}`} />
+                  {/* Etykieta „szacowane" na samym popupie markera (klik) nie
+                      wystarcza (AGENTS.md #7) -- kropka rusza się po mapie i bez
+                      podpisu widocznego OD RAZU wygląda jak realny GPS. */}
+                  {mapMovers.length > 0 && (
+                    <p className="mt-2 text-xs text-text-muted">Pozycja pociągu szacowana wg rozkładu.</p>
+                  )}
+                </section>
+              )}
 
               {/* Baner utrudnień: „brak wyników" i „nie udało się sprawdzić" to dwa
                   różne komunikaty (AGENTS.md #7) — ten mówi wyłącznie to pierwsze.

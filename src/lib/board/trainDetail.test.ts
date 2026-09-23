@@ -4,6 +4,7 @@ import {
   isScheduleProjection,
   isStalePositionProjection,
   resolveCurrentStopIndex,
+  resolvePositionAnchor,
   resolveProjectedStopIndex,
   resolveScheduledStopIndex,
   type TrainDetailStop,
@@ -595,6 +596,32 @@ describe('isStalePositionProjection', () => {
 
   it('is false with zero confirmations — that is isScheduleProjection territory', () => {
     expect(isStalePositionProjection(projectionRoute, 'S', new Date(D('11:30')))).toBe(false)
+  })
+})
+
+// AGENTS.md #2: oś (ConnectionDetails.tsx) i mapa (mapPosition.ts) muszą
+// wybierać ten sam kotwiczący indeks -- ten test przypina jedyne źródło
+// prawdy zamiast dwóch osobnych kopii tej samej gałęzi.
+describe('resolvePositionAnchor', () => {
+  it('picks the schedule-projected index in schedule mode (zero realization signal)', () => {
+    expect(resolvePositionAnchor(projectionRoute, 'S', new Date(D('11:30')))).toEqual({
+      index: resolveScheduledStopIndex(projectionRoute, new Date(D('11:30'))),
+      mode: 'schedule',
+    })
+  })
+
+  it('picks the schedule-projected index in stale mode (confirmations lagging)', () => {
+    expect(resolvePositionAnchor(staleRoute, 'S', new Date(D('12:05')))).toEqual({
+      index: resolveProjectedStopIndex(staleRoute, new Date(D('12:05'))),
+      mode: 'stale',
+    })
+  })
+
+  it('picks the last-confirmed index otherwise (live mode)', () => {
+    expect(resolvePositionAnchor(staleRoute, 'S', new Date(D('10:30')))).toEqual({
+      index: resolveCurrentStopIndex(staleRoute),
+      mode: 'live',
+    })
   })
 })
 

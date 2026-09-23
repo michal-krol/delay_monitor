@@ -222,6 +222,29 @@ export function isStalePositionProjection(stops: TrainDetailStop[], trainStatus:
   return resolveProjectedStopIndex(stops, now) >= anchor + 2
 }
 
+/** Który z trzech trybów wybrał `resolvePositionAnchor` -- patrz tam. */
+export type PositionAnchorMode = 'live' | 'schedule' | 'stale'
+
+export type PositionAnchor = { index: number; mode: PositionAnchorMode }
+
+/**
+ * Jedyne miejsce, które decyduje KTÓRY z trzech resolwerów indeksu wygrywa —
+ * `ConnectionDetails.tsx` (oś, marker „Pociąg jest tutaj") i
+ * `mapPosition.ts` (marker na mapie) muszą zgadzać się co do pozycji pociągu
+ * (patrz nagłówek `resolveInterpolatedPosition`); dwie osobne kopie tej samej
+ * trójstronnej gałęzi raz się już rozjechały między tablicą a panelem
+ * (AGENTS.md #2) — nie duplikuj jej po raz drugi między osią a mapą.
+ */
+export function resolvePositionAnchor(stops: TrainDetailStop[], trainStatus: string | null, now: Date): PositionAnchor {
+  if (isScheduleProjection(stops, trainStatus, now)) {
+    return { index: resolveScheduledStopIndex(stops, now), mode: 'schedule' }
+  }
+  if (isStalePositionProjection(stops, trainStatus, now)) {
+    return { index: resolveProjectedStopIndex(stops, now), mode: 'stale' }
+  }
+  return { index: resolveCurrentStopIndex(stops), mode: 'live' }
+}
+
 /**
  * Łączy realizację (`operation`, czasy faktyczne) z trasą rozkładową (`route`,
  * czasy planowe + peron/tor) w pełną, przystanek-po-przystanku listę do panelu
