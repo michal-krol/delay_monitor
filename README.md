@@ -430,10 +430,8 @@ nie odwzorowują realnego natężenia ruchu.
 |---|---|---|
 | `PKP_API_KEY` | brak | Klucz API. Brak → tryb mock |
 | `PKP_DATA_SOURCE` | `auto` | `auto` \| `live` \| `mock`. Jawny override |
-| `BOARD_SOURCE` | `schedule` | `schedule` \| `operations` — co wyznacza listę połączeń. **Tymczasowy**, do usunięcia ~2026-09-14 (AGENTS.md #10) |
 | `POLL_INTERVAL_MS` | `90000` | Interwał pollera |
 | `INTEREST_TTL_MS` | `300000` | Po tym czasie ciszy stacja przestaje być obserwowana |
-| `BOARD_SOURCE` | `schedule` | Co wyznacza listę połączeń tablicy (`schedule` \| `operations`) — tymczasowy przełącznik |
 | `GTFS_ENABLED` | `true` | Wyłącznik podprojektu komunikacji miejskiej |
 | `GTFS_CITIES` | `warszawa` | Lista miast GTFS do włączenia, po przecinku |
 | `GTFS_DATA_SOURCE` | `mock` | `mock` \| `live`. `live` = ~107 MB pobrania na miasto |

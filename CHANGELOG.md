@@ -57,6 +57,13 @@ Wersjonowanie semantyczne.
   (`/api/gtfs/board`, pole odpowiedzi `activeSlupek`→`activeMember`).
   **Łamiąca zmiana** — świadomie bez przekierowań ze starych adresów.
 
+### Usunięte
+
+- **Przełącznik `BOARD_SOURCE`** — tymczasowy powrót do listy połączeń
+  z realizacji (`operations`) zdjęty po dwóch tygodniach zdrowego feedu
+  `/operations` od naprawy 31.08. Rozkład wyznacza listę na stałe
+  (AGENTS.md #10). Zmienną można skasować z Railway — jest ignorowana.
+
 ### Poprawki
 
 - **Peron metra w URL-u przystanku (`7014M:P1`) dawał 404** — hydracja

@@ -87,12 +87,6 @@ const DEFAULT_MAX_WATCHED_STATIONS = 5000
 export type PollerConfig = {
   pollIntervalMs: number
   interestTtlMs: number
-  /**
-   * Co wyznacza listę połączeń — patrz `BOARD_SOURCE` w `config.ts`.
-   * Domyślnie `operations` (zachowanie historyczne), żeby dziesiątki
-   * istniejących testów pollera nie musiały tego podawać.
-   */
-  boardSource?: 'schedule' | 'operations'
   /** Nadpisanie `DEFAULT_MAX_WATCHED_STATIONS` -- głównie po to, żeby test mógł sprawdzić limit bez tysięcy wywołań. */
   maxWatchedStations?: number
 }
@@ -399,7 +393,7 @@ export function createPoller(deps: PollerDeps): Poller {
    * Nie wystarczy polegać na cache'u klienta: ma on TTL 24 h i po jego upływie
    * zwraca `undefined`, czyli przestaje działać dokładnie w dłuższej awarii,
    * kiedy jest najbardziej potrzebny. Odkąd rozkład wyznacza listę wierszy
-   * (`boardSource: 'schedule'`), jego brak oznaczałby pustą tablicę.
+   * (AGENTS.md #10), jego brak oznaczałby pustą tablicę.
    *
    * Wiek jest wystawiany w diagnostyce (`schedules.lastSuccessAt`): rozkład
    * sprzed trzech dni to nie ta sama informacja co sprzed godziny, a pokazanie
@@ -534,11 +528,7 @@ export function createPoller(deps: PollerDeps): Poller {
       const routesForStats = effectiveRoutes.length === 0 ? null : effectiveRoutes
 
       // Rozkład jako źródło listy -- patrz `ScheduleSource` w `transform.ts`.
-      // `null` zachowuje ścieżkę historyczną (lista z realizacji).
-      const scheduleSource =
-        (config.boardSource ?? 'operations') === 'schedule'
-          ? { routes: effectiveRoutes, todayIsoDate }
-          : null
+      const scheduleSource = { routes: effectiveRoutes, todayIsoDate }
 
       /**
        * Feed odpowiadający 200, ale bez ani jednego planowego czasu, jest
@@ -584,14 +574,14 @@ export function createPoller(deps: PollerDeps): Poller {
             operationTrains,
             mergedStationNames,
             routesByTrainId,
+            scheduleSource,
             carrierNames,
             fetchedAt,
             new Date(fetchedAt),
             categoryNames,
             disruptedTrains,
             computeStationStats(stationId, operationTrains, routesForStats, mergedStationNames, todayIsoDate),
-            findStationDisruptionMessages(disruptions.disruptions, disruptions.disruptionTypes, stationId),
-            scheduleSource
+            findStationDisruptionMessages(disruptions.disruptions, disruptions.disruptionTypes, stationId)
           )
         )
       }
