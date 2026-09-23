@@ -145,6 +145,23 @@ Dwie kolejne pułapki `MapView.tsx` (obie raz zepsuły popup pinu):
   popup. Analogicznie `routeKey` (`points.length:color`) — sygnatura treści,
   nie pełny obiekt.
 
+**Trzecia pułapka** (mapa miasta live, `CityVehicleMap.tsx`, `d41b99a`+1): kontener
+mapy NIE może być pozycjonowany przez `absolute inset-0` bezpośrednio na elemencie
+przekazanym do `new Map({container})`. MapLibre dokleja mu klasę `maplibregl-map`,
+a `maplibre-gl.css` (`globals.css`, `@import` BEZ `@layer`) jest w warstwie
+cascade layers *poza* jakąkolwiek nazwaną warstwą — taki unlayered CSS wygrywa
+specyficznością nad KAŻDYM layerowanym Tailwindem (w tym `@layer utilities`),
+niezależnie od kolejności w pliku. `.maplibregl-map{position:relative}` nadpisuje
+więc `absolute`, `inset-0` przestaje działać, kontener dostaje wysokość `0` —
+w rzędzie `flex-row` desktopu maskuje to `align-items:stretch`, na kolumnie
+`flex-col` telefonu (`(app)/layout.tsx`) nie. Naprawa: zewnętrzny zwykły
+`<div className="absolute inset-0">` (bez klasy MapLibre) jako rodzic, kontener
+mapy w środku `h-full w-full` — jeden poziom procentowej wysokości od jawnie
+pozycjonowanego przodka działa, MapLibre wciąż dostaje `position:relative` bez
+konfliktu. Dotyczy KAŻDEGO nowego komponentu montującego mapę poza `MapView.tsx`
+(ten akurat nie cierpi, bo jego kontenery mają jawną wysokość `h-64`/`inset-4`,
+nie `absolute inset-0` na samym elemencie MapLibre).
+
 ## 7. UI nigdy nie jest pusty
 
 Przy awarii API pokazujemy ostatni dobry snapshot + jego wiek, nie czyścimy widoku.

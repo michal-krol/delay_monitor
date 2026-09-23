@@ -1,18 +1,19 @@
 import Link from 'next/link'
 import { HomeIcon, ListIcon, StarIcon, BellIcon, RouteIcon, MapIcon, SettingsIcon } from './icons'
 
-export type ActiveItem = 'pulpit' | 'odjazdy' | 'trasy'
+export type ActiveItem = 'pulpit' | 'odjazdy' | 'trasy' | 'mapa'
 
 type NavItem =
   | { kind: 'active'; key: ActiveItem; href: string; label: string; icon: typeof HomeIcon }
   | { kind: 'disabled'; label: string; icon: typeof HomeIcon; title?: string }
 
 /**
- * „Odjazdy / Przyjazdy" prowadzi na `/city`, „Trasy" na `/lines` — obie trasy
- * dobierają domyślne miasto (ostatnie z `useCityContext` albo to z największą
- * liczbą stacji kolejowych) i przekierowują. Przełącznik miasta jest w treści
- * tamtych ekranów, nie w menu. Współdzielone przez `Sidebar` (desktop) i
- * `MobileNav` (szuflada) — jedno źródło pozycji.
+ * „Odjazdy / Przyjazdy" prowadzi na `/city`, „Trasy" na `/lines`, „Mapa" na
+ * `/map` — wszystkie trzy dobierają domyślne miasto (ostatnie z
+ * `useCityContext` albo to z największą liczbą stacji kolejowych) i
+ * przekierowują. Przełącznik miasta jest w treści tamtych ekranów, nie
+ * w menu. Współdzielone przez `Sidebar` (desktop) i `MobileNav` (szuflada) —
+ * jedno źródło pozycji.
  */
 export const NAV_ITEMS: NavItem[] = [
   { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
@@ -20,16 +21,17 @@ export const NAV_ITEMS: NavItem[] = [
   { kind: 'active', key: 'trasy', href: '/lines', label: 'Trasy', icon: RouteIcon },
   { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
   { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
-  { kind: 'disabled', label: 'Mapa', icon: MapIcon },
+  { kind: 'active', key: 'mapa', href: '/map', label: 'Mapa', icon: MapIcon },
   { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
 ]
 
 /**
- * Pozycja menu odpowiadająca adresowi. Tylko trzy trasy mają odpowiednik w menu;
+ * Pozycja menu odpowiadająca adresowi. Tylko cztery trasy mają odpowiednik w menu;
  * strony bez niego (np. `/station/[stationId]`, `/connection/...`) → `undefined`.
  */
 export function activeItemFromPath(pathname: string): ActiveItem | undefined {
   if (pathname === '/') return 'pulpit'
+  if (pathname === '/map' || /^\/city\/[^/]+\/map$/.test(pathname)) return 'mapa'
   if (pathname === '/lines' || /^\/city\/[^/]+\/lines?/.test(pathname)) return 'trasy'
   if (pathname === '/city' || pathname.startsWith('/city/')) return 'odjazdy'
   return undefined

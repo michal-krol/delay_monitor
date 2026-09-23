@@ -7,6 +7,17 @@ Wersjonowanie semantyczne.
 
 ### Dodane
 
+- **Mapa miasta live (wszystkie pojazdy)** — pozycja menu „Mapa" (dawniej
+  wyłączona) prowadzi na pełnoekranową mapę wszystkich pojazdów komunikacji
+  miejskiej danego miasta na żywo, filtr trybu (chipy) i numeru linii (stan
+  w URL), klik pojazdu → popup (linia, kierunek, nr boczny, wiek pozycji,
+  link do strony linii) → strona linii. Renderowanie: warstwa GeoJSON
+  `circle`, nie `Marker` DOM (przy ~1000+ pojazdach ten drugi to znany
+  antywzorzec MapLibre). Pozycje starsze niż 180 s znikają z warstwy (fade od
+  90 s). Pojazd z `trip_id` nieznanym rozkładowi zostaje na mapie (szary, bez
+  linii) — prawdziwa pozycja z feedu, nie odrzucamy jej. Zero nowych zapytań:
+  ten sam `VehiclePoller` co mapa trasy linii (etap 5a); zero pola opóźnienia
+  (AGENTS.md #13). Endpoint `/api/gtfs/city-vehicles`.
 - **Mapa (MapLibre GL + OpenFreeMap)** — mapa lokalizacji na stronie stacji PKP
   i przystanku miejskiego: piny z ikoną trybu, popup z najbliższymi odjazdami,
   widok pełnoekranowy (Escape / tło / focus-trap), klik pinu przełącza słupek.
