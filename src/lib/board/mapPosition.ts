@@ -1,11 +1,4 @@
-import {
-  isScheduleProjection,
-  isStalePositionProjection,
-  resolveCurrentStopIndex,
-  resolveProjectedStopIndex,
-  resolveScheduledStopIndex,
-  type TrainDetailStop,
-} from './trainDetail'
+import { resolveCurrentStopIndex, resolvePositionAnchor, type TrainDetailStop } from './trainDetail'
 
 /** `TrainDetailStop` plus statyczne współrzędne stacji, doklejone przy `/api/train` (patrz `src/app/api/train/coordinates.ts`) -- `null` = brak użytecznych danych dla tej stacji. */
 export type TrainDetailStopWithCoords = TrainDetailStop & { lat: number | null; lon: number | null }
@@ -24,14 +17,15 @@ function nextNonCancelledIndex(stops: TrainDetailStopWithCoords[], fromExclusive
  * czego pokazać: pociąg jeszcze nie wyjechał, brak współrzędnych na kotwicy
  * albo następniku, albo pusta lista przystanków.
  *
- * Kotwica = ten sam indeks, którego już używa oś w `ConnectionDetails.tsx`
- * (`isScheduleProjection`/`isStalePositionProjection` decydują który
- * resolwer), więc marker na mapie i „Pociąg jest tutaj" w osi nigdy się nie
- * rozjeżdżają. Opóźnienie doklejane do przedziału czasu bierze się zawsze
- * z OSTATNIEGO POTWIERDZONEGO przystanku (`resolveCurrentStopIndex`), nie
- * z samej kotwicy interpolacji -- w trybie „stale" kotwica jest projekcją
- * rozkładową dalej na trasie i jej własne pola opóźnienia są `null`
- * (niepotwierdzona), więc czytanie ich dałoby przesunięcie 0 zamiast realnego.
+ * Kotwica = `resolvePositionAnchor` (trainDetail.ts) — DOKŁADNIE ten sam
+ * resolwer, którego używa oś w `ConnectionDetails.tsx`, więc marker na mapie
+ * i „Pociąg jest tutaj" w osi nigdy się nie rozjeżdżają (jedna implementacja,
+ * nie dwie kopie tej samej gałęzi — AGENTS.md #2). Opóźnienie doklejane do
+ * przedziału czasu bierze się zawsze z OSTATNIEGO POTWIERDZONEGO przystanku
+ * (`resolveCurrentStopIndex`), nie z samej kotwicy interpolacji -- w trybie
+ * „stale" kotwica jest projekcją rozkładową dalej na trasie i jej własne pola
+ * opóźnienia są `null` (niepotwierdzona), więc czytanie ich dałoby przesunięcie
+ * 0 zamiast realnego.
  */
 export function resolveInterpolatedPosition(
   stops: TrainDetailStopWithCoords[],
@@ -40,13 +34,7 @@ export function resolveInterpolatedPosition(
 ): { lat: number; lon: number } | null {
   if (stops.length === 0) return null
 
-  const scheduleMode = isScheduleProjection(stops, trainStatus, now)
-  const staleProjection = !scheduleMode && isStalePositionProjection(stops, trainStatus, now)
-  const anchorIndex = scheduleMode
-    ? resolveScheduledStopIndex(stops, now)
-    : staleProjection
-      ? resolveProjectedStopIndex(stops, now)
-      : resolveCurrentStopIndex(stops)
+  const { index: anchorIndex } = resolvePositionAnchor(stops, trainStatus, now)
 
   if (anchorIndex < 0 || stops[anchorIndex].isCancelled) return null
 

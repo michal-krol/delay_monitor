@@ -6,13 +6,7 @@ import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { AlertCircleIcon, CalendarIcon, ClockIcon, InfoIcon, LinkIcon, PauseIcon, RouteIcon, ShareIcon, TrainIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
-import {
-  isScheduleProjection,
-  isStalePositionProjection,
-  resolveCurrentStopIndex,
-  resolveProjectedStopIndex,
-  resolveScheduledStopIndex,
-} from '@/lib/board/trainDetail'
+import { resolvePositionAnchor } from '@/lib/board/trainDetail'
 import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
 import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
@@ -269,19 +263,16 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const nowDate = new Date(now)
   // Pociąg bez ŻADNEJ realizacji, który wg rozkładu właśnie jedzie: pokazujemy
   // szacowaną pozycję i status „w trasie" z jawnym zastrzeżeniem (patrz
-  // `isScheduleProjection`, plan „trains-schedule-position"). Decyzja żyje
-  // w czystej funkcji obok `resolveCurrentStopIndex`, nie w tym komponencie.
-  const scheduleMode = isScheduleProjection(stops, data?.trainStatus ?? null, nowDate)
-  // Pociąg Z potwierdzeniami, ale PRZETERMINOWANYMI — PKP na gęstych liniach
-  // (SKM/KM/WKD) potwierdza paczkami z opóźnieniem, więc „ostatni potwierdzony"
-  // bywa kilka przystanków za realną pozycją. Wtedy marker idzie z projekcji
-  // rozkładowej kotwiczonej w ostatnim potwierdzeniu (patrz `isStalePositionProjection`).
-  const staleProjection = !scheduleMode && isStalePositionProjection(stops, data?.trainStatus ?? null, nowDate)
-  const currentStopIndex = scheduleMode
-    ? resolveScheduledStopIndex(stops, nowDate)
-    : staleProjection
-      ? resolveProjectedStopIndex(stops, nowDate)
-      : resolveCurrentStopIndex(stops)
+  // `isScheduleProjection`, plan „trains-schedule-position"). Pociąg Z
+  // potwierdzeniami, ale PRZETERMINOWANYMI (gęste linie SKM/KM/WKD potwierdzają
+  // paczkami z opóźnieniem) idzie z projekcji rozkładowej kotwiczonej w ostatnim
+  // potwierdzeniu (patrz `isStalePositionProjection`). Wybór trybu i indeksu —
+  // `resolvePositionAnchor` (trainDetail.ts) — WSPÓLNY z markerem na mapie
+  // (`mapPosition.ts`), żeby oś i mapa nigdy nie pokazały dwóch różnych pozycji.
+  const positionAnchor = resolvePositionAnchor(stops, data?.trainStatus ?? null, nowDate)
+  const scheduleMode = positionAnchor.mode === 'schedule'
+  const staleProjection = positionAnchor.mode === 'stale'
+  const currentStopIndex = positionAnchor.index
   const stopStatuses = stops.map((stop, index) =>
     resolveStopStatus({
       isCancelled: stop.isCancelled,
@@ -687,6 +678,12 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 <section className="glass rounded-2xl p-4">
                   <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
                   <MapView pins={mapPins} route={mapRoute} movers={mapMovers} ariaLabel={`Mapa trasy pociągu ${trainNumber}`} />
+                  {/* Etykieta „szacowane" na samym popupie markera (klik) nie
+                      wystarcza (AGENTS.md #7) -- kropka rusza się po mapie i bez
+                      podpisu widocznego OD RAZU wygląda jak realny GPS. */}
+                  {mapMovers.length > 0 && (
+                    <p className="mt-2 text-xs text-text-muted">Pozycja pociągu szacowana wg rozkładu.</p>
+                  )}
                 </section>
               )}
 

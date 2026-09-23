@@ -866,5 +866,30 @@ describe('route map', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
 
     expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
+    // Etykieta „szacowane" musi być widoczna OD RAZU, nie dopiero po kliknięciu
+    // w kropkę markera (AGENTS.md #7) -- pierwszy przystanek jest potwierdzony
+    // (isConfirmed: true w RESPONSE), więc resolveInterpolatedPosition zwraca
+    // pozycję i podpis się renderuje.
+    expect(screen.getByText('Pozycja pociągu szacowana wg rozkładu.')).toBeInTheDocument()
+  })
+
+  it('does not show the estimated-position caption when there is no confirmed movement yet', async () => {
+    const withCoordsNotStarted = {
+      ...RESPONSE,
+      trainStatus: 'S',
+      stops: RESPONSE.stops.map((stop, index) => ({
+        ...stop,
+        isConfirmed: false,
+        hasTrainStarted: false,
+        lat: index === 0 ? 54.355 : 52.2288207,
+        lon: index === 0 ? 18.646 : 21.00316,
+      })),
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(withCoordsNotStarted)))
+    freezeClock('2026-08-01T05:00:00.000Z')
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
+
+    expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
+    expect(screen.queryByText('Pozycja pociągu szacowana wg rozkładu.')).not.toBeInTheDocument()
   })
 })

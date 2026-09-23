@@ -38,4 +38,20 @@ describe('matchStationName', () => {
     ]
     expect(matchStationName(candidates, 'Poznań Główny')).toEqual(candidates[1])
   })
+
+  it('transliterates ł/Ł to l instead of dropping it, so it does not collide with an unrelated name missing that letter', () => {
+    // Bug znaleziony w review: `ł` nie ma dekompozycji NFD (to nie znak +
+    // akcent, tylko osobna litera), więc stary `normalize()` po prostu ją
+    // wyrzucał -- "Piła" i niepowiązana "Pia" normalizowały się OBIE do "pia"
+    // i fałszywie się dopasowywały. Kandydat celowo NIE jest właściwą stacją.
+    const candidates = [{ name: 'Pia', lat: 0, lon: 0 }]
+    expect(matchStationName(candidates, 'Piła')).toBeNull()
+  })
+
+  it('does not match a name that merely shares a prefix without a word boundary', () => {
+    // Bug znaleziony w review: "Ruda" jest znakowym prefiksem "Rudawa", ale to
+    // dwie różne miejscowości -- dopasowanie musi się zatrzymać na granicy słowa.
+    const candidates = [{ name: 'Rudawa', lat: 50.04, lon: 19.62 }]
+    expect(matchStationName(candidates, 'Ruda')).toBeNull()
+  })
 })

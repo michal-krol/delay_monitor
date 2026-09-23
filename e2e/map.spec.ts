@@ -193,20 +193,21 @@ test('połączenie: mapa trasy rysuje piny i marker pozycji dla pociągu w trasi
   const mapSection = page.locator('section', { has: page.getByRole('heading', { name: 'Mapa trasy' }) })
   await expect(mapSection).toBeVisible({ timeout: READY })
   await expectTilesRendered(mapSection.locator('canvas'))
-  await expect(page.locator('.maplibregl-marker')).not.toHaveCount(0)
+  // Nie samo ".maplibregl-marker" (to liczy też piny stacji) -- konkretnie
+  // marker POZYCJI, ten sam testid co mover linii (LINE_20, AGENTS.md #6).
+  await expect(mapSection.getByTestId('map-mover')).toHaveCount(1)
 })
 
 test('połączenie: mapa nie pokazuje zmyślonej pozycji dla pociągu, który jeszcze nie wyjechał (107)', async ({ page }) => {
   await page.goto(TRAIN_107)
-  const mapHeading = page.getByRole('heading', { name: 'Mapa trasy' })
-  // Mapa może się w ogóle nie wyrenderować (< 2 piny z coords) albo
-  // wyrenderować bez markera -- obie poprawne, niedopuszczalna jest tylko
-  // zmyślona pozycja pociągu przed odjazdem.
-  if (await mapHeading.isVisible().catch(() => false)) {
-    const mapSection = page.locator('section', { has: mapHeading })
-    await expectTilesRendered(mapSection.locator('canvas'))
-    await expect(mapSection.getByTestId('map-mover')).toHaveCount(0)
-  }
+  // Bez `if (isVisible())` -- to nie czeka i prawie zawsze pomija sprawdzenie
+  // tuż po nawigacji, zanim fetch /api/train w ogóle wróci. Obie stacje 107
+  // mają współrzędne (AGENTS.md #8), więc mapa się renderuje; asercja
+  // niedopuszczalności zmyślonego markera musi faktycznie się wykonać.
+  const mapSection = page.locator('section', { has: page.getByRole('heading', { name: 'Mapa trasy' }) })
+  await expect(mapSection).toBeVisible({ timeout: READY })
+  await expectTilesRendered(mapSection.locator('canvas'))
+  await expect(mapSection.getByTestId('map-mover')).toHaveCount(0)
 })
 
 test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', async ({ page }) => {

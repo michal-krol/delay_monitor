@@ -59,4 +59,20 @@ describe('attachStopCoordinates', () => {
     expect(await attachStopCoordinates([])).toEqual([])
     expect(getStationCoordinates).not.toHaveBeenCalled()
   })
+
+  it('degrades a rejected lookup to null coordinates instead of failing the whole request', async () => {
+    // getStationCoordinates rzuca celowo, gdy plik danych jest uszkodzony/brakujący
+    // (weather/coordinates.ts, AGENTS.md #7) -- to jest jeden wzbogacający dodatek
+    // do odpowiedzi /api/train, nie jej rdzeń, więc jego awaria nie może zabrać
+    // reszty stopu (osi, opóźnień) ani zmusić do ponownego, płatnego pobrania z PKP.
+    const { getStationCoordinates } = await import('@/lib/weather/coordinates')
+    vi.mocked(getStationCoordinates).mockRejectedValueOnce(new Error('ENOENT'))
+    const { attachStopCoordinates } = await import('./coordinates')
+
+    const result = await attachStopCoordinates([stop('999999'), stop('33605')])
+
+    expect(result[0].lat).toBeNull()
+    expect(result[0].lon).toBeNull()
+    expect(result[1]).toEqual({ ...stop('33605'), lat: 52.2288207, lon: 21.00316 })
+  })
 })
