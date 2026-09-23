@@ -4,6 +4,15 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* Bez tego przeglądarka (i axe-core, który liczy kontrast względem
+     DOMYŚLNEGO płótna, gdy żaden przodek nie ma nieprzezroczystego
+     `background-color` -- `body` niżej ma tylko `background-image`
+     (gradient), a `.glass`/`.glass-strong` są celowo półprzezroczyste)
+     zakłada jasne płótno nawet w `.dark`. Złapane przez e2e a11y w trybie
+     ciemnym: realnie renderowane tło było poprawnie ciemne (zmierzone
+     ręcznie), ale axe zgłaszał kontrast względem założonego #ffffff. */
+  color-scheme: light;
+
   /* Jasny motyw — równie "śmiały" jak ciemny: nasycone akcenty, widoczne
      poświaty, nie wyciszony pastel sprzed redesignu. */
   --bg-gradient:
@@ -35,6 +44,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   --bg-gradient:
     radial-gradient(1100px 600px at 85% -10%, rgba(56, 189, 248, 0.1), transparent 60%),
     radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.1), transparent 55%),
