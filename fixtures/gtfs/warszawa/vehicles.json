@@ -2,6 +2,10 @@
   "time": "{{NOW}}",
   "positions": [
     { "id": "V/20/1", "timestamp": "{{NOW}}", "lat": 52.23155, "lon": 21.00555, "side_number": "3801", "trip_id": "20-wd-0-1", "bearing": -110.0 },
-    { "id": "V/20/2", "timestamp": "{{NOW}}", "lat": 52.2325, "lon": 21.0, "side_number": "3802", "trip_id": "20-wd-0-2", "bearing": -110.0 }
+    { "id": "V/20/2", "timestamp": "{{NOW}}", "lat": 52.2325, "lon": 21.0, "side_number": "3802", "trip_id": "20-wd-0-2", "bearing": -110.0 },
+    { "id": "V/M1/1", "timestamp": "{{NOW}}", "lat": 52.2, "lon": 21.02, "side_number": "M1-01", "trip_id": "M1:KAB", "bearing": 0.0 },
+    { "id": "V/128/1", "timestamp": "{{NOW}}", "lat": 52.21, "lon": 20.99, "side_number": "128-1", "trip_id": "128/1", "bearing": 45.0 },
+    { "id": "V/S2/1", "timestamp": "{{NOW}}", "lat": 52.19, "lon": 21.05, "side_number": "S2-1", "trip_id": "S2/1", "bearing": 90.0 },
+    { "id": "V/unknown/1", "timestamp": "{{NOW}}", "lat": 52.24, "lon": 20.98, "side_number": "9999", "trip_id": "nieznany-kurs", "bearing": null }
   ]
 }

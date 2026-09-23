@@ -217,3 +217,55 @@ test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', a
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
+
+// Mapa miasta live (podprojekt 3) -- mock ma pojazdy metro/tramwaj/autobus/kolej
+// plus jeden nieznany trip_id (fixtures/gtfs/warszawa/vehicles.json).
+const CITY_MAP = '/city/warszawa/map'
+
+test('mapa miasta: renderuje wszystkie pojazdy z filtrami trybu i numeru linii', async ({ page }) => {
+  await page.goto(CITY_MAP)
+  const map = page.getByRole('region', { name: 'Mapa miasta Warszawa' })
+  await expect(map).toBeVisible({ timeout: READY })
+  await expectTilesRendered(map.locator('canvas'))
+
+  const filter = page.getByRole('group', { name: 'Filtr rodzaju transportu' })
+  await expect(filter).toBeVisible()
+  for (const label of ['Wszystko', 'metro', 'tramwaj', 'autobus', 'kolej']) {
+    await expect(filter.getByRole('button', { name: label })).toBeVisible()
+  }
+  await expect(page.getByRole('searchbox', { name: 'Filtruj po numerze linii' })).toBeVisible()
+})
+
+test('mapa miasta: filtr trybu i numeru linii zapisuje się w URL-u', async ({ page }) => {
+  await page.goto(CITY_MAP)
+  await expect(page.getByRole('region', { name: 'Mapa miasta Warszawa' })).toBeVisible({ timeout: READY })
+
+  await page.getByRole('group', { name: 'Filtr rodzaju transportu' }).getByRole('button', { name: 'tramwaj' }).click()
+  await expect(page).toHaveURL(/[?&]mode=tram/)
+
+  await page.getByRole('searchbox', { name: 'Filtruj po numerze linii' }).fill('20')
+  await expect(page).toHaveURL(/[?&]line=20/)
+})
+
+test('mapa miasta: awaria pobrania pozycji pokazuje komunikat, nie pustą mapę bez wyjaśnienia', async ({ page }) => {
+  await page.route('**/api/gtfs/city-vehicles**', (route) => route.abort())
+  await page.goto(CITY_MAP)
+  await expect(page.getByText('Nie udało się pobrać pozycji pojazdów.')).toBeVisible({ timeout: READY })
+})
+
+test('a11y: mapa miasta bez naruszeń serious/critical', async ({ page }) => {
+  await page.goto(CITY_MAP)
+  await expect(page.getByRole('region', { name: 'Mapa miasta Warszawa' })).toBeVisible({ timeout: READY })
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+})
+
+test('a11y: mapa miasta w trybie ciemnym bez naruszeń serious/critical', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto(CITY_MAP)
+  await expect(page.getByRole('region', { name: 'Mapa miasta Warszawa' })).toBeVisible({ timeout: READY })
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+})

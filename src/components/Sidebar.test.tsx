@@ -76,9 +76,16 @@ describe('Sidebar', () => {
     expect(link).toHaveAttribute('aria-current', 'page')
   })
 
-  it('Ulubione/Powiadomienia/Mapa/Ustawienia są nieaktywne — brak href, aria-disabled', () => {
+  it('„Mapa" prowadzi na /map', () => {
+    render(<Sidebar activeItem="mapa" />)
+    const link = screen.getByRole('link', { name: 'Mapa' })
+    expect(link).toHaveAttribute('href', '/map')
+    expect(link).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('Ulubione/Powiadomienia/Ustawienia są nieaktywne — brak href, aria-disabled', () => {
     render(<Sidebar activeItem="pulpit" />)
-    for (const label of ['Ulubione', 'Powiadomienia', 'Mapa', 'Ustawienia']) {
+    for (const label of ['Ulubione', 'Powiadomienia', 'Ustawienia']) {
       // eslint-disable-next-line testing-library/no-node-access -- najbliższy element z aria-disabled to cały wiersz pozycji nawigacji
       const item = screen.getByText(label).closest('[aria-disabled]')
       expect(item).toHaveAttribute('aria-disabled', 'true')

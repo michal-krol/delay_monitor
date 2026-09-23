@@ -29,9 +29,9 @@ export type MapRoute = { points: { lat: number; lon: number }[]; color: string |
 type MoverHandle = { sync: (movers: MapMover[]) => void }
 
 const ROUTE_FALLBACK_COLOR = '#4f46e5'
-const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
+export const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
 
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
+export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 
 /**
  * `setWorkerUrl` PRZED pierwszym `new Map()` -- MapLibre w wersji ESM tworzy
@@ -51,7 +51,7 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
  * Oba pliki pilnowane testem porównującym z `node_modules` przy zmianie
  * wersji zależności.
  */
-const WORKER_URL = '/maplibre-gl-worker.mjs'
+export const WORKER_URL = '/maplibre-gl-worker.mjs'
 
 /** Kółko z ikoną trybu zamiast domyślnej łezki MapLibre — `createRoot` do oderwanego diva, zero duplikacji SVG z `icons.tsx`. Kotwica na środku (poprawniejsze niż łezka: punkt = dokładna lokalizacja). */
 function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root } {

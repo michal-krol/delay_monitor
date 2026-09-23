@@ -1,0 +1,186 @@
+'use client'
+
+import { useEffect, useRef } from 'react'
+import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
+import { HEX_COLOR, STYLE_URL, WORKER_URL } from './MapView'
+import { MODE_LABEL } from './transitMode'
+import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
+
+const GRAY_FALLBACK = '#9ca3af'
+/** Wygaszanie zaczyna się w tej sekundzie wieku pozycji, kończy (ukrycie) w `HIDE_AFTER_SEC`. */
+const FADE_START_SEC = 90
+const HIDE_AFTER_SEC = 180
+const SOURCE_ID = 'city-vehicles'
+const LAYER_ID = 'city-vehicles-circles'
+
+type VehicleFeatureCollection = {
+  type: 'FeatureCollection'
+  features: {
+    type: 'Feature'
+    geometry: { type: 'Point'; coordinates: [number, number] }
+    properties: { id: string; color: string; opacity: number }
+  }[]
+}
+
+/** Pozycje starsze niż `HIDE_AFTER_SEC` znikają z warstwy (AGENTS #7 nie dotyczy — to nie "brak danych", to martwa pozycja). */
+function toFeatureCollection(vehicles: CityVehicle[]): VehicleFeatureCollection {
+  const features: VehicleFeatureCollection['features'] = []
+  for (const v of vehicles) {
+    if (v.ageSec > HIDE_AFTER_SEC) continue
+    const opacity = v.ageSec <= FADE_START_SEC ? 1 : 1 - (v.ageSec - FADE_START_SEC) / (HIDE_AFTER_SEC - FADE_START_SEC)
+    const color = v.color !== null && HEX_COLOR.test(v.color) ? v.color : GRAY_FALLBACK
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [v.lon, v.lat] },
+      properties: { id: v.id, color, opacity },
+    })
+  }
+  return { type: 'FeatureCollection', features }
+}
+
+function ageLabel(ageSec: number): string {
+  return ageSec < 60 ? `${ageSec} s temu` : `${Math.round(ageSec / 60)} min temu`
+}
+
+/**
+ * Treść popupu przez DOM API, nie `setHTML(string)` — jak `MapView.buildPopupContent`
+ * (AGENTS #4). `city`/`v` pochodzą z GTFS, zaufane wewnątrz procesu, ale konwencja
+ * ta sama w całym module map.
+ */
+function buildVehiclePopupContent(v: CityVehicle, city: string): HTMLElement {
+  const wrap = document.createElement('div')
+  wrap.className = 'text-sm'
+
+  const title = document.createElement('div')
+  title.className = 'flex items-center gap-2 font-semibold text-foreground'
+  if (v.color !== null && HEX_COLOR.test(v.color)) {
+    const dot = document.createElement('span')
+    dot.className = 'inline-block h-2.5 w-2.5 shrink-0 rounded-full'
+    dot.style.background = v.color
+    title.appendChild(dot)
+  }
+  const lineText = document.createElement('span')
+  lineText.textContent = v.shortName ?? 'linia nieznana'
+  title.appendChild(lineText)
+  wrap.appendChild(title)
+
+  const sub = document.createElement('div')
+  sub.className = 'mt-1 text-xs text-text-secondary'
+  sub.textContent = v.headsign ?? (v.mode !== null ? MODE_LABEL[v.mode] : 'kierunek nieznany')
+  wrap.appendChild(sub)
+
+  const meta = document.createElement('div')
+  meta.className = 'text-xs text-text-muted'
+  meta.textContent = `Nr boczny ${v.sideNumber !== '' ? v.sideNumber : '—'} · ${ageLabel(v.ageSec)}`
+  wrap.appendChild(meta)
+
+  if (v.routeId !== null) {
+    const link = document.createElement('a')
+    link.href = `/city/${city}/line/${v.routeId}`
+    link.textContent = 'Zobacz linię →'
+    link.className = 'mt-1.5 block text-xs font-medium text-indigo-600 dark:text-indigo-400'
+    wrap.appendChild(link)
+  } else {
+    const note = document.createElement('div')
+    note.className = 'mt-1.5 text-xs text-text-muted'
+    note.textContent = 'Brak przypisania do linii'
+    wrap.appendChild(note)
+  }
+
+  return wrap
+}
+
+/**
+ * Mapa miasta live: WSZYSTKIE pojazdy jako warstwa GeoJSON `circle`, nie
+ * `Marker` DOM — przy ~1000+ punktach `Marker` (jeden element DOM na pojazd)
+ * to znany antywzorzec MapLibre. Montuje się RAZ przy pierwszej niepustej
+ * liście (kamera dopasowana do tamtego zestawu); kolejne polle tylko
+ * `source.setData()`, bez przemontowania mapy — inaczej każdy tick pollera
+ * (15 s) resetowałby zoom/pan użytkownika (ten sam problem co `pinsKey` w
+ * `MapView.tsx`, AGENTS #6). Zmiana miasta = `key={city}` w wywołującym
+ * (`page.tsx`), nie logika tutaj.
+ */
+export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVehicle[]; city: string; ariaLabel: string }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<MapLibreMap | null>(null)
+  const vehiclesRef = useRef<Map<string, CityVehicle>>(new Map())
+
+  useEffect(() => {
+    if (containerRef.current === null || vehicles.length === 0) return
+    let cancelled = false
+    let map: MapLibreMap | null = null
+
+    import('maplibre-gl').then((lib) => {
+      if (cancelled || containerRef.current === null) return
+      lib.setWorkerUrl(WORKER_URL)
+
+      const bounds = new lib.LngLatBounds()
+      for (const v of vehicles) bounds.extend([v.lon, v.lat])
+
+      map = new lib.Map({ container: containerRef.current, style: STYLE_URL, bounds, fitBoundsOptions: { padding: 40, maxZoom: 15 } })
+      mapRef.current = map
+      const mapInstance = map
+
+      const addLayer = (): void => {
+        if (mapInstance.getSource(SOURCE_ID) !== undefined) return
+        mapInstance.addSource(SOURCE_ID, { type: 'geojson', data: toFeatureCollection(vehicles) })
+        mapInstance.addLayer({
+          id: LAYER_ID,
+          type: 'circle',
+          source: SOURCE_ID,
+          paint: {
+            'circle-radius': 6,
+            'circle-color': ['get', 'color'],
+            'circle-opacity': ['get', 'opacity'],
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#ffffff',
+          },
+        })
+        mapInstance.on('click', LAYER_ID, (e) => {
+          const id = e.features?.[0]?.properties?.id
+          const clicked = typeof id === 'string' ? vehiclesRef.current.get(id) : undefined
+          if (clicked === undefined) return
+          new lib.Popup({ offset: 10 }).setLngLat(e.lngLat).setDOMContent(buildVehiclePopupContent(clicked, city)).addTo(mapInstance)
+        })
+        mapInstance.on('mouseenter', LAYER_ID, () => {
+          mapInstance.getCanvas().style.cursor = 'pointer'
+        })
+        mapInstance.on('mouseleave', LAYER_ID, () => {
+          mapInstance.getCanvas().style.cursor = ''
+        })
+      }
+      if (mapInstance.isStyleLoaded()) addLayer()
+      else mapInstance.once('load', addLayer)
+    })
+
+    return () => {
+      cancelled = true
+      mapRef.current = null
+      map?.remove()
+    }
+    // Montowanie RAZ (pierwsza niepusta lista) -- patrz komentarz nad komponentem.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    vehiclesRef.current = new Map(vehicles.map((v) => [v.id, v]))
+    const source = mapRef.current?.getSource(SOURCE_ID) as GeoJSONSource | undefined
+    source?.setData(toFeatureCollection(vehicles))
+  }, [vehicles])
+
+  // Zewnętrzny `absolute inset-0` (nie `h-full w-full` na samym kontenerze):
+  // rodzic (`page.tsx`, `relative min-h-[60vh] flex-1`) ma wysokość rozwiązaną
+  // przez flex-grow, nie jawną długość -- procentowa wysokość dziecka przez
+  // taki łańcuch bywa `0` w Chromium na wąskim viewporcie (kolumna `flex-col`
+  // w `(app)/layout.tsx` na telefonie; rząd `flex-row` desktopu maskował to
+  // przez `align-items: stretch`). Wewnętrzny kontener MUSI zostać `h-full
+  // w-full`, nie `absolute inset-0` -- MapLibre dokleja mu klasę
+  // `maplibregl-map`, a `maplibre-gl.css` (`globals.css`, import BEZ
+  // `@layer`) wygrywa specyficznością nad warstwowanym Tailwindem i nadpisuje
+  // `position: relative`, gubiąc nasze `inset-0`.
+  return (
+    <div className="absolute inset-0">
+      <div ref={containerRef} role="region" aria-label={ariaLabel} className="h-full w-full" />
+    </div>
+  )
+}
