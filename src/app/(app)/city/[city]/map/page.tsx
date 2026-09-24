@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker, type CityOption } from '@/components/CityPicker'
@@ -29,6 +29,7 @@ export default function CityMapPage() {
   const [showRail, setShowRail] = useState(true)
   const vehiclesState = useCityVehicles(city)
   const railState = useRailStations(city)
+  const toolbarRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Zły `?mode=` po cichu ignorowany (AGENTS #4) -- nie każdy string z URL-a jest GtfsMode.
@@ -117,7 +118,7 @@ export default function CityMapPage() {
           <p className="p-4 text-sm text-red-700 dark:text-red-300">Nie udało się pobrać pozycji pojazdów.</p>
         ) : (
           <>
-            <div className="glass absolute left-4 right-4 top-4 z-10 flex flex-col gap-2 rounded-2xl p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div ref={toolbarRef} className="glass absolute left-4 right-4 top-4 z-10 flex flex-col gap-2 rounded-2xl p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-1.5" role="group" aria-label="Warstwy mapy">
                 <button
                   type="button"
@@ -158,6 +159,7 @@ export default function CityMapPage() {
               railStations={showRail ? railState.stations : []}
               city={city}
               ariaLabel={`Mapa miasta ${cityName}`}
+              topOverlayRef={toolbarRef}
             />
           </>
         )}

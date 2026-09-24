@@ -204,4 +204,17 @@ describe('CityVehicleMap', () => {
     expect(bounds.extend).toHaveBeenCalledWith([21.0, 52.2])
     expect(bounds.extend).toHaveBeenCalledWith([21.00316, 52.2288207])
   })
+
+  it('kadr początkowy rezerwuje u góry zmierzoną wysokość paska sterowania leżącego na mapie', async () => {
+    const box = (top: number, bottom: number) => ({ top, bottom, height: bottom - top }) as DOMRect
+    const toolbar = document.createElement('div')
+    toolbar.getBoundingClientRect = () => box(216, 376) // pasek złożony w kolumnę na telefonie
+    const containerBox = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(box(200, 800)) // kontener mapy
+    render(<CityVehicleMap vehicles={[vehicle()]} city="warszawa" ariaLabel="Mapa" topOverlayRef={{ current: toolbar }} />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+
+    const { padding } = vi.mocked(maplibregl.Map).mock.calls[0][0].fitBoundsOptions as { padding: Record<string, number> }
+    expect(padding).toEqual({ top: 176 + 40, right: 40, bottom: 40, left: 40 })
+    containerBox.mockRestore()
+  })
 })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
 import type { Root } from 'react-dom/client'
 import { HEX_COLOR, STYLE_URL, WORKER_URL, createMarkerElement, buildPopupContent } from './MapView'
@@ -14,6 +14,9 @@ const FADE_START_SEC = 90
 const HIDE_AFTER_SEC = 180
 const SOURCE_ID = 'city-vehicles'
 const LAYER_ID = 'city-vehicles-circles'
+const FIT_PADDING = 40
+/** Minimalna wysokość pola kadru — bez niej MapLibre odmawia fitBounds i kamera zostaje na [0,0]. */
+const MIN_FIT_HEIGHT = 80
 
 type VehicleFeatureCollection = {
   type: 'FeatureCollection'
@@ -147,11 +150,18 @@ export function CityVehicleMap({
   railStations,
   city,
   ariaLabel,
+  topOverlayRef,
 }: {
   vehicles: CityVehicle[]
   railStations?: RailStationPin[]
   city: string
   ariaLabel: string
+  /**
+   * Pasek sterowania leżący na mapie (`absolute`). Kadr początkowy rezerwuje u góry
+   * jego faktyczną, zmierzoną wysokość — na wąskim ekranie pasek składa się w kolumnę
+   * i płaskie 40 px zostawiało piny pod nim, nieklikalne.
+   */
+  topOverlayRef?: RefObject<HTMLElement | null>
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -172,7 +182,13 @@ export function CityVehicleMap({
       for (const v of vehicles) bounds.extend([v.lon, v.lat])
       for (const pin of railStationsRef.current) bounds.extend([pin.lon, pin.lat])
 
-      map = new lib.Map({ container: containerRef.current, style: STYLE_URL, bounds, fitBoundsOptions: { padding: 40, maxZoom: 15 } })
+      const box = containerRef.current.getBoundingClientRect()
+      const overlay = topOverlayRef?.current
+      const overlayBottom = overlay ? overlay.getBoundingClientRect().bottom - box.top : 0
+      const top = Math.max(FIT_PADDING, Math.min(overlayBottom + FIT_PADDING, box.height - FIT_PADDING - MIN_FIT_HEIGHT))
+      const padding = { top, right: FIT_PADDING, bottom: FIT_PADDING, left: FIT_PADDING }
+
+      map = new lib.Map({ container: containerRef.current, style: STYLE_URL, bounds, fitBoundsOptions: { padding, maxZoom: 15 } })
       mapRef.current = map
       const mapInstance = map
 
