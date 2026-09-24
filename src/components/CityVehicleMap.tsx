@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import { HEX_COLOR, STYLE_URL, WORKER_URL } from './MapView'
+import type { GeoJSONSource, Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
+import type { Root } from 'react-dom/client'
+import { HEX_COLOR, STYLE_URL, WORKER_URL, createMarkerElement, buildPopupContent } from './MapView'
 import { MODE_LABEL } from './transitMode'
+import { railMarkerBackground, type RailStationPin } from '@/lib/board/railStationPin'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 
 const GRAY_FALLBACK = '#9ca3af'
@@ -91,6 +93,46 @@ function buildVehiclePopupContent(v: CityVehicle, city: string): HTMLElement {
 }
 
 /**
+ * Dodaje/aktualizuje/usuwa markery stacji na już zamontowanej mapie — ten sam
+ * wzorzec co `syncMovers` w `MapView.tsx` (diff po `id`, update w miejscu
+ * zamiast przebudowy), tylko bez ruchu (stacje nie zmieniają pozycji).
+ */
+function syncRailMarkers(
+  mapInstance: MapLibreMap,
+  lib: typeof import('maplibre-gl'),
+  stations: RailStationPin[],
+  markers: Map<string, { marker: MapLibreMarker; root: Root }>
+): void {
+  const seen = new Set<string>()
+  for (const pin of stations) {
+    seen.add(pin.id)
+    const existing = markers.get(pin.id)
+    if (existing !== undefined) {
+      existing.marker.getPopup()?.setDOMContent(buildPopupContent(pin, true))
+      continue
+    }
+    const { element, root } = createMarkerElement(pin, railMarkerBackground(pin))
+    if (pin.coordSource === 'city-fallback') {
+      element.style.outlineStyle = 'dashed'
+      element.style.outlineColor = 'white'
+      element.style.outlineWidth = '2px'
+      element.style.outlineOffset = '2px'
+    }
+    const marker = new lib.Marker({ element })
+      .setLngLat([pin.lon, pin.lat])
+      .setPopup(new lib.Popup({ offset: 16 }).setDOMContent(buildPopupContent(pin, true)))
+      .addTo(mapInstance)
+    markers.set(pin.id, { marker, root })
+  }
+  for (const [id, entry] of markers) {
+    if (seen.has(id)) continue
+    entry.marker.remove()
+    entry.root.unmount()
+    markers.delete(id)
+  }
+}
+
+/**
  * Mapa miasta live: WSZYSTKIE pojazdy jako warstwa GeoJSON `circle`, nie
  * `Marker` DOM — przy ~1000+ punktach `Marker` (jeden element DOM na pojazd)
  * to znany antywzorzec MapLibre. Montuje się RAZ przy pierwszej niepustej
@@ -100,10 +142,22 @@ function buildVehiclePopupContent(v: CityVehicle, city: string): HTMLElement {
  * `MapView.tsx`, AGENTS #6). Zmiana miasta = `key={city}` w wywołującym
  * (`page.tsx`), nie logika tutaj.
  */
-export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVehicle[]; city: string; ariaLabel: string }) {
+export function CityVehicleMap({
+  vehicles,
+  railStations,
+  city,
+  ariaLabel,
+}: {
+  vehicles: CityVehicle[]
+  railStations?: RailStationPin[]
+  city: string
+  ariaLabel: string
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const vehiclesRef = useRef<Map<string, CityVehicle>>(new Map())
+  const railMarkersRef = useRef<Map<string, { marker: MapLibreMarker; root: Root }>>(new Map())
+  const railStationsRef = useRef<RailStationPin[]>(railStations ?? [])
 
   useEffect(() => {
     if (containerRef.current === null || vehicles.length === 0) return
@@ -148,6 +202,7 @@ export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVe
         mapInstance.on('mouseleave', LAYER_ID, () => {
           mapInstance.getCanvas().style.cursor = ''
         })
+        syncRailMarkers(mapInstance, lib, railStationsRef.current, railMarkersRef.current)
       }
       if (mapInstance.isStyleLoaded()) addLayer()
       else mapInstance.once('load', addLayer)
@@ -156,6 +211,11 @@ export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVe
     return () => {
       cancelled = true
       mapRef.current = null
+      for (const { marker, root } of railMarkersRef.current.values()) {
+        marker.remove()
+        root.unmount()
+      }
+      railMarkersRef.current.clear()
       map?.remove()
     }
     // Montowanie RAZ (pierwsza niepusta lista) -- patrz komentarz nad komponentem.
@@ -167,6 +227,20 @@ export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVe
     const source = mapRef.current?.getSource(SOURCE_ID) as GeoJSONSource | undefined
     source?.setData(toFeatureCollection(vehicles))
   }, [vehicles])
+
+  const railStationsKey = (railStations ?? [])
+    .map((pin) => `${pin.id}:${pin.status ?? ''}:${pin.coordSource}:${(pin.preview ?? []).join(',')}`)
+    .join('|')
+
+  useEffect(() => {
+    railStationsRef.current = railStations ?? []
+    const mapInstance = mapRef.current
+    if (mapInstance === null) return
+    import('maplibre-gl').then((lib) => {
+      syncRailMarkers(mapInstance, lib, railStationsRef.current, railMarkersRef.current)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `railStationsKey` to celowa sygnatura treści `railStations`.
+  }, [railStationsKey])
 
   // Zewnętrzny `absolute inset-0` (nie `h-full w-full` na samym kontenerze):
   // rodzic (`page.tsx`, `relative min-h-[60vh] flex-1`) ma wysokość rozwiązaną

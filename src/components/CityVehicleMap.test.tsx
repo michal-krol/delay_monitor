@@ -4,12 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { CityVehicleMap } from './CityVehicleMap'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
+import type { RailStationPin } from '@/lib/board/railStationPin'
 
 type PopupMock = { setLngLat: (l: unknown) => PopupMock; setDOMContent: (node: HTMLElement) => PopupMock; addTo: () => PopupMock; content: HTMLElement | null }
 
 let sourceAdded = false
 const sourceMock = { setData: vi.fn() }
 const handlers = new Map<string, (e: unknown) => void>()
+const marker = {
+  setLngLat: vi.fn().mockReturnThis(),
+  setPopup: vi.fn().mockReturnThis(),
+  addTo: vi.fn().mockReturnThis(),
+  remove: vi.fn(),
+  getPopup: vi.fn(() => ({ setDOMContent: vi.fn() })),
+}
 
 vi.mock('maplibre-gl', () => {
   const map = {
@@ -42,6 +50,9 @@ vi.mock('maplibre-gl', () => {
     }),
     LngLatBounds: vi.fn(function LngLatBounds() {
       return { extend: vi.fn() }
+    }),
+    Marker: vi.fn(function Marker() {
+      return marker
     }),
   }
 })
@@ -145,5 +156,43 @@ describe('CityVehicleMap', () => {
     expect(content.textContent).toContain('Brak przypisania do linii')
     // eslint-disable-next-line testing-library/no-node-access -- jak wyżej
     expect(content.querySelector('a')).toBeNull()
+  })
+
+  function railStation(overrides: Partial<RailStationPin> = {}): RailStationPin {
+    return {
+      id: '33605',
+      lat: 52.2288207,
+      lon: 21.00316,
+      label: 'Warszawa Centralna',
+      mode: 'rail',
+      href: '/station/33605',
+      preview: ['18:12 → Kutno (+6 min)'],
+      status: 'delayed',
+      coordSource: 'station',
+      ...overrides,
+    }
+  }
+
+  it('dodaje marker dla stacji kolei obok warstwy pojazdów pojazdów', async () => {
+    render(<CityVehicleMap vehicles={[vehicle()]} railStations={[railStation()]} city="warszawa" ariaLabel="Mapa" />)
+    await waitFor(() => expect(vi.mocked(maplibregl.Marker)).toHaveBeenCalledTimes(1))
+  })
+
+  // Kolor markera wg statusu jest już przetestowany jako czysta funkcja
+  // (`railMarkerBackground`, Task 6) — tutaj sprawdzamy tylko wizualną
+  // adnotację `city-fallback` (longhand `outlineStyle`, bezpieczne w jsdom).
+  it('stacja city-fallback dostaje wizualną adnotację przybliżonej pozycji', async () => {
+    render(<CityVehicleMap vehicles={[vehicle()]} railStations={[railStation({ coordSource: 'city-fallback' })]} city="warszawa" ariaLabel="Mapa" />)
+    await waitFor(() => expect(vi.mocked(maplibregl.Marker)).toHaveBeenCalledTimes(1))
+    const element = vi.mocked(maplibregl.Marker).mock.calls[0][0]?.element as HTMLElement
+    expect(element.style.outlineStyle).toBe('dashed')
+  })
+
+  it('aktualizuje piny stacji, gdy zmienia się status, bez przemontowania mapy', async () => {
+    const { rerender } = render(<CityVehicleMap vehicles={[vehicle()]} railStations={[railStation({ status: 'onTime' })]} city="warszawa" ariaLabel="Mapa" />)
+    await waitFor(() => expect(vi.mocked(maplibregl.Marker)).toHaveBeenCalledTimes(1))
+    rerender(<CityVehicleMap vehicles={[vehicle()]} railStations={[railStation({ status: 'delayed' })]} city="warszawa" ariaLabel="Mapa" />)
+    await waitFor(() => expect(vi.mocked(maplibregl.Marker)).toHaveBeenCalledTimes(1)) // wciąż jeden Marker — update w miejscu, nie nowy
+    expect(vi.mocked(maplibregl.Map)).toHaveBeenCalledTimes(1) // mapa się nie przemontowała
   })
 })
