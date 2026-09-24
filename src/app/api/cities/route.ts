@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { client } from '@/lib/board/instance'
+import { resolveCityRailStations } from '@/lib/board/railStations'
 import { allCities } from '@/lib/gtfs/cities'
 import { enabledGtfsCities, peekGtfsPoller } from '@/lib/gtfs/instance'
 import { linesByMode } from '@/lib/gtfs/query'
@@ -20,15 +20,7 @@ export async function GET() {
 
   const cities = await Promise.all(
     allCities().map(async (city) => {
-      let railStations: { id: string; name: string }[] = []
-      try {
-        const matches = await client.searchStations(city.name)
-        railStations = matches
-          .filter((station) => station.name.startsWith(city.railStationPrefix))
-          .map((station) => ({ id: station.id, name: station.name }))
-      } catch {
-        railStations = []
-      }
+      const railStations = await resolveCityRailStations(city)
 
       const poller = peekGtfsPoller(city.id)
       const schedule = poller?.getSchedule() ?? null
