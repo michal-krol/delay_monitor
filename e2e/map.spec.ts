@@ -269,3 +269,32 @@ test('a11y: mapa miasta w trybie ciemnym bez naruszeń serious/critical', async 
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
+
+test('mapa miasta: warstwa kolei pokazuje piny stacji, klik prowadzi do tablicy stacji', async ({ page }) => {
+  // Odwiedzamy /station/33605 najpierw, żeby poller (dzielony przez cały proces
+  // serwera e2e) zarejestrował zainteresowanie tą stacją -- inaczej kolejność
+  // testów decydowałaby, czy /api/rail-stations widzi jakikolwiek snapshot.
+  await page.goto(STATION_BOARD)
+  // exact: true -- inaczej łapie też h3 karty pogody „Pogoda dziś — Warszawa Centralna" (strict mode violation).
+  await expect(page.getByRole('heading', { name: 'Warszawa Centralna', exact: true })).toBeVisible({ timeout: READY })
+
+  await page.goto(CITY_MAP)
+  const map = page.getByRole('region', { name: 'Mapa miasta Warszawa' })
+  await expect(map).toBeVisible({ timeout: READY })
+
+  const group = page.getByRole('group', { name: 'Warstwy mapy' })
+  await expect(group.getByRole('button', { name: 'Pojazdy' })).toBeVisible()
+  await expect(group.getByRole('button', { name: 'Kolej' })).toBeVisible()
+
+  await expect(map.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
+  await map.locator('.maplibregl-marker').first().click()
+  await expect(page.locator('.maplibregl-popup-content')).toBeVisible()
+})
+
+test('mapa miasta: chip „Kolej” chowa warstwę i zapisuje to w URL-u', async ({ page }) => {
+  await page.goto(CITY_MAP)
+  await expect(page.getByRole('region', { name: 'Mapa miasta Warszawa' })).toBeVisible({ timeout: READY })
+
+  await page.getByRole('group', { name: 'Warstwy mapy' }).getByRole('button', { name: 'Kolej' }).click()
+  await expect(page).toHaveURL(/[?&]rail=0/)
+})
