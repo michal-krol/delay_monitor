@@ -195,4 +195,13 @@ describe('CityVehicleMap', () => {
     await waitFor(() => expect(vi.mocked(maplibregl.Marker)).toHaveBeenCalledTimes(1)) // wciąż jeden Marker — update w miejscu, nie nowy
     expect(vi.mocked(maplibregl.Map)).toHaveBeenCalledTimes(1) // mapa się nie przemontowała
   })
+
+  it('kamera początkowa obejmuje też pozycje stacji kolei, nie tylko pojazdy', async () => {
+    render(<CityVehicleMap vehicles={[vehicle()]} railStations={[railStation()]} city="warszawa" ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+
+    const bounds = vi.mocked(maplibregl.Map).mock.calls[0][0].bounds as unknown as { extend: ReturnType<typeof vi.fn> }
+    expect(bounds.extend).toHaveBeenCalledWith([21.0, 52.2])
+    expect(bounds.extend).toHaveBeenCalledWith([21.00316, 52.2288207])
+  })
 })

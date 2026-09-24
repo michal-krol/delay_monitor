@@ -170,6 +170,7 @@ export function CityVehicleMap({
 
       const bounds = new lib.LngLatBounds()
       for (const v of vehicles) bounds.extend([v.lon, v.lat])
+      for (const pin of railStationsRef.current) bounds.extend([pin.lon, pin.lat])
 
       map = new lib.Map({ container: containerRef.current, style: STYLE_URL, bounds, fitBoundsOptions: { padding: 40, maxZoom: 15 } })
       mapRef.current = map
