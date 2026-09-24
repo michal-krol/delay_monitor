@@ -16,9 +16,9 @@ const getSnapshot = vi.fn((id: string) => {
     stationId: '33605',
     stationName: 'Warszawa Centralna',
     departures: [
-      { plannedAt: new Date(now + 5 * 60_000).toISOString(), headsign: 'Kutno', delayMinutes: 6, status: 'delayed' },
-      { plannedAt: new Date(now - 5 * 60_000).toISOString(), headsign: 'Skierniewice', delayMinutes: 0, status: 'onTime' },
-      { plannedAt: new Date(now + 20 * 60_000).toISOString(), headsign: 'Łódź Fabryczna', delayMinutes: null, status: 'onTime' },
+      { plannedAt: new Date(now + 5 * 60_000).toISOString(), headsign: 'Kutno' as string | null, delayMinutes: 6, status: 'delayed' },
+      { plannedAt: new Date(now - 5 * 60_000).toISOString(), headsign: 'Skierniewice' as string | null, delayMinutes: 0, status: 'onTime' },
+      { plannedAt: new Date(now + 20 * 60_000).toISOString(), headsign: 'Łódź Fabryczna' as string | null, delayMinutes: null, status: 'onTime' },
     ],
     arrivals: [],
     fetchedAt: new Date(now - 10_000).toISOString(),
@@ -87,6 +87,23 @@ describe('GET /api/rail-stations', () => {
     expect(entry.nextDepartures.map((d: { headsign: string }) => d.headsign)).toEqual(['Kutno', 'Łódź Fabryczna'])
     expect(typeof entry.ageMs).toBe('number')
     expect(entry.coordSource).toBe('station')
+  })
+
+  it('passes through a null headsign as null, not an empty string or dash', async () => {
+    getSnapshot.mockImplementationOnce((id: string) => {
+      if (id !== '33605') return undefined
+      const now = Date.now()
+      return {
+        stationId: '33605',
+        stationName: 'Warszawa Centralna',
+        departures: [{ plannedAt: new Date(now + 5 * 60_000).toISOString(), headsign: null, delayMinutes: 0, status: 'onTime' }],
+        arrivals: [],
+        fetchedAt: new Date(now - 10_000).toISOString(),
+      }
+    })
+    const { body } = await call('warszawa')
+    const entry = body.stations.find((s: { id: string }) => s.id === '33605')
+    expect(entry.nextDepartures).toEqual([{ plannedAt: expect.any(String), headsign: null, delayMinutes: 0, status: 'onTime' }])
   })
 
   it('degrades to an empty station list when the dictionary lookup fails, not a 500', async () => {

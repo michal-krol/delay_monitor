@@ -13,7 +13,7 @@ type RailStationApiEntry = {
   lon: number
   coordSource: 'station' | 'osm-railway' | 'city-fallback'
   status: RealizationStatus | null
-  nextDepartures: { plannedAt: string; headsign: string; delayMinutes: number | null; status: RealizationStatus }[] | null
+  nextDepartures: { plannedAt: string; headsign: string | null; delayMinutes: number | null; status: RealizationStatus }[] | null
   ageMs: number | null
 }
 
@@ -59,7 +59,7 @@ export async function GET(request: Request): Promise<Response> {
         lon: coords.lon,
         coordSource,
         status,
-        nextDepartures: upcoming.map((row) => ({ plannedAt: row.plannedAt, headsign: row.headsign ?? '', delayMinutes: row.delayMinutes, status: row.status })),
+        nextDepartures: upcoming.map((row) => ({ plannedAt: row.plannedAt, headsign: row.headsign, delayMinutes: row.delayMinutes, status: row.status })),
         ageMs: now - Date.parse(snapshot.fetchedAt),
       }
     })
