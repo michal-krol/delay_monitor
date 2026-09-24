@@ -56,6 +56,11 @@ Klucz Basic: 100/h **oraz** 1000/dobę. Poller @90 s ≈ 40/h — zapas realny, 
 - **Poza cyklem pollera, licz osobno:**
   - `/api/train` — synchroniczny fetch przy kliknięciu w niewidziany pociąg,
     własny cache 90 s (`createTtlCache()`).
+  - `/api/rail-stations` — pollowany co 90 s przez KAŻDĄ otwartą kartę mapy miasta
+    (automatyczny, cykliczny, inaczej niż `/api/cities`, wołane raz na wczytanie
+    strony). `resolveCityRailStations()` (`board/railStations.ts`) cache'uje wynik
+    wyszukania stacji per miasto na 10 min — także `[]` po awarii słownika stacji,
+    inaczej sustained awaria powtarzałaby próbę co poll zamiast raz na TTL.
   - `/api/network-stats` — `getOperationsStatistics` (15 min), `getDisruptionCount`
     (20 min), `getDailyCarrierCounts` (24 h), `getNameDictionaries` (współdzielony).
     Jeden globalny widżet, cache w `board/networkStats.ts` → ~7/h niezależnie od ruchu.

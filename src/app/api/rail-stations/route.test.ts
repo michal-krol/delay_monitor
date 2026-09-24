@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const searchStations = vi.fn(async (query: string) =>
   query === 'Warszawa'
@@ -47,6 +47,15 @@ async function call(city: string) {
 }
 
 describe('GET /api/rail-stations', () => {
+  // `resolveCityRailStations` (`src/lib/board/railStations.ts`) cache'uje
+  // teraz wynik wyszukania stacji per miasto (Fix 3, AGENTS.md #3) -- bez
+  // resetu modułów drugi `call('warszawa')` w tym samym pliku trafiałby w
+  // cache pierwszego zamiast wołać `searchStations` ponownie, gubiąc
+  // `mockImplementationOnce`/`mockRejectedValueOnce` ustawione niżej.
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
   it('returns 404 for a city outside the registry', async () => {
     const { response } = await call('atlantyda')
     expect(response.status).toBe(404)

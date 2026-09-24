@@ -288,7 +288,12 @@ test('mapa miasta: warstwa kolei pokazuje piny stacji, klik prowadzi do tablicy 
 
   await expect(map.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
   await map.locator('.maplibregl-marker').first().click()
-  await expect(page.locator('.maplibregl-popup-content')).toBeVisible()
+  const popup = page.locator('.maplibregl-popup-content')
+  await expect(popup).toBeVisible()
+  // "klik prowadzi do tablicy stacji" -- sprawdź faktyczny href, nie tylko że popup się otworzył.
+  // Format `/station/${id}` z `toRailStationPin()` (railStationPin.ts); jedyna stacja PKP
+  // w fixture'ach Warszawy to Warszawa Centralna, id 33605 (AGENTS.md #8).
+  await expect(popup.getByRole('link', { name: 'Zobacz pełną tablicę →' })).toHaveAttribute('href', '/station/33605')
 })
 
 test('mapa miasta: chip „Kolej” chowa warstwę i zapisuje to w URL-u', async ({ page }) => {
@@ -297,4 +302,21 @@ test('mapa miasta: chip „Kolej” chowa warstwę i zapisuje to w URL-u', async
 
   await page.getByRole('group', { name: 'Warstwy mapy' }).getByRole('button', { name: 'Kolej' }).click()
   await expect(page).toHaveURL(/[?&]rail=0/)
+})
+
+// Regresja: wejście PROSTO z `?vehicles=0` w URL-u (nie klik chipa PO wczytaniu)
+// dawało `vehicles={[]}` od pierwszego renderu -- montowanie mapy w
+// CityVehicleMap.tsx (deps `[]`) miało tylko jedną szansę i nigdy się nie
+// odpalało, mapa zostawała pusta na zawsze, nawet po ponownym włączeniu
+// chipa. `Kolej` zostaje włączona (domyślnie), więc marker stacji potwierdza,
+// że mapa się realnie zamontowała, nie tylko że region istnieje.
+test('mapa miasta: wejście z ?vehicles=0 w URL-u nie zostawia pustej, niemożliwej do naprawienia mapy', async ({ page }) => {
+  await page.goto(STATION_BOARD)
+  await expect(page.getByRole('heading', { name: 'Warszawa Centralna', exact: true })).toBeVisible({ timeout: READY })
+
+  await page.goto(`${CITY_MAP}?vehicles=0`)
+  const map = page.getByRole('region', { name: 'Mapa miasta Warszawa' })
+  await expect(map).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('group', { name: 'Warstwy mapy' }).getByRole('button', { name: 'Pojazdy', pressed: false })).toBeVisible()
+  await expect(map.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
 })

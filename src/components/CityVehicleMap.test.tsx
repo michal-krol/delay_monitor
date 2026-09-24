@@ -9,15 +9,9 @@ import type { RailStationPin } from '@/lib/board/railStationPin'
 type PopupMock = { setLngLat: (l: unknown) => PopupMock; setDOMContent: (node: HTMLElement) => PopupMock; addTo: () => PopupMock; content: HTMLElement | null }
 
 let sourceAdded = false
+let layerAdded = false
 const sourceMock = { setData: vi.fn() }
 const handlers = new Map<string, (e: unknown) => void>()
-const marker = {
-  setLngLat: vi.fn().mockReturnThis(),
-  setPopup: vi.fn().mockReturnThis(),
-  addTo: vi.fn().mockReturnThis(),
-  remove: vi.fn(),
-  getPopup: vi.fn(() => ({ setDOMContent: vi.fn() })),
-}
 
 vi.mock('maplibre-gl', () => {
   const map = {
@@ -28,7 +22,13 @@ vi.mock('maplibre-gl', () => {
     addSource: vi.fn(() => {
       sourceAdded = true
     }),
-    addLayer: vi.fn(),
+    addLayer: vi.fn(() => {
+      layerAdded = true
+    }),
+    // Warstwa istnieje dopiero po `addLayer()` -- tak jak prawdziwe MapLibre,
+    // żeby test przełącznika widoczności (Fix 1) łapał ewentualny brak guardu.
+    getLayer: vi.fn(() => (layerAdded ? {} : undefined)),
+    setLayoutProperty: vi.fn(),
     on: vi.fn((event: string, layerOrHandler: string | ((e: unknown) => void), handler?: (e: unknown) => void) => {
       if (typeof layerOrHandler === 'string' && handler !== undefined) handlers.set(`${event}:${layerOrHandler}`, handler)
     }),
@@ -51,8 +51,23 @@ vi.mock('maplibre-gl', () => {
     LngLatBounds: vi.fn(function LngLatBounds() {
       return { extend: vi.fn() }
     }),
+    // Instancja ŚWIEŻA na każde wywołanie `new Marker()` (z własnym elementem
+    // DOM i popupem) — nie jeden dzielony singleton. Task 2 wymaga sprawdzenia,
+    // że AKTUALIZACJA istniejącego markera zmienia kolor jego WŁASNEGO elementu;
+    // dzielony singleton maskowałby regresję (test przechodziłby, nawet gdyby
+    // `syncRailMarkers` nigdy nie odświeżał stylu przy update).
     Marker: vi.fn(function Marker() {
-      return marker
+      const element = document.createElement('div')
+      const popup = { setDOMContent: vi.fn() }
+      return {
+        element,
+        setLngLat: vi.fn().mockReturnThis(),
+        setPopup: vi.fn().mockReturnThis(),
+        addTo: vi.fn().mockReturnThis(),
+        remove: vi.fn(),
+        getPopup: vi.fn(() => popup),
+        getElement: vi.fn(() => element),
+      }
     }),
   }
 })
@@ -78,6 +93,7 @@ describe('CityVehicleMap', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sourceAdded = false
+    layerAdded = false
     handlers.clear()
   })
 
@@ -96,6 +112,36 @@ describe('CityVehicleMap', () => {
     const [, sourceOptions] = mapInstance.addSource.mock.calls[0]
     expect(sourceOptions.data.features).toHaveLength(1)
     expect(sourceOptions.data.features[0].properties).toEqual({ id: 'v1', color: '#009944', opacity: 1 })
+  })
+
+  // Regresja: `?vehicles=0` w URL-u dawał `vehicles={[]}` od pierwszego
+  // renderu -- montowanie (deps `[]`) miało tylko jedną szansę i nigdy więcej
+  // się nie odpalało, mapa zostawała pusta na zawsze. `vehicles` musi więc
+  // zostać pełną listą niezależnie od `vehiclesVisible`; widoczność idzie
+  // wyłącznie przez layout warstwy.
+  it('montuje mapę i tworzy warstwę nawet gdy vehiclesVisible=false, z warstwą początkowo ukrytą', async () => {
+    render(<CityVehicleMap vehicles={[vehicle()]} vehiclesVisible={false} city="warszawa" ariaLabel="Mapa miasta" />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+
+    const mapInstance = vi.mocked(maplibregl.Map).mock.results[0].value
+    await waitFor(() => expect(mapInstance.addLayer).toHaveBeenCalledTimes(1))
+    const [layerOptions] = mapInstance.addLayer.mock.calls[0]
+    expect(layerOptions.layout).toEqual({ visibility: 'none' })
+  })
+
+  it('przełączenie vehiclesVisible po zamontowaniu woła setLayoutProperty, bez przemontowania mapy', async () => {
+    const { rerender } = render(<CityVehicleMap vehicles={[vehicle()]} vehiclesVisible={true} city="warszawa" ariaLabel="Mapa miasta" />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+    const mapInstance = vi.mocked(maplibregl.Map).mock.results[0].value
+    await waitFor(() => expect(mapInstance.addLayer).toHaveBeenCalledTimes(1))
+
+    rerender(<CityVehicleMap vehicles={[vehicle()]} vehiclesVisible={false} city="warszawa" ariaLabel="Mapa miasta" />)
+    await waitFor(() => expect(mapInstance.setLayoutProperty).toHaveBeenCalledWith('city-vehicles-circles', 'visibility', 'none'))
+    expect(maplibregl.Map).toHaveBeenCalledTimes(1)
+
+    rerender(<CityVehicleMap vehicles={[vehicle()]} vehiclesVisible={true} city="warszawa" ariaLabel="Mapa miasta" />)
+    await waitFor(() => expect(mapInstance.setLayoutProperty).toHaveBeenCalledWith('city-vehicles-circles', 'visibility', 'visible'))
+    expect(maplibregl.Map).toHaveBeenCalledTimes(1)
   })
 
   it('aktualizuje dane przez setData bez przemontowania mapy przy kolejnym pollu', async () => {
@@ -194,6 +240,34 @@ describe('CityVehicleMap', () => {
     rerender(<CityVehicleMap vehicles={[vehicle()]} railStations={[railStation({ status: 'delayed' })]} city="warszawa" ariaLabel="Mapa" />)
     await waitFor(() => expect(vi.mocked(maplibregl.Marker)).toHaveBeenCalledTimes(1)) // wciąż jeden Marker — update w miejscu, nie nowy
     expect(vi.mocked(maplibregl.Map)).toHaveBeenCalledTimes(1) // mapa się nie przemontowała
+  })
+
+  // Regresja: update-ścieżka w `syncRailMarkers` odświeżała TYLKO popup, nigdy
+  // kolor/obrys elementu DOM istniejącego markera -- licznik `Marker`
+  // wywołań (test wyżej) przechodził mimo błędu, bo błąd nie dotyczy LICZBY
+  // markerów, tylko ich STYLU po aktualizacji. Marker mock musi zwracać
+  // ŚWIEŻY element na `new Marker()`, żeby to w ogóle dało się zaobserwować
+  // (patrz komentarz przy mocku `Marker` u góry pliku).
+  it('odświeża kolor i obrys ISTNIEJĄCEGO markera stacji, gdy zmienia się status/coordSource', async () => {
+    const { rerender } = render(
+      <CityVehicleMap vehicles={[vehicle()]} railStations={[railStation({ status: 'onTime', coordSource: 'station' })]} city="warszawa" ariaLabel="Mapa" />
+    )
+    await waitFor(() => expect(vi.mocked(maplibregl.Marker)).toHaveBeenCalledTimes(1))
+    const element = vi.mocked(maplibregl.Marker).mock.results[0].value.element as HTMLElement
+    const onTimeBackground = element.style.background
+    expect(element.style.outlineStyle).toBe('')
+
+    rerender(
+      <CityVehicleMap
+        vehicles={[vehicle()]}
+        railStations={[railStation({ status: 'delayed', coordSource: 'city-fallback' })]}
+        city="warszawa"
+        ariaLabel="Mapa"
+      />
+    )
+    await waitFor(() => expect(element.style.background).not.toBe(onTimeBackground))
+    expect(vi.mocked(maplibregl.Marker)).toHaveBeenCalledTimes(1) // wciąż ten sam element, nie nowy marker
+    expect(element.style.outlineStyle).toBe('dashed') // obrys city-fallback też się odświeżył na istniejącym elemencie
   })
 
   it('kamera początkowa obejmuje też pozycje stacji kolei, nie tylko pojazdy', async () => {

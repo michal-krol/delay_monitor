@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { poller } from '@/lib/board/instance'
 import { getCity } from '@/lib/gtfs/cities'
 import { resolveCityRailStations } from '@/lib/board/railStations'
-import { getStationCoordinatesEntry } from '@/lib/weather/coordinates'
+import { getStationCoordinatesEntry, type StationCoordinatesEntry } from '@/lib/weather/coordinates'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 import type { RealizationStatus } from '@/lib/board/realization'
 
@@ -42,7 +42,12 @@ export async function GET(request: Request): Promise<Response> {
     stations.map(async (station): Promise<RailStationApiEntry | null> => {
       const coords = await getStationCoordinatesEntry(station.id)
       if (coords === null || coords.lat === null || coords.lon === null) return null
-      const coordSource = coords.source === 'failed' ? 'city-fallback' : coords.source
+      // `coords.source` może formalnie być `'failed'`, ale taki wpis ZAWSZE ma
+      // `lat`/`lon: null` (`StationCoordinatesEntry`, `weather/coordinates.ts`) --
+      // guard wyżej go już odsiał, więc to nie zgadywanie, tylko zawężenie typu
+      // po fakcie. Bez ternary udającego realne mapowanie `'failed' → 'city-fallback'`,
+      // którego ta gałąź nigdy nie wykonuje.
+      const coordSource = coords.source as Exclude<StationCoordinatesEntry['source'], 'failed'>
 
       const snapshot = poller.getSnapshot(station.id)
       if (snapshot === undefined) {

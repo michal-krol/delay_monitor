@@ -96,9 +96,31 @@ function buildVehiclePopupContent(v: CityVehicle, city: string): HTMLElement {
 }
 
 /**
+ * Kolor tła + adnotacja `city-fallback` (obrys przerywany) na elemencie DOM
+ * markera stacji — dzielone między tworzeniem NOWEGO markera a odświeżaniem
+ * JUŻ ISTNIEJĄCEGO w `syncRailMarkers`, żeby druga ścieżka nie zostawiała
+ * stylu z poprzedniego stanu stacji (status/coordSource mogą się zmienić
+ * między kolejnymi pollami, patrz komentarz nad `syncRailMarkers`).
+ */
+function applyRailMarkerStyle(element: HTMLElement, pin: RailStationPin): void {
+  element.style.background = railMarkerBackground(pin)
+  const isFallback = pin.coordSource === 'city-fallback'
+  element.style.outlineStyle = isFallback ? 'dashed' : ''
+  element.style.outlineColor = isFallback ? 'white' : ''
+  element.style.outlineWidth = isFallback ? '2px' : ''
+  element.style.outlineOffset = isFallback ? '2px' : ''
+}
+
+/**
  * Dodaje/aktualizuje/usuwa markery stacji na już zamontowanej mapie — ten sam
  * wzorzec co `syncMovers` w `MapView.tsx` (diff po `id`, update w miejscu
  * zamiast przebudowy), tylko bez ruchu (stacje nie zmieniają pozycji).
+ *
+ * Marker JUŻ w rejestrze dostaje pełne odświeżenie — popup ORAZ kolor/obrys
+ * elementu DOM, nie tylko popup. Status stacji (i w zasadzie `coordSource`)
+ * może się zmienić między kolejnymi 90-sekundowymi pollami; bez ponownego
+ * `applyRailMarkerStyle()` tutaj marker pokazywałby stary kolor aż do
+ * przypadkowego zniknięcia i odtworzenia (id wypada z listy i wraca).
  */
 function syncRailMarkers(
   mapInstance: MapLibreMap,
@@ -112,15 +134,11 @@ function syncRailMarkers(
     const existing = markers.get(pin.id)
     if (existing !== undefined) {
       existing.marker.getPopup()?.setDOMContent(buildPopupContent(pin, true))
+      applyRailMarkerStyle(existing.marker.getElement(), pin)
       continue
     }
-    const { element, root } = createMarkerElement(pin, railMarkerBackground(pin))
-    if (pin.coordSource === 'city-fallback') {
-      element.style.outlineStyle = 'dashed'
-      element.style.outlineColor = 'white'
-      element.style.outlineWidth = '2px'
-      element.style.outlineOffset = '2px'
-    }
+    const { element, root } = createMarkerElement(pin)
+    applyRailMarkerStyle(element, pin)
     const marker = new lib.Marker({ element })
       .setLngLat([pin.lon, pin.lat])
       .setPopup(new lib.Popup({ offset: 16 }).setDOMContent(buildPopupContent(pin, true)))
@@ -144,15 +162,30 @@ function syncRailMarkers(
  * (15 s) resetowałby zoom/pan użytkownika (ten sam problem co `pinsKey` w
  * `MapView.tsx`, AGENTS #6). Zmiana miasta = `key={city}` w wywołującym
  * (`page.tsx`), nie logika tutaj.
+ *
+ * `vehicles` i `vehiclesVisible` są CELOWO rozdzielone: `vehicles` musi zostać
+ * pełną listą również wtedy, gdy chip „Pojazdy” jest wyłączony, bo montowanie
+ * wyżej czeka na pierwszą niepustą listę z pustym `deps` — miało tylko jedną
+ * szansę. `?vehicles=0` w URL-u dawało `vehicles={[]}` od pierwszego renderu i
+ * mapa nie montowała się już NIGDY w tym cyklu życia strony (nawet po
+ * ponownym włączeniu chipa). Widoczność idzie przez `setLayoutProperty`
+ * MapLibre, nie przez opróżnianie danych.
  */
 export function CityVehicleMap({
   vehicles,
+  vehiclesVisible = true,
   railStations,
   city,
   ariaLabel,
   topOverlayRef,
 }: {
   vehicles: CityVehicle[]
+  /**
+   * Widoczność warstwy pojazdów — patrz komentarz nad komponentem. Domyślnie
+   * `true` tylko dla wygody testów; jedyny wywołujący produkcyjny (`page.tsx`)
+   * podaje ją zawsze jawnie.
+   */
+  vehiclesVisible?: boolean
   railStations?: RailStationPin[]
   city: string
   ariaLabel: string
@@ -199,6 +232,7 @@ export function CityVehicleMap({
           id: LAYER_ID,
           type: 'circle',
           source: SOURCE_ID,
+          layout: { visibility: vehiclesVisible ? 'visible' : 'none' },
           paint: {
             'circle-radius': 6,
             'circle-color': ['get', 'color'],
@@ -244,6 +278,20 @@ export function CityVehicleMap({
     const source = mapRef.current?.getSource(SOURCE_ID) as GeoJSONSource | undefined
     source?.setData(toFeatureCollection(vehicles))
   }, [vehicles])
+
+  /**
+   * Widoczność warstwy przez MapLibre (`setLayoutProperty`), nie przez
+   * opróżnianie `vehicles` — patrz komentarz nad propem. Mapa może jeszcze nie
+   * istnieć (pierwszy tick bez żadnej pozycji) albo warstwa jeszcze nie być
+   * dodana (styl mapy wciąż się ładuje) — w obu przypadkach nic do zrobienia,
+   * `addLayer()` wyżej ustawi początkową widoczność sama, gdy do tego dojdzie.
+   */
+  useEffect(() => {
+    const mapInstance = mapRef.current
+    if (mapInstance === null) return
+    if (mapInstance.getLayer(LAYER_ID) === undefined) return
+    mapInstance.setLayoutProperty(LAYER_ID, 'visibility', vehiclesVisible ? 'visible' : 'none')
+  }, [vehiclesVisible])
 
   const railStationsKey = (railStations ?? [])
     .map((pin) => `${pin.id}:${pin.status ?? ''}:${pin.coordSource}:${(pin.preview ?? []).join(',')}`)

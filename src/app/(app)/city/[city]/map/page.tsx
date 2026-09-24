@@ -155,7 +155,8 @@ export default function CityMapPage() {
             </div>
             <CityVehicleMap
               key={city}
-              vehicles={showVehicles ? filtered : []}
+              vehicles={filtered}
+              vehiclesVisible={showVehicles}
               railStations={showRail ? railState.stations : []}
               city={city}
               ariaLabel={`Mapa miasta ${cityName}`}
