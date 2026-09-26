@@ -164,15 +164,25 @@
    kalibrowane pod CIEMNE tło, patrz komentarz przy tokenie wyżej) na białej
    karcie MapLibre'a -- realne naruszenie WCAG AA (zmierzone przez axe:
    2,56:1 zamiast wymaganych 4,5:1), złapane przez e2e a11y w trybie ciemnym.
-   Te same tokeny co `.glass-strong`, żeby popup wyglądał jak reszta appki. */
+
+   Pierwsza próba naprawy dała `background-color: var(--surface-strong)` —
+   nie starczyło, bo `--surface-strong` w `.dark` to `rgba(15,23,42,0.75)`,
+   PRZEZROCZYSTE. Axe liczy kontrast tekstu względem najbliższego przodka
+   z NIEPRZEZROCZYSTYM `background-color` (patrz komentarz przy `color-scheme:
+   light` w `:root` wyżej — ten sam mechanizm, inne miejsce); przy braku
+   takiego przodka zakłada białe płótno, niezależnie od tego, co faktycznie
+   renderuje się pod spodem (kafelki mapy, nie strona appki). Półprzezroczyste
+   tło popupu tej asercji nigdy nie spełni, choćby wizualnie wyglądało dobrze.
+   Naprawa: osobny, w pełni opaque kolor tylko dla popupu (nie `--surface-strong`,
+   które ma zostać przezroczyste dla `.glass-strong` gdzie indziej w appce). */
 .dark .maplibregl-popup-content {
-  background-color: var(--surface-strong);
+  background-color: #0f172a;
   backdrop-filter: blur(24px) saturate(150%);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
 }
 .dark .maplibregl-popup-tip {
-  border-top-color: var(--surface-strong) !important;
-  border-bottom-color: var(--surface-strong) !important;
+  border-top-color: #0f172a !important;
+  border-bottom-color: #0f172a !important;
 }
 
 /* Poświata na elementach hero (decyzja #11) — parametr koloru przez CSS var,
