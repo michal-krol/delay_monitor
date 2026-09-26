@@ -19,6 +19,13 @@
     radial-gradient(1100px 600px at 85% -10%, rgba(56, 189, 248, 0.16), transparent 60%),
     radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.14), transparent 55%),
     linear-gradient(180deg, #f6f7fc 0%, #eef0f8 100%);
+  /* Opaque fallback za `--bg-gradient` (samo `background-image`, bez własnego
+     `background-color`) -- patrz komentarz przy `color-scheme` niżej: axe
+     nie czyta pikseli gradientu, więc każda przezroczysta karta (`.glass`)
+     dalej w drzewie potrzebuje NIEPRZEZROCZYSTEGO przodka do policzenia
+     kontrastu, nie samego `color-scheme`. Ten sam odcień co ostatni stop
+     gradientu -- wizualnie niewidoczny, leży pod obrazem. */
+  --bg-base: #eef0f8;
   --surface: rgba(255, 255, 255, 0.72);
   --surface-strong: rgba(255, 255, 255, 0.88);
   --surface-border: rgba(15, 23, 42, 0.08);
@@ -50,6 +57,7 @@
     radial-gradient(1100px 600px at 85% -10%, rgba(56, 189, 248, 0.1), transparent 60%),
     radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.1), transparent 55%),
     linear-gradient(180deg, #0a0f1c 0%, #070b14 100%);
+  --bg-base: #070b14;
   --surface: rgba(15, 23, 42, 0.55);
   --surface-strong: rgba(15, 23, 42, 0.75);
   --surface-border: rgba(255, 255, 255, 0.08);
@@ -380,7 +388,8 @@
 
 body {
   color: var(--foreground);
-  background: var(--bg-gradient);
+  background-color: var(--bg-base);
+  background-image: var(--bg-gradient);
   font-family:
     system-ui,
     -apple-system,
