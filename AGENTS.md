@@ -243,16 +243,9 @@ Przy zmianach w `board/transform.ts`:
   zgłasza `degraded` + `realizationStale: true`, tablica pisze „PKP nie podaje dziś
   danych o ruchu".
 
-`BOARD_SOURCE=schedule|operations` cofa bez deployu. **Tymczasowy — usunąć nie
-wcześniej niż ~2026-09-14** (2 tyg. zdrowego feedu od naprawy 31.08), jeśli feed
-znów nie padnie. Usuwanie zdejmuje naraz:
-
-- `BOARD_SOURCE` w `src/lib/config.ts` (+ `AppConfig.boardSource`, `.env.example`);
-- `boardSource` w `PollerConfig` + gałąź `=== 'schedule'` w `poller.ts`;
-- ścieżka `scheduleSource === null` w `collectRowSources()` i trailing-optional
-  `scheduleSource` w `transformOperations()`;
-- ~63 wywołania `transformOperations(` w `transform.test.ts` (testują ścieżkę
-  historyczną — przepisać na jawny `scheduleSource` albo poprawić helper).
+Przełącznik `BOARD_SOURCE` (powrót do listy z realizacji) usunięty 2026-09-23 po
+dwóch tygodniach zdrowego feedu. `scheduleSource` w `transformOperations()` jest
+wymagany; lista z samej realizacji to już tylko rezerwa w `collectRowSources`.
 
 ## 11. Katalog `docs/` nie jest publikowany
 

@@ -5,21 +5,11 @@ const envSchema = z.object({
   PKP_DATA_SOURCE: z.enum(['auto', 'live', 'mock']).default('auto'),
   POLL_INTERVAL_MS: z.coerce.number().int().positive().default(90000),
   INTEREST_TTL_MS: z.coerce.number().int().positive().default(300000),
-  /**
-   * Co wyznacza LISTĘ połączeń na tablicy. `schedule` (domyślnie) bierze ją
-   * z rozkładu i nakłada realizację jako warstwę; `operations` to zachowanie
-   * historyczne, w którym lista pochodzi z realizacji.
-   *
-   * Przełącznik istnieje, żeby powrót do starej ścieżki był zmianą zmiennej
-   * w Railway i restartem, a nie wdrożeniem kodu. Do usunięcia po okresie
-   * obserwacji.
-   */
-  BOARD_SOURCE: z.enum(['schedule', 'operations']).default('schedule'),
 
   /**
    * Podprojekt komunikacji miejskiej (GTFS). `GTFS_ENABLED` to wyłącznik:
    * jeśli ładowanie zacznie sprawiać kłopot na produkcji, wyłączasz podprojekt
-   * zmienną, a monitor PKP działa nietknięty (precedens: `BOARD_SOURCE`).
+   * zmienną, a monitor PKP działa nietknięty.
    *
    * `z.stringbool`, nie `z.coerce.boolean` — to drugie traktuje każdy niepusty
    * string jako `true`, więc `GTFS_ENABLED=false` by go WŁĄCZYŁO.
@@ -43,9 +33,6 @@ const envSchema = z.object({
 
 export type DataSource = 'live' | 'mock'
 
-/** Patrz `BOARD_SOURCE` w schemacie wyżej. */
-export type BoardSource = 'schedule' | 'operations'
-
 export type GtfsConfig = {
   enabled: boolean
   cities: string[]
@@ -60,7 +47,6 @@ export type AppConfig = {
   dataSource: DataSource
   pollIntervalMs: number
   interestTtlMs: number
-  boardSource: BoardSource
   gtfs: GtfsConfig
 }
 
@@ -83,7 +69,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     dataSource,
     pollIntervalMs: parsed.POLL_INTERVAL_MS,
     interestTtlMs: parsed.INTEREST_TTL_MS,
-    boardSource: parsed.BOARD_SOURCE,
     gtfs: {
       enabled: parsed.GTFS_ENABLED,
       cities: gtfsCities,
