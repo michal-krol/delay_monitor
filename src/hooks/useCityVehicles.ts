@@ -6,6 +6,8 @@ import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 export type CityVehiclesState = {
   vehicles: CityVehicle[]
   feed: { state: string; ageMs: number | null }
+  /** Numery linii z aktywnym alertem (pole pomocnicze — `[]` = brak znaczka). */
+  alertLines: string[]
   error: string | null
 }
 
@@ -21,6 +23,7 @@ export function useCityVehicles(city: string): CityVehiclesState {
   const [state, setState] = useState<CityVehiclesState>({
     vehicles: [],
     feed: { state: 'loading', ageMs: null },
+    alertLines: [],
     error: null,
   })
 
@@ -37,8 +40,8 @@ export function useCityVehicles(city: string): CityVehiclesState {
       try {
         const response = await fetch(`/api/gtfs/city-vehicles?city=${encodeURIComponent(city)}`)
         if (!response.ok) throw new Error(String(response.status))
-        const json = (await response.json()) as { vehicles: CityVehicle[]; feed: { state: string; ageMs: number | null } }
-        if (!cancelled) setState({ vehicles: json.vehicles, feed: json.feed, error: null })
+        const json = (await response.json()) as { vehicles: CityVehicle[]; feed: { state: string; ageMs: number | null }; alertLines?: string[] }
+        if (!cancelled) setState({ vehicles: json.vehicles, feed: json.feed, alertLines: json.alertLines ?? [], error: null })
       } catch (err) {
         if (!cancelled) setState((s) => ({ ...s, error: err instanceof Error ? err.message : 'błąd' }))
       }

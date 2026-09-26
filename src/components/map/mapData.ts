@@ -136,12 +136,19 @@ export const HIDE_AFTER_SEC = 180
  * danych — warstwa pojazdów i tak dostaje `setData` co 15 s. Pozycje starsze
  * niż `HIDE_AFTER_SEC` znikają (martwa pozycja, nie „brak danych").
  */
-export function vehiclesToGeoJSON(vehicles: CityVehicle[], hidden: ReadonlySet<LayerKey>, routeId: string | null): PointCollection {
+export function vehiclesToGeoJSON(
+  vehicles: CityVehicle[],
+  hidden: ReadonlySet<LayerKey>,
+  routeId: string | null,
+  /** „Tylko linie z utrudnieniami" — numery linii z aktywnym alertem; `null` = bez tego filtra. */
+  onlyLines: ReadonlySet<string> | null = null
+): PointCollection {
   const features: Point[] = []
   for (const v of vehicles) {
     if (v.ageSec > HIDE_AFTER_SEC) continue
     if (hidden.has(vehicleLayerKey(v.mode))) continue
     if (routeId !== null && v.routeId !== routeId) continue
+    if (onlyLines !== null && (v.shortName === null || !onlyLines.has(v.shortName))) continue
     const opacity = v.ageSec <= FADE_START_SEC ? 1 : 1 - (v.ageSec - FADE_START_SEC) / (HIDE_AFTER_SEC - FADE_START_SEC)
     features.push(
       point(v.lon, v.lat, {
@@ -291,3 +298,43 @@ export function parseAt(value: string | null): MapCamera | null {
 export function formatAt(camera: MapCamera): string {
   return `${camera.lat.toFixed(5)},${camera.lon.toFixed(5)},${camera.zoom.toFixed(1)}`
 }
+
+/** Odległość po powierzchni Ziemi w metrach (haversine). */
+export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const rad = Math.PI / 180
+  const dLat = (b.lat - a.lat) * rad
+  const dLon = (b.lon - a.lon) * rad
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2
+  return 2 * 6_371_000 * Math.asin(Math.sqrt(h))
+}
+
+export type NearbyPoint =
+  | { kind: 'rail'; id: string; name: string; lat: number; lon: number; distanceM: number }
+  | { kind: 'stop'; stop: CityStop; distanceM: number }
+
+/**
+ * „Co jest w pobliżu" punktu na mapie — stacje i przystanki w promieniu,
+ * od najbliższego. Liniowo po listach, które klient i tak ma (~7 tys. + ~3 tys.).
+ */
+export function nearbyPoints(
+  point: { lat: number; lon: number },
+  stops: CityStop[],
+  stations: MapRailStation[],
+  radiusM = 500,
+  limit = 8
+): NearbyPoint[] {
+  const found: NearbyPoint[] = []
+  for (const stop of stops) {
+    const d = distanceM(point, stop)
+    if (d <= radiusM) found.push({ kind: 'stop', stop, distanceM: d })
+  }
+  for (const station of stations) {
+    const d = distanceM(point, station)
+    if (d <= radiusM) found.push({ kind: 'rail', id: station.id, name: station.name, lat: station.lat, lon: station.lon, distanceM: d })
+  }
+  return found.sort((a, b) => a.distanceM - b.distanceM).slice(0, limit)
+}
+
+/** Punkt widoczny w kadrze — wiersz listy „w widoku". */
+export type VisibleItem = { kind: 'vehicle' | 'stop' | 'rail'; id: string; label: string }
+export const VISIBLE_LIMIT = 100

@@ -19,6 +19,8 @@ import {
   type MapCamera,
   type PointCollection,
   type RouteOverlay,
+  type VisibleItem,
+  VISIBLE_LIMIT,
 } from './mapData'
 
 const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty'
@@ -57,6 +59,7 @@ type Data = {
   stops: PointCollection
   rail: PointCollection
   selected: PointCollection
+  favourites: PointCollection
   route: RouteOverlay
   routeColor: string
 }
@@ -65,6 +68,10 @@ const EMPTY_ROUTE: RouteOverlay = { line: { type: 'FeatureCollection', features:
 /** Tryb linii przyciemnia wszystko poza trasą i jej pojazdami (spec §6). */
 const DIMMABLE = ['rail-1', 'rail-2', 'rail-3', 'stops-busStops', 'stops-tramStops', 'stops-metroStops']
 const DIM_OPACITY = 0.25
+/** Przytrzymanie palca na mapie = „co jest w pobliżu" (odpowiednik prawego kliku). */
+const LONG_PRESS_MS = 500
+const VISIBLE_KIND: Record<string, VisibleItem['kind']> = { vehicles: 'vehicle', 'rail-1': 'rail', 'rail-2': 'rail', 'rail-3': 'rail' }
+
 /** Płynny przejazd między odczytami (co 15 s): ~1 s, ~15 klatek. */
 const GLIDE_MS = 1000
 const GLIDE_FRAME_MS = 66
@@ -104,6 +111,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
   map.addSource('stops', { type: 'geojson', data: data.stops })
   map.addSource('vehicles', { type: 'geojson', data: data.vehicles })
   map.addSource('selected', { type: 'geojson', data: data.selected })
+  map.addSource('favourites', { type: 'geojson', data: data.favourites })
   map.addSource('route-line', { type: 'geojson', data: data.route.line })
   map.addSource('route-stops', { type: 'geojson', data: data.route.stops })
 
@@ -248,6 +256,14 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     paint: labelPaint,
   })
 
+  // Ulubione (Pulpit) — złota obwódka, widoczna przy każdym zoomie.
+  map.addLayer({
+    id: 'favourites',
+    type: 'circle',
+    source: 'favourites',
+    paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#f59e0b', 'circle-stroke-width': 2.5 },
+  })
+
   // Obwódka wybranego obiektu — BEZ minzoom: wynik wyszukiwania widać zawsze (spec §2).
   map.addLayer({
     id: 'selected',
@@ -318,10 +334,15 @@ export function TransitMap({
   focus,
   route,
   follow,
+  favourites = [],
+  onlyLines = null,
+  listOpen = false,
   dark,
   onSelect,
   onViewChange,
   onUserMove,
+  onContextPoint,
+  onVisibleChange,
 }: {
   ariaLabel: string
   /** Kadr startowy (centrum miasta albo `?at=` / ostatni widok). */
@@ -342,15 +363,25 @@ export function TransitMap({
   route: { key: string; overlay: RouteOverlay; color: string } | null
   /** Śledzony pojazd — kamera przesuwa się za nim z każdym odczytem. */
   follow: { lat: number; lon: number } | null
+  /** Pozycje ulubionych stacji/przystanków. */
+  favourites?: { lat: number; lon: number }[]
+  /** „Tylko linie z utrudnieniami" — `null` = wszystkie. */
+  onlyLines?: ReadonlySet<string> | null
+  /** Lista „w widoku" otwarta — dopiero wtedy liczymy widoczne obiekty. */
+  listOpen?: boolean
   dark: boolean
   onSelect: (hit: MapHit | null) => void
   onViewChange?: (view: MapView) => void
   /** Użytkownik sam przesunął mapę — np. koniec śledzenia pojazdu. */
   onUserMove?: () => void
+  /** Prawy klik / przytrzymanie palca — punkt dla „co jest w pobliżu". */
+  onContextPoint?: (point: { lat: number; lon: number }) => void
+  /** Obiekty w kadrze (gdy `listOpen`); `overflow` = było ich więcej niż limit. */
+  onVisibleChange?: (items: VisibleItem[], overflow: boolean) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
-  const dataRef = useRef<Data>({ backbone: backboneCollection(null), vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
+  const dataRef = useRef<Data>({ backbone: backboneCollection(null), vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, favourites: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
   const dimmedRef = useRef(false)
   /** Kadr trasy wybranej, zanim styl mapy się wczytał — dopasujemy go po `style.load`. */
   const pendingFitRef = useRef<RouteOverlay['bounds']>(null)
@@ -359,6 +390,9 @@ export function TransitMap({
   const onSelectRef = useRef(onSelect)
   const onViewChangeRef = useRef(onViewChange)
   const onUserMoveRef = useRef(onUserMove)
+  const onContextPointRef = useRef(onContextPoint)
+  const onVisibleChangeRef = useRef(onVisibleChange)
+  const listOpenRef = useRef(listOpen)
   /** Ostatnio narysowane pozycje pojazdów — punkt startu płynnego przejazdu. */
   const drawnRef = useRef(new Map<string, [number, number]>())
   const lastVehiclesRef = useRef<CityVehicle[] | null>(null)
@@ -366,6 +400,9 @@ export function TransitMap({
     onSelectRef.current = onSelect
     onViewChangeRef.current = onViewChange
     onUserMoveRef.current = onUserMove
+    onContextPointRef.current = onContextPoint
+    onVisibleChangeRef.current = onVisibleChange
+    listOpenRef.current = listOpen
   })
 
   useEffect(() => {
@@ -419,7 +456,37 @@ export function TransitMap({
       mapInstance.on('mousemove', (e) => {
         mapInstance.getCanvas().style.cursor = hitsAt(e.point) !== null ? 'pointer' : ''
       })
-      mapInstance.on('dragstart', () => onUserMoveRef.current?.())
+      let pressTimer: ReturnType<typeof setTimeout> | undefined
+      const cancelPress = (): void => clearTimeout(pressTimer)
+      mapInstance.on('contextmenu', (e) => onContextPointRef.current?.({ lat: e.lngLat.lat, lon: e.lngLat.lng }))
+      mapInstance.on('touchstart', (e) => {
+        cancelPress()
+        if (e.originalEvent.touches.length !== 1) return
+        pressTimer = setTimeout(() => onContextPointRef.current?.({ lat: e.lngLat.lat, lon: e.lngLat.lng }), LONG_PRESS_MS)
+      })
+      mapInstance.on('touchend', cancelPress)
+      mapInstance.on('touchmove', cancelPress)
+      // Po każdym dorysowaniu (ruch kamery, nowe dane) — tylko gdy lista jest otwarta.
+      mapInstance.on('idle', () => {
+        if (!listOpenRef.current) return
+        const layers = ['vehicles', 'rail-1', 'rail-2', 'rail-3', 'stops-metroStops', 'stops-tramStops', 'stops-busStops'].filter(
+          (layer) => mapInstance.getLayer(layer) !== undefined
+        )
+        const seen = new Set<string>()
+        const items: VisibleItem[] = []
+        for (const feature of mapInstance.queryRenderedFeatures({ layers })) {
+          const kind = VISIBLE_KIND[feature.layer.id] ?? 'stop'
+          const id = String(feature.properties?.id)
+          if (seen.has(`${kind}:${id}`)) continue
+          seen.add(`${kind}:${id}`)
+          items.push({ kind, id, label: String(feature.properties?.label ?? feature.properties?.name ?? '') })
+        }
+        onVisibleChangeRef.current?.(items.slice(0, VISIBLE_LIMIT), items.length > VISIBLE_LIMIT)
+      })
+      mapInstance.on('dragstart', () => {
+        cancelPress()
+        onUserMoveRef.current?.()
+      })
       mapInstance.on('moveend', () => {
         const center = mapInstance.getCenter()
         onViewChangeRef.current?.({ center: { lat: center.lat, lon: center.lng }, zoom: mapInstance.getZoom() })
@@ -436,7 +503,7 @@ export function TransitMap({
   }, [])
 
   useEffect(() => {
-    const target = vehiclesToGeoJSON(vehicles, hidden, routeId)
+    const target = vehiclesToGeoJSON(vehicles, hidden, routeId, onlyLines)
     dataRef.current.vehicles = target
     const source = mapRef.current?.getSource('vehicles') as GeoJSONSource | undefined
     const from = drawnRef.current
@@ -467,7 +534,22 @@ export function TransitMap({
     raf = requestAnimationFrame(step)
     // ponytail: ~15 × setData całej warstwy na odczyt; przy >2 tys. pojazdów przejść na feature-state/shader.
     return () => cancelAnimationFrame(raf)
-  }, [vehicles, hidden, routeId])
+  }, [vehicles, hidden, routeId, onlyLines])
+
+  const favouritesKey = favourites.map((f) => `${f.lat},${f.lon}`).join('|')
+  useEffect(() => {
+    dataRef.current.favourites = {
+      type: 'FeatureCollection',
+      features: favourites.map((f) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.lon, f.lat] }, properties: {} })),
+    }
+    ;(mapRef.current?.getSource('favourites') as GeoJSONSource | undefined)?.setData(dataRef.current.favourites)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnatura pozycji, nie tożsamość tablicy z każdego renderu
+  }, [favouritesKey])
+
+  useEffect(() => {
+    // Otwarcie listy: przerysowanie wywoła `idle` → pierwsza lista od razu.
+    if (listOpen) mapRef.current?.triggerRepaint()
+  }, [listOpen])
 
   useEffect(() => {
     dataRef.current.backbone = backboneCollection(backbone)

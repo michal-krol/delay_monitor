@@ -27,6 +27,7 @@ vi.mock('maplibre-gl', () => {
     hasImage: vi.fn(() => false),
     addImage: vi.fn(),
     easeTo: vi.fn(),
+    triggerRepaint: vi.fn(),
     setStyle: vi.fn(),
     flyTo: vi.fn(),
     getZoom: vi.fn(() => 12),
@@ -213,6 +214,58 @@ describe('TransitMap', () => {
     expect(map.easeTo).toHaveBeenCalledWith({ center: [21.3, 52.3], duration: 1000 })
     handlers.get('dragstart')!({})
     expect(onUserMove).toHaveBeenCalled()
+  })
+
+  it('right-click and a 500 ms press report a point for "nearby"; a moving finger does not', async () => {
+    const onContextPoint = vi.fn()
+    await mounted({ onContextPoint })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    handlers.get('contextmenu')!({ lngLat: { lat: 52.1, lng: 21.1 } })
+    expect(onContextPoint).toHaveBeenLastCalledWith({ lat: 52.1, lon: 21.1 })
+
+    const touch = { lngLat: { lat: 52.2, lng: 21.2 }, originalEvent: { touches: [{}] } }
+    handlers.get('touchstart')!(touch)
+    vi.advanceTimersByTime(500)
+    expect(onContextPoint).toHaveBeenLastCalledWith({ lat: 52.2, lon: 21.2 })
+
+    onContextPoint.mockClear()
+    handlers.get('touchstart')!(touch)
+    handlers.get('touchmove')!({})
+    handlers.get('touchstart')!({ ...touch, originalEvent: { touches: [{}, {}] } })
+    vi.advanceTimersByTime(1000)
+    expect(onContextPoint).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('reports what is in view only while the list is open, deduplicated and capped', async () => {
+    const onVisibleChange = vi.fn()
+    const { map, rerender } = await mounted({ onVisibleChange })
+    rendered = [
+      { layer: { id: 'vehicles' }, properties: { id: 'v1', label: '20' } as never },
+      { layer: { id: 'vehicles' }, properties: { id: 'v1', label: '20' } as never },
+      { layer: { id: 'rail-1' }, properties: { id: '33605', name: 'Warszawa Centralna' } as never },
+      { layer: { id: 'stops-busStops' }, properties: { id: '100101', label: 'Centrum 01' } as never },
+    ]
+    handlers.get('idle')!({})
+    expect(onVisibleChange).not.toHaveBeenCalled()
+    rerender(<TransitMap {...base} onVisibleChange={onVisibleChange} listOpen />)
+    expect(map.triggerRepaint).toHaveBeenCalled()
+    handlers.get('idle')!({})
+    expect(onVisibleChange).toHaveBeenLastCalledWith(
+      [
+        { kind: 'vehicle', id: 'v1', label: '20' },
+        { kind: 'rail', id: '33605', label: 'Warszawa Centralna' },
+        { kind: 'stop', id: '100101', label: 'Centrum 01' },
+      ],
+      false
+    )
+  })
+
+  it('rings favourites and filters vehicles to disrupted lines', async () => {
+    const { rerender } = await mounted()
+    rerender(<TransitMap {...base} favourites={[{ lat: 52.23, lon: 21.0 }]} onlyLines={new Set(['9'])} />)
+    expect(sources.get('favourites')!.setData.mock.calls.at(-1)![0].features[0].geometry.coordinates).toEqual([21.0, 52.23])
+    expect(sources.get('vehicles')!.setData.mock.calls.at(-1)![0].features).toEqual([])
   })
 
   it('draws the selection ring', async () => {

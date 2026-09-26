@@ -14,13 +14,19 @@ export function MapFilters({
   hidden,
   vehicleLayers,
   onChange,
+  alertsOnly = false,
+  onAlertsOnly,
 }: {
   hidden: ReadonlySet<LayerKey>
   /** Rodzaje pojazdów obecne w danych miasta — nie pokazujemy przełącznika do pustej warstwy. */
   vehicleLayers: LayerKey[]
   onChange: (next: Set<LayerKey>) => void
+  /** „Tylko linie z utrudnieniami" — pomijane, gdy brak `onAlertsOnly`. */
+  alertsOnly?: boolean
+  onAlertsOnly?: (next: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
+  const restrictions = hidden.size + (alertsOnly ? 1 : 0)
   const panelId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -76,14 +82,14 @@ export function MapFilters({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className="glass inline-flex h-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
+        className="glass inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
       >
         <FilterGlyph />
         Filtry
-        {hidden.size > 0 && (
+        {restrictions > 0 && (
           <span className="grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white" style={{ background: 'var(--accent-solid)' }}>
-            {hidden.size}
-            <span className="sr-only"> ukrytych warstw</span>
+            {restrictions}
+            <span className="sr-only"> aktywnych ograniczeń</span>
           </span>
         )}
       </button>
@@ -91,10 +97,19 @@ export function MapFilters({
         <div id={panelId} className="glass-strong absolute right-0 z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 rounded-2xl p-4 shadow-xl">
           {group('Punkty', POINT_LAYERS)}
           {vehicleLayers.length > 0 && group('Pojazdy', vehicleLayers)}
+          {onAlertsOnly !== undefined && (
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+              <input type="checkbox" checked={alertsOnly} onChange={() => onAlertsOnly(!alertsOnly)} className="h-4 w-4 accent-indigo-600" />
+              Tylko linie z utrudnieniami
+            </label>
+          )}
           <button
             type="button"
-            disabled={hidden.size === 0}
-            onClick={() => onChange(new Set())}
+            disabled={restrictions === 0}
+            onClick={() => {
+              onChange(new Set())
+              onAlertsOnly?.(false)
+            }}
             className="w-full rounded-lg border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
             style={{ borderColor: 'var(--surface-border)' }}
           >

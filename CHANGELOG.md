@@ -14,6 +14,14 @@ Wersjonowanie semantyczne.
   teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
   2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
   mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+- **Mapa transportu: informacje** — ulubione z Pulpitu na mapie (złota obwódka,
+  menu ★ do szybkiego przeskoku, gwiazdka w karcie stacji/przystanku), utrudnienia
+  (⚠ w karcie pojazdu, baner w karcie przystanku i w trybie linii, filtr „Tylko
+  linie z utrudnieniami" `?alerts=1`; `alertLines` w `/api/gtfs/city-vehicles`),
+  „W pobliżu" — prawy klik / przytrzymanie palca albo przycisk w karcie (dla
+  klawiatury): stacje i przystanki w promieniu 500 m z najbliższym odjazdem
+  z rozkładu, oraz „Lista" — tekstowa lista obiektów w kadrze (pełnoprawna
+  ścieżka dla czytnika ekranu do obiektów z canvasu). Cele dotyku ≥ 44 px.
 - **Mapa transportu: ruch i widok** — pojazdy przejeżdżają płynnie między
   odczytami (~1 s; przy `prefers-reduced-motion` skok), strzałka kierunku jazdy
   z `bearing` od zoomu 14, „Śledź pojazd" w karcie (kamera jedzie za pojazdem do

@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
-import { CloseIcon, ArrowRightIcon } from '../icons'
+import { AlertBanner } from '../AlertBanner'
+import { AlertCircleIcon, CloseIcon, ArrowRightIcon, StarIcon } from '../icons'
 import { DelayBadge } from '../DelayBadge'
 import { LineBadge } from '../LineBadge'
 import { MODE_ICON, MODE_LABEL } from '../transitMode'
@@ -36,6 +37,10 @@ export function MapCard({
   onShowRoute,
   following = false,
   onToggleFollow,
+  favourite,
+  onToggleFavourite,
+  onNearby,
+  alertLines = [],
 }: {
   selection: MapSelection
   /** Aktualny odczyt wybranego pojazdu; `null` = zniknął z feedu (pozycja > 180 s). */
@@ -47,6 +52,13 @@ export function MapCard({
   /** Kamera jedzie za tym pojazdem. */
   following?: boolean
   onToggleFollow?: () => void
+  /** Stacja/przystanek jest w ulubionych (Pulpit). `undefined` = brak przełącznika. */
+  favourite?: boolean
+  onToggleFavourite?: () => void
+  /** „Co jest w pobliżu?" — dostępna z klawiatury alternatywa dla prawego kliku. */
+  onNearby?: () => void
+  /** Numery linii z aktywnym alertem. */
+  alertLines?: string[]
 }) {
   const headingId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -94,11 +106,24 @@ export function MapCard({
           </h2>
           <Subtitle selection={selection} vehicle={vehicle} />
         </div>
+        {favourite !== undefined && onToggleFavourite !== undefined && (
+          <button
+            type="button"
+            onClick={onToggleFavourite}
+            aria-pressed={favourite}
+            aria-label={favourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10 ${
+              favourite ? 'text-amber-500' : 'text-text-secondary'
+            }`}
+          >
+            <StarIcon size={16} />
+          </button>
+        )}
         <button
           type="button"
           onClick={onClose}
           aria-label="Zamknij kartę"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           <CloseIcon size={16} />
         </button>
@@ -106,8 +131,25 @@ export function MapCard({
       <div className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={0} aria-label="Szczegóły">
         {selection.kind === 'rail' && <RailBody id={selection.id} />}
         {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
+        {selection.kind !== 'vehicle' && onNearby !== undefined && (
+          <button
+            type="button"
+            onClick={onNearby}
+            className="mt-2 w-full rounded-xl border px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+            style={{ borderColor: 'var(--surface-border)' }}
+          >
+            Co jest w pobliżu?
+          </button>
+        )}
         {selection.kind === 'vehicle' && (
-          <VehicleBody vehicle={vehicle} city={city} onShowRoute={onShowRoute} following={following} onToggleFollow={onToggleFollow} />
+          <VehicleBody
+            vehicle={vehicle}
+            city={city}
+            onShowRoute={onShowRoute}
+            following={following}
+            onToggleFollow={onToggleFollow}
+            disrupted={vehicle?.shortName !== null && vehicle?.shortName !== undefined && alertLines.includes(vehicle.shortName)}
+          />
         )}
       </div>
     </section>
@@ -213,6 +255,11 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
 
   return (
     <>
+      {board !== null && board.alerts.length > 0 && (
+        <div className="mb-3">
+          <AlertBanner alerts={board.alerts} />
+        </div>
+      )}
       {lines.length > 0 && (
         <ul className="mb-3 flex flex-wrap gap-1.5" aria-label="Linie">
           {lines.map((line) => (
@@ -241,12 +288,14 @@ function VehicleBody({
   onShowRoute,
   following,
   onToggleFollow,
+  disrupted = false,
 }: {
   vehicle: CityVehicle | null
   city: string
   onShowRoute?: (routeId: string, directionId: number | null) => void
   following?: boolean
   onToggleFollow?: () => void
+  disrupted?: boolean
 }) {
   if (vehicle === null) {
     return <p className="text-sm text-text-secondary">Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.</p>
@@ -256,6 +305,12 @@ function VehicleBody({
     <>
       {vehicle.shortName !== null && vehicle.mode !== null && (
         <LineBadge line={vehicle.shortName} color={vehicle.color} mode={vehicle.mode} />
+      )}
+      {disrupted && (
+        <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+          <AlertCircleIcon size={16} />
+          Utrudnienia na tej linii — szczegóły w rozkładzie linii.
+        </p>
       )}
       <dl className="mt-3 space-y-3 text-sm">
         <div>

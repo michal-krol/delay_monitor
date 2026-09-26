@@ -25,9 +25,11 @@ const peekVehiclePoller = vi.fn((city: string) =>
   city === 'warszawa' && vehiclePollerReady ? fakeVehiclePoller : null
 )
 
+let alerts: { routes: string[] }[] | null = null
 vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (...args: [string]) => getGtfsPoller(...args),
   peekVehiclePoller: (...args: [string]) => peekVehiclePoller(...args),
+  peekAlertPoller: () => (alerts === null ? null : { getAlerts: () => alerts }),
 }))
 
 beforeAll(async () => {
@@ -102,5 +104,13 @@ describe('GET /api/gtfs/city-vehicles', () => {
     expect(body.vehicles[1].routeId).toBeNull()
     expect(body.feed.state).toBe('ready')
     expect(JSON.stringify(body)).not.toMatch(/delayMinutes|actualAt|predictedAt/)
+    expect(body.alertLines).toEqual([])
+  })
+
+  it('lists lines with active alerts, deduplicated and sorted', async () => {
+    alerts = [{ routes: ['9', '20'] }, { routes: ['20'] }]
+    const { body } = await call('http://localhost/api/gtfs/city-vehicles?city=warszawa')
+    alerts = null
+    expect(body.alertLines).toEqual(['20', '9'])
   })
 })
