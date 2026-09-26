@@ -13,6 +13,14 @@
     ],
     "ask": ["Bash(gh pr merge*)"]
   },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-push-main.mjs\"" }]
+      }
+    ]
+  },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
       "source": { "source": "git", "url": "https://github.com/anthropics/claude-plugins-official.git" }
