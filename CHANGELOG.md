@@ -7,6 +7,14 @@ Wersjonowanie semantyczne.
 
 ### Dodane
 
+- **Prawdziwe współrzędne stacji kolejowych** — `data/station-coordinates.json`
+  regenerowany z `polish_trains.zip` (M. Kuranowski, dane PKP PLK/KM) nowym
+  skryptem `scripts/stations-from-gtfs.mjs`: `stop_id` stacji w tym feedzie to ID
+  PKP PLK, więc dopasowanie po ID, bez heurystyk nazw. 3137 z 3266 stacji ma
+  teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
+  2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
+  mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+
 - **Mapa miasta live (wszystkie pojazdy)** — pozycja menu „Mapa" (dawniej
   wyłączona) prowadzi na pełnoekranową mapę wszystkich pojazdów komunikacji
   miejskiej danego miasta na żywo, filtr trybu (chipy) i numeru linii (stan

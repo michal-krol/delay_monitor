@@ -6,7 +6,10 @@ export type StationCoordinatesEntry = {
   name: string
   lat: number | null
   lon: number | null
-  source: 'station' | 'city-fallback' | 'osm-railway' | 'failed'
+  /** `gtfs` = pozycja stacji z `polish_trains.zip` (`scripts/stations-from-gtfs.mjs`) — najdokładniejsze. */
+  source: 'gtfs' | 'station' | 'city-fallback' | 'osm-railway' | 'failed'
+  /** Ranga ruchu 1 (węzeł) – 3; tylko przy `source: 'gtfs'`. Mapa kraju pokazuje niskie tiery dopiero przy zbliżeniu. */
+  tier?: 1 | 2 | 3
 }
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'station-coordinates.json')
@@ -43,7 +46,7 @@ export async function getStationCoordinates(stationId: string): Promise<{ lat: n
 /**
  * Jak `getStationCoordinates`, ale zwraca cały wpis (z `source`) zamiast
  * samych `lat`/`lon` — `/api/rail-stations` musi wiedzieć, czy pozycja jest
- * realna (`station`/`osm-railway`) czy przybliżona (`city-fallback`), żeby
+ * realna (`gtfs`/`station`/`osm-railway`) czy przybliżona (`city-fallback`), żeby
  * oznaczyć pin wizualnie, zamiast udawać precyzję, której nie ma.
  */
 export async function getStationCoordinatesEntry(stationId: string): Promise<StationCoordinatesEntry | null> {

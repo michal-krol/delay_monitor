@@ -11,7 +11,7 @@ type RailStationApiEntry = {
   name: string
   lat: number
   lon: number
-  coordSource: 'station' | 'osm-railway' | 'city-fallback'
+  coordSource: 'gtfs' | 'station' | 'osm-railway' | 'city-fallback'
   status: RealizationStatus | null
   nextDepartures: { plannedAt: string; headsign: string | null; delayMinutes: number | null; status: RealizationStatus }[] | null
   ageMs: number | null

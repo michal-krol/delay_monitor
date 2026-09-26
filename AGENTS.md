@@ -105,13 +105,14 @@ albo czystym payloadzie, nie na `fetch`. Testy nie potrzebują sieci ani klucza 
 tak zostać. Nowe źródło = nowy klient na krawędzi. Wybór live/mock raz, przy starcie,
 w `lib/board/instance.ts`.
 
-Współrzędne stacji: statyczny `data/station-coordinates.json` (regen
-`scripts/enrich-station-coords.mjs`), jest w obrazie (`.next/standalone`). Dwaj
-konsumenci, dwie różne degradacje przy braku stacji: `/api/weather` zwraca
-`available:false` (**cache'owane, nie błąd**); `/api/train` (`attachStopCoordinates()`
-w `src/app/api/train/coordinates.ts`) po prostu nie dokłada `lat`/`lon` do przystanku
-(`.catch(() => null)` — awaria odczytu pliku nie wywala całego `/api/train`, tylko
-wzbogacenie o mapę).
+Współrzędne stacji (pogoda, mapy): statyczny `data/station-coordinates.json` (regen
+`scripts/stations-from-gtfs.mjs`, dopasowanie po ID PKP; zapas: `enrich-station-coords.mjs`
+— `city-fallback` to centroid miejscowości, nie pozycja stacji), jest w obrazie
+(`.next/standalone`). Dwaj konsumenci, dwie różne degradacje przy braku stacji:
+`/api/weather` zwraca `available:false` (**cache'owane, nie błąd**); `/api/train`
+(`attachStopCoordinates()` w `src/app/api/train/coordinates.ts`) po prostu nie dokłada
+`lat`/`lon` do przystanku (`.catch(() => null)` — awaria odczytu pliku nie wywala całego
+`/api/train`, tylko wzbogacenie o mapę).
 
 **Wyjątek od „sieć wyłącznie na krawędziach": kafelki mapy.** `MapView.tsx`
 (MapLibre GL JS + `tiles.openfreemap.org`, darmowe bez klucza/limitu, ODbL) to
