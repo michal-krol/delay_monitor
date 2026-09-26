@@ -257,9 +257,13 @@ describe('public/maplibre-gl-worker.mjs + maplibre-gl-shared.mjs (wendorowane ko
   it.each(['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs'])('%s jest bajt-w-bajt tym samym plikiem co w node_modules', async (file) => {
     const { readFile } = await import('node:fs/promises')
     const path = await import('node:path')
+    const { createRequire } = await import('node:module')
+    // Rozwiązywanie modułu, nie `process.cwd()/node_modules` -- w worktree agenta
+    // node_modules leży w głównym checkoucie, wyżej w drzewie.
+    const pkgDir = path.dirname(createRequire(import.meta.url).resolve('maplibre-gl/package.json'))
     const [vendored, source] = await Promise.all([
       readFile(path.join(process.cwd(), 'public', file), 'utf-8'),
-      readFile(path.join(process.cwd(), 'node_modules/maplibre-gl/dist', file), 'utf-8'),
+      readFile(path.join(pkgDir, 'dist', file), 'utf-8'),
     ])
     expect(vendored).toBe(source)
   })
