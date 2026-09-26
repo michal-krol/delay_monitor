@@ -262,7 +262,7 @@ describe('zamrożony feed PKP (200 z bezużyteczną treścią)', () => {
 })
 
 describe('rozkład jako źródło listy', () => {
-  const scheduleCfg = { pollIntervalMs: 90000, interestTtlMs: 300000, boardSource: 'schedule' as const }
+  const scheduleCfg = { pollIntervalMs: 90000, interestTtlMs: 300000 }
 
   function todayRoute(stationId: string) {
     return { ...routeWithTimes('2026', '1', stationId), operatingDates: ['2026-08-01'] }
@@ -386,27 +386,4 @@ describe('rozkład jako źródło listy', () => {
     expect(poller.getSnapshot('5100')?.departures).toHaveLength(1)
   })
 
-  it('ścieżka historyczna zostaje, gdy flaga wskazuje operations', async () => {
-    const client = makePkpClient({
-      getOperations: vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } }),
-      getSchedules: vi.fn().mockResolvedValue({
-        routes: [todayRoute('5100')],
-        carrierNames: {},
-        categoryNames: {},
-        stationNames: {},
-        usedFullRouteFallback: false,
-      }),
-    })
-    const poller = createPoller({
-      client,
-      config: { pollIntervalMs: 90000, interestTtlMs: 300000, boardSource: 'operations' },
-      stationNames: new Map(),
-    })
-
-    poller.registerInterest(['5100'])
-    await vi.advanceTimersByTimeAsync(0)
-
-    // Bez realizacji stara ścieżka nie ma z czego zbudować wiersza.
-    expect(poller.getSnapshot('5100')?.departures).toHaveLength(0)
-  })
 })

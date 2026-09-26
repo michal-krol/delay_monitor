@@ -434,8 +434,7 @@ function realizationKey(scheduleId: string, orderId: string, trainOrderId: strin
 /**
  * Lista kursów, z których powstaną wiersze tej stacji.
  *
- * Bez `scheduleSource` iteruje po realizacji (zachowanie historyczne). Z nim —
- * po trasach kursujących dziś, doklejając realizację tam, gdzie jest, oraz te
+ * Iteruje po trasach kursujących dziś, doklejając realizację tam, gdzie jest, oraz te
  * kursy z realizacji, którym nie udało się dopasować trasy.
  *
  * To doklejenie jest polisą, nie regułą: na zmierzonych danych (26 i 27.08,
@@ -447,7 +446,7 @@ function collectRowSources(
   stationId: string,
   trains: RawTrainOperation[],
   routesByTrainId: Map<string, RawRoute>,
-  scheduleSource: ScheduleSource | null
+  scheduleSource: ScheduleSource
 ): RowSource[] {
   const fromTrain = (train: RawTrainOperation, route: RawRoute | undefined, stop: RawOperationStation): RowSource => ({
     scheduleId: train.scheduleId,
@@ -458,18 +457,6 @@ function collectRowSources(
     stop,
     stops: train.stations,
   })
-
-  if (scheduleSource === null) {
-    const sources: RowSource[] = []
-    for (const train of trains) {
-      const stop = train.stations.find((candidate) => candidate.stationId === stationId)
-      if (stop === undefined) continue
-      // Wariant trasy z DNIA tego przejazdu, nie „jakikolwiek o tym kluczu" --
-      // patrz `findRouteForTrain()`; peron i przystanki potrafią się różnić.
-      sources.push(fromTrain(train, findRouteForTrain(routesByTrainId, train), stop))
-    }
-    return sources
-  }
 
   // Indeks realizacji po kluczu przejazdu -- odwrotność `indexRoutesByTrain()`.
   const realizationByKey = new Map<string, RawTrainOperation>()
@@ -534,6 +521,8 @@ export function transformOperations(
   trains: RawTrainOperation[],
   stationNames: Record<string, string>,
   routesByTrainId: Map<string, RawRoute>,
+  /** Listę wierszy wyznacza ROZKŁAD, realizacja jest warstwą nakładaną (AGENTS.md #10). */
+  scheduleSource: ScheduleSource,
   carrierNames: Record<string, string>,
   fetchedAt: string,
   now: Date = new Date(fetchedAt),
@@ -563,17 +552,7 @@ export function transformOperations(
     insights: { topDestinations: [], hourlyTraffic: null },
   },
   /** Patrz `BoardSnapshot.disruptionMessages`. */
-  disruptionMessages: string[] = [],
-  /**
-   * Gdy podane, listę wierszy wyznacza ROZKŁAD, a realizacja jest warstwą
-   * nakładaną (patrz `ScheduleSource` i `collectRowSources`). `null` zachowuje
-   * zachowanie historyczne — listę wyznacza `/operations`.
-   *
-   * Trailing-optional świadomie, tym samym wzorcem co `categoryNames`
-   * i `disruptedTrains` wyżej: dzięki temu kilkadziesiąt istniejących wywołań
-   * w testach opisuje nadal starą ścieżkę i nie wymaga przepisania.
-   */
-  scheduleSource: ScheduleSource | null = null
+  disruptionMessages: string[] = []
 ): BoardSnapshot {
   const departures: BoardRow[] = []
   const arrivals: BoardRow[] = []
