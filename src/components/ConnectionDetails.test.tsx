@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as maplibregl from 'maplibre-gl'
 import { ConnectionDetails } from './ConnectionDetails'
 import { formatClockTime } from '@/lib/format'
 import { jsonResponse } from '@/test-utils/http'
@@ -44,6 +45,10 @@ vi.mock('maplibre-gl', () => {
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.useRealTimers()
+  // Bez tego wywołania maplibregl.Marker (moduł mockowany raz dla całego pliku)
+  // liczą się kumulacyjnie przez wszystkie testy -- fałszywie zielone/czerwone
+  // asercje na `toHaveBeenCalledTimes` w testach mapy poniżej.
+  vi.clearAllMocks()
 })
 
 // Fixture'y mają plan w 2026-08-01; bez zamrożenia zegara „teraz" (rzeczywista
@@ -871,6 +876,23 @@ describe('route map', () => {
     // (isConfirmed: true w RESPONSE), więc resolveInterpolatedPosition zwraca
     // pozycję i podpis się renderuje.
     expect(screen.getByText('Pozycja pociągu szacowana wg rozkładu.')).toBeInTheDocument()
+
+    // Weryfikacja realnego markera, nie tylko tekstu obok (wzorzec z MapView.test.tsx):
+    // 2 piny (przystanki z coords) + 1 mover (pozycja pociągu) = 3 wywołania Marker.
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(3))
+    const calls = vi.mocked(maplibregl.Marker).mock.calls
+    const moverCallIndex = calls.findIndex((call) => (call[0]?.element as HTMLElement | undefined)?.dataset.testid === 'map-mover')
+    expect(moverCallIndex).toBeGreaterThanOrEqual(0)
+    const moverMarker = vi.mocked(maplibregl.Marker).mock.results[moverCallIndex].value
+    // Dokładna wartość pochodzi z `resolveInterpolatedPosition` (osobno wyczerpująco
+    // przetestowana w mapPosition.test.ts) -- tu sprawdzamy tylko, że mover realnie
+    // dostał pozycję między dwoma przystankami, nie że interpolacja jest arytmetycznie poprawna.
+    expect(moverMarker.setLngLat).toHaveBeenCalledWith([expect.any(Number), expect.any(Number)])
+    const [lon, lat] = vi.mocked(moverMarker.setLngLat).mock.calls[0][0] as [number, number]
+    expect(lat).toBeGreaterThan(52.2288207)
+    expect(lat).toBeLessThan(54.355)
+    expect(lon).toBeGreaterThan(18.646)
+    expect(lon).toBeLessThan(21.00316)
   })
 
   it('does not show the estimated-position caption when there is no confirmed movement yet', async () => {
@@ -891,5 +913,29 @@ describe('route map', () => {
 
     expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
     expect(screen.queryByText('Pozycja pociągu szacowana wg rozkładu.')).not.toBeInTheDocument()
+  })
+
+  it('shows the estimated-position marker once past the planned departure, even with nothing confirmed (mirrors mock train 107, ruling z 2026-09-23)', async () => {
+    const withCoordsNotStarted = {
+      ...RESPONSE,
+      trainStatus: 'S',
+      stops: RESPONSE.stops.map((stop, index) => ({
+        ...stop,
+        isConfirmed: false,
+        hasTrainStarted: false,
+        lat: index === 0 ? 54.355 : 52.2288207,
+        lon: index === 0 ? 18.646 : 21.00316,
+      })),
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(withCoordsNotStarted)))
+    // stops[0].plannedDeparture = 09:00, stops[1].plannedArrival = 11:20 -- 09:30 jest w oknie,
+    // po planowym odjeździe, mimo `trainStatus: 'S'` i braku jakiegokolwiek potwierdzenia
+    // (isScheduleProjection nie robi wyjątku dla 'S' -- AGENTS.md ruling, handoff 2026-09-23).
+    freezeClock('2026-08-01T09:30:00.000Z')
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
+
+    expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
+    expect(screen.getByText('Pozycja pociągu szacowana wg rozkładu.')).toBeInTheDocument()
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(3))
   })
 })

@@ -1,4 +1,4 @@
-import { resolveCurrentStopIndex, resolvePositionAnchor, type TrainDetailStop } from './trainDetail'
+import { anchorOffsetMs, resolveCurrentStopIndex, resolvePositionAnchor, type TrainDetailStop } from './trainDetail'
 
 /** `TrainDetailStop` plus statyczne współrzędne stacji, doklejone przy `/api/train` (patrz `src/app/api/train/coordinates.ts`) -- `null` = brak użytecznych danych dla tej stacji. */
 export type TrainDetailStopWithCoords = TrainDetailStop & { lat: number | null; lon: number | null }
@@ -24,8 +24,17 @@ function nextNonCancelledIndex(stops: TrainDetailStopWithCoords[], fromExclusive
  * przedziału czasu bierze się zawsze z OSTATNIEGO POTWIERDZONEGO przystanku
  * (`resolveCurrentStopIndex`), nie z samej kotwicy interpolacji -- w trybie
  * „stale" kotwica jest projekcją rozkładową dalej na trasie i jej własne pola
- * opóźnienia są `null` (niepotwierdzona), więc czytanie ich dałoby przesunięcie
- * 0 zamiast realnego.
+ * opóźnienia są `null` (niepotwierdzona).
+ *
+ * Offset liczony przez `anchorOffsetMs` (actual - planned) — TO SAMO źródło,
+ * którym `resolveProjectedStopIndex` (trainDetail.ts) wybiera kotwicę w trybie
+ * „stale". Wcześniej ten kod czytał `departureDelayMinutes`/`arrivalDelayMinutes`
+ * bezpośrednio (`?? 0` przy `null`) — inne źródło tej samej wielkości niż to,
+ * które już zdecydowało, JAK DALEKO na trasie kotwica leży. Gdy oba się
+ * rozjadą (typ pozwala na `TrainDetailStop` z potwierdzonym czasem faktycznym,
+ * ale bez pola opóźnienia), marker interpolował okno czasowe bez przesunięcia,
+ * podczas gdy oś już przesunęła kotwicę o przystanki dalej — dokładnie klasa
+ * błędu z AGENTS.md #2 (dwie implementacje tej samej gałęzi).
  */
 export function resolveInterpolatedPosition(
   stops: TrainDetailStopWithCoords[],
@@ -39,10 +48,7 @@ export function resolveInterpolatedPosition(
   if (anchorIndex < 0 || stops[anchorIndex].isCancelled) return null
 
   const confirmedAnchorIndex = resolveCurrentStopIndex(stops)
-  const delayMs =
-    confirmedAnchorIndex >= 0
-      ? (stops[confirmedAnchorIndex].departureDelayMinutes ?? stops[confirmedAnchorIndex].arrivalDelayMinutes ?? 0) * 60_000
-      : 0
+  const delayMs = confirmedAnchorIndex >= 0 ? (anchorOffsetMs(stops[confirmedAnchorIndex]) ?? 0) : 0
 
   const anchorStop = stops[anchorIndex]
   const nextIndex = nextNonCancelledIndex(stops, anchorIndex)
