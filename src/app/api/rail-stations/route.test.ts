@@ -66,6 +66,12 @@ describe('GET /api/rail-stations', () => {
     expect(response.status).toBe(400)
   })
 
+  it('returns 400 when the city param is missing entirely', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(new Request('http://localhost/api/rail-stations'))
+    expect(response.status).toBe(400)
+  })
+
   it('never registers interest in the poller', async () => {
     await call('warszawa')
     expect(registerInterest).not.toHaveBeenCalled()
@@ -113,6 +119,24 @@ describe('GET /api/rail-stations', () => {
     const { body } = await call('warszawa')
     const entry = body.stations.find((s: { id: string }) => s.id === '33605')
     expect(entry.nextDepartures).toEqual([{ plannedAt: expect.any(String), headsign: null, delayMinutes: 0, status: 'onTime' }])
+  })
+
+  it('reports status "unknown" and an empty list when the snapshot has no upcoming departures', async () => {
+    getSnapshot.mockImplementationOnce((id: string) => {
+      if (id !== '33605') return undefined
+      const now = Date.now()
+      return {
+        stationId: '33605',
+        stationName: 'Warszawa Centralna',
+        departures: [{ plannedAt: new Date(now - 5 * 60_000).toISOString(), headsign: 'Kutno', delayMinutes: 0, status: 'onTime' }],
+        arrivals: [],
+        fetchedAt: new Date(now - 10_000).toISOString(),
+      }
+    })
+    const { body } = await call('warszawa')
+    const entry = body.stations.find((s: { id: string }) => s.id === '33605')
+    expect(entry.status).toBe('unknown')
+    expect(entry.nextDepartures).toEqual([])
   })
 
   it('degrades to an empty station list when the dictionary lookup fails, not a 500', async () => {

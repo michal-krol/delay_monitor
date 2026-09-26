@@ -89,6 +89,49 @@ describe('useLineVehicles', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił
   })
 
+  it('does not update state or reschedule after unmount while a fetch is in flight', async () => {
+    let resolveFetch!: (value: { ok: boolean; json: () => Promise<unknown> }) => void
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { unmount } = renderHook(() => useLineVehicles('warszawa', '20', 0))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    unmount()
+    resolveFetch({ ok: true, json: () => Promise.resolve({ vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 0 } }) })
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1) // odmontowany -> brak reschedule
+  })
+
+  it('does not set an error after unmount while a fetch is failing', async () => {
+    let rejectFetch!: (reason: Error) => void
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFetch = reject
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { unmount } = renderHook(() => useLineVehicles('warszawa', '20', 0))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    unmount()
+    rejectFetch(new Error('network'))
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1) // odmontowany -> brak reschedule po błędzie
+  })
+
+  it('falls back to a generic error message for a non-Error rejection', async () => {
+    const fetchMock = vi.fn().mockImplementationOnce(() => Promise.reject('boom'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useLineVehicles('warszawa', '20', 0))
+    await vi.waitFor(() => expect(result.current.error).toBe('błąd'))
+  })
+
   it('does not fetch for an unknown direction (2)', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } }))
     vi.stubGlobal('fetch', fetchMock)

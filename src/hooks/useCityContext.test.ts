@@ -44,6 +44,13 @@ describe('useCityContext', () => {
     expect(result.current.city).toBeNull()
   })
 
+  it('silently ignores a stored value that is not valid JSON at all', async () => {
+    window.localStorage.setItem('monitor.cityContext.v2', 'not json{{{')
+    const { result } = renderHook(() => useCityContext())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    expect(result.current.city).toBeNull()
+  })
+
   it('does not touch the URL', async () => {
     window.history.replaceState(null, '', '/city/warszawa')
     const { result } = renderHook(() => useCityContext())

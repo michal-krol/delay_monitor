@@ -58,4 +58,20 @@ describe('useTransitBoard', () => {
     const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
     await vi.waitFor(() => expect(result.current.error).toBe('network'))
   })
+
+  it('skips a scheduled refresh while the tab is hidden, reschedules instead of fetching', async () => {
+    const fetchMock = vi.fn().mockImplementation(ready)
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderHook(() => useTransitBoard('warszawa', ['1001']))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true })
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(fetchMock).toHaveBeenCalledTimes(1) // hidden -> nie odpytał
+
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true })
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił
+  })
 })
