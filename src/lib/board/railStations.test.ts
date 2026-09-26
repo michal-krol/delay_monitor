@@ -17,6 +17,7 @@ const CITY: CityFeed = {
   alertsUrl: null,
   railStationPrefix: 'Warszawa ',
   timezone: 'Europe/Warsaw',
+  mapCenter: { lat: 52.23, lon: 21.01 },
 }
 
 // `vi.resetModules()` przed każdym testem: `resolveCityRailStations` trzyma

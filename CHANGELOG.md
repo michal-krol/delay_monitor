@@ -14,7 +14,22 @@ Wersjonowanie semantyczne.
   teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
   2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
   mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
-- **Dane pod nową mapę** (bez zmian w UI): `/api/gtfs/stops` (wszystkie przystanki
+- **Nowa mapa transportu** (`/city/[city]/map`, spec „Czy dojadę? — refaktor
+  mapy"): kolej z całej Polski (stopniowo po zoomie wg `tier`: węzły → region →
+  wszystkie), przystanki miasta (metro od zoomu 11, tramwaj/autobus od 14,
+  etykiety od 16), pojazdy z etykietą linii od zoomu 15. Kolor = rodzaj środka
+  transportu, nie operator ani opóźnienie. Dwa osobne wyszukiwania: stacja/
+  przystanek (przelot + obwódka + karta, niezależnie od zoomu) i linia (filtr
+  pojazdów, chip „Linia 20 ×"). „Filtry" z licznikiem ukrytych warstw i chipami
+  ograniczeń, stan w URL-u (`?hide=`, `?line=`; stare `?vehicles=0`, `?rail=0`,
+  `?mode=` dalej działają). Karta obiektu dokowana — panel obok mapy na
+  desktopie, arkusz od dołu na telefonie: stacja PKP (odjazdy z peronem/torem
+  tylko, gdy poller zna stację — inaczej „nie śledzimy", nie „brak odjazdów"),
+  przystanek (rozkład, nie „na czas"), pojazd (następny przystanek, świeżość
+  pozycji, bez opóźnienia). Zwijana legenda rodzajów, ciemny podkład mapy
+  w trybie ciemnym, komunikat po wyjechaniu poza obszar feedu miejskiego.
+  Markery DOM i popupy MapLibre zastąpione warstwami WebGL.
+- **Dane pod nową mapę**: `/api/gtfs/stops` (wszystkie przystanki
   miasta z pozycją, perony metra zwinięte do stacji), `/api/rail-stations/list`
   (stacje z całej Polski, `tier`) i `/api/rail-stations/status` (statusy tylko ze
   snapshotu pollera, peron/tor/przewoźnik), `lat`/`lon` w wynikach `/api/search`,

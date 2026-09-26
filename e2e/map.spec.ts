@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 // Mock „Centrum" (zespół 1001) = 4 słupki (AGENTS.md #13, patrz gtfs-slupek.spec.ts).
@@ -218,105 +218,109 @@ test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', a
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
 
-// Mapa miasta live (podprojekt 3) -- mock ma pojazdy metro/tramwaj/autobus/kolej
-// plus jeden nieznany trip_id (fixtures/gtfs/warszawa/vehicles.json).
+// Mapa transportu (refaktor 2026-09-26): kolej z całej Polski + przystanki
+// i pojazdy miasta jako warstwy WebGL. Obiekty na canvasie nie są fokusowalne —
+// ścieżką klawiatury i testów jest wyszukiwarka → karta (MapCard).
 const CITY_MAP = '/city/warszawa/map'
+const MAP_NAME = 'Mapa transportu — Warszawa'
 
-test('mapa miasta: renderuje wszystkie pojazdy z filtrami trybu i numeru linii', async ({ page }) => {
-  await page.goto(CITY_MAP)
-  const map = page.getByRole('region', { name: 'Mapa miasta Warszawa' })
+async function openMap(page: Page, path = CITY_MAP): Promise<Locator> {
+  await page.goto(path)
+  const map = page.getByRole('region', { name: MAP_NAME })
   await expect(map).toBeVisible({ timeout: READY })
-  await expectTilesRendered(map.locator('canvas'))
+  return map
+}
 
-  const filter = page.getByRole('group', { name: 'Filtr rodzaju transportu' })
-  await expect(filter).toBeVisible()
-  for (const label of ['Wszystko', 'metro', 'tramwaj', 'autobus', 'kolej']) {
-    await expect(filter.getByRole('button', { name: label })).toBeVisible()
-  }
-  await expect(page.getByRole('searchbox', { name: 'Filtruj po numerze linii' })).toBeVisible()
+/** Na telefonie dwa pola wyszukiwania są zakładkami (spec §20). */
+async function lineSearch(page: Page): Promise<Locator> {
+  const tab = page.getByRole('group', { name: 'Czego szukasz' }).getByRole('button', { name: 'Linia' })
+  if (await tab.isVisible()) await tab.click()
+  return page.getByRole('combobox', { name: 'Szukaj linii' })
+}
+
+async function expectNoBlockingA11y(page: Page): Promise<void> {
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+}
+
+test('mapa transportu: renderuje kafelki, pasek wyszukiwania, filtry i legendę', async ({ page }) => {
+  const map = await openMap(page)
+  await expectTilesRendered(map)
+  await expect(page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Filtry/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Przybliż' })).toBeVisible()
+  await expect(page.getByText('Legenda')).toBeVisible()
+  await expect(page.getByText(/pozycje pojazdów:/)).toBeVisible({ timeout: READY })
 })
 
-test('mapa miasta: filtr trybu i numeru linii zapisuje się w URL-u', async ({ page }) => {
-  await page.goto(CITY_MAP)
-  await expect(page.getByRole('region', { name: 'Mapa miasta Warszawa' })).toBeVisible({ timeout: READY })
+test('mapa transportu: wyszukanie stacji otwiera kartę z linkiem do pełnej tablicy, Escape ją zamyka', async ({ page }) => {
+  await openMap(page)
+  await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Centralna')
+  await page.getByRole('option', { name: 'Warszawa Centralna' }).click()
+  const card = page.getByRole('dialog', { name: 'Warszawa Centralna' })
+  await expect(card).toBeVisible()
+  await expect(card.getByRole('link', { name: /Pełna tablica/ })).toHaveAttribute('href', '/station/33605')
+  await page.keyboard.press('Escape')
+  await expect(card).toBeHidden()
+})
 
-  await page.getByRole('group', { name: 'Filtr rodzaju transportu' }).getByRole('button', { name: 'tramwaj' }).click()
-  await expect(page).toHaveURL(/[?&]mode=tram/)
+test('mapa transportu: wyszukanie przystanku miejskiego pokazuje rozkład, nie „na czas"', async ({ page }) => {
+  await openMap(page)
+  await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Centrum')
+  await page.getByRole('option', { name: 'Centrum' }).first().click()
+  const card = page.getByRole('dialog', { name: 'Centrum' })
+  await expect(card).toBeVisible()
+  await expect(card.getByText(/rozkład/)).toBeVisible()
+  await expect(card.getByText(/na czas/)).toHaveCount(0)
+})
 
-  await page.getByRole('searchbox', { name: 'Filtruj po numerze linii' }).fill('20')
+test('mapa transportu: wybór linii filtruje pojazdy — chip i URL, „×" wraca do wszystkich', async ({ page }) => {
+  await openMap(page)
+  await (await lineSearch(page)).fill('20')
+  await page.getByRole('option', { name: /^Linia 20/ }).click()
   await expect(page).toHaveURL(/[?&]line=20/)
+  const chips = page.getByRole('list', { name: 'Aktywne filtry' })
+  await expect(chips.getByText('Linia 20')).toBeVisible()
+  await chips.getByRole('button', { name: /Pokaż wszystkie linie/ }).click()
+  await expect(page).not.toHaveURL(/[?&]line=/)
 })
 
-test('mapa miasta: awaria pobrania pozycji pokazuje komunikat, nie pustą mapę bez wyjaśnienia', async ({ page }) => {
+test('mapa transportu: filtr warstwy zapisuje się w URL-u i pokazuje chip ograniczenia', async ({ page }) => {
+  await openMap(page)
+  await page.getByRole('button', { name: /Filtry/ }).click()
+  await page.getByRole('checkbox', { name: /Przystanki autobusowe/ }).uncheck()
+  await expect(page).toHaveURL(/[?&]hide=busStops/)
+  await page.keyboard.press('Escape')
+  const chips = page.getByRole('list', { name: 'Aktywne filtry' })
+  await chips.getByRole('button', { name: 'Pokaż: przystanki autobusowe' }).click()
+  await expect(page).not.toHaveURL(/[?&]hide=/)
+})
+
+test('mapa transportu: stare linki (?vehicles=0&rail=0) dalej działają jako filtry', async ({ page }) => {
+  await openMap(page, `${CITY_MAP}?vehicles=0&rail=0`)
+  const chips = page.getByRole('list', { name: 'Aktywne filtry' })
+  await expect(chips.getByText('Ukryte: stacje kolejowe')).toBeVisible()
+  await expect(chips.getByText('Ukryte: tramwaje')).toBeVisible()
+})
+
+test('mapa transportu: awaria pozycji pojazdów to komunikat, a mapa kolei i przystanków żyje dalej', async ({ page }) => {
   await page.route('**/api/gtfs/city-vehicles**', (route) => route.abort())
-  await page.goto(CITY_MAP)
-  await expect(page.getByText('Nie udało się pobrać pozycji pojazdów.')).toBeVisible({ timeout: READY })
+  const map = await openMap(page)
+  await expect(page.getByText(/nie udało się pobrać pozycji pojazdów/)).toBeVisible({ timeout: READY })
+  await expectTilesRendered(map)
 })
 
-test('a11y: mapa miasta bez naruszeń serious/critical', async ({ page }) => {
-  await page.goto(CITY_MAP)
-  await expect(page.getByRole('region', { name: 'Mapa miasta Warszawa' })).toBeVisible({ timeout: READY })
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
-  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
-  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+test('a11y: mapa transportu bez naruszeń serious/critical', async ({ page }) => {
+  await openMap(page)
+  await expectNoBlockingA11y(page)
 })
 
-test('a11y: mapa miasta w trybie ciemnym bez naruszeń serious/critical', async ({ page }) => {
+test('a11y: mapa transportu w trybie ciemnym i z otwartą kartą bez naruszeń serious/critical', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
-  await page.goto(CITY_MAP)
-  await expect(page.getByRole('region', { name: 'Mapa miasta Warszawa' })).toBeVisible({ timeout: READY })
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
-  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
-  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
-})
-
-test('mapa miasta: warstwa kolei pokazuje piny stacji, klik prowadzi do tablicy stacji', async ({ page }) => {
-  // Odwiedzamy /station/33605 najpierw, żeby poller (dzielony przez cały proces
-  // serwera e2e) zarejestrował zainteresowanie tą stacją -- inaczej kolejność
-  // testów decydowałaby, czy /api/rail-stations widzi jakikolwiek snapshot.
-  await page.goto(STATION_BOARD)
-  // exact: true -- inaczej łapie też h3 karty pogody „Pogoda dziś — Warszawa Centralna" (strict mode violation).
-  await expect(page.getByRole('heading', { name: 'Warszawa Centralna', exact: true })).toBeVisible({ timeout: READY })
-
-  await page.goto(CITY_MAP)
-  const map = page.getByRole('region', { name: 'Mapa miasta Warszawa' })
-  await expect(map).toBeVisible({ timeout: READY })
-
-  const group = page.getByRole('group', { name: 'Warstwy mapy' })
-  await expect(group.getByRole('button', { name: 'Pojazdy' })).toBeVisible()
-  await expect(group.getByRole('button', { name: 'Kolej' })).toBeVisible()
-
-  await expect(map.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
-  await map.locator('.maplibregl-marker').first().click()
-  const popup = page.locator('.maplibregl-popup-content')
-  await expect(popup).toBeVisible()
-  // "klik prowadzi do tablicy stacji" -- sprawdź faktyczny href, nie tylko że popup się otworzył.
-  // Format `/station/${id}` z `toRailStationPin()` (railStationPin.ts); jedyna stacja PKP
-  // w fixture'ach Warszawy to Warszawa Centralna, id 33605 (AGENTS.md #8).
-  await expect(popup.getByRole('link', { name: 'Zobacz pełną tablicę →' })).toHaveAttribute('href', '/station/33605')
-})
-
-test('mapa miasta: chip „Kolej” chowa warstwę i zapisuje to w URL-u', async ({ page }) => {
-  await page.goto(CITY_MAP)
-  await expect(page.getByRole('region', { name: 'Mapa miasta Warszawa' })).toBeVisible({ timeout: READY })
-
-  await page.getByRole('group', { name: 'Warstwy mapy' }).getByRole('button', { name: 'Kolej' }).click()
-  await expect(page).toHaveURL(/[?&]rail=0/)
-})
-
-// Regresja: wejście PROSTO z `?vehicles=0` w URL-u (nie klik chipa PO wczytaniu)
-// dawało `vehicles={[]}` od pierwszego renderu -- montowanie mapy w
-// CityVehicleMap.tsx (deps `[]`) miało tylko jedną szansę i nigdy się nie
-// odpalało, mapa zostawała pusta na zawsze, nawet po ponownym włączeniu
-// chipa. `Kolej` zostaje włączona (domyślnie), więc marker stacji potwierdza,
-// że mapa się realnie zamontowała, nie tylko że region istnieje.
-test('mapa miasta: wejście z ?vehicles=0 w URL-u nie zostawia pustej, niemożliwej do naprawienia mapy', async ({ page }) => {
-  await page.goto(STATION_BOARD)
-  await expect(page.getByRole('heading', { name: 'Warszawa Centralna', exact: true })).toBeVisible({ timeout: READY })
-
-  await page.goto(`${CITY_MAP}?vehicles=0`)
-  const map = page.getByRole('region', { name: 'Mapa miasta Warszawa' })
-  await expect(map).toBeVisible({ timeout: READY })
-  await expect(page.getByRole('group', { name: 'Warstwy mapy' }).getByRole('button', { name: 'Pojazdy', pressed: false })).toBeVisible()
-  await expect(map.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
+  await openMap(page)
+  await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Centralna')
+  await page.getByRole('option', { name: 'Warszawa Centralna' }).click()
+  await expect(page.getByRole('dialog', { name: 'Warszawa Centralna' })).toBeVisible()
+  await expectNoBlockingA11y(page)
 })

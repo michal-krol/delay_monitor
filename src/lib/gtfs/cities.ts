@@ -28,6 +28,8 @@ export type CityFeed = {
   railStationPrefix: string
   /** Strefa czasu miasta — `serviceDayNoonEpoch()` bierze ją stąd. */
   timezone: string
+  /** Kadr startowy mapy transportu (centrum miasta). */
+  mapCenter: { lat: number; lon: number }
 }
 
 const REGISTRY: readonly CityFeed[] = [
@@ -39,6 +41,7 @@ const REGISTRY: readonly CityFeed[] = [
     alertsUrl: 'https://mkuran.pl/gtfs/warsaw/alerts.json',
     railStationPrefix: 'Warszawa ',
     timezone: 'Europe/Warsaw',
+    mapCenter: { lat: 52.2297, lon: 21.0122 },
   },
 ]
 

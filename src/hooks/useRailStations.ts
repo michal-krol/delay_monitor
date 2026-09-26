@@ -1,43 +1,78 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { RailStationApiEntry, RailStationPin } from '@/lib/board/railStationPin'
-import { toRailStationPin } from '@/lib/board/railStationPin'
+import type { RailStationStatus } from '@/lib/board/railStationStatus'
+import type { MapRailStation } from '@/lib/weather/coordinates'
 
-export type RailStationsState = {
-  stations: RailStationPin[]
-  error: string | null
-}
-
-const REFRESH_MS = 90_000
+const RETRY_MS = 30_000
+const STATUS_REFRESH_MS = 90_000
 
 /**
- * Poll `/api/rail-stations` co 90 s — rytm pollera PKP (AGENTS.md #3), nie
- * 15 s pojazdów (`useCityVehicles`). Ten sam ręczny wzorzec `setTimeout` +
- * `document.hidden`. Błąd zachowuje ostatnią listę (AGENTS.md #7).
+ * Ogólnopolska lista stacji do warstwy kolei (`/api/rail-stations/list`) — jedno
+ * pobranie na wizytę (lista zmienia się tylko z wdrożeniem). Trzy stany (#7):
+ * `stations: null` + `error: false` = wczytuje się, `error: true` = nie udało
+ * się (ponawiamy co 30 s), lista = dane.
  */
-export function useRailStations(city: string): RailStationsState {
-  const [state, setState] = useState<RailStationsState>({ stations: [], error: null })
+export function useRailStations(): { stations: MapRailStation[] | null; error: boolean } {
+  const [state, setState] = useState<{ stations: MapRailStation[] | null; error: boolean }>({ stations: null, error: false })
 
   useEffect(() => {
     let cancelled = false
     let timer: ReturnType<typeof setTimeout>
 
-    async function tick(): Promise<void> {
-      if (cancelled) return
-      if (document.hidden) {
-        timer = setTimeout(() => void tick(), REFRESH_MS)
-        return
-      }
+    async function load(): Promise<void> {
       try {
-        const response = await fetch(`/api/rail-stations?city=${encodeURIComponent(city)}`)
+        const response = await fetch('/api/rail-stations/list')
         if (!response.ok) throw new Error(String(response.status))
-        const json = (await response.json()) as { stations: RailStationApiEntry[] }
-        if (!cancelled) setState({ stations: json.stations.map(toRailStationPin), error: null })
-      } catch (err) {
-        if (!cancelled) setState((s) => ({ ...s, error: err instanceof Error ? err.message : 'błąd' }))
+        const json = (await response.json()) as { stations: MapRailStation[] }
+        if (!cancelled) setState({ stations: json.stations, error: false })
+      } catch {
+        if (cancelled) return
+        setState((s) => ({ ...s, error: true }))
+        timer = setTimeout(() => void load(), RETRY_MS)
       }
-      if (!cancelled) timer = setTimeout(() => void tick(), REFRESH_MS)
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [])
+
+  return state
+}
+
+/**
+ * Status JEDNEJ stacji z pamięci pollera — pytamy tylko, gdy jej karta jest
+ * otwarta (`stationId !== null`), co 90 s (rytm pollera, AGENTS.md #3).
+ * `status`: `undefined` = wczytuje się, `null` = poller tej stacji nie ma
+ * w pamięci (nikt nie oglądał jej tablicy) — to „nie wiadomo", nie „brak odjazdów".
+ */
+export function useRailStationStatus(stationId: string | null): { status: RailStationStatus | null | undefined; error: boolean } {
+  const [state, setState] = useState<{ id: string | null; status: RailStationStatus | null | undefined; error: boolean }>({
+    id: null,
+    status: undefined,
+    error: false,
+  })
+
+  useEffect(() => {
+    if (stationId === null) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+
+    async function tick(): Promise<void> {
+      if (!document.hidden) {
+        try {
+          const response = await fetch('/api/rail-stations/status')
+          if (!response.ok) throw new Error(String(response.status))
+          const json = (await response.json()) as { stations: RailStationStatus[] }
+          if (!cancelled) setState({ id: stationId, status: json.stations.find((s) => s.id === stationId) ?? null, error: false })
+        } catch {
+          if (!cancelled) setState((s) => ({ ...s, id: stationId, error: true }))
+        }
+      }
+      if (!cancelled) timer = setTimeout(() => void tick(), STATUS_REFRESH_MS)
     }
 
     void tick()
@@ -45,7 +80,9 @@ export function useRailStations(city: string): RailStationsState {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [city])
+  }, [stationId])
 
-  return state
+  // Stan innej (poprzednio otwartej) stacji nie może przeciec do nowej karty.
+  if (state.id !== stationId) return { status: undefined, error: false }
+  return { status: state.status, error: state.error }
 }

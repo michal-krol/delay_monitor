@@ -38,6 +38,7 @@ export async function GET() {
         id: city.id,
         name: city.name,
         timezone: city.timezone,
+        mapCenter: city.mapCenter,
         hasTransit: gtfsEnabled.has(city.id),
         railStations,
         schedule:

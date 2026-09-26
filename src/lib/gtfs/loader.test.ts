@@ -11,6 +11,7 @@ const CITY: CityFeed = {
   alertsUrl: null,
   railStationPrefix: 'Test ',
   timezone: 'Europe/Warsaw',
+  mapCenter: { lat: 52.23, lon: 21.01 },
 }
 
 const NOW = new Date('2026-09-02T09:00:00Z')
