@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const searchStations = vi.fn(async (query: string) =>
   query === 'Warszawa'
@@ -26,6 +26,15 @@ async function call() {
 }
 
 describe('GET /api/cities', () => {
+  // `resolveCityRailStations` (`src/lib/board/railStations.ts`) cache'uje
+  // teraz wynik wyszukania stacji per miasto (Fix 3, AGENTS.md #3) -- bez
+  // resetu modułów drugie wywołanie `call()` w tym pliku trafiałby w cache
+  // pierwszego zamiast wołać `searchStations` ponownie, gubiąc
+  // `mockRejectedValueOnce` ustawione niżej.
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
   it('returns the registry with rail stations filtered by the name prefix', async () => {
     const { body } = await call()
     const warszawa = body.cities.find((c: { id: string }) => c.id === 'warszawa')

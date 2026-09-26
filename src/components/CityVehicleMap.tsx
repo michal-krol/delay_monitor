@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import { HEX_COLOR, STYLE_URL, WORKER_URL } from './MapView'
+import { useEffect, useRef, type RefObject } from 'react'
+import type { GeoJSONSource, Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
+import type { Root } from 'react-dom/client'
+import { HEX_COLOR, STYLE_URL, WORKER_URL, createMarkerElement, buildPopupContent } from './MapView'
 import { MODE_LABEL } from './transitMode'
+import { railMarkerBackground, type RailStationPin } from '@/lib/board/railStationPin'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 
 const GRAY_FALLBACK = '#9ca3af'
@@ -12,6 +14,9 @@ const FADE_START_SEC = 90
 const HIDE_AFTER_SEC = 180
 const SOURCE_ID = 'city-vehicles'
 const LAYER_ID = 'city-vehicles-circles'
+const FIT_PADDING = 40
+/** Minimalna wysokość pola kadru — bez niej MapLibre odmawia fitBounds i kamera zostaje na [0,0]. */
+const MIN_FIT_HEIGHT = 80
 
 type VehicleFeatureCollection = {
   type: 'FeatureCollection'
@@ -91,6 +96,64 @@ function buildVehiclePopupContent(v: CityVehicle, city: string): HTMLElement {
 }
 
 /**
+ * Kolor tła + adnotacja `city-fallback` (obrys przerywany) na elemencie DOM
+ * markera stacji — dzielone między tworzeniem NOWEGO markera a odświeżaniem
+ * JUŻ ISTNIEJĄCEGO w `syncRailMarkers`, żeby druga ścieżka nie zostawiała
+ * stylu z poprzedniego stanu stacji (status/coordSource mogą się zmienić
+ * między kolejnymi pollami, patrz komentarz nad `syncRailMarkers`).
+ */
+function applyRailMarkerStyle(element: HTMLElement, pin: RailStationPin): void {
+  element.style.background = railMarkerBackground(pin)
+  const isFallback = pin.coordSource === 'city-fallback'
+  element.style.outlineStyle = isFallback ? 'dashed' : ''
+  element.style.outlineColor = isFallback ? 'white' : ''
+  element.style.outlineWidth = isFallback ? '2px' : ''
+  element.style.outlineOffset = isFallback ? '2px' : ''
+}
+
+/**
+ * Dodaje/aktualizuje/usuwa markery stacji na już zamontowanej mapie — ten sam
+ * wzorzec co `syncMovers` w `MapView.tsx` (diff po `id`, update w miejscu
+ * zamiast przebudowy), tylko bez ruchu (stacje nie zmieniają pozycji).
+ *
+ * Marker JUŻ w rejestrze dostaje pełne odświeżenie — popup ORAZ kolor/obrys
+ * elementu DOM, nie tylko popup. Status stacji (i w zasadzie `coordSource`)
+ * może się zmienić między kolejnymi 90-sekundowymi pollami; bez ponownego
+ * `applyRailMarkerStyle()` tutaj marker pokazywałby stary kolor aż do
+ * przypadkowego zniknięcia i odtworzenia (id wypada z listy i wraca).
+ */
+function syncRailMarkers(
+  mapInstance: MapLibreMap,
+  lib: typeof import('maplibre-gl'),
+  stations: RailStationPin[],
+  markers: Map<string, { marker: MapLibreMarker; root: Root }>
+): void {
+  const seen = new Set<string>()
+  for (const pin of stations) {
+    seen.add(pin.id)
+    const existing = markers.get(pin.id)
+    if (existing !== undefined) {
+      existing.marker.getPopup()?.setDOMContent(buildPopupContent(pin, true))
+      applyRailMarkerStyle(existing.marker.getElement(), pin)
+      continue
+    }
+    const { element, root } = createMarkerElement(pin)
+    applyRailMarkerStyle(element, pin)
+    const marker = new lib.Marker({ element })
+      .setLngLat([pin.lon, pin.lat])
+      .setPopup(new lib.Popup({ offset: 16 }).setDOMContent(buildPopupContent(pin, true)))
+      .addTo(mapInstance)
+    markers.set(pin.id, { marker, root })
+  }
+  for (const [id, entry] of markers) {
+    if (seen.has(id)) continue
+    entry.marker.remove()
+    entry.root.unmount()
+    markers.delete(id)
+  }
+}
+
+/**
  * Mapa miasta live: WSZYSTKIE pojazdy jako warstwa GeoJSON `circle`, nie
  * `Marker` DOM — przy ~1000+ punktach `Marker` (jeden element DOM na pojazd)
  * to znany antywzorzec MapLibre. Montuje się RAZ przy pierwszej niepustej
@@ -99,11 +162,45 @@ function buildVehiclePopupContent(v: CityVehicle, city: string): HTMLElement {
  * (15 s) resetowałby zoom/pan użytkownika (ten sam problem co `pinsKey` w
  * `MapView.tsx`, AGENTS #6). Zmiana miasta = `key={city}` w wywołującym
  * (`page.tsx`), nie logika tutaj.
+ *
+ * `vehicles` i `vehiclesVisible` są CELOWO rozdzielone: `vehicles` musi zostać
+ * pełną listą również wtedy, gdy chip „Pojazdy” jest wyłączony, bo montowanie
+ * wyżej czeka na pierwszą niepustą listę z pustym `deps` — miało tylko jedną
+ * szansę. `?vehicles=0` w URL-u dawało `vehicles={[]}` od pierwszego renderu i
+ * mapa nie montowała się już NIGDY w tym cyklu życia strony (nawet po
+ * ponownym włączeniu chipa). Widoczność idzie przez `setLayoutProperty`
+ * MapLibre, nie przez opróżnianie danych.
  */
-export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVehicle[]; city: string; ariaLabel: string }) {
+export function CityVehicleMap({
+  vehicles,
+  vehiclesVisible = true,
+  railStations,
+  city,
+  ariaLabel,
+  topOverlayRef,
+}: {
+  vehicles: CityVehicle[]
+  /**
+   * Widoczność warstwy pojazdów — patrz komentarz nad komponentem. Domyślnie
+   * `true` tylko dla wygody testów; jedyny wywołujący produkcyjny (`page.tsx`)
+   * podaje ją zawsze jawnie.
+   */
+  vehiclesVisible?: boolean
+  railStations?: RailStationPin[]
+  city: string
+  ariaLabel: string
+  /**
+   * Pasek sterowania leżący na mapie (`absolute`). Kadr początkowy rezerwuje u góry
+   * jego faktyczną, zmierzoną wysokość — na wąskim ekranie pasek składa się w kolumnę
+   * i płaskie 40 px zostawiało piny pod nim, nieklikalne.
+   */
+  topOverlayRef?: RefObject<HTMLElement | null>
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const vehiclesRef = useRef<Map<string, CityVehicle>>(new Map())
+  const railMarkersRef = useRef<Map<string, { marker: MapLibreMarker; root: Root }>>(new Map())
+  const railStationsRef = useRef<RailStationPin[]>(railStations ?? [])
 
   useEffect(() => {
     if (containerRef.current === null || vehicles.length === 0) return
@@ -116,8 +213,15 @@ export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVe
 
       const bounds = new lib.LngLatBounds()
       for (const v of vehicles) bounds.extend([v.lon, v.lat])
+      for (const pin of railStationsRef.current) bounds.extend([pin.lon, pin.lat])
 
-      map = new lib.Map({ container: containerRef.current, style: STYLE_URL, bounds, fitBoundsOptions: { padding: 40, maxZoom: 15 } })
+      const box = containerRef.current.getBoundingClientRect()
+      const overlay = topOverlayRef?.current
+      const overlayBottom = overlay ? overlay.getBoundingClientRect().bottom - box.top : 0
+      const top = Math.max(FIT_PADDING, Math.min(overlayBottom + FIT_PADDING, box.height - FIT_PADDING - MIN_FIT_HEIGHT))
+      const padding = { top, right: FIT_PADDING, bottom: FIT_PADDING, left: FIT_PADDING }
+
+      map = new lib.Map({ container: containerRef.current, style: STYLE_URL, bounds, fitBoundsOptions: { padding, maxZoom: 15 } })
       mapRef.current = map
       const mapInstance = map
 
@@ -128,6 +232,7 @@ export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVe
           id: LAYER_ID,
           type: 'circle',
           source: SOURCE_ID,
+          layout: { visibility: vehiclesVisible ? 'visible' : 'none' },
           paint: {
             'circle-radius': 6,
             'circle-color': ['get', 'color'],
@@ -148,6 +253,7 @@ export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVe
         mapInstance.on('mouseleave', LAYER_ID, () => {
           mapInstance.getCanvas().style.cursor = ''
         })
+        syncRailMarkers(mapInstance, lib, railStationsRef.current, railMarkersRef.current)
       }
       if (mapInstance.isStyleLoaded()) addLayer()
       else mapInstance.once('load', addLayer)
@@ -156,6 +262,11 @@ export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVe
     return () => {
       cancelled = true
       mapRef.current = null
+      for (const { marker, root } of railMarkersRef.current.values()) {
+        marker.remove()
+        root.unmount()
+      }
+      railMarkersRef.current.clear()
       map?.remove()
     }
     // Montowanie RAZ (pierwsza niepusta lista) -- patrz komentarz nad komponentem.
@@ -167,6 +278,34 @@ export function CityVehicleMap({ vehicles, city, ariaLabel }: { vehicles: CityVe
     const source = mapRef.current?.getSource(SOURCE_ID) as GeoJSONSource | undefined
     source?.setData(toFeatureCollection(vehicles))
   }, [vehicles])
+
+  /**
+   * Widoczność warstwy przez MapLibre (`setLayoutProperty`), nie przez
+   * opróżnianie `vehicles` — patrz komentarz nad propem. Mapa może jeszcze nie
+   * istnieć (pierwszy tick bez żadnej pozycji) albo warstwa jeszcze nie być
+   * dodana (styl mapy wciąż się ładuje) — w obu przypadkach nic do zrobienia,
+   * `addLayer()` wyżej ustawi początkową widoczność sama, gdy do tego dojdzie.
+   */
+  useEffect(() => {
+    const mapInstance = mapRef.current
+    if (mapInstance === null) return
+    if (mapInstance.getLayer(LAYER_ID) === undefined) return
+    mapInstance.setLayoutProperty(LAYER_ID, 'visibility', vehiclesVisible ? 'visible' : 'none')
+  }, [vehiclesVisible])
+
+  const railStationsKey = (railStations ?? [])
+    .map((pin) => `${pin.id}:${pin.status ?? ''}:${pin.coordSource}:${(pin.preview ?? []).join(',')}`)
+    .join('|')
+
+  useEffect(() => {
+    railStationsRef.current = railStations ?? []
+    const mapInstance = mapRef.current
+    if (mapInstance === null) return
+    import('maplibre-gl').then((lib) => {
+      syncRailMarkers(mapInstance, lib, railStationsRef.current, railMarkersRef.current)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `railStationsKey` to celowa sygnatura treści `railStations`.
+  }, [railStationsKey])
 
   // Zewnętrzny `absolute inset-0` (nie `h-full w-full` na samym kontenerze):
   // rodzic (`page.tsx`, `relative min-h-[60vh] flex-1`) ma wysokość rozwiązaną

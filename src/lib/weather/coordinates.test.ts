@@ -54,3 +54,25 @@ describe('getStationCoordinates', () => {
     expect(readFile).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('getStationCoordinatesEntry', () => {
+  it('returns the full entry, including source, for a known geocoded station', async () => {
+    const { getStationCoordinatesEntry } = await import('./coordinates')
+    expect(await getStationCoordinatesEntry('33605')).toEqual({
+      name: 'Warszawa Centralna',
+      lat: 52.2288207,
+      lon: 21.00316,
+      source: 'station',
+    })
+  })
+
+  it('returns null for a station with lat/lon null (failed geocoding)', async () => {
+    const { getStationCoordinatesEntry } = await import('./coordinates')
+    expect(await getStationCoordinatesEntry('999999')).toBeNull()
+  })
+
+  it('returns null for a stationId not present in the file at all', async () => {
+    const { getStationCoordinatesEntry } = await import('./coordinates')
+    expect(await getStationCoordinatesEntry('0')).toBeNull()
+  })
+})

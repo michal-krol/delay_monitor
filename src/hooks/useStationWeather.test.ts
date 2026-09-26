@@ -88,4 +88,21 @@ describe('useStationWeather', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(result.current).toEqual({ status: 'ready', weather: WEATHER, location: LOCATION })
   })
+
+  it('does not set error state after unmount while a fetch is failing', async () => {
+    let rejectFetch!: (reason: Error) => void
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFetch = reject
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, unmount } = renderHook(() => useStationWeather('33605'))
+    unmount()
+    rejectFetch(new Error('network'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(result.current).toEqual({ status: 'loading' })
+  })
 })
