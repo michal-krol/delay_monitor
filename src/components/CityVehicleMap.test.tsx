@@ -85,6 +85,8 @@ function vehicle(overrides: Partial<CityVehicle> = {}): CityVehicle {
     shortName: '20',
     mode: 'tram',
     color: '#009944',
+    directionId: 0,
+    nextStop: null,
     ...overrides,
   }
 }

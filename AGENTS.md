@@ -61,6 +61,10 @@ Klucz Basic: 100/h **oraz** 1000/dobę. Poller @90 s ≈ 40/h — zapas realny, 
     strony). `resolveCityRailStations()` (`board/railStations.ts`) cache'uje wynik
     wyszukania stacji per miasto na 10 min — także `[]` po awarii słownika stacji,
     inaczej sustained awaria powtarzałaby próbę co poll zamiast raz na TTL.
+  - `/api/rail-stations/list` + `/status` (ogólnopolska warstwa kolei mapy) — **0
+    zapytań PKP**: lista z `data/station-coordinates.json`, statusy WYŁĄCZNIE
+    `getSnapshot` stacji, które poller i tak ma. Nigdy `registerInterest` — mapa kraju
+    wciągnęłaby tysiące stacji do budżetu.
   - `/api/network-stats` — `getOperationsStatistics` (15 min), `getDisruptionCount`
     (20 min), `getDailyCarrierCounts` (24 h), `getNameDictionaries` (współdzielony).
     Jeden globalny widżet, cache w `board/networkStats.ts` → ~7/h niezależnie od ruchu.
@@ -362,6 +366,11 @@ npm run check   # = typecheck && lint && test
   kierunek) przy ładowaniu — nigdy per żądanie, nigdy dla nieużywanych
   `shape_id`. Brak pliku / `shape_id` / <2 punktów → `null`, strona linii
   spada wtedy na łamaną po przystankach (`MapRoute.points = stops`).
+- **Przystanki na mapie (`/api/gtfs/stops`, `cityStops()`).** Z `stops.txt` już
+  w pamięci, liczone raz na rozkład (`WeakMap`). Perony metra zwinięte do stacji-rodzica,
+  przystanki wyłącznie kolejowe pominięte (kolej = warstwa PKP). `CityVehicle.nextStop`
+  z rzutu `projectVehicle` — nazwa przystanku, **bez czasu dojazdu** (byłby rozkładowy,
+  udawałby prognozę).
 - **Alerty (etap 5b).** `alerts.json` (mkuran) → osobny `AlertPoller` per miasto,
   ten sam cykl życia co `VehiclePoller` (`onWake`/`onIdle`, rytm 5 min). Feed nie
   zna przystanków — `alertsForRoutes()` dopasowuje po `route_short_name`, jedynym
