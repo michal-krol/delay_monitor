@@ -20,7 +20,12 @@ const state = vi.hoisted(() => ({
   vehicles: { vehicles: [] as unknown[], feed: { state: 'ready', ageMs: 13_000 as number | null }, error: null as string | null },
   stops: { stops: null as unknown[] | null, error: false },
   rail: { stations: null as unknown[] | null, error: false },
-  mapProps: null as null | { route: { key: string } | null; routeId: string | null; hidden: Set<string>; selected: unknown; onSelect: (hit: MapHit | null) => void; onViewChange: (view: MapView) => void },
+  mapProps: null as null | {
+    initialCamera: { lat: number; lon: number; zoom: number }
+    follow: { lat: number; lon: number } | null
+    onUserMove: () => void
+    route: { key: string } | null
+    routeId: string | null; hidden: Set<string>; selected: unknown; onSelect: (hit: MapHit | null) => void; onViewChange: (view: MapView) => void },
 }))
 vi.mock('@/hooks/useCityVehicles', () => ({ useCityVehicles: () => state.vehicles }))
 vi.mock('@/hooks/useCityStops', () => ({ useCityStops: () => state.stops }))
@@ -60,6 +65,7 @@ function setWide(wide: boolean): void {
 }
 
 beforeEach(() => {
+  window.localStorage.clear()
   cityParam = 'warszawa'
   window.history.replaceState(null, '', '/city/warszawa/map')
   state.vehicles = { vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 13_000 }, error: null }
@@ -71,6 +77,7 @@ beforeEach(() => {
     'fetch',
     vi.fn((url: string) => {
       if (url.startsWith('/api/cities')) return jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [] }] })
+      if (url.startsWith('/api/gtfs/backbone')) return jsonResponse({ lines: [] })
       if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ schedule: { state: 'ready' }, line: LINE_DETAIL })
       if (url.startsWith('/api/gtfs/lines')) {
         return jsonResponse({ lines: { tram: [{ routeId: '20', line: '20', longName: 'Boernerowo — Żerań', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular' }] } })
@@ -217,5 +224,45 @@ describe('CityMapPage — line mode', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Pokaż trasę na mapie' }))
     expect(await screen.findByRole('dialog', { name: 'Linia 20' })).toBeInTheDocument()
     expect(window.location.search).toBe('?line=20&dir=1')
+  })
+})
+
+describe('CityMapPage — view, sharing, following', () => {
+  it('starts from ?at=, else from the last view saved in this browser, else the city centre', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/map?at=52.25000,21.05000,15.0')
+    const { unmount: unmountFirst } = render(<CityMapPage />)
+    await waitFor(() => expect(map().initialCamera).toEqual({ lat: 52.25, lon: 21.05, zoom: 15 }))
+    map().onViewChange({ center: { lat: 52.3, lon: 21.1 }, zoom: 13 })
+    expect(window.location.search).toBe('?at=52.30000%2C21.10000%2C13.0')
+    unmountFirst()
+
+    window.history.replaceState(null, '', '/city/warszawa/map')
+    const { unmount: unmountSecond } = render(<CityMapPage />)
+    await waitFor(() => expect(map().initialCamera).toEqual({ lat: 52.3, lon: 21.1, zoom: 13 }))
+    unmountSecond()
+
+    window.localStorage.setItem('monitor.map.view.v1', '{broken')
+    render(<CityMapPage />)
+    await waitFor(() => expect(map().initialCamera).toEqual({ lat: 52.2297, lon: 21.0122, zoom: 12 }))
+  })
+
+  it('shares the current view link and confirms it', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    render(<CityMapPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Udostępnij ten widok mapy' }))
+    expect(await screen.findByText('Skopiowano link do tego widoku.')).toBeInTheDocument()
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+  })
+
+  it('follows a vehicle until the user drags the map', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    map().onSelect({ kind: 'vehicle', id: 'v1' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Śledź pojazd' }))
+    await waitFor(() => expect(map().follow).toMatchObject({ lat: 52.2, lon: 21.0 }))
+    expect(screen.getByRole('button', { name: 'Śledzę pojazd' })).toHaveAttribute('aria-pressed', 'true')
+    map().onUserMove()
+    await waitFor(() => expect(map().follow).toBeNull())
   })
 })

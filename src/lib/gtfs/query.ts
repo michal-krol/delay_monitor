@@ -728,3 +728,28 @@ export function groupCentroid(schedule: GtfsSchedule, groupId: string): { lat: n
   }
   return count === 0 ? null : { lat: round5(lat / count), lon: round5(lon / count) }
 }
+
+/** Przebieg linii szynowej (metro / kolej miejska) jako tło orientacyjne mapy. */
+export type BackboneLine = { routeId: string; line: string; mode: 'metro' | 'rail'; points: [number, number][] }
+
+/**
+ * Metro i kolej miejska — stałe tło mapy (widoczne od dalekiego zoomu, gdy
+ * przystanki jeszcze się nie pokazują). Jeden kierunek na linię wystarcza (tory
+ * te same); kształt `shapes.txt`, a bez niego łamana po przystankach. Z gotowego
+ * indeksu `routePatterns` — bez skanu `stop_times`.
+ */
+export function backboneLines(schedule: GtfsSchedule): BackboneLine[] {
+  const lines: BackboneLine[] = []
+  schedule.routes.forEach((route, routeIdx) => {
+    if (route.mode !== 'metro' && route.mode !== 'rail') return
+    const pattern = schedule.routePatterns.get(`${routeIdx}:0`) ?? schedule.routePatterns.get(`${routeIdx}:1`)
+    if (pattern === undefined) return
+    const points =
+      pattern.shape !== null && pattern.shape.length >= 4
+        ? shapeToPoints(pattern.shape)
+        : pattern.stops.map((s): [number, number] => [round5(schedule.stopLat[s]), round5(schedule.stopLon[s])])
+    if (points.length < 2) return
+    lines.push({ routeId: route.id, line: route.shortName || route.id, mode: route.mode, points })
+  })
+  return lines
+}

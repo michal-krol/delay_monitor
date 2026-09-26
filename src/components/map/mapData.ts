@@ -149,6 +149,8 @@ export function vehiclesToGeoJSON(vehicles: CityVehicle[], hidden: ReadonlySet<L
         color: v.mode !== null ? MODE_COLOR[v.mode] : UNKNOWN_COLOR,
         opacity: Math.round(opacity * 100) / 100,
         label: v.shortName ?? '',
+        // Brak klucza = feed nie podał kierunku jazdy → bez strzałki (warstwa filtruje `has`).
+        ...(v.bearing !== null ? { bearing: v.bearing } : {}),
       })
     )
   }
@@ -239,4 +241,53 @@ export function routeOverlay(direction: LineRouteDirection): RouteOverlay {
     },
     bounds,
   }
+}
+
+/**
+ * Klatka płynnego przejazdu: pojazdy obecne w poprzednim odczycie jadą od
+ * starej pozycji do nowej (`t` 0→1), nowe pojawiają się od razu na miejscu.
+ */
+export function interpolatePoints(from: ReadonlyMap<string, [number, number]>, to: PointCollection, t: number): PointCollection {
+  return {
+    type: 'FeatureCollection',
+    features: to.features.map((feature) => {
+      const start = from.get(String(feature.properties.id))
+      if (start === undefined || t >= 1) return feature
+      const [lon, lat] = feature.geometry.coordinates
+      return { ...feature, geometry: { type: 'Point', coordinates: [start[0] + (lon - start[0]) * t, start[1] + (lat - start[1]) * t] } }
+    }),
+  }
+}
+
+/**
+ * Strzałka kierunku jazdy jako obraz SDF (kolor nadaje warstwa `icon-color`).
+ * Piksele liczone wprost — bez canvasu, działa także w testach.
+ */
+export function arrowImage(size = 16): { width: number; height: number; data: Uint8Array } {
+  const data = new Uint8Array(size * size * 4)
+  for (let y = 0; y < size; y += 1) {
+    // Trójkąt ostrzem do góry: szerokość rośnie liniowo od wierzchołka.
+    const half = ((y + 1) / size) * (size / 2)
+    for (let x = 0; x < size; x += 1) {
+      if (Math.abs(x + 0.5 - size / 2) <= half) data[(y * size + x) * 4 + 3] = 255
+    }
+  }
+  return { width: size, height: size, data }
+}
+
+export type MapCamera = { lat: number; lon: number; zoom: number }
+
+/** `?at=lat,lon,zoom` → kadr; poza Polską / zły format = `null` (po cichu, AGENTS.md #4). */
+export function parseAt(value: string | null): MapCamera | null {
+  if (value === null) return null
+  const parts = value.split(',').map(Number)
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null
+  const [lat, lon, zoom] = parts
+  if (!boundsContain(POLAND_BOUNDS, lon, lat) || zoom < MAP_ZOOM.min || zoom > 19) return null
+  return { lat, lon, zoom }
+}
+
+/** Kadr → `?at=` (5 miejsc ≈ 1 m, zoom do 0,1). */
+export function formatAt(camera: MapCamera): string {
+  return `${camera.lat.toFixed(5)},${camera.lon.toFixed(5)},${camera.zoom.toFixed(1)}`
 }

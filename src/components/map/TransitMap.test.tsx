@@ -24,6 +24,9 @@ vi.mock('maplibre-gl', () => {
     setLayoutProperty: vi.fn(),
     setPaintProperty: vi.fn(),
     fitBounds: vi.fn(),
+    hasImage: vi.fn(() => false),
+    addImage: vi.fn(),
+    easeTo: vi.fn(),
     setStyle: vi.fn(),
     flyTo: vi.fn(),
     getZoom: vi.fn(() => 12),
@@ -50,7 +53,9 @@ function vehicle(over: Partial<CityVehicle> = {}): CityVehicle {
 type Props = Parameters<typeof TransitMap>[0]
 const base: Props = {
   ariaLabel: 'Mapa transportu',
-  initialCenter: { lat: 52.23, lon: 21.01 },
+  initialCamera: { lat: 52.23, lon: 21.01, zoom: 12 },
+  backbone: [{ routeId: 'M1', line: 'M1', mode: 'metro', points: [[52.1, 21.0], [52.2, 21.0]] }],
+  follow: null,
   vehicles: [vehicle()],
   stops: [{ id: '100101', groupId: '1001', name: 'Centrum', code: '01', lat: 52.23, lon: 21.01, mode: 'bus' }],
   railStations: [{ id: '33605', name: 'Warszawa Centralna', lat: 52.23, lon: 21.0, tier: 1 }],
@@ -71,8 +76,12 @@ async function mounted(props: Partial<Props> = {}) {
   return { ...view, map }
 }
 
+let reducedMotion = true
+window.matchMedia = ((query: string) => ({ matches: query.includes('reduce') && reducedMotion })) as unknown as typeof window.matchMedia
+
 describe('TransitMap', () => {
   beforeEach(() => {
+    reducedMotion = true
     vi.clearAllMocks()
     sources.clear()
     layers.clear()
@@ -172,6 +181,38 @@ describe('TransitMap', () => {
     expect(map.fitBounds).not.toHaveBeenCalled()
     handlers.get('style.load')!({})
     expect(map.fitBounds).toHaveBeenCalledWith(overlay.bounds, expect.objectContaining({ maxZoom: 15 }))
+  })
+
+  it('glides vehicles between readings instead of jumping (unless reduced motion)', async () => {
+    reducedMotion = false
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    const { rerender } = await mounted()
+    rerender(<TransitMap {...base} vehicles={[vehicle()]} />) // pierwszy odczyt po montażu: rysunek bazowy
+    const setData = sources.get('vehicles')!.setData
+    setData.mockClear()
+    frames.length = 0 // animacja poprzedniego odczytu anulowana w sprzątaniu efektu
+    rerender(<TransitMap {...base} vehicles={[vehicle({ lon: 21.2 })]} />)
+    expect(setData).not.toHaveBeenCalled()
+    const start = performance.now()
+    frames.shift()!(start + 500)
+    expect(setData.mock.calls.at(-1)![0].features[0].geometry.coordinates[0]).toBeCloseTo(21.1, 1)
+    frames.shift()!(start + 1000)
+    expect(setData.mock.calls.at(-1)![0].features[0].geometry.coordinates[0]).toBe(21.2)
+    vi.unstubAllGlobals()
+  })
+
+  it('adds the direction arrow and the metro/rail backbone; follows a vehicle; reports a user drag', async () => {
+    const onUserMove = vi.fn()
+    const { map, rerender } = await mounted({ onUserMove })
+    expect(map.addImage).toHaveBeenCalledWith('vehicle-arrow', expect.objectContaining({ width: 16 }), { sdf: true })
+    const backbone = map.addSource.mock.calls.find(([id]: [string]) => id === 'backbone')[1]
+    expect(backbone.data.features[0].geometry.coordinates).toEqual([[21.0, 52.1], [21.0, 52.2]])
+    rerender(<TransitMap {...base} onUserMove={onUserMove} follow={{ lat: 52.3, lon: 21.3 }} />)
+    expect(map.easeTo).toHaveBeenCalledWith({ center: [21.3, 52.3], duration: 1000 })
+    handlers.get('dragstart')!({})
+    expect(onUserMove).toHaveBeenCalled()
   })
 
   it('draws the selection ring', async () => {

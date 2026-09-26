@@ -6,6 +6,10 @@ import {
   UNKNOWN_COLOR,
   ageLabel,
   boundsContain,
+  arrowImage,
+  formatAt,
+  interpolatePoints,
+  parseAt,
   parseHidden,
   routeOverlay,
   railToGeoJSON,
@@ -46,6 +50,7 @@ describe('vehiclesToGeoJSON', () => {
   it('colours by mode, not by route colour, and labels with the line number', () => {
     const [feature] = vehiclesToGeoJSON([vehicle()], new Set(), null).features
     expect(feature.properties).toEqual({ id: 'v1', color: MODE_COLOR.tram, opacity: 1, label: '20' })
+    expect(vehiclesToGeoJSON([vehicle({ bearing: -110 })], new Set(), null).features[0].properties.bearing).toBe(-110)
     expect(feature.geometry.coordinates).toEqual([21.0, 52.2])
   })
 
@@ -132,5 +137,37 @@ describe('routeOverlay', () => {
     const overlay = routeOverlay({ ...direction, stops: [], shape: null })
     expect(overlay.line.features).toEqual([])
     expect(overlay.bounds).toBeNull()
+  })
+})
+
+describe('interpolatePoints', () => {
+  const to = vehiclesToGeoJSON([vehicle({ id: 'a', lon: 21.2, lat: 52.2 }), vehicle({ id: 'new', lon: 21.5, lat: 52.5 })], new Set(), null)
+  it('moves known vehicles part of the way and places new ones directly', () => {
+    const frame = interpolatePoints(new Map([['a', [21.0, 52.0]]]), to, 0.5)
+    expect(frame.features[0].geometry.coordinates[0]).toBeCloseTo(21.1)
+    expect(frame.features[0].geometry.coordinates[1]).toBeCloseTo(52.1)
+    expect(frame.features[1].geometry.coordinates).toEqual([21.5, 52.5])
+    expect(interpolatePoints(new Map([['a', [21.0, 52.0]]]), to, 1)).toEqual(to)
+  })
+})
+
+describe('arrowImage', () => {
+  it('is an opaque upward triangle: narrow tip, full-width base', () => {
+    const { width, data } = arrowImage(8)
+    const alpha = (x: number, y: number) => data[(y * width + x) * 4 + 3]
+    expect(alpha(0, 0)).toBe(0)
+    expect(alpha(4, 0)).toBe(255)
+    expect(alpha(0, 7)).toBe(255)
+  })
+})
+
+describe('parseAt / formatAt', () => {
+  it('round-trips a camera and rejects junk or places outside Poland', () => {
+    expect(parseAt(formatAt({ lat: 52.2297, lon: 21.0122, zoom: 14.25 }))).toEqual({ lat: 52.2297, lon: 21.0122, zoom: 14.3 })
+    expect(parseAt('52.2,21.0')).toBeNull()
+    expect(parseAt('abc,21,12')).toBeNull()
+    expect(parseAt('48.85,2.35,12')).toBeNull()
+    expect(parseAt('52.2,21.0,40')).toBeNull()
+    expect(parseAt(null)).toBeNull()
   })
 })

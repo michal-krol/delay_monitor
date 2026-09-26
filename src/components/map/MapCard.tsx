@@ -34,6 +34,8 @@ export function MapCard({
   city,
   onClose,
   onShowRoute,
+  following = false,
+  onToggleFollow,
 }: {
   selection: MapSelection
   /** Aktualny odczyt wybranego pojazdu; `null` = zniknął z feedu (pozycja > 180 s). */
@@ -42,6 +44,9 @@ export function MapCard({
   onClose: () => void
   /** „Pokaż trasę" z karty pojazdu — tryb linii w kierunku jazdy tego pojazdu. */
   onShowRoute?: (routeId: string, directionId: number | null) => void
+  /** Kamera jedzie za tym pojazdem. */
+  following?: boolean
+  onToggleFollow?: () => void
 }) {
   const headingId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -101,7 +106,9 @@ export function MapCard({
       <div className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={0} aria-label="Szczegóły">
         {selection.kind === 'rail' && <RailBody id={selection.id} />}
         {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
-        {selection.kind === 'vehicle' && <VehicleBody vehicle={vehicle} city={city} onShowRoute={onShowRoute} />}
+        {selection.kind === 'vehicle' && (
+          <VehicleBody vehicle={vehicle} city={city} onShowRoute={onShowRoute} following={following} onToggleFollow={onToggleFollow} />
+        )}
       </div>
     </section>
   )
@@ -232,10 +239,14 @@ function VehicleBody({
   vehicle,
   city,
   onShowRoute,
+  following,
+  onToggleFollow,
 }: {
   vehicle: CityVehicle | null
   city: string
   onShowRoute?: (routeId: string, directionId: number | null) => void
+  following?: boolean
+  onToggleFollow?: () => void
 }) {
   if (vehicle === null) {
     return <p className="text-sm text-text-secondary">Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.</p>
@@ -265,6 +276,19 @@ function VehicleBody({
           <dd>{vehicle.sideNumber !== '' ? vehicle.sideNumber : '—'}</dd>
         </div>
       </dl>
+      {onToggleFollow !== undefined && (
+        <button
+          type="button"
+          aria-pressed={following}
+          onClick={onToggleFollow}
+          className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+            following ? 'text-white' : 'text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
+          }`}
+          style={following ? { background: 'var(--accent-gradient)', borderColor: 'transparent' } : { borderColor: 'var(--surface-border)' }}
+        >
+          {following ? 'Śledzę pojazd' : 'Śledź pojazd'}
+        </button>
+      )}
       <p className="mt-3 text-xs text-text-muted">Komunikacja miejska nie publikuje opóźnień — pokazujemy pozycję z GPS i rozkład.</p>
       {vehicle.routeId !== null ? (
         <>

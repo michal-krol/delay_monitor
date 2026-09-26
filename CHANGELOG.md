@@ -14,6 +14,13 @@ Wersjonowanie semantyczne.
   teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
   2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
   mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+- **Mapa transportu: ruch i widok** — pojazdy przejeżdżają płynnie między
+  odczytami (~1 s; przy `prefers-reduced-motion` skok), strzałka kierunku jazdy
+  z `bearing` od zoomu 14, „Śledź pojazd" w karcie (kamera jedzie za pojazdem do
+  pierwszego przesunięcia mapy ręką), przebiegi metra i kolei miejskiej jako
+  stałe tło od zoomu 9 (`/api/gtfs/backbone`, z pamięci rozkładu), kadr w URL-u
+  (`?at=lat,lon,zoom`) + ostatni widok pamiętany w przeglądarce, przycisk
+  „Udostępnij ten widok mapy".
 - **Tryb linii na mapie transportu** — wybór linii w wyszukiwarce (albo
   „Pokaż trasę na mapie" w karcie pojazdu, w kierunku jego jazdy) rysuje przebieg
   (`shapes.txt`, a bez niego łamaną po przystankach), dopasowuje kadr, przyciemnia
