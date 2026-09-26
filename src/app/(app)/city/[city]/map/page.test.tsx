@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityMapPage from './page'
 import type { MapHit, MapView } from '@/components/map/TransitMap'
@@ -20,7 +20,7 @@ const state = vi.hoisted(() => ({
   vehicles: { vehicles: [] as unknown[], feed: { state: 'ready', ageMs: 13_000 as number | null }, error: null as string | null },
   stops: { stops: null as unknown[] | null, error: false },
   rail: { stations: null as unknown[] | null, error: false },
-  mapProps: null as null | { routeId: string | null; hidden: Set<string>; selected: unknown; onSelect: (hit: MapHit | null) => void; onViewChange: (view: MapView) => void },
+  mapProps: null as null | { route: { key: string } | null; routeId: string | null; hidden: Set<string>; selected: unknown; onSelect: (hit: MapHit | null) => void; onViewChange: (view: MapView) => void },
 }))
 vi.mock('@/hooks/useCityVehicles', () => ({ useCityVehicles: () => state.vehicles }))
 vi.mock('@/hooks/useCityStops', () => ({ useCityStops: () => state.stops }))
@@ -41,6 +41,16 @@ const VEHICLE = {
   routeId: '20', shortName: '20', mode: 'tram', color: null, directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' },
 }
 const STOP = { id: '100101', groupId: '1001', name: 'Centrum', code: '01', lat: 52.23, lon: 21.01, mode: 'bus' }
+const routeStop = (stopId: string, name: string, lat: number) => ({
+  stopId, groupId: stopId.slice(0, 4), name, code: null, street: null, wheelchair: 0, lat, lon: 21.0, offsetSec: 0, onRequest: false,
+})
+const LINE_DETAIL = {
+  routeId: '20', line: '20', longName: 'Boernerowo — Żerań', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular',
+  directions: [
+    { directionId: 0, headsign: 'Żerań', origin: 'Boernerowo', departures: [], shape: null, stops: [routeStop('500101', 'Boernerowo', 52.26), routeStop('100101', 'Centrum', 52.23)] },
+    { directionId: 1, headsign: 'Boernerowo', origin: 'Żerań', departures: [], shape: null, stops: [routeStop('900101', 'Żerań', 52.3)] },
+  ],
+}
 const STATION = { id: '33605', name: 'Warszawa Centralna', lat: 52.2288, lon: 21.0033, tier: 1 }
 
 function setWide(wide: boolean): void {
@@ -61,6 +71,7 @@ beforeEach(() => {
     'fetch',
     vi.fn((url: string) => {
       if (url.startsWith('/api/cities')) return jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [] }] })
+      if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ schedule: { state: 'ready' }, line: LINE_DETAIL })
       if (url.startsWith('/api/gtfs/lines')) {
         return jsonResponse({ lines: { tram: [{ routeId: '20', line: '20', longName: 'Boernerowo — Żerań', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular' }] } })
       }
@@ -95,8 +106,9 @@ describe('CityMapPage', () => {
   it('restores filters and the line from the URL, shows them as removable chips', async () => {
     window.history.replaceState(null, '', '/city/warszawa/map?hide=busStops&line=20')
     render(<CityMapPage />)
-    expect(await screen.findByText('Linia 20')).toBeInTheDocument()
-    expect(screen.getByText('Ukryte: przystanki autobusowe')).toBeInTheDocument()
+    const chips = await screen.findByRole('list', { name: 'Aktywne filtry' })
+    expect(await within(chips).findByText('Linia 20')).toBeInTheDocument()
+    expect(within(chips).getByText('Ukryte: przystanki autobusowe')).toBeInTheDocument()
     expect(map().routeId).toBe('20')
     expect([...map().hidden]).toEqual(['busStops'])
 
@@ -169,5 +181,41 @@ describe('CityMapPage', () => {
     map().onSelect({ kind: 'rail', id: '33605' })
     expect(await screen.findByRole('dialog', { name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.queryByRole('complementary', { name: 'Wybrany obiekt' })).toBeNull()
+  })
+})
+
+describe('CityMapPage — line mode', () => {
+  it('shows the line panel with the route, switches direction into the URL, opens a stop, exits with ×', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/map?line=20')
+    render(<CityMapPage />)
+    const panel = await screen.findByRole('dialog', { name: 'Linia 20' })
+    expect(await within(panel).findByText('Boernerowo → Żerań')).toBeInTheDocument()
+    expect(within(panel).getByText(/w trasie: 1/)).toBeInTheDocument()
+    await waitFor(() => expect(map().route?.key).toBe('20:0'))
+
+    fireEvent.click(within(panel).getByRole('button', { name: 'Zmień kierunek' }))
+    expect(window.location.search).toBe('?line=20&dir=1')
+    await waitFor(() => expect(map().route?.key).toBe('20:1'))
+
+    fireEvent.click(within(panel).getByRole('button', { name: /Żerań/ }))
+    expect(await screen.findByRole('dialog', { name: 'Żerań' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij kartę' }))
+    const back = await screen.findByRole('dialog', { name: 'Linia 20' })
+
+    fireEvent.click(within(back).getByRole('button', { name: 'Zakończ tryb linii' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(window.location.search).toBe('')
+    expect(map().route).toBeNull()
+  })
+
+  it('"Pokaż trasę" in a vehicle card enters line mode in the vehicle direction', async () => {
+    state.vehicles = { vehicles: [{ ...VEHICLE, directionId: 1 }], feed: { state: 'ready', ageMs: 1000 }, error: null }
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    await screen.findByPlaceholderText('Szukaj linii…')
+    map().onSelect({ kind: 'vehicle', id: 'v1' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Pokaż trasę na mapie' }))
+    expect(await screen.findByRole('dialog', { name: 'Linia 20' })).toBeInTheDocument()
+    expect(window.location.search).toBe('?line=20&dir=1')
   })
 })

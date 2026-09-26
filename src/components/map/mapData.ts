@@ -1,4 +1,4 @@
-import type { CityStop } from '@/lib/gtfs/query'
+import type { CityStop, LineRouteDirection } from '@/lib/gtfs/query'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { MapRailStation } from '@/lib/weather/coordinates'
@@ -199,4 +199,44 @@ export function stopsBounds(stops: CityStop[]): [[number, number], [number, numb
 export function ageLabel(ageSec: number): string {
   if (ageSec < 5) return 'przed chwilą'
   return ageSec < 60 ? `${ageSec} s temu` : `${Math.round(ageSec / 60)} min temu`
+}
+
+type Bounds = [[number, number], [number, number]]
+export type RouteOverlay = {
+  line: { type: 'FeatureCollection'; features: { type: 'Feature'; geometry: { type: 'LineString'; coordinates: [number, number][] }; properties: Record<string, never> }[] }
+  stops: PointCollection
+  bounds: Bounds | null
+}
+
+/**
+ * Tryb linii: przebieg jednego kierunku jako linia (kształt `shapes.txt`,
+ * a gdy go brak — łamana po przystankach, jak na stronie linii) + kropki
+ * przystanków z nazwą. `bounds` = kadr do `fitBounds`.
+ */
+export function routeOverlay(direction: LineRouteDirection): RouteOverlay {
+  const path: [number, number][] =
+    direction.shape !== null && direction.shape.length >= 2
+      ? direction.shape.map(([lat, lon]) => [lon, lat])
+      : direction.stops.map((s) => [s.lon, s.lat])
+  let bounds: Bounds | null = null
+  for (const [lon, lat] of path) {
+    bounds =
+      bounds === null
+        ? [
+            [lon, lat],
+            [lon, lat],
+          ]
+        : [
+            [Math.min(bounds[0][0], lon), Math.min(bounds[0][1], lat)],
+            [Math.max(bounds[1][0], lon), Math.max(bounds[1][1], lat)],
+          ]
+  }
+  return {
+    line: { type: 'FeatureCollection', features: path.length >= 2 ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: path }, properties: {} }] : [] },
+    stops: {
+      type: 'FeatureCollection',
+      features: direction.stops.map((s) => point(s.lon, s.lat, { id: s.stopId, label: s.code !== null && !s.name.endsWith(s.code) ? `${s.name} ${s.code}` : s.name })),
+    },
+    bounds,
+  }
 }

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { LinePanel } from './LinePanel'
 import { LineSearch } from './LineSearch'
 import { MapFilters } from './MapFilters'
 import { MapLegend } from './MapLegend'
@@ -84,5 +85,29 @@ describe('MapLegend', () => {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     expect(screen.queryByText(/na żywo/)).toBeNull()
+  })
+})
+
+describe('LinePanel', () => {
+  const entry = line('20', '20')
+  const props = { line: entry, directionId: 0, vehiclesOnLine: 0, city: 'warszawa', onDirection: () => {}, onStop: () => {}, onClose: () => {} }
+
+  it('tells loading, failure and an unknown route apart, always keeping the timetable link', () => {
+    const { rerender } = render(<LinePanel {...props} detail={undefined} error={false} />)
+    expect(screen.getByRole('dialog', { name: 'Linia 20' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Rozkład linii/ })).toHaveAttribute('href', '/city/warszawa/line/20')
+    rerender(<LinePanel {...props} detail={undefined} error />)
+    expect(screen.getByText('Nie udało się pobrać przebiegu linii.')).toBeInTheDocument()
+    rerender(<LinePanel {...props} detail={null} error={false} />)
+    expect(screen.getByText('Rozkład nie zna przebiegu tej linii.')).toBeInTheDocument()
+  })
+
+  it('offers no direction switch for a one-way line and marks on-request stops', () => {
+    const stop = { stopId: '1', groupId: '1', name: 'Pętla', code: null, street: null, wheelchair: 0 as const, lat: 52, lon: 21, offsetSec: 0, onRequest: true }
+    const detail = { ...entry, directions: [{ directionId: 0, headsign: null, origin: null, departures: [], shape: null, stops: [stop] }] }
+    render(<LinePanel {...props} detail={detail} error={false} />)
+    expect(screen.queryByRole('button', { name: 'Zmień kierunek' })).toBeNull()
+    expect(screen.getByText('— → —')).toBeInTheDocument()
+    expect(screen.getByText('na żądanie')).toBeInTheDocument()
   })
 })
