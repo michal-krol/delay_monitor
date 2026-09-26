@@ -18,6 +18,13 @@ Wersjonowanie semantyczne.
   linii) — prawdziwa pozycja z feedu, nie odrzucamy jej. Zero nowych zapytań:
   ten sam `VehiclePoller` co mapa trasy linii (etap 5a); zero pola opóźnienia
   (AGENTS.md #13). Endpoint `/api/gtfs/city-vehicles`.
+- **Mapa trasy pociągu na stronie połączenia** (`/connection/...`) — polilinia
+  stacja-po-stacji pod osią przystanków, marker pozycji interpolowany w czasie
+  między ostatnim potwierdzonym a najbliższym kolejnym przystankiem, zawsze
+  podpisany „Pozycja pociągu szacowana wg rozkładu." (AGENTS.md #7 — nigdy nie
+  wygląda jak realny GPS bez podpisu). Współrzędne z `data/station-coordinates.json`
+  doklejone do `/api/train` (`attachStopCoordinates()`), brak pliku degraduje do
+  braku mapy, nie do błędu 500. Zero nowych zapytań PKP.
 - **Mapa (MapLibre GL + OpenFreeMap)** — mapa lokalizacji na stronie stacji PKP
   i przystanku miejskiego: piny z ikoną trybu, popup z najbliższymi odjazdami,
   widok pełnoekranowy (Escape / tło / focus-trap), klik pinu przełącza słupek.

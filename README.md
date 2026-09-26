@@ -825,8 +825,7 @@ publicznej (PD-textlogo/PD).
 
 ## Poza zakresem
 
-Powiadomienia o opóźnieniach, historia punktualności, mapa pociągów na żywo (jest tylko mapa lokalizacji
-stacji/przystanków), PWA
+Powiadomienia o opóźnieniach, historia punktualności, PWA
 i tryb offline, konta użytkowników, synchronizacja ulubionych między
 urządzeniami, wyszukiwanie połączeń.
 

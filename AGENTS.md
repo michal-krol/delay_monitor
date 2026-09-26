@@ -100,9 +100,13 @@ albo czystym payloadzie, nie na `fetch`. Testy nie potrzebują sieci ani klucza 
 tak zostać. Nowe źródło = nowy klient na krawędzi. Wybór live/mock raz, przy starcie,
 w `lib/board/instance.ts`.
 
-Współrzędne stacji do pogody: statyczny `data/station-coordinates.json` (regen
-`scripts/enrich-station-coords.mjs`), jest w obrazie (`.next/standalone`). Brak stacji
-= `available:false` w `/api/weather`, **cache'owane, nie błąd**.
+Współrzędne stacji: statyczny `data/station-coordinates.json` (regen
+`scripts/enrich-station-coords.mjs`), jest w obrazie (`.next/standalone`). Dwaj
+konsumenci, dwie różne degradacje przy braku stacji: `/api/weather` zwraca
+`available:false` (**cache'owane, nie błąd**); `/api/train` (`attachStopCoordinates()`
+w `src/app/api/train/coordinates.ts`) po prostu nie dokłada `lat`/`lon` do przystanku
+(`.catch(() => null)` — awaria odczytu pliku nie wywala całego `/api/train`, tylko
+wzbogacenie o mapę).
 
 **Wyjątek od „sieć wyłącznie na krawędziach": kafelki mapy.** `MapView.tsx`
 (MapLibre GL JS + `tiles.openfreemap.org`, darmowe bez klucza/limitu, ODbL) to
@@ -112,6 +116,14 @@ projektu. `next.config.ts` (`connect-src`, `worker-src`) ma dopisany dokładnie
 ten jeden host; `next.config.test.ts` pilnuje, że to JEDYNY obcy origin w CSP.
 Nie „naprawiaj" tego przez przepięcie na serwerowy proxy kafelków — to nie
 jest przeoczenie.
+
+**`color-scheme: light`/`dark` w `:root`/`.dark` (`860dc57`) — nie usuwać.**
+Bez niego axe-core (kontrast) idzie w górę drzewa szukając nieprzezroczystego
+`background-color`, nie znajduje żadnego (tło appki to `background-image`
+gradient, `.glass`/`.glass-strong` świadomie półprzezroczyste), i liczy kontrast
+względem domyślnego BIAŁEGO płótna przeglądarki — fałszywy alarm a11y na każdym
+elemencie siedzącym wyłącznie na szkle w trybie ciemnym (złapane na mapie
+kafelka miejskiego w dark mode, ale ryzyko jest ogólne, nie tylko mapowe).
 
 **Pułapka:** MapLibre w wersji ESM tworzy swój Web Worker przez
 `import.meta.url`-owy odczyt `maplibre-gl-worker.mjs` z paczki npm — webpack
