@@ -10,5 +10,6 @@
 - [ ] `PKP_CONTRACT=1` / `GTFS_CONTRACT=1` (if touching schema/client)
 - [ ] UI verified in the browser and on the `dev` deploy
 - [ ] New behaviour has tests
+- [ ] Review: `/code-review <level>` + `/simplify` or `/ponytail-review` [+ `/security-review`] — findings fixed or justified below
 - [ ] Any AGENTS.md invariant bent? (say why)
 - [ ] CHANGELOG updated (if user-facing)

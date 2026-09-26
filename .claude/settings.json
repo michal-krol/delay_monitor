@@ -1,4 +1,17 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(git push origin main)",
+      "Bash(git push origin main *)",
+      "Bash(git push origin HEAD:main*)",
+      "Bash(git push -f*)",
+      "Bash(git push --force*)",
+      "Bash(git push * --force*)",
+      "Read(./.env)",
+      "Read(./.env.local)"
+    ],
+    "ask": ["Bash(gh pr merge*)"]
+  },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
       "source": { "source": "git", "url": "https://github.com/anthropics/claude-plugins-official.git" }

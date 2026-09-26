@@ -1,0 +1,79 @@
+---
+paths:
+  - "src/components/*Map*"
+  - "src/components/StationThumb*"
+  - "public/maplibre-*"
+  - "src/app/globals.css"
+  - "e2e/map.spec.ts"
+  - "next.config*"
+  - "src/lib/weather/**"
+  - "data/**"
+  - "scripts/**"
+---
+
+# #6 Network only at the edges — and the map exception with its traps
+
+All HTTP lives in two clients: `src/lib/pkp/client.ts` (PKP) and `src/lib/weather/client.ts`
+(Open-Meteo, keyless, the only non-PKP network egress). Domain logic (`lib/board/`,
+`lib/weather/format.ts`) = pure functions over the `PkpClient` interface or a plain payload,
+not over `fetch`. Tests need neither network nor key — keep it that way. New source = new edge
+client. Live/mock selection happens once, at startup, in `lib/board/instance.ts`.
+
+Station coordinates for weather: static `data/station-coordinates.json` (regenerate with
+`scripts/enrich-station-coords.mjs`), included in the image (`.next/standalone`). Missing
+station = `available:false` in `/api/weather`, **cached, not an error**.
+
+## Exception: map tiles
+
+`MapView.tsx` (MapLibre GL JS + `tiles.openfreemap.org`, free, no key/limit, ODbL) is the only
+case in the project of the browser talking directly to a foreign origin — deliberately,
+self-hosting a tile pyramid is beyond this project's scale. `next.config.ts` (`connect-src`,
+`worker-src`) allows exactly this one host; `next.config.test.ts` guards that it is the ONLY
+foreign origin in the CSP. Don't "fix" this with a server-side tile proxy — it is not an
+oversight.
+
+## Trap 1: MapLibre worker in production builds
+
+MapLibre ESM creates its Web Worker via an `import.meta.url` read of `maplibre-gl-worker.mjs`
+from the npm package — webpack (Next.js production build, NOT `next dev`) resolves it to an
+empty string, so `new Worker("", {type:"module"})` requests the current HTML page instead of
+the script. Effect: pins and attribution render normally (positioned synchronously from
+`center`/`zoom` at `new Map()`), but tiles never draw — the canvas stays empty, with no console
+error except one cryptic "non-JavaScript MIME type". Only `npm run build && npm run start` /
+a real deploy catches it, never `next dev` — it reached production unnoticed in local QA once.
+
+Fix: `public/maplibre-gl-worker.mjs` + `public/maplibre-gl-shared.mjs` (the worker statically
+imports the latter) as vendored, byte-for-byte copies from `node_modules/maplibre-gl/dist/`,
+plus `maplibregl.setWorkerUrl('/maplibre-gl-worker.mjs')` BEFORE the first `new Map()`.
+`MapView.test.tsx` guards that the copies match `node_modules` on dependency updates;
+`e2e/map.spec.ts` really renders tiles (not just pins) and measures the canvas PNG size —
+`toDataURL`/`readPixels` without `preserveDrawingBuffer` can return a transparent read despite
+correct drawing, so **never verify map rendering via raw WebGL buffer reads** — only via a
+screenshot/locator (compositor, not buffer).
+
+## Trap 2 and 3: popups (`MapView.tsx`, both once broke the pin popup)
+
+- **`Marker` toggles its own popup** — `_onMapClick`, registered in `addTo()`, listens to
+  `click` on the whole map. Don't call `marker.togglePopup()` from your own listener on the pin
+  element: a double toggle = the popup opens and immediately closes.
+- **`pinsKey` = only `id:lat:lon:label`** — no `preview`/`href`/`mode`. Clicking a GTFS pin
+  selects a stop → refetch → `preview` changes; if it were in the key, the map would
+  re-initialize mid-click and destroy the fresh popup. Same for `routeKey`
+  (`points.length:color`) — a content signature, not the whole object.
+
+## Trap 4: container positioning (live city map, `CityVehicleMap.tsx`, `d41b99a`+1)
+
+The map container must NOT be positioned with `absolute inset-0` directly on the element passed
+to `new Map({container})`. MapLibre adds the class `maplibregl-map`, and `maplibre-gl.css`
+(`globals.css`, `@import` WITHOUT `@layer`) sits outside any named cascade layer — such
+unlayered CSS beats EVERY layered Tailwind rule (including `@layer utilities`), regardless of
+file order. `.maplibregl-map{position:relative}` thus overrides `absolute`, `inset-0` stops
+working, the container gets height `0` — in a desktop `flex-row` `align-items:stretch` masks
+it, in the phone `flex-col` (`(app)/layout.tsx`) it doesn't.
+
+Fix: an outer plain `<div className="absolute inset-0">` (no MapLibre class) as the parent,
+the map container inside with `h-full w-full` — one level of percentage height from an
+explicitly positioned ancestor works, and MapLibre still gets `position:relative` without
+conflict. Applies to EVERY new component mounting a map outside `MapView.tsx` (that one doesn't
+suffer, its containers have explicit height `h-64`/`inset-4`, not `absolute inset-0` on the
+MapLibre element itself).
