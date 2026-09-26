@@ -31,7 +31,6 @@ export const poller: Poller = createPoller({
   config: {
     pollIntervalMs: appConfig.pollIntervalMs,
     interestTtlMs: appConfig.interestTtlMs,
-    boardSource: appConfig.boardSource,
   },
   stationNames,
 })

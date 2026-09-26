@@ -62,14 +62,6 @@ When changing `board/transform.ts`:
 - Message (#7): "we have times, we don't know delays" ≠ "fetch failed". The poller reports
   `degraded` + `realizationStale: true`, the board says „PKP nie podaje dziś danych o ruchu".
 
-`BOARD_SOURCE=schedule|operations` rolls back without a deploy. **Temporary — remove no
-earlier than ~2026-09-14** (2 weeks of healthy feed since the 31.08 fix) if the feed doesn't
-fail again. Deadline passed; removal is PR #37 (still open 2026-09-26). Removal takes out,
-together:
-
-- `BOARD_SOURCE` in `src/lib/config.ts` (+ `AppConfig.boardSource`, `.env.example`);
-- `boardSource` in `PollerConfig` + the `=== 'schedule'` branch in `poller.ts`;
-- the `scheduleSource === null` path in `collectRowSources()` and the trailing-optional
-  `scheduleSource` in `transformOperations()`;
-- ~63 `transformOperations(` calls in `transform.test.ts` (they test the historical path —
-  rewrite to an explicit `scheduleSource` or fix the helper).
+The `BOARD_SOURCE` switch (fallback to a realization-driven list) was removed 2026-09-23 after
+two weeks of healthy feed. `scheduleSource` in `transformOperations()` is required; the
+realization-only list is now just the fallback in `collectRowSources`.

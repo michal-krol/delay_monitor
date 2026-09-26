@@ -84,8 +84,8 @@ Filter by `operatingDate`. Route lookup via `indexRoutesByTrain()`/`findRouteFor
 `new Map(routes.map(...))`; counting iterates the raw route list.
 
 ### 10. The timetable defines the connection list, realization enriches it → `pkp-board-data.md`
-Rows come from `/schedules`; a row without realization is normal ("unknown"). `BOARD_SOURCE`
-switch is temporary — removal overdue, PR #37.
+Rows come from `/schedules`; a row without realization is normal ("unknown"). The
+`BOARD_SOURCE` switch was removed 2026-09-23; `scheduleSource` is required.
 
 ### 11. `docs/` is not published → `deployment.md`
 `docs/` is gitignored on purpose. Don't add it back.

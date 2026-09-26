@@ -9,6 +9,7 @@ paths:
   - "src/lib/weather/**"
   - "data/**"
   - "scripts/**"
+  - "src/app/api/train/**"
 ---
 
 # #6 Network only at the edges — and the map exception with its traps
@@ -19,9 +20,13 @@ All HTTP lives in two clients: `src/lib/pkp/client.ts` (PKP) and `src/lib/weathe
 not over `fetch`. Tests need neither network nor key — keep it that way. New source = new edge
 client. Live/mock selection happens once, at startup, in `lib/board/instance.ts`.
 
-Station coordinates for weather: static `data/station-coordinates.json` (regenerate with
-`scripts/enrich-station-coords.mjs`), included in the image (`.next/standalone`). Missing
-station = `available:false` in `/api/weather`, **cached, not an error**.
+Station coordinates: static `data/station-coordinates.json` (regenerate with
+`scripts/enrich-station-coords.mjs`), included in the image (`.next/standalone`). Two
+consumers, two different degradations for a missing station: `/api/weather` returns
+`available:false` (**cached, not an error**); `/api/train` (`attachStopCoordinates()` in
+`src/app/api/train/coordinates.ts`) simply doesn't add `lat`/`lon` to the stop
+(`.catch(() => null)` — a file-read failure doesn't break the whole `/api/train`, only the map
+enrichment).
 
 ## Exception: map tiles
 
@@ -31,6 +36,14 @@ self-hosting a tile pyramid is beyond this project's scale. `next.config.ts` (`c
 `worker-src`) allows exactly this one host; `next.config.test.ts` guards that it is the ONLY
 foreign origin in the CSP. Don't "fix" this with a server-side tile proxy — it is not an
 oversight.
+
+## Don't remove `color-scheme: light`/`dark` in `:root`/`.dark` (`860dc57`)
+
+Without it axe-core (contrast) walks up the tree looking for an opaque `background-color`,
+finds none (the app background is a `background-image` gradient, `.glass`/`.glass-strong` are
+deliberately translucent), and computes contrast against the browser's default WHITE canvas —
+a false a11y alarm on every element sitting only on glass in dark mode (caught on the city tile
+map in dark mode, but the risk is general, not map-only).
 
 ## Trap 1: MapLibre worker in production builds
 

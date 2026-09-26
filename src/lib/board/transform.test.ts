@@ -58,6 +58,12 @@ function route(overrides: Partial<RawRoute> & { scheduleId: string; orderId: str
 
 const NAMES = { '5100': 'Warszawa Centralna', '5136': 'Kraków Główny', '4900': 'Wrocław Główny' }
 const NO_ROUTES = new Map<string, RawRoute>()
+/**
+ * Pusty rozkład: wiersze powstają wyłącznie z realizacji (rezerwowa ścieżka
+ * `collectRowSources`). Trasy z helpera `route()` mają `operatingDates: []`,
+ * więc nie kursują „dziś" i nie wypierają realizacji.
+ */
+const NO_SCHEDULE = { routes: [], todayIsoDate: '2026-08-01' }
 const NOW = new Date('2026-08-01T12:00:00+02:00')
 
 describe('transformOperations', () => {
@@ -65,13 +71,13 @@ describe('transformOperations', () => {
     const trains = [
       train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00', isCancelled: true })]),
     ]
-    const snapshot = transformOperations('5100', 'Warszawa Centralna', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'Warszawa Centralna', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].status).toBe('cancelled')
   })
 
   it('marks an unconfirmed stop as notStarted, with a null (not 0) delay -- isConfirmed is the only signal that matters', () => {
     const trains = [train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].status).toBe('notStarted')
     expect(snapshot.departures[0].delayMinutes).toBeNull()
   })
@@ -82,7 +88,7 @@ describe('transformOperations', () => {
     const trains = [
       train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00', isConfirmed: true })]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].status).toBe('unknown')
     expect(snapshot.departures[0].delayMinutes).toBeNull()
   })
@@ -91,7 +97,7 @@ describe('transformOperations', () => {
     const trains = [
       train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })], null, 'S'),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].status).toBe('notStarted')
   })
 
@@ -117,7 +123,7 @@ describe('transformOperations', () => {
         'S'
       ),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].status).toBe('notStarted')
   })
 
@@ -142,7 +148,7 @@ describe('transformOperations', () => {
         'P'
       ),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].status).toBe('enRoute')
   })
 
@@ -172,7 +178,7 @@ describe('transformOperations', () => {
       const routes = new Map<string, RawRoute>([
         ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
       ])
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].status).toBe('enRoute')
       expect(snapshot.departures[0].estimatedDelayMinutes).toBe(30)
     })
@@ -201,7 +207,7 @@ describe('transformOperations', () => {
       const routes = new Map<string, RawRoute>([
         ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
       ])
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].status).toBe('enRoute')
       expect(snapshot.departures[0].estimatedDelayMinutes).toBe(30)
     })
@@ -222,7 +228,7 @@ describe('transformOperations', () => {
       const routes = new Map<string, RawRoute>([
         ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
       ])
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].status).toBe('notStarted')
       expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
     })
@@ -234,7 +240,7 @@ describe('transformOperations', () => {
       const routes = new Map<string, RawRoute>([
         ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
       ])
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].status).toBe('enRoute')
       expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
     })
@@ -255,7 +261,7 @@ describe('transformOperations', () => {
       const routes = new Map<string, RawRoute>([
         ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
       ])
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
     })
 
@@ -297,7 +303,7 @@ describe('transformOperations', () => {
           }),
         ],
       ])
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].status).toBe('enRoute')
       expect(snapshot.departures[0].estimatedDelayMinutes).toBe(1)
     })
@@ -318,7 +324,7 @@ describe('transformOperations', () => {
       const routes = new Map<string, RawRoute>([
         ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
       ])
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
     })
 
@@ -348,7 +354,7 @@ describe('transformOperations', () => {
       const routes = new Map<string, RawRoute>([
         ['25-1', route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: 'upstream' }), routeStop({ stationId: '5100' })] })],
       ])
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].status).toBe('delayed')
       expect(snapshot.departures[0].delayMinutes).toBe(3)
       expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
@@ -358,7 +364,7 @@ describe('transformOperations', () => {
       const trains = [
         train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00', isConfirmed: false })], null, 'P'),
       ]
-      const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+      const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
       expect(snapshot.departures[0].status).toBe('enRoute')
       expect(snapshot.departures[0].estimatedDelayMinutes).toBeNull()
     })
@@ -385,7 +391,7 @@ describe('transformOperations', () => {
         'Q'
       ),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].status).toBe('notStarted')
   })
 
@@ -411,8 +417,8 @@ describe('transformOperations', () => {
       null,
       'Q'
     )
-    const cancelledSnapshot = transformOperations('5100', 'X', [cancelledStop], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
-    const confirmedSnapshot = transformOperations('5100', 'X', [confirmedStop], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const cancelledSnapshot = transformOperations('5100', 'X', [cancelledStop], NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
+    const confirmedSnapshot = transformOperations('5100', 'X', [confirmedStop], NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(cancelledSnapshot.departures[0].status).toBe('cancelled')
     expect(confirmedSnapshot.departures[0].status).toBe('delayed')
     expect(confirmedSnapshot.departures[0].delayMinutes).toBe(3)
@@ -430,7 +436,7 @@ describe('transformOperations', () => {
       ]),
     ]
     const at = new Date('2026-08-01T23:59:00+02:00')
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, at.toISOString(), at)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, at.toISOString(), at)
     expect(snapshot.departures[0].delayMinutes).toBe(6)
     expect(snapshot.departures[0].status).toBe('delayed')
   })
@@ -451,7 +457,7 @@ describe('transformOperations', () => {
         }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.arrivals).toHaveLength(1)
     expect(snapshot.arrivals[0].headsign).toBe('Kraków Główny')
     expect(snapshot.departures).toHaveLength(0)
@@ -469,7 +475,7 @@ describe('transformOperations', () => {
         }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(1)
     expect(snapshot.departures[0].headsign).toBe('Wrocław Główny')
     expect(snapshot.arrivals).toHaveLength(0)
@@ -495,7 +501,7 @@ describe('transformOperations', () => {
         }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(1)
     expect(snapshot.departures[0].headsign).toBe('Wrocław Główny')
     expect(snapshot.arrivals).toHaveLength(1)
@@ -510,20 +516,20 @@ describe('transformOperations', () => {
         route({ scheduleId: '25', orderId: '1', stations: [routeStop({ stationId: '5100' }), routeStop({ stationId: '9999' })] }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, {}, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, {}, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].headsign).toBe('9999')
   })
 
   it('shows null headsign when no route is matched, letting the UI decide the "—" fallback', () => {
     const trains = [train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].headsign).toBeNull()
   })
 
   it('shows null headsign when the matched route has an empty stations list', () => {
     const trains = [train('25', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
     const routes = new Map<string, RawRoute>([['25-1', route({ scheduleId: '25', orderId: '1', stations: [] })]])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].headsign).toBeNull()
   })
 
@@ -539,7 +545,7 @@ describe('transformOperations', () => {
         }),
       ]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].delayMinutes).toBe(3)
   })
 
@@ -552,7 +558,7 @@ describe('transformOperations', () => {
         }),
       ])
     )
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(40)
     expect(snapshot.departures[0].trainNumber).toBe('44-1')
     expect(new Date(snapshot.departures[0].plannedAt).getTime()).toBeLessThan(
@@ -564,7 +570,7 @@ describe('transformOperations', () => {
     const trains = [
       train('25', '1', [stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() - 4 * 60000).toISOString() })]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(1)
   })
 
@@ -572,7 +578,7 @@ describe('transformOperations', () => {
     const trains = [
       train('25', '1', [stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() - 6 * 60000).toISOString() })]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(0)
   })
 
@@ -587,7 +593,7 @@ describe('transformOperations', () => {
         stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() + (i + 1) * 60000).toISOString() }),
       ])
     )
-    const snapshot = transformOperations('5100', 'X', [...pastTrains, ...futureTrains], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', [...pastTrains, ...futureTrains], NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
 
     // 3 przeszłe (bez limitu liczbowego, tylko okno 5 min) + 40 nadchodzących
     // (limit), a nie 40 łącznie z przeszłymi zajmującymi część tego limitu.
@@ -603,7 +609,7 @@ describe('transformOperations', () => {
         stop({ stationId: '5100', plannedDeparture: new Date(NOW.getTime() + 200 * 60000).toISOString() }),
       ]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(0)
   })
 
@@ -616,7 +622,7 @@ describe('transformOperations', () => {
     const trains = [
       train('late', '1', [stop({ stationId: '5100', plannedDeparture, actualDeparture })], null, 'P'),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(1)
     expect(snapshot.departures[0].status).toBe('enRoute')
   })
@@ -628,14 +634,14 @@ describe('transformOperations', () => {
     const trains = [
       train('late', '1', [stop({ stationId: '5100', plannedDeparture, actualDeparture })], null, 'P'),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, later.toISOString(), later)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, later.toISOString(), later)
     expect(snapshot.departures).toHaveLength(0)
   })
 
   it('still drops a not-started train with no delay signal 30 min past its planned time', () => {
     const plannedDeparture = new Date(NOW.getTime() - 30 * 60000).toISOString()
     const trains = [train('idle', '1', [stop({ stationId: '5100', plannedDeparture })])]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(0)
   })
 
@@ -650,12 +656,12 @@ describe('transformOperations', () => {
         null,
         'P'
       )
-    const fresh = transformOperations('5100', 'X', [mkTrain()], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const fresh = transformOperations('5100', 'X', [mkTrain()], NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(fresh.departures).toHaveLength(1)
     expect(fresh.departures[0].status).toBe('delayed')
 
     const later = new Date(NOW.getTime() + 10 * 60000) // 12:10 — > actual + 5 min
-    const gone = transformOperations('5100', 'X', [mkTrain()], NAMES, NO_ROUTES, {}, later.toISOString(), later)
+    const gone = transformOperations('5100', 'X', [mkTrain()], NAMES, NO_ROUTES, NO_SCHEDULE, {}, later.toISOString(), later)
     expect(gone.departures).toHaveLength(0)
   })
 
@@ -663,7 +669,7 @@ describe('transformOperations', () => {
     const trains = [
       train('25', '1', [stop({ stationId: '5136', plannedDeparture: '2026-08-01T12:10:00+02:00' })]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures).toHaveLength(0)
     expect(snapshot.arrivals).toHaveLength(0)
   })
@@ -675,7 +681,7 @@ describe('transformOperations', () => {
     const routes = new Map<string, RawRoute>([
       ['26-12345', route({ scheduleId: '26', orderId: '12345', carrierCode: 'PKP_IC', commercialCategorySymbol: 'EIC' })],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].carrier).toBe('PKP_IC')
     expect(snapshot.departures[0].category).toBe('EIC')
     expect(snapshot.departures[0].carrierName).toBeNull()
@@ -689,7 +695,7 @@ describe('transformOperations', () => {
       ['26-12345', route({ scheduleId: '26', orderId: '12345', carrierCode: 'PR' })],
     ])
     const carrierNames = { PR: 'POLREGIO S.A.' }
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, carrierNames, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, carrierNames, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].carrierName).toBe('POLREGIO S.A.')
   })
 
@@ -701,7 +707,7 @@ describe('transformOperations', () => {
       ['26-12345', route({ scheduleId: '26', orderId: '12345', commercialCategorySymbol: 'EIC' })],
     ])
     const categoryNames = { EIC: 'Express InterCity' }
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW, categoryNames)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW, categoryNames)
     expect(snapshot.departures[0].categoryName).toBe('Express InterCity')
   })
 
@@ -712,7 +718,7 @@ describe('transformOperations', () => {
     const routes = new Map<string, RawRoute>([
       ['26-12345', route({ scheduleId: '26', orderId: '12345', commercialCategorySymbol: 'EIC' })],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].categoryName).toBeNull()
   })
 
@@ -720,7 +726,7 @@ describe('transformOperations', () => {
     const trains = [
       train('26', '99999', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].carrier).toBe('')
     expect(snapshot.departures[0].category).toBe('')
     expect(snapshot.departures[0].trainLabel).toBe('26-99999')
@@ -732,7 +738,7 @@ describe('transformOperations', () => {
     const routes = new Map<string, RawRoute>([
       ['26-12345', route({ scheduleId: '26', orderId: '12345', carrierCode: 'IC', commercialCategorySymbol: 'EIC', name: 'EIC Grunwald' })],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].trainLabel).toBe('EIC Grunwald')
   })
 
@@ -741,7 +747,7 @@ describe('transformOperations', () => {
     const routes = new Map<string, RawRoute>([
       ['26-67890', route({ scheduleId: '26', orderId: '67890', carrierCode: 'KM', commercialCategorySymbol: 'REG', nationalNumber: 'S1' })],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].trainLabel).toBe('REG S1')
   })
 
@@ -750,7 +756,7 @@ describe('transformOperations', () => {
     const routes = new Map<string, RawRoute>([
       ['26-11111', route({ scheduleId: '26', orderId: '11111', carrierCode: 'IC', commercialCategorySymbol: 'TLK' })],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].trainLabel).toBe('TLK 26-11111')
   })
 
@@ -766,7 +772,7 @@ describe('transformOperations', () => {
         }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].platform).toBe('4')
     expect(snapshot.departures[0].track).toBe('2')
   })
@@ -783,7 +789,7 @@ describe('transformOperations', () => {
         }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].platform).toBe('4')
     expect(snapshot.departures[0].track).toBeNull()
   })
@@ -800,7 +806,7 @@ describe('transformOperations', () => {
         }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].platform).toBeNull()
     expect(snapshot.departures[0].track).toBe('2')
   })
@@ -827,7 +833,7 @@ describe('transformOperations', () => {
         }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.arrivals[0].platform).toBe('1')
     expect(snapshot.arrivals[0].track).toBe('3')
     expect(snapshot.departures[0].platform).toBe('4')
@@ -854,7 +860,7 @@ describe('transformOperations', () => {
         }),
       ],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.arrivals[0].platform).toBe('4')
     expect(snapshot.arrivals[0].track).toBe('2')
     expect(snapshot.departures[0].platform).toBe('4')
@@ -872,7 +878,7 @@ describe('transformOperations', () => {
     const routes = new Map<string, RawRoute>([
       ['26-12345', route({ scheduleId: '26', orderId: '12345', carrierCode: 'IC', name: 'KASZUB' })],
     ])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].trainLabel).toBe('KASZUB')
     expect(snapshot.departures[0].carrier).toBe('IC')
   })
@@ -880,7 +886,7 @@ describe('transformOperations', () => {
   it('leaves platform null when the route has no matching station stop', () => {
     const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
     const routes = new Map<string, RawRoute>([['26-12345', route({ scheduleId: '26', orderId: '12345' })]])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].platform).toBeNull()
     expect(snapshot.departures[0].track).toBeNull()
   })
@@ -888,20 +894,20 @@ describe('transformOperations', () => {
   it('marks hasDisruption true when the train (scheduleId+orderId+operatingDate) is in the disrupted set', () => {
     const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
     const disrupted = new Set([disruptionTrainKey('26', '12345', '2026-08-01')])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, disrupted)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW, {}, disrupted)
     expect(snapshot.departures[0].hasDisruption).toBe(true)
   })
 
   it('marks hasDisruption false when scheduleId/orderId match but operatingDate does not', () => {
     const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
     const disrupted = new Set([disruptionTrainKey('26', '12345', '2026-08-02')])
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, disrupted)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW, {}, disrupted)
     expect(snapshot.departures[0].hasDisruption).toBe(false)
   })
 
   it('defaults hasDisruption to false when the disrupted-trains set is omitted', () => {
     const trains = [train('26', '12345', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     expect(snapshot.departures[0].hasDisruption).toBe(false)
   })
 })
@@ -932,7 +938,7 @@ describe('transformOperations -- przystanki pośrednie („przez…")', () => {
 
   it('lists intermediate stops after this station, excluding the terminus shown as headsign', () => {
     const trains = [train('30', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
-    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, longRoute(), {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, longRoute(), NO_SCHEDULE, {}, NOW.toISOString(), NOW)
 
     expect(snapshot.departures[0].headsign).toBe('Kraków Główny')
     expect(snapshot.departures[0].via).toEqual(['Pruszków', 'Opoczno', 'Kielce'])
@@ -942,7 +948,7 @@ describe('transformOperations -- przystanki pośrednie („przez…")', () => {
 
   it('lists stops already travelled for arrivals, still in travel order', () => {
     const trains = [train('30', '1', [stop({ stationId: 'D', plannedArrival: '2026-08-01T12:10:00+02:00' })])]
-    const snapshot = transformOperations('D', 'X', trains, VIA_NAMES, longRoute(), {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('D', 'X', trains, VIA_NAMES, longRoute(), NO_SCHEDULE, {}, NOW.toISOString(), NOW)
 
     expect(snapshot.arrivals[0].headsign).toBe('Warszawa Centralna')
     // Odcinek między originem (wykluczonym, bo to headsign) a tą stacją.
@@ -955,7 +961,7 @@ describe('transformOperations -- przystanki pośrednie („przez…")', () => {
       ['30-1', route({ scheduleId: '30', orderId: '1', stations: [routeStop({ stationId: '5100' }), routeStop({ stationId: '5136' })] })],
     ])
     const trains = [train('30', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
-    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, routes, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, routes, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
 
     expect(snapshot.departures[0].via).toEqual([])
     expect(snapshot.departures[0].viaRemaining).toBe(0)
@@ -963,7 +969,7 @@ describe('transformOperations -- przystanki pośrednie („przez…")', () => {
 
   it('reports an empty via list when there is no matching route -- empty means "unknown", never "runs direct"', () => {
     const trains = [train('30', '1', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:10:00+02:00' })])]
-    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, VIA_NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
 
     expect(snapshot.departures[0].via).toEqual([])
     expect(snapshot.departures[0].headsign).toBeNull()
@@ -984,7 +990,7 @@ describe('transformOperations -- PLAN / PROGNOZA / FAKT', () => {
         }),
       ]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
     const row = snapshot.departures[0]
 
     expect(row.predictedAt).toBe('2026-08-01T12:13:00+02:00')
@@ -1008,7 +1014,7 @@ describe('transformOperations -- PLAN / PROGNOZA / FAKT', () => {
         }),
       ]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
 
     expect(snapshot.departures[0].predictedAt).toBeNull()
     expect(snapshot.departures[0].predictedDelayMinutes).toBeNull()
@@ -1027,7 +1033,7 @@ describe('transformOperations -- PLAN / PROGNOZA / FAKT', () => {
         }),
       ]),
     ]
-    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW)
+    const snapshot = transformOperations('5100', 'X', trains, NAMES, NO_ROUTES, NO_SCHEDULE, {}, NOW.toISOString(), NOW)
 
     expect(snapshot.departures[0].predictedAt).toBeNull()
   })
@@ -1059,8 +1065,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
     // Sedno przepięcia: 27-31.08.2026 /operations zwracało wyłącznie pociągi
     // sprzed kilku dni, więc takie kursy nie miały jak trafić na tablicę.
     const snapshot = transformOperations(
-      '5100', 'X', [], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
-      undefined, [], source([routeThroughStation()])
+      '5100', 'X', [], NAMES, NO_ROUTES, source([routeThroughStation()]), {}, NOW.toISOString(), NOW
     )
 
     expect(snapshot.departures).toHaveLength(1)
@@ -1090,8 +1095,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
       ], '77'),
     ]
     const snapshot = transformOperations(
-      '5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
-      undefined, [], source([routeThroughStation()])
+      '5100', 'X', trains, NAMES, NO_ROUTES, source([routeThroughStation()]), {}, NOW.toISOString(), NOW
     )
 
     expect(snapshot.departures).toHaveLength(1)
@@ -1104,8 +1108,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
 
   it('pomija trasę, która dziś nie kursuje', () => {
     const snapshot = transformOperations(
-      '5100', 'X', [], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
-      undefined, [], source([routeThroughStation({ operatingDates: ['2026-08-02'] })])
+      '5100', 'X', [], NAMES, NO_ROUTES, source([routeThroughStation({ operatingDates: ['2026-08-02'] })]), {}, NOW.toISOString(), NOW
     )
 
     expect(snapshot.departures).toHaveLength(0)
@@ -1116,8 +1119,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
       stations: [routeStop({ stationId: '4900', departureTime: '12:30:00' })],
     })
     const snapshot = transformOperations(
-      '5100', 'X', [], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
-      undefined, [], source([other])
+      '5100', 'X', [], NAMES, NO_ROUTES, source([other]), {}, NOW.toISOString(), NOW
     )
 
     expect(snapshot.departures).toHaveLength(0)
@@ -1133,8 +1135,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
       ]),
     ]
     const snapshot = transformOperations(
-      '5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
-      undefined, [], source([])
+      '5100', 'X', trains, NAMES, NO_ROUTES, source([]), {}, NOW.toISOString(), NOW
     )
 
     expect(snapshot.departures).toHaveLength(1)
@@ -1151,8 +1152,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
       train('2026', '113', [stop({ stationId: '5100', plannedDeparture: '2026-08-01T12:20:00+02:00' })], '113'),
     ]
     const snapshot = transformOperations(
-      '5100', 'X', trains, NAMES, indexRoutesByTrain([emptyRoute]), {}, NOW.toISOString(), NOW, {}, new Set(),
-      undefined, [], source([emptyRoute])
+      '5100', 'X', trains, NAMES, indexRoutesByTrain([emptyRoute]), source([emptyRoute]), {}, NOW.toISOString(), NOW
     )
 
     expect(snapshot.departures).toHaveLength(1)
@@ -1166,8 +1166,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
       ], '77'),
     ]
     const snapshot = transformOperations(
-      '5100', 'X', trains, NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
-      undefined, [], source([routeThroughStation()])
+      '5100', 'X', trains, NAMES, NO_ROUTES, source([routeThroughStation()]), {}, NOW.toISOString(), NOW
     )
 
     expect(snapshot.departures).toHaveLength(1)
@@ -1181,8 +1180,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
       ],
     })
     const snapshot = transformOperations(
-      '5100', 'X', [], NAMES, NO_ROUTES, {}, NOW.toISOString(), NOW, {}, new Set(),
-      undefined, [], source([terminus])
+      '5100', 'X', [], NAMES, NO_ROUTES, source([terminus]), {}, NOW.toISOString(), NOW
     )
 
     expect(snapshot.departures).toHaveLength(0)

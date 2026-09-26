@@ -18,6 +18,13 @@ Wersjonowanie semantyczne.
   linii) — prawdziwa pozycja z feedu, nie odrzucamy jej. Zero nowych zapytań:
   ten sam `VehiclePoller` co mapa trasy linii (etap 5a); zero pola opóźnienia
   (AGENTS.md #13). Endpoint `/api/gtfs/city-vehicles`.
+- **Mapa trasy pociągu na stronie połączenia** (`/connection/...`) — polilinia
+  stacja-po-stacji pod osią przystanków, marker pozycji interpolowany w czasie
+  między ostatnim potwierdzonym a najbliższym kolejnym przystankiem, zawsze
+  podpisany „Pozycja pociągu szacowana wg rozkładu." (AGENTS.md #7 — nigdy nie
+  wygląda jak realny GPS bez podpisu). Współrzędne z `data/station-coordinates.json`
+  doklejone do `/api/train` (`attachStopCoordinates()`), brak pliku degraduje do
+  braku mapy, nie do błędu 500. Zero nowych zapytań PKP.
 - **Mapa (MapLibre GL + OpenFreeMap)** — mapa lokalizacji na stronie stacji PKP
   i przystanku miejskiego: piny z ikoną trybu, popup z najbliższymi odjazdami,
   widok pełnoekranowy (Escape / tło / focus-trap), klik pinu przełącza słupek.
@@ -67,6 +74,13 @@ Wersjonowanie semantyczne.
   kierunek`→`name/station/stop/direction`; API `?slupek=`→`?member=`
   (`/api/gtfs/board`, pole odpowiedzi `activeSlupek`→`activeMember`).
   **Łamiąca zmiana** — świadomie bez przekierowań ze starych adresów.
+
+### Usunięte
+
+- **Przełącznik `BOARD_SOURCE`** — tymczasowy powrót do listy połączeń
+  z realizacji (`operations`) zdjęty po dwóch tygodniach zdrowego feedu
+  `/operations` od naprawy 31.08. Rozkład wyznacza listę na stałe
+  (AGENTS.md #10). Zmienną można skasować z Railway — jest ignorowana.
 
 ### Poprawki
 

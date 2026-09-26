@@ -29,7 +29,6 @@ General rules: `~/.claude/rules/deployment.md`, `versioning.md`. Full descriptio
 - One replica only (#5): never scale horizontally.
 - `E2E=1` disables `output: standalone` (because `next start` doesn't work with standalone);
   Railway/production unaffected.
-- Temporary switch `BOARD_SOURCE` (#10) — removal pending (PR #37).
 
 # #11 `docs/` is not published
 

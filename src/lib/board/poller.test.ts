@@ -513,6 +513,7 @@ describe('createPoller', () => {
           commercialCategorySymbol: 'EIC',
           name: null,
           nationalNumber: null,
+          operatingDates: [],
           stations: [
             { stationId: '5100', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null },
             { stationId: '5136', arrivalPlatform: null, arrivalTrack: null, departurePlatform: null, departureTrack: null },
@@ -548,6 +549,7 @@ describe('createPoller', () => {
           commercialCategorySymbol: 'EIC',
           name: 'KASZUB',
           nationalNumber: null,
+          operatingDates: [],
           stations: [],
         },
       ],

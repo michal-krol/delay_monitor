@@ -160,7 +160,7 @@ export function resolveScheduledStopIndex(stops: TrainDetailStop[], now: Date): 
  * Ile minut od planu potwierdzony przystanek pociąg opuścił (dodatnie =
  * opóźniony). `null`, gdy nie da się policzyć.
  */
-function anchorOffsetMs(stop: TrainDetailStop): number | null {
+export function anchorOffsetMs(stop: TrainDetailStop): number | null {
   const actual = stop.actualDeparture ?? stop.actualArrival
   const planned = stop.plannedDeparture ?? stop.plannedArrival
   if (actual === null || planned === null) return null
