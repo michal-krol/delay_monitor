@@ -21,11 +21,19 @@
  * samej nazwie to wciąż dziesiątki km, nie setki -- nieopłacalne do
  * automatycznego rozwiązywania teraz.
  *
- * Uruchomienie:
+ * Uruchomienie (tryb domyślny, geokodowanie Nominatim, wymaga PKP_API_KEY):
  *   PKP_API_KEY=xxx node scripts/enrich-station-coords.mjs
  *
  * Wznawialne: już rozwiązane stacje (lat !== null) w istniejącym pliku
  * wyjściowym są pomijane przy kolejnym uruchomieniu.
+ *
+ * Drugi przebieg, flaga --upgrade-fallback (Overpass, bez klucza PKP):
+ *   node scripts/enrich-station-coords.mjs --upgrade-fallback
+ * Podnosi precyzję wpisów oznaczonych 'city-fallback'/'failed' z pierwszego
+ * przebiegu -- szuka stacji kolejowej (tag railway=station/halt) w promieniu
+ * OVERPASS_RADIUS_M od współrzędnych miejscowości i dopasowuje nazwę
+ * (matchStationName()). Bez PKP_API_KEY, bo w ogóle nie woła PLK -- korzysta
+ * z już zapisanych współrzędnych w pliku wyjściowym jako punktu startowego.
  *
  * Uwaga: to publiczny darmowy Nominatim (nominatim.openstreetmap.org),
  * limit 1 zapytanie/s pilnowany poniżej. Dla ~9000 stacji to kilka godzin
@@ -48,17 +56,11 @@ const OVERPASS_RADIUS_M = 5000
 const USER_AGENT = 'delay-monitor-station-coords-script/1.0 (one-off enrichment run)'
 const RATE_LIMIT_MS = 1100
 
-const apiKey = process.env.PKP_API_KEY
-if (!apiKey) {
-  console.error('Brak PKP_API_KEY w środowisku.')
-  process.exit(1)
-}
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function fetchStations() {
+async function fetchStations(apiKey) {
   const url = `${PLK_BASE_URL}/api/v1/dictionaries/stations?pageSize=10000`
   const res = await fetch(url, { headers: { 'X-API-Key': apiKey } })
   if (!res.ok) {
@@ -174,7 +176,12 @@ async function upgradeFallbackEntries() {
 }
 
 async function main() {
-  const stations = await fetchStations()
+  const apiKey = process.env.PKP_API_KEY
+  if (!apiKey) {
+    console.error('Brak PKP_API_KEY w środowisku.')
+    process.exit(1)
+  }
+  const stations = await fetchStations(apiKey)
   console.log(`Stacji z PLK: ${stations.length}`)
 
   const result = loadExisting()

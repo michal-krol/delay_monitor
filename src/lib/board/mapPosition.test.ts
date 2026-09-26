@@ -36,13 +36,14 @@ describe('resolveInterpolatedPosition', () => {
         stationId: 'A',
         isConfirmed: true,
         plannedDeparture: '2026-08-01T10:00:00.000Z',
+        actualDeparture: '2026-08-01T10:10:00.000Z',
         departureDelayMinutes: 10,
         lat: 50,
         lon: 20,
       }),
       stop({ stationId: 'B', plannedArrival: '2026-08-01T11:00:00.000Z', lat: 51, lon: 21 }),
     ]
-    // plan 10:00 + 10 min opóźnienia = start 10:10; koniec 11:00+10=11:10; 10:40 -> ułamek 0.5
+    // plan 10:00 + 10 min opóźnienia (actualDeparture - plannedDeparture) = start 10:10; koniec 11:00+10=11:10; 10:40 -> ułamek 0.5
     const result = resolveInterpolatedPosition(stops, 'P', D('2026-08-01T10:40:00.000Z'))
     expect(result).toEqual({ lat: 50.5, lon: 20.5 })
   })
@@ -105,6 +106,36 @@ describe('resolveInterpolatedPosition', () => {
     // `isStalePositionProjection` świadomie zwraca false, gdy `now` już go minęło
     // (podróż uznana za zakończoną), więc 13:05 (po 13:00) unieważniałoby ten test.
     // odcinek D->E: start 12:30+10=12:40, koniec 13:00+10=13:10; 12:50 -> ułamek (10/30)
+    const result = resolveInterpolatedPosition(stops, 'S', D('2026-08-01T12:50:00.000Z'))
+    expect(result).not.toBeNull()
+    expect(result!.lat).toBeCloseTo(51.667, 2)
+    expect(result!.lon).toBeCloseTo(20.667, 2)
+  })
+
+  it('uses the actual-vs-planned offset for the stale interpolation window, not the (possibly null) *DelayMinutes fields (AGENTS.md #9 -- one source of offset with resolveProjectedStopIndex)', () => {
+    const stops = [
+      stop({
+        stationId: 'A',
+        isConfirmed: true,
+        plannedDeparture: '2026-08-01T10:00:00.000Z',
+        actualDeparture: '2026-08-01T10:10:00.000Z',
+        // PKP dała czas faktyczny, ale nie policzyła jeszcze pola opóźnienia w minutach --
+        // dokładnie przypadek z AGENTS.md #2 (isConfirmed jest prawdziwym sygnałem,
+        // *DelayMinutes bywa null mimo obecnego actualDeparture).
+        departureDelayMinutes: null,
+        arrivalDelayMinutes: null,
+        lat: 50,
+        lon: 19,
+      }),
+      stop({ stationId: 'B', plannedArrival: '2026-08-01T11:00:00.000Z', lat: 50.5, lon: 19.5 }),
+      stop({ stationId: 'C', plannedArrival: '2026-08-01T12:00:00.000Z', lat: 51, lon: 20 }),
+      stop({ stationId: 'D', plannedArrival: '2026-08-01T12:30:00.000Z', lat: 51.5, lon: 20.5 }),
+      stop({ stationId: 'E', plannedArrival: '2026-08-01T13:00:00.000Z', lat: 52, lon: 21 }),
+    ]
+    // Ten sam offset (10 min, z actualDeparture - plannedDeparture) i ten sam wynik co
+    // test wyżej ("stale, dense-line-lagging") -- jedyna różnica to źródło offsetu.
+    // Stary kod (czytający *DelayMinutes wprost) dostałby tu `?? 0` i policzyłby fraction
+    // bez przesunięcia (D->E: 12:30-13:00 zamiast 12:40-13:10), inny wynik.
     const result = resolveInterpolatedPosition(stops, 'S', D('2026-08-01T12:50:00.000Z'))
     expect(result).not.toBeNull()
     expect(result!.lat).toBeCloseTo(51.667, 2)
