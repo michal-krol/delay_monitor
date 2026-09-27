@@ -14,8 +14,23 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   kolejnych stron danych o realizacji faktycznie zostało przerwane (limit stron lub
   budżet zapytań), a nie przy każdej kolejnej stronie.
 
+### Naprawione
+
+- Szczegóły połączenia zużywają mniej zapytań do PKP: trasa pociągu (lista stacji
+  z rozkładu) jest zapamiętywana na dobę, a informacja „nie znaleziono połączenia" przez
+  10 minut.
+- Gdy w ciągu godziny przyjdzie zbyt wiele zapytań o szczegóły połączeń, aplikacja
+  pokazuje komunikat „spróbuj ponownie za kilka minut" zamiast zużywać cały limit
+  zapytań do PKP, z którego korzystają też tablice odjazdów.
+
 ### Bezpieczeństwo
 
+- Szczegóły połączenia przyjmują tylko datę kursowania z zakresu od 7 dni wstecz do
+  jutra.
+- Ulubione stacje i przystanki zapisane w przeglądarce są sprawdzane pod kątem
+  poprawności identyfikatorów; uszkodzony wpis jest pomijany, pozostałe zostają.
+- Wyszukiwanie stacji nie zapamiętuje tysięcy nazw przy krótkim zapytaniu, a lista
+  stacji w zapytaniu o tablicę jest poprawnie kodowana.
 - Zaktualizowane zależności przechodnie `sharp` (0.35.5) i `nanoid` (3.3.19) — usuwa
   dwie podatności o wysokiej wadze zgłaszane przez `npm audit`.
 
