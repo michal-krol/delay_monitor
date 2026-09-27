@@ -6,6 +6,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Zmienione
+
+- Biblioteka map MapLibre GL JS zaktualizowana z 6.9.0 do 6.11.1 (wraz z dołączonymi
+  kopiami skryptów wątku roboczego mapy).
+
 ## [1.0.0] — 2026-09-27
 
 Pierwsze stabilne wydanie. Od tej wersji publiczne adresy widoków, kształt odpowiedzi
