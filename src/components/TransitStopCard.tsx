@@ -20,7 +20,7 @@ type Props = {
  * zapytań; Pulpit trzyma kilka przypięć, nie kilkadziesiąt).
  */
 export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
-  const { data, error } = useTransitBoard(city, [stopId], 3)
+  const { data, loading, failed } = useTransitBoard(city, [stopId], 3)
   // Ten sam wzorzec `/api/cities` co `CityWeatherCard`/`TransitStopDetail`
   // (Task 3/4) — duplikacja świadoma, PR 5 scali w jeden hook.
   const [cityEntries, setCityEntries] = useState<{ id: string; name: string }[]>([])
@@ -39,12 +39,6 @@ export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const board = data?.stops[0] ?? null
   const name = board?.name ?? stopName
-  // Ten sam trójstan co TransitStopDetail (AGENTS.md #7): feed GTFS wciąż
-  // ładujący się (`schedule.state === 'loading'`, board `null`) to nadal
-  // „ładowanie", nie „błąd" ani „puste".
-  const scheduleLoading = data !== null && data.schedule.state === 'loading'
-  const loading = (data === null && error === null) || scheduleLoading
-  const failed = data === null && error !== null
 
   return (
     <article className="glass group relative isolate w-full overflow-hidden rounded-2xl border p-5" style={{ borderColor: 'var(--surface-border)' }}>

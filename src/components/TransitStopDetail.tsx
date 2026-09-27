@@ -116,7 +116,7 @@ export function TransitStopDetail({
   }
   // Jedno zapytanie na obie zakładki odjazdowe — „Pełny rozkład" pokazuje całą
   // listę do `SCHEDULE_FETCH_LIMIT`, „Najbliższe" tnie ją do podglądu niżej.
-  const { data, error } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effSlupek)
+  const { data, error, loading, failed } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effSlupek)
   // Nazwa miasta z `/api/cities` — ten sam wzorzec co `CityWeatherCard`
   // (Task 3), zamiast wyświetlać surowy slug. Fallback do slugu, dopóki lista
   // się nie wczyta. Duplikacja świadoma: PR 5 scali oba miejsca w jeden hook.
@@ -156,12 +156,6 @@ export function TransitStopDetail({
   const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }
   const key = favouriteKey(favourite)
   const pinned = isFavourite(key)
-  // GTFS może odpowiedzieć 200 z `schedule.state === 'loading'` zanim poller
-  // wczyta feed (board wtedy `null`) — to wciąż „ładowanie", nigdy „błąd"
-  // (AGENTS.md #7). „Błąd" = w ogóle brak odpowiedzi (pierwszy fetch padł).
-  const scheduleLoading = data !== null && data.schedule.state === 'loading'
-  const loading = (data === null && error === null) || scheduleLoading
-  const failed = data === null && error !== null
 
   const departures = useMemo(
     () => (lineFilter === null ? (board?.departures ?? []) : (board?.departures ?? []).filter((d) => d.routeId === lineFilter)),

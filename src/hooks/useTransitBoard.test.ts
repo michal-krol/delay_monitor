@@ -74,4 +74,61 @@ describe('useTransitBoard', () => {
     await vi.advanceTimersByTimeAsync(30000)
     expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił
   })
+
+  // Trójstan `loading`/`failed` — jedna implementacja dla TransitStopDetail i
+  // TransitStopCard (AGENTS.md #2, #7). Przeniesione tu z komponentów (były
+  // zduplikowane, patrz task-4 fix round 1).
+  describe('loading/failed', () => {
+    it('is loading before the first response resolves', () => {
+      const fetchMock = vi.fn(() => new Promise<Response>(() => {}))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      expect(result.current.loading).toBe(true)
+      expect(result.current.failed).toBe(false)
+    })
+
+    it('stays loading while schedule.state is "loading", even though the response itself succeeded', async () => {
+      const fetchMock = vi.fn().mockImplementation(() => ready('loading'))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+      expect(result.current.loading).toBe(true)
+      expect(result.current.failed).toBe(false)
+    })
+
+    it('is neither loading nor failed once the schedule is ready', async () => {
+      const fetchMock = vi.fn().mockImplementation(ready)
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+      expect(result.current.loading).toBe(false)
+      expect(result.current.failed).toBe(false)
+    })
+
+    it('is failed only when the first fetch has no data to fall back on', async () => {
+      const fetchMock = vi.fn().mockRejectedValue(new Error('network'))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      await vi.waitFor(() => expect(result.current.failed).toBe(true))
+      expect(result.current.loading).toBe(false)
+    })
+
+    it('keeps the last good snapshot on a later failure, so failed stays false', async () => {
+      const fetchMock = vi.fn().mockImplementation(ready)
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+
+      fetchMock.mockRejectedValueOnce(new Error('network'))
+      await vi.advanceTimersByTimeAsync(30000)
+      await vi.waitFor(() => expect(result.current.error).toBe('network'))
+      expect(result.current.failed).toBe(false)
+      expect(result.current.data).not.toBeNull()
+    })
+  })
 })

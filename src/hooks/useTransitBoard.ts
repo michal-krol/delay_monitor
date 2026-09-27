@@ -117,5 +117,16 @@ export function useTransitBoard(city: string | null, stopIds: string[], limit = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city, key, limit, member])
 
-  return { data, error }
+  // Trójstan wspólny dla każdego widoku tablicy miejskiej (TransitStopDetail,
+  // TransitStopCard — AGENTS.md #2, jedna implementacja per regułę domenową).
+  // GTFS może odpowiedzieć 200 z `schedule.state === 'loading'` zanim poller
+  // wczyta feed (`data` już nie `null`, ale board wciąż nieznany) — to wciąż
+  // „ładowanie", nigdy „błąd" (#7). „Błąd" = w ogóle brak odpowiedzi (pierwszy
+  // fetch padł); po nim `data` zostaje ostatnim dobrym stanem, nie `null`,
+  // więc `failed` już nie zapala się na kolejnych odświeżeniach.
+  const scheduleLoading = data !== null && data.schedule.state === 'loading'
+  const loading = (data === null && error === null) || scheduleLoading
+  const failed = data === null && error !== null
+
+  return { data, error, loading, failed }
 }

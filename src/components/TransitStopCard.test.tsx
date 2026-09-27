@@ -19,6 +19,8 @@ describe('TransitStopCard', () => {
         attribution: [],
       },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
 
@@ -31,7 +33,7 @@ describe('TransitStopCard', () => {
   })
 
   it('calls onRemove without following the card link', async () => {
-    useTransitBoard.mockReturnValue({ data: null, error: null })
+    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
     const onRemove = vi.fn()
     render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={onRemove} />)
     await userEvent.click(screen.getByRole('button', { name: /Odepnij z Pulpitu/ }))
@@ -39,7 +41,7 @@ describe('TransitStopCard', () => {
   })
 
   it('shows an explicit error when the schedule could not load', () => {
-    useTransitBoard.mockReturnValue({ data: null, error: 'network' })
+    useTransitBoard.mockReturnValue({ data: null, error: 'network', loading: false, failed: true })
     render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
     expect(screen.getByText('Nie udało się wczytać rozkładu')).toBeInTheDocument()
   })
@@ -48,6 +50,8 @@ describe('TransitStopCard', () => {
     useTransitBoard.mockReturnValue({
       data: { stops: [null], schedule: { state: 'loading' }, attribution: [] },
       error: null,
+      loading: true,
+      failed: false,
     })
     const { container } = render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
     expect(screen.queryByText('Nie udało się wczytać rozkładu')).not.toBeInTheDocument()
@@ -56,8 +60,24 @@ describe('TransitStopCard', () => {
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
   })
 
+  it('shows the empty schedule message, not failed, when the board is ready with zero departures', () => {
+    useTransitBoard.mockReturnValue({
+      data: {
+        stops: [{ stopId: '7014M', name: 'Świętokrzyska', modes: ['metro'], departures: [] }],
+        schedule: { state: 'ready' },
+        attribution: [],
+      },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się wczytać rozkładu')).not.toBeInTheDocument()
+  })
+
   it("shows the city's display name, not the slug, once /api/cities resolves", async () => {
-    useTransitBoard.mockReturnValue({ data: null, error: null })
+    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
     vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] })))
     render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
     expect(await screen.findByText('Rozkład — Warszawa')).toBeInTheDocument()

@@ -63,6 +63,8 @@ beforeEach(() => {
       attribution: ['ZTM'],
     },
     error: null,
+    loading: false,
+    failed: false,
   })
 })
 
@@ -95,6 +97,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     expect(screen.getByRole('region', { name: 'Mapa przystanku Centrum' })).toBeInTheDocument()
@@ -129,6 +133,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     expect(screen.getByText('Słupki tego przystanku · 2')).toBeInTheDocument()
@@ -140,6 +146,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
 
@@ -167,6 +175,8 @@ describe('TransitStopDetail', () => {
         attribution: [],
       },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     const alertsTab = screen.getByRole('tab', { name: /Komunikaty/ })
@@ -204,6 +214,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     search = 'slupek=100102'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
@@ -214,6 +226,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     search = 'slupek=..%2F..'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
@@ -224,6 +238,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     search = 'name=Centrum'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
@@ -241,6 +257,8 @@ describe('TransitStopDetail', () => {
         attribution: [],
       },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.getByText('Najbliższy odjazd')).toBeInTheDocument()
@@ -258,7 +276,7 @@ describe('TransitStopDetail', () => {
   })
 
   it('shows a failed message, not the empty schedule message, when the first fetch fails', () => {
-    useTransitBoard.mockReturnValue({ data: null, error: 'network' })
+    useTransitBoard.mockReturnValue({ data: null, error: 'network', loading: false, failed: true })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
     expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
@@ -273,6 +291,8 @@ describe('TransitStopDetail', () => {
         attribution: [],
       },
       error: null,
+      loading: true,
+      failed: false,
     })
     const { container } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
@@ -291,6 +311,8 @@ describe('TransitStopDetail', () => {
         attribution: [],
       },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
