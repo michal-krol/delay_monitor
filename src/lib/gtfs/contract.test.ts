@@ -32,7 +32,8 @@ async function columns(name: string): Promise<Set<string>> {
   return new Set(headerIndex(await firstLine(name)).keys())
 }
 
-describe.skipIf(process.env.GTFS_CONTRACT !== '1')('kontrakt: feed mkuran ↔ warstwa gtfs', () => {
+// Live network: the first test pays the cold ZIP central-directory range reads (~5 s on CI runners).
+describe.skipIf(process.env.GTFS_CONTRACT !== '1')('kontrakt: feed mkuran ↔ warstwa gtfs', { timeout: 30_000 }, () => {
   it('feed_info.txt niesie feed_version (strażnik spójności ładowania)', async () => {
     expect(await client.getFeedVersion()).toMatch(/\S/)
   })
