@@ -27,6 +27,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Gdy w ciągu godziny przyjdzie zbyt wiele zapytań o szczegóły połączeń, aplikacja
   pokazuje komunikat „spróbuj ponownie za kilka minut" zamiast zużywać cały limit
   zapytań do PKP, z którego korzystają też tablice odjazdów.
+- Otwarta karta szczegółów połączenia dociągająca dane w tle (co 5 minut oraz przy
+  powrocie na kartę) nie blokuje już innym użytkownikom pierwszego wczytania —
+  ostatnie kilka zapytań w każdej godzinie jest zarezerwowane dla nowych wejść.
+  Nieudane dociągnięcie w tle nie pokazuje błędu — strona zostaje przy ostatnich
+  dobrych danych.
 
 ### Bezpieczeństwo
 
