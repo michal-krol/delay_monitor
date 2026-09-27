@@ -14,6 +14,12 @@ Wersjonowanie semantyczne.
   teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
   2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
   mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+- **Dane pod nową mapę** (bez zmian w UI): `/api/gtfs/stops` (wszystkie przystanki
+  miasta z pozycją, perony metra zwinięte do stacji), `/api/rail-stations/list`
+  (stacje z całej Polski, `tier`) i `/api/rail-stations/status` (statusy tylko ze
+  snapshotu pollera, peron/tor/przewoźnik), `lat`/`lon` w wynikach `/api/search`,
+  `directionId` + `nextStop` (bez czasu dojazdu) w `/api/gtfs/city-vehicles`.
+  Zero nowych zapytań do PKP.
 
 - **Mapa miasta live (wszystkie pojazdy)** — pozycja menu „Mapa" (dawniej
   wyłączona) prowadzi na pełnoekranową mapę wszystkich pojazdów komunikacji

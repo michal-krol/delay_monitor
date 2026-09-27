@@ -83,6 +83,16 @@ describe('GET /api/search', () => {
     expect(hit.lines).toEqual([{ routeId: 'M1', line: 'M1', color: null, mode: 'metro', kind: 'regular' }])
   })
 
+  it('carries map coordinates: rail from station-coordinates.json, transit as the group centroid', async () => {
+    const { body } = await call('city=warszawa&q=war')
+    const centralna = body.stations.find((s: { id: string }) => s.id === '33605')
+    expect(centralna.lat).toBeCloseTo(52.2288, 3)
+    expect(centralna.lon).toBeCloseTo(21.0033, 3)
+
+    const { body: transit } = await call('city=warszawa&q=swi')
+    expect(transit.stations[0]).toMatchObject({ lat: 52, lon: 21 })
+  })
+
   it('flags loading while the schedule is not ready — rail still works, transit retries', async () => {
     const kept = schedule
     schedule = null

@@ -43,6 +43,18 @@ describe('mapCityVehicles', () => {
     expect(v.sideNumber).toBe('3801')
     expect(v.bearing).toBe(-110)
     expect(v.ageSec).toBeLessThan(5)
+    expect(v.directionId).toBe(0)
+    // Pozycja między A i B → następny przystanek to B; bez czasu dojazdu (#13).
+    expect(v.nextStop).toEqual({ name: 'B', groupId: 'B' })
+    expect(v).not.toHaveProperty('delayMinutes')
+  })
+
+  it('has no next stop when the vehicle is too far from its route to project', async () => {
+    const s = await schedule()
+    const p = { id: 'V/3', tripId: 'T', lat: 53.5, lon: 22.5, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }
+    const [v] = mapCityVehicles(s, [p], Date.now())
+    expect(v.routeId).toBe('20')
+    expect(v.nextStop).toBeNull()
   })
 
   it('keeps a vehicle with an unknown trip_id in the list, without a route', async () => {

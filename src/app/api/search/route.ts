@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server'
 import { client } from '@/lib/board/instance'
 import { getCity } from '@/lib/gtfs/cities'
 import { getGtfsPoller } from '@/lib/gtfs/instance'
-import { groupLines, searchStops, stopGroup, type GtfsLine } from '@/lib/gtfs/query'
+import { groupCentroid, groupLines, searchStops, stopGroup, type GtfsLine } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { CITY_ID_PATTERN } from '@/lib/validation'
+import { getStationCoordinates } from '@/lib/weather/coordinates'
 
 const MAX_SUGGESTIONS = 10
 const MAX_QUERY_LENGTH = 100
@@ -17,6 +18,9 @@ type SearchOption = {
   mode: GtfsMode
   modes?: GtfsMode[]
   lines?: GtfsLine[]
+  /** Cel `flyTo` na mapie: kolej z `station-coordinates.json`, zespół = środek słupków. Brak = nieznana pozycja. */
+  lat?: number
+  lon?: number
 }
 
 /**
@@ -49,7 +53,9 @@ export async function GET(request: Request) {
     const stations = await client.searchStations(query)
     for (const station of stations) {
       if (station.name.startsWith(city.railStationPrefix)) {
-        results.push({ id: station.id, name: station.name, kind: 'rail', mode: 'rail' })
+        // Brak/awaria pliku współrzędnych nie wywala wyszukiwarki — wynik bez pozycji.
+        const coords = await getStationCoordinates(station.id).catch(() => null)
+        results.push({ id: station.id, name: station.name, kind: 'rail', mode: 'rail', ...coords })
       }
     }
   } catch {
@@ -70,6 +76,7 @@ export async function GET(request: Request) {
         mode: modes[0] ?? 'other',
         modes,
         lines: groupLines(schedule, hit.id),
+        ...groupCentroid(schedule, hit.id),
       })
     }
   }

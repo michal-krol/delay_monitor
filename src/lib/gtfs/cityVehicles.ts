@@ -1,4 +1,5 @@
 import type { GtfsMode, GtfsSchedule } from './types'
+import { projectVehicle } from './vehicleProject'
 import type { VehiclePosition } from './vehicles'
 
 export type CityVehicle = {
@@ -13,6 +14,14 @@ export type CityVehicle = {
   shortName: string | null
   mode: GtfsMode | null
   color: string | null
+  /** Kierunek przebiegu (`direction_id`) — tryb linii na mapie wybiera nim stronę trasy. */
+  directionId: number | null
+  /**
+   * Najbliższy przystanek przed pojazdem, z rzutu pozycji na przebieg linii
+   * (`projectVehicle`). BEZ czasu dojazdu — ten byłby rozkładowy, a udawałby
+   * prognozę (#13). `null` = rzut niemożliwy (nieznany kurs, > 2 km od trasy).
+   */
+  nextStop: { name: string; groupId: string } | null
 }
 
 /**
@@ -30,6 +39,9 @@ export function mapCityVehicles(schedule: GtfsSchedule, positions: VehiclePositi
     const pattern = ref !== undefined ? schedule.routePatterns.get(`${ref.routeIdx}:${ref.direction}`) : undefined
     const headsign = pattern !== undefined && pattern.headsignIdx >= 0 ? schedule.headsigns[pattern.headsignIdx] : null
 
+    const projected = projectVehicle(schedule, position, nowMs)
+    const nextStopIdx = projected !== null ? pattern?.stops[projected.afterStopOrder + 1] : undefined
+
     const parsed = Date.parse(position.timestamp)
     const ageSec = Number.isFinite(parsed) ? Math.max(0, Math.floor((nowMs - parsed) / 1000)) : 0
 
@@ -45,6 +57,11 @@ export function mapCityVehicles(schedule: GtfsSchedule, positions: VehiclePositi
       shortName: route?.shortName ?? null,
       mode: route?.mode ?? null,
       color: route?.color ?? null,
+      directionId: ref?.direction ?? null,
+      nextStop:
+        nextStopIdx !== undefined
+          ? { name: schedule.stopNames[nextStopIdx], groupId: schedule.stopGroupIds[nextStopIdx] }
+          : null,
     }
   })
 }
