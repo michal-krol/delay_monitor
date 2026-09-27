@@ -77,6 +77,8 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
 
 ### Bezpieczeństwo
 
+- Gałąź produkcyjna przyjmuje zmiany wyłącznie przez pull request z pozytywnym
+  wynikiem CI (`quality`, `e2e`).
 - Konfiguracja agentów blokuje wypchnięcie zmian bezpośrednio na gałąź produkcyjną
   i odczyt plików `.env`.
 - Automatyczne propozycje aktualizacji zależności (Dependabot).
@@ -96,7 +98,7 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
   przewoźnicy i liczba utrudnień.
 - **Utrudnienia** — oznaczenie w wierszu tablicy, sekcja w szczegółach połączenia,
   licznik w widżecie stanu sieci.
-- **Prognoza opóźnienia** dla pociągów jeszcze niewyruszonych, wyznaczana ze stacji
+- **Prognoza opóźnienia** dla pociągów, które jeszcze nie wyruszyły, wyznaczana ze stacji
   poprzedzającej i oznaczona jako szacunek.
 - **Diagnostyka źródeł danych** w `/api/health` oraz panel diagnostyczny w środowiskach
   deweloperskim i testowym.
@@ -171,7 +173,7 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
 
 - Pełna nazwa przewoźnika pochodzi ze słownika PKP.
 - Kolumna przewoźnika widoczna na telefonie.
-- Mniejszy rozmiar zapytań o realizację ruchu (ok. 12-krotnie), co wyeliminowało
+- Ok. 12-krotnie mniejsze odpowiedzi z danymi o realizacji ruchu, co wyeliminowało
   przekroczenia czasu odświeżania.
 
 ### Naprawione

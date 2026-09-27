@@ -38,8 +38,9 @@ utrudnień.
   naprzód: godzina planowa, czas rzeczywisty lub prognoza, pociąg z kategorią
   i przewoźnikiem, kierunek z głównymi stacjami pośrednimi, peron i tor oraz status
   z opóźnieniem w minutach.
-- **Wskaźniki dnia**: liczba odjazdów i przyjazdów, średnie opóźnienie i punktualność
-  (próg 5 minut), liczone z potwierdzonych przejazdów przez daną stację.
+- **Wskaźniki dnia**: liczba odjazdów i przyjazdów według rozkładu oraz średnie
+  opóźnienie i punktualność (próg 5 minut), liczone z potwierdzonych przejazdów przez
+  daną stację.
 - **Kontekst**: najpopularniejsze kierunki z możliwością filtrowania tablicy,
   natężenie ruchu w ciągu doby, utrudnienia dotyczące stacji, pogoda i mapa
   lokalizacji.
@@ -133,8 +134,8 @@ Przeglądarka ───────────▶ /api/gtfs/* ─▶ rozkład G
 ```
 
 - **Niezależne rytmy.** Przeglądarka odpytuje wyłącznie własny serwer, a serwer
-  odpytuje źródła zewnętrzne według własnego harmonogramu. Liczba użytkowników nie
-  wpływa na liczbę zapytań do PKP.
+  odpytuje źródła zewnętrzne według własnego harmonogramu. Liczba zapytań do PKP
+  zależy od liczby oglądanych stacji, a nie bezpośrednio od liczby użytkowników.
 - **Oszczędne korzystanie z limitu API.** Poller obejmuje tylko stacje, które są
   aktualnie oglądane, usypia po okresie bezczynności, śledzi godzinowy i dobowy limit
   klucza i zwalnia, zanim go przekroczy. Rozkłady i słowniki są buforowane.
@@ -142,7 +143,7 @@ Przeglądarka ───────────▶ /api/gtfs/* ─▶ rozkład G
   powstają z rozkładu, a dane o ruchu dokładają opóźnienia i statusy. Brak danych
   o ruchu nie powoduje pustej tablicy.
 - **Komunikacja sieciowa wyłącznie na krawędziach.** Połączenia z usługami
-  zewnętrznymi obsługują dedykowane klienty (`lib/pkp/client.ts`,
+  zewnętrznymi obsługują osobne moduły klienckie (`lib/pkp/client.ts`,
   `lib/weather/client.ts`, klient GTFS); logika domenowa to czyste funkcje testowane
   bez sieci. Jedynym wyjątkiem są kafelki mapy, pobierane bezpośrednio przez
   przeglądarkę.
@@ -211,9 +212,9 @@ aplikacja jest dostosowana do poziomu Basic (100 zapytań na godzinę i 1000 na 
 | `GTFS_ALERT_POLL_MS` | `300000` | Interwał odczytu komunikatów |
 | `PORT` | `3000` | Port serwera |
 
-Konfiguracja jest walidowana przy starcie (`src/lib/config.ts`); nieprawidłowa
-wartość przerywa uruchomienie z czytelnym komunikatem. `PKP_DATA_SOURCE=live`
-wymaga klucza.
+Konfiguracja jest walidowana schematem Zod (`src/lib/config.ts`); nieprawidłowa
+wartość powoduje błąd z czytelnym komunikatem przy pierwszym użyciu konfiguracji.
+`PKP_DATA_SOURCE=live` wymaga klucza. `PORT` odczytuje bezpośrednio serwer Next.js.
 
 ## Wykorzystywane API PKP PLK
 
@@ -224,6 +225,7 @@ wymaga klucza.
 | `GET /api/v1/operations/statistics` | Statystyki dnia dla widżetu stanu sieci |
 | `GET /api/v1/schedules` | Rozkład: przewoźnik, kategoria, perony, trasa, słowniki nazw |
 | `GET /api/v1/schedules/route/{scheduleId}/{orderId}` | Planowa trasa pojedynczego pociągu |
+| `GET /api/v1/schedules/routes/{date}` | Trasy dnia — przewoźnicy w widżecie stanu sieci |
 | `GET /api/v1/disruptions` | Utrudnienia powiązane z pociągami |
 | `GET /api/v1/dictionaries/*` | Słowniki stacji, przewoźników i kategorii handlowych |
 | `GET /api/v1/data-version` | Wykrywanie wstrzymanej publikacji danych |
@@ -265,7 +267,7 @@ Aktualizacje zależności proponuje Dependabot (npm, GitHub Actions, obraz Docke
 ## Wdrożenie
 
 - Dwa środowiska Railway: **staging** z gałęzi `dev` i **produkcja** z gałęzi `main`.
-  Wdrożenie następuje automatycznie po zmianie gałęzi.
+  Wdrożenie następuje automatycznie po każdej zmianie na gałęzi.
 - Gałąź `main` przyjmuje zmiany wyłącznie przez pull request z pozytywnym wynikiem CI.
 - Obraz jest budowany z `Dockerfile` (`output: 'standalone'`); proces działa bez
   uprawnień roota.
@@ -288,7 +290,7 @@ Aktualizacje zależności proponuje Dependabot (npm, GitHub Actions, obraz Docke
 ## Wersjonowanie
 
 Projekt stosuje [Semantic Versioning 2.0.0](https://semver.org/lang/pl/). Każde
-wydanie ma tag `vX.Y.Z` i opis w [CHANGELOG.md](CHANGELOG.md), prowadzonym w formacie
+wydanie od 1.0.0 ma tag `vX.Y.Z` i opis w [CHANGELOG.md](CHANGELOG.md), prowadzonym w formacie
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/). Zakres stabilności wersji 1.x
 opisuje [ADR 0002](adr/0002-kryteria-wersji-1-0.md).
 
