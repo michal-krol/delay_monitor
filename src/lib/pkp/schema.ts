@@ -328,7 +328,7 @@ export const disruptionsResponseSchema = z
  *
  * Świadomie NIE do sterowania cache'em rozkładu — to zostało zbadane wcześniej
  * i odrzucone (identyfikatory rotują szybciej niż nasze TTL i reagują na szum
- * w nieparsowanym polu `connections[].id`; patrz README, „Inne endpointy API").
+ * w nieparsowanym polu `connections[].id`).
  * Tamten wniosek dotyczył oszczędzania pobrań i nadal obowiązuje.
  */
 export const dataVersionResponseSchema = z

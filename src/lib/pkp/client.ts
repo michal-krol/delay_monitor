@@ -146,8 +146,7 @@ export type TrainDetailResult = {
   operation: RawTrainOperation
   /**
    * Trasa rozkładowa: peron/tor/kategoria per przystanek. `null`, gdy nie ma
-   * dopasowanej trasy (patrz „Znane ograniczenia" w README — dotyczy mniejszości
-   * pociągów) — realizacja i tak zostaje pokazana, tylko bez peronu/toru.
+   * dopasowanej trasy (dotyczy mniejszości pociągów) — realizacja i tak zostaje pokazana, tylko bez peronu/toru.
    */
   route: RawRoute | null
   /**
@@ -196,8 +195,7 @@ export interface PkpClient {
   getCachedStationIds(): ReadonlySet<string> | null
   /**
    * Zagregowane liczniki statusów pociągów w całym kraju, bez filtra po
-   * stacji — API nie oferuje takiego filtra dla tego endpointu (patrz
-   * README, sekcja o widżecie "stan sieci"). Wywołujący (patrz
+   * stacji — API nie oferuje takiego filtra dla tego endpointu. Wywołujący (patrz
    * `board/networkStats.ts`) cache'uje wynik po swojej stronie — ta metoda
    * jest surowym fetcherem, jak `getOperations()`.
    */
@@ -576,8 +574,7 @@ export function createLiveClient(
       const operationUrl = `${BASE_URL}/api/v1/operations/train/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}/${encodeURIComponent(operatingDate)}`
       const routeUrl = `${BASE_URL}/api/v1/schedules/route/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}`
 
-      // Trasa rozkładowa może nie istnieć dla mniejszości pociągów (patrz
-      // „Znane ograniczenia" w README) — to nie powód, żeby nie pokazać
+      // Trasa rozkładowa może nie istnieć dla mniejszości pociągów — to nie powód, żeby nie pokazać
       // realizacji. Stąd allSettled zamiast Promise.all: brak trasy to `null`,
       // nie odrzucenie całego żądania.
       const [operationResult, routeResult] = await Promise.allSettled([

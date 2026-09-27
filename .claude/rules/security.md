@@ -25,8 +25,9 @@ PKP responses = data from outside the system.
   it doesn't build from scratch (several modules write to the same URL).
 - Security headers from `next.config.ts` are guarded by `next.config.test.ts` — weakening the
   policy = update the test.
-- Deliberately accepted risks (CSP `'unsafe-inline'`, `/api/health` reveals mode, `overrides`
-  for `sharp`/`postcss`): README „Świadomie przyjęte ryzyko".
+- Deliberately accepted risks and their rationale are kept out of the public README, in the
+  main checkout's gitignored `docs/security-accepted-risks.md`. Adding or removing one =
+  update that file. The README states principles only, never known weaknesses.
 
 # #5 One replica, state in memory
 

@@ -21,7 +21,7 @@ const CARRIER_LOGOS: Record<string, string> = {
   // Koleje Małopolskie (KMŁ) i Koleje Śląskie (KS) — logo dostępne na Wikimedia
   // Commons tylko jako PNG (rastrowe), bez wersji wektorowej. Logo Koleje
   // Śląskie jest na licencji CC-BY-SA 4.0, autor: FHrad — link do źródła
-  // i licencji w README ("Licencja").
+  // i licencji w README (sekcja „Licencja”).
   KMŁ: '/carriers/kml.png',
   KS: '/carriers/ks.png',
   KW: '/carriers/kw.svg',

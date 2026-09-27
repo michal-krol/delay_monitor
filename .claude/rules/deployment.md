@@ -11,12 +11,14 @@ paths:
 
 # Deployment in this repo (Railway)
 
-General rules: `~/.claude/rules/deployment.md`, `versioning.md`. Full description: README
-„Deployment (Railway)".
+General rules: `~/.claude/rules/deployment.md`, `versioning.md`. Public summary: README
+„Wdrożenie” (keep internal details — keys, costs, URLs, platform settings — out of it).
 
 - One Railway project, two environments: `main` → production (`live`, real key), `dev` →
   staging (`live`, a **separate second PKP key** — independent 100/h + 1000/day budget, #3).
   Railway deploys automatically on push from the `Dockerfile` (`output: 'standalone'`).
+- `main` is protected by the GitHub ruleset `branch-protection`: PR only, required checks
+  `quality` and `e2e`, no force-push or deletion. Renaming a CI job = update the ruleset.
 - Railway waits for CI (`checkSuites=true`): a deploy shown as WAITING after a push means
   "waiting for CI", not a lost deploy. Don't force it with an empty commit.
 - `/api/health` is the healthcheck and returns 200 even with a bad key

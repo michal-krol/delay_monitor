@@ -3,10 +3,10 @@ name: CI
 on:
   pull_request:
     branches: [main, dev]
-  # Railway deployuje z main (produkcja) i dev (staging) po każdym pushu,
-  # a commity trafiają tam bezpośrednio, nie przez pull requesty. Bez tego
-  # wyzwalacza żadna z dwóch gałęzi nie przechodziłaby przez żadną bramkę
-  # jakości przed wdrożeniem.
+  # Railway deployuje z main (produkcja) i dev (staging) po każdym pushu.
+  # `main` przyjmuje zmiany tylko przez PR z wymaganymi `quality` i `e2e`
+  # (ruleset „branch-protection"); push-trigger sprawdza też stan po scaleniu
+  # i ewentualne bezpośrednie zmiany na `dev`.
   push:
     branches: [main, dev]
 

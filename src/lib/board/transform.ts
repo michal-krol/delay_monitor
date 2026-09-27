@@ -502,7 +502,7 @@ function collectRowSources(
     // stacji — a robi to wyłącznie, gdy trasa kursuje dziś ORAZ ma tę stację na
     // liście przystanków (te same dwa warunki co wyżej). Trasa dopasowana, ale
     // bez tej stacji — w skrajnym przypadku z pustą listą przystanków (realny
-    // kształt, patrz README „Znane ograniczenia") — NIE jest wyżej obsłużona
+    // kształt) — NIE jest wyżej obsłużona
     // i musi trafić tutaj, inaczej kurs znika z tablicy mimo obecności w realizacji.
     const routeHandledAbove =
       route !== undefined &&

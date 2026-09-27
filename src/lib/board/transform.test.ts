@@ -1143,7 +1143,7 @@ describe('transformOperations — rozkład jako źródło listy', () => {
   })
 
   it('dokleja kurs z realizacji, gdy dopasowana trasa istnieje, ale ma pustą listę przystanków', () => {
-    // Realny kształt (patrz README, „Znane ograniczenia"): mniejszość pociągów
+    // Realny kształt: mniejszość pociągów
     // ma wpis trasy bez listy przystanków. Pętla po rozkładzie pomija taką trasę
     // (nie „przechodzi" przez żadną stację), więc kurs musi trafić na tablicę
     // ścieżką rezerwową -- inaczej znika mimo obecności w realizacji.
