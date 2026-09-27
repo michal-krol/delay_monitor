@@ -44,6 +44,18 @@ export const MODE_COLOR: Record<GtfsMode, string> = {
 }
 export const UNKNOWN_COLOR = '#6b7280'
 
+const HEX = /^#[0-9a-fA-F]{6}$/
+
+/**
+ * Kolor PRZEBIEGU linii (tło metra/SKM, trasa w trybie linii). Metro i kolej mają
+ * w Warszawie utrwalone barwy linii (M1 granatowa, M2 czerwona) — te same co na
+ * plakietkach `LineBadge`, więc bierzemy `route_color` z feedu. Autobusy i tramwaje
+ * zostają przy kolorze rodzaju (spec §9) — ich barwy z feedu nic nie znaczą dla pasażera.
+ */
+export function routeColor(mode: GtfsMode, color: string | null): string {
+  return (mode === 'metro' || mode === 'rail') && color !== null && HEX.test(color) ? color : MODE_COLOR[mode]
+}
+
 /** Warstwy przełączane w „Filtrach". Domyślnie wszystkie widoczne. */
 export type LayerKey = 'rail' | 'metroStops' | 'tramStops' | 'busStops' | 'buses' | 'trams' | 'metro' | 'trains'
 

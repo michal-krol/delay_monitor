@@ -29,6 +29,7 @@ export function MapLegend() {
         <Section title="Punkty" items={POINTS} shape="dot" />
         <Section title="Pojazdy" items={VEHICLES} shape="icon" />
         <ul className="space-y-1 text-xs text-text-muted">
+          <li>Linie metra i kolei miejskiej — w kolorze linii (M1, M2 jak na plakietkach).</li>
           <li>Strzałka przy pojeździe — kierunek jazdy.</li>
           <li>Wyblakły pojazd — pozycja sprzed ponad 1,5 min.</li>
           <li>Złota obwódka — Twoje ulubione.</li>

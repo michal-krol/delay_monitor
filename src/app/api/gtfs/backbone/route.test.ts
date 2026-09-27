@@ -8,7 +8,7 @@ vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (city: string) => (city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule } : null),
 }))
 
-const route = (id: string, type: number) => ({ id, shortName: id, longName: '', mode: modeFromRouteType(type), kind: lineKindFrom(id, undefined), color: null, textColor: contrastText(null) })
+const route = (id: string, type: number, color: string | null = null) => ({ id, shortName: id, longName: '', mode: modeFromRouteType(type), kind: lineKindFrom(id, undefined), color, textColor: contrastText(color) })
 const stop = (id: string, lat: number) => ({ id, name: id, lat, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 as const })
 
 beforeAll(async () => {
@@ -17,7 +17,7 @@ beforeAll(async () => {
     serviceDates: ['2026-09-01', '2026-09-02', '2026-09-03'],
     timezone: 'Europe/Warsaw',
     attribution: [],
-    routes: [route('M1', 1), route('128', 3)],
+    routes: [route('M1', 1, '#0000BB'), route('128', 3)],
     stops: [stop('A', 52.1), stop('B', 52.2)],
     trips: [
       { routeId: 'M1', serviceId: 'S', tripId: 'm', headsign: 'B', directionId: 0 },
@@ -50,7 +50,7 @@ describe('GET /api/gtfs/backbone', () => {
 
   it('returns metro/rail lines only, falling back to the stop polyline without a shape', async () => {
     const { response, body } = await call('city=warszawa')
-    expect(body.lines).toEqual([{ routeId: 'M1', line: 'M1', mode: 'metro', points: [[52.1, 21], [52.2, 21]] }])
+    expect(body.lines).toEqual([{ routeId: 'M1', line: 'M1', mode: 'metro', color: '#0000BB', points: [[52.1, 21], [52.2, 21]] }])
     expect(response.headers.get('Cache-Control')).toBe('public, max-age=3600')
   })
 
