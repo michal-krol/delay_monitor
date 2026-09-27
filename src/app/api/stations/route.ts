@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { client, rememberStationName } from '@/lib/board/instance'
 import { PkpApiError } from '@/lib/pkp/client'
+import { logEvent } from '@/lib/log'
 
 const MAX_SUGGESTIONS = 10
 
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     // Awaria słownika stacji nie może wywrócić route handlera nieobsłużonym
     // wyjątkiem. Odpowiadamy jawnym błędem, żeby wyszukiwarka mogła odróżnić
     // "nie ma takiej stacji" od "nie udało się sprawdzić".
-    console.error('GET /api/stations: pobranie listy stacji nie powiodło się', err)
+    logEvent('error', 'api.stations.fetch_failed', {}, err)
 
     const status = err instanceof PkpApiError && err.status === 401 ? 502 : 503
     return NextResponse.json({ stations: [], error: 'Nie udało się pobrać listy stacji' }, { status })

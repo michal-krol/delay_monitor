@@ -1,5 +1,6 @@
 import type { NameDictionaries, OperationsStatistics, PkpClient } from '../pkp/client'
 import { warsawDateString } from '../pkp/time'
+import { logEvent } from '@/lib/log'
 
 const STATISTICS_TTL_MS = 15 * 60 * 1000
 // Skład rozkładu na dany dzień jest z natury stabilny -- ten sam TTL co
@@ -88,19 +89,19 @@ export async function getNetworkStats(client: PkpClient, now: () => Date = () =>
       statisticsCache,
       STATISTICS_TTL_MS,
       () => client.getOperationsStatistics(today),
-      (err) => console.error('Widżet stanu sieci: błąd pobierania statystyk', err)
+      (err) => logEvent('error', 'network_stats.statistics_failed', {}, err)
     ),
     refreshIfStale(
       carrierCountsCache,
       CARRIER_COUNTS_TTL_MS,
       () => client.getDailyCarrierCounts(today),
-      (err) => console.error('Widżet stanu sieci: błąd pobierania rozkładu przewoźników', err)
+      (err) => logEvent('error', 'network_stats.carrier_counts_failed', {}, err)
     ),
     refreshIfStale(
       disruptionCountCache,
       DISRUPTION_COUNT_TTL_MS,
       () => client.getDisruptionCount(today, today),
-      (err) => console.error('Widżet stanu sieci: błąd pobierania liczby utrudnień', err)
+      (err) => logEvent('error', 'network_stats.disruption_count_failed', {}, err)
     ),
   ])
 

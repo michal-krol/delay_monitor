@@ -16,6 +16,7 @@ import {
 import { normalizeForSearch } from '../search'
 import { createTtlCache } from '../cache'
 import { warsawDateString } from './time'
+import { logEvent } from '@/lib/log'
 
 const BASE_URL = 'https://pdp-api.plk-sa.pl'
 const REQUEST_TIMEOUT_MS = 8000
@@ -466,9 +467,7 @@ export function createLiveClient(
      */
     let usedFullRouteFallback = false
     if (parsed.routes.length > 0 && !parsed.routes.some((route) => route.stations.length > 0)) {
-      console.error(
-        `PKP: /schedules?fullRoute=true zwróciło ${parsed.routes.length} tras, wszystkie bez przystanków — ponawiam bez fullRoute`
-      )
+      logEvent('error', 'pkp.schedules_full_route_empty', { routes: parsed.routes.length })
       usedFullRouteFallback = true
       const fallback = await fetchJsonWithRetry(baseUrl, apiKey, 'Pobranie rozkładu nie powiodło się')
       parsed = schedulesResponseSchema.parse(fallback.json)
@@ -530,9 +529,7 @@ export function createLiveClient(
       // a poller decyduje (budżet, limit stron), czy iść po następną.
       const truncated = parsed.pagination?.hasNextPage === true
       if (truncated) {
-        console.warn(
-          `PKP /operations: strona ${page} nie zmieściła całości (totalCount=${parsed.pagination?.totalCount ?? '?'}) — poller dociągnie kolejne`
-        )
+        logEvent('warn', 'pkp.operations_page_partial', { page, totalCount: parsed.pagination?.totalCount ?? null })
       }
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response), truncated }
     },
