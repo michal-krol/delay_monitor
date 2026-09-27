@@ -45,7 +45,7 @@ describe('TransitStopCard', () => {
   it('shows an explicit error when the schedule could not load', () => {
     useTransitBoard.mockReturnValue({ data: null, error: 'network', loading: false, failed: true })
     render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
-    expect(screen.getByText('Nie udało się wczytać rozkładu')).toBeInTheDocument()
+    expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
   })
 
   it('shows loading, not the empty message, while GTFS is still loading', () => {
@@ -56,7 +56,7 @@ describe('TransitStopCard', () => {
       failed: false,
     })
     const { container } = render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
-    expect(screen.queryByText('Nie udało się wczytać rozkładu')).not.toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
     expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
@@ -75,7 +75,7 @@ describe('TransitStopCard', () => {
     })
     render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
     expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
-    expect(screen.queryByText('Nie udało się wczytać rozkładu')).not.toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
   })
 
   it("shows the city's display name, not the slug, once /api/cities resolves", async () => {
