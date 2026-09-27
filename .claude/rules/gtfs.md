@@ -25,6 +25,11 @@ paths:
   (once/day + idle TTL). GTFS loads **once** (~107 MB, ~3 s parse), then only from memory.
   `/api/gtfs/*` never wait — `ensureLoaded()` fire-and-forget, `getSchedule()` returns `null`
   until ready, the client retries.
+- **Feed fetch timeouts differ by feed.** Vehicles/alerts: 10 s for the whole request. Static
+  feed range reads (`client.ts`): the timeout covers only time to response headers, not the
+  streamed body — a 107 MB body can legitimately take longer than 30 s; a body stalling
+  mid-stream is left to undici's default (accepted risk). Don't "fix" it back to
+  `AbortSignal.timeout`.
 - **City registry (`gtfs/cities.ts`) = the only place with per-city logic.** New city = one
   entry in `REGISTRY`, zero code (`cities.test.ts`). Slug = full name without Polish
   characters (`warszawa`, `krakow`), `[a-z]{2,24}`, fixture directory = slug. "wtp"/"ztm" don't
