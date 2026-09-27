@@ -205,8 +205,8 @@ Wersjonowanie semantyczne.
 - **Monitoring produkcji** (`.github/workflows/health.yml`) — co 30 min
   `/api/health`, czerwono przy `pollerStatus` ≠ `ok` (zły klucz, zepsuty albo
   zamrożony feed). Oba harmonogramy ruszają po trafieniu na `main`.
-- **ADR** (`adr/`) — 0001 jedna replika i stan w pamięci, 0002 kryteria 1.0.0
-  (propozycja).
+- **ADR** (`adr/`) — 0001 jedna replika i stan w pamięci, 0002 wydanie 1.0.0
+  i od niego ścisły SemVer (kontrakt stabilności 1.x).
 - **Przepływ `lokalnie → dev → main`** spisany w AGENTS.md #12 — feature branch
   scala się do `dev` (staging Railway) przez PR, dopiero zielony `dev` idzie na
   `main` (produkcja). Koniec pushowania feature'ów prosto na `main`.
