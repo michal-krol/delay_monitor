@@ -61,6 +61,17 @@ const NOT_FOUND_CACHE_TTL_MS = 10 * 60 * 1000
  * floor((90 − 40 − 7) / 3) = floor(43 / 3) = 14.
  */
 const HOURLY_MISS_CAP = 21
+
+/**
+ * Ostatnie tyle misses w oknie godziny jest zarezerwowane WYŁĄCZNIE dla
+ * żądań pierwszoplanowych (pierwsze wczytanie karty połączenia albo ręczne
+ * odświeżenie) -- dociąganie w tle (`background=1`, patrz `ConnectionDetails`)
+ * dostaje 503 wcześniej, zanim w ogóle sięgnie po ostatnie sloty. Bez tego
+ * karta zostawiona otwarta w tle (interval co 5 min + focus/visibility) mogła
+ * zająć CAŁY limit godziny, zanim nowy użytkownik zdążyłby kliknąć pierwszy
+ * pociąg.
+ */
+const FOREGROUND_RESERVE = 7
 const HOUR_MS = 3_600_000
 
 export type TrainDetailApiResponse = {
@@ -92,20 +103,42 @@ const notFoundCache = createTtlCache<true>({ ttlMs: NOT_FOUND_CACHE_TTL_MS, maxE
  * Licznik miss w oknie bieżącej godziny epoki -- zerowany, gdy zmienia się
  * `Math.floor(Date.now() / HOUR_MS)`, więc nie trzeba osobnego timera do
  * resetu (jedna replika, stan w pamięci procesu, AGENTS.md #5).
+ * `loggedCapReached` gwarantuje log `api.train.hourly_cap_reached` raz na
+ * godzinę, nie przy każdym odrzuconym żądaniu (recenzja finalna, Minor 8).
  */
-let missWindow = { hour: -1, count: 0 }
+let missWindow = { hour: -1, count: 0, loggedCapReached: false }
 
-/** `true` i inkrementuje licznik, gdy pod limitem; `false` bez efektu ubocznego, gdy limit wyczerpany. */
-function consumeMissBudget(): boolean {
+function currentMissWindow(): typeof missWindow {
   const hour = Math.floor(Date.now() / HOUR_MS)
   if (missWindow.hour !== hour) {
-    missWindow = { hour, count: 0 }
+    missWindow = { hour, count: 0, loggedCapReached: false }
   }
-  if (missWindow.count >= HOURLY_MISS_CAP) {
+  return missWindow
+}
+
+/**
+ * `true` i inkrementuje licznik, gdy pod limitem; `false` bez efektu
+ * ubocznego, gdy limit wyczerpany. `background` (dociąganie w tle, patrz
+ * `ConnectionDetails`) jest dodatkowo ograniczone do `HOURLY_MISS_CAP -
+ * FOREGROUND_RESERVE` -- ostatnie sloty zostają dla pierwszego wczytania.
+ */
+function consumeMissBudget(background: boolean): boolean {
+  const window = currentMissWindow()
+  const limit = background ? HOURLY_MISS_CAP - FOREGROUND_RESERVE : HOURLY_MISS_CAP
+  if (window.count >= limit) {
+    if (!window.loggedCapReached) {
+      logEvent('warn', 'api.train.hourly_cap_reached', { limit: HOURLY_MISS_CAP })
+      window.loggedCapReached = true
+    }
     return false
   }
-  missWindow.count += 1
+  window.count += 1
   return true
+}
+
+/** Wyłącznie do testów -- resetuje moduł między przypadkami (ten sam wzorzec co inne moduły ze stanem na poziomie modułu w tej bazie kodu, np. `board/networkStats.ts`). */
+export function resetMissWindowForTests(): void {
+  missWindow = { hour: -1, count: 0, loggedCapReached: false }
 }
 
 /**
@@ -171,6 +204,9 @@ export async function GET(request: Request) {
   const scheduleId = searchParams.get('scheduleId')
   const orderId = searchParams.get('orderId')
   const operatingDate = searchParams.get('operatingDate')
+  // Dokładnie '1' liczy się jako dociąganie w tle -- każda inna wartość (albo
+  // brak parametru) jest pierwszoplanowa. Nigdy nie odbijane w odpowiedzi.
+  const isBackground = searchParams.get('background') === '1'
 
   if (!scheduleId || !orderId || !operatingDate) {
     return NextResponse.json({ error: 'Brak wymaganych parametrów' }, { status: 400 })
@@ -200,8 +236,7 @@ export async function GET(request: Request) {
     if (pending === undefined) {
       // Dołączenie do trwającego pobrania nie kosztuje kolejnego zapytania do
       // PKP -- limit liczy się tylko przy zakładaniu NOWEGO pobrania.
-      if (!consumeMissBudget()) {
-        logEvent('warn', 'api.train.hourly_cap_reached', { limit: HOURLY_MISS_CAP })
+      if (!consumeMissBudget(isBackground)) {
         return NextResponse.json(
           { error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' },
           { status: 503 }
