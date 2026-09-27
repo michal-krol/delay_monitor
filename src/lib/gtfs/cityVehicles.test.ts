@@ -70,13 +70,6 @@ describe('mapCityVehicles', () => {
     expect(v.headsign).toBeNull()
   })
 
-  it('falls back to ageSec 0 for an unparseable timestamp', async () => {
-    const s = await schedule()
-    const p = { id: 'V/3', tripId: 'T', lat: 52.21, lon: 21.0, sideNumber: '1', bearing: null, timestamp: 'not-a-date' }
-    const [v] = mapCityVehicles(s, [p], Date.now())
-    expect(v.ageSec).toBe(0)
-  })
-
   it('maps every position, preserving order', async () => {
     const s = await schedule()
     const positions = [

@@ -81,6 +81,29 @@ describe('GET /api/gtfs/city-stats', () => {
     schedule = kept
   })
 
+  it('day missing from serviceDates: stats is null with state ready (not zeros, not stuck loading)', async () => {
+    const kept = schedule
+    schedule = await buildSchedule({
+      feedVersion: 'v1',
+      serviceDates: ['2020-01-01', '2020-01-02', '2020-01-03'],
+      timezone: 'Europe/Warsaw',
+      attribution: [],
+      routes: [
+        { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined), color: null, textColor: contrastText(null) },
+      ],
+      stops: [{ id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 }],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'Piaski', directionId: 0 }],
+      frequencies: [],
+      calendars: [],
+      calendarDates: [{ serviceId: 'S', date: '20200102', added: true }],
+      stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 't,100101,12:00:00,12:00:00,1'],
+    })
+    const { body } = await call('city=warszawa')
+    expect(body.state).toBe('ready')
+    expect(body.stats).toBeNull()
+    schedule = kept
+  })
+
   it('reports vehicle fields as null (never zeros) when no vehicle poller is present', async () => {
     const { body } = await call('city=warszawa')
     expect(body.vehiclesInService).toBeNull()

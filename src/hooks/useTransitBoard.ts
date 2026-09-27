@@ -21,8 +21,12 @@ export type TransitStopBoard = {
   members: StopGroupMember[]
   /** Aktywny słupek, gdy zawężono odjazdy do jednego; inaczej `null` (cały zespół). */
   activeMember: string | null
-  /** Fakty rozkładowe (liczba linii, odjazdy dziś, pierwszy/ostatni, wykres godzinowy). */
-  summary: StopSummary
+  /**
+   * Fakty rozkładowe (liczba linii, odjazdy dziś, pierwszy/ostatni, wykres godzinowy).
+   * `null` gdy dzisiejsza data kursowania wypadła z rozkładu (#7) — TransitStopDetail
+   * już renderuje to jako „—".
+   */
+  summary: StopSummary | null
   /** Alerty tej linii/przystanku (przez linie zespołu) — nigdy pole opóźnienia (#13). */
   alerts: AlertRecord[]
   /**

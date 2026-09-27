@@ -70,8 +70,10 @@ export function projectVehicle(
   if (best === null || best.d > MAX_OFF_ROUTE_M) return null
 
   const route = schedule.routes[ref.routeIdx]
-  const parsed = Date.parse(position.timestamp)
-  const ageSec = Number.isFinite(parsed) ? Math.max(0, Math.floor((nowMs - parsed) / 1000)) : 0
+  // `position.timestamp` jest zawsze parsowalny — `parseVehicleFeed` odrzuca
+  // pozycje bez wiarygodnego czasu u źródła (patrz `vehicles.ts`), więc nie ma
+  // tu gałęzi "nieznany wiek" do obsłużenia (#7).
+  const ageSec = Math.max(0, Math.floor((nowMs - Date.parse(position.timestamp)) / 1000))
 
   return {
     sideNumber: position.sideNumber,

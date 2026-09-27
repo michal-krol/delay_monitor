@@ -11,7 +11,7 @@ describe('fetchVehicleFeed', () => {
       new Response(
         JSON.stringify({
           time: 't',
-          positions: [{ lat: 1, lon: 2, trip_id: 'a', side_number: '9', timestamp: 'ts' }],
+          positions: [{ lat: 1, lon: 2, trip_id: 'a', side_number: '9', timestamp: '2026-09-04T08:57:36+02:00' }],
         }),
         { status: 200 },
       ),
