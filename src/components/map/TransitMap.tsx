@@ -15,6 +15,7 @@ import {
   vehiclesToGeoJSON,
   type LayerKey,
   type PointCollection,
+  type RouteOverlay,
 } from './mapData'
 
 const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty'
@@ -52,7 +53,14 @@ type Data = {
   stops: PointCollection
   rail: PointCollection
   selected: PointCollection
+  route: RouteOverlay
+  routeColor: string
 }
+
+const EMPTY_ROUTE: RouteOverlay = { line: { type: 'FeatureCollection', features: [] }, stops: EMPTY, bounds: null }
+/** Tryb linii przyciemnia wszystko poza trasą i jej pojazdami (spec §6). */
+const DIMMABLE = ['rail-1', 'rail-2', 'rail-3', 'stops-busStops', 'stops-tramStops', 'stops-metroStops']
+const DIM_OPACITY = 0.25
 
 function selectedCollection(selected: { lat: number; lon: number } | null): PointCollection {
   if (selected === null) return EMPTY
@@ -64,7 +72,7 @@ function selectedCollection(selected: { lat: number; lon: number } | null): Poin
  * zmiana motywu (`setStyle`) wyrzuca wszystkie nasze warstwy, więc dodajemy je
  * od nowa z bieżących danych z `ref`-a.
  */
-function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, dark: boolean): void {
+function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, dark: boolean, dimmed: boolean): void {
   if (map.getSource('vehicles') !== undefined) return
   const labelPaint = {
     'text-color': dark ? '#e2e8f0' : '#1e293b',
@@ -77,6 +85,8 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
   map.addSource('stops', { type: 'geojson', data: data.stops })
   map.addSource('vehicles', { type: 'geojson', data: data.vehicles })
   map.addSource('selected', { type: 'geojson', data: data.selected })
+  map.addSource('route-line', { type: 'geojson', data: data.route.line })
+  map.addSource('route-stops', { type: 'geojson', data: data.route.stops })
 
   // Kolej: ranga ruchu decyduje, od jakiego zoomu stacja jest widoczna — mapa
   // kraju pokazuje węzły, nie 3 tys. kropek (bez klastrów liczbowych, spec §11).
@@ -142,6 +152,34 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     paint: labelPaint,
   })
 
+  // Trasa wybranej linii — nad przystankami i koleją, pod pojazdami.
+  map.addLayer({
+    id: 'route-line',
+    type: 'line',
+    source: 'route-line',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': data.routeColor, 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 3, 16, 7], 'line-opacity': 0.9 },
+  })
+  map.addLayer({
+    id: 'route-stops',
+    type: 'circle',
+    source: 'route-stops',
+    paint: {
+      'circle-color': '#ffffff',
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 16, 5],
+      'circle-stroke-color': data.routeColor,
+      'circle-stroke-width': 2,
+    },
+  })
+  map.addLayer({
+    id: 'route-stops-labels',
+    type: 'symbol',
+    source: 'route-stops',
+    minzoom: MAP_ZOOM.metroStops + 2,
+    layout: { 'text-field': ['get', 'label'], 'text-font': FONT, 'text-size': 11, 'text-offset': [0, 1], 'text-anchor': 'top', 'text-optional': true },
+    paint: labelPaint,
+  })
+
   map.addLayer({
     id: 'vehicles',
     type: 'circle',
@@ -177,6 +215,15 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
   })
 
   applyHidden(map, hidden)
+  applyDim(map, dimmed)
+}
+
+function applyDim(map: MapLibreMap, dimmed: boolean): void {
+  for (const layer of DIMMABLE) {
+    if (map.getLayer(layer) === undefined) continue
+    map.setPaintProperty(layer, 'circle-opacity', dimmed ? DIM_OPACITY : 1)
+    map.setPaintProperty(layer, 'circle-stroke-opacity', dimmed ? DIM_OPACITY : 1)
+  }
 }
 
 function applyHidden(map: MapLibreMap, hidden: ReadonlySet<LayerKey>): void {
@@ -185,6 +232,11 @@ function applyHidden(map: MapLibreMap, hidden: ReadonlySet<LayerKey>): void {
       if (map.getLayer(layer) !== undefined) map.setLayoutProperty(layer, 'visibility', hidden.has(key as LayerKey) ? 'none' : 'visible')
     }
   }
+}
+
+/** Kadr na trasę — z miejscem na pasek wyszukiwania u góry. */
+function fitRoute(map: MapLibreMap, bounds: NonNullable<RouteOverlay['bounds']>): void {
+  map.fitBounds(bounds, { padding: { top: 150, right: 40, bottom: 40, left: 40 }, maxZoom: 15 })
 }
 
 function pickHit(features: MapGeoJSONFeature[]): MapHit | null {
@@ -216,6 +268,7 @@ export function TransitMap({
   routeId,
   selected,
   focus,
+  route,
   dark,
   onSelect,
   onViewChange,
@@ -232,13 +285,18 @@ export function TransitMap({
   selected: { lat: number; lon: number } | null
   /** Przelot kamery — nowy `nonce` = nowy przelot, także do tego samego miejsca. */
   focus: { lat: number; lon: number; nonce: number } | null
+  /** Tryb linii: przebieg wybranego kierunku; `key` zmienia się z linią/kierunkiem (nowy kadr). */
+  route: { key: string; overlay: RouteOverlay; color: string } | null
   dark: boolean
   onSelect: (hit: MapHit | null) => void
   onViewChange?: (view: MapView) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
-  const dataRef = useRef<Data>({ vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY })
+  const dataRef = useRef<Data>({ vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
+  const dimmedRef = useRef(false)
+  /** Kadr trasy wybranej, zanim styl mapy się wczytał — dopasujemy go po `style.load`. */
+  const pendingFitRef = useRef<RouteOverlay['bounds']>(null)
   const hiddenRef = useRef(hidden)
   const darkRef = useRef(dark)
   const onSelectRef = useRef(onSelect)
@@ -280,7 +338,11 @@ export function TransitMap({
       mapRef.current = map
       const mapInstance = map
 
-      mapInstance.on('style.load', () => addLayers(mapInstance, dataRef.current, hiddenRef.current, darkRef.current))
+      mapInstance.on('style.load', () => {
+        addLayers(mapInstance, dataRef.current, hiddenRef.current, darkRef.current, dimmedRef.current)
+        if (pendingFitRef.current !== null) fitRoute(mapInstance, pendingFitRef.current)
+        pendingFitRef.current = null
+      })
 
       const hitsAt = (point: { x: number; y: number }): MapHit | null => {
         const layers = HIT_LAYERS.map((h) => h.layer).filter((layer) => mapInstance.getLayer(layer) !== undefined)
@@ -331,6 +393,26 @@ export function TransitMap({
     dataRef.current.selected = selectedCollection(selectedLat === undefined || selectedLon === undefined ? null : { lat: selectedLat, lon: selectedLon })
     ;(mapRef.current?.getSource('selected') as GeoJSONSource | undefined)?.setData(dataRef.current.selected)
   }, [selectedLat, selectedLon])
+
+  const routeKey = route?.key ?? null
+  useEffect(() => {
+    const map = mapRef.current
+    dataRef.current.route = route?.overlay ?? EMPTY_ROUTE
+    dataRef.current.routeColor = route?.color ?? MODE_COLOR.bus
+    dimmedRef.current = route !== null
+    if (map === null || map.getSource('route-line') === undefined) {
+      pendingFitRef.current = route?.overlay.bounds ?? null
+      return
+    }
+    ;(map.getSource('route-line') as GeoJSONSource).setData(dataRef.current.route.line)
+    ;(map.getSource('route-stops') as GeoJSONSource).setData(dataRef.current.route.stops)
+    map.setPaintProperty('route-line', 'line-color', dataRef.current.routeColor)
+    map.setPaintProperty('route-stops', 'circle-stroke-color', dataRef.current.routeColor)
+    applyDim(map, route !== null)
+    const bounds = route?.overlay.bounds
+    if (bounds !== null && bounds !== undefined) fitRoute(map, bounds)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nowy kadr tylko przy nowej linii/kierunku, nie przy każdym renderze
+  }, [routeKey])
 
   useEffect(() => {
     hiddenRef.current = hidden

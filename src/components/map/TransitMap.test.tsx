@@ -22,6 +22,8 @@ vi.mock('maplibre-gl', () => {
     addLayer: vi.fn((layer: { id: string }) => layers.add(layer.id)),
     getLayer: vi.fn((id: string) => (layers.has(id) ? {} : undefined)),
     setLayoutProperty: vi.fn(),
+    setPaintProperty: vi.fn(),
+    fitBounds: vi.fn(),
     setStyle: vi.fn(),
     flyTo: vi.fn(),
     getZoom: vi.fn(() => 12),
@@ -56,6 +58,7 @@ const base: Props = {
   routeId: null,
   selected: null,
   focus: null,
+  route: null,
   dark: false,
   onSelect: () => {},
 }
@@ -142,6 +145,33 @@ describe('TransitMap', () => {
     expect(map.setStyle).toHaveBeenCalledWith('https://tiles.openfreemap.org/styles/dark')
     handlers.get('moveend')!({})
     expect(onViewChange).toHaveBeenCalledWith({ center: { lat: 52.2, lon: 21.0 }, zoom: 12 })
+  })
+
+  it('line mode: draws the route, frames it and dims everything else; leaving restores', async () => {
+    const { map, rerender } = await mounted()
+    const overlay = {
+      line: { type: 'FeatureCollection' as const, features: [{ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: [[21, 52], [21.1, 52.1]] as [number, number][] }, properties: {} }] },
+      stops: { type: 'FeatureCollection' as const, features: [] },
+      bounds: [[21, 52], [21.1, 52.1]] as [[number, number], [number, number]],
+    }
+    rerender(<TransitMap {...base} route={{ key: '20:0', overlay, color: '#dc2626' }} />)
+    expect(sources.get('route-line')!.setData).toHaveBeenCalledWith(overlay.line)
+    expect(map.fitBounds).toHaveBeenCalledWith(overlay.bounds, expect.objectContaining({ maxZoom: 15 }))
+    expect(map.setPaintProperty).toHaveBeenCalledWith('stops-busStops', 'circle-opacity', 0.25)
+    expect(map.setPaintProperty).toHaveBeenCalledWith('route-line', 'line-color', '#dc2626')
+
+    rerender(<TransitMap {...base} route={null} />)
+    expect(map.setPaintProperty).toHaveBeenLastCalledWith('stops-metroStops', 'circle-stroke-opacity', 1)
+  })
+
+  it('frames a route chosen before the basemap finished loading once it does', async () => {
+    const overlay = { line: { type: 'FeatureCollection' as const, features: [] }, stops: { type: 'FeatureCollection' as const, features: [] }, bounds: [[21, 52], [21.1, 52.1]] as [[number, number], [number, number]] }
+    render(<TransitMap {...base} route={{ key: '20:0', overlay, color: '#dc2626' }} />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+    const map = vi.mocked(maplibregl.Map).mock.results[0].value
+    expect(map.fitBounds).not.toHaveBeenCalled()
+    handlers.get('style.load')!({})
+    expect(map.fitBounds).toHaveBeenCalledWith(overlay.bounds, expect.objectContaining({ maxZoom: 15 }))
   })
 
   it('draws the selection ring', async () => {

@@ -7,6 +7,7 @@ import {
   ageLabel,
   boundsContain,
   parseHidden,
+  routeOverlay,
   railToGeoJSON,
   serializeHidden,
   stopsBounds,
@@ -106,5 +107,30 @@ describe('stopsBounds / boundsContain / ageLabel', () => {
     expect(ageLabel(2)).toBe('przed chwilą')
     expect(ageLabel(13)).toBe('13 s temu')
     expect(ageLabel(150)).toBe('3 min temu')
+  })
+})
+
+describe('routeOverlay', () => {
+  const stop = (stopId: string, lat: number, lon: number) => ({
+    stopId, groupId: stopId, name: `P${stopId}`, code: null, street: null, wheelchair: 0 as const, lat, lon, offsetSec: 0, onRequest: false,
+  })
+  const direction = { directionId: 0, headsign: 'B', origin: 'A', departures: [], stops: [stop('a', 52.0, 21.0), stop('b', 52.2, 21.3)] }
+
+  it('draws the shapes.txt contour when present and frames it', () => {
+    const overlay = routeOverlay({ ...direction, shape: [[52.0, 21.0], [52.1, 20.9], [52.2, 21.3]] })
+    expect(overlay.line.features[0].geometry.coordinates).toEqual([[21.0, 52.0], [20.9, 52.1], [21.3, 52.2]])
+    expect(overlay.bounds).toEqual([[20.9, 52.0], [21.3, 52.2]])
+    expect(overlay.stops.features.map((f) => f.properties)).toEqual([{ id: 'a', label: 'Pa' }, { id: 'b', label: 'Pb' }])
+  })
+
+  it('falls back to a polyline through the stops without a shape', () => {
+    const overlay = routeOverlay({ ...direction, shape: null })
+    expect(overlay.line.features[0].geometry.coordinates).toEqual([[21.0, 52.0], [21.3, 52.2]])
+  })
+
+  it('has no line and no frame for an empty pattern', () => {
+    const overlay = routeOverlay({ ...direction, stops: [], shape: null })
+    expect(overlay.line.features).toEqual([])
+    expect(overlay.bounds).toBeNull()
   })
 })

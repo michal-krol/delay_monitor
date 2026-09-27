@@ -286,6 +286,23 @@ test('mapa transportu: wybór linii filtruje pojazdy — chip i URL, „×" wrac
   await expect(page).not.toHaveURL(/[?&]line=/)
 })
 
+test('mapa transportu: tryb linii — panel z przebiegiem, zmiana kierunku w URL-u, „×" kończy tryb', async ({ page }) => {
+  await openMap(page)
+  await (await lineSearch(page)).fill('20')
+  await page.getByRole('option', { name: /^Linia 20/ }).click()
+  const panel = page.getByRole('dialog', { name: 'Linia 20' })
+  await expect(panel).toBeVisible()
+  await expect(panel.getByRole('list').getByRole('button').first()).toBeVisible({ timeout: READY })
+  const switchDirection = panel.getByRole('button', { name: 'Zmień kierunek' })
+  if (await switchDirection.isVisible()) {
+    await switchDirection.click()
+    await expect(page).toHaveURL(/[?&]dir=1/)
+  }
+  await panel.getByRole('button', { name: 'Zakończ tryb linii' }).click()
+  await expect(panel).toBeHidden()
+  await expect(page).not.toHaveURL(/[?&]line=/)
+})
+
 test('mapa transportu: filtr warstwy zapisuje się w URL-u i pokazuje chip ograniczenia', async ({ page }) => {
   await openMap(page)
   await page.getByRole('button', { name: /Filtry/ }).click()

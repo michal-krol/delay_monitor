@@ -7,6 +7,7 @@ import { TopBar } from '@/components/TopBar'
 import { CityPicker, type CityOption } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { CloseIcon } from '@/components/icons'
+import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { MapFilters } from '@/components/map/MapFilters'
@@ -15,10 +16,12 @@ import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitM
 import {
   HIDE_AFTER_SEC,
   LAYER_LABEL,
+  MODE_COLOR,
   VEHICLE_LAYERS,
   ageLabel,
   boundsContain,
   parseHidden,
+  routeOverlay,
   serializeHidden,
   stopsBounds,
   vehicleLayerKey,
@@ -26,9 +29,10 @@ import {
 } from '@/components/map/mapData'
 import { useCityStops } from '@/hooks/useCityStops'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
+import { useLineDetail } from '@/hooks/useLineDetail'
 import { useRailStations } from '@/hooks/useRailStations'
 import { getCity } from '@/lib/gtfs/cities'
-import type { LineListEntry } from '@/lib/gtfs/query'
+import type { LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
@@ -84,6 +88,7 @@ export default function CityMapPage() {
   const [cities, setCities] = useState<CityOption[]>([])
   const [hidden, setHidden] = useState<Set<LayerKey>>(() => new Set())
   const [routeParam, setRouteParam] = useState<string | null>(null)
+  const [directionId, setDirectionId] = useState(0)
   const [selection, setSelection] = useState<MapSelection | null>(null)
   const [focus, setFocus] = useState<{ lat: number; lon: number; nonce: number } | null>(null)
   const [view, setView] = useState<MapView | null>(null)
@@ -103,6 +108,7 @@ export default function CityMapPage() {
     setHidden(parseHidden(readUrlParam))
     const line = readUrlParam('line')
     setRouteParam(line !== null && GTFS_ROUTE_ID_PATTERN.test(line) ? line : null)
+    setDirectionId(readUrlParam('dir') === '1' ? 1 : 0)
     setMounted(true)
   }, [])
 
@@ -124,6 +130,14 @@ export default function CityMapPage() {
     if (routeParam === null || lines === null) return null
     return lines.find((l) => l.routeId === routeParam) ?? lines.find((l) => l.line === routeParam) ?? null
   }, [routeParam, lines])
+
+  const lineDetail = useLineDetail(city, line?.routeId ?? null)
+  const route = useMemo(() => {
+    const directions = lineDetail.detail?.directions ?? []
+    const direction = directions.find((d) => d.directionId === directionId) ?? directions[0]
+    if (line === null || direction === undefined) return null
+    return { key: `${line.routeId}:${direction.directionId}`, overlay: routeOverlay(direction), color: MODE_COLOR[line.mode] }
+  }, [line, lineDetail.detail, directionId])
 
   const vehiclesById = useMemo(() => new Map(vehiclesState.vehicles.map((v) => [v.id, v])), [vehiclesState.vehicles])
   const selectedVehicle = selection?.kind === 'vehicle' ? (vehiclesById.get(selection.id) ?? null) : null
@@ -150,9 +164,29 @@ export default function CityMapPage() {
     patchUrlParams({ hide: serializeHidden(next), vehicles: null, rail: null, mode: null })
   }, [])
 
-  function chooseLine(next: LineListEntry | null): void {
+  function chooseLine(next: LineListEntry | null, nextDirection = 0): void {
     setRouteParam(next?.routeId ?? null)
-    patchUrlParams({ line: next?.routeId ?? null })
+    setDirectionId(nextDirection)
+    patchUrlParams({ line: next?.routeId ?? null, dir: next !== null && nextDirection === 1 ? '1' : null })
+  }
+
+  function showRoute(routeId: string, vehicleDirection: number | null): void {
+    const target = lines?.find((l) => l.routeId === routeId) ?? null
+    if (target === null) return
+    setSelection(null)
+    chooseLine(target, vehicleDirection === 1 ? 1 : 0)
+  }
+
+  function changeDirection(next: number): void {
+    setDirectionId(next)
+    patchUrlParams({ dir: next === 1 ? '1' : null })
+  }
+
+  function openLineStop(stop: LineRouteStop): void {
+    const known = stopsState.stops?.find((s) => s.id === stop.stopId)
+    const mode = known?.mode ?? (line?.mode === 'tram' || line?.mode === 'metro' ? line.mode : 'bus')
+    setSelection({ kind: 'stop', id: stop.stopId, groupId: stop.groupId, name: stop.name, mode, lat: stop.lat, lon: stop.lon })
+    setFocus({ lat: stop.lat, lon: stop.lon, nonce: Date.now() })
   }
 
   function onMapSelect(hit: MapHit | null): void {
@@ -197,8 +231,24 @@ export default function CityMapPage() {
     railState.error && 'Nie udało się wczytać stacji kolejowych — ponawiam.',
   ].filter((p): p is string => typeof p === 'string')
 
+  const vehiclesOnLine = line === null ? 0 : vehiclesState.vehicles.filter((v) => v.routeId === line.routeId && v.ageSec <= HIDE_AFTER_SEC).length
+  // Karta wybranego obiektu ma pierwszeństwo; po jej zamknięciu wraca panel linii.
   const card =
-    selection !== null ? <MapCard key={`${selection.kind}:${selection.id}`} selection={selection} vehicle={liveVehicle} city={city} onClose={() => setSelection(null)} /> : null
+    selection !== null ? (
+      <MapCard key={`${selection.kind}:${selection.id}`} selection={selection} vehicle={liveVehicle} city={city} onClose={() => setSelection(null)} onShowRoute={showRoute} />
+    ) : line !== null ? (
+      <LinePanel
+        line={line}
+        detail={lineDetail.detail}
+        error={lineDetail.error}
+        directionId={directionId}
+        vehiclesOnLine={vehiclesOnLine}
+        city={city}
+        onDirection={changeDirection}
+        onStop={openLineStop}
+        onClose={() => chooseLine(null)}
+      />
+    ) : null
 
   const placeSearch = (
     <StationSearch endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`} placeholder="Szukaj stacji lub przystanku…" onSelect={onSearchSelect} wide />
@@ -229,6 +279,7 @@ export default function CityMapPage() {
               routeId={line?.routeId ?? null}
               selected={selectedAt}
               focus={focus}
+              route={route}
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
               onViewChange={setView}

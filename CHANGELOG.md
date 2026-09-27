@@ -14,6 +14,13 @@ Wersjonowanie semantyczne.
   teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
   2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
   mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+- **Tryb linii na mapie transportu** — wybór linii w wyszukiwarce (albo
+  „Pokaż trasę na mapie" w karcie pojazdu, w kierunku jego jazdy) rysuje przebieg
+  (`shapes.txt`, a bez niego łamaną po przystankach), dopasowuje kadr, przyciemnia
+  resztę punktów i zostawia tylko pojazdy tej linii. Panel linii w miejscu karty:
+  kierunek „start → cel" z przełącznikiem (`?dir=1`), liczba pojazdów w trasie,
+  lista przystanków (klik = karta przystanku + przelot), „×" kończy tryb. Zero
+  nowych endpointów — istniejące `/api/gtfs/line`.
 - **Nowa mapa transportu** (`/city/[city]/map`, spec „Czy dojadę? — refaktor
   mapy"): kolej z całej Polski (stopniowo po zoomie wg `tier`: węzły → region →
   wszystkie), przystanki miasta (metro od zoomu 11, tramwaj/autobus od 14,

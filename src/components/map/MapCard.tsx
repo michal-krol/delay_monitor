@@ -33,12 +33,15 @@ export function MapCard({
   vehicle,
   city,
   onClose,
+  onShowRoute,
 }: {
   selection: MapSelection
   /** Aktualny odczyt wybranego pojazdu; `null` = zniknął z feedu (pozycja > 180 s). */
   vehicle: CityVehicle | null
   city: string
   onClose: () => void
+  /** „Pokaż trasę" z karty pojazdu — tryb linii w kierunku jazdy tego pojazdu. */
+  onShowRoute?: (routeId: string, directionId: number | null) => void
 }) {
   const headingId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -98,7 +101,7 @@ export function MapCard({
       <div className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={0} aria-label="Szczegóły">
         {selection.kind === 'rail' && <RailBody id={selection.id} />}
         {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
-        {selection.kind === 'vehicle' && <VehicleBody vehicle={vehicle} city={city} />}
+        {selection.kind === 'vehicle' && <VehicleBody vehicle={vehicle} city={city} onShowRoute={onShowRoute} />}
       </div>
     </section>
   )
@@ -225,7 +228,15 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
   )
 }
 
-function VehicleBody({ vehicle, city }: { vehicle: CityVehicle | null; city: string }) {
+function VehicleBody({
+  vehicle,
+  city,
+  onShowRoute,
+}: {
+  vehicle: CityVehicle | null
+  city: string
+  onShowRoute?: (routeId: string, directionId: number | null) => void
+}) {
   if (vehicle === null) {
     return <p className="text-sm text-text-secondary">Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.</p>
   }
@@ -256,7 +267,19 @@ function VehicleBody({ vehicle, city }: { vehicle: CityVehicle | null; city: str
       </dl>
       <p className="mt-3 text-xs text-text-muted">Komunikacja miejska nie publikuje opóźnień — pokazujemy pozycję z GPS i rozkład.</p>
       {vehicle.routeId !== null ? (
-        <Action href={`/city/${city}/line/${vehicle.routeId}`}>Rozkład linii</Action>
+        <>
+          {onShowRoute !== undefined && (
+            <button
+              type="button"
+              onClick={() => onShowRoute(vehicle.routeId!, vehicle.directionId)}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:hover:bg-white/10"
+              style={{ borderColor: 'var(--surface-border)' }}
+            >
+              Pokaż trasę na mapie
+            </button>
+          )}
+          <Action href={`/city/${city}/line/${vehicle.routeId}`}>Rozkład linii</Action>
+        </>
       ) : (
         <p className="mt-4 text-sm text-text-secondary">Brak przypisania do linii.</p>
       )}
