@@ -239,6 +239,44 @@ describe('cityStats', () => {
     expect(stats.hourly[6]).toBe(1)
     expect(stats.hourly[0]).toBe(1) // 24:15 → kubełek 0
   })
+
+  const statsFixture = () => ({
+    routes: [route('M1', 1, 'M1'), route('20', 0, '20'), route('128', 3, '128')],
+    stops: [stop('1001', 'A')],
+    trips: [
+      { routeId: '20', serviceId: 'S', tripId: 't1', headsign: 'x', directionId: 0 as const },
+      { routeId: '128', serviceId: 'S', tripId: 't2', headsign: 'x', directionId: 0 as const },
+    ],
+    stopTimeLines: [
+      'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+      't1,1001,06:00:00,06:00:00,1',
+      't2,1001,07:30:00,07:30:00,1',
+    ],
+  })
+
+  it('returns the same object for the same schedule and day', async () => {
+    const schedule = await make(statsFixture())
+    const first = cityStats(schedule, 1)
+    const second = cityStats(schedule, 1)
+    expect(second).toBe(first)
+  })
+
+  it('memoized cityStats equals a fresh computation', async () => {
+    // Dwie instancje rozkładu z tych samych danych wejściowych — jedna karmi
+    // pamięć podręczną, druga liczy „na surowo" (osobny klucz WeakMap).
+    const cached = cityStats(await make(statsFixture()), 1)
+    const fresh = cityStats(await make(statsFixture()), 1)
+    expect(cached).toEqual(fresh)
+  })
+
+  it('computes a different day index separately', async () => {
+    const schedule = await make(statsFixture())
+    const day1 = cityStats(schedule, 1)
+    const day0 = cityStats(schedule, 0)
+    expect(day0).not.toBe(day1)
+    expect(day0.tripsToday).toBe(0) // oba kursy są w service day 1, nie 0
+    expect(day1.tripsToday).toBe(2)
+  })
 })
 
 describe('vehiclesInService', () => {
@@ -355,6 +393,24 @@ describe('searchStops', () => {
     expect(results[0].name).toBe('Świętokrzyska')
     expect(results.map((r) => r.name)).toContain('Rondo ONZ - Świętokrzyska')
     expect(searchStops(schedule, 'dworz', 5).map((r) => r.id)).toEqual(['3003'])
+  })
+
+  it('results identical before and after the normalized-name memo warms up (prefix-first, Polish collation)', async () => {
+    const schedule = await make({
+      stops: [
+        stop('1001', 'Żerań'), // trafienie od początku ('zeran')
+        stop('2002', 'Żabieniec'), // trafienie od początku ('zabieniec' < 'zeran' w kolacji pl)
+        stop('3003', 'Ratusz'), // 'z' w środku/na końcu — nie prefiks
+        stop('4004', 'Dworzec'), // jw., przed 'Ratusz' w kolacji pl
+        stop('5005', 'Wilanów'), // brak trafienia
+      ],
+    })
+    // Pierwsze wywołanie buduje pamięć podręczną znormalizowanych nazw.
+    const cold = searchStops(schedule, 'z', 10)
+    // Drugie czyta z ciepłej pamięci — wynik musi być identyczny, łącznie z kolejnością.
+    const warm = searchStops(schedule, 'z', 10)
+    expect(warm).toEqual(cold)
+    expect(cold.map((r) => r.name)).toEqual(['Żabieniec', 'Żerań', 'Dworzec', 'Ratusz'])
   })
 })
 

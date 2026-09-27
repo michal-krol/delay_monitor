@@ -497,11 +497,24 @@ export type CityStats = {
   hourly: number[]
 }
 
+const cityStatsCache = new WeakMap<GtfsSchedule, Map<number, CityStats>>()
+
 /**
  * Statystyki komunikacji miejskiej miasta na potrzeby widżetu sieci. Wszystko
  * z rozkładu — zero pozycji pojazdów, zero „w trasie" (dochodzi w etapie 5).
+ * Liczone RAZ na `(schedule, todayIndex)` — jeden pełny skan zdarzeń — potem
+ * z `WeakMap`; rozkład przeładowany = nowy obiekt = nowy wpis. Wewnętrzna mapa
+ * trzyma najwyżej garść dni (okno [wczoraj, dziś, jutro]).
  */
 export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats {
+  let byDay = cityStatsCache.get(schedule)
+  if (byDay === undefined) {
+    byDay = new Map()
+    cityStatsCache.set(schedule, byDay)
+  }
+  const cached = byDay.get(todayIndex)
+  if (cached !== undefined) return cached
+
   const byMode = linesByMode(schedule)
   const linesByModeCount: Record<GtfsMode, number> = {
     metro: byMode.metro.length,
@@ -538,7 +551,7 @@ export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats
     hourly[Math.floor(sec / 3600) % 24] += 1
   }
 
-  return {
+  const result: CityStats = {
     linesByMode: linesByModeCount,
     busKinds,
     stopGroupCount: schedule.groupMembers.size,
@@ -548,6 +561,8 @@ export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats
     lastDepartureSec: lastSec,
     hourly,
   }
+  byDay.set(todayIndex, result)
+  return result
 }
 
 /**
@@ -624,27 +639,43 @@ export function alertsForRoutes(
 
 export type StopSearchResult = { id: string; name: string }
 
+type NormalizedStop = { id: string; name: string; normalized: string }
+
+const searchStopsCache = new WeakMap<GtfsSchedule, NormalizedStop[]>()
+
+/**
+ * Nazwy zespołów znormalizowane pod wyszukiwarkę (`normalizeForSearch`) — liczone
+ * RAZ na rozkład (był wołany na każdą nazwę przy KAŻDYM wyszukiwaniu, i drugi raz
+ * w sortowaniu), potem z `WeakMap`.
+ */
+function normalizedStopsFor(schedule: GtfsSchedule): NormalizedStop[] {
+  const cached = searchStopsCache.get(schedule)
+  if (cached !== undefined) return cached
+  const entries: NormalizedStop[] = []
+  for (const [groupId, name] of schedule.groupName) entries.push({ id: groupId, name, normalized: normalizeForSearch(name) })
+  searchStopsCache.set(schedule, entries)
+  return entries
+}
+
 /** Wyszukiwarka zespołów (nie słupków) — wpada wprost w istniejący `StationSearch`. */
 export function searchStops(schedule: GtfsSchedule, query: string, limit: number): StopSearchResult[] {
   const needle = normalizeForSearch(query)
   if (needle.length === 0) return []
 
-  const results: StopSearchResult[] = []
-  for (const [groupId, name] of schedule.groupName) {
-    if (normalizeForSearch(name).includes(needle)) {
-      results.push({ id: groupId, name })
+  const results: NormalizedStop[] = []
+  for (const entry of normalizedStopsFor(schedule)) {
+    if (entry.normalized.includes(needle)) {
+      results.push(entry)
       if (results.length >= limit * 4) break
     }
   }
   results.sort((a, b) => {
-    const an = normalizeForSearch(a.name)
-    const bn = normalizeForSearch(b.name)
     // Trafienie od początku nazwy przed trafieniem w środku.
-    const ap = an.startsWith(needle) ? 0 : 1
-    const bp = bn.startsWith(needle) ? 0 : 1
-    return ap - bp || an.localeCompare(bn, 'pl')
+    const ap = a.normalized.startsWith(needle) ? 0 : 1
+    const bp = b.normalized.startsWith(needle) ? 0 : 1
+    return ap - bp || a.normalized.localeCompare(b.normalized, 'pl')
   })
-  return results.slice(0, limit)
+  return results.slice(0, limit).map(({ id, name }) => ({ id, name }))
 }
 
 /** Punkt przystanku na mapie miasta — słupek albo (dla metra) cała stacja-rodzic. Bez pola opóźnienia (#13). */
