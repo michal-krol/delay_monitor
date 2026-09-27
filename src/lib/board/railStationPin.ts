@@ -16,7 +16,7 @@ export type RailStationApiEntry = {
   name: string
   lat: number
   lon: number
-  coordSource: 'station' | 'osm-railway' | 'city-fallback'
+  coordSource: 'gtfs' | 'station' | 'osm-railway' | 'city-fallback'
   status: RealizationStatus | null
   nextDepartures: RailStationDeparture[] | null
   ageMs: number | null
