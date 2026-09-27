@@ -886,6 +886,80 @@ describe('ConnectionDetails', () => {
       expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
     })
 
+    it('background 503 then time passes shows the data age', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      // Osobny licznik tylko dla /api/train -- /api/weather bije w ten sam
+      // globalny mock, więc liczenie „która to wywołanie fetch" po kolei
+      // (mockImplementationOnce) trafiłoby przypadkiem w zapytanie o pogodę.
+      let trainCallCount = 0
+      const fetchMock = vi.fn((url: string) => {
+        if (String(url).startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
+        trainCallCount++
+        return trainCallCount === 1
+          ? jsonResponse(RESPONSE)
+          : Promise.resolve(
+              new Response(
+                JSON.stringify({ error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' }),
+                { status: 503 }
+              )
+            )
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+      // Świeże dane, żadnej próby w tle jeszcze nie było -- brak wskaźnika wieku.
+      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
+
+      // 5 min później -- poza throttlem (90 s), dociąganie w tle pada (503 --
+      // limit godzinowy, patrz route.ts). Ostatni dobry stan zostaje na ekranie
+      // (test wyżej), ale teraz musi być widać, że jest już nieświeży.
+      // `trainCalls` liczy wywołanie mocka SYNCHRONICZNIE, zanim obsłużenie
+      // odpowiedzi (catch + setState) się zakończy -- czekamy więc na sam tekst,
+      // nie na samą liczbę wywołań (inaczej asercja mogłaby wygrać wyścig z
+      // aktualizacją stanu).
+      vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+
+      await vi.waitFor(() => expect(screen.getByText('Dane sprzed 5 min')).toBeInTheDocument())
+      expect(trainCalls(fetchMock)).toBe(2)
+    })
+
+    it('successful refresh hides the age', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      // Jak wyżej -- osobny licznik tylko dla /api/train, /api/weather nie
+      // wchodzi w tę sekwencję.
+      let trainCallCount = 0
+      const fetchMock = vi.fn((url: string) => {
+        if (String(url).startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
+        trainCallCount++
+        if (trainCallCount === 1) return jsonResponse(RESPONSE)
+        if (trainCallCount === 2) return Promise.resolve(new Response('boom', { status: 503 }))
+        return jsonResponse(CONFIRMED_SECOND_STOP)
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => expect(screen.getByText('Dane sprzed 5 min')).toBeInTheDocument())
+
+      // Kolejna próba w tle, tym razem udana -- wskaźnik wieku musi zgasnąć.
+      // Czekamy na pozytywny sygnał, że aktualizacja faktycznie doszła
+      // (potwierdzony przyjazd na drugim przystanku), nie na samą absencję --
+      // inaczej asercja przeszłaby również PRZED zastosowaniem aktualizacji.
+      vi.setSystemTime(new Date('2026-08-01T10:07:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      // eslint-disable-next-line testing-library/no-node-access
+      const wwaRow = () => routeList().getByText('Warszawa Centralna').closest('li') as HTMLElement
+      await vi.waitFor(() => expect(within(wwaRow()).getByText('+1 min')).toBeInTheDocument())
+
+      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
+      expect(trainCalls(fetchMock)).toBe(3)
+    })
+
     it('stops refetching once the train has reached its final stop', async () => {
       freezeClock('2026-08-01T12:00:00Z')
       const arrived = {

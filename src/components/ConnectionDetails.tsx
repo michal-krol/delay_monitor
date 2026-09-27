@@ -178,6 +178,14 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // w ten sam limit. `null` = błąd innego rodzaju, generyczny komunikat.
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  // Chwila ostatniego SUKCESU (nie próby) -- baza do „Dane sprzed {N} min".
+  // `null` tylko przed pierwszym wczytaniem (wtedy i tak nie ma jeszcze `data`).
+  const [lastSuccessAt, setLastSuccessAt] = useState<number | null>(null)
+  // Ostatnie dociąganie w tle padło i jeszcze nie zastąpiło go kolejny sukces
+  // -- niezależne od samego wieku danych, bo zaraz po nieudanym odświeżeniu
+  // dane mogą wciąż być świeże wg zegara, a mimo to wiadomo, że próba się nie
+  // powiodła (AGENTS.md #7: "nie udało się sprawdzić" ≠ cisza).
+  const [backgroundRefreshFailed, setBackgroundRefreshFailed] = useState(false)
   const { share, copied } = useShareUrl()
   // Pogoda punktu startu trasy — `stops[0]` to stacja początkowa (`stationId`
   // to identyfikator PKP, ten sam, którym kluczuje `/api/weather`). Pusty ciąg
@@ -229,12 +237,25 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
         dataRef.current = json
         setData(json)
         setStatus('ready')
+        // Świeży sukces -- zeguj i zgaś ewentualny wskaźnik wieku z
+        // wcześniejszej nieudanej próby w tle (patrz `backgroundRefreshFailed`).
+        const successAt = Date.now()
+        setLastSuccessAt(successAt)
+        setNow(successAt)
+        setBackgroundRefreshFailed(false)
       } catch {
         // Baner błędu tylko wtedy, gdy nie mamy jeszcze CZEGO pokazać. Nieudany
         // refetch (dowolny status, w tym 503 limitu) zostawia ostatni dobry
         // stan, CICHO -- karta w tle nigdy nie zgasza działającej strony
-        // błędem (AGENTS.md #7).
-        if (!cancelled && mode === 'initial') setStatus('error')
+        // błędem (AGENTS.md #7). Ale „cicho" ≠ „bez śladu": zaznaczamy, że
+        // ostatnia próba w tle padła, żeby wiek danych mógł się pokazać.
+        if (cancelled) return
+        if (mode === 'initial') {
+          setStatus('error')
+        } else {
+          setBackgroundRefreshFailed(true)
+          setNow(Date.now())
+        }
       }
     }
 
@@ -319,6 +340,16 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // Utrudnienia zebrane z całej trasy — jedno utrudnienie potrafi dotyczyć
   // wielu przystanków, więc bez deduplikacji baner powtarzałby ten sam tekst.
   const routeDisruptions = [...new Set(stops.flatMap((stop) => stop.disruptionMessages ?? []))]
+
+  // „Dane sprzed {N} min": widoczne, gdy ostatnia próba w tle padła (dane mogą
+  // być świeże wg zegara, ale wiadomo, że sprawdzenie się nie powiodło) ALBO
+  // dane są starsze niż 2×BACKGROUND_REFRESH_MS (żadna próba nie padła, ale i
+  // żadna się nie powiodła od dawna -- np. karta odświeżona z bookmarka po
+  // przerwie). Zniknie po najbliższym udanym odświeżeniu (AGENTS.md #7: wiek
+  // danych rośnie widocznie, nigdy nie chowa się cicho).
+  const dataAgeMs = lastSuccessAt !== null ? now - lastSuccessAt : null
+  const showDataAge = dataAgeMs !== null && (backgroundRefreshFailed || dataAgeMs >= 2 * BACKGROUND_REFRESH_MS)
+  const dataAgeMinutes = dataAgeMs !== null ? Math.floor(dataAgeMs / 60_000) : null
 
   // Mapa trasy: tylko przystanki z rzeczywistymi współrzędnymi (AGENTS.md #6 —
   // reszta po prostu nie dostaje pina, polilinia łączy się dłuższym odcinkiem
@@ -435,6 +466,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     </span>
                     <span>{summary.destination.stationName}</span>
                   </p>
+                )}
+                {showDataAge && dataAgeMinutes !== null && (
+                  <p className="mt-1 text-xs text-text-muted">Dane sprzed {dataAgeMinutes} min</p>
                 )}
               </div>
 
