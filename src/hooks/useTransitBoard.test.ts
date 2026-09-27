@@ -117,6 +117,26 @@ describe('useTransitBoard', () => {
       expect(result.current.loading).toBe(false)
     })
 
+    it('schedule failed on the server → failed', async () => {
+      // GTFS poller's first load failed: `/api/gtfs/board` still answers 200,
+      // but `schedule.state: 'failed'` and `stops: []` — that must not read as
+      // an empty timetable (AGENTS.md #7).
+      const fetchMock = vi.fn().mockImplementation(() =>
+        jsonResponse({
+          city: 'warszawa',
+          schedule: { state: 'failed', loadedAt: null, ageMs: null, phase: null, serviceDates: null, feedVersion: null },
+          stops: [],
+          attribution: [],
+        })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+      expect(result.current.failed).toBe(true)
+      expect(result.current.loading).toBe(false)
+    })
+
     it('keeps the last good snapshot on a later failure, so failed stays false', async () => {
       const fetchMock = vi.fn().mockImplementation(ready)
       vi.stubGlobal('fetch', fetchMock)

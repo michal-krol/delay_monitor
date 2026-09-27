@@ -121,12 +121,15 @@ export function useTransitBoard(city: string | null, stopIds: string[], limit = 
   // TransitStopCard — AGENTS.md #2, jedna implementacja per regułę domenową).
   // GTFS może odpowiedzieć 200 z `schedule.state === 'loading'` zanim poller
   // wczyta feed (`data` już nie `null`, ale board wciąż nieznany) — to wciąż
-  // „ładowanie", nigdy „błąd" (#7). „Błąd" = w ogóle brak odpowiedzi (pierwszy
-  // fetch padł); po nim `data` zostaje ostatnim dobrym stanem, nie `null`,
-  // więc `failed` już nie zapala się na kolejnych odświeżeniach.
+  // „ładowanie", nigdy „błąd" (#7). „Błąd" = albo w ogóle brak odpowiedzi
+  // (pierwszy fetch padł), albo serwer odpowiedział 200 z
+  // `schedule.state === 'failed'` (poller nie wczytał feedu w ogóle) — to
+  // drugie inaczej wygląda jak pusty rozkład (`stops: []`), nie jak błąd. Po
+  // pierwszej udanej odpowiedzi `data` zostaje ostatnim dobrym stanem, nie
+  // `null`, więc `failed` już nie zapala się na kolejnych odświeżeniach.
   const scheduleLoading = data !== null && data.schedule.state === 'loading'
   const loading = (data === null && error === null) || scheduleLoading
-  const failed = data === null && error !== null
+  const failed = (data === null && error !== null) || data?.schedule.state === 'failed'
 
   return { data, error, loading, failed }
 }
