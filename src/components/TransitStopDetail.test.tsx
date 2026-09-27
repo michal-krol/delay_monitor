@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
+import { jsonResponse } from '@/test-utils/http'
 
 let search = ''
 const push = vi.fn()
@@ -64,6 +65,8 @@ beforeEach(() => {
     error: null,
   })
 })
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe('TransitStopDetail', () => {
   it('shows summary facts, the board and the lines aside — never a delay', () => {
@@ -252,5 +255,56 @@ describe('TransitStopDetail', () => {
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
       { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' },
     ])
+  })
+
+  it('shows a failed message, not the empty schedule message, when the first fetch fails', () => {
+    useTransitBoard.mockReturnValue({ data: null, error: 'network' })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
+    expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
+  })
+
+  it('treats a GTFS feed still loading as loading, never as failed', () => {
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'loading', loadedAt: null, ageMs: null, phase: 'stop_times', serviceDates: null, feedVersion: null },
+        stops: [null],
+        attribution: [],
+      },
+      error: null,
+    })
+    const { container } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie rozkładu…')).toBeInTheDocument()
+    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
+    expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
+  })
+
+  it('shows the empty schedule message, not failed, when the board is ready with zero departures', () => {
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ ...board, departures: [] }],
+        attribution: [],
+      },
+      error: null,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
+  })
+
+  it("shows the city's display name, not the slug, once /api/cities resolves", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.startsWith('/api/cities') ? jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] }) : Promise.reject(new Error('not stubbed'))
+      )
+    )
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(await screen.findByText('Rozkład jazdy — Warszawa')).toBeInTheDocument()
   })
 })

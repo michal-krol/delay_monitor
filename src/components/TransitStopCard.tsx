@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
@@ -20,8 +21,30 @@ type Props = {
  */
 export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
   const { data, error } = useTransitBoard(city, [stopId], 3)
+  // Ten sam wzorzec `/api/cities` co `CityWeatherCard`/`TransitStopDetail`
+  // (Task 3/4) — duplikacja świadoma, PR 5 scali w jeden hook.
+  const [cityEntries, setCityEntries] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/cities')
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
+      .then((body: { cities?: { id: string; name: string }[] }) => {
+        if (!cancelled && Array.isArray(body.cities)) setCityEntries(body.cities)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const board = data?.stops[0] ?? null
   const name = board?.name ?? stopName
+  // Ten sam trójstan co TransitStopDetail (AGENTS.md #7): feed GTFS wciąż
+  // ładujący się (`schedule.state === 'loading'`, board `null`) to nadal
+  // „ładowanie", nie „błąd" ani „puste".
+  const scheduleLoading = data !== null && data.schedule.state === 'loading'
+  const loading = (data === null && error === null) || scheduleLoading
+  const failed = data === null && error !== null
 
   return (
     <article className="glass group relative isolate w-full overflow-hidden rounded-2xl border p-5" style={{ borderColor: 'var(--surface-border)' }}>
@@ -39,12 +62,12 @@ export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
         </button>
       </div>
 
-      <p className="mt-0.5 text-xs text-text-muted">Rozkład — {city}</p>
+      <p className="mt-0.5 text-xs text-text-muted">Rozkład — {cityName}</p>
 
-      {error !== null && data === null ? (
+      {failed ? (
         <p className="mt-3 text-sm text-red-600 dark:text-red-400">Nie udało się wczytać rozkładu</p>
       ) : (
-        <TransitDepartureList departures={board?.departures ?? []} loading={data === null} />
+        <TransitDepartureList departures={board?.departures ?? []} loading={loading} />
       )}
 
       <Link
