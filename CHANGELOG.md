@@ -195,7 +195,10 @@ Wersjonowanie semantyczne.
 - **Blokady zamiast prozy** — `.claude/settings.json` blokuje push na `main`,
   force-push i odczyt `.env`; `gh pr merge` wymaga zgody. Skrypt `prepare`
   włącza hook `pre-push` przy `npm install`. Dependabot (npm, Actions, Docker)
-  co tydzień do `dev`. Szablon PR z punktem o code review.
+  co tydzień do `dev`; major Node w obrazie pomijany (wersję trzyma `.nvmrc`).
+- **Szablon PR = kryteria akceptacji + Definition of Done** w dwóch progach:
+  PR do `dev` (bramka, e2e, test regresji udowodniony na czerwono, niezależny
+  weryfikator, review) i `dev` → `main` (klik-QA na stagingu, wydanie).
 - **Przepływ `lokalnie → dev → main`** spisany w AGENTS.md #12 — feature branch
   scala się do `dev` (staging Railway) przez PR, dopiero zielony `dev` idzie na
   `main` (produkcja). Koniec pushowania feature'ów prosto na `main`.
