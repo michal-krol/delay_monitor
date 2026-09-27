@@ -13,6 +13,7 @@ import {
   interpolatePoints,
   parseAt,
   parseHidden,
+  routeColor,
   routeOverlay,
   railToGeoJSON,
   serializeHidden,
@@ -193,5 +194,15 @@ describe('distanceM / nearbyPoints', () => {
     const result = nearbyPoints({ lat: 52.0, lon: 21.0 }, [far, near], [station])
     expect(result.map((r) => (r.kind === 'stop' ? r.stop.id : r.id))).toEqual(['1', 'n'])
     expect(nearbyPoints({ lat: 52.0, lon: 21.0 }, [near], [station], 500, 1)).toHaveLength(1)
+  })
+})
+
+describe('routeColor', () => {
+  it('uses the feed line colour for metro and rail, the mode colour for bus/tram or a missing/bad colour', () => {
+    expect(routeColor('metro', '#0000BB')).toBe('#0000BB')
+    expect(routeColor('metro', '#BB0000')).toBe('#BB0000')
+    expect(routeColor('rail', null)).toBe(MODE_COLOR.rail)
+    expect(routeColor('metro', 'red; x')).toBe(MODE_COLOR.metro)
+    expect(routeColor('tram', '#009944')).toBe(MODE_COLOR.tram)
   })
 })

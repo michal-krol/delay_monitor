@@ -19,7 +19,6 @@ import {
   HIDE_AFTER_SEC,
   LAYER_LABEL,
   MAP_ZOOM,
-  MODE_COLOR,
   VEHICLE_LAYERS,
   ageLabel,
   boundsContain,
@@ -27,6 +26,7 @@ import {
   nearbyPoints,
   parseAt,
   parseHidden,
+  routeColor,
   routeOverlay,
   serializeHidden,
   stopsBounds,
@@ -194,7 +194,7 @@ export default function CityMapPage() {
     const directions = lineDetail.detail?.directions ?? []
     const direction = directions.find((d) => d.directionId === directionId) ?? directions[0]
     if (line === null || direction === undefined) return null
-    return { key: `${line.routeId}:${direction.directionId}`, overlay: routeOverlay(direction), color: MODE_COLOR[line.mode] }
+    return { key: `${line.routeId}:${direction.directionId}`, overlay: routeOverlay(direction), color: routeColor(line.mode, line.color) }
   }, [line, lineDetail.detail, directionId])
 
   const vehiclesById = useMemo(() => new Map(vehiclesState.vehicles.map((v) => [v.id, v])), [vehiclesState.vehicles])

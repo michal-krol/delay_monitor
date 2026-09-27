@@ -55,7 +55,10 @@ type Props = Parameters<typeof TransitMap>[0]
 const base: Props = {
   ariaLabel: 'Mapa transportu',
   initialCamera: { lat: 52.23, lon: 21.01, zoom: 12 },
-  backbone: [{ routeId: 'M1', line: 'M1', mode: 'metro', points: [[52.1, 21.0], [52.2, 21.0]] }],
+  backbone: [
+    { routeId: 'M1', line: 'M1', mode: 'metro', color: '#0000BB', points: [[52.1, 21.0], [52.2, 21.0]] },
+    { routeId: 'S9', line: 'S9', mode: 'rail', color: null, points: [[52.3, 21.0], [52.4, 21.0]] },
+  ],
   follow: null,
   vehicles: [vehicle()],
   stops: [{ id: '100101', groupId: '1001', name: 'Centrum', code: '01', lat: 52.23, lon: 21.01, mode: 'bus' }],
@@ -212,6 +215,8 @@ describe('TransitMap', () => {
     expect(map.addImage).toHaveBeenCalledWith('vehicle-arrow', expect.objectContaining({ width: 16 }), { sdf: true })
     const backbone = map.addSource.mock.calls.find(([id]: [string]) => id === 'backbone')[1]
     expect(backbone.data.features[0].geometry.coordinates).toEqual([[21.0, 52.1], [21.0, 52.2]])
+    // Kolor linii z feedu (spójny z plakietką M1), zapasowo kolor rodzaju.
+    expect(backbone.data.features.map((f: { properties: { color: string } }) => f.properties.color)).toEqual(['#0000BB', '#2563eb'])
     rerender(<TransitMap {...base} onUserMove={onUserMove} follow={{ lat: 52.3, lon: 21.3 }} />)
     expect(map.easeTo).toHaveBeenCalledWith({ center: [21.3, 52.3], duration: 1000 })
     handlers.get('dragstart')!({})

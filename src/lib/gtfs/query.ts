@@ -730,7 +730,14 @@ export function groupCentroid(schedule: GtfsSchedule, groupId: string): { lat: n
 }
 
 /** Przebieg linii szynowej (metro / kolej miejska) jako tło orientacyjne mapy. */
-export type BackboneLine = { routeId: string; line: string; mode: 'metro' | 'rail'; points: [number, number][] }
+export type BackboneLine = {
+  routeId: string
+  line: string
+  mode: 'metro' | 'rail'
+  /** `route_color` zwalidowany w `schema.ts` (`#RRGGBB`) — M1 granatowa, M2 czerwona, jak na plakietkach. `null` = feed nie podał. */
+  color: string | null
+  points: [number, number][]
+}
 
 /**
  * Metro i kolej miejska — stałe tło mapy (widoczne od dalekiego zoomu, gdy
@@ -749,7 +756,7 @@ export function backboneLines(schedule: GtfsSchedule): BackboneLine[] {
         ? shapeToPoints(pattern.shape)
         : pattern.stops.map((s): [number, number] => [round5(schedule.stopLat[s]), round5(schedule.stopLon[s])])
     if (points.length < 2) return
-    lines.push({ routeId: route.id, line: route.shortName || route.id, mode: route.mode, points })
+    lines.push({ routeId: route.id, line: route.shortName || route.id, mode: route.mode, color: route.color, points })
   })
   return lines
 }

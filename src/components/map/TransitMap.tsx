@@ -10,6 +10,7 @@ import {
   MAP_ZOOM,
   arrowImage,
   interpolatePoints,
+  routeColor,
   MODE_COLOR,
   POLAND_BOUNDS,
   railToGeoJSON,
@@ -82,7 +83,8 @@ function backboneCollection(lines: BackboneLine[] | null): Data['backbone'] {
     features: (lines ?? []).map((l) => ({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: l.points.map(([lat, lon]) => [lon, lat]) },
-      properties: { color: MODE_COLOR[l.mode] },
+      // Kolor linii z feedu (M1 granatowa, M2 czerwona — jak plakietki `LineBadge`); rodzaj tylko jako zapas.
+      properties: { color: routeColor(l.mode, l.color) },
     })),
   }
 }
@@ -116,13 +118,22 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
   map.addSource('route-stops', { type: 'geojson', data: data.route.stops })
 
   // Metro i kolej miejska jako cienkie tło — orientacja w mieście, zanim pokażą się przystanki.
+  // Jasna obwódka pod przebiegiem — granat M1 ginąłby na ciemnym podkładzie.
+  map.addLayer({
+    id: 'backbone-casing',
+    type: 'line',
+    source: 'backbone',
+    minzoom: 9,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 15, 6.5], 'line-opacity': dark ? 0.55 : 0.9 },
+  })
   map.addLayer({
     id: 'backbone',
     type: 'line',
     source: 'backbone',
     minzoom: 9,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 15, 3.5], 'line-opacity': 0.55 },
+    paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 15, 3.5], 'line-opacity': 0.9 },
   })
 
   // Kolej: ranga ruchu decyduje, od jakiego zoomu stacja jest widoczna — mapa

@@ -14,6 +14,10 @@ Wersjonowanie semantyczne.
   teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
   2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
   mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+- **Kolory linii metra spójne z plakietkami** — przebiegi metra i kolei miejskiej na
+  mapie (tło i tryb linii) mają kolor linii z feedu (M1 granatowa, M2 czerwona, jak
+  `LineBadge`) zamiast jednego fioletu „metra"; jasna obwódka pod przebiegiem trzyma
+  czytelność na ciemnym podkładzie. Autobusy i tramwaje zostają przy kolorze rodzaju.
 - **Komunikaty o utrudnieniach zwinięte** — każdy komunikat (mapa, strona linii,
   przystanek) startuje zwinięty do nagłówka i dat wyciągniętych z treści („Daty
   w komunikacie: 21.09.2026 – 28.09.2026" — feed nie ma pól z datami), rozwija się
