@@ -7,8 +7,12 @@ description: Write the end-of-session handoff note for delay_monitor. Use when t
 
 ## Where
 
-- `E:\Claude_Code\delay_monitor\docs\session-handoffYYYYMMDD.md` — the **main checkout**, even
-  when working in a worktree (`docs/` is gitignored, AGENTS.md #11, so worktrees have no copy).
+- `E:\Claude_Code\delay_monitor\docs\session-handoffYYYYMMDD.md` — the **main checkout**
+  (`docs/` is gitignored, AGENTS.md #11, so worktrees have no copy).
+- **In a worktree** (`.claude/worktrees/<name>`) the harness blocks writes outside it. Write to
+  the worktree's `docs/session-handoffYYYYMMDD.md` instead, then give the user a one-line
+  command to move it:
+  `mv .claude/worktrees/<name>/docs/session-handoffYYYYMMDD.md docs/` (run from the main checkout).
 - Today's date, no separators. A second handoff on the same day: suffix `b`
   (`session-handoff20260901b.md`).
 - Find the previous one: newest `session-handoff*.md` in that directory.
