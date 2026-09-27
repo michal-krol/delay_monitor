@@ -34,6 +34,7 @@ async function collect(stream: AsyncIterable<string> | null): Promise<string[]> 
 describe('createLiveClient', () => {
   afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   it('reads the central directory with a suffix range, then streams an inflated entry', async () => {
@@ -105,13 +106,28 @@ describe('createLiveClient', () => {
 
   it('slow body after headers is not aborted', async () => {
     vi.useFakeTimers()
-    // The stub resolves (headers in) synchronously -- the 30 s deadline must
-    // be cleared right after, so a slow body/consumer past 30 s is fine.
-    const client = createLiveClient(CITY, { fetch: rangeResponder(archive()) })
+    // `vi.getTimerCount()` cannot see a native `AbortSignal.timeout` -- it
+    // never registers with vi's fake timers, so it would read 0 whether or
+    // not the deadline still applies to the body. Capture the signal handed
+    // to `fetch` and spy on `AbortSignal.timeout` so a regression back to
+    // `signal: AbortSignal.timeout(...)` (which aborts the streaming body,
+    // not just the wait for headers) fails this test.
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
+    const respond = rangeResponder(archive())
+    let lastSignal: AbortSignal | undefined
+    const fetchSpy = vi.fn((url: string, headers: Record<string, string>, signal: AbortSignal) => {
+      lastSignal = signal
+      return respond(url, headers)
+    })
+    const client = createLiveClient(CITY, { fetch: fetchSpy })
     const stream = await client.readEntry('stops.txt')
-    expect(vi.getTimerCount()).toBe(0)
+    // Headers are in (readEntry resolved) -- the 30 s deadline must already
+    // be cleared, so advancing past it must not abort the in-flight body.
+    expect(lastSignal?.aborted).toBe(false)
     await vi.advanceTimersByTimeAsync(30_000)
+    expect(lastSignal?.aborted).toBe(false)
     const lines = await collect(stream)
     expect(lines).toEqual(['stop_id,stop_name', '100101,Centrum', '100102,Centrum'])
+    expect(timeoutSpy).not.toHaveBeenCalled()
   })
 })

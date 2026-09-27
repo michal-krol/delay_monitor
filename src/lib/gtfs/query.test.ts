@@ -269,7 +269,7 @@ describe('cityStats', () => {
     expect(cached).toEqual(fresh)
   })
 
-  it('computes a different day index separately', async () => {
+  it('different day index computes separately', async () => {
     const schedule = await make(statsFixture())
     const day1 = cityStats(schedule, 1)
     const day0 = cityStats(schedule, 0)
@@ -440,7 +440,7 @@ describe('searchStops', () => {
     expect(searchStops(schedule, 'dworz', 5).map((r) => r.id)).toEqual(['3003'])
   })
 
-  it('results identical before and after the normalized-name memo warms up (prefix-first, Polish collation)', async () => {
+  it('searchStops results identical before/after memo (prefix-first ordering, Polish collation)', async () => {
     const schedule = await make({
       stops: [
         stop('1001', 'Żerań'), // trafienie od początku ('zeran')
