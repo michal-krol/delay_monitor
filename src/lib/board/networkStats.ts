@@ -8,6 +8,9 @@ const STATISTICS_TTL_MS = 15 * 60 * 1000
 // logiki wyrównania do północy warszawskiej, której tu nie warto budować.
 const CARRIER_COUNTS_TTL_MS = 24 * 60 * 60 * 1000
 const DISRUPTION_COUNT_TTL_MS = 20 * 60 * 1000
+// Po nieudanym sub-requeście nie próbujemy ponownie przez minutę -- inaczej
+// każdy kolejny widz strony podczas awarii PKP odpala nowe zapytanie.
+const FAILURE_BACKOFF_MS = 60 * 1000
 // ~24h historii przy odświeżaniu co 15 min -- tyle, ile potrzeba na sparkline
 // "dziś", nie więcej. Jedna replika, ginie przy restarcie (patrz AGENTS.md #5) --
 // akceptowalne dla wykresu obejmującego tylko bieżący dzień.
@@ -55,86 +58,148 @@ function computeOnTimePct(stats: OperationsStatistics): number | null {
 /**
  * Stan tego modułu (cache trzech elementów widżetu + historia) — jeden
  * globalny widżet dla wszystkich userów, nie per-stacja jak poller, więc
- * zwykłe `{value, expiresAt}` zamiast `createTtlCache()` (ten jest kluczowany
- * po wielu wpisach, tu jest dokładnie jeden). Trzymamy ostatnią udaną wartość
- * nawet po wygaśnięciu TTL, żeby błąd jednego z trzech podzapytań degradował
- * łagodnie (stare dane + świeże z pozostałych), zamiast czyścić cały widżet —
- * ten sam duch co "UI nigdy nie jest pusty" (AGENTS.md #7), tu bez osobnego
- * snapshotu do pokazania przy pierwszym niepowodzeniu.
+ * zwykłe `{value, expiresAt, day}` per sub-request zamiast `createTtlCache()`
+ * (ten jest kluczowany po wielu wpisach, tu jest dokładnie jeden na sub-request).
+ * Trzymamy ostatnią udaną wartość nawet po wygaśnięciu TTL, żeby błąd jednego
+ * z trzech podzapytań degradował łagodnie (stare dane + świeże z pozostałych),
+ * zamiast czyścić cały widżet — ten sam duch co "UI nigdy nie jest pusty"
+ * (AGENTS.md #7), tu bez osobnego snapshotu do pokazania przy pierwszym
+ * niepowodzeniu.
+ *
+ * `day` (warszawska data w chwili pobrania) chroni przed serwowaniem wczorajszej
+ * wartości po północy — TTL sam z siebie tego nie gwarantuje (24h cache liczby
+ * przewoźników przeżywa północ; nawet 15-minutowy cache statystyk bywa "świeży"
+ * tuż po północy). Wartość z innego dnia liczy się jako nieobecna: próbujemy
+ * odświeżyć, a przy niepowodzeniu pole raportuje `null`, nie wczorajszą liczbę.
+ *
+ * `inFlight` dedupuje równoległe wywołania per sub-request (ten sam wzorzec co
+ * `inFlight` w `src/app/api/train/route.ts`): rejestrujemy obietnicę PRZED
+ * `await`, więc kilku userów odświeżających widżet w tej samej chwili dzielą
+ * jedno realne zapytanie do PKP, nie po jednym każdy.
+ *
+ * `failedAt` to backoff po niepowodzeniu: przez `FAILURE_BACKOFF_MS` nie
+ * próbujemy ponownie tego sub-requestu, tylko serwujemy ostatnią dobrą wartość
+ * z tego samego dnia (albo `null`, gdy jej nie ma) — inaczej seria requestów w
+ * trakcie awarii PKP odpalałaby nowe zapytanie za każdym razem.
  */
-type CachedValue<T> = { value: T; expiresAt: number }
+type CachedValue<T> = { value: T; expiresAt: number; day: string }
+type SlotState<T> = {
+  cached: CachedValue<T> | null
+  inFlight: Promise<T> | null
+  failedAt: number | null
+}
 
-let statisticsCache: CachedValue<OperationsStatistics> | null = null
-let carrierCountsCache: CachedValue<Record<string, number>> | null = null
-let disruptionCountCache: CachedValue<number> | null = null
+function makeSlotState<T>(): SlotState<T> {
+  return { cached: null, inFlight: null, failedAt: null }
+}
+
+let statisticsState = makeSlotState<OperationsStatistics>()
+let carrierCountsState = makeSlotState<Record<string, number>>()
+let disruptionCountState = makeSlotState<number>()
 const history: NetworkStatsHistoryPoint[] = []
+let historyDay: string | null = null
 
-async function refreshIfStale<T>(
-  cached: CachedValue<T> | null,
+/**
+ * Pobiera i cache'uje jeden sub-request, z dedupem równoległych wywołań,
+ * backoffem po niepowodzeniu i kluczowaniem po dniu warszawskim (patrz
+ * komentarz przy `CachedValue`/`SlotState` wyżej).
+ *
+ * `onFreshValue` odpala się dokładnie raz na realne pobranie (wewnątrz
+ * współdzielonej obietnicy `inFlight`), nie raz na każde wywołanie tej
+ * funkcji — inaczej dwóch równoległych callerów dopisałoby dwa punkty
+ * historii za jedno prawdziwe odświeżenie.
+ */
+async function getOrRefresh<T>(
+  state: SlotState<T>,
+  today: string,
   ttlMs: number,
   load: () => Promise<T>,
-  onError: (err: unknown) => void
-): Promise<{ value: T | null; refreshed: boolean }> {
-  if (cached !== null && cached.expiresAt > Date.now()) {
-    return { value: cached.value, refreshed: false }
+  onError: (err: unknown) => void,
+  onFreshValue?: (value: T) => void
+): Promise<T | null> {
+  const cached = state.cached
+  const sameDayValue = cached !== null && cached.day === today ? cached.value : null
+
+  if (cached !== null && cached.day === today && cached.expiresAt > Date.now()) {
+    return cached.value
   }
+
+  if (state.failedAt !== null && Date.now() - state.failedAt < FAILURE_BACKOFF_MS) {
+    return sameDayValue
+  }
+
+  if (state.inFlight === null) {
+    state.inFlight = load()
+      .then((value) => {
+        state.cached = { value, expiresAt: Date.now() + ttlMs, day: today }
+        state.failedAt = null
+        onFreshValue?.(value)
+        return value
+      })
+      .catch((err: unknown) => {
+        onError(err)
+        state.failedAt = Date.now()
+        throw err
+      })
+      .finally(() => {
+        state.inFlight = null
+      })
+  }
+
   try {
-    const value = await load()
-    return { value, refreshed: true }
-  } catch (err) {
-    onError(err)
-    // Wygasłe, ale ostatnie znane dane są lepsze niż nic (patrz komentarz wyżej).
-    return { value: cached?.value ?? null, refreshed: false }
+    return await state.inFlight
+  } catch {
+    return sameDayValue
   }
 }
 
 export async function getNetworkStats(client: PkpClient, now: () => Date = () => new Date()): Promise<NetworkStats> {
   const today = warsawDateString(now())
+  // Nowy dzień warszawski -- sparkline zaczyna od zera, wczorajsze punkty nie
+  // mają tu czego robić.
+  if (historyDay !== null && historyDay !== today) {
+    history.length = 0
+  }
+  historyDay = today
 
-  const [statisticsResult, carrierCountsResult, disruptionCountResult] = await Promise.all([
-    refreshIfStale(
-      statisticsCache,
+  const [stats, carrierCounts, disruptionCount] = await Promise.all([
+    getOrRefresh(
+      statisticsState,
+      today,
       STATISTICS_TTL_MS,
       () => client.getOperationsStatistics(today),
-      (err) => logEvent('error', 'network_stats.statistics_failed', {}, err)
+      (err) => logEvent('error', 'network_stats.statistics_failed', {}, err),
+      (value) => {
+        const onTimePct = computeOnTimePct(value)
+        // Nieznany % (0 pociągów) nie trafia do historii -- nie ma czego rysować na sparklinie.
+        if (onTimePct !== null) {
+          history.push({ at: value.generatedAt, onTimePct })
+          while (history.length > MAX_HISTORY_POINTS) history.shift()
+        }
+      }
     ),
-    refreshIfStale(
-      carrierCountsCache,
+    getOrRefresh(
+      carrierCountsState,
+      today,
       CARRIER_COUNTS_TTL_MS,
       () => client.getDailyCarrierCounts(today),
       (err) => logEvent('error', 'network_stats.carrier_counts_failed', {}, err)
     ),
-    refreshIfStale(
-      disruptionCountCache,
+    getOrRefresh(
+      disruptionCountState,
+      today,
       DISRUPTION_COUNT_TTL_MS,
       () => client.getDisruptionCount(today, today),
       (err) => logEvent('error', 'network_stats.disruption_count_failed', {}, err)
     ),
   ])
 
-  if (statisticsResult.refreshed && statisticsResult.value !== null) {
-    statisticsCache = { value: statisticsResult.value, expiresAt: Date.now() + STATISTICS_TTL_MS }
-    const onTimePct = computeOnTimePct(statisticsResult.value)
-    // Nieznany % (0 pociągów) nie trafia do historii -- nie ma czego rysować na sparklinie.
-    if (onTimePct !== null) {
-      history.push({ at: statisticsResult.value.generatedAt, onTimePct })
-      while (history.length > MAX_HISTORY_POINTS) history.shift()
-    }
-  }
-  if (carrierCountsResult.refreshed && carrierCountsResult.value !== null) {
-    carrierCountsCache = { value: carrierCountsResult.value, expiresAt: Date.now() + CARRIER_COUNTS_TTL_MS }
-  }
-  if (disruptionCountResult.refreshed && disruptionCountResult.value !== null) {
-    disruptionCountCache = { value: disruptionCountResult.value, expiresAt: Date.now() + DISRUPTION_COUNT_TTL_MS }
-  }
-
-  const stats = statisticsResult.value
-  const carrierCounts = carrierCountsResult.value ?? {}
+  const carrierCountsValue = carrierCounts ?? {}
 
   let topCarriers: NetworkStatsCarrier[] = []
-  if (Object.keys(carrierCounts).length > 0) {
+  if (Object.keys(carrierCountsValue).length > 0) {
     const names = await client.getNameDictionaries().catch((): NameDictionaries => ({ carrierNames: {}, categoryNames: {} }))
-    topCarriers = Object.entries(carrierCounts)
+    topCarriers = Object.entries(carrierCountsValue)
       .sort(([, a], [, b]) => b - a)
       .slice(0, TOP_CARRIERS_COUNT)
       .map(([code, count]) => ({ code, name: names.carrierNames[code] ?? null, count }))
@@ -154,15 +219,16 @@ export async function getNetworkStats(client: PkpClient, now: () => Date = () =>
         }
       : null,
     topCarriers,
-    disruptionCount: disruptionCountResult.value,
+    disruptionCount,
     history: [...history],
   }
 }
 
 /** Wyłącznie do testów — resetuje moduł między przypadkami (ten sam wzorzec co inne moduły ze stanem na poziomie modułu w tej bazie kodu). */
 export function resetNetworkStatsForTests(): void {
-  statisticsCache = null
-  carrierCountsCache = null
-  disruptionCountCache = null
+  statisticsState = makeSlotState()
+  carrierCountsState = makeSlotState()
+  disruptionCountState = makeSlotState()
   history.length = 0
+  historyDay = null
 }
