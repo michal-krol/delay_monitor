@@ -151,6 +151,8 @@ describe('TransitMap', () => {
     const { map, rerender } = await mounted({ onViewChange })
     rerender(<TransitMap {...base} onViewChange={onViewChange} focus={{ lat: 50.06, lon: 19.94, nonce: 1 }} />)
     expect(map.flyTo).toHaveBeenCalledWith({ center: [19.94, 50.06], zoom: 16 })
+    rerender(<TransitMap {...base} onViewChange={onViewChange} focus={{ lat: 52.23, lon: 21.01, nonce: 2, zoom: 12 }} />)
+    expect(map.flyTo).toHaveBeenLastCalledWith({ center: [21.01, 52.23], zoom: 12 })
     rerender(<TransitMap {...base} onViewChange={onViewChange} dark />)
     expect(map.setStyle).toHaveBeenCalledWith('https://tiles.openfreemap.org/styles/dark')
     handlers.get('moveend')!({})

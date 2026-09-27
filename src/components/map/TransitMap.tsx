@@ -358,7 +358,7 @@ export function TransitMap({
   /** Pozycja wybranego obiektu (obwódka). Pojazd: aktualizowana z każdym odczytem. */
   selected: { lat: number; lon: number } | null
   /** Przelot kamery — nowy `nonce` = nowy przelot, także do tego samego miejsca. */
-  focus: { lat: number; lon: number; nonce: number } | null
+  focus: { lat: number; lon: number; nonce: number; zoom?: number } | null
   /** Tryb linii: przebieg wybranego kierunku; `key` zmienia się z linią/kierunkiem (nowy kadr). */
   route: { key: string; overlay: RouteOverlay; color: string } | null
   /** Śledzony pojazd — kamera przesuwa się za nim z każdym odczytem. */
@@ -617,7 +617,8 @@ export function TransitMap({
     if (focus === null || mapRef.current === null) return
     const map = mapRef.current
     // MapLibre sam skraca przelot przy `prefers-reduced-motion` (brak `essential`).
-    map.flyTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), MAP_ZOOM.focus) })
+    // Bez `zoom` = przybliż do obiektu (nigdy nie oddalaj); z `zoom` = dokładnie ten kadr („całe miasto").
+    map.flyTo({ center: [focus.lon, focus.lat], zoom: focus.zoom ?? Math.max(map.getZoom(), MAP_ZOOM.focus) })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- przelot tylko na nowy `nonce`, nie przy każdym renderze
   }, [focusNonce])
 
