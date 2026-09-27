@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useNetworkStats } from '@/hooks/useNetworkStats'
 import { AlertCircleIcon } from './icons'
 import { formatClockTime } from '@/lib/format'
-import type { NetworkStats } from '@/lib/board/networkStats'
+import type { NetworkStats, NetworkStatsStatistics } from '@/lib/board/networkStats'
 
 const STATUS_COLORS = {
   completed: '#15803d',
@@ -21,7 +21,7 @@ function formatNumber(value: number): string {
 }
 
 /** Segmenty pierścienia stanu sieci — kolejność decyduje o kolejności rysowania (offsety liczone od poprzedniego). */
-function statusSegments(stats: NetworkStats): { color: string; length: number; offset: number }[] {
+function statusSegments(stats: NetworkStatsStatistics): { color: string; length: number; offset: number }[] {
   const total = stats.totalTrains || 1
   const cancelledTotal = stats.cancelled + stats.partialCancelled
   const parts: [string, number][] = [
@@ -83,8 +83,7 @@ function CarrierBars({ carriers }: { carriers: NetworkStats['topCarriers'] }) {
 export function NetworkStatsCard() {
   const { data, error } = useNetworkStats()
   const [expanded, setExpanded] = useState(false)
-
-  if (error !== null && data === null) return null // brak jeszcze żadnych danych i błąd -- widżet poboczny, nie warto pokazywać komunikatu o błędzie
+  const statistics = data?.statistics ?? null
 
   return (
     <div className="glass rounded-2xl p-4">
@@ -96,9 +95,18 @@ export function NetworkStatsCard() {
       >
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">Dziś w Polsce</p>
-          {data === null && <p className="truncate text-xs text-text-secondary">Wczytywanie…</p>}
+          {data === null && (
+            <p className="truncate text-xs text-text-secondary">
+              {error !== null ? 'Nie udało się pobrać danych' : 'Wczytywanie…'}
+            </p>
+          )}
+          {data !== null && statistics === null && <p className="truncate text-xs text-text-secondary">Brak danych o ruchu</p>}
         </div>
-        {data !== null && <span className="shrink-0 text-xs text-text-muted">{formatClockTime(data.generatedAt)}</span>}
+        {statistics !== null && (
+          <span className="shrink-0 text-xs text-text-muted">
+            {error !== null ? `nieaktualne · ${formatClockTime(statistics.generatedAt)}` : formatClockTime(statistics.generatedAt)}
+          </span>
+        )}
         <svg
           width={16}
           height={16}
@@ -112,44 +120,48 @@ export function NetworkStatsCard() {
 
       {expanded && data !== null && (
         <div className="mt-3.5 flex flex-col gap-4 border-t border-black/10 pt-3.5 dark:border-white/10">
-          <p className="text-xs text-text-muted">Pociągów łącznie · {formatNumber(data.totalTrains)}</p>
-          <div className="flex items-center gap-4">
-            <svg width={80} height={80} viewBox="0 0 36 36" aria-hidden="true" className="shrink-0">
-              {statusSegments(data).map((segment, index) => (
-                <circle
-                  key={index}
-                  cx={18}
-                  cy={18}
-                  r={RING_RADIUS}
-                  fill="none"
-                  stroke={segment.color}
-                  strokeWidth={5}
-                  strokeDasharray={`${segment.length} ${RING_CIRCUMFERENCE - segment.length}`}
-                  strokeDashoffset={segment.offset}
-                  transform="rotate(-90 18 18)"
-                />
-              ))}
-            </svg>
-            <dl className="grid grid-cols-1 gap-1 text-xs text-text-secondary">
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.completed }} />
-                Zakończone · {formatNumber(data.completed)}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.inProgress }} />
-                W trasie · {formatNumber(data.inProgress)}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.notStarted }} />
-                Jeszcze nie wyruszyły · {formatNumber(data.notStarted)}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.cancelled }} />
-                Odwołane · {formatNumber(data.cancelled)}
-                {data.partialCancelled > 0 && <span className="text-text-muted"> (+{formatNumber(data.partialCancelled)} częściowo)</span>}
-              </div>
-            </dl>
-          </div>
+          <p className="text-xs text-text-muted">Pociągów łącznie · {statistics !== null ? formatNumber(statistics.totalTrains) : '—'}</p>
+          {statistics !== null && (
+            <div className="flex items-center gap-4">
+              <svg width={80} height={80} viewBox="0 0 36 36" aria-hidden="true" className="shrink-0">
+                {statusSegments(statistics).map((segment, index) => (
+                  <circle
+                    key={index}
+                    cx={18}
+                    cy={18}
+                    r={RING_RADIUS}
+                    fill="none"
+                    stroke={segment.color}
+                    strokeWidth={5}
+                    strokeDasharray={`${segment.length} ${RING_CIRCUMFERENCE - segment.length}`}
+                    strokeDashoffset={segment.offset}
+                    transform="rotate(-90 18 18)"
+                  />
+                ))}
+              </svg>
+              <dl className="grid grid-cols-1 gap-1 text-xs text-text-secondary">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.completed }} />
+                  Zakończone · {formatNumber(statistics.completed)}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.inProgress }} />
+                  W trasie · {formatNumber(statistics.inProgress)}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.notStarted }} />
+                  Jeszcze nie wyruszyły · {formatNumber(statistics.notStarted)}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.cancelled }} />
+                  Odwołane · {formatNumber(statistics.cancelled)}
+                  {statistics.partialCancelled > 0 && (
+                    <span className="text-text-muted"> (+{formatNumber(statistics.partialCancelled)} częściowo)</span>
+                  )}
+                </div>
+              </dl>
+            </div>
+          )}
 
           {data.topCarriers.length > 0 && (
             <div>
@@ -167,7 +179,7 @@ export function NetworkStatsCard() {
 
           <p className="flex items-center gap-1.5 text-xs text-text-secondary">
             <AlertCircleIcon size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
-            {formatNumber(data.disruptionCount)} zgłoszonych utrudnień na sieci
+            {data.disruptionCount === null ? '—' : formatNumber(data.disruptionCount)} zgłoszonych utrudnień na sieci
           </p>
         </div>
       )}

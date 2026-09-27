@@ -47,8 +47,8 @@ describe('getNetworkStats', () => {
 
     const stats = await getNetworkStats(client)
 
-    expect(stats.totalTrains).toBe(100)
-    expect(stats.onTimePct).toBe(95) // (100 - 3 - 2) / 100
+    expect(stats.statistics?.totalTrains).toBe(100)
+    expect(stats.statistics?.onTimePct).toBe(95) // (100 - 3 - 2) / 100
     expect(stats.disruptionCount).toBe(4)
     expect(stats.topCarriers).toEqual([
       { code: 'IC', name: 'PKP Intercity', count: 10 },
@@ -88,7 +88,7 @@ describe('getNetworkStats', () => {
 
     const stats = await getNetworkStats(client)
 
-    expect(stats.totalTrains).toBe(100) // ostatnia znana wartość, nie 0
+    expect(stats.statistics?.totalTrains).toBe(100) // ostatnia znana wartość, nie 0
   })
 
   it('appends a history point only when statistics are actually refetched, not on cache hits', async () => {
@@ -102,18 +102,41 @@ describe('getNetworkStats', () => {
     expect(third.history).toHaveLength(2)
   })
 
-  it('returns zeroed defaults, not a crash, when nothing has ever succeeded', async () => {
+  it('statistics unknown: reports null, not zero, when the statistics request has never succeeded', async () => {
     const client = makeClient({
       getOperationsStatistics: vi.fn().mockRejectedValue(new Error('PKP niedostępne')),
       getDailyCarrierCounts: vi.fn().mockRejectedValue(new Error('PKP niedostępne')),
+    })
+
+    const stats = await getNetworkStats(client)
+
+    expect(stats.statistics).toBeNull()
+    expect(stats.topCarriers).toEqual([])
+    expect(stats.history).toEqual([])
+  })
+
+  it('disruption count unknown: reports null, not zero, when the disruption request has never succeeded', async () => {
+    const client = makeClient({
       getDisruptionCount: vi.fn().mockRejectedValue(new Error('PKP niedostępne')),
     })
 
     const stats = await getNetworkStats(client)
 
-    expect(stats.totalTrains).toBe(0)
-    expect(stats.onTimePct).toBe(100)
-    expect(stats.topCarriers).toEqual([])
-    expect(stats.disruptionCount).toBe(0)
+    expect(stats.disruptionCount).toBeNull()
+    expect(stats.statistics?.totalTrains).toBe(100) // podzapytania degradują niezależnie
+  })
+
+  it('0 trains: on-time % is unknown (null), not a false 100%, and no history point is pushed', async () => {
+    const client = makeClient({
+      getOperationsStatistics: vi
+        .fn()
+        .mockResolvedValue(makeStats({ totalTrains: 0, notStarted: 0, inProgress: 0, completed: 0, cancelled: 0, partialCancelled: 0 })),
+    })
+
+    const stats = await getNetworkStats(client)
+
+    expect(stats.statistics?.totalTrains).toBe(0)
+    expect(stats.statistics?.onTimePct).toBeNull()
+    expect(stats.history).toEqual([])
   })
 })

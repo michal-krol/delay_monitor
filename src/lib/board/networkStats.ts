@@ -25,7 +25,7 @@ export type NetworkStatsCarrier = {
   count: number
 }
 
-export type NetworkStats = {
+export type NetworkStatsStatistics = {
   generatedAt: string
   totalTrains: number
   notStarted: number
@@ -33,14 +33,21 @@ export type NetworkStats = {
   completed: number
   cancelled: number
   partialCancelled: number
-  onTimePct: number
+  onTimePct: number | null
+}
+
+export type NetworkStats = {
+  // Jeden sub-request (`getOperationsStatistics`) -- albo wszystkie te liczniki
+  // są znane, albo żaden (patrz AGENTS.md #7 / ui-states.md).
+  statistics: NetworkStatsStatistics | null
   topCarriers: NetworkStatsCarrier[]
-  disruptionCount: number
+  disruptionCount: number | null
   history: NetworkStatsHistoryPoint[]
 }
 
-function computeOnTimePct(stats: OperationsStatistics): number {
-  if (stats.totalTrains === 0) return 100
+/** `null` = nieznany (0 pociągów w rozkładzie na dziś, nie "100% na czas") -- patrz AGENTS.md #7. */
+function computeOnTimePct(stats: OperationsStatistics): number | null {
+  if (stats.totalTrains === 0) return null
   const cancelledTotal = stats.cancelled + stats.partialCancelled
   return Math.round(((stats.totalTrains - cancelledTotal) / stats.totalTrains) * 1000) / 10
 }
@@ -107,8 +114,12 @@ export async function getNetworkStats(client: PkpClient, now: () => Date = () =>
 
   if (statisticsResult.refreshed && statisticsResult.value !== null) {
     statisticsCache = { value: statisticsResult.value, expiresAt: Date.now() + STATISTICS_TTL_MS }
-    history.push({ at: statisticsResult.value.generatedAt, onTimePct: computeOnTimePct(statisticsResult.value) })
-    while (history.length > MAX_HISTORY_POINTS) history.shift()
+    const onTimePct = computeOnTimePct(statisticsResult.value)
+    // Nieznany % (0 pociągów) nie trafia do historii -- nie ma czego rysować na sparklinie.
+    if (onTimePct !== null) {
+      history.push({ at: statisticsResult.value.generatedAt, onTimePct })
+      while (history.length > MAX_HISTORY_POINTS) history.shift()
+    }
   }
   if (carrierCountsResult.refreshed && carrierCountsResult.value !== null) {
     carrierCountsCache = { value: carrierCountsResult.value, expiresAt: Date.now() + CARRIER_COUNTS_TTL_MS }
@@ -130,16 +141,20 @@ export async function getNetworkStats(client: PkpClient, now: () => Date = () =>
   }
 
   return {
-    generatedAt: stats?.generatedAt ?? now().toISOString(),
-    totalTrains: stats?.totalTrains ?? 0,
-    notStarted: stats?.notStarted ?? 0,
-    inProgress: stats?.inProgress ?? 0,
-    completed: stats?.completed ?? 0,
-    cancelled: stats?.cancelled ?? 0,
-    partialCancelled: stats?.partialCancelled ?? 0,
-    onTimePct: stats ? computeOnTimePct(stats) : 100,
+    statistics: stats
+      ? {
+          generatedAt: stats.generatedAt,
+          totalTrains: stats.totalTrains,
+          notStarted: stats.notStarted,
+          inProgress: stats.inProgress,
+          completed: stats.completed,
+          cancelled: stats.cancelled,
+          partialCancelled: stats.partialCancelled,
+          onTimePct: computeOnTimePct(stats),
+        }
+      : null,
     topCarriers,
-    disruptionCount: disruptionCountResult.value ?? 0,
+    disruptionCount: disruptionCountResult.value,
     history: [...history],
   }
 }

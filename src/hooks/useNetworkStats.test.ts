@@ -1,18 +1,20 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useNetworkStats } from './useNetworkStats'
+import { resetNetworkStatsHookForTests, useNetworkStats } from './useNetworkStats'
 import { jsonResponse } from '@/test-utils/http'
 
 const STATS = {
-  generatedAt: '2026-08-27T18:00:00Z',
-  totalTrains: 7250,
-  notStarted: 3683,
-  inProgress: 608,
-  completed: 2937,
-  cancelled: 3,
-  partialCancelled: 19,
-  onTimePct: 99.7,
+  statistics: {
+    generatedAt: '2026-08-27T18:00:00Z',
+    totalTrains: 7250,
+    notStarted: 3683,
+    inProgress: 608,
+    completed: 2937,
+    cancelled: 3,
+    partialCancelled: 19,
+    onTimePct: 99.7,
+  },
   topCarriers: [],
   disruptionCount: 235,
   history: [],
@@ -20,6 +22,7 @@ const STATS = {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  resetNetworkStatsHookForTests()
 })
 
 afterEach(() => {
@@ -52,5 +55,42 @@ describe('useNetworkStats', () => {
 
     const { result: secondResult } = renderHook(() => useNetworkStats())
     expect(secondResult.current.data).toEqual(STATS)
+  })
+
+  it('statistics unknown: accepts a response shape where statistics is null, without treating it as malformed', async () => {
+    const nullStatistics = { ...STATS, statistics: null }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(nullStatistics)))
+
+    const { result } = renderHook(() => useNetworkStats())
+
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+    expect(result.current.data).toEqual(nullStatistics)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('rejects a response with an unexpected shape (e.g. the old flat payload) instead of crashing', async () => {
+    const oldFlatShape = { totalTrains: 7250, generatedAt: '2026-08-27T18:00:00Z' }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(oldFlatShape)))
+
+    const { result } = renderHook(() => useNetworkStats())
+
+    await vi.waitFor(() => expect(result.current.error).not.toBeNull())
+    expect(result.current.data).not.toEqual(oldFlatShape)
+  })
+
+  it('snapshot + refresh error: keeps the last data and also surfaces the error when a later refresh fails', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse(STATS))
+      .mockImplementationOnce(() => Promise.reject(new Error('sieć padła')))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useNetworkStats())
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+
+    await vi.advanceTimersByTimeAsync(15 * 60 * 1000)
+
+    await vi.waitFor(() => expect(result.current.error).not.toBeNull())
+    expect(result.current.data).toEqual(STATS) // stara migawka zostaje
   })
 })
