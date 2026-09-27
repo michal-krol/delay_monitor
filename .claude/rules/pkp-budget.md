@@ -22,8 +22,11 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
     (`createTtlCache()`): 90 s response cache (route.ts), 24 h route cache inside
     `getTrainDetail` (`client.ts` `fetchRoute` — the operation/realization call is never
     cached, only the static schedule route), 10 min "not found" cache for a PKP 404 so a
-    repeated click on a dead link doesn't refetch. Hourly cache-miss cap: `HOURLY_MISS_CAP = 21`
-    (module-state counter keyed by epoch hour, single replica — AGENTS.md #5). A cache hit, a
+    repeated click on a dead link doesn't refetch. Hourly cache-miss cap: `HOURLY_MISS_CAP = 21`,
+    tracked in `src/lib/pkp/trainMissBudget.ts` (module-state counter keyed by epoch hour, single
+    replica — AGENTS.md #5) — kept out of `route.ts` itself because a Next.js route module may
+    only export route fields (`GET`, ...); a test-only export there broke `.next/types` and
+    `next build`. A cache hit, a
     remembered 404, or joining an already in-flight request never counts toward the cap or
     calls PKP; only starting a genuine new fetch does. The last `FOREGROUND_RESERVE = 7` misses
     of the hour are reserved for foreground requests (first load or a user-initiated retry —

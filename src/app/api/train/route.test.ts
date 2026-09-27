@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PkpApiError } from '@/lib/pkp/client'
-import { resetMissWindowForTests } from './route'
+import { resetMissWindowForTests } from '@/lib/pkp/trainMissBudget'
 
 const getTrainDetail = vi.fn()
 const getNameDictionaries = vi.fn()
