@@ -14,6 +14,12 @@ Wersjonowanie semantyczne.
   teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
   2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
   mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+- **Komunikaty o utrudnieniach zwinięte** — każdy komunikat (mapa, strona linii,
+  przystanek) startuje zwinięty do nagłówka i dat wyciągniętych z treści („Daty
+  w komunikacie: 21.09.2026 – 28.09.2026" — feed nie ma pól z datami), rozwija się
+  na klik (`<details>`); długie URL-e i listy linii łamią się w kontenerze zamiast
+  z niego wychodzić, treść dłuższa niż ~20 wierszy przewija się w ramce (treści WTP
+  mają do ~55 KB). Link „Szczegóły na wtp.waw.pl" widoczny także po zwinięciu.
 - **Mapa transportu: „Pokaż całe miasto" i komunikat dla czytnika** — przycisk pod
   zoomem wraca do kadru startowego miasta; niewidoczny `aria-live` mówi „Na mapie N
   pojazdów" po zmianie filtrów/linii (nie przy każdym odczycie co 15 s).

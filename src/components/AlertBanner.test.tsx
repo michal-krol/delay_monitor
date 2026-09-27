@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { AlertBanner } from './AlertBanner'
+import { AlertBanner, alertDateRange } from './AlertBanner'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 
 const alert = (over: Partial<AlertRecord> = {}): AlertRecord => ({
@@ -20,10 +20,16 @@ describe('AlertBanner', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows title, body and a link out to the source', () => {
-    render(<AlertBanner alerts={[alert()]} />)
+  it('starts collapsed to the title and text dates, keeps the source link visible, expands on demand', () => {
+    render(<AlertBanner alerts={[alert({ body: 'W dniu 27.09.2026 oraz 28.9.2026 objazd.' })]} />)
     expect(screen.getByText('Utrudnienia w kursowaniu linii 20')).toBeInTheDocument()
-    expect(screen.getByText('Treść utrudnienia.')).toBeInTheDocument()
+    expect(screen.getByText('Daty w komunikacie: 27.09.2026 – 28.09.2026')).toBeInTheDocument()
+    const body = screen.getByText('W dniu 27.09.2026 oraz 28.9.2026 objazd.')
+    expect(body).not.toBeVisible()
+    expect(screen.getByRole('link', { name: /Szczegóły/ })).toBeVisible()
+    fireEvent.click(screen.getByText('Utrudnienia w kursowaniu linii 20'))
+    expect(screen.getByRole('group')).toHaveAttribute('open')
+    expect(body).toBeVisible()
     const link = screen.getByRole('link', { name: /Szczegóły/ })
     expect(link).toHaveAttribute('href', 'https://www.wtp.waw.pl/utrudnienia/x/')
     expect(link).toHaveAttribute('target', '_blank')
@@ -43,5 +49,13 @@ describe('AlertBanner', () => {
     render(<AlertBanner alerts={[alert({ id: 'a' }), alert({ id: 'b', title: 'Drugi alert' })]} />)
     expect(screen.getByText('Utrudnienia w kursowaniu linii 20')).toBeInTheDocument()
     expect(screen.getByText('Drugi alert')).toBeInTheDocument()
+  })
+})
+
+describe('alertDateRange', () => {
+  it('reads dates from the text: none, one, or the first–last range regardless of order', () => {
+    expect(alertDateRange('Bez dat.')).toBeNull()
+    expect(alertDateRange('Dnia 27.09.2026 i znów 27.09.2026')).toBe('27.09.2026')
+    expect(alertDateRange('od 28.09.2026, wcześniej 21.9.2026, potem 1.10.2026')).toBe('21.09.2026 – 01.10.2026')
   })
 })
