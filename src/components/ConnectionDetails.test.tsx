@@ -154,7 +154,9 @@ describe('ConnectionDetails', () => {
     expect(onLabelResolved).not.toHaveBeenCalled()
 
     await waitForRoute()
-    expect(onLabelResolved).toHaveBeenCalledWith('EIC Grunwald')
+    // Callback leci z useEffect, czyli po commicie, na którym findByRole już się
+    // rozwiązał -- pod obciążeniem (CI, coverage) efekt bywa jeszcze nieopróżniony.
+    await waitFor(() => expect(onLabelResolved).toHaveBeenCalledWith('EIC Grunwald'))
   })
 
   it('shows a weather card for the origin station in the right column', async () => {
