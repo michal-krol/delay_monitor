@@ -199,6 +199,14 @@ Wersjonowanie semantyczne.
 - **Szablon PR = kryteria akceptacji + Definition of Done** w dwóch progach:
   PR do `dev` (bramka, e2e, test regresji udowodniony na czerwono, niezależny
   weryfikator, review) i `dev` → `main` (klik-QA na stagingu, wydanie).
+- **Nocny kontrakt API** (`.github/workflows/contract.yml`) — `PKP_CONTRACT` +
+  `GTFS_CONTRACT` codziennie o 03:17 UTC, bez klucza i kosztu budżetu; dotąd tylko
+  ręcznie, a zniknięcie pól 2026-08-30 zrobiło cichą awarię.
+- **Monitoring produkcji** (`.github/workflows/health.yml`) — co 30 min
+  `/api/health`, czerwono przy `pollerStatus` ≠ `ok` (zły klucz, zepsuty albo
+  zamrożony feed). Oba harmonogramy ruszają po trafieniu na `main`.
+- **ADR** (`adr/`) — 0001 jedna replika i stan w pamięci, 0002 kryteria 1.0.0
+  (propozycja).
 - **Przepływ `lokalnie → dev → main`** spisany w AGENTS.md #12 — feature branch
   scala się do `dev` (staging Railway) przez PR, dopiero zielony `dev` idzie na
   `main` (produkcja). Koniec pushowania feature'ów prosto na `main`.

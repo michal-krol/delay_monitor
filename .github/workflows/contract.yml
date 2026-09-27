@@ -1,0 +1,25 @@
+name: Nightly API contract
+
+# Kontrakt z publicznymi schematami PKP (swagger) i GTFS — bez klucza, bez kosztu
+# budżetu. Dotąd odpalany ręcznie tylko przy zmianach schematu, a zniknięcie pól
+# `withPlanned`/`fullRoute` (2026-08-30) zrobiło cichą awarię. AGENTS.md #12.
+# Harmonogram GitHub uruchamia wyłącznie z gałęzi domyślnej (main).
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test -- contract
+        env:
+          PKP_CONTRACT: '1'
+          GTFS_CONTRACT: '1'
