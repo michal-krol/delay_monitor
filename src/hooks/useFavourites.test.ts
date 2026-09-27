@@ -167,4 +167,28 @@ describe('useFavourites — wrogie wejście z localStorage', () => {
 
     expect(result.current.favourites).toEqual([WAW, KRK])
   })
+
+  it('favourite with malformed station id is dropped, others kept', async () => {
+    window.localStorage.setItem(
+      V2_KEY,
+      JSON.stringify([WAW, { kind: 'pkp', id: 'nie-liczba', name: 'Zły id' }, KRK])
+    )
+
+    const { result } = renderHook(() => useFavourites())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+
+    expect(result.current.favourites).toEqual([WAW, KRK])
+  })
+
+  it('gtfs favourite with bad city dropped', async () => {
+    window.localStorage.setItem(
+      V2_KEY,
+      JSON.stringify([METRO, { kind: 'gtfs', city: 'Warszawa123', id: '7014M', name: 'Zła stolica' }])
+    )
+
+    const { result } = renderHook(() => useFavourites())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+
+    expect(result.current.favourites).toEqual([METRO])
+  })
 })

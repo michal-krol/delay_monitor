@@ -22,11 +22,12 @@ export async function GET(request: Request) {
 
   try {
     const stations = await client.searchStations(query)
-    for (const station of stations) {
+    const suggestions = stations.slice(0, MAX_SUGGESTIONS)
+    for (const station of suggestions) {
       rememberStationName(station.id, station.name)
     }
 
-    return NextResponse.json({ stations: stations.slice(0, MAX_SUGGESTIONS) })
+    return NextResponse.json({ stations: suggestions })
   } catch (err) {
     // Awaria słownika stacji nie może wywrócić route handlera nieobsłużonym
     // wyjątkiem. Odpowiadamy jawnym błędem, żeby wyszukiwarka mogła odróżnić
