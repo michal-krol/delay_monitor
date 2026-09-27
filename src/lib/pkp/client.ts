@@ -625,6 +625,17 @@ export function createLiveClient(
       if (operationResult.status === 'rejected') throw operationResult.reason
 
       const operation = rawTrainOperationSchema.parse(operationResult.value.json)
+      // 404 (brak trasy dla tego pociągu) jest normalny i celowo cichy -- patrz
+      // komentarz przy fetchRoute. Każde inne odrzucenie (5xx, błąd parsowania
+      // schematu, sieć) degraduje tak samo do `route: null`, ale bez logu
+      // przeszłoby niezauważone -- to sygnał odróżniający "PKP nie ma trasy"
+      // od "coś się psuje przy pobieraniu trasy".
+      if (routeResult.status === 'rejected') {
+        const status = routeResult.reason instanceof PkpApiError ? routeResult.reason.status : null
+        if (status !== 404) {
+          logEvent('warn', 'pkp.train_route_failed', { status }, routeResult.reason)
+        }
+      }
       const route = routeResult.status === 'fulfilled' ? routeResult.value : null
 
       // Ani odpowiedź realizacji, ani trasy nie niosą nazw stacji — tylko ID.

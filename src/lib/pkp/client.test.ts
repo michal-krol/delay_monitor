@@ -852,6 +852,35 @@ describe('createLiveClient', () => {
       expect(second.route).not.toBeNull()
       expect(routeCalls).toBe(2)
     })
+
+    it('does not log a warning for the normal case of no matching route (404)', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      stubTrainDetailFetch({ route: () => Promise.resolve(new Response('not found', { status: 404 })) })
+
+      const client = createLiveClient('secret-key')
+      await client.getTrainDetail('2026', '12345', '2026-08-01')
+
+      expect(warn).not.toHaveBeenCalled()
+      warn.mockRestore()
+    })
+
+    it('logs a warning when the route fetch fails for a reason other than a 404 (e.g. a 500 from PKP)', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      stubTrainDetailFetch({ route: () => Promise.resolve(new Response('boom', { status: 500 })) })
+
+      const client = createLiveClient('secret-key')
+      const result = await client.getTrainDetail('2026', '12345', '2026-08-01')
+
+      // Wciąż degraduje do route: null -- panel szczegółów ma nadal działać,
+      // tylko cicha degradacja bez logu przeszłaby niezauważona.
+      expect(result.route).toBeNull()
+      expect(warn).toHaveBeenCalledTimes(1)
+      const [line] = warn.mock.calls[0]
+      const parsed = JSON.parse(String(line))
+      expect(parsed.event).toBe('pkp.train_route_failed')
+      expect(parsed.status).toBe(500)
+      warn.mockRestore()
+    })
   })
 
   describe('getNameDictionaries', () => {
