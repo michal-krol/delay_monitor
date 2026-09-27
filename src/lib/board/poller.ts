@@ -195,11 +195,14 @@ async function fetchAllOperations(client: PkpClient, stationIds: string[]): Prom
 
     if (!res.truncated) return { trains, stationNames, budget, incomplete: false }
 
+    // Only a stop with pages still left is worth a warning: a further page is routine at big hubs.
     if (page === MAX_OPERATIONS_PAGES) {
+      logEvent('warn', 'poller.operations_incomplete', { reason: 'page_limit', pages: page })
       incomplete = true
       break
     }
     if (budget.hourly !== null && budget.hourly < PAGINATION_MIN_HOURLY_BUDGET) {
+      logEvent('warn', 'poller.operations_incomplete', { reason: 'budget', pages: page, hourly: budget.hourly })
       incomplete = true
       break
     }

@@ -30,7 +30,7 @@ describe('logEvent', () => {
   it('routes warn level to console.warn', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-    logEvent('warn', 'pkp.operations_page_partial', { page: 1 })
+    logEvent('warn', 'poller.operations_incomplete', { reason: 'page_limit' })
     expect(warn).toHaveBeenCalledTimes(1)
     expect(error).not.toHaveBeenCalled()
   })

@@ -528,9 +528,6 @@ export function createLiveClient(
       // `truncated` = są kolejne strony. Klient sam ich NIE dociąga — zwraca flagę,
       // a poller decyduje (budżet, limit stron), czy iść po następną.
       const truncated = parsed.pagination?.hasNextPage === true
-      if (truncated) {
-        logEvent('warn', 'pkp.operations_page_partial', { page, totalCount: parsed.pagination?.totalCount ?? null })
-      }
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response), truncated }
     },
 
