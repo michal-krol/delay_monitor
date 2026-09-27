@@ -14,6 +14,9 @@ Wersjonowanie semantyczne.
   teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
   2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
   mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+- **Mapa transportu: „Pokaż całe miasto" i komunikat dla czytnika** — przycisk pod
+  zoomem wraca do kadru startowego miasta; niewidoczny `aria-live` mówi „Na mapie N
+  pojazdów" po zmianie filtrów/linii (nie przy każdym odczycie co 15 s).
 - **Mapa transportu: informacje** — ulubione z Pulpitu na mapie (złota obwódka,
   menu ★ do szybkiego przeskoku, gwiazdka w karcie stacji/przystanku), utrudnienia
   (⚠ w karcie pojazdu, baner w karcie przystanku i w trybie linii, filtr „Tylko

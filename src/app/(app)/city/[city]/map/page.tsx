@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker, type CityOption } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { CloseIcon, ShareIcon } from '@/components/icons'
+import { CloseIcon, MapIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
@@ -123,7 +123,7 @@ export default function CityMapPage() {
   const [routeParam, setRouteParam] = useState<string | null>(null)
   const [directionId, setDirectionId] = useState(0)
   const [selection, setSelection] = useState<MapSelection | null>(null)
-  const [focus, setFocus] = useState<{ lat: number; lon: number; nonce: number } | null>(null)
+  const [focus, setFocus] = useState<{ lat: number; lon: number; nonce: number; zoom?: number } | null>(null)
   const [view, setView] = useState<MapView | null>(null)
   const [searchTab, setSearchTab] = useState<'place' | 'line'>('place')
   const [mounted, setMounted] = useState(false)
@@ -213,6 +213,22 @@ export default function CityMapPage() {
     const present = new Set(vehiclesState.vehicles.map((v) => vehicleLayerKey(v.mode)))
     return VEHICLE_LAYERS.filter((key) => present.has(key))
   }, [vehiclesState.vehicles])
+
+  // Komunikat dla czytnika ekranu: ile pojazdów pokazuje mapa po zmianie filtrów/linii.
+  // Celowo NIE przy każdym odczycie co 15 s — to byłby szum co kwadrans minuty.
+  const vehiclesRef = useRef(vehiclesState.vehicles)
+  vehiclesRef.current = vehiclesState.vehicles
+  const vehicleCountAnnouncement = useMemo(() => {
+    const shown = vehiclesRef.current.filter(
+      (v) =>
+        v.ageSec <= HIDE_AFTER_SEC &&
+        !hidden.has(vehicleLayerKey(v.mode)) &&
+        (line === null || v.routeId === line.routeId) &&
+        (!alertsOnly || (v.shortName !== null && vehiclesState.alertLines.includes(v.shortName)))
+    ).length
+    return `Na mapie ${shown} pojazdów`
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tylko zmiana filtrów i pierwsze wczytanie, nie każdy odczyt
+  }, [hidden, line, alertsOnly, vehiclesState.vehicles.length === 0])
 
   const feedArea = useMemo(() => (stopsState.stops === null ? null : stopsBounds(stopsState.stops)), [stopsState.stops])
   const outsideFeed = feedArea !== null && view !== null && !boundsContain(feedArea, view.center.lon, view.center.lat)
@@ -569,6 +585,20 @@ export default function CityMapPage() {
               </p>
             ))}
           </div>
+
+          <p className="sr-only" aria-live="polite">
+            {vehicleCountAnnouncement}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })}
+            aria-label={`Pokaż całe miasto — ${feed.name}`}
+            title="Pokaż całe miasto"
+            className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <MapIcon size={18} />
+          </button>
 
           {outsideFeed && (
             <p role="status" className="glass-strong absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-xs text-text-secondary">

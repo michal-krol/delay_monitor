@@ -332,3 +332,20 @@ describe('CityMapPage — favourites, nearby, list, disruptions', () => {
     await waitFor(() => expect(map().onlyLines).toBeNull())
   })
 })
+
+describe('CityMapPage — city reset and announcements', () => {
+  it('"Pokaż całe miasto" flies back to the city centre at the start zoom', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' }))
+    await waitFor(() => expect((state.mapProps as unknown as { focus: unknown }).focus).toMatchObject({ lat: 52.2297, lon: 21.0122, zoom: 12 }))
+  })
+
+  it('announces the vehicle count for screen readers when filters change, not on every reading', async () => {
+    render(<CityMapPage />)
+    expect(screen.getByText('Na mapie 1 pojazdów')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Filtry/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Tramwaje/ }))
+    expect(await screen.findByText('Na mapie 0 pojazdów')).toBeInTheDocument()
+  })
+})
