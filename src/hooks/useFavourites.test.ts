@@ -75,8 +75,8 @@ describe('useFavourites', () => {
     act(() => result.current.removeFavourite(favouriteKey(WAW)))
 
     expect(result.current.favourites).toEqual([])
-    // Usunięcie ostatniego wpisu nadal zostawia klucz v2 z `[]` — bez tego
-    // odczyt spadłby na migrację z v1 i wskrzesił skasowane wpisy.
+    // Usunięcie ostatniego wpisu utrwala pusty klucz v2 — kolejny odczyt nie
+    // wskrzesza starych danych.
     expect(readV2()).toEqual([])
   })
 })
