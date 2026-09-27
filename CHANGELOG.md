@@ -79,8 +79,6 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
 
 - Gałąź produkcyjna przyjmuje zmiany wyłącznie przez pull request z pozytywnym
   wynikiem CI (`quality`, `e2e`).
-- Konfiguracja agentów blokuje wypchnięcie zmian bezpośrednio na gałąź produkcyjną
-  i odczyt plików `.env`.
 - Automatyczne propozycje aktualizacji zależności (Dependabot).
 
 ## [0.9.10] — 2026-09-03
@@ -127,7 +125,7 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
 - Poprawki układu mobilnego, legendy statusów i ponawiania zapytań po przekroczeniu
   czasu.
 
-## [0.9.9] — 2026-08-06
+## 0.9.9 — 2026-08-06
 
 ### Dodane
 
@@ -147,7 +145,7 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
   czasu planowego jako czas rzeczywisty. Status opiera się teraz na potwierdzeniu
   przejazdu dla każdego przystanku.
 
-## [0.9.8] — 2026-08-04
+## 0.9.8 — 2026-08-04
 
 ### Dodane
 
@@ -159,7 +157,7 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
   widoczna również na telefonie.
 - Informacja o częstotliwości odświeżania danych.
 
-## [0.9.7] — 2026-08-04
+## 0.9.7 — 2026-08-04
 
 ### Dodane
 
@@ -181,20 +179,20 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
 - Część pociągów wyświetlała identyfikator wewnętrzny zamiast nazwy i nie miała
   przewoźnika — poprawione dopasowanie rozkładu do realizacji.
 
-## [0.9.6] — 2026-08-03
+## 0.9.6 — 2026-08-03
 
 ### Naprawione
 
 - Pociągi odjeżdżające tuż po północy nie miały nazwy, przewoźnika ani peronu.
 
-## [0.9.5] — 2026-08-03
+## 0.9.5 — 2026-08-03
 
 ### Zmienione
 
 - Przełącznik motywu w stałym miejscu w prawym górnym rogu.
 - Kolumna „Peron/Tor” wypełniona danymi z rozkładu.
 
-## [0.9.4] — 2026-08-03
+## 0.9.4 — 2026-08-03
 
 ### Dodane
 
@@ -206,7 +204,7 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
 - Kolumna „Pociąg” pokazuje nazwę lub numer pociągu z rozkładu.
 - Tabela dopasowana do wąskich ekranów bez przewijania w poziomie.
 
-## [0.9.3] — 2026-08-02
+## 0.9.3 — 2026-08-02
 
 ### Naprawione
 
@@ -218,7 +216,7 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
 - Porządki w kodzie klienta API, pollera i testów bez zmian w działaniu.
 - Reguły lintera dla testów.
 
-## [0.9.2] — 2026-08-02
+## 0.9.2 — 2026-08-02
 
 ### Bezpieczeństwo
 
@@ -240,14 +238,14 @@ gwarancją zgodności w obrębie wersji 1.x ([ADR 0002](adr/0002-kryteria-wersji
 
 - Wyrównane szerokości cyfr w kolumnach godzin; systemowy krój pisma.
 
-## [0.9.1] — 2026-08-02
+## 0.9.1 — 2026-08-02
 
 ### Naprawione
 
 - Czasy bez oznaczenia strefy były interpretowane w strefie procesu serwera, co na
   produkcji przesuwało godziny pociągów o 2 godziny.
 
-## [0.9.0] — 2026-08-02
+## 0.9.0 — 2026-08-02
 
 Pierwsza wersja funkcjonalna.
 

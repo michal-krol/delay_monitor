@@ -1,7 +1,5 @@
 # Monitor opóźnień
 
-**Wersja 1.0.0**
-
 Aplikacja webowa, która w jednym miejscu pokazuje bieżącą sytuację na kolei w Polsce
 i w komunikacji miejskiej: odjazdy i przyjazdy pociągów wraz z opóźnieniami, przebieg
 połączeń przystanek po przystanku, rozkłady linii miejskich, pozycje pojazdów na żywo
@@ -86,7 +84,7 @@ komunikacji miejskiej. Umożliwia:
 - **Tryb jasny i ciemny**, domyślnie zgodny z ustawieniem systemu.
 - **Wersja mobilna** z nawigacją w wysuwanym menu i kartami dopasowanymi do telefonu.
 - **Dostępność**: pełna obsługa klawiatury, semantyczne tabele, komunikaty dla
-  czytników ekranu, respektowanie ustawienia ograniczonego ruchu.
+  czytników ekranu, uwzględnianie systemowego ustawienia ograniczenia animacji.
 
 ## Zasady prezentacji danych
 
@@ -133,7 +131,7 @@ Przeglądarka ───────────▶ /api/gtfs/* ─▶ rozkład G
                                          komunikaty         ◀── co 5 min
 ```
 
-- **Niezależne rytmy.** Przeglądarka odpytuje wyłącznie własny serwer, a serwer
+- **Niezależne rytmy.** Przeglądarka odpytuje wyłącznie serwer aplikacji, a serwer
   odpytuje źródła zewnętrzne według własnego harmonogramu. Liczba zapytań do PKP
   zależy od liczby oglądanych stacji, a nie bezpośrednio od liczby użytkowników.
 - **Oszczędne korzystanie z limitu API.** Poller obejmuje tylko stacje, które są
@@ -213,7 +211,7 @@ aplikacja jest dostosowana do poziomu Basic (100 zapytań na godzinę i 1000 na 
 | `PORT` | `3000` | Port serwera |
 
 Konfiguracja jest walidowana schematem Zod (`src/lib/config.ts`); nieprawidłowa
-wartość powoduje błąd z czytelnym komunikatem przy pierwszym użyciu konfiguracji.
+wartość powoduje błąd walidacji przy pierwszym użyciu konfiguracji.
 `PKP_DATA_SOURCE=live` wymaga klucza. `PORT` odczytuje bezpośrednio serwer Next.js.
 
 ## Wykorzystywane API PKP PLK
@@ -226,7 +224,7 @@ wartość powoduje błąd z czytelnym komunikatem przy pierwszym użyciu konfigu
 | `GET /api/v1/schedules` | Rozkład: przewoźnik, kategoria, perony, trasa, słowniki nazw |
 | `GET /api/v1/schedules/route/{scheduleId}/{orderId}` | Planowa trasa pojedynczego pociągu |
 | `GET /api/v1/schedules/routes/{date}` | Trasy dnia — przewoźnicy w widżecie stanu sieci |
-| `GET /api/v1/disruptions` | Utrudnienia powiązane z pociągami |
+| `GET /api/v1/disruptions` | Utrudnienia przy pociągach i stacjach oraz ogólnopolska liczba utrudnień |
 | `GET /api/v1/dictionaries/*` | Słowniki stacji, przewoźników i kategorii handlowych |
 | `GET /api/v1/data-version` | Wykrywanie wstrzymanej publikacji danych |
 
