@@ -15,6 +15,7 @@
     "test:coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run test",
     "e2e": "playwright test",
+    "vendor:maplibre": "node -e \"const p=require('path'),f=require('fs'),d=p.join(p.dirname(require.resolve('maplibre-gl/package.json')),'dist');for(const n of ['worker','shared'])f.copyFileSync(p.join(d,'maplibre-gl-'+n+'.mjs'),p.join('public','maplibre-gl-'+n+'.mjs'))\"",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "comment:overrides": "next@16.2.12 to najnowsza stabilna wersja, a zakres podatnosci obejmuje wszystkie wydania - `npm audit fix` proponuje downgrade do next@9.3.3. Zamiast tego wymuszamy bezpieczne wersje zaleznosci przechodnich: sharp (uzywany wylacznie przez optymalizator obrazow Next, ktorego nie uzywamy) i postcss (build-time, Tailwind). Do usuniecia, gdy Next zaktualizuje je u siebie.",
