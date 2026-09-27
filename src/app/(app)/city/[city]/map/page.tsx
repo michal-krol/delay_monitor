@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
+import { z } from 'zod'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker, type CityOption } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { CloseIcon } from '@/components/icons'
+import { CloseIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
@@ -16,28 +17,82 @@ import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitM
 import {
   HIDE_AFTER_SEC,
   LAYER_LABEL,
+  MAP_ZOOM,
   MODE_COLOR,
   VEHICLE_LAYERS,
   ageLabel,
   boundsContain,
+  formatAt,
+  parseAt,
   parseHidden,
   routeOverlay,
   serializeHidden,
   stopsBounds,
   vehicleLayerKey,
   type LayerKey,
+  type MapCamera,
 } from '@/components/map/mapData'
 import { useCityStops } from '@/hooks/useCityStops'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
 import { useLineDetail } from '@/hooks/useLineDetail'
 import { useRailStations } from '@/hooks/useRailStations'
+import { useShareUrl } from '@/hooks/useShareUrl'
 import { getCity } from '@/lib/gtfs/cities'
-import type { LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
+import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 
 const WIDE_QUERY = '(min-width: 40rem)'
+const LAST_VIEW_KEY = 'monitor.map.view.v1'
+/** `localStorage` to dane spoza aplikacji — schemat, nie asercja typu (AGENTS.md #4). */
+const lastViewSchema = z.object({ city: z.string(), at: z.string() })
+
+/** Ostatni widok mapy tego miasta w tej przeglądarce; brak / uszkodzony wpis = `null`. */
+function readLastView(city: string): MapCamera | null {
+  try {
+    const parsed = lastViewSchema.safeParse(JSON.parse(window.localStorage.getItem(LAST_VIEW_KEY) ?? 'null'))
+    return parsed.success && parsed.data.city === city ? parseAt(parsed.data.at) : null
+  } catch {
+    return null
+  }
+}
+
+function saveLastView(city: string, at: string): void {
+  try {
+    window.localStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ city, at }))
+  } catch {
+    // Prywatne okno / zablokowany storage — wygoda, nie funkcja; bez zapisu.
+  }
+}
+
+/** Jedno pobranie listy z `url` (pole `field`), ponawiane, dopóki rozkład się wczytuje (`null`). */
+function useCityList<T>(url: string, pick: (json: Record<string, unknown>) => T[] | null): T[] | null {
+  const [items, setItems] = useState<T[] | null>(null)
+  const pickRef = useRef(pick)
+  useEffect(() => {
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    async function load(): Promise<void> {
+      try {
+        const response = await fetch(url)
+        if (!response.ok) throw new Error(String(response.status))
+        const next = pickRef.current((await response.json()) as Record<string, unknown>)
+        if (cancelled) return
+        if (next === null) timer = setTimeout(() => void load(), 2_000)
+        else setItems(next)
+      } catch {
+        if (!cancelled) timer = setTimeout(() => void load(), 30_000)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [url])
+  return items
+}
 
 /** Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon. */
 function useIsWide(): boolean {
@@ -50,33 +105,6 @@ function useIsWide(): boolean {
     () => window.matchMedia(WIDE_QUERY).matches,
     () => false
   )
-}
-
-/** Linie miasta do wyszukiwarki linii — jedno pobranie, ponawiane, dopóki rozkład się wczytuje. */
-function useCityLines(city: string): LineListEntry[] | null {
-  const [lines, setLines] = useState<LineListEntry[] | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    async function load(): Promise<void> {
-      try {
-        const response = await fetch(`/api/gtfs/lines?city=${encodeURIComponent(city)}`)
-        if (!response.ok) throw new Error(String(response.status))
-        const json = (await response.json()) as { lines: Record<GtfsMode, LineListEntry[]> | null }
-        if (cancelled) return
-        if (json.lines === null) timer = setTimeout(() => void load(), 2_000)
-        else setLines(Object.values(json.lines).flat())
-      } catch {
-        if (!cancelled) timer = setTimeout(() => void load(), 30_000)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [city])
-  return lines
 }
 
 export default function CityMapPage() {
@@ -100,7 +128,13 @@ export default function CityMapPage() {
   const vehiclesState = useCityVehicles(city)
   const stopsState = useCityStops(city)
   const railState = useRailStations()
-  const lines = useCityLines(city)
+  const lines = useCityList<LineListEntry>(`/api/gtfs/lines?city=${encodeURIComponent(city)}`, (json) =>
+    json.lines === null ? null : Object.values(json.lines as Record<GtfsMode, LineListEntry[]>).flat()
+  )
+  const backbone = useCityList<BackboneLine>(`/api/gtfs/backbone?city=${encodeURIComponent(city)}`, (json) => json.lines as BackboneLine[] | null)
+  const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
+  const [followId, setFollowId] = useState<string | null>(null)
+  const { share, status: shareStatus } = useShareUrl()
 
   useEffect(() => {
     // Odtworzenie stanu z URL-a, dostępnego tylko po zamontowaniu; zły parametr po cichu ignorowany (AGENTS #4).
@@ -109,8 +143,21 @@ export default function CityMapPage() {
     const line = readUrlParam('line')
     setRouteParam(line !== null && GTFS_ROUTE_ID_PATTERN.test(line) ? line : null)
     setDirectionId(readUrlParam('dir') === '1' ? 1 : 0)
+    // Kadr: link `?at=` > ostatni widok w tej przeglądarce > centrum miasta.
+    setInitialCamera(parseAt(readUrlParam('at')) ?? readLastView(city) ?? { ...feed.mapCenter, zoom: MAP_ZOOM.initial })
     setMounted(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- odtworzenie raz, przy wejściu
   }, [])
+
+  const onViewChange = useCallback(
+    (next: MapView) => {
+      setView(next)
+      const at = formatAt({ ...next.center, zoom: next.zoom })
+      patchUrlParams({ at })
+      saveLastView(city, at)
+    },
+    [city]
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -233,9 +280,22 @@ export default function CityMapPage() {
 
   const vehiclesOnLine = line === null ? 0 : vehiclesState.vehicles.filter((v) => v.routeId === line.routeId && v.ageSec <= HIDE_AFTER_SEC).length
   // Karta wybranego obiektu ma pierwszeństwo; po jej zamknięciu wraca panel linii.
+  const following = followId !== null && selection?.kind === 'vehicle' && selection.id === followId && liveVehicle !== null
   const card =
     selection !== null ? (
-      <MapCard key={`${selection.kind}:${selection.id}`} selection={selection} vehicle={liveVehicle} city={city} onClose={() => setSelection(null)} onShowRoute={showRoute} />
+      <MapCard
+        key={`${selection.kind}:${selection.id}`}
+        selection={selection}
+        vehicle={liveVehicle}
+        city={city}
+        onClose={() => {
+          setSelection(null)
+          setFollowId(null)
+        }}
+        onShowRoute={showRoute}
+        following={following}
+        onToggleFollow={() => setFollowId(following ? null : selection.id)}
+      />
     ) : line !== null ? (
       <LinePanel
         line={line}
@@ -267,12 +327,13 @@ export default function CityMapPage() {
 
       <div className="relative flex min-h-[60vh] flex-1">
         <div className="relative min-w-0 flex-1">
-          {mounted && (
+          {mounted && initialCamera !== null && (
             <TransitMap
               key={city}
               ariaLabel={`Mapa transportu — ${feed.name}`}
-              initialCenter={feed.mapCenter}
+              initialCamera={initialCamera}
               vehicles={vehiclesState.vehicles}
+              backbone={backbone}
               stops={stopsState.stops}
               railStations={railState.stations}
               hidden={hidden}
@@ -280,9 +341,11 @@ export default function CityMapPage() {
               selected={selectedAt}
               focus={focus}
               route={route}
+              follow={following ? liveVehicle : null}
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
-              onViewChange={setView}
+              onViewChange={onViewChange}
+              onUserMove={() => setFollowId(null)}
             />
           )}
 
@@ -312,8 +375,16 @@ export default function CityMapPage() {
                   {searchTab === 'place' ? placeSearch : lineSearch}
                 </div>
               )}
-              <div className={isWide ? '' : 'self-end'}>
+              <div className={`flex gap-2 ${isWide ? '' : 'self-end'}`}>
                 <MapFilters hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} />
+                <button
+                  type="button"
+                  onClick={() => void share()}
+                  aria-label="Udostępnij ten widok mapy"
+                  className="glass grid w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <ShareIcon size={16} />
+                </button>
               </div>
             </div>
 
@@ -337,6 +408,11 @@ export default function CityMapPage() {
               </ul>
             )}
 
+            {shareStatus !== 'idle' && (
+              <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
+                {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
+              </p>
+            )}
             {problems.map((problem) => (
               <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-red-700 dark:text-red-300">
                 {problem}

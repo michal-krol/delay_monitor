@@ -4,16 +4,19 @@ import { useEffect, useRef } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap, MapGeoJSONFeature } from 'maplibre-gl'
 import { WORKER_URL } from '../MapView'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
-import type { CityStop } from '@/lib/gtfs/query'
+import type { BackboneLine, CityStop } from '@/lib/gtfs/query'
 import type { MapRailStation } from '@/lib/weather/coordinates'
 import {
   MAP_ZOOM,
+  arrowImage,
+  interpolatePoints,
   MODE_COLOR,
   POLAND_BOUNDS,
   railToGeoJSON,
   stopsToGeoJSON,
   vehiclesToGeoJSON,
   type LayerKey,
+  type MapCamera,
   type PointCollection,
   type RouteOverlay,
 } from './mapData'
@@ -49,6 +52,7 @@ const LAYERS_OF: Partial<Record<LayerKey, string[]>> = {
 const EMPTY: PointCollection = { type: 'FeatureCollection', features: [] }
 
 type Data = {
+  backbone: { type: 'FeatureCollection'; features: unknown[] }
   vehicles: PointCollection
   stops: PointCollection
   rail: PointCollection
@@ -61,6 +65,20 @@ const EMPTY_ROUTE: RouteOverlay = { line: { type: 'FeatureCollection', features:
 /** Tryb linii przyciemnia wszystko poza trasą i jej pojazdami (spec §6). */
 const DIMMABLE = ['rail-1', 'rail-2', 'rail-3', 'stops-busStops', 'stops-tramStops', 'stops-metroStops']
 const DIM_OPACITY = 0.25
+/** Płynny przejazd między odczytami (co 15 s): ~1 s, ~15 klatek. */
+const GLIDE_MS = 1000
+const GLIDE_FRAME_MS = 66
+
+function backboneCollection(lines: BackboneLine[] | null): Data['backbone'] {
+  return {
+    type: 'FeatureCollection',
+    features: (lines ?? []).map((l) => ({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: l.points.map(([lat, lon]) => [lon, lat]) },
+      properties: { color: MODE_COLOR[l.mode] },
+    })),
+  }
+}
 
 function selectedCollection(selected: { lat: number; lon: number } | null): PointCollection {
   if (selected === null) return EMPTY
@@ -81,12 +99,23 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
   }
   const stroke = { 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 }
 
+  map.addSource('backbone', { type: 'geojson', data: data.backbone as never })
   map.addSource('rail', { type: 'geojson', data: data.rail })
   map.addSource('stops', { type: 'geojson', data: data.stops })
   map.addSource('vehicles', { type: 'geojson', data: data.vehicles })
   map.addSource('selected', { type: 'geojson', data: data.selected })
   map.addSource('route-line', { type: 'geojson', data: data.route.line })
   map.addSource('route-stops', { type: 'geojson', data: data.route.stops })
+
+  // Metro i kolej miejska jako cienkie tło — orientacja w mieście, zanim pokażą się przystanki.
+  map.addLayer({
+    id: 'backbone',
+    type: 'line',
+    source: 'backbone',
+    minzoom: 9,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 15, 3.5], 'line-opacity': 0.55 },
+  })
 
   // Kolej: ranga ruchu decyduje, od jakiego zoomu stacja jest widoczna — mapa
   // kraju pokazuje węzły, nie 3 tys. kropek (bez klastrów liczbowych, spec §11).
@@ -192,6 +221,24 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
       ...stroke,
     },
   })
+  if (!map.hasImage('vehicle-arrow')) map.addImage('vehicle-arrow', arrowImage(), { sdf: true })
+  map.addLayer({
+    id: 'vehicles-arrows',
+    type: 'symbol',
+    source: 'vehicles',
+    minzoom: 14,
+    filter: ['has', 'bearing'],
+    layout: {
+      'icon-image': 'vehicle-arrow',
+      'icon-size': 0.55,
+      'icon-rotate': ['get', 'bearing'],
+      'icon-rotation-alignment': 'map',
+      'icon-allow-overlap': true,
+      // Przesunięcie „do przodu" obraca się razem z ikoną — strzałka stoi przed kropką.
+      'icon-offset': [0, -22],
+    },
+    paint: { 'icon-color': ['get', 'color'], 'icon-opacity': ['get', 'opacity'] },
+  })
   map.addLayer({
     id: 'vehicles-labels',
     type: 'symbol',
@@ -260,8 +307,9 @@ function pickHit(features: MapGeoJSONFeature[]): MapHit | null {
  */
 export function TransitMap({
   ariaLabel,
-  initialCenter,
+  initialCamera,
   vehicles,
+  backbone,
   stops,
   railStations,
   hidden,
@@ -269,13 +317,18 @@ export function TransitMap({
   selected,
   focus,
   route,
+  follow,
   dark,
   onSelect,
   onViewChange,
+  onUserMove,
 }: {
   ariaLabel: string
-  initialCenter: { lat: number; lon: number }
+  /** Kadr startowy (centrum miasta albo `?at=` / ostatni widok). */
+  initialCamera: MapCamera
   vehicles: CityVehicle[]
+  /** Przebiegi metra/kolei miejskiej — tło; `null` = jeszcze nie ma. */
+  backbone: BackboneLine[] | null
   stops: CityStop[] | null
   railStations: MapRailStation[] | null
   hidden: ReadonlySet<LayerKey>
@@ -287,13 +340,17 @@ export function TransitMap({
   focus: { lat: number; lon: number; nonce: number } | null
   /** Tryb linii: przebieg wybranego kierunku; `key` zmienia się z linią/kierunkiem (nowy kadr). */
   route: { key: string; overlay: RouteOverlay; color: string } | null
+  /** Śledzony pojazd — kamera przesuwa się za nim z każdym odczytem. */
+  follow: { lat: number; lon: number } | null
   dark: boolean
   onSelect: (hit: MapHit | null) => void
   onViewChange?: (view: MapView) => void
+  /** Użytkownik sam przesunął mapę — np. koniec śledzenia pojazdu. */
+  onUserMove?: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
-  const dataRef = useRef<Data>({ vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
+  const dataRef = useRef<Data>({ backbone: backboneCollection(null), vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
   const dimmedRef = useRef(false)
   /** Kadr trasy wybranej, zanim styl mapy się wczytał — dopasujemy go po `style.load`. */
   const pendingFitRef = useRef<RouteOverlay['bounds']>(null)
@@ -301,9 +358,14 @@ export function TransitMap({
   const darkRef = useRef(dark)
   const onSelectRef = useRef(onSelect)
   const onViewChangeRef = useRef(onViewChange)
+  const onUserMoveRef = useRef(onUserMove)
+  /** Ostatnio narysowane pozycje pojazdów — punkt startu płynnego przejazdu. */
+  const drawnRef = useRef(new Map<string, [number, number]>())
+  const lastVehiclesRef = useRef<CityVehicle[] | null>(null)
   useEffect(() => {
     onSelectRef.current = onSelect
     onViewChangeRef.current = onViewChange
+    onUserMoveRef.current = onUserMove
   })
 
   useEffect(() => {
@@ -317,8 +379,8 @@ export function TransitMap({
       map = new lib.Map({
         container: containerRef.current,
         style: darkRef.current ? STYLE_DARK : STYLE_LIGHT,
-        center: [initialCenter.lon, initialCenter.lat],
-        zoom: MAP_ZOOM.initial,
+        center: [initialCamera.lon, initialCamera.lat],
+        zoom: initialCamera.zoom,
         minZoom: MAP_ZOOM.min,
         maxBounds: POLAND_BOUNDS,
         // Zwinięta atrybucja (ikona „i") — rozwinięta zasłaniała legendę na telefonie.
@@ -357,6 +419,7 @@ export function TransitMap({
       mapInstance.on('mousemove', (e) => {
         mapInstance.getCanvas().style.cursor = hitsAt(e.point) !== null ? 'pointer' : ''
       })
+      mapInstance.on('dragstart', () => onUserMoveRef.current?.())
       mapInstance.on('moveend', () => {
         const center = mapInstance.getCenter()
         onViewChangeRef.current?.({ center: { lat: center.lat, lon: center.lng }, zoom: mapInstance.getZoom() })
@@ -373,9 +436,50 @@ export function TransitMap({
   }, [])
 
   useEffect(() => {
-    dataRef.current.vehicles = vehiclesToGeoJSON(vehicles, hidden, routeId)
-    ;(mapRef.current?.getSource('vehicles') as GeoJSONSource | undefined)?.setData(dataRef.current.vehicles)
+    const target = vehiclesToGeoJSON(vehicles, hidden, routeId)
+    dataRef.current.vehicles = target
+    const source = mapRef.current?.getSource('vehicles') as GeoJSONSource | undefined
+    const from = drawnRef.current
+    drawnRef.current = new Map(target.features.map((f) => [String(f.properties.id), f.geometry.coordinates]))
+    // Płynnie tylko nowy ODCZYT pozycji — zmiana filtra/linii to skok, nie przejazd.
+    const glide =
+      lastVehiclesRef.current !== null &&
+      lastVehiclesRef.current !== vehicles &&
+      source !== undefined &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    lastVehiclesRef.current = vehicles
+    if (source === undefined) return
+    if (!glide) {
+      source.setData(target)
+      return
+    }
+    const start = performance.now()
+    let lastFrame = 0
+    let raf = 0
+    const step = (now: number): void => {
+      const t = Math.min(1, (now - start) / GLIDE_MS)
+      if (t === 1 || now - lastFrame >= GLIDE_FRAME_MS) {
+        lastFrame = now
+        source.setData(interpolatePoints(from, target, t))
+      }
+      if (t < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    // ponytail: ~15 × setData całej warstwy na odczyt; przy >2 tys. pojazdów przejść na feature-state/shader.
+    return () => cancelAnimationFrame(raf)
   }, [vehicles, hidden, routeId])
+
+  useEffect(() => {
+    dataRef.current.backbone = backboneCollection(backbone)
+    ;(mapRef.current?.getSource('backbone') as GeoJSONSource | undefined)?.setData(dataRef.current.backbone as never)
+  }, [backbone])
+
+  const followLat = follow?.lat
+  const followLon = follow?.lon
+  useEffect(() => {
+    if (followLat === undefined || followLon === undefined) return
+    mapRef.current?.easeTo({ center: [followLon, followLat], duration: GLIDE_MS })
+  }, [followLat, followLon])
 
   useEffect(() => {
     dataRef.current.stops = stops === null ? EMPTY : stopsToGeoJSON(stops)
