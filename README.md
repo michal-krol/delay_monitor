@@ -475,11 +475,21 @@ TZ=UTC npm run test
 ```
 
 `npm run check` (= `typecheck && lint && test`) uruchamia się też automatycznie
-przed każdym `git push` — hook `.githooks/pre-push`, włączany raz na klon:
+przed każdym `git push` — hook `.githooks/pre-push`. `npm install` włącza go
+sam (skrypt `prepare`); ręcznie:
 
 ```bash
 git config core.hooksPath .githooks
 ```
+
+### Instrukcje dla agentów
+
+`AGENTS.md` to indeks: mapa repo, komendy i stuby niezmienników `#1–#17` (numeracja
+stała, cytowana w kodzie). Szczegóły domenowe w `.claude/rules/*.md` — Claude Code
+wczytuje je sam przy pracy na pasujących plikach (`paths:` we frontmatterze), inni
+agenci czytają je z odnośników w indeksie. Ogólne zasady pracy (proces, review,
+testy, bezpieczeństwo, wersjonowanie) są globalne u autora (`~/.claude/rules/`).
+Pliki dla agentów po angielsku, dokumentacja dla ludzi po polsku.
 
 ### Testy UI (e2e)
 

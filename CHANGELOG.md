@@ -183,6 +183,22 @@ Wersjonowanie semantyczne.
 
 ### Proces
 
+- **Instrukcje agentów podzielone na indeks + reguły tematyczne.** `AGENTS.md`
+  z 28,5 KB do ~7,5 KB: mapa repo, komendy i stuby `#1–#17` (numeracja bez zmian);
+  szczegóły w `.claude/rules/` (`pkp-time`, `pkp-board-data`, `pkp-budget`,
+  `security`, `maps`, `ui-states`, `testing`, `gtfs`, `deployment`) ładowanych
+  tylko przy pracy na pasujących plikach. Powód: plik ładował się w całości w
+  każdej sesji i u każdego subagenta, a Codex ucina AGENTS.md po 32 KiB. Pliki
+  dla agentów po angielsku, dokumentacja dla ludzi po polsku.
+- **Skill `handoff`** (`.claude/skills/`) — konwencja notatki końca sesji,
+  wcześniej ukryta w pamięci agenta.
+- **Blokady zamiast prozy** — `.claude/settings.json` blokuje push na `main`,
+  force-push i odczyt `.env`; `gh pr merge` wymaga zgody. Skrypt `prepare`
+  włącza hook `pre-push` przy `npm install`. Dependabot (npm, Actions, Docker)
+  co tydzień do `dev`; major Node w obrazie pomijany (wersję trzyma `.nvmrc`).
+- **Szablon PR = kryteria akceptacji + Definition of Done** w dwóch progach:
+  PR do `dev` (bramka, e2e, test regresji udowodniony na czerwono, niezależny
+  weryfikator, review) i `dev` → `main` (klik-QA na stagingu, wydanie).
 - **Przepływ `lokalnie → dev → main`** spisany w AGENTS.md #12 — feature branch
   scala się do `dev` (staging Railway) przez PR, dopiero zielony `dev` idzie na
   `main` (produkcja). Koniec pushowania feature'ów prosto na `main`.
