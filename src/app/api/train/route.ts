@@ -6,6 +6,7 @@ import { attachStopCoordinates } from './coordinates'
 import type { TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
 import { createTtlCache } from '@/lib/cache'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
+import { isOperatingDateInWindow } from '@/lib/pkp/time'
 import { logEvent } from '@/lib/log'
 
 const EMPTY_DISRUPTIONS: GetDisruptionsResult = { disruptions: [], disruptionTypes: {} }
@@ -23,6 +24,36 @@ const ID_PATTERN = STATION_ID_PATTERN
  */
 const CACHE_TTL_MS = 90_000
 const CACHE_MAX_ENTRIES = 200
+
+/**
+ * PKP zapomina o pociągu, który nigdy nie kursował pod tym kluczem (literówka
+ * w URL, stary link) -- bez pamięci każde ponowne kliknięcie odpalałoby to
+ * samo zapytanie do PKP na nowo. 10 min: krócej niż sukces nie musiałby być,
+ * ale wystarczająco, żeby zgasić powtórne kliknięcia tego samego martwego linku.
+ */
+const NOT_FOUND_CACHE_TTL_MS = 10 * 60 * 1000
+
+/**
+ * Globalny limit zapytań PKP z powodu cache miss na tej trasie w oknie jednej
+ * godziny (AGENTS.md #3, jedna replika -- stan w pamięci procesu, AGENTS.md #5).
+ * Trafienia cache'u, zapamiętane 404 i dołączenia do trwającego `inFlight` NIE
+ * liczą się -- tylko realny nowy fetch do PKP.
+ *
+ * Koszt jednego miss po cache'u tras 24h z zadania 1 (`client.ts` `fetchRoute`):
+ *  - `/operations/train/...` -- zawsze, nigdy nie cache'owane: 1
+ *  - `/schedules/route/...` -- 0 w stanie ustalonym (trasa już w cache'u 24h
+ *    z wcześniejszego miss tego samego pociągu), więc pomijane w rachunku
+ *  - `client.getDisruptions(...)` wołane niżej w `loadTrainDetail` -- klucz
+ *    cache'u zawęża się do stacji TEGO pociągu i pojedynczego dnia, więc w
+ *    praktyce prawie zawsze to nowe zapytanie: 1
+ * Razem w stanie ustalonym: 2 zapytania PKP na miss.
+ *
+ * Cel: worst case ≤ 90/h (10 zapytań zapasu poniżej twardego limitu 100/h),
+ * po odjęciu pollera (~40/h) i `/api/network-stats` (~7/h):
+ * floor((90 − 40 − 7) / 2) = floor(43 / 2) = 21.
+ */
+const HOURLY_MISS_CAP = 21
+const HOUR_MS = 3_600_000
 
 export type TrainDetailApiResponse = {
   scheduleId: string
@@ -47,6 +78,27 @@ export type TrainDetailApiResponse = {
 }
 
 const cache = createTtlCache<TrainDetailApiResponse>({ ttlMs: CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
+const notFoundCache = createTtlCache<true>({ ttlMs: NOT_FOUND_CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
+
+/**
+ * Licznik miss w oknie bieżącej godziny epoki -- zerowany, gdy zmienia się
+ * `Math.floor(Date.now() / HOUR_MS)`, więc nie trzeba osobnego timera do
+ * resetu (jedna replika, stan w pamięci procesu, AGENTS.md #5).
+ */
+let missWindow = { hour: -1, count: 0 }
+
+/** `true` i inkrementuje licznik, gdy pod limitem; `false` bez efektu ubocznego, gdy limit wyczerpany. */
+function consumeMissBudget(): boolean {
+  const hour = Math.floor(Date.now() / HOUR_MS)
+  if (missWindow.hour !== hour) {
+    missWindow = { hour, count: 0 }
+  }
+  if (missWindow.count >= HOURLY_MISS_CAP) {
+    return false
+  }
+  missWindow.count += 1
+  return true
+}
 
 /**
  * Cache sprawdzany przed `await`, zapisywany po nim — bez uchwytów na trwające
@@ -121,15 +173,32 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Nieprawidłowy identyfikator połączenia' }, { status: 400 })
   }
 
+  if (!isOperatingDateInWindow(operatingDate, new Date())) {
+    return NextResponse.json({ error: 'Nieprawidłowa data kursowania' }, { status: 400 })
+  }
+
   const cacheKey = `${scheduleId}-${orderId}-${operatingDate}`
   const cached = cache.get(cacheKey)
   if (cached !== undefined) {
     return NextResponse.json(cached)
   }
 
+  if (notFoundCache.get(cacheKey) !== undefined) {
+    return NextResponse.json({ error: 'Nie znaleziono połączenia' }, { status: 404 })
+  }
+
   try {
     let pending = inFlight.get(cacheKey)
     if (pending === undefined) {
+      // Dołączenie do trwającego pobrania nie kosztuje kolejnego zapytania do
+      // PKP -- limit liczy się tylko przy zakładaniu NOWEGO pobrania.
+      if (!consumeMissBudget()) {
+        logEvent('warn', 'api.train.hourly_cap_reached', { limit: HOURLY_MISS_CAP })
+        return NextResponse.json(
+          { error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' },
+          { status: 503 }
+        )
+      }
       pending = loadTrainDetail(scheduleId, orderId, operatingDate).finally(() => {
         inFlight.delete(cacheKey)
       })
@@ -141,6 +210,7 @@ export async function GET(request: Request) {
   } catch (err) {
     if (err instanceof PkpApiError) {
       if (err.status === 404) {
+        notFoundCache.set(cacheKey, true)
         return NextResponse.json({ error: 'Nie znaleziono połączenia' }, { status: 404 })
       }
       // 5xx z PKP -> 502 (błąd zależności), reszta (np. 401 błędnego klucza) przechodzi wprost.

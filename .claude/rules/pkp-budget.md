@@ -16,8 +16,20 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
 - Missing `X-RateLimit-*` header = "unknown", never "zero" (treating it as zero once pushed the
   poller permanently onto the emergency interval).
 - **Outside the poller cycle, count separately:**
-  - `/api/train` — synchronous fetch when clicking a train not yet seen, own 90 s cache
-    (`createTtlCache()`).
+  - `/api/train` — synchronous fetch when clicking a train not yet seen. Layered caches
+    (`createTtlCache()`): 90 s response cache (route.ts), 24 h route cache inside
+    `getTrainDetail` (`client.ts` `fetchRoute` — the operation/realization call is never
+    cached, only the static schedule route), 10 min "not found" cache for a PKP 404 so a
+    repeated click on a dead link doesn't refetch. Hourly cache-miss cap: 21 (module-state
+    counter keyed by epoch hour, single replica — AGENTS.md #5). A cache hit, a remembered
+    404, or joining an already in-flight request never counts toward the cap or calls PKP;
+    only starting a genuine new fetch does. Arithmetic: one miss in steady state costs 2 PKP
+    requests — `/operations/train/...` (always, uncached) + `getDisruptions(...)` (its cache
+    key is this train's own stations + a single day, so it's effectively always a fresh
+    call; the `/schedules/route/...` call is 0 in steady state, since the 24 h route cache
+    is warm after the first-ever miss for that train). Target ≤ 90/h worst case (10 below
+    the hard 100/h limit) minus the poller (~40/h) and `/api/network-stats` (~7/h):
+    `floor((90 − 40 − 7) / 2) = 21`.
   - `/api/rail-stations/list` + `/status` (nationwide rail layer of the map) — **0 PKP
     requests**: the list comes from `data/station-coordinates.json` (once per visit), statuses
     ONLY from `getSnapshot` of stations the poller already has — asked only while a station

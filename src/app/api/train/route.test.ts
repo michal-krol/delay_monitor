@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PkpApiError } from '@/lib/pkp/client'
 
 const getTrainDetail = vi.fn()
@@ -64,6 +64,18 @@ function stubDetail(overrides: Partial<Parameters<typeof getTrainDetail.mockReso
 }
 
 describe('GET /api/train', () => {
+  // Fixture'y w tym pliku zakładają operatingDate 2026-08-01..2026-08-06 --
+  // "dziś" ustawione tak, by oba mieściły się w oknie [dziś−7, dziś+1].
+  // Testy okna dat/limitu godzinowego niżej nadpisują to lokalnie własnym
+  // beforeEach (uruchamia się po tym, więc wygrywa dla ich zakresu).
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-06T12:00:00+02:00'))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('returns 400 when a required parameter is missing', async () => {
     const { GET } = await import('./route')
     const response = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=1'))
@@ -401,6 +413,145 @@ describe('GET /api/train', () => {
 
       expect(response.status).toBe(200)
       expect(body.stops[0].disruptionMessages).toEqual([])
+    })
+  })
+
+  describe('operatingDate window', () => {
+    // "dziś" = 2026-08-15 (Warsaw) -- okno dozwolone to [2026-08-08, 2026-08-16].
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-15T10:00:00+02:00'))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('date older than 7 days → 400, no PKP call', async () => {
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      const response = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=101&operatingDate=2026-08-07'))
+      const body = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(body.error).toBe('Nieprawidłowa data kursowania')
+      expect(getTrainDetail).not.toHaveBeenCalled()
+    })
+
+    it('date two days ahead → 400', async () => {
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      const response = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=102&operatingDate=2026-08-17'))
+      const body = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(body.error).toBe('Nieprawidłowa data kursowania')
+      expect(getTrainDetail).not.toHaveBeenCalled()
+    })
+
+    it('boundary: today−7 and today+1 accepted', async () => {
+      stubDetail()
+      stubDetail()
+      const { GET } = await import('./route')
+
+      const min = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=103&operatingDate=2026-08-08'))
+      const max = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=104&operatingDate=2026-08-16'))
+
+      expect(min.status).toBe(200)
+      expect(max.status).toBe(200)
+    })
+  })
+
+  describe('404 remembered for 10 min', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-16T10:00:00+02:00'))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('404 remembered for 10 min', async () => {
+      getTrainDetail.mockClear()
+      getTrainDetail.mockRejectedValueOnce(new PkpApiError('Nie znaleziono przejazdu', 404))
+      const { GET } = await import('./route')
+
+      const first = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=105&operatingDate=2026-08-16'))
+      const second = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=105&operatingDate=2026-08-16'))
+
+      expect(first.status).toBe(404)
+      expect(second.status).toBe(404)
+      expect(getTrainDetail).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('hourly PKP miss cap', () => {
+    // Musi się zgadzać z HOURLY_MISS_CAP w route.ts (arytmetyka w pkp-budget.md).
+    const HOURLY_MISS_CAP = 21
+
+    async function fillCap(get: (req: Request) => Promise<Response>, operatingDate: string, startOrderId: number) {
+      for (let i = 0; i < HOURLY_MISS_CAP; i++) {
+        stubDetail()
+        await get(new Request(`http://localhost/api/train?scheduleId=2026&orderId=${startOrderId + i}&operatingDate=${operatingDate}`))
+      }
+    }
+
+    it('cap reached → 503 without PKP call', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-20T10:00:00+02:00'))
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      await fillCap(GET, '2026-08-20', 200)
+      expect(getTrainDetail).toHaveBeenCalledTimes(HOURLY_MISS_CAP)
+
+      const over = await GET(new Request(`http://localhost/api/train?scheduleId=2026&orderId=${200 + HOURLY_MISS_CAP}&operatingDate=2026-08-20`))
+      const body = await over.json()
+
+      expect(over.status).toBe(503)
+      expect(body.error).toBe('Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.')
+      expect(getTrainDetail).toHaveBeenCalledTimes(HOURLY_MISS_CAP)
+
+      vi.useRealTimers()
+    })
+
+    it('cap resets in the next hour', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-21T10:00:00+02:00'))
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      await fillCap(GET, '2026-08-21', 300)
+      const over = await GET(new Request(`http://localhost/api/train?scheduleId=2026&orderId=${300 + HOURLY_MISS_CAP}&operatingDate=2026-08-21`))
+      expect(over.status).toBe(503)
+
+      vi.setSystemTime(new Date('2026-08-21T11:00:00+02:00'))
+      stubDetail()
+      const afterReset = await GET(new Request(`http://localhost/api/train?scheduleId=2026&orderId=${300 + HOURLY_MISS_CAP + 1}&operatingDate=2026-08-21`))
+
+      expect(afterReset.status).toBe(200)
+      expect(getTrainDetail).toHaveBeenCalledTimes(HOURLY_MISS_CAP + 1)
+
+      vi.useRealTimers()
+    })
+
+    it('cache hit does not count toward the cap', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-22T10:00:00+02:00'))
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      await fillCap(GET, '2026-08-22', 400)
+      expect(getTrainDetail).toHaveBeenCalledTimes(HOURLY_MISS_CAP)
+
+      // Powtórka klucza z pierwszego wypełnienia -- wciąż w 90s cache'u, więc
+      // trafienie, nie nowy miss: musi przejść mimo wyczerpanego limitu.
+      const cached = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=400&operatingDate=2026-08-22'))
+      expect(cached.status).toBe(200)
+      expect(getTrainDetail).toHaveBeenCalledTimes(HOURLY_MISS_CAP)
+
+      vi.useRealTimers()
     })
   })
 })

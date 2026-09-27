@@ -114,6 +114,20 @@ function shiftDateString(dateStr: string, days: number): string {
 }
 
 /**
+ * Czy `operatingDate` (yyyy-MM-dd) mieści się w oknie [dziś−7, dziś+1] wg
+ * kalendarza warszawskiego. `/api/train` odrzuca resztę (AGENTS.md #3) — PKP
+ * i tak nie ma realizacji ani starszej, ani bardziej odległej. Porównanie
+ * stringów jest bezpieczne: format yyyy-MM-dd sortuje się leksykograficznie
+ * tak samo jak chronologicznie.
+ */
+export function isOperatingDateInWindow(operatingDate: string, now: Date): boolean {
+  const today = warsawDateString(now)
+  const minDate = shiftDateString(today, -7)
+  const maxDate = shiftDateString(today, 1)
+  return operatingDate >= minDate && operatingDate <= maxDate
+}
+
+/**
  * Składa planowy czas przystanku z `/schedules/route/...` (`operatingDate` +
  * `arrivalTime`/`departureTime` w formacie HH:mm:ss, lokalnie warszawskie) na
  * poprawny UTC ISO string. `dayOffset` (pole `arrivalDay`/`departureDay` z API)
