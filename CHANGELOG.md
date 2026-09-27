@@ -14,11 +14,6 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   kolejnych stron danych o realizacji faktycznie zostało przerwane (limit stron lub
   budżet zapytań), a nie przy każdej kolejnej stronie.
 
-### Bezpieczeństwo
-
-- Zaktualizowane zależności przechodnie `sharp` (0.35.5) i `nanoid` (3.3.19) — usuwa
-  dwie podatności o wysokiej wadze zgłaszane przez `npm audit`.
-
 ### Naprawione
 
 - Widżet „Dziś w Polsce” nie pokazuje już zer ani 100 % pociągów zgodnie z planem, gdy
@@ -38,6 +33,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   błąd z przyciskiem „Spróbuj ponownie” zamiast twierdzić, że miast nie ma.
 - Pozycje pojazdów bez poprawnego znacznika czasu nie są już pokazywane jako aktualne —
   są pomijane.
+
+### Bezpieczeństwo
+
+- Zaktualizowane zależności przechodnie `sharp` (0.35.5) i `nanoid` (3.3.19) — usuwa
+  dwie podatności o wysokiej wadze zgłaszane przez `npm audit`.
 
 ## [1.0.0] — 2026-09-27
 
