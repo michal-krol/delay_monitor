@@ -19,6 +19,28 @@ vi.mock('@/lib/board/instance', () => ({
   },
 }))
 
+let gtfsView: { state: string; droppedRows: number | null } | null = null
+vi.mock('@/lib/config', () => ({
+  loadConfig: () => ({ gtfs: { enabled: true, dataSource: 'mock', cities: ['warszawa'], idleTtlMs: 1 } }),
+}))
+vi.mock('@/lib/gtfs/instance', () => ({
+  enabledGtfsCities: () => [{ id: 'warszawa' }],
+  peekGtfsPoller: () => {
+    const view = gtfsView
+    if (view === null) return null
+    return {
+      getView: () => ({
+        state: view.state,
+        loadedAt: view.state === 'ready' ? '2026-09-02T09:00:00.000Z' : null,
+        ageMs: view.state === 'ready' ? 1000 : null,
+        feedVersion: view.state === 'ready' ? 'mock-1' : null,
+        droppedRows: view.droppedRows,
+        phase: null,
+      }),
+    }
+  },
+}))
+
 describe('GET /api/health', () => {
   it('reports data source, poller state, pace and the PKP budget', async () => {
     const { GET } = await import('./route')
@@ -27,6 +49,12 @@ describe('GET /api/health', () => {
     expect(response.status).toBe(200)
     expect(body).toEqual({
       dataSource: 'mock',
+      gtfs: {
+        dataSource: 'mock',
+        cities: {
+          warszawa: { state: 'idle', loadedAt: null, ageMs: null, feedVersion: null, droppedRows: null, phase: null, serviceDates: null },
+        },
+      },
       pollerAwake: false,
       pollerStatus: 'ok',
       throttled: false,
@@ -34,6 +62,21 @@ describe('GET /api/health', () => {
       budget: { hourly: 62, daily: 702, hourlyLimit: 100, dailyLimit: 1000 },
       feeds: FEEDS,
     })
+  })
+
+  it('reports the GTFS schedule state per city, with droppedRows as a tri-state (never 0 for "unknown")', async () => {
+    vi.resetModules()
+    gtfsView = { state: 'ready', droppedRows: 0 }
+    const { GET } = await import('./route')
+    const body = await (await GET()).json()
+    expect(body.gtfs.cities.warszawa.state).toBe('ready')
+    expect(body.gtfs.cities.warszawa.droppedRows).toBe(0) // 0 = parsowano, nic nie odrzucono
+
+    vi.resetModules()
+    gtfsView = null // poller jeszcze nie istnieje
+    const again = await (await (await import('./route')).GET()).json()
+    expect(again.gtfs.cities.warszawa.droppedRows).toBeNull() // null = nigdy nie parsowano
+    gtfsView = null
   })
 
   // Sedno tej sekcji: `pollerStatus` bywa 'ok', gdy rozkład albo utrudnienia

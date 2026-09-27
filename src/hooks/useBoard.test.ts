@@ -141,4 +141,17 @@ describe('useBoard', () => {
     await vi.advanceTimersByTimeAsync(1000)
     expect(fetchMock).toHaveBeenCalledTimes(5)
   })
+
+  it('clears stale data and does not fetch when watching zero stations', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ stationIds }) => useBoard(stationIds), { initialProps: { stationIds: ['5100'] } })
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+
+    fetchMock.mockClear()
+    rerender({ stationIds: [] })
+    expect(result.current.data).toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })

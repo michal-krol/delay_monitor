@@ -24,6 +24,7 @@ const WEATHER = {
   },
   fetchedAt: '2026-08-30T20:00:00.000Z',
 }
+const LOCATION = { lat: 52.2288207, lon: 21.00316 }
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -31,13 +32,16 @@ afterEach(() => {
 
 describe('useStationWeather', () => {
   it('starts loading, then resolves to ready with the weather payload', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ available: true, weather: WEATHER })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => jsonResponse({ available: true, weather: WEATHER, location: LOCATION }))
+    )
 
     const { result } = renderHook(() => useStationWeather('33605'))
 
     expect(result.current).toEqual({ status: 'loading' })
     await waitFor(() => expect(result.current.status).toBe('ready'))
-    expect(result.current).toEqual({ status: 'ready', weather: WEATHER })
+    expect(result.current).toEqual({ status: 'ready', weather: WEATHER, location: LOCATION })
   })
 
   it('resolves to unavailable when the station has no location data', async () => {
@@ -67,7 +71,7 @@ describe('useStationWeather', () => {
     const fetchMock = vi
       .fn()
       .mockImplementationOnce(() => firstPending)
-      .mockImplementationOnce(() => jsonResponse({ available: true, weather: WEATHER }))
+      .mockImplementationOnce(() => jsonResponse({ available: true, weather: WEATHER, location: LOCATION }))
     vi.stubGlobal('fetch', fetchMock)
 
     const { result, rerender } = renderHook(({ stationId }) => useStationWeather(stationId), {
@@ -77,11 +81,28 @@ describe('useStationWeather', () => {
     // Zmiana stacji zanim odpowiedź dla "A" zdążyła dotrzeć.
     rerender({ stationId: 'B' })
     await waitFor(() => expect(result.current.status).toBe('ready'))
-    expect(result.current).toEqual({ status: 'ready', weather: WEATHER })
+    expect(result.current).toEqual({ status: 'ready', weather: WEATHER, location: LOCATION })
 
     // Spóźniona odpowiedź dla "A" nie ma prawa nadpisać stanu stacji "B".
     resolveFirst(await jsonResponse({ available: false, reason: 'no-location' }))
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(result.current).toEqual({ status: 'ready', weather: WEATHER })
+    expect(result.current).toEqual({ status: 'ready', weather: WEATHER, location: LOCATION })
+  })
+
+  it('does not set error state after unmount while a fetch is failing', async () => {
+    let rejectFetch!: (reason: Error) => void
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFetch = reject
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, unmount } = renderHook(() => useStationWeather('33605'))
+    unmount()
+    rejectFetch(new Error('network'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(result.current).toEqual({ status: 'loading' })
   })
 })

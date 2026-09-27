@@ -155,8 +155,8 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
 
   function openDetails(row: BoardApiRow): void {
     // encodeURIComponent, nie URLSearchParams (form-encoding zamieniłoby
-    // spacje na `+`) -- ta sama konwencja co /odjazdy/[stationId] w page.tsx.
-    router.push(`/polaczenie/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`)
+    // spacje na `+`) -- ta sama konwencja co /station/[stationId] w page.tsx.
+    router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`)
   }
 
   const emptyMessage = loading

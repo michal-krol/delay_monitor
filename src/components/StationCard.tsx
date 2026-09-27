@@ -8,6 +8,7 @@ import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { CSSProperties } from 'react'
 import type { RealizationStatus } from '@/lib/board/realization'
+import { GLOW_COLOR, BORDER_COLOR } from './realizationColors'
 
 type Props = {
   stationId: string
@@ -19,24 +20,6 @@ type Props = {
   onRemove: () => void
 }
 
-// Kolor obwódki/poświaty karty wg statusu najbliższego odjazdu (decyzja #11
-// w globals.css — `glow-ring` czyta `--glow-color` z inline style).
-const GLOW_COLOR: Record<RealizationStatus, string> = {
-  onTime: 'rgba(22,163,74,0.16)',
-  delayed: 'rgba(234,88,12,0.2)',
-  cancelled: 'rgba(225,29,72,0.2)',
-  enRoute: 'rgba(79,70,229,0.16)',
-  notStarted: 'rgba(2,132,199,0.14)',
-  unknown: 'rgba(51,65,85,0.1)',
-}
-const BORDER_COLOR: Record<RealizationStatus, string> = {
-  onTime: 'rgba(22,163,74,0.4)',
-  delayed: 'rgba(234,88,12,0.45)',
-  cancelled: 'rgba(225,29,72,0.45)',
-  enRoute: 'rgba(79,70,229,0.4)',
-  notStarted: 'rgba(2,132,199,0.35)',
-  unknown: 'var(--surface-border)',
-}
 // Tryplet "r,g,b" tej samej barwy co GLOW_COLOR/BORDER_COLOR (bez alfy) —
 // zasila dekorację w tle karty (tor + wyblakły pociąg), żeby obwódka,
 // poświata i dekoracja trzymały spójny odcień, zamiast czterech niezależnie

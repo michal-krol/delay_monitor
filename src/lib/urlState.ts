@@ -7,7 +7,7 @@
  * (`?station=&name=` w starym `src/app/page.tsx`) zniknęło razem z tamtym
  * plikiem. `FullBoard.tsx` wciąż importuje `readUrlParam`/`patchUrlParams`,
  * ale już tylko dla jednego parametru (`?tab=`) — szczegóły połączenia mają
- * od dawna własną trasę (`/polaczenie/...`), więc `scheduleId`/`orderId`/
+ * od dawna własną trasę (`/connection/...`), więc `scheduleId`/`orderId`/
  * `operatingDate` nie przechodzą już przez ten moduł.
  *
  * Do usunięcia, gdy `FullBoard.tsx` przejdzie na `useSearchParams`/`useRouter`

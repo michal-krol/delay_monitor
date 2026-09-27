@@ -38,6 +38,11 @@ const eslintConfig = defineConfig([
     // w .gitignore, ale eslint czyta katalog roboczy, nie indeks gita --
     // bez tego wpisu lint zgłasza uwagi do cudzego, generowanego kodu.
     "coverage/**",
+    // Wendorowana, zminifikowana kopia workera MapLibre (MapView.tsx) --
+    // cudzy, zbudowany kod, nie coś, co edytujemy. `MapView.test.tsx`
+    // pilnuje, że kopia zgadza się bajt-w-bajt z node_modules.
+    "public/maplibre-gl-worker.mjs",
+    "public/maplibre-gl-shared.mjs",
   ]),
 ]);
 

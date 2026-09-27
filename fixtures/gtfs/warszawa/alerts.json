@@ -1,0 +1,32 @@
+{
+  "time": "2026-09-05T10:00:00+02:00",
+  "alerts": [
+    {
+      "id": "A/TEST/1",
+      "routes": ["20"],
+      "effect": "REDUCED_SERVICE",
+      "link": "https://www.wtp.waw.pl/utrudnienia/test-1/",
+      "title": "Utrudnienia w kursowaniu linii 20",
+      "body": "Testowy alert na linię 20 (fixture mock).",
+      "htmlbody": "<p>Testowy alert na linię 20 (fixture mock).</p>"
+    },
+    {
+      "id": "A/TEST/2",
+      "routes": ["999"],
+      "effect": "OTHER_EFFECT",
+      "link": "https://www.wtp.waw.pl/utrudnienia/test-2/",
+      "title": "Utrudnienie na linii spoza fixture'u",
+      "body": "Nie powinno się dopasować do żadnej linii w mocku.",
+      "htmlbody": "<p>Nie powinno się dopasować do żadnej linii w mocku.</p>"
+    },
+    {
+      "id": "A/TEST/3",
+      "routes": [],
+      "effect": "DETOUR",
+      "link": "",
+      "title": "Alert bez żadnej linii",
+      "body": "Edge case: pusta tablica routes.",
+      "htmlbody": ""
+    }
+  ]
+}

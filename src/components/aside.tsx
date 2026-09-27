@@ -1,0 +1,112 @@
+import type { ReactNode } from 'react'
+import { pluralPl } from '@/lib/plural'
+
+/**
+ * Prawa kolumna kontekstowa — pozycjonowanie wspólne dla czterech ekranów
+ * (pulpit, miasto, linie, linia). Dzieci to karty. Schowana poniżej `xl`, żeby
+ * nie ściskać treści głównej na węższych ekranach (#7). Zakłada, że rodzic jest
+ * `flex`-rzędem — `(app)/layout.tsx` nim jest. Zwykle przez `PageShell`
+ * niżej, nie bezpośrednio — patrz tam.
+ */
+export function PageAside({ children }: { children: ReactNode }) {
+  return (
+    // `tabIndex`/`aria-label`: `max-h-dvh overflow-y-auto` czyni z tej kolumny
+    // region przewijalny; gdy karty przekroczą wysokość ekranu, użytkownik
+    // klawiatury musi móc go sfokusować i przewinąć strzałkami (axe
+    // `scrollable-region-focusable`, WCAG 2.1.1).
+    <aside
+      tabIndex={0}
+      aria-label="Panel kontekstowy"
+      className="hidden w-72 shrink-0 self-start sticky top-0 max-h-dvh overflow-y-auto py-7 pr-8 xl:flex xl:flex-col xl:gap-4"
+    >
+      {children}
+    </aside>
+  )
+}
+
+/**
+ * Rama treści wspólna dla wszystkich stron `(app)` (dawniej N kopii tego
+ * samego `<main className="…">` w każdej stronie, z rozjeżdżającymi się
+ * detalami — patrz docs/superpowers/specs/2026-09-13-nav-ux-recommendations.md
+ * §B1). `aside` pominięte = strona bez trzeciej kolumny — świadoma decyzja
+ * wywołującego, nie awaria: `FullBoard`/`ConnectionDetails`/`TransitStopDetail`
+ * mają WŁASNĄ, wewnętrzną siatkę main+aside (bo muszą działać też osadzone
+ * w liście, gdzie ta zewnętrzna kolumna jest już zajęta czymś innym), więc ich
+ * strony celowo nie dublują drugiej.
+ */
+export function PageShell({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
+  return (
+    <>
+      <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">{children}</main>
+      {aside !== undefined && <PageAside>{aside}</PageAside>}
+    </>
+  )
+}
+
+/** Karta prawej kolumny kontekstowej — wspólna dla widoku stacji i przystanku. */
+export function AsideCard({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
+  return (
+    <section className={`glass rounded-2xl p-4 ${className}`.trim()}>
+      <h3 className="font-heading text-sm font-bold tracking-tight text-foreground">{title}</h3>
+      <div className="mt-3">{children}</div>
+    </section>
+  )
+}
+
+export function EmptyHint({ children }: { children: ReactNode }) {
+  return <p className="text-xs text-text-muted">{children}</p>
+}
+
+/**
+ * Słupkowy wykres odjazdów w ciągu doby (24 kubełki). `null` = nie znamy
+ * rozkładu; sam zerowy szczyt = rozkład bez odjazdów. Godzina bieżąca podświetlona.
+ */
+export function HourlyTraffic({
+  hourly,
+  loading,
+  currentHour,
+  emptyLabel = 'Rozkład na dziś nie zawiera odjazdów z tego miejsca.',
+}: {
+  hourly: number[] | null
+  loading: boolean
+  currentHour: number
+  emptyLabel?: string
+}) {
+  if (loading) return <EmptyHint>Wczytywanie rozkładu…</EmptyHint>
+  if (hourly === null) {
+    return <EmptyHint>Nie udało się pobrać rozkładu, więc nie znamy rozkładu ruchu w dobie.</EmptyHint>
+  }
+
+  const peak = Math.max(...hourly)
+  if (peak === 0) return <EmptyHint>{emptyLabel}</EmptyHint>
+
+  return (
+    <div>
+      <div
+        className="flex h-16 items-end gap-[2px]"
+        role="img"
+        aria-label={`Odjazdy w ciągu doby, szczyt ${peak} o godzinie ${hourly.indexOf(peak)}`}
+      >
+        {hourly.map((count, hour) => (
+          <span
+            key={hour}
+            title={`${String(hour).padStart(2, '0')}:00 — ${count} ${pluralPl(count, 'odjazd', 'odjazdy', 'odjazdów')}`}
+            className="flex-1 rounded-sm transition"
+            style={{
+              // Minimalna wysokość 2px dla godziny z zerem: pusty słupek i brak
+              // słupka wyglądałyby identycznie, a to dwie różne rzeczy.
+              height: `${Math.max(2, (count / peak) * 100)}%`,
+              backgroundColor: hour === currentHour ? 'var(--status-enRoute-bg)' : 'var(--surface-border)',
+              opacity: count === 0 ? 0.4 : 1,
+            }}
+          />
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-text-muted tabular-nums">
+        <span>00</span>
+        <span>12</span>
+        <span>23</span>
+      </div>
+    </div>
+  )
+}

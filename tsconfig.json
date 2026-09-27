@@ -30,5 +30,6 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "//": "e2e/ + playwright.config.ts to osobne narzędzie (Playwright typuje je sam przy `npm run e2e`); trzymanie ich poza tsc/next build znaczy, że `npm run check` przechodzi też w worktree bez zainstalowanego @playwright/test.",
+  "exclude": ["node_modules", "e2e", "playwright.config.ts"]
 }

@@ -14,6 +14,7 @@ import { CloseIcon, ShareIcon, StarIcon } from './icons'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { formatClockTime } from '@/lib/format'
 
 type Props = {
   stationId: string
@@ -21,6 +22,11 @@ type Props = {
   isFavourite: boolean
   onToggleFavourite: () => void
   onClose: () => void
+  /**
+   * Osadzone pod wyszukiwarką na ekranie miasta — przycisk „wstecz" i
+   * `ThemeToggle` rysuje wtedy ekran nadrzędny, więc wewnętrzny „✕" znika.
+   */
+  embedded?: boolean
 }
 
 export type Direction = 'departures' | 'arrivals'
@@ -64,7 +70,7 @@ export function TabButton({ active, onClick, children }: { active: boolean; onCl
   )
 }
 
-export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, onClose }: Props) {
+export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, onClose, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
@@ -94,10 +100,23 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
     [allRows, destinationFilter]
   )
 
+  // Popup powiększonej mapy (`MapView.tsx`) — zawsze ODJAZDY, niezależnie od
+  // aktywnej zakładki Odjazdy/Przyjazdy (podgląd na mapie to zawsze „skąd
+  // wyjadę"). Dane już mamy w snapshocie, zero nowego zapytania.
+  const mapPreview = useMemo(
+    () =>
+      (snapshot?.departures ?? [])
+        .slice()
+        .sort((a, b) => new Date(a.plannedAt).getTime() - new Date(b.plannedAt).getTime())
+        .slice(0, 2)
+        .map((row) => `${formatClockTime(row.plannedAt)} → ${row.headsign ?? row.trainLabel}`),
+    [snapshot]
+  )
+
   // Odtworzenie zakładki z linku — raz, po zamontowaniu (patrz identyczny
   // wzorzec i uzasadnienie w page.tsx). Nieprawidłowy/uszkodzony parametr jest
   // po prostu ignorowany. Szczegóły połączenia mają teraz własną trasę
-  // (`/polaczenie/...`) z własnym adresem — nie ma już czego odtwarzać tutaj.
+  // (`/connection/...`) z własnym adresem — nie ma już czego odtwarzać tutaj.
   useEffect(() => {
     const tab = readUrlParam('tab')
     if (tab === 'departures' || tab === 'arrivals') {
@@ -109,7 +128,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
     // pasuje do niczego i tablica wychodzi pusta. Przycinamy jednak długość,
     // żeby spreparowany link nie wstrzyknął kilobajta tekstu do plakietki
     // filtra (AGENTS.md #4: wejście spoza aplikacji jest zawsze wrogie).
-    const destination = readUrlParam('kierunek')
+    const destination = readUrlParam('direction')
     if (destination !== null && destination !== '' && destination.length <= MAX_DESTINATION_FILTER_LENGTH) {
       setDestinationFilter(destination)
     }
@@ -126,7 +145,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   // komuś wysłać. Ten sam `replaceState` co `tab` -- filtrowanie listy nie ma
   // zaśmiecać historii cofania.
   useEffect(() => {
-    patchUrlParams({ kierunek: destinationFilter })
+    patchUrlParams({ direction: destinationFilter })
   }, [destinationFilter])
 
   // Zamknięcie całej tablicy (powrót do dashboardu) musi wyczyścić `tab` —
@@ -134,7 +153,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   // zamknięcia, przez wciąż obecny w URL-u wpis.
   useEffect(() => {
     return () => {
-      patchUrlParams({ tab: null, kierunek: null })
+      patchUrlParams({ tab: null, direction: null })
     }
   }, [])
 
@@ -182,10 +201,15 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 <ShareIcon size={15} />
                 Udostępnij
               </button>
-              <IconButton onClick={onClose} label="Zamknij">
-                <CloseIcon size={15} />
-              </IconButton>
-              <ThemeToggle />
+              {/* Osadzone: przycisk „wstecz" i motyw rysuje ekran nadrzędny. */}
+              {!embedded && (
+                <>
+                  <IconButton onClick={onClose} label="Zamknij">
+                    <CloseIcon size={15} />
+                  </IconButton>
+                  <ThemeToggle />
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -246,6 +270,8 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             currentHour={new Date(now).getHours()}
             weather={weather}
             stationName={stationName}
+            stationId={stationId}
+            mapPreview={mapPreview}
           />
         </aside>
       )}

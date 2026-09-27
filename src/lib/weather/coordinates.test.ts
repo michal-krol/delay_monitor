@@ -54,3 +54,42 @@ describe('getStationCoordinates', () => {
     expect(readFile).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('getStationCoordinatesEntry', () => {
+  it('returns the full entry, including source, for a known geocoded station', async () => {
+    const { getStationCoordinatesEntry } = await import('./coordinates')
+    expect(await getStationCoordinatesEntry('33605')).toEqual({
+      name: 'Warszawa Centralna',
+      lat: 52.2288207,
+      lon: 21.00316,
+      source: 'station',
+    })
+  })
+
+  it('returns null for a station with lat/lon null (failed geocoding)', async () => {
+    const { getStationCoordinatesEntry } = await import('./coordinates')
+    expect(await getStationCoordinatesEntry('999999')).toBeNull()
+  })
+
+  it('returns null for a stationId not present in the file at all', async () => {
+    const { getStationCoordinatesEntry } = await import('./coordinates')
+    expect(await getStationCoordinatesEntry('0')).toBeNull()
+  })
+})
+
+describe('getMapRailStations', () => {
+  it('keeps only real station positions (no city-fallback, no failed), defaulting tier to 3', async () => {
+    readFile.mockResolvedValueOnce(
+      JSON.stringify({
+        ...FIXTURE,
+        '80416': { name: 'Kraków Główny', lat: 50.07, lon: 19.95, source: 'gtfs', tier: 1 },
+        '273': { name: 'Szczecin Główny', lat: 53.4, lon: 14.5, source: 'city-fallback' },
+      })
+    )
+    const { getMapRailStations } = await import('./coordinates')
+    expect(await getMapRailStations()).toEqual([
+      { id: '33605', name: 'Warszawa Centralna', lat: 52.2288207, lon: 21.00316, tier: 3 },
+      { id: '80416', name: 'Kraków Główny', lat: 50.07, lon: 19.95, tier: 1 },
+    ])
+  })
+})

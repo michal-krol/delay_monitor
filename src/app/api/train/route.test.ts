@@ -13,6 +13,12 @@ vi.mock('@/lib/board/instance', () => ({
   },
 }))
 
+vi.mock('@/lib/weather/coordinates', () => ({
+  getStationCoordinates: vi.fn(async (stationId: string) =>
+    stationId === '33605' ? { lat: 52.2288207, lon: 21.00316 } : null
+  ),
+}))
+
 // Domyślnie puste słowniki -- testy, którym zależy na konkretnych nazwach,
 // nadpisują to przez getNameDictionaries.mockResolvedValueOnce(...).
 getNameDictionaries.mockResolvedValue({ carrierNames: {}, categoryNames: {} })
@@ -121,8 +127,27 @@ describe('GET /api/train', () => {
         // Postój wymaga OBU planowych czasów -- ten przystanek ma tylko odjazd.
         stopMinutes: null,
         stopTypeName: null,
+        lat: 52.2288207,
+        lon: 21.00316,
       },
     ])
+  })
+
+  it('decorates each stop with its static station coordinates', async () => {
+    // orderId '11', nie '1' -- '1' dzieli klucz cache'u z pierwszym testem w tym
+    // pliku ('merges the operation...'), więc trafiłby w cache HIT (90s TTL
+    // route.ts) zamiast wywołać getTrainDetail(); kolejka mockResolvedValueOnce
+    // ze stubDetail() zostałaby wtedy nieskonsumowana i przesunęłaby mocki
+    // wszystkich kolejnych testów o jeden (zaobserwowane: kaskada niepowiązanych
+    // asercji failujących w testach po tym).
+    stubDetail({ operation: { scheduleId: '2026', orderId: '11', trainOrderId: null, operatingDate: '2026-08-01', trainStatus: 'P', stations: [{ stationId: '33605', plannedArrival: null, actualArrival: null, plannedDeparture: '2026-08-01T12:00:00.000Z', actualDeparture: '2026-08-01T12:07:00.000Z', arrivalDelayMinutes: null, departureDelayMinutes: 7, isCancelled: false, isConfirmed: true }] } })
+    const { GET } = await import('./route')
+
+    const response = await GET(new Request('http://localhost/api/train?scheduleId=2026&orderId=11&operatingDate=2026-08-01'))
+    const body = await response.json()
+
+    expect(body.stops[0].lat).toBeCloseTo(52.2288207)
+    expect(body.stops[0].lon).toBeCloseTo(21.00316)
   })
 
   it('resolves carrierName/categoryName when the name dictionary has a matching entry', async () => {

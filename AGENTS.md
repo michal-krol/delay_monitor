@@ -1,311 +1,132 @@
-<!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code (in a worktree: `../../../node_modules/next/dist/docs/` — `node_modules` lives in the main checkout). Heed deprecation notices.
 
-# Monitor opóźnień — niezmienniki projektu
+# Delay monitor — project index and invariants
 
-Rzeczy, które łatwo zepsuć nieświadomie, bo nie widać ich w kodzie w miejscu,
-w którym się pracuje. Pełny opis architektury i uzasadnienia: `README.md`.
+Public Next.js app (no auth): PKP train delays per station (PKP PLK API, key-limited) + urban
+transit timetables from GTFS (Warsaw) with live vehicle positions and alerts. Single Railway
+replica, state in memory. Product and architecture overview: `README.md` (Polish, public — no
+internal details, limitations or roadmap); decisions: `adr/`.
 
-## 1. Żaden czas z API nie może przejść przez gołe `new Date()`
+**How this file works.** Numbered invariants `#N` are stable — code, CI, and `CHANGELOG` cite
+"AGENTS.md #N". Each stub below holds the core rule; details live in `.claude/rules/<file>.md`.
+Claude Code loads those automatically when you read matching files. **Other agents (Codex
+etc.): read the linked rule file before changing code in its area.** General working rules
+(process, review, tests, security, versioning) are global, in `~/.claude/CLAUDE.md` and
+`~/.claude/rules/`.
 
-`/operations` czasem zwraca czasy bez oznaczenia strefy (`"2026-08-02T00:33:00"`).
-To czas warszawski, ale `new Date()` czyta taki ciąg w strefie **procesu** —
-lokalnie w Polsce wychodzi przypadkiem dobrze, w kontenerze na Railway (UTC)
-przesuwa każdy pociąg o 1–2 h. Ten błąd już raz trafił na produkcję.
+## Repo map
 
-Wszystkie cztery pola czasowe (`plannedArrival`, `plannedDeparture`,
-`actualArrival`, `actualDeparture`) przechodzą przez `normalizeApiTimestamp()`
-z `src/lib/pkp/time.ts`, na granicy schematu Zod. Jeśli dokładasz nowe pole
-czasowe z API — podłącz je tam samo.
+| Path | What |
+|---|---|
+| `src/lib/pkp/` | PKP edge client (`client.ts`), Zod schema, time normalization, mock |
+| `src/lib/board/` | poller, board transform, realization logic, station stats, caches |
+| `src/lib/gtfs/` | GTFS domain: loader/index (`schedule.ts`), city registry, vehicles, alerts |
+| `src/lib/weather/` | Open-Meteo edge client + pure formatting |
+| `src/lib/validation.ts`, `urlState.ts`, `cache.ts`, `config.ts` | input patterns, URL view state, `createTtlCache()`, env schema |
+| `src/app/(app)/` | pages (station, connection, city, lines, map) |
+| `src/app/api/` | route handlers (board, train, gtfs/*, weather, health, …) |
+| `src/components/`, `src/hooks/` | UI (flat, transport map in `components/map/`), client hooks |
+| `fixtures/`, `data/` | mock payloads (PKP, GTFS per city), static station coordinates |
+| `e2e/` | Playwright suite |
+| `adr/` | architecture decision records (Polish) |
+| `.github/workflows/` | CI (`ci.yml`), nightly contract (`contract.yml`), prod health (`health.yml`) |
 
-To samo dotyczy pytania „czy to jest dzisiaj": data dnia liczy się przez
-`warsawDateString()`, nigdy przez `new Date().toISOString().slice(0, 10)`.
-Statystyki stacji odsiewają kursy jutrzejsze po `operatingDates` (okno
-`/schedules` to dziś+jutro), więc po 22:00 czasu lokalnego proces w UTC
-liczyłby jutrzejszy rozkład jako dzisiejszy. Godziny z `/schedules`
-(`departureTime`, „HH:mm:ss") są już czasem warszawskim — czytaj je z ciągu,
-nie przepuszczaj przez `Date`.
-
-Uruchamiaj testy także pod `TZ=UTC` — to odwzorowuje produkcję:
-
-```bash
-TZ=UTC npm run test
-```
-
-## 2. Obecność „faktycznego czasu" nie znaczy „już się wydarzyło"
-
-Dla pociągu, który jeszcze nie wyjechał, PKP potrafi wpisać w
-`actualArrival`/`actualDeparture` **kopię** planowego czasu — nawet godzinami
-przed odjazdem, nie tylko tuż po nim (zaobserwowane na produkcji: pociąg
-R1 91342, Koleje Mazowieckie, `trainStatus: "S"`). Kod, który traktuje
-`actualAt !== null` jako dowód realizacji, pokaże taki pociąg jako punktualny
-— dokładnie ten błąd raz już trafił na tablicę główną.
-
-Jedynym wiarygodnym sygnałem jest pole `isConfirmed` („Czy przejazd
-potwierdzony" — opis w swaggerze PKP), sprawdzane **per przystanek**, nie
-per pociąg (`trainStatus`). Cała logika „czy to się już wydarzyło i o ile
-jest opóźnione" żyje w jednym miejscu — `src/lib/board/realization.ts`
-(`resolveStopStatus`, `resolveDelayMinutes`) — używanym zarówno przez tablicę
-(`board/transform.ts`), jak i panel szczegółów połączenia (`board/trainDetail.ts`,
-
-**Wyjątek, żeby nie przeoczyć przy czytaniu kodu:** `hasTrainStartedFromStatus()`
-w tym samym pliku *świadomie* czyta `trainStatus` (`P`/`C`) — ale wyłącznie do
-pytania „czy pociąg jako całość gdzieś już ruszył", żeby na tablicy zamiast
-mylącego „jeszcze nie wyjechał" pokazać „w trasie" dla pociągu, który już jedzie,
-tylko jeszcze nie dotarł do obserwowanej stacji. To nie jest per-przystankowe
-pytanie „czy TEN przystanek się wydarzył" (do tego nadal wyłącznie `isConfirmed`)
-i nie zmienia sposobu liczenia opóźnienia — nie łam tego rozróżnienia.
-`ConnectionDetails.tsx`). Nie duplikuj tej logiki w nowym miejscu — to właśnie
-przez dwie niezależne implementacje ten błąd raz już się rozjechał między
-tablicą a panelem szczegółów.
-
-## 3. Budżet zapytań do API jest zasobem krytycznym
-
-Klucz Basic daje 100 zapytań/godzinę **oraz** 1000/dobę jednocześnie. Poller
-przy 90 s zużywa ~40/h, więc zapas jest realny, ale nieduży.
-
-- Nie dokładaj zapytań do cyklu pollera bez policzenia kosztu na godzinę.
-- Nowe źródło danych domyślnie powinno być cache'owane; jeśli nie da się —
-  to jest decyzja do świadomego podjęcia, nie szczegół implementacyjny.
-- Brak nagłówka `X-RateLimit-*` znaczy „nie wiadomo", nigdy „zero".
-  Traktowanie go jako zera raz już zepchnęło poller na stałe na interwał
-  awaryjny.
-- `/api/train` (szczegóły połączenia) jest **poza cyklem pollera** — realny,
-  synchroniczny fetch do PKP przy każdym kliknięciu w niewidziany wcześniej
-  pociąg, chroniony wyłącznie własnym cache'em 90 s (`createTtlCache()`).
-  Licz jego koszt osobno od budżetu pollera, nie razem z nim.
-- `/api/network-stats` (widżet stanu sieci) też jest **poza cyklem pollera** —
-  `getOperationsStatistics` (cache 15 min), `getDisruptionCount` (20 min),
-  `getDailyCarrierCounts` (24 h), plus `getNameDictionaries` (współdzielony
-  cache klienta). Współdzielony dla wszystkich userów (jeden globalny widżet,
-  cache modułowy w `board/networkStats.ts`), więc ~7 zapytań/h niezależnie od
-  ruchu. Doliczaj to do budżetu obok pollera (~40/h) i `/api/train`.
-- `/api/weather` woła **Open-Meteo**, nie PKP — nie obciąża budżetu PKP w ogóle.
-  Ma własny cache 25 min per stacja + dedup żądań w locie (ten sam wzorzec co
-  `inFlight` w `/api/train`).
-- Kafelki KPI stacji, „najpopularniejsze kierunki", natężenie ruchu i „przez…"
-  w wierszu **nie kosztują ani jednego zapytania**: liczą się w cyklu pollera
-  z tego, co on i tak ma w ręku — całodniowej odpowiedzi `/operations` oraz
-  tras z `/schedules` (cache 24 h, `fullRoute=true`). Cała ta arytmetyka żyje
-  w `src/lib/board/stationStats.ts`, czystymi funkcjami wołanymi raz na tick.
-  Dokładając kolejny wskaźnik, sprawdź najpierw, czy nie da się go policzyć
-  z tych samych danych — najczęściej da się.
-
-## 4. Wejście spoza aplikacji jest zawsze wrogie
-
-Aplikacja jest publiczna i bez uwierzytelniania. Parametry URL, treść
-`localStorage` i odpowiedzi API PKP to dane spoza systemu.
-
-- Identyfikatory stacji: walidacja formatu u wejścia **oraz** kodowanie przed
-  wstawieniem do zapytania do PKP. Jedna warstwa nie wystarczy — bez kodowania
-  `stations=5100&pageSize=5000` dopisywał parametry do cudzego żądania.
-  Wspólne wzorce walidacji (stacje, `scheduleId`/`orderId`/`operatingDate`)
-  żyją w `src/lib/validation.ts` — nie duplikuj regexów.
-- Nic, co przyszło od klienta, nie może samo decydować, o co pytamy PKP.
-  Nieznane ID nie trafiają do pollera.
-- `localStorage` parsuj schematem, nie asercją typu. `JSON.parse(x) as T`
-  znika przy kompilacji i raz już dało białą stronę przy uszkodzonym wpisie.
-- Cache sprawdzany przed `await` i zapisywany po nim to wyścig: równoległe
-  żądania wykonają pobranie każde z osobna. Deduplikuj żądania w locie.
-- Stan widoku odtwarzany z parametrów URL (`src/lib/urlState.ts` —
-  rozwinięta stacja, zakładka, otwarty panel połączenia) podlega tej samej
-  zasadzie: nieprawidłowy/uszkodzony parametr jest po cichu ignorowany, nigdy
-  nie powoduje awarii renderu. `patchUrlParams()` czyta bieżący
-  `window.location.search` i dopisuje do niego — nie buduje query string od
-  zera, bo więcej niż jeden moduł (`page.tsx`, `FullBoard.tsx`) zapisuje do
-  tego samego URL-a niezależnie.
-
-Nagłówków bezpieczeństwa z `next.config.ts` pilnuje `next.config.test.ts` —
-jeśli osłabiasz politykę, zrób to świadomie i zaktualizuj test.
-
-## 5. Jedna replika, stan w pamięci
-
-Dwie repliki to dwa pollery i podwójne zużycie limitu. Skalowanie poziome jest
-świadomie wykluczone; snapshoty i rejestr nazw stacji żyją w pamięci procesu.
-Nie wprowadzaj założeń wymagających współdzielonego stanu bez zmiany tej decyzji.
-
-Cache w długo żyjącym procesie musi mieć TTL i limit wpisów — użyj
-`createTtlCache()` z `src/lib/cache.ts`, nie gołej `Map`.
-
-## 6. Sieć wyłącznie na krawędziach
-
-Cały HTTP siedzi w **dwóch** klientach: `src/lib/pkp/client.ts` (PKP PLK) oraz
-`src/lib/weather/client.ts` (Open-Meteo — bezkluczowe, jedyne poza PKP wyjście
-sieciowe aplikacji). Logika domenowa (`lib/board/`, `lib/weather/format.ts`) to
-czyste funkcje zależne od interfejsu (`PkpClient`) albo od czystego payloadu, nie
-od `fetch`. Dzięki temu testy nie potrzebują ani sieci, ani klucza API — i to ma
-tak zostać. Nowe źródło danych = nowy klient na krawędzi, nie `fetch` rozsiany
-po logice.
-
-Wybór live/mock następuje raz, przy starcie, w `lib/board/instance.ts`. Żaden
-inny moduł nie powinien wiedzieć, skąd pochodzą dane.
-
-Współrzędne stacji do pogody nie pochodzą z żadnego API — trzyma je statyczny
-`data/station-coordinates.json` (regenerowany przez
-`scripts/enrich-station-coords.mjs`). Plik jest w obrazie (`.next/standalone`,
-patrz #7 poniżej i zweryfikowane na produkcji 2026-09-01). Brak stacji w pliku =
-stan `available:false` w `/api/weather`, **cache'owany**, nie błąd.
-
-## 7. UI nigdy nie jest pusty
-
-Przy awarii API pokazujemy ostatni znany dobry snapshot wraz z jego wiekiem,
-zamiast czyścić widok. Awaria objawia się rosnącym wiekiem danych, nie białym
-ekranem. Baner błędu jest zarezerwowany dla błędu konfiguracji (401).
-
-Nie chowaj awarii pod pustym stanem — „brak wyników" i „nie udało się sprawdzić"
-to dwa różne komunikaty. Przy wskaźnikach liczbowych stany są **trzy**, nie dwa:
-„jeszcze się wczytuje", „nie udało się pobrać" i konkretna liczba. `null`
-w `StationStats`/`StationInsights` zawsze znaczy „nie wiadomo" i nigdy nie może
-wyrenderować się jako `0` — kafelek „0 pociągów" przy zepsutym pobraniu rozkładu
-kłamie tak samo jak pusta tablica przy awarii API.
-
-Wyjątek: panel szczegółów połączenia (`/api/train`) **nie ma** snapshotu do
-pokazania przy awarii — to jednorazowy fetch po kliknięciu, nie dane z pollera.
-Pokazuje wtedy jawny komunikat błędu, nie ostatnie znane dane (bo ich nie ma).
-
-Widżet pogody: `available:false` (stacja bez współrzędnych w
-`data/station-coordinates.json`) to trwały, poprawny wynik — cache'owany, nie
-błąd. Dopiero błąd sieci/5xx z Open-Meteo daje stan błędu. Trzy stany, nie dwa,
-jak wszędzie: „wczytuje się", „brak lokalizacji", konkretna pogoda.
-
-Widżet stanu sieci (`board/networkStats.ts`) trzyma ostatnią udaną wartość
-każdego z trzech podzapytań osobno — błąd jednego degraduje do starych danych
-z tego jednego, świeże z pozostałych, zamiast czyścić całą kartę.
-
-## 8. Fixture'y nie odwzorowują skali żywego API
-
-Mock ma **prawdziwe** ID stacji (Warszawa Centralna `33605`, Kraków Główny
-`80416`, Gdańsk Główny `7500` — te same co na żywo), ale to wciąż 15
-syntetycznych, ręcznie napisanych pociągów (`orderId` 101–115) zamiast
-kilkudziesięciu-kilkuset i 6 kodów przewoźników zamiast 22. Nadają się do
-pracy nad UI — nie do wnioskowania o rzeczywistym natężeniu ruchu produkcji.
-
-Ruch skupia się wokół trzech stacji kotwicowych (Warszawa C. / Kraków Gł. /
-Gdańsk Gł.), a zestaw pokrywa komplet wariantów: punktualny, lekkie i duże
-opóźnienie, pociąg opóźniony o ~6 h wciąż w trasie (`orderId 104`), odwołany
-w całości (`105`), częściowo odwołany (`106`), „jeszcze nie wyjechał" ze
-stacji początkowej (`107`, `trainStatus S`), świeżo potwierdzony odjazd
-(`108`), dwa utrudnienia (`109` kod słownikowy, `110` gotowy tekst PKP), kurs
-po północy (`112`, `arrivalDay: 1`), przejazd bez dopasowanej trasy (`113`,
-`schedules` route z pustą listą przystanków) i pociąg bez ŻADNEJ realizacji,
-którego rozkład stawia w połowie trasy (`115`, `trainStatus S`, zero
-`isConfirmed`, okno trasy obejmuje „teraz" — pozycja „wg rozkładu" na
-szczegółach połączenia, patrz `isScheduleProjection` w `board/trainDetail.ts`).
-Mapowanie `orderId` → przypadek opisują komentarze w `src/lib/pkp/mock.test.ts`.
-
-Kształt odpowiedzi sprawdzaj w publicznym schemacie, nie zgaduj z fixture'ów:
+## Commands
 
 ```bash
-curl -s https://pdp-api.plk-sa.pl/swagger/v1/swagger.json
+npm run dev            # mock mode, no key
+npm run check          # typecheck && lint && test — pre-push gate
+TZ=UTC npm run test    # time logic
+npm run e2e            # UI changes
+PKP_CONTRACT=1 npm run test -- contract       # PKP schema/query params
+GTFS_CONTRACT=1 npm run test -- gtfs/contract # GTFS feed
 ```
 
-Jest dostępny bez klucza i bez zużycia limitu.
+## Invariants
 
-## 9. `/operations` i `/schedules` nie ograniczają się same do „dzisiaj"
+### 1. No API time goes through bare `new Date()` → `pkp-time.md`
+Zoneless PKP timestamps are Warsaw time; parse via `normalizeApiTimestamp()` (`src/lib/pkp/time.ts`)
+at the Zod boundary. "Today" = `warsawDateString()`. `/schedules` "HH:mm:ss" read as strings.
+Test also under `TZ=UTC`. Reached production once.
 
-Zweryfikowane na żywym kluczu (Warszawa Zachodnia, 2026-08-28): jedna
-odpowiedź `/operations?stations=…&withPlanned=true` niosła pociągi z **pięciu
-różnych dni kursowania** naraz (24–28.08), mimo że ten endpoint w ogóle nie
-przyjmuje parametru daty. Każde miejsce liczące coś „dzisiaj" z tej odpowiedzi
-(patrz `stationStats.ts`, `computeStationRealization`) musi jawnie odfiltrować
-po `train.operatingDate === todayIsoDate` — bez tego kafelek podpisany „z
-potwierdzonych dziś przejazdów" pokazywał średnią z zeszłego tygodnia, co jest
-gorsze niż brak danych, bo wygląda wiarygodnie (patrz #7).
+### 2. "Actual time" ≠ "already happened" → `pkp-board-data.md`
+PKP copies planned time into `actual*` before departure. The only signal is `isConfirmed`, per
+stop. All realization logic lives in `src/lib/board/realization.ts` — never duplicate it.
+`hasTrainStartedFromStatus()` is the one deliberate `trainStatus` reader.
 
-Druga, niezależna pułapka tego samego rodzaju: `/schedules` (okno dziś+jutro,
-`fullRoute=true`) zwraca **osobny rekord trasy dla każdego dnia kursowania**
-tego samego przejazdu — ten sam `trainOrderId`, inny `orderId`, czasem inne
-perony i przystanki. Zmierzone na żywo: 2008 tras dla jednej stacji dzieliło
-się na 1657 unikalnych kluczy przejazdu (`routeKey()`), a zwykła `Map` typu
-„ostatni wygrywa" w 217 przypadkach zostawiała rekord z **niewłaściwego**
-dnia, mimo że dzisiejszy istniał — 910 zamiast 1094 dzisiejszych odjazdów.
-`indexRoutesByTrain()`/`findRouteForTrain()` w `board/routeKey.ts` to
-naprawiają: indeks trzyma wariant per (przejazd, dzień) plus rezerwę bez daty,
-`findRouteForTrain()` szuka najpierw dokładnego dnia. **Nie wracaj do zwykłej
-`new Map(routes.map(r => [routeKey(r), r]))`** — to dokładnie ten błąd.
-Liczenie (nie wyszukiwanie pojedynczej trasy) musi iść po **surowej liście**
-tras z pollera, nie po tym indeksie — indeks z definicji zwija warianty tego
-samego przejazdu i zaniża każdy licznik.
+### 3. The PKP request budget is critical → `pkp-budget.md`
+100/h and 1000/day; poller ≈ 40/h. Compute cost/h before adding any call (also outside the
+poller: `/api/train`, `/api/network-stats`; the map's `/api/rail-stations/*` costs 0). Missing `X-RateLimit-*` =
+"unknown", never "zero". New indicators: derive from data the poller already has.
 
-## 10. Rozkład wyznacza listę połączeń, realizacja ją wzbogaca
+### 4. Input from outside the app is always hostile → `security.md`
+Validate format at entry **and** encode before calling PKP; patterns only in
+`src/lib/validation.ts`. Client input never decides upstream queries. `localStorage` via schema.
+Bad URL params ignored silently. Security headers guarded by `next.config.test.ts`.
 
-Kierunek zależności jest odwrotny, niż podpowiada intuicja „monitora opóźnień".
-Listę wierszy tablicy wyznacza **rozkład** (`/schedules`), a realizacja
-(`/operations`) dokłada do gotowych wierszy opóźnienie, status i czas faktyczny.
+### 5. One replica, state in memory → `security.md`
+No horizontal scaling. Long-lived caches use `createTtlCache()` (TTL + limit), never a bare `Map`.
 
-Powód jest zmierzony, nie estetyczny. 27–31.08.2026 feed realizacji PKP przez
-pięć dób zwracał wyłącznie kursy sprzed kilku dni — odpowiadał HTTP 200,
-z poprawnym kształtem, tylko nie o dzisiaj. Przy poprzednim kierunku
-(lista z realizacji) aplikacja świeciła pustką, choć rozkład znał komplet
-dzisiejszych połączeń. Pomiar z tamtych dni, Warszawa Centralna:
+### 6. Network only at the edges → `maps.md`
+HTTP only in `src/lib/pkp/client.ts` and `src/lib/weather/client.ts`; domain logic is pure.
+Deliberate exception: map tiles from `tiles.openfreemap.org` (the only foreign CSP origin).
+MapLibre traps (worker URL in prod builds, popup toggling, `pinsKey`, container positioning):
+read `maps.md` before touching any map component.
 
-| dzień | realizacja | rozkład | realizacja bez trasy | trasa bez realizacji |
-|---|---|---|---|---|
-| 26.08 (zdrowy) | 392 | 394 | 0% | 0,5% |
-| 27.08 (awaria) | 307 | 394 | 0% | **22%** |
+### 7. UI is never empty → `ui-states.md`
+Last good snapshot + age on failure. Three states for every number; `null` never renders as `0`.
 
-Dwa wnioski, oba istotne przy zmianach w `board/transform.ts`:
+### 8. Fixtures don't reflect live API scale → `testing.md`
+15 hand-written trains with real station IDs — for UI, not for traffic inference. Check shapes
+against the public swagger, not fixtures.
 
-- **Dopasowanie po `scheduleId-trainOrderId|operatingDate` obejmuje 100%**
-  kursów w obie strony. Kursy z realizacji bez trasy są mimo to doklejane
-  (`collectRowSources`) — to polisa gwarantująca, że tablica nigdy nie pokaże
-  mniej niż przy starym kierunku, nie obsługa realnego przypadku.
-- **Wiersz bez dopasowanej realizacji jest normalny, nie błędny.** `stop: null`
-  w `RowSource` przechodzi przez `resolveDelayMinutes`/`resolveStopStatus` bez
-  żadnej zmiany w tych funkcjach i daje „nie wiadomo". Nie dopisuj tam obejść.
+### 9. `/operations` and `/schedules` are not limited to "today" → `pkp-board-data.md`
+Filter by `operatingDate`. Route lookup via `indexRoutesByTrain()`/`findRouteForTrain()`, never
+`new Map(routes.map(...))`; counting iterates the raw route list.
 
-Przełącznik `BOARD_SOURCE=schedule|operations` pozwala wrócić do starego
-kierunku bez wdrażania kodu. Jest tymczasowy.
+### 10. The timetable defines the connection list, realization enriches it → `pkp-board-data.md`
+Rows come from `/schedules`; a row without realization is normal ("unknown"). The
+`BOARD_SOURCE` switch was removed 2026-09-23; `scheduleSource` is required.
 
-**Kiedy usunąć:** nie wcześniej niż **~2026-09-14** — dwa pełne tygodnie od
-naprawy feedu (31.08 ~14:00), jeśli w tym czasie feed realizacji nie padnie
-ponownie. Przy usuwaniu znika naraz:
+### 11. `docs/` is not published → `deployment.md`
+`docs/` is gitignored on purpose. Don't add it back.
 
-- `BOARD_SOURCE` w `src/lib/config.ts` (schemat + `AppConfig.boardSource`),
-  wpis w `.env.example`;
-- `boardSource` w `PollerConfig` i gałąź
-  `(config.boardSource ?? 'operations') === 'schedule'` w `poller.ts`
-  (`scheduleSource` staje się bezwarunkowe);
-- ścieżka `scheduleSource === null` w `collectRowSources()`
-  (`src/lib/board/transform.ts`) oraz trailing-optional `scheduleSource`
-  w `transformOperations()`;
-- **~63 wywołania `transformOperations(` w `transform.test.ts`** — dziś
-  testują ścieżkę historyczną (bez `scheduleSource`); trzeba je przepisać na
-  jawny `scheduleSource`, albo przebudować helper testowy tak, żeby domyślnie
-  go dokładał.
+### 12. Quality gate and flow → `testing.md`
+local → `dev` → `main`: feature branch (worktree) → PR to `dev` (Railway staging, click-QA) →
+PR `dev`→`main` (production). Never push a feature to `main`. `npm run check` before every push
+(hook: `git config core.hooksPath .githooks`, set by `npm install`). Commits/PRs in English
+(Conventional Commits). Language of files: agent-facing (this file, `.claude/rules/`, skills)
+in English; human-facing (README, CHANGELOG, handoffs, ADRs) in Polish.
 
-Konsekwencja dla komunikatów (patrz #7): „są godziny, ale nie znamy opóźnień"
-to **inny** stan niż „nie udało się pobrać". Poller zgłasza go jako `degraded`
-z `realizationStale: true`, a tablica pisze „PKP nie podaje dziś danych
-o ruchu", nie „pokazujemy ostatnie znane dane" — bo godziny i perony są wtedy
-w pełni aktualne.
+### 13. GTFS is a separate domain, not an extension of PKP → `gtfs.md`
+No delay field anywhere — always „rozkład", never „na czas". GTFS IDs never go into outgoing
+URLs; `city` validated against the registry. Load once, index at load. Many feed quirks
+(`wheelchair_boarding`, depot runs, day categories): read `gtfs.md` before changing GTFS code.
 
-## 11. Katalog `docs/` nie jest publikowany
+### 14. Process for a change → global `~/.claude/CLAUDE.md`
+Sized by change: trivial = fix + test + gate; normal/architectural = questions first, TDD,
+gate, review + independent verification (`~/.claude/rules/verification.md`), proposals. Cite sources used in analysis
+(swagger, GTFS schema, `node_modules/next/dist/docs/`, README, memory, handoffs).
 
-`docs/` (projekt techniczny, plan implementacji) jest w `.gitignore` i celowo
-nie trafia do repozytorium. Nie dodawaj go z powrotem.
+### 15. Economy of actions and words → global `~/.claude/rules/workflow.md`
+Don't restate, don't re-read just-edited files, narrow big outputs. Plan mode: one Explore agent
+(the repo map is above). Economy never suppresses questions or proposals
+(`~/.claude/rules/collaboration.md`).
 
-## 12. Bramka jakości
+### 16. Automated UI tests (e2e) → `testing.md`
+`npm run e2e`: Playwright, mock mode, zero network, projects `desktop-chromium`,
+`mobile-chromium`, `mobile-safari`. New view/flow → smoke desktop+mobile + axe scan.
 
-Commity trafiają bezpośrednio na `main`, z którego deployuje Railway. Przed
-oddaniem pracy:
+### 17. Plugins pinned in `.claude/settings.json`
+Versioned for every session in this repo: `superpowers`, `ponytail`, `caveman`, `taste-skill`,
+`ui-ux-pro-max`, `claude-obsidian`, `playwright`(+skill), `codex`. User-level extras (not
+pinned here): `impeccable`, `claude-mem`, `typescript-lsp`, `claude-md-management`. First session after cloning = one-time trust prompt
+for third-party marketplaces. Cost: skill descriptions in every session — don't
+extend without counting; narrow per session via `/plugin`. `.claude/settings.local.json`
+(gitignored) for private overrides. Design-skill routing: `~/.claude/rules/frontend-ui.md`.
 
-```bash
-npm run typecheck && npm run lint && npm run test
-```
+## Project skills
 
-Zmiany widoczne w interfejsie weryfikuj w przeglądarce, nie tylko testami.
-
-Dotykając `src/lib/pkp/schema.ts` albo parametrów zapytań w `client.ts`,
-sprawdź kontrakt wobec publicznego swaggera PKP (poza CI, wymaga sieci, bez
-klucza i bez kosztu z limitu):
-
-```bash
-PKP_CONTRACT=1 npm run test -- contract
-```
-
-`src/lib/pkp/contract.test.ts` pyta wyłącznie o obecność pól i parametrów —
-to ich zniknięcie robi ciche awarie (2026-08-30: `withPlanned`/`fullRoute`).
+- `handoff` (`.claude/skills/handoff/`) — end-of-session handoff note in the main checkout's `docs/`.

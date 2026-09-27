@@ -1,16 +1,15 @@
 'use client'
 
-import Link from 'next/link'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
-import { HomeIcon, ListIcon, StarIcon, BellIcon, RouteIcon, MapIcon, SettingsIcon, ChevronRightIcon } from './icons'
+import { ChevronRightIcon } from './icons'
+import { NavList, type ActiveItem } from './navItems'
 import { PollerDiagnostics } from './PollerDiagnostics'
-
-type ActiveItem = 'pulpit'
 
 type Props = {
   // Opcjonalny -- jedyny prawdziwy wpis nawigacji to "Pulpit"; reszta jest
-  // `kind: 'disabled'` (patrz NAV_ITEMS niżej), więc strony bez odpowiednika
-  // w menu (np. /odjazdy/[stationId], /polaczenie/...) nie mają czego podświetlić.
+  // `kind: 'disabled'` (patrz NAV_ITEMS w navItems.tsx), więc strony bez
+  // odpowiednika w menu (np. /station/[stationId], /connection/...) nie mają
+  // czego podświetlić.
   activeItem?: ActiveItem
 }
 
@@ -25,20 +24,6 @@ function environmentLabel(branch: string): string {
   if (branch === 'dev') return 'dev'
   return branch
 }
-
-type NavItem =
-  | { kind: 'active'; key: ActiveItem; href: string; label: string; icon: typeof HomeIcon }
-  | { kind: 'disabled'; label: string; icon: typeof HomeIcon; badge?: number }
-
-const NAV_ITEMS: NavItem[] = [
-  { kind: 'active', key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
-  { kind: 'disabled', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
-  { kind: 'disabled', label: 'Ulubione', icon: StarIcon },
-  { kind: 'disabled', label: 'Powiadomienia', icon: BellIcon },
-  { kind: 'disabled', label: 'Trasy', icon: RouteIcon },
-  { kind: 'disabled', label: 'Mapa', icon: MapIcon },
-  { kind: 'disabled', label: 'Ustawienia', icon: SettingsIcon },
-]
 
 export function Sidebar({ activeItem }: Props) {
   const { collapsed, toggle } = useSidebarCollapsed()
@@ -96,45 +81,7 @@ export function Sidebar({ activeItem }: Props) {
         </button>
       </div>
 
-      <nav className="flex flex-col gap-0.5">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon
-          if (item.kind === 'active') {
-            const isActive = item.key === activeItem
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-current={isActive ? 'page' : undefined}
-                aria-label={item.label}
-                className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary transition"
-                style={
-                  isActive
-                    ? { background: 'var(--nav-active-bg)', color: 'var(--nav-active-text)', fontWeight: 600 }
-                    : undefined
-                }
-              >
-                <Icon />
-                {!collapsed && <span className="truncate">{item.label}</span>}
-              </Link>
-            )
-          }
-          return (
-            <div
-              key={item.label}
-              aria-disabled="true"
-              aria-label={item.label}
-              title="Wkrótce"
-              className="flex cursor-not-allowed items-center justify-between gap-3 rounded-[10px] px-3 py-2.5 text-sm text-text-muted opacity-50"
-            >
-              <div className="flex items-center gap-3">
-                <Icon />
-                {!collapsed && <span className="truncate">{item.label}</span>}
-              </div>
-            </div>
-          )
-        })}
-      </nav>
+      <NavList activeItem={activeItem} collapsed={collapsed} />
 
       {/* Tylko środowiska deweloperskie — na produkcji ten komponent nie
           istnieje w bundlu, patrz `PollerDiagnostics.tsx`. */}

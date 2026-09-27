@@ -28,6 +28,7 @@ const READY_WEATHER: UseStationWeatherResult = {
     },
     fetchedAt: '2026-08-30T18:50:00+02:00',
   },
+  location: { lat: 52.2297, lon: 21.0122 },
 }
 
 const INSIGHTS: StationInsights = {
@@ -49,6 +50,8 @@ function renderAside(overrides: Partial<React.ComponentProps<typeof StationAside
     currentHour: 8,
     weather: READY_WEATHER,
     stationName: 'Warszawa Centralna',
+    stationId: '33605',
+    mapPreview: [],
     ...overrides,
   }
   render(<StationAside {...props} />)
@@ -63,7 +66,11 @@ describe('StationAside', () => {
     // dostępną: nazwa dostępna przycina wkład każdego elementu z osobna, więc
     // spacja rozdzielająca nazwę stacji od liczby w niej nie przetrwa. To, co
     // widzi i czyta użytkownik, jest tu właściwym przedmiotem asercji.
-    const labels = screen.getAllByRole('button').map((button) => button.textContent)
+    // Pomijamy przycisk „Powiększ mapę" (karta Mapa) -- ta sama kolumna, inny temat.
+    const labels = screen
+      .getAllByRole('button')
+      .filter((button) => button.getAttribute('aria-label') !== 'Powiększ mapę')
+      .map((button) => button.textContent)
 
     // 24 -> „połączenia" (końcówka 4 poza nastkami), 1 -> „połączenie",
     // 2 -> „połączenia" -- polska odmiana przez `pluralPl`, nie sztywne „połączeń".
@@ -98,6 +105,8 @@ describe('StationAside', () => {
         loading
         currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
+        mapPreview={[]}
         weather={READY_WEATHER}
       />
     )
@@ -114,6 +123,8 @@ describe('StationAside', () => {
         loading={false}
         currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
+        mapPreview={[]}
         weather={READY_WEATHER}
       />
     )
@@ -130,6 +141,8 @@ describe('StationAside', () => {
         loading={false}
         currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
+        mapPreview={[]}
         weather={READY_WEATHER}
       />
     )
@@ -145,6 +158,8 @@ describe('StationAside', () => {
         loading={false}
         currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
+        mapPreview={[]}
         weather={READY_WEATHER}
       />
     )
@@ -186,6 +201,8 @@ describe('StationAside', () => {
           loading={false}
           currentHour={8}
         stationName="Warszawa Centralna"
+        stationId="33605"
+        mapPreview={[]}
           weather={{ status: 'error' }}
         />
       )
@@ -207,6 +224,18 @@ describe('StationAside', () => {
       expect(screen.getByText('13° / 26°')).toBeInTheDocument()
       expect(screen.getByText('2.3 mm · 2%')).toBeInTheDocument()
       expect(screen.getByText('Open-Meteo')).toBeInTheDocument()
+    })
+  })
+
+  describe('mapa stacji', () => {
+    it('pokazuje pin, gdy znamy lokalizację (ten sam fetch co pogoda)', () => {
+      renderAside({ weather: READY_WEATHER })
+      expect(screen.getByRole('region', { name: 'Mapa stacji Warszawa Centralna' })).toBeInTheDocument()
+    })
+
+    it('nie renderuje karty mapy bez znanej lokalizacji', () => {
+      renderAside({ weather: { status: 'unavailable' } })
+      expect(screen.queryByRole('region', { name: /Mapa stacji/ })).not.toBeInTheDocument()
     })
   })
 })

@@ -1,14 +1,54 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as maplibregl from 'maplibre-gl'
 import { ConnectionDetails } from './ConnectionDetails'
 import { formatClockTime } from '@/lib/format'
 import { jsonResponse } from '@/test-utils/http'
 
+vi.mock('maplibre-gl', () => {
+  const marker = {
+    setLngLat: vi.fn().mockReturnThis(),
+    setPopup: vi.fn().mockReturnThis(),
+    addTo: vi.fn().mockReturnThis(),
+    remove: vi.fn(),
+    getPopup: vi.fn(() => ({ setDOMContent: vi.fn() })),
+  }
+  const map = {
+    fitBounds: vi.fn(),
+    remove: vi.fn(),
+    isStyleLoaded: vi.fn(() => true),
+    once: vi.fn(),
+    getSource: vi.fn(() => undefined),
+    addSource: vi.fn(),
+    addLayer: vi.fn(),
+  }
+  return {
+    setWorkerUrl: vi.fn(),
+    Map: vi.fn(function Map() {
+      return map
+    }),
+    Marker: vi.fn(function Marker() {
+      return marker
+    }),
+    Popup: vi.fn(function Popup() {
+      const p = { content: null as HTMLElement | null, setDOMContent: (node: HTMLElement) => ((p.content = node), p) }
+      return p
+    }),
+    LngLatBounds: vi.fn(function LngLatBounds() {
+      return { extend: vi.fn() }
+    }),
+  }
+})
+
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.useRealTimers()
+  // Bez tego wywołania maplibregl.Marker (moduł mockowany raz dla całego pliku)
+  // liczą się kumulacyjnie przez wszystkie testy -- fałszywie zielone/czerwone
+  // asercje na `toHaveBeenCalledTimes` w testach mapy poniżej.
+  vi.clearAllMocks()
 })
 
 // Fixture'y mają plan w 2026-08-01; bez zamrożenia zegara „teraz" (rzeczywista
@@ -96,6 +136,42 @@ describe('ConnectionDetails', () => {
     // Peron i tor jako dwie osobne wartości, nie sklejone „3/1" -- jedna
     // bywa znana bez drugiej (makieta §10).
     expect(screen.getByText(/peron 3 · tor 1/)).toBeInTheDocument()
+  })
+
+  it('reports the resolved train number once loaded, for a parent breadcrumb', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+    const onLabelResolved = vi.fn()
+
+    render(
+      <ConnectionDetails
+        scheduleId="2026"
+        orderId="12345"
+        operatingDate="2026-08-01"
+        trainLabel="EIC 1"
+        onLabelResolved={onLabelResolved}
+      />
+    )
+    expect(onLabelResolved).not.toHaveBeenCalled()
+
+    await waitForRoute()
+    expect(onLabelResolved).toHaveBeenCalledWith('EIC Grunwald')
+  })
+
+  it('shows a weather card for the origin station in the right column', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.startsWith('/api/weather')
+          ? jsonResponse({ available: false, reason: 'no-location' })
+          : jsonResponse(RESPONSE)
+      )
+    )
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+    await waitForRoute()
+
+    // Gdańsk Główny to pierwszy przystanek (`stops[0]`) — pogoda punktu startu.
+    expect(screen.getByRole('heading', { name: 'Pogoda dziś — Gdańsk Główny' })).toBeInTheDocument()
   })
 
   it('shows the resolved carrier/category name instead of the raw code, when known', async () => {
@@ -685,6 +761,12 @@ describe('ConnectionDetails', () => {
   })
 
   describe('background refresh', () => {
+    // Poza `/api/train` komponent bije jeszcze w `/api/weather` (pogoda punktu
+    // startu) — te testy pilnują throttlingu samego pobierania trasy, więc
+    // liczą tylko wywołania `/api/train`.
+    const trainCalls = (m: ReturnType<typeof vi.fn>) =>
+      m.mock.calls.filter(([url]) => String(url).includes('/api/train')).length
+
     const CONFIRMED_SECOND_STOP = {
       ...RESPONSE,
       stops: [
@@ -703,13 +785,13 @@ describe('ConnectionDetails', () => {
 
       render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
       await waitForRoute()
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(trainCalls(fetchMock)).toBe(1)
 
       // <90 s od pierwszego pobrania — ignorowane (cache /api/train i tak trzyma 90 s)
       vi.setSystemTime(new Date('2026-08-01T10:01:00Z'))
       window.dispatchEvent(new Event('focus'))
       await Promise.resolve()
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(trainCalls(fetchMock)).toBe(1)
 
       // >90 s — dociąga w tle
       vi.setSystemTime(new Date('2026-08-01T10:02:00Z'))
@@ -718,7 +800,7 @@ describe('ConnectionDetails', () => {
       // eslint-disable-next-line testing-library/no-node-access
       const wwaRow = () => routeList().getByText('Warszawa Centralna').closest('li') as HTMLElement
       await vi.waitFor(() => expect(within(wwaRow()).getByText('+1 min')).toBeInTheDocument())
-      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(trainCalls(fetchMock)).toBe(2)
       // Nigdy nie wróciło do stanu ładowania
       expect(screen.queryByText('Wczytywanie trasy…')).not.toBeInTheDocument()
     })
@@ -736,7 +818,7 @@ describe('ConnectionDetails', () => {
 
       vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
       window.dispatchEvent(new Event('focus'))
-      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() => expect(trainCalls(fetchMock)).toBe(2))
 
       expect(screen.queryByText('Nie udało się pobrać szczegółów połączenia.')).not.toBeInTheDocument()
       expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
@@ -756,12 +838,104 @@ describe('ConnectionDetails', () => {
 
       render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
       await waitForRoute()
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(trainCalls(fetchMock)).toBe(1)
 
       vi.setSystemTime(new Date('2026-08-01T12:10:00Z'))
       window.dispatchEvent(new Event('focus'))
       await Promise.resolve()
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(trainCalls(fetchMock)).toBe(1)
     })
+  })
+})
+
+describe('route map', () => {
+  it('does not render a map section when stops have no coordinates (existing fixtures, no lat/lon keys)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(RESPONSE)))
+    freezeClock('2026-08-01T10:00:00.000Z')
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
+
+    expect(await screen.findByText('EIC Grunwald')).toBeInTheDocument()
+    expect(screen.queryByText('Mapa trasy')).not.toBeInTheDocument()
+  })
+
+  it('renders the map with a marker once at least two stops carry coordinates', async () => {
+    const withCoords = {
+      ...RESPONSE,
+      stops: [
+        { ...RESPONSE.stops[0], lat: 54.355, lon: 18.646 },
+        { ...RESPONSE.stops[1], lat: 52.2288207, lon: 21.00316 },
+      ],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(withCoords)))
+    freezeClock('2026-08-01T10:00:00.000Z')
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
+
+    expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
+    // Etykieta „szacowane" musi być widoczna OD RAZU, nie dopiero po kliknięciu
+    // w kropkę markera (AGENTS.md #7) -- pierwszy przystanek jest potwierdzony
+    // (isConfirmed: true w RESPONSE), więc resolveInterpolatedPosition zwraca
+    // pozycję i podpis się renderuje.
+    expect(screen.getByText('Pozycja pociągu szacowana wg rozkładu.')).toBeInTheDocument()
+
+    // Weryfikacja realnego markera, nie tylko tekstu obok (wzorzec z MapView.test.tsx):
+    // 2 piny (przystanki z coords) + 1 mover (pozycja pociągu) = 3 wywołania Marker.
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(3))
+    const calls = vi.mocked(maplibregl.Marker).mock.calls
+    const moverCallIndex = calls.findIndex((call) => (call[0]?.element as HTMLElement | undefined)?.dataset.testid === 'map-mover')
+    expect(moverCallIndex).toBeGreaterThanOrEqual(0)
+    const moverMarker = vi.mocked(maplibregl.Marker).mock.results[moverCallIndex].value
+    // Dokładna wartość pochodzi z `resolveInterpolatedPosition` (osobno wyczerpująco
+    // przetestowana w mapPosition.test.ts) -- tu sprawdzamy tylko, że mover realnie
+    // dostał pozycję między dwoma przystankami, nie że interpolacja jest arytmetycznie poprawna.
+    expect(moverMarker.setLngLat).toHaveBeenCalledWith([expect.any(Number), expect.any(Number)])
+    const [lon, lat] = vi.mocked(moverMarker.setLngLat).mock.calls[0][0] as [number, number]
+    expect(lat).toBeGreaterThan(52.2288207)
+    expect(lat).toBeLessThan(54.355)
+    expect(lon).toBeGreaterThan(18.646)
+    expect(lon).toBeLessThan(21.00316)
+  })
+
+  it('does not show the estimated-position caption when there is no confirmed movement yet', async () => {
+    const withCoordsNotStarted = {
+      ...RESPONSE,
+      trainStatus: 'S',
+      stops: RESPONSE.stops.map((stop, index) => ({
+        ...stop,
+        isConfirmed: false,
+        hasTrainStarted: false,
+        lat: index === 0 ? 54.355 : 52.2288207,
+        lon: index === 0 ? 18.646 : 21.00316,
+      })),
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(withCoordsNotStarted)))
+    freezeClock('2026-08-01T05:00:00.000Z')
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
+
+    expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
+    expect(screen.queryByText('Pozycja pociągu szacowana wg rozkładu.')).not.toBeInTheDocument()
+  })
+
+  it('shows the estimated-position marker once past the planned departure, even with nothing confirmed (mirrors mock train 107, ruling z 2026-09-23)', async () => {
+    const withCoordsNotStarted = {
+      ...RESPONSE,
+      trainStatus: 'S',
+      stops: RESPONSE.stops.map((stop, index) => ({
+        ...stop,
+        isConfirmed: false,
+        hasTrainStarted: false,
+        lat: index === 0 ? 54.355 : 52.2288207,
+        lon: index === 0 ? 18.646 : 21.00316,
+      })),
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(withCoordsNotStarted)))
+    // stops[0].plannedDeparture = 09:00, stops[1].plannedArrival = 11:20 -- 09:30 jest w oknie,
+    // po planowym odjeździe, mimo `trainStatus: 'S'` i braku jakiegokolwiek potwierdzenia
+    // (isScheduleProjection nie robi wyjątku dla 'S' -- AGENTS.md ruling, handoff 2026-09-23).
+    freezeClock('2026-08-01T09:30:00.000Z')
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
+
+    expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
+    expect(screen.getByText('Pozycja pociągu szacowana wg rozkładu.')).toBeInTheDocument()
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(3))
   })
 })

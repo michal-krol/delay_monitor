@@ -27,9 +27,11 @@ export type UseStationWeatherResult =
   | { status: 'loading' }
   | { status: 'error' }
   | { status: 'unavailable' }
-  | { status: 'ready'; weather: StationWeather }
+  | { status: 'ready'; weather: StationWeather; location: { lat: number; lon: number } }
 
-type WeatherApiResponse = { available: true; weather: StationWeather } | { available: false; reason: 'no-location' }
+type WeatherApiResponse =
+  | { available: true; weather: StationWeather; location: { lat: number; lon: number } }
+  | { available: false; reason: 'no-location' }
 
 /**
  * Jeden fetch przy zamontowaniu / zmianie `stationId`, bez interwału --
@@ -46,12 +48,16 @@ export function useStationWeather(stationId: string): UseStationWeatherResult {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset na nową stację, ten sam wzorzec co useBoard.ts
     setResult({ status: 'loading' })
 
+    // Pusty identyfikator = obiekt nadrzędny jeszcze się nie wczytał (np.
+    // CityWeatherCard czeka na /api/cities). Nie bijemy w API z `stationId=`.
+    if (stationId === '') return
+
     fetch(`/api/weather?stationId=${stationId}`)
       .then(async (response) => {
         if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
         const json = (await response.json()) as WeatherApiResponse
         if (ignore) return
-        setResult(json.available ? { status: 'ready', weather: json.weather } : { status: 'unavailable' })
+        setResult(json.available ? { status: 'ready', weather: json.weather, location: json.location } : { status: 'unavailable' })
       })
       .catch(() => {
         if (!ignore) setResult({ status: 'error' })

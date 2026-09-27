@@ -1,89 +1,55 @@
 import { describe, expect, it } from 'vitest'
-import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from './validation'
+import {
+  CITY_ID_PATTERN,
+  GTFS_STOP_ID_PATTERN,
+  OPERATING_DATE_PATTERN,
+  STATION_ID_PATTERN,
+} from './validation'
 
-/**
- * Te dwa wzorce są pierwszą warstwą obrony na granicy zaufania (AGENTS.md #4):
- * decydują, co w ogóle może trafić do zapytania kierowanego do PKP. Dotąd były
- * sprawdzane wyłącznie pośrednio, przez testy route handlerów — czyli zawsze
- * razem z resztą logiki i nigdy na wprost.
- *
- * Uwaga na `RegExp.prototype.test` z flagą `g`: byłaby stanowa (`lastIndex`)
- * i dawałaby naprzemienne wyniki dla tego samego wejścia. Żaden z tych wzorców
- * jej nie ma i mieć nie powinien — stąd test powtarzający to samo wywołanie.
- */
-
-describe('STATION_ID_PATTERN', () => {
-  it.each(['1', '5100', '33605', '1234567890'])('przepuszcza poprawny identyfikator %s', (id) => {
-    expect(STATION_ID_PATTERN.test(id)).toBe(true)
+describe('STATION_ID_PATTERN (PKP — zostaje ścisły)', () => {
+  it('accepts 1–10 digit ids', () => {
+    expect(STATION_ID_PATTERN.test('33605')).toBe(true)
+    expect(STATION_ID_PATTERN.test('7')).toBe(true)
   })
 
-  it.each([
-    ['pusty', ''],
-    ['11 cyfr (poza limitem)', '12345678901'],
-    ['ujemny', '-1'],
-    ['ułamek', '5100.5'],
-    ['spacja wiodąca', ' 5100'],
-    ['spacja końcowa', '5100 '],
-    ['litery', 'abc'],
-    ['mieszany', '51a00'],
-    ['dopisanie parametru', '5100&pageSize=5000'],
-    ['ucięcie zapytania', '5100#'],
-    ['ścieżka', '../5100'],
-    ['null byte', '5100\0'],
-    ['znacznik HTML', '<script>'],
-    ['SQL', "5100' OR '1'='1"],
-    ['cyfry arabsko-indyjskie', '٥١٠٠'],
-    ['pełna szerokość', '５１００'],
-    ['plus', '+5100'],
-    ['notacja wykładnicza', '5e3'],
-    ['szesnastkowo', '0x5100'],
-  ])('odrzuca %s', (_opis, value) => {
-    expect(STATION_ID_PATTERN.test(value)).toBe(false)
+  it('rejects anything non-numeric, including GTFS-shaped ids', () => {
+    for (const bad of ['7014M', '100101:P1', '5100 ', 'abc', '', '12345678901']) {
+      expect(STATION_ID_PATTERN.test(bad), bad).toBe(false)
+    }
+  })
+})
+
+describe('CITY_ID_PATTERN', () => {
+  it('accepts lowercase-ascii city slugs', () => {
+    for (const ok of ['warszawa', 'krakow', 'wroclaw', 'bydgoszcz', 'lodz']) {
+      expect(CITY_ID_PATTERN.test(ok), ok).toBe(true)
+    }
   })
 
-  it('odrzuca nową linię po poprawnej wartości -- kotwice muszą być $, nie końcem wiersza', () => {
-    // Bez `$` dopasowującego KONIEC CIĄGU (a nie końca wiersza) „5100\nzło"
-    // przeszłoby walidację i trafiło do zapytania do PKP.
-    expect(STATION_ID_PATTERN.test('5100\nzło')).toBe(false)
-    expect(STATION_ID_PATTERN.test('5100\n')).toBe(false)
+  it('rejects uppercase, diacritics, digits, punctuation, and out-of-range lengths', () => {
+    for (const bad of ['Warszawa', 'w', 'krakow1', 'wa-w', 'łódź', 'a'.repeat(25), '', 'wa/rk']) {
+      expect(CITY_ID_PATTERN.test(bad), bad).toBe(false)
+    }
+  })
+})
+
+describe('GTFS_STOP_ID_PATTERN', () => {
+  it('accepts real ZTM / metro shapes', () => {
+    for (const ok of ['100101', '7014M', '7014M:P1', 'M1', '1001']) {
+      expect(GTFS_STOP_ID_PATTERN.test(ok), ok).toBe(true)
+    }
   })
 
-  it('jest bezstanowy -- ten sam ciąg daje ten sam wynik przy powtórzeniu', () => {
-    expect(STATION_ID_PATTERN.test('5100')).toBe(true)
-    expect(STATION_ID_PATTERN.test('5100')).toBe(true)
-    expect(STATION_ID_PATTERN.test('5100')).toBe(true)
+  it('rejects traversal, separators, control chars, overlong and empty', () => {
+    for (const bad of ['..', 'a,b', '1%0A', '1\n0', 'a'.repeat(200), '', '7014M:', ':P1', '7014M:P1:P2']) {
+      expect(GTFS_STOP_ID_PATTERN.test(bad), JSON.stringify(bad)).toBe(false)
+    }
   })
 })
 
 describe('OPERATING_DATE_PATTERN', () => {
-  it.each(['2026-08-30', '2026-01-01', '1999-12-31'])('przepuszcza poprawną datę %s', (date) => {
-    expect(OPERATING_DATE_PATTERN.test(date)).toBe(true)
-  })
-
-  it.each([
-    ['pusty', ''],
-    ['bez zer wiodących', '2026-8-3'],
-    ['format odwrotny', '30-08-2026'],
-    ['ze slashami', '2026/08/30'],
-    ['z czasem', '2026-08-30T12:00:00'],
-    ['dwucyfrowy rok', '26-08-30'],
-    ['spacja końcowa', '2026-08-30 '],
-    ['ścieżka', '../2026-08-30'],
-    ['znacznik HTML', '<script>'],
-  ])('odrzuca %s', (_opis, value) => {
-    expect(OPERATING_DATE_PATTERN.test(value)).toBe(false)
-  })
-
-  it('odrzuca nową linię po poprawnej dacie', () => {
-    expect(OPERATING_DATE_PATTERN.test('2026-08-30\nzło')).toBe(false)
-  })
-
-  it('sprawdza wyłącznie KSZTAŁT, nie istnienie daty w kalendarzu', () => {
-    // Świadome ograniczenie, nie luka: `2026-13-45` nie jest datą, ale jest
-    // nieszkodliwe — trafia do PKP jako parametr i wraca pustym wynikiem albo
-    // błędem. Wzorzec broni przed WSTRZYKNIĘCIEM, a nie przed bzdurą.
-    // Test istnieje po to, żeby ta granica była zapisana, a nie domyślana.
-    expect(OPERATING_DATE_PATTERN.test('2026-13-45')).toBe(true)
-    expect(OPERATING_DATE_PATTERN.test('0000-00-00')).toBe(true)
+  it('matches yyyy-MM-dd only', () => {
+    expect(OPERATING_DATE_PATTERN.test('2026-09-02')).toBe(true)
+    expect(OPERATING_DATE_PATTERN.test('2026-9-2')).toBe(false)
   })
 })

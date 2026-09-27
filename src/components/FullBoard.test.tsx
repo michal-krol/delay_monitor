@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
 import { jsonResponse } from '@/test-utils/http'
 
-// Szczegóły połączenia mają teraz własną trasę (`/polaczenie/...`) — klik w
+// Szczegóły połączenia mają teraz własną trasę (`/connection/...`) — klik w
 // wiersz nawiguje przez `router.push`, zamiast otwierać panel w miejscu.
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -266,7 +266,7 @@ describe('FullBoard', () => {
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
     await user.click(await screen.findByRole('button', { name: 'EIC 1' }))
 
-    expect(push).toHaveBeenCalledWith('/polaczenie/2026/12345/2026-08-01?train=EIC%201')
+    expect(push).toHaveBeenCalledWith('/connection/2026/12345/2026-08-01?train=EIC%201')
   })
 
   it('does not make the row clickable when operatingDate is missing', async () => {

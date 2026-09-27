@@ -3,6 +3,7 @@ import { getStationCoordinates } from '@/lib/weather/coordinates'
 import { fetchOpenMeteoWeather, WeatherApiError, type OpenMeteoSnapshot } from '@/lib/weather/client'
 import { createTtlCache } from '@/lib/cache'
 import { STATION_ID_PATTERN } from '@/lib/validation'
+import { logEvent } from '@/lib/log'
 
 /**
  * Open-Meteo odświeża `current` u siebie co ~15 min -- 25 min to zapas jednego
@@ -14,7 +15,7 @@ const CACHE_TTL_MS = 25 * 60_000
 const CACHE_MAX_ENTRIES = 300
 
 export type WeatherApiResponse =
-  | { available: true; weather: OpenMeteoSnapshot & { fetchedAt: string } }
+  | { available: true; weather: OpenMeteoSnapshot & { fetchedAt: string }; location: { lat: number; lon: number } }
   | { available: false; reason: 'no-location' }
 
 const cache = createTtlCache<WeatherApiResponse>({ ttlMs: CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
@@ -32,7 +33,7 @@ async function loadWeather(stationId: string): Promise<WeatherApiResponse> {
   if (coordinates === null) return { available: false, reason: 'no-location' }
 
   const snapshot = await fetchOpenMeteoWeather(coordinates.lat, coordinates.lon)
-  return { available: true, weather: { ...snapshot, fetchedAt: new Date().toISOString() } }
+  return { available: true, weather: { ...snapshot, fetchedAt: new Date().toISOString() }, location: coordinates }
 }
 
 export async function GET(request: Request) {
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
       const status = err.status >= 500 ? 502 : err.status
       return NextResponse.json({ error: 'Błąd pobierania danych pogodowych' }, { status })
     }
-    console.error('Błąd pobierania pogody', err)
+    logEvent('error', 'api.weather.unexpected_error', {}, err)
     return NextResponse.json({ error: 'Nieoczekiwany błąd' }, { status: 500 })
   }
 }

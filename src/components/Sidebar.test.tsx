@@ -2,12 +2,17 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from './Sidebar'
+import { __resetCityContext } from '@/hooks/useCityContext'
+
+// CitySwitcher (nad menu) używa useRouter.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 beforeEach(() => {
   // useSidebarCollapsed persists to real localStorage — a test that toggles
   // collapse (like the one below) would otherwise leak collapsed=true into
   // every test that runs after it in this file.
   window.localStorage.clear()
+  __resetCityContext()
 })
 
 afterEach(() => {
@@ -57,9 +62,30 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Pulpit' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('Odjazdy/Przyjazdy/Trasy/Mapa/Ustawienia/Powiadomienia są nieaktywne — brak href, aria-disabled', () => {
+  it('„Odjazdy / Przyjazdy" prowadzi na /city (trasa dobiera domyślne miasto)', () => {
+    render(<Sidebar activeItem="odjazdy" />)
+    const link = screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })
+    expect(link).toHaveAttribute('href', '/city')
+    expect(link).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('„Trasy" prowadzi na /lines (trasa dobiera domyślne miasto)', () => {
+    render(<Sidebar activeItem="trasy" />)
+    const link = screen.getByRole('link', { name: 'Trasy' })
+    expect(link).toHaveAttribute('href', '/lines')
+    expect(link).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('„Mapa" prowadzi na /map', () => {
+    render(<Sidebar activeItem="mapa" />)
+    const link = screen.getByRole('link', { name: 'Mapa' })
+    expect(link).toHaveAttribute('href', '/map')
+    expect(link).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('Ulubione/Powiadomienia/Ustawienia są nieaktywne — brak href, aria-disabled', () => {
     render(<Sidebar activeItem="pulpit" />)
-    for (const label of ['Odjazdy / Przyjazdy', 'Trasy', 'Mapa', 'Ustawienia', 'Powiadomienia']) {
+    for (const label of ['Ulubione', 'Powiadomienia', 'Ustawienia']) {
       // eslint-disable-next-line testing-library/no-node-access -- najbliższy element z aria-disabled to cały wiersz pozycji nawigacji
       const item = screen.getByText(label).closest('[aria-disabled]')
       expect(item).toHaveAttribute('aria-disabled', 'true')

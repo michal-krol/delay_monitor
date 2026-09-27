@@ -16,6 +16,7 @@ import {
 import { normalizeForSearch } from '../search'
 import { createTtlCache } from '../cache'
 import { warsawDateString } from './time'
+import { logEvent } from '@/lib/log'
 
 const BASE_URL = 'https://pdp-api.plk-sa.pl'
 const REQUEST_TIMEOUT_MS = 8000
@@ -145,8 +146,7 @@ export type TrainDetailResult = {
   operation: RawTrainOperation
   /**
    * Trasa rozkładowa: peron/tor/kategoria per przystanek. `null`, gdy nie ma
-   * dopasowanej trasy (patrz „Znane ograniczenia" w README — dotyczy mniejszości
-   * pociągów) — realizacja i tak zostaje pokazana, tylko bez peronu/toru.
+   * dopasowanej trasy (dotyczy mniejszości pociągów) — realizacja i tak zostaje pokazana, tylko bez peronu/toru.
    */
   route: RawRoute | null
   /**
@@ -195,8 +195,7 @@ export interface PkpClient {
   getCachedStationIds(): ReadonlySet<string> | null
   /**
    * Zagregowane liczniki statusów pociągów w całym kraju, bez filtra po
-   * stacji — API nie oferuje takiego filtra dla tego endpointu (patrz
-   * README, sekcja o widżecie "stan sieci"). Wywołujący (patrz
+   * stacji — API nie oferuje takiego filtra dla tego endpointu. Wywołujący (patrz
    * `board/networkStats.ts`) cache'uje wynik po swojej stronie — ta metoda
    * jest surowym fetcherem, jak `getOperations()`.
    */
@@ -468,9 +467,7 @@ export function createLiveClient(
      */
     let usedFullRouteFallback = false
     if (parsed.routes.length > 0 && !parsed.routes.some((route) => route.stations.length > 0)) {
-      console.error(
-        `PKP: /schedules?fullRoute=true zwróciło ${parsed.routes.length} tras, wszystkie bez przystanków — ponawiam bez fullRoute`
-      )
+      logEvent('error', 'pkp.schedules_full_route_empty', { routes: parsed.routes.length })
       usedFullRouteFallback = true
       const fallback = await fetchJsonWithRetry(baseUrl, apiKey, 'Pobranie rozkładu nie powiodło się')
       parsed = schedulesResponseSchema.parse(fallback.json)
@@ -532,9 +529,7 @@ export function createLiveClient(
       // a poller decyduje (budżet, limit stron), czy iść po następną.
       const truncated = parsed.pagination?.hasNextPage === true
       if (truncated) {
-        console.warn(
-          `PKP /operations: strona ${page} nie zmieściła całości (totalCount=${parsed.pagination?.totalCount ?? '?'}) — poller dociągnie kolejne`
-        )
+        logEvent('warn', 'pkp.operations_page_partial', { page, totalCount: parsed.pagination?.totalCount ?? null })
       }
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response), truncated }
     },
@@ -579,8 +574,7 @@ export function createLiveClient(
       const operationUrl = `${BASE_URL}/api/v1/operations/train/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}/${encodeURIComponent(operatingDate)}`
       const routeUrl = `${BASE_URL}/api/v1/schedules/route/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}`
 
-      // Trasa rozkładowa może nie istnieć dla mniejszości pociągów (patrz
-      // „Znane ograniczenia" w README) — to nie powód, żeby nie pokazać
+      // Trasa rozkładowa może nie istnieć dla mniejszości pociągów — to nie powód, żeby nie pokazać
       // realizacji. Stąd allSettled zamiast Promise.all: brak trasy to `null`,
       // nie odrzucenie całego żądania.
       const [operationResult, routeResult] = await Promise.allSettled([

@@ -1,0 +1,81 @@
+// @vitest-environment jsdom
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { TransitDepartureList } from './TransitDepartureList'
+import type { GtfsDeparture } from '@/lib/gtfs/types'
+
+type Dep = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
+
+function dep(over: Partial<Dep> = {}): Dep {
+  return {
+    vehicle: null,
+    tripId: 't',
+    routeId: '20',
+    line: '20',
+    mode: 'tram',
+    lineKind: 'regular',
+    color: null,
+    headsign: 'Piaski',
+    plannedAt: '2026-09-02T14:30:00+02:00',
+    departureSec: 52200,
+    serviceDate: '2026-09-02',
+    stopId: '100101',
+    platformCode: null,
+    stopCode: null,
+    wheelchair: 0,
+    frequencyBased: false,
+    onRequest: false,
+    ...over,
+  }
+}
+
+describe('TransitDepartureList', () => {
+  it('shows the clock time straight from the ISO offset, the headsign and the line', () => {
+    render(<TransitDepartureList departures={[dep()]} />)
+    expect(screen.getByText('14:30')).toBeInTheDocument()
+    expect(screen.getByText('Piaski')).toBeInTheDocument()
+  })
+
+  it('renders a schedule-only empty state, never "na czas"', () => {
+    render(<TransitDepartureList departures={[]} />)
+    expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
+    expect(screen.queryByText(/na czas/i)).not.toBeInTheDocument()
+  })
+
+  it('marks a frequency-based departure and its platform', () => {
+    render(
+      <TransitDepartureList
+        departures={[dep({ frequencyBased: true, platformCode: 'P1' })]}
+      />
+    )
+    expect(screen.getByText('co kilka min')).toBeInTheDocument()
+    expect(screen.getByText('peron P1')).toBeInTheDocument()
+  })
+
+  it('labels a night line, leaving a regular one unlabelled', () => {
+    render(<TransitDepartureList departures={[dep({ lineKind: 'night' }), dep({ lineKind: 'regular' })]} />)
+    expect(screen.getByText('nocna')).toBeInTheDocument()
+  })
+
+  it('tags the słupek with the bare code, never the word "słupek"', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showSlupek />)
+    expect(screen.getByText('06')).toBeInTheDocument()
+    expect(screen.queryByText(/słup\./i)).not.toBeInTheDocument()
+  })
+
+  it('shows a vehicle chip when a departure has a live vehicle', () => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 15 } })]} />)
+    expect(screen.getByText('2 przyst.')).toBeInTheDocument()
+  })
+
+  it('shows "zaraz będzie" (approaching, not departed) at stopsAway 0', () => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 0, ageSec: 15 } })]} />)
+    expect(screen.getByText('zaraz będzie')).toBeInTheDocument()
+  })
+
+  it('shows skeletons while loading', () => {
+    const { container } = render(<TransitDepartureList departures={[]} loading />)
+    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
+    expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
+  })
+})

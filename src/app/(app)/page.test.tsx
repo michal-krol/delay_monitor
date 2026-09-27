@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
-import type { Favourite } from '@/hooks/useFavourites'
+import { favouriteKey, type Favourite } from '@/hooks/useFavourites'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
@@ -22,14 +22,16 @@ vi.mock('next/navigation', () => ({
 // a test, the same reactivity a stateful `useFavourites()` gives the real page.
 let initialFavourites: Favourite[] = []
 
-vi.mock('@/hooks/useFavourites', () => ({
+vi.mock('@/hooks/useFavourites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useFavourites')>()),
   useFavourites: () => {
     const [favourites, setFavourites] = useState(initialFavourites)
     return {
       favourites,
       loaded: true,
       addFavourite: vi.fn(),
-      removeFavourite: (id: string) => setFavourites((current) => current.filter((item) => item.id !== id)),
+      removeFavourite: (key: string) =>
+        setFavourites((current) => current.filter((item) => favouriteKey(item) !== key)),
       isFavourite: () => true,
     }
   },
@@ -44,14 +46,14 @@ describe('Page (Pulpit)', () => {
     push.mockClear()
     replace.mockClear()
     searchParamsSeed = ''
-    initialFavourites = [{ id: '33605', name: 'Warszawa Centralna' }]
+    initialFavourites = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
   })
 
   it('klik w kartę stacji otwiera pełny widok stacji, z nazwą w adresie', async () => {
     render(<Page />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Pokaż pełną tablicę: Warszawa Centralna/ }))
-    expect(push).toHaveBeenCalledWith('/odjazdy/33605?name=Warszawa%20Centralna')
+    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna')
   })
 
   it('przekierowuje stary adres ?focus= na widok stacji, zachowując nazwę z ulubionych', () => {
@@ -60,7 +62,7 @@ describe('Page (Pulpit)', () => {
 
     // `replace`, nie `push` -- przekierowanie nie ma zostawiać wpisu w
     // historii, bo „wstecz" wracałoby na adres, który znów przekierowuje.
-    expect(replace).toHaveBeenCalledWith('/odjazdy/33605?name=Warszawa%20Centralna')
+    expect(replace).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna')
     expect(push).not.toHaveBeenCalled()
   })
 
@@ -68,7 +70,7 @@ describe('Page (Pulpit)', () => {
     searchParamsSeed = 'focus=999999999'
     render(<Page />)
 
-    expect(replace).toHaveBeenCalledWith('/odjazdy/999999999')
+    expect(replace).toHaveBeenCalledWith('/station/999999999')
   })
 
   it('ignoruje po cichu nieprawidłowe ?focus= i pokazuje zwykły pulpit', () => {
@@ -128,7 +130,7 @@ describe('Page (Pulpit)', () => {
     await user.click(await screen.findByRole('option', { name: 'Kraków Główny' }))
 
     // encodeURIComponent (not form-encoding) — spaces become %20, same contract as the card click.
-    expect(push).toHaveBeenCalledWith('/odjazdy/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
+    expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
 
     vi.useRealTimers()
     vi.unstubAllGlobals()
