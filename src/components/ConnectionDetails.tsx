@@ -172,6 +172,11 @@ function MetaItem({
 export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLabel, onLabelResolved }: Props) {
   const [status, setStatus] = useState<Status>('loading')
   const [data, setData] = useState<TrainDetailApiResponse | null>(null)
+  // Komunikat serwera dla PIERWSZOPLANOWEGO błędu 503 (limit godzinowy PKP,
+  // patrz route.ts) -- pokazujemy go zamiast ogólnego „Spróbuj odświeżyć
+  // stronę", bo tamten sugeruje, że odświeżenie coś zmieni, a tu i tak trafi
+  // w ten sam limit. `null` = błąd innego rodzaju, generyczny komunikat.
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const { share, copied } = useShareUrl()
   // Pogoda punktu startu trasy — `stops[0]` to stacja początkowa (`stationId`
@@ -198,8 +203,27 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
       lastFetchAt = Date.now()
       try {
         const params = new URLSearchParams({ scheduleId, orderId, operatingDate })
+        // Tylko dociąganie w tle niesie ten parametr -- pierwsze wczytanie i
+        // (gdyby powstał) ręczny retry zawsze są pierwszoplanowe. Serwer
+        // (route.ts) rezerwuje ostatnie sloty godzinowego limitu wyłącznie dla
+        // żądań BEZ tego parametru, żeby karta zostawiona otwarta w tle nie
+        // zjadła całego budżetu przed pierwszym kliknięciem nowego użytkownika.
+        if (mode === 'background') params.set('background', '1')
         const response = await fetch(`/api/train?${params}`)
-        if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
+        if (!response.ok) {
+          // Komunikat serwera tylko dla PIERWSZOPLANOWEGO błędu -- baner na
+          // nieudanym dociąganiu w tle nigdy się nie pokazuje (patrz niżej),
+          // więc nie ma po co go tam czytać.
+          if (mode === 'initial') {
+            const body: unknown = await response.json().catch(() => null)
+            const serverMessage =
+              body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
+                ? body.error
+                : null
+            setErrorMessage(serverMessage)
+          }
+          throw new Error(`Błąd odpowiedzi: ${response.status}`)
+        }
         const json = (await response.json()) as TrainDetailApiResponse
         if (cancelled) return
         dataRef.current = json
@@ -207,7 +231,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
         setStatus('ready')
       } catch {
         // Baner błędu tylko wtedy, gdy nie mamy jeszcze CZEGO pokazać. Nieudany
-        // refetch zostawia ostatni dobry stan (AGENTS.md #7).
+        // refetch (dowolny status, w tym 503 limitu) zostawia ostatni dobry
+        // stan, CICHO -- karta w tle nigdy nie zgasza działającej strony
+        // błędem (AGENTS.md #7).
         if (!cancelled && mode === 'initial') setStatus('error')
       }
     }
@@ -349,12 +375,17 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
       {status === 'error' && (
         <div className="glass rounded-2xl p-6">
           <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">
-            Nie udało się pobrać szczegółów połączenia.
+            {errorMessage ?? 'Nie udało się pobrać szczegółów połączenia.'}
           </p>
-          <p className="mt-1 text-sm text-text-secondary">
-            Ten widok pobiera dane przy każdym otwarciu i nie ma zapisanej wcześniejszej wersji do pokazania. Spróbuj
-            odświeżyć stronę.
-          </p>
+          {/* Komunikat serwera (np. limit godzinowy PKP) już mówi, co zrobić --
+              drugi generyczny akapit dublowałby to, albo sugerowałby, że
+              odświeżenie strony pomoże, gdy w rzeczywistości trafi w ten sam limit. */}
+          {errorMessage === null && (
+            <p className="mt-1 text-sm text-text-secondary">
+              Ten widok pobiera dane przy każdym otwarciu i nie ma zapisanej wcześniejszej wersji do pokazania. Spróbuj
+              odświeżyć stronę.
+            </p>
+          )}
         </div>
       )}
 

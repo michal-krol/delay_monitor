@@ -251,6 +251,20 @@ describe('ConnectionDetails', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się pobrać szczegółów połączenia.')
   })
 
+  it('shows the server error message on a foreground 503 (hourly cap reached), not the generic "Spróbuj odświeżyć stronę"', async () => {
+    const serverMessage = 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: serverMessage }), { status: 503 }))
+    )
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(serverMessage)
+    expect(screen.queryByText(/Spróbuj odświeżyć stronę/)).not.toBeInTheDocument()
+  })
+
   it('shows "brak danych" (not a false "punktualnie") for a confirmed stop whose delay could not be determined', async () => {
     // Przystanek bez dopasowanej trasy/planu ma oba pola opóźnienia `null` —
     // to nie to samo co opóźnienie 0. Pokazanie zielonego "punktualnie" byłoby
@@ -823,6 +837,52 @@ describe('ConnectionDetails', () => {
       await vi.waitFor(() => expect(trainCalls(fetchMock)).toBe(2))
 
       expect(screen.queryByText('Nie udało się pobrać szczegółów połączenia.')).not.toBeInTheDocument()
+      expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
+    })
+
+    it('sends background=1 only on a background refetch, never the initial load', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse(RESPONSE))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      const trainUrls = () =>
+        fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/api/train'))
+      expect(trainUrls()).toHaveLength(1)
+      expect(new URL(trainUrls()[0], 'http://localhost').searchParams.has('background')).toBe(false)
+
+      // >90 s -- dociąganie w tle, tym razem Z parametrem.
+      vi.setSystemTime(new Date('2026-08-01T10:02:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => expect(trainUrls()).toHaveLength(2))
+      expect(new URL(trainUrls()[1], 'http://localhost').searchParams.get('background')).toBe('1')
+    })
+
+    it('keeps the last good data (no error banner) when a background refetch is rejected with 503 (hourly cap reached)', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(RESPONSE))
+        .mockImplementation(() =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({ error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' }),
+              { status: 503 }
+            )
+          )
+        )
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => expect(trainCalls(fetchMock)).toBe(2))
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
       expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
     })
 
