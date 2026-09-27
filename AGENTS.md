@@ -29,6 +29,8 @@ etc.): read the linked rule file before changing code in its area.** General wor
 | `src/components/`, `src/hooks/` | UI (flat, transport map in `components/map/`), client hooks |
 | `fixtures/`, `data/` | mock payloads (PKP, GTFS per city), static station coordinates |
 | `e2e/` | Playwright suite |
+| `adr/` | architecture decision records (Polish) |
+| `.github/workflows/` | CI (`ci.yml`), nightly contract (`contract.yml`), prod health (`health.yml`) |
 
 ## Commands
 
@@ -119,7 +121,7 @@ Don't restate, don't re-read just-edited files, narrow big outputs. Plan mode: o
 ### 17. Plugins pinned in `.claude/settings.json`
 Versioned for every session in this repo: `superpowers`, `ponytail`, `caveman`, `taste-skill`,
 `ui-ux-pro-max`, `claude-obsidian`, `playwright`(+skill), `codex`. User-level extras (not
-pinned here): `impeccable`, `claude-mem`. First session after cloning = one-time trust prompt
+pinned here): `impeccable`, `claude-mem`, `typescript-lsp`, `claude-md-management`. First session after cloning = one-time trust prompt
 for third-party marketplaces. Cost: skill descriptions in every session — don't
 extend without counting; narrow per session via `/plugin`. `.claude/settings.local.json`
 (gitignored) for private overrides. Design-skill routing: `~/.claude/rules/frontend-ui.md`.
