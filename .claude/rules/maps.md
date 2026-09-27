@@ -62,7 +62,8 @@ a real deploy catches it, never `next dev` — it reached production unnoticed i
 Fix: `public/maplibre-gl-worker.mjs` + `public/maplibre-gl-shared.mjs` (the worker statically
 imports the latter) as vendored, byte-for-byte copies from `node_modules/maplibre-gl/dist/`,
 plus `maplibregl.setWorkerUrl('/maplibre-gl-worker.mjs')` BEFORE the first `new Map()`.
-`MapView.test.tsx` guards that the copies match `node_modules` on dependency updates;
+`MapView.test.tsx` guards that the copies match `node_modules` on dependency updates —
+after every maplibre-gl bump (Dependabot included) run `npm run vendor:maplibre` and commit;
 `e2e/map.spec.ts` really renders tiles (not just pins) and measures the canvas PNG size —
 `toDataURL`/`readPixels` without `preserveDrawingBuffer` can return a transparent read despite
 correct drawing, so **never verify map rendering via raw WebGL buffer reads** — only via a
