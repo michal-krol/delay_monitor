@@ -813,12 +813,17 @@ describe('createPoller', () => {
         .mockResolvedValue({ trains: [makeEnRouteTrain('25', '1', '5100')], stationNames: {}, budget: { hourly: 15, daily: 900 }, truncated: true })
       const client = makePkpClient({ getOperations })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       poller.registerInterest(['5100'])
       await vi.advanceTimersByTimeAsync(0)
 
       expect(getOperations).toHaveBeenCalledTimes(1) // strona 1 tak, po niej budżet za niski na kolejną
       expect(poller.getDiagnostics().operations.incomplete).toBe(true)
+      expect(warn.mock.calls.map((c) => JSON.parse(c[0] as string))).toContainEqual(
+        expect.objectContaining({ event: 'poller.operations_incomplete', reason: 'budget', pages: 1 })
+      )
+      warn.mockRestore()
       expect(poller.getStatus()).toBe('degraded')
     })
 
@@ -845,12 +850,17 @@ describe('createPoller', () => {
         .mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 }, truncated: true })
       const client = makePkpClient({ getOperations })
       const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       poller.registerInterest(['5100'])
       await vi.advanceTimersByTimeAsync(0)
 
       expect(getOperations).toHaveBeenCalledTimes(MAX_OPERATIONS_PAGES)
       expect(poller.getDiagnostics().operations.incomplete).toBe(true)
+      expect(warn.mock.calls.map((c) => JSON.parse(c[0] as string))).toContainEqual(
+        expect.objectContaining({ event: 'poller.operations_incomplete', reason: 'page_limit', pages: MAX_OPERATIONS_PAGES })
+      )
+      warn.mockRestore()
     })
   })
 })

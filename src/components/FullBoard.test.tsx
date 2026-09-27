@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
@@ -302,7 +302,8 @@ describe('FullBoard', () => {
       <FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={onClose} />
     )
     await user.click(await screen.findByRole('tab', { name: 'Przyjazdy' }))
-    expect(window.location.search).toContain('tab=arrivals')
+    // The URL is written from a useEffect, not the click handler.
+    await waitFor(() => expect(window.location.search).toContain('tab=arrivals'))
 
     // Odmontowanie tablicy (odpowiednik kliknięcia "Zamknij" w page.tsx) musi
     // wyczyścić `tab` -- inaczej kolejna, inna stacja odziedziczyłaby zakładkę

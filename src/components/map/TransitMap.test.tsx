@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { TransitMap, type MapHit } from './TransitMap'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
@@ -84,6 +84,10 @@ let reducedMotion = true
 window.matchMedia = ((query: string) => ({ matches: query.includes('reduce') && reducedMotion })) as unknown as typeof window.matchMedia
 
 describe('TransitMap', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   beforeEach(() => {
     reducedMotion = true
     vi.clearAllMocks()
@@ -241,7 +245,6 @@ describe('TransitMap', () => {
     handlers.get('touchstart')!({ ...touch, originalEvent: { touches: [{}, {}] } })
     vi.advanceTimersByTime(1000)
     expect(onContextPoint).not.toHaveBeenCalled()
-    vi.useRealTimers()
   })
 
   it('reports what is in view only while the list is open, deduplicated and capped', async () => {

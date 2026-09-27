@@ -43,19 +43,6 @@ export async function getStationCoordinates(stationId: string): Promise<{ lat: n
   return { lat: entry.lat, lon: entry.lon }
 }
 
-/**
- * Jak `getStationCoordinates`, ale zwraca cały wpis (z `source`) zamiast
- * samych `lat`/`lon` — `/api/rail-stations` musi wiedzieć, czy pozycja jest
- * realna (`gtfs`/`station`/`osm-railway`) czy przybliżona (`city-fallback`), żeby
- * oznaczyć pin wizualnie, zamiast udawać precyzję, której nie ma.
- */
-export async function getStationCoordinatesEntry(stationId: string): Promise<StationCoordinatesEntry | null> {
-  const all = await loadCoordinates()
-  const entry = all[stationId]
-  if (entry === undefined || entry.lat === null || entry.lon === null) return null
-  return entry
-}
-
 /** Stacja na ogólnopolskiej warstwie kolei mapy. */
 export type MapRailStation = { id: string; name: string; lat: number; lon: number; tier: 1 | 2 | 3 }
 
