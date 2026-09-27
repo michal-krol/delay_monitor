@@ -14,6 +14,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   kolejnych stron danych o realizacji faktycznie zostało przerwane (limit stron lub
   budżet zapytań), a nie przy każdej kolejnej stronie.
 
+### Usunięte
+
+- Ulubione zapisane w starym formacie (sprzed wersji 1.0.0) nie są już wczytywane — takie
+  stacje trzeba przypiąć ponownie.
+
 ### Naprawione
 
 - Szczegóły połączenia zużywają mniej zapytań do PKP: trasa pociągu (lista stacji
