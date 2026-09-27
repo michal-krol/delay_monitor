@@ -6,6 +6,7 @@ import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
+import { formatClockTime } from '@/lib/format'
 import type { CSSProperties } from 'react'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { GLOW_COLOR, BORDER_COLOR } from './realizationColors'
@@ -127,9 +128,17 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         </div>
       </div>
 
-      {error && (
+      {error && !snapshot && (
         <p aria-live="polite" className="mt-1 text-xs text-red-600 dark:text-red-400">
           Błąd pobierania danych
+        </p>
+      )}
+      {error && snapshot && (
+        // Odświeżenie padło, ale ostatni dobry snapshot wciąż jest ważny —
+        // czerwony błąd kłamałby, że dane zniknęły (#7: rosnący wiek danych,
+        // nie pusty ekran).
+        <p aria-live="polite" className="mt-1 text-xs text-text-muted">
+          Nie udało się odświeżyć · dane z {formatClockTime(snapshot.fetchedAt)}
         </p>
       )}
 

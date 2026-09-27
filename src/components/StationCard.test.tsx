@@ -194,15 +194,27 @@ describe('StationCard', () => {
     expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
   })
 
-  it('shows an error message without hiding the last known snapshot', () => {
+  it('snapshot + refresh error shows data age', () => {
+    const fetchedAt = new Date(Date.now() - 3 * 60000).toISOString()
     const snapshot = makeSnapshot({
+      fetchedAt,
       departures: [
         { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1', estimatedDelayMinutes: null },
       ],
     })
     render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={true} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
-    expect(screen.getByText('Błąd pobierania danych')).toBeInTheDocument()
+
+    // Ostatni dobry snapshot zostaje na ekranie — błąd odświeżenia nie
+    // zastępuje danych czerwonym komunikatem, tylko wiekiem danych (#7).
+    expect(screen.queryByText('Błąd pobierania danych')).not.toBeInTheDocument()
+    expect(screen.getByText(`Nie udało się odświeżyć · dane z ${formatClockTime(fetchedAt)}`)).toBeInTheDocument()
     expect(screen.getByText('IC')).toBeInTheDocument()
+  })
+
+  it('error without snapshot shows error', () => {
+    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={true} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    expect(screen.getByText('Błąd pobierania danych')).toBeInTheDocument()
   })
 
   it('renders a config error banner instead of the card when configError is true', () => {
