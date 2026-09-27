@@ -480,6 +480,7 @@ export function TransitStopDetail({
             loading={loading}
             currentHour={new Date(now).getHours()}
             emptyLabel="Rozkład na dziś nie zawiera odjazdów z tego przystanku."
+            unknownLabel={board !== null && board.summary === null ? 'Brak rozkładu na dziś.' : undefined}
           />
         </AsideCard>
 

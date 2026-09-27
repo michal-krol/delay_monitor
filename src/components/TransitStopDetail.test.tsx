@@ -321,6 +321,27 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
   })
 
+  it('shows "—" and "Brak rozkładu na dziś." when the board loaded but today fell out of the schedule window', () => {
+    // `summary: null` = fetch succeeded but today's service date isn't in the
+    // schedule (day-unknown, AGENTS.md #9/#10) — must not read as a fetch
+    // failure (AGENTS.md #7).
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ ...board, summary: null }],
+        attribution: [],
+      },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    expect(screen.getByText('Brak rozkładu na dziś.')).toBeInTheDocument()
+    expect(screen.queryByText(/Nie udało się pobrać rozkładu/)).not.toBeInTheDocument()
+  })
+
   it("shows the city's display name, not the slug, once /api/cities resolves", async () => {
     vi.stubGlobal(
       'fetch',
