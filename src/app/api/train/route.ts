@@ -6,6 +6,7 @@ import { attachStopCoordinates } from './coordinates'
 import type { TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
 import { createTtlCache } from '@/lib/cache'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
+import { logEvent } from '@/lib/log'
 
 const EMPTY_DISRUPTIONS: GetDisruptionsResult = { disruptions: [], disruptionTypes: {} }
 
@@ -146,7 +147,7 @@ export async function GET(request: Request) {
       const status = err.status >= 500 ? 502 : err.status
       return NextResponse.json({ error: 'Błąd pobierania danych z PKP' }, { status })
     }
-    console.error('Błąd pobierania szczegółów połączenia', err)
+    logEvent('error', 'api.train.unexpected_error', {}, err)
     return NextResponse.json({ error: 'Nieoczekiwany błąd' }, { status: 500 })
   }
 }

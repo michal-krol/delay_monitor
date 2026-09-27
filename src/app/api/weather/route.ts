@@ -3,6 +3,7 @@ import { getStationCoordinates } from '@/lib/weather/coordinates'
 import { fetchOpenMeteoWeather, WeatherApiError, type OpenMeteoSnapshot } from '@/lib/weather/client'
 import { createTtlCache } from '@/lib/cache'
 import { STATION_ID_PATTERN } from '@/lib/validation'
+import { logEvent } from '@/lib/log'
 
 /**
  * Open-Meteo odświeża `current` u siebie co ~15 min -- 25 min to zapas jednego
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
       const status = err.status >= 500 ? 502 : err.status
       return NextResponse.json({ error: 'Błąd pobierania danych pogodowych' }, { status })
     }
-    console.error('Błąd pobierania pogody', err)
+    logEvent('error', 'api.weather.unexpected_error', {}, err)
     return NextResponse.json({ error: 'Nieoczekiwany błąd' }, { status: 500 })
   }
 }
