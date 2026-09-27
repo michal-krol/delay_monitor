@@ -249,7 +249,7 @@ export function resolvePositionAnchor(stops: TrainDetailStop[], trainStatus: str
  * Łączy realizację (`operation`, czasy faktyczne) z trasą rozkładową (`route`,
  * czasy planowe + peron/tor) w pełną, przystanek-po-przystanku listę do panelu
  * szczegółów połączenia. `route` bywa `null` — pociąg bez dopasowanej trasy
- * (patrz „Znane ograniczenia" w README) wciąż pokazuje realizację, tylko bez
+ * wciąż pokazuje realizację, tylko bez
  * planu/opóźnienia/peronu.
  *
  * Czysta funkcja — bez sieci, testowalna wprost (wzorem `transformOperations`).

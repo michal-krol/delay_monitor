@@ -11,8 +11,8 @@ paths:
 
 # Deployment in this repo (Railway)
 
-General rules: `~/.claude/rules/deployment.md`, `versioning.md`. Full description: README
-„Deployment (Railway)".
+General rules: `~/.claude/rules/deployment.md`, `versioning.md`. Public summary: README
+„Wdrożenie” (keep internal details — keys, costs, environment names — out of it).
 
 - One Railway project, two environments: `main` → production (`live`, real key), `dev` →
   staging (`live`, a **separate second PKP key** — independent 100/h + 1000/day budget, #3).

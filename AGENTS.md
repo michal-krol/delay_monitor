@@ -6,7 +6,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Public Next.js app (no auth): PKP train delays per station (PKP PLK API, key-limited) + urban
 transit timetables from GTFS (Warsaw) with live vehicle positions and alerts. Single Railway
-replica, state in memory. Full architecture and rationale: `README.md` (Polish).
+replica, state in memory. Product and architecture overview: `README.md` (Polish, public — no
+internal details, limitations or roadmap); decisions: `adr/`.
 
 **How this file works.** Numbered invariants `#N` are stable — code, CI, and `CHANGELOG` cite
 "AGENTS.md #N". Each stub below holds the core rule; details live in `.claude/rules/<file>.md`.

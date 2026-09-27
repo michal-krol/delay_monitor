@@ -150,7 +150,7 @@ describe('buildTrainDetailStops', () => {
   })
 
   it('still returns realized times (actual, isCancelled, isConfirmed) when there is no matching route at all', () => {
-    // Mniejszość pociągów bez dopasowanej trasy (patrz README) -- realizacja
+    // Mniejszość pociągów bez dopasowanej trasy -- realizacja
     // musi się pokazać, plan/opóźnienie/peron zostają puste, nie cała lista.
     const stops = [
       realizedStop({ stationId: 'A', actualDeparture: '2026-08-01T10:07:00+02:00', isConfirmed: true }),

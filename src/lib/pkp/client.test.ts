@@ -757,8 +757,8 @@ describe('createLiveClient', () => {
     })
 
     it('returns a null route (not an error) when no scheduled route matches the operation', async () => {
-      // Mniejszość pociągów nie ma dopasowanej trasy (patrz README, "Znane
-      // ograniczenia") — realizacja i tak musi się pokazać, tylko bez peronu/toru.
+      // Mniejszość pociągów nie ma dopasowanej trasy — realizacja i tak musi
+      // się pokazać, tylko bez peronu/toru.
       stubTrainDetailFetch({ route: () => Promise.resolve(new Response('not found', { status: 404 })) })
 
       const client = createLiveClient('secret-key')
