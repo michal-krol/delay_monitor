@@ -1,0 +1,28 @@
+name: Production health
+
+# Syntetyczny monitoring: feed PKP potrafi zamarznąć przy HTTP 200 (27–31.08),
+# a `/api/health` zwraca 200 nawet przy złym kluczu — stan jest w treści
+# (`pollerStatus`). Czerwony przebieg = mail z GitHuba. Zero zapytań do PKP:
+# endpoint czyta wyłącznie pamięć procesu. Harmonogram działa tylko z main.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      URL: https://delay-monitor-web-production.up.railway.app/api/health
+    steps:
+      - name: Check /api/health
+        run: |
+          body=$(curl -fsS --retry 2 --retry-delay 20 --max-time 30 "$URL")
+          status=$(jq -r '.pollerStatus' <<<"$body")
+          echo "pollerStatus=$status"
+          jq -c '.feeds // {}' <<<"$body"
+          if [ "$status" != "ok" ]; then
+            echo "::error::pollerStatus=$status (configError = zły klucz; degraded = feed zepsuty, zamrożony albo niepełny)"
+            exit 1
+          fi
