@@ -52,6 +52,10 @@ const RETRY_JITTER_MS = 1000
 // każda zmiana ulubionych tworzy nowy wpis. Limit trzyma to w ryzach.
 const SCHEDULES_CACHE_MAX_ENTRIES = 64
 
+/** Trasa rozkładowa (schedules/route) jest statyczną daną rozkładową jak /schedules — ta sama długość TTL. */
+const ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const ROUTE_CACHE_MAX_ENTRIES = 500
+
 /** Maksimum dopuszczone przez swagger dla `/operations` (domyślne API to 1000) — patrz `getOperations()`. */
 const OPERATIONS_PAGE_SIZE = 5000
 
@@ -319,6 +323,10 @@ export function createLiveClient(
     ttlMs: DISRUPTIONS_CACHE_TTL_MS,
     maxEntries: DISRUPTIONS_CACHE_MAX_ENTRIES,
   })
+  const routeCache = createTtlCache<RawRoute>({
+    ttlMs: ROUTE_CACHE_TTL_MS,
+    maxEntries: ROUTE_CACHE_MAX_ENTRIES,
+  })
   // Ten sam wzorzec co stationListCache/stationListInFlight -- jeden blob,
   // nie klucz-po-kluczu, więc zwykły TtlCache (klucz -> wartość) tu nie pasuje.
   let nameDictionariesCache: { value: NameDictionaries; expiresAt: number } | null = null
@@ -336,6 +344,7 @@ export function createLiveClient(
   let stationListInFlight: Promise<IndexedStation[]> | null = null
   const schedulesInFlight = new Map<string, Promise<GetSchedulesResult>>()
   const disruptionsInFlight = new Map<string, Promise<GetDisruptionsResult>>()
+  const routeInFlight = new Map<string, Promise<RawRoute>>()
 
   /**
    * Zaobserwowane na żywo (staging): PKP bywa chwilowo wolne i przekracza
@@ -369,6 +378,41 @@ export function createLiveClient(
       }
       throw err
     }
+  }
+
+  /**
+   * Trasa rozkładowa (schedules/route) jest statyczną daną rozkładową dla
+   * danej pary scheduleId/orderId — w przeciwieństwie do realizacji (operations)
+   * nie zmienia się między wywołaniami `getTrainDetail` dla tego samego
+   * pociągu. Cache + in-flight dedup, jak przy `getSchedules`.
+   *
+   * Brak trasy (404, mniejszość pociągów) NIE jest cache'owany — może się
+   * pojawić później, więc odrzucenie leci dalej bez zapisu.
+   */
+  async function fetchRoute(scheduleId: string, orderId: string): Promise<RawRoute> {
+    const cacheKey = `${scheduleId}|${orderId}`
+    const cached = routeCache.get(cacheKey)
+    if (cached !== undefined) {
+      return cached
+    }
+
+    const pending = routeInFlight.get(cacheKey)
+    if (pending !== undefined) {
+      return pending
+    }
+
+    const routeUrl = `${BASE_URL}/api/v1/schedules/route/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}`
+    const request = fetchJsonWithRetry(routeUrl, apiKey, 'Pobranie trasy pociągu nie powiodło się')
+      .then(({ json }) => {
+        const route = rawRouteSchema.parse(json)
+        routeCache.set(cacheKey, route)
+        return route
+      })
+      .finally(() => {
+        routeInFlight.delete(cacheKey)
+      })
+    routeInFlight.set(cacheKey, request)
+    return request
   }
 
   async function fetchAllStations(): Promise<IndexedStation[]> {
@@ -569,20 +613,19 @@ export function createLiveClient(
       // po walidacji formatu w /api/train, ale kodowanie to druga, niezależna
       // warstwa — patrz AGENTS.md #3.
       const operationUrl = `${BASE_URL}/api/v1/operations/train/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}/${encodeURIComponent(operatingDate)}`
-      const routeUrl = `${BASE_URL}/api/v1/schedules/route/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}`
 
       // Trasa rozkładowa może nie istnieć dla mniejszości pociągów — to nie powód, żeby nie pokazać
       // realizacji. Stąd allSettled zamiast Promise.all: brak trasy to `null`,
       // nie odrzucenie całego żądania.
       const [operationResult, routeResult] = await Promise.allSettled([
         fetchJsonWithRetry(operationUrl, apiKey, 'Pobranie szczegółów przejazdu nie powiodło się'),
-        fetchJsonWithRetry(routeUrl, apiKey, 'Pobranie trasy pociągu nie powiodło się'),
+        fetchRoute(scheduleId, orderId),
       ])
 
       if (operationResult.status === 'rejected') throw operationResult.reason
 
       const operation = rawTrainOperationSchema.parse(operationResult.value.json)
-      const route = routeResult.status === 'fulfilled' ? rawRouteSchema.parse(routeResult.value.json) : null
+      const route = routeResult.status === 'fulfilled' ? routeResult.value : null
 
       // Ani odpowiedź realizacji, ani trasy nie niosą nazw stacji — tylko ID.
       // Pełny słownik stacji jest już cache'owany 24h dla searchStations, więc

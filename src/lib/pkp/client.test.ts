@@ -785,6 +785,73 @@ describe('createLiveClient', () => {
       expect(String(operationUrl)).not.toContain('/../')
       expect(String(operationUrl)).toContain(encodeURIComponent('2026-08-01/../../secrets'))
     })
+
+    function routeResponse() {
+      return Promise.resolve(
+        jsonResponse({
+          scheduleId: 2026,
+          orderId: 12345,
+          carrierCode: 'IC',
+          commercialCategorySymbol: 'EIC',
+          stations: [{ stationId: 33605, departurePlatform: '4' }],
+        })
+      )
+    }
+
+    it('second detail call for the same train fetches the route once', async () => {
+      let routeCalls = 0
+      const fetchMock = stubTrainDetailFetch({
+        route: () => {
+          routeCalls++
+          return routeResponse()
+        },
+      })
+
+      const client = createLiveClient('secret-key')
+      await client.getTrainDetail('2026', '12345', '2026-08-01')
+      await client.getTrainDetail('2026', '12345', '2026-08-01')
+
+      expect(routeCalls).toBe(1)
+      const operationCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/operations/train/')).length
+      expect(operationCalls).toBe(2)
+    })
+
+    it('concurrent calls share one route fetch', async () => {
+      let routeCalls = 0
+      stubTrainDetailFetch({
+        route: () => {
+          routeCalls++
+          return routeResponse()
+        },
+      })
+
+      const client = createLiveClient('secret-key')
+      await Promise.all([
+        client.getTrainDetail('2026', '12345', '2026-08-01'),
+        client.getTrainDetail('2026', '12345', '2026-08-01'),
+      ])
+
+      expect(routeCalls).toBe(1)
+    })
+
+    it('route failure is not cached', async () => {
+      let routeCalls = 0
+      stubTrainDetailFetch({
+        route: () => {
+          routeCalls++
+          if (routeCalls === 1) return Promise.resolve(new Response('not found', { status: 404 }))
+          return routeResponse()
+        },
+      })
+
+      const client = createLiveClient('secret-key')
+      const first = await client.getTrainDetail('2026', '12345', '2026-08-01')
+      const second = await client.getTrainDetail('2026', '12345', '2026-08-01')
+
+      expect(first.route).toBeNull()
+      expect(second.route).not.toBeNull()
+      expect(routeCalls).toBe(2)
+    })
   })
 
   describe('getNameDictionaries', () => {
