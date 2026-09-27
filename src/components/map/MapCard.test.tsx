@@ -121,3 +121,38 @@ describe('MapCard — focus and closing', () => {
     expect(onClose).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('MapCard — favourites, nearby, disruptions', () => {
+  it('toggles the favourite star and offers "what is nearby" for places', () => {
+    railStatus.mockReturnValue({ status: null, error: false })
+    const onToggleFavourite = vi.fn()
+    const onNearby = vi.fn()
+    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} favourite={false} onToggleFavourite={onToggleFavourite} onNearby={onNearby} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj do ulubionych' }))
+    expect(onToggleFavourite).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Co jest w pobliżu?' }))
+    expect(onNearby).toHaveBeenCalled()
+  })
+
+  it('shows the pressed star for a favourite', () => {
+    railStatus.mockReturnValue({ status: null, error: false })
+    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} favourite onToggleFavourite={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Usuń z ulubionych' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('flags a vehicle whose line has an active disruption', () => {
+    const { rerender } = render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} alertLines={['20']} />)
+    expect(screen.getByText(/Utrudnienia na tej linii/)).toBeInTheDocument()
+    rerender(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} alertLines={['9']} />)
+    expect(screen.queryByText(/Utrudnienia na tej linii/)).toBeNull()
+  })
+
+  it('shows stop alerts from the timetable board', () => {
+    transitBoard.mockReturnValue({
+      data: { stops: [{ stopId: '100101', members: [], lines: [], departures: [], alerts: [{ id: 'a1', routes: ['128'], effect: 'DETOUR', link: '', title: 'Objazd linii 128', body: 'Remont' }] }] },
+      error: null,
+    })
+    render(<MapCard selection={{ kind: 'stop', id: '100101', groupId: '1001', name: 'Centrum', mode: 'bus', lat: 52.23, lon: 21.01 }} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText('Objazd linii 128')).toBeInTheDocument()
+  })
+})

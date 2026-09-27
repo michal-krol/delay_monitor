@@ -7,6 +7,8 @@ import {
   ageLabel,
   boundsContain,
   arrowImage,
+  distanceM,
+  nearbyPoints,
   formatAt,
   interpolatePoints,
   parseAt,
@@ -67,6 +69,11 @@ describe('vehiclesToGeoJSON', () => {
       null
     ).features
     expect(features.map((f) => [f.properties.id, f.properties.opacity])).toEqual([['a', 0.5]])
+  })
+
+  it('keeps only lines with disruptions when asked', () => {
+    const vehicles = [vehicle({ id: 'a', shortName: '20' }), vehicle({ id: 'b', shortName: '9' }), vehicle({ id: 'c', shortName: null })]
+    expect(vehiclesToGeoJSON(vehicles, new Set(), null, new Set(['9'])).features.map((f) => f.properties.id)).toEqual(['b'])
   })
 
   it('applies hidden modes and the selected line', () => {
@@ -169,5 +176,22 @@ describe('parseAt / formatAt', () => {
     expect(parseAt('48.85,2.35,12')).toBeNull()
     expect(parseAt('52.2,21.0,40')).toBeNull()
     expect(parseAt(null)).toBeNull()
+  })
+})
+
+describe('distanceM / nearbyPoints', () => {
+  it('measures metres on the globe', () => {
+    expect(distanceM({ lat: 52.2297, lon: 21.0122 }, { lat: 52.2297, lon: 21.0122 })).toBe(0)
+    // ~111 m na 0,001° szerokości.
+    expect(distanceM({ lat: 52.0, lon: 21.0 }, { lat: 52.001, lon: 21.0 })).toBeCloseTo(111.2, 0)
+  })
+
+  it('lists stops and stations within the radius, nearest first', () => {
+    const near: CityStop = { id: 'n', groupId: 'n', name: 'Blisko', code: null, lat: 52.0005, lon: 21.0, mode: 'bus' }
+    const far: CityStop = { id: 'f', groupId: 'f', name: 'Daleko', code: null, lat: 52.02, lon: 21.0, mode: 'bus' }
+    const station = { id: '1', name: 'Stacja', lat: 52.0002, lon: 21.0, tier: 1 as const }
+    const result = nearbyPoints({ lat: 52.0, lon: 21.0 }, [far, near], [station])
+    expect(result.map((r) => (r.kind === 'stop' ? r.stop.id : r.id))).toEqual(['1', 'n'])
+    expect(nearbyPoints({ lat: 52.0, lon: 21.0 }, [near], [station], 500, 1)).toHaveLength(1)
   })
 })

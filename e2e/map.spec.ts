@@ -328,6 +328,31 @@ test('mapa transportu: awaria pozycji pojazdów to komunikat, a mapa kolei i prz
   await expectTilesRendered(map)
 })
 
+test('mapa transportu: „Lista" pokazuje obiekty w kadrze, „Co jest w pobliżu?" działa z klawiatury', async ({ page }) => {
+  await openMap(page, `${CITY_MAP}?at=52.23000,21.00800,15.0`)
+  await page.getByRole('button', { name: 'Lista' }).click()
+  const list = page.getByRole('dialog', { name: 'W widoku' })
+  // Śródmieście mieści się w kadrze także na telefonie (Centralna już nie).
+  const station = list.getByRole('button', { name: 'Warszawa Śródmieście', exact: true })
+  await expect(station).toBeVisible({ timeout: READY })
+  await station.click()
+  const card = page.getByRole('dialog', { name: 'Warszawa Śródmieście' })
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: 'Co jest w pobliżu?' }).click()
+  const nearby = page.getByRole('dialog', { name: 'W pobliżu' })
+  await expect(nearby.getByRole('button', { name: /Warszawa Śródmieście/ }).first()).toBeVisible()
+})
+
+test('mapa transportu: gwiazdka w karcie zapisuje ulubione, które widać potem w menu', async ({ page }) => {
+  await openMap(page)
+  await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Centralna')
+  await page.getByRole('option', { name: 'Warszawa Centralna' }).click()
+  await page.getByRole('dialog', { name: 'Warszawa Centralna' }).getByRole('button', { name: 'Dodaj do ulubionych' }).click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Ulubione' }).click()
+  await expect(page.getByRole('list', { name: 'Ulubione' }).getByRole('button', { name: 'Warszawa Centralna' })).toBeVisible()
+})
+
 test('a11y: mapa transportu bez naruszeń serious/critical', async ({ page }) => {
   await openMap(page)
   await expectNoBlockingA11y(page)

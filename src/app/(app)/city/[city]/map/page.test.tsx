@@ -17,13 +17,18 @@ vi.mock('next/navigation', () => ({
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
 
 const state = vi.hoisted(() => ({
-  vehicles: { vehicles: [] as unknown[], feed: { state: 'ready', ageMs: 13_000 as number | null }, error: null as string | null },
+  vehicles: { vehicles: [] as unknown[], feed: { state: 'ready', ageMs: 13_000 as number | null }, alertLines: [] as string[], error: null as string | null },
   stops: { stops: null as unknown[] | null, error: false },
   rail: { stations: null as unknown[] | null, error: false },
   mapProps: null as null | {
     initialCamera: { lat: number; lon: number; zoom: number }
     follow: { lat: number; lon: number } | null
     onUserMove: () => void
+    onContextPoint: (point: { lat: number; lon: number }) => void
+    onVisibleChange: (items: { kind: 'vehicle' | 'stop' | 'rail'; id: string; label: string }[], overflow: boolean) => void
+    favourites: { lat: number; lon: number }[]
+    onlyLines: Set<string> | null
+    listOpen: boolean
     route: { key: string } | null
     routeId: string | null; hidden: Set<string>; selected: unknown; onSelect: (hit: MapHit | null) => void; onViewChange: (view: MapView) => void },
 }))
@@ -68,7 +73,7 @@ beforeEach(() => {
   window.localStorage.clear()
   cityParam = 'warszawa'
   window.history.replaceState(null, '', '/city/warszawa/map')
-  state.vehicles = { vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 13_000 }, error: null }
+  state.vehicles = { vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 13_000 }, alertLines: [], error: null }
   state.stops = { stops: [STOP], error: false }
   state.rail = { stations: [STATION], error: false }
   state.mapProps = null
@@ -99,13 +104,13 @@ describe('CityMapPage', () => {
   it('shows the freshness of vehicle positions in the header, in three distinct states', () => {
     const { rerender } = render(<CityMapPage />)
     expect(screen.getByText('Warszawa · pozycje pojazdów: 13 s temu')).toBeInTheDocument()
-    state.vehicles = { vehicles: [], feed: { state: 'loading', ageMs: null }, error: null }
+    state.vehicles = { vehicles: [], feed: { state: 'loading', ageMs: null }, alertLines: [], error: null }
     rerender(<CityMapPage />)
     expect(screen.getByText(/wczytuję pozycje pojazdów/)).toBeInTheDocument()
-    state.vehicles = { vehicles: [], feed: { state: 'failed', ageMs: null }, error: 'x' }
+    state.vehicles = { vehicles: [], feed: { state: 'failed', ageMs: null }, alertLines: [], error: 'x' }
     rerender(<CityMapPage />)
     expect(screen.getByText(/nie udało się pobrać pozycji pojazdów/)).toBeInTheDocument()
-    state.vehicles = { vehicles: [VEHICLE], feed: { state: 'failed', ageMs: 400_000 }, error: null }
+    state.vehicles = { vehicles: [VEHICLE], feed: { state: 'failed', ageMs: 400_000 }, alertLines: [], error: null }
     rerender(<CityMapPage />)
     expect(screen.getByText(/pokazujemy ostatnie dostępne/)).toBeInTheDocument()
   })
@@ -156,7 +161,7 @@ describe('CityMapPage', () => {
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     map().onSelect({ kind: 'vehicle', id: 'v1' })
     await screen.findByRole('dialog')
-    state.vehicles = { vehicles: [{ ...VEHICLE, ageSec: 500 }], feed: { state: 'ready', ageMs: 1000 }, error: null }
+    state.vehicles = { vehicles: [{ ...VEHICLE, ageSec: 500 }], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
     rerender(<CityMapPage />)
     expect(await screen.findByText(/Pojazd zniknął z mapy/)).toBeInTheDocument()
   })
@@ -216,7 +221,7 @@ describe('CityMapPage — line mode', () => {
   })
 
   it('"Pokaż trasę" in a vehicle card enters line mode in the vehicle direction', async () => {
-    state.vehicles = { vehicles: [{ ...VEHICLE, directionId: 1 }], feed: { state: 'ready', ageMs: 1000 }, error: null }
+    state.vehicles = { vehicles: [{ ...VEHICLE, directionId: 1 }], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     await screen.findByPlaceholderText('Szukaj linii…')
@@ -264,5 +269,66 @@ describe('CityMapPage — view, sharing, following', () => {
     expect(screen.getByRole('button', { name: 'Śledzę pojazd' })).toHaveAttribute('aria-pressed', 'true')
     map().onUserMove()
     await waitFor(() => expect(map().follow).toBeNull())
+  })
+})
+
+describe('CityMapPage — favourites, nearby, list, disruptions', () => {
+  it('rings Pulpit favourites on the map, toggles the star and jumps from the menu', async () => {
+    window.localStorage.setItem('monitor.favourites.v2', JSON.stringify([{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]))
+    render(<CityMapPage />)
+    await waitFor(() => expect(map().favourites).toMatchObject([{ lat: 52.2288, lon: 21.0033 }]))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ulubione' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Warszawa Centralna' }))
+    const card = await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
+    fireEvent.click(within(card).getByRole('button', { name: 'Usuń z ulubionych' }))
+    await waitFor(() => expect(map().favourites).toEqual([]))
+
+    map().onSelect({ kind: 'stop', id: '100101' })
+    const stopCard = await screen.findByRole('dialog', { name: 'Centrum' })
+    fireEvent.click(within(stopCard).getByRole('button', { name: 'Dodaj do ulubionych' }))
+    await waitFor(() => expect(map().favourites).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
+  })
+
+  it('right-click opens "nearby" with the closest places; a row opens its card', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    map().onContextPoint({ lat: 52.2301, lon: 21.0101 })
+    const panel = await screen.findByRole('dialog', { name: 'W pobliżu' })
+    expect(map().selected).toEqual({ lat: 52.2301, lon: 21.0101 })
+    fireEvent.click(within(panel).getByRole('button', { name: /Centrum/ }))
+    expect(await screen.findByRole('dialog', { name: 'Centrum' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij kartę' }))
+    expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
+  })
+
+  it('"Co jest w pobliżu?" in a place card is the keyboard path to the same panel', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    map().onSelect({ kind: 'rail', id: '33605' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Co jest w pobliżu?' }))
+    expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
+  })
+
+  it('"Lista" shows what is in view and opens a card from a row', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
+    expect(map().listOpen).toBe(true)
+    expect(await screen.findByText('Liczę obiekty w kadrze…')).toBeInTheDocument()
+    map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false)
+    fireEvent.click(await screen.findByRole('button', { name: 'Linia 20 → Centrum' }))
+    expect(await screen.findByRole('dialog', { name: 'tramwaj 20' })).toBeInTheDocument()
+  })
+
+  it('"only lines with disruptions" filters vehicles, persists in the URL and shows a chip', async () => {
+    state.vehicles = { ...state.vehicles, alertLines: ['20'] }
+    render(<CityMapPage />)
+    fireEvent.click(screen.getByRole('button', { name: /Filtry/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Tylko linie z utrudnieniami' }))
+    await waitFor(() => expect([...(map().onlyLines ?? [])]).toEqual(['20']))
+    expect(window.location.search).toBe('?alerts=1')
+    fireEvent.click(screen.getByRole('button', { name: /nie tylko z utrudnieniami/ }))
+    await waitFor(() => expect(map().onlyLines).toBeNull())
   })
 })

@@ -19,7 +19,7 @@ describe('useLineDetail', () => {
     const { result } = renderHook(() => useLineDetail('warszawa', null))
     await vi.advanceTimersByTimeAsync(5_000)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(result.current).toEqual({ detail: undefined, error: false })
+    expect(result.current).toEqual({ detail: undefined, alerts: [], error: false })
   })
 
   it('retries while the schedule loads, then returns the line; null for a line the schedule does not know', async () => {

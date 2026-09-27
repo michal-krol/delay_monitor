@@ -22,13 +22,18 @@ const VEHICLES: [GtfsMode, string][] = [
 export function MapLegend() {
   return (
     <details className="glass-strong group w-56 rounded-2xl text-sm shadow-lg">
-      <summary className="cursor-pointer select-none list-none rounded-2xl px-4 py-2.5 font-semibold [&::-webkit-details-marker]:hidden">
-        Legenda <span className="float-right text-text-muted group-open:rotate-180" aria-hidden="true">▾</span>
+      <summary className="flex min-h-11 cursor-pointer select-none list-none items-center justify-between rounded-2xl px-4 font-semibold [&::-webkit-details-marker]:hidden">
+        Legenda <span className="text-text-muted group-open:rotate-180" aria-hidden="true">▾</span>
       </summary>
       <div className="space-y-3 px-4 pb-4">
         <Section title="Punkty" items={POINTS} shape="dot" />
         <Section title="Pojazdy" items={VEHICLES} shape="icon" />
-        <p className="text-xs text-text-muted">Wyblakły pojazd — pozycja sprzed ponad 1,5 min.</p>
+        <ul className="space-y-1 text-xs text-text-muted">
+          <li>Strzałka przy pojeździe — kierunek jazdy.</li>
+          <li>Wyblakły pojazd — pozycja sprzed ponad 1,5 min.</li>
+          <li>Złota obwódka — Twoje ulubione.</li>
+          <li>Prawy klik lub przytrzymanie — co jest w pobliżu.</li>
+        </ul>
       </div>
     </details>
   )

@@ -363,6 +363,11 @@ npm run check   # = typecheck && lint && test
   kierunek) przy ładowaniu — nigdy per żądanie, nigdy dla nieużywanych
   `shape_id`. Brak pliku / `shape_id` / <2 punktów → `null`, strona linii
   spada wtedy na łamaną po przystankach (`MapRoute.points = stops`).
+- **Mapa transportu — zero nowych pobrań.** `/api/gtfs/backbone` (przebiegi metra
+  i kolei miejskiej z `routePatterns`) i `alertLines` w `/api/gtfs/city-vehicles`
+  (numery linii z aktywnym alertem, `[]` gdy AlertPoller niegotowy = brak znaczka)
+  czytają wyłącznie pamięć. Kolor na mapie = rodzaj środka transportu, nigdy
+  opóźnienie; karta pojazdu pokazuje świeżość pozycji, nie „LIVE +N min".
 - **Przystanki na mapie (`/api/gtfs/stops`, `cityStops()`).** Z `stops.txt` już
   w pamięci, liczone raz na rozkład (`WeakMap`). Perony metra zwinięte do stacji-rodzica,
   przystanki wyłącznie kolejowe pominięte (kolej = warstwa PKP). `CityVehicle.nextStop`

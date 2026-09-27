@@ -3,8 +3,10 @@
 import { useEffect, useId, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowRightIcon, CloseIcon, SwapIcon } from '../icons'
+import { AlertBanner } from '../AlertBanner'
 import { LineBadge } from '../LineBadge'
 import { MODE_LABEL } from '../transitMode'
+import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { LineDetail, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 
 /**
@@ -15,6 +17,7 @@ import type { LineDetail, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 export function LinePanel({
   line,
   detail,
+  alerts = [],
   error,
   directionId,
   vehiclesOnLine,
@@ -26,6 +29,8 @@ export function LinePanel({
   line: LineListEntry
   /** `undefined` = wczytuje się, `null` = rozkład nie zna przebiegu tej linii. */
   detail: LineDetail | null | undefined
+  /** Aktywne utrudnienia tej linii (`/api/gtfs/line`). */
+  alerts?: AlertRecord[]
   error: boolean
   directionId: number
   vehiclesOnLine: number
@@ -60,12 +65,17 @@ export function LinePanel({
           type="button"
           onClick={onClose}
           aria-label="Zakończ tryb linii"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           <CloseIcon size={16} />
         </button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={0} aria-label="Przystanki linii">
+        {alerts.length > 0 && (
+          <div className="mb-3">
+            <AlertBanner alerts={alerts} />
+          </div>
+        )}
         {detail === undefined && error && <p className="text-sm text-red-700 dark:text-red-300">Nie udało się pobrać przebiegu linii.</p>}
         {detail === undefined && !error && (
           <ul className="space-y-2" aria-hidden="true">

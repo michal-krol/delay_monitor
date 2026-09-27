@@ -52,7 +52,7 @@ describe('MapFilters', () => {
     const onChange = vi.fn()
     render(<MapFilters hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={['buses', 'trams']} onChange={onChange} />)
     const button = screen.getByRole('button', { name: /Filtry/ })
-    expect(button).toHaveTextContent('1 ukrytych warstw')
+    expect(button).toHaveTextContent('1 aktywnych ograniczeń')
     expect(button).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(button)
     expect(button).toHaveAttribute('aria-expanded', 'true')
@@ -67,6 +67,17 @@ describe('MapFilters', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(button).toHaveAttribute('aria-expanded', 'false')
     expect(button).toHaveFocus()
+  })
+
+  it('counts "only lines with disruptions" as a restriction and resets it too', () => {
+    const onAlertsOnly = vi.fn()
+    render(<MapFilters hidden={new Set()} vehicleLayers={[]} onChange={() => {}} alertsOnly onAlertsOnly={onAlertsOnly} />)
+    fireEvent.click(screen.getByRole('button', { name: /Filtry/ }))
+    expect(screen.getByRole('checkbox', { name: 'Tylko linie z utrudnieniami' })).toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Tylko linie z utrudnieniami' }))
+    expect(onAlertsOnly).toHaveBeenLastCalledWith(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Pokaż wszystko' }))
+    expect(onAlertsOnly).toHaveBeenCalledTimes(2)
   })
 
   it('closes on a click outside', () => {

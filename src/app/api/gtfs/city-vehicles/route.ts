@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getGtfsPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
+import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
 import { mapCityVehicles } from '@/lib/gtfs/cityVehicles'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
@@ -31,9 +31,14 @@ export async function GET(request: Request) {
   const vehicles =
     schedule !== null && vehiclePoller !== null ? mapCityVehicles(schedule, vehiclePoller.getPositions(), Date.now()) : []
 
+  // Numery linii z aktywnym alertem — znaczek ⚠ i filtr na mapie. Pole pomocnicze:
+  // `[]` także zanim AlertPoller jest gotowy (brak znaczka, nie „zero utrudnień", #13).
+  const alertLines = [...new Set((peekAlertPoller(city)?.getAlerts() ?? []).flatMap((alert) => alert.routes))].sort()
+
   return NextResponse.json({
     city,
     vehicles,
+    alertLines,
     feed: { fetchedAt: feedView.fetchedAt, ageMs: feedView.ageMs, state: feedView.state },
   })
 }
