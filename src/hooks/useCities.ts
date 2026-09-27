@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type CityEntry = {
   id: string
@@ -42,27 +42,43 @@ function fetchCities(): Promise<CityEntry[]> {
   return inFlight
 }
 
-export function useCities(): { state: CitiesState; cities: CityEntry[] } {
+export function useCities(): { state: CitiesState; cities: CityEntry[]; retry: () => void } {
   const [state, setState] = useState<CitiesState>(lastResult !== null ? 'ready' : 'loading')
   const [cities, setCities] = useState<CityEntry[]>(lastResult ?? [])
+  const cancelledRef = useRef(false)
 
   useEffect(() => {
-    let cancelled = false
+    cancelledRef.current = false
     fetchCities()
       .then((result) => {
-        if (cancelled) return
+        if (cancelledRef.current) return
         setCities(result)
         setState('ready')
       })
       .catch(() => {
-        if (!cancelled) setState('failed')
+        if (!cancelledRef.current) setState('failed')
       })
     return () => {
-      cancelled = true
+      cancelledRef.current = true
     }
   }, [])
 
-  return { state, cities }
+  // Wywoływane z kliknięcia „Spróbuj ponownie", nie z efektu — setState('loading')
+  // tu jest bezpieczny (react-hooks/set-state-in-effect pilnuje tylko efektów).
+  const retry = useCallback(() => {
+    setState('loading')
+    fetchCities()
+      .then((result) => {
+        if (cancelledRef.current) return
+        setCities(result)
+        setState('ready')
+      })
+      .catch(() => {
+        if (!cancelledRef.current) setState('failed')
+      })
+  }, [])
+
+  return { state, cities, retry }
 }
 
 /** Tylko do testów — wyzerowanie modułowego cache'a między przypadkami. */

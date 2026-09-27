@@ -57,4 +57,21 @@ describe('useCities', () => {
     expect(second.current.cities).toEqual([CITY])
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
+
+  it('retry() refetches after failure without remounting', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => Promise.reject(new Error('network down')))
+      .mockImplementationOnce(() => jsonResponse({ cities: [CITY] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useCities())
+    await vi.waitFor(() => expect(result.current.state).toBe('failed'))
+
+    result.current.retry()
+
+    await vi.waitFor(() => expect(result.current.state).toBe('ready'))
+    expect(result.current.cities).toEqual([CITY])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })
