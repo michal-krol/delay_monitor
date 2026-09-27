@@ -10,6 +10,14 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 - Biblioteka map MapLibre GL JS zaktualizowana z 6.9.0 do 6.11.1 (wraz z dołączonymi
   kopiami skryptów wątku roboczego mapy).
+- Dziennik serwera ostrzega o niepełnej liście pociągów tylko wtedy, gdy pobieranie
+  kolejnych stron danych o realizacji faktycznie zostało przerwane (limit stron lub
+  budżet zapytań), a nie przy każdej kolejnej stronie.
+
+### Bezpieczeństwo
+
+- Zaktualizowane zależności przechodnie `sharp` (0.35.5) i `nanoid` (3.3.19) — usuwa
+  dwie podatności o wysokiej wadze zgłaszane przez `npm audit`.
 
 ## [1.0.0] — 2026-09-27
 
