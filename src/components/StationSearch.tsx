@@ -14,6 +14,9 @@ export type StationOption = {
   mode?: GtfsMode
   modes?: GtfsMode[]
   lines?: GtfsLine[]
+  /** Pozycja wyniku (`/api/search`) — mapa przelatuje do niej po wyborze. */
+  lat?: number
+  lon?: number
 }
 
 type Props = {

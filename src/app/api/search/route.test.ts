@@ -83,6 +83,11 @@ describe('GET /api/search', () => {
     expect(hit.lines).toEqual([{ routeId: 'M1', line: 'M1', color: null, mode: 'metro', kind: 'regular' }])
   })
 
+  it('searches rail stations country-wide with rail=all (the map)', async () => {
+    const { body } = await call('city=warszawa&q=kra&rail=all')
+    expect(body.stations.map((s: { name: string }) => s.name)).toContain('Kraków Główny')
+  })
+
   it('carries map coordinates: rail from station-coordinates.json, transit as the group centroid', async () => {
     const { body } = await call('city=warszawa&q=war')
     const centralna = body.stations.find((s: { id: string }) => s.id === '33605')

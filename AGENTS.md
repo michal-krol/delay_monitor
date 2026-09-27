@@ -56,15 +56,12 @@ Klucz Basic: 100/h **oraz** 1000/dobę. Poller @90 s ≈ 40/h — zapas realny, 
 - **Poza cyklem pollera, licz osobno:**
   - `/api/train` — synchroniczny fetch przy kliknięciu w niewidziany pociąg,
     własny cache 90 s (`createTtlCache()`).
-  - `/api/rail-stations` — pollowany co 90 s przez KAŻDĄ otwartą kartę mapy miasta
-    (automatyczny, cykliczny, inaczej niż `/api/cities`, wołane raz na wczytanie
-    strony). `resolveCityRailStations()` (`board/railStations.ts`) cache'uje wynik
-    wyszukania stacji per miasto na 10 min — także `[]` po awarii słownika stacji,
-    inaczej sustained awaria powtarzałaby próbę co poll zamiast raz na TTL.
   - `/api/rail-stations/list` + `/status` (ogólnopolska warstwa kolei mapy) — **0
-    zapytań PKP**: lista z `data/station-coordinates.json`, statusy WYŁĄCZNIE
-    `getSnapshot` stacji, które poller i tak ma. Nigdy `registerInterest` — mapa kraju
-    wciągnęłaby tysiące stacji do budżetu.
+    zapytań PKP**: lista z `data/station-coordinates.json` (raz na wizytę), statusy
+    WYŁĄCZNIE `getSnapshot` stacji, które poller i tak ma — pytane tylko przy otwartej
+    karcie stacji, co 90 s. Nigdy `registerInterest` — mapa kraju wciągnęłaby tysiące
+    stacji do budżetu. `resolveCityRailStations()` (`/api/cities`) cache'uje wyszukanie
+    stacji per miasto 10 min — także `[]` po awarii słownika.
   - `/api/network-stats` — `getOperationsStatistics` (15 min), `getDisruptionCount`
     (20 min), `getDailyCarrierCounts` (24 h), `getNameDictionaries` (współdzielony).
     Jeden globalny widżet, cache w `board/networkStats.ts` → ~7/h niezależnie od ruchu.
@@ -167,7 +164,7 @@ Dwie kolejne pułapki `MapView.tsx` (obie raz zepsuły popup pinu):
   popup. Analogicznie `routeKey` (`points.length:color`) — sygnatura treści,
   nie pełny obiekt.
 
-**Trzecia pułapka** (mapa miasta live, `CityVehicleMap.tsx`, `d41b99a`+1): kontener
+**Trzecia pułapka** (mapa transportu, dziś `map/TransitMap.tsx`, `d41b99a`+1): kontener
 mapy NIE może być pozycjonowany przez `absolute inset-0` bezpośrednio na elemencie
 przekazanym do `new Map({container})`. MapLibre dokleja mu klasę `maplibregl-map`,
 a `maplibre-gl.css` (`globals.css`, `@import` BEZ `@layer`) jest w warstwie

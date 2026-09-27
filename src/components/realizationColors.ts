@@ -1,10 +1,9 @@
 import type { RealizationStatus } from '@/lib/board/realization'
 
 /**
- * Kolor obwódki/poświaty karty (`StationCard.tsx`) i pinu stacji na mapie
- * miasta (`CityVehicleMap.tsx`) wg statusu najbliższego odjazdu — jeden kod
- * barw w całej apce (decyzja z brainstormingu 2026-09-23: mapa reużywa
- * dokładnie ten sam status, nie nową skalę wg minut/procentów).
+ * Kolor obwódki/poświaty karty stacji (`StationCard.tsx`) wg statusu
+ * najbliższego odjazdu. Mapa transportu celowo go NIE używa — tam kolor
+ * oznacza wyłącznie rodzaj środka transportu (`map/mapData.ts`).
  */
 export const GLOW_COLOR: Record<RealizationStatus, string> = {
   onTime: 'rgba(22,163,74,0.16)',
@@ -23,11 +22,3 @@ export const BORDER_COLOR: Record<RealizationStatus, string> = {
   notStarted: 'rgba(2,132,199,0.35)',
   unknown: 'var(--surface-border)',
 }
-
-/**
- * Stacja bez snapshotu (nigdy nie oglądana — `status: null` w odpowiedzi
- * `/api/rail-stations`) to inny stan niż `RealizationStatus.unknown` (mamy
- * dane, po prostu nie umiemy sklasyfikować). Osobny, wyraźnie neutralny kolor,
- * żeby pinu „brak danych" nie dało się pomylić z pinem „nieznany status".
- */
-export const NEUTRAL_PIN_COLOR = 'rgba(100,116,139,0.35)'

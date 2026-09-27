@@ -14,6 +14,11 @@ describe('cities registry', () => {
       expect(city.staticUrl).toMatch(/^https?:\/\//)
       expect(city.railStationPrefix.length).toBeGreaterThan(0)
       expect(() => new Intl.DateTimeFormat('en-CA', { timeZone: city.timezone })).not.toThrow()
+      // Kadr mapy w Polsce (mapa ma `maxBounds` ≈ Polska).
+      expect(city.mapCenter.lat).toBeGreaterThan(49)
+      expect(city.mapCenter.lat).toBeLessThan(55)
+      expect(city.mapCenter.lon).toBeGreaterThan(14)
+      expect(city.mapCenter.lon).toBeLessThan(24.5)
     }
   })
 

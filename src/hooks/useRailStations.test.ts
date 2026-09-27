@@ -1,20 +1,11 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useRailStations } from './useRailStations'
+import { useRailStationStatus, useRailStations } from './useRailStations'
 import { jsonResponse } from '@/test-utils/http'
-import type { RailStationApiEntry } from '@/lib/board/railStationPin'
 
-const STATION: RailStationApiEntry = {
-  id: '33605',
-  name: 'Warszawa Centralna',
-  lat: 52.2288207,
-  lon: 21.00316,
-  coordSource: 'station',
-  status: 'onTime',
-  nextDepartures: [],
-  ageMs: 1000,
-}
+const STATION = { id: '33605', name: 'Warszawa Centralna', lat: 52.23, lon: 21.0, tier: 1 }
+const STATUS = { id: '33605', status: 'onTime', nextDepartures: [], ageMs: 1000 }
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
@@ -23,106 +14,58 @@ afterEach(() => {
 })
 
 describe('useRailStations', () => {
-  it('starts with an empty list, then populates after the fetch resolves', async () => {
+  it('is loading (null, no error) until the list arrives, then fetches only once', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [STATION] }))
     vi.stubGlobal('fetch', fetchMock)
-
-    const { result } = renderHook(() => useRailStations('warszawa'))
-
-    expect(result.current.stations).toEqual([])
-    await vi.waitFor(() => expect(result.current.stations).toHaveLength(1))
-    expect(result.current.stations[0].id).toBe('33605')
-    expect(result.current.stations[0].mode).toBe('rail')
-    expect(fetchMock).toHaveBeenCalledWith('/api/rail-stations?city=warszawa')
+    const { result } = renderHook(() => useRailStations())
+    expect(result.current).toEqual({ stations: null, error: false })
+    await vi.waitFor(() => expect(result.current.stations).toEqual([STATION]))
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith('/api/rail-stations/list')
   })
 
-  it('polls again after 90 s', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [STATION] }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    renderHook(() => useRailStations('warszawa'))
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    await vi.advanceTimersByTimeAsync(90_000)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-  })
-
-  it('sets error on a rejected fetch but keeps the last stations', async () => {
+  it('reports an error distinctly from loading and retries after 30 s', async () => {
     const fetchMock = vi
       .fn()
-      .mockImplementationOnce(() => jsonResponse({ stations: [STATION] }))
-      .mockImplementationOnce(() => Promise.reject(new Error('network')))
+      .mockImplementationOnce(() => Promise.resolve(new Response('', { status: 500 })))
+      .mockImplementation(() => jsonResponse({ stations: [STATION] }))
     vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useRailStations())
+    await vi.waitFor(() => expect(result.current).toEqual({ stations: null, error: true }))
+    await vi.advanceTimersByTimeAsync(30_000)
+    await vi.waitFor(() => expect(result.current).toEqual({ stations: [STATION], error: false }))
+  })
+})
 
-    const { result } = renderHook(() => useRailStations('warszawa'))
-    await vi.waitFor(() => expect(result.current.stations).toHaveLength(1))
-    await vi.advanceTimersByTimeAsync(90_000)
-    await vi.waitFor(() => expect(result.current.error).toBe('network'))
-    expect(result.current.stations).toHaveLength(1)
+describe('useRailStationStatus', () => {
+  it('does not fetch while no station card is open', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    renderHook(() => useRailStationStatus(null))
+    await vi.advanceTimersByTimeAsync(100_000)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('surfaces a non-ok response as an error', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500 })
+  it('returns the station status, null when the poller does not hold it, and polls every 90 s', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [STATUS] }))
     vi.stubGlobal('fetch', fetchMock)
-    const { result } = renderHook(() => useRailStations('warszawa'))
-    await vi.waitFor(() => expect(result.current.error).toBe('500'))
+    const { result, rerender } = renderHook(({ id }) => useRailStationStatus(id), { initialProps: { id: '33605' as string | null } })
+    expect(result.current.status).toBeUndefined()
+    await vi.waitFor(() => expect(result.current.status).toEqual(STATUS))
+
+    rerender({ id: '80416' })
+    expect(result.current.status).toBeUndefined()
+    await vi.waitFor(() => expect(result.current.status).toBeNull())
+
+    const calls = fetchMock.mock.calls.length
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(fetchMock.mock.calls.length).toBe(calls + 1)
   })
 
-  it('does not update state or reschedule after unmount while a fetch is in flight', async () => {
-    let resolveFetch!: (value: { ok: boolean; json: () => Promise<unknown> }) => void
-    const fetchMock = vi.fn().mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveFetch = resolve
-        }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const { unmount } = renderHook(() => useRailStations('warszawa'))
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    unmount()
-    resolveFetch({ ok: true, json: () => Promise.resolve({ stations: [STATION] }) })
-    await vi.advanceTimersByTimeAsync(90_000)
-    expect(fetchMock).toHaveBeenCalledTimes(1) // odmontowany -> brak reschedule
-  })
-
-  it('does not set an error after unmount while a fetch is failing', async () => {
-    let rejectFetch!: (reason: Error) => void
-    const fetchMock = vi.fn().mockImplementation(
-      () =>
-        new Promise((_resolve, reject) => {
-          rejectFetch = reject
-        }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const { unmount } = renderHook(() => useRailStations('warszawa'))
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    unmount()
-    rejectFetch(new Error('network'))
-    await vi.advanceTimersByTimeAsync(90_000)
-    expect(fetchMock).toHaveBeenCalledTimes(1) // odmontowany -> brak reschedule po błędzie
-  })
-
-  it('falls back to a generic error message for a non-Error rejection', async () => {
-    const fetchMock = vi.fn().mockImplementationOnce(() => Promise.reject('boom'))
-    vi.stubGlobal('fetch', fetchMock)
-    const { result } = renderHook(() => useRailStations('warszawa'))
-    await vi.waitFor(() => expect(result.current.error).toBe('błąd'))
-  })
-
-  it('skips a tick while the tab is hidden, reschedules instead of fetching', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [STATION] }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    renderHook(() => useRailStations('warszawa'))
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-
-    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
-    await vi.advanceTimersByTimeAsync(90_000)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-
-    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
-    await vi.advanceTimersByTimeAsync(90_000)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+  it('flags an error without inventing a status', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.reject(new Error('net'))))
+    const { result } = renderHook(() => useRailStationStatus('33605'))
+    await vi.waitFor(() => expect(result.current).toEqual({ status: undefined, error: true }))
   })
 })

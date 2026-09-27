@@ -1,45 +1,109 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { notFound, useParams } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker, type CityOption } from '@/components/CityPicker'
-import { ModeFilter, type ModeValue } from '@/components/ModeFilter'
-import { CityVehicleMap } from '@/components/CityVehicleMap'
+import { StationSearch, type StationOption } from '@/components/StationSearch'
+import { CloseIcon } from '@/components/icons'
+import { LineSearch } from '@/components/map/LineSearch'
+import { MapCard, type MapSelection } from '@/components/map/MapCard'
+import { MapFilters } from '@/components/map/MapFilters'
+import { MapLegend } from '@/components/map/MapLegend'
+import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
+import {
+  HIDE_AFTER_SEC,
+  LAYER_LABEL,
+  VEHICLE_LAYERS,
+  ageLabel,
+  boundsContain,
+  parseHidden,
+  serializeHidden,
+  stopsBounds,
+  vehicleLayerKey,
+  type LayerKey,
+} from '@/components/map/mapData'
+import { useCityStops } from '@/hooks/useCityStops'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
 import { useRailStations } from '@/hooks/useRailStations'
-import { readUrlParam, patchUrlParams } from '@/lib/urlState'
+import { getCity } from '@/lib/gtfs/cities'
+import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import { CITY_ID_PATTERN } from '@/lib/validation'
+import { patchUrlParams, readUrlParam } from '@/lib/urlState'
+import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 
-const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
+const WIDE_QUERY = '(min-width: 40rem)'
+
+/** Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon. */
+function useIsWide(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const media = window.matchMedia(WIDE_QUERY)
+      media.addEventListener('change', onChange)
+      return () => media.removeEventListener('change', onChange)
+    },
+    () => window.matchMedia(WIDE_QUERY).matches,
+    () => false
+  )
+}
+
+/** Linie miasta do wyszukiwarki linii — jedno pobranie, ponawiane, dopóki rozkład się wczytuje. */
+function useCityLines(city: string): LineListEntry[] | null {
+  const [lines, setLines] = useState<LineListEntry[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    async function load(): Promise<void> {
+      try {
+        const response = await fetch(`/api/gtfs/lines?city=${encodeURIComponent(city)}`)
+        if (!response.ok) throw new Error(String(response.status))
+        const json = (await response.json()) as { lines: Record<GtfsMode, LineListEntry[]> | null }
+        if (cancelled) return
+        if (json.lines === null) timer = setTimeout(() => void load(), 2_000)
+        else setLines(Object.values(json.lines).flat())
+      } catch {
+        if (!cancelled) timer = setTimeout(() => void load(), 30_000)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [city])
+  return lines
+}
 
 export default function CityMapPage() {
   const params = useParams<{ city: string }>()
   const city = typeof params.city === 'string' ? params.city : ''
-
-  if (!CITY_ID_PATTERN.test(city)) {
-    notFound()
-  }
+  const feed = CITY_ID_PATTERN.test(city) ? getCity(city) : null
+  if (feed === null) notFound()
 
   const [cities, setCities] = useState<CityOption[]>([])
-  const [mode, setMode] = useState<ModeValue>('all')
-  const [line, setLine] = useState('')
-  const [showVehicles, setShowVehicles] = useState(true)
-  const [showRail, setShowRail] = useState(true)
+  const [hidden, setHidden] = useState<Set<LayerKey>>(() => new Set())
+  const [routeParam, setRouteParam] = useState<string | null>(null)
+  const [selection, setSelection] = useState<MapSelection | null>(null)
+  const [focus, setFocus] = useState<{ lat: number; lon: number; nonce: number } | null>(null)
+  const [view, setView] = useState<MapView | null>(null)
+  const [searchTab, setSearchTab] = useState<'place' | 'line'>('place')
+  const [mounted, setMounted] = useState(false)
+  const { resolvedTheme } = useTheme()
+  const isWide = useIsWide()
+
   const vehiclesState = useCityVehicles(city)
-  const railState = useRailStations(city)
-  const toolbarRef = useRef<HTMLDivElement>(null)
+  const stopsState = useCityStops(city)
+  const railState = useRailStations()
+  const lines = useCityLines(city)
 
   useEffect(() => {
-    // Zły `?mode=` po cichu ignorowany (AGENTS #4) -- nie każdy string z URL-a jest GtfsMode.
-    const urlMode = readUrlParam('mode')
-    const validMode = urlMode !== null && MODE_ORDER.includes(urlMode as GtfsMode) ? (urlMode as ModeValue) : 'all'
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- odtworzenie stanu z URL-a, dostępnego tylko po zamontowaniu
-    setMode(validMode)
-    setLine(readUrlParam('line') ?? '')
-    setShowVehicles(readUrlParam('vehicles') !== '0')
-    setShowRail(readUrlParam('rail') !== '0')
+    // Odtworzenie stanu z URL-a, dostępnego tylko po zamontowaniu; zły parametr po cichu ignorowany (AGENTS #4).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHidden(parseHidden(readUrlParam))
+    const line = readUrlParam('line')
+    setRouteParam(line !== null && GTFS_ROUTE_ID_PATTERN.test(line) ? line : null)
+    setMounted(true)
   }, [])
 
   useEffect(() => {
@@ -55,116 +119,208 @@ export default function CityMapPage() {
     }
   }, [])
 
-  function onModeChange(next: ModeValue): void {
-    setMode(next)
-    patchUrlParams({ mode: next === 'all' ? null : next })
-  }
+  // `?line=` to `routeId`; stare linki niosły numer linii („20") — dopasowujemy go dokładnie.
+  const line = useMemo(() => {
+    if (routeParam === null || lines === null) return null
+    return lines.find((l) => l.routeId === routeParam) ?? lines.find((l) => l.line === routeParam) ?? null
+  }, [routeParam, lines])
 
-  function onLineChange(next: string): void {
-    setLine(next)
-    patchUrlParams({ line: next.trim() === '' ? null : next })
-  }
+  const vehiclesById = useMemo(() => new Map(vehiclesState.vehicles.map((v) => [v.id, v])), [vehiclesState.vehicles])
+  const selectedVehicle = selection?.kind === 'vehicle' ? (vehiclesById.get(selection.id) ?? null) : null
+  const liveVehicle = selectedVehicle !== null && selectedVehicle.ageSec <= HIDE_AFTER_SEC ? selectedVehicle : null
+  const selectedAt =
+    selection === null
+      ? null
+      : selection.kind === 'vehicle'
+        ? liveVehicle
+        : selection.lat !== null && selection.lon !== null
+          ? { lat: selection.lat, lon: selection.lon }
+          : null
 
-  function onToggleVehicles(): void {
-    const next = !showVehicles
-    setShowVehicles(next)
-    patchUrlParams({ vehicles: next ? null : '0' })
-  }
-
-  function onToggleRail(): void {
-    const next = !showRail
-    setShowRail(next)
-    patchUrlParams({ rail: next ? null : '0' })
-  }
-
-  const cityName = useMemo(() => cities.find((option) => option.id === city)?.name ?? city, [cities, city])
-
-  const available = useMemo<GtfsMode[]>(() => {
-    const present = new Set(vehiclesState.vehicles.map((v) => v.mode).filter((m): m is GtfsMode => m !== null))
-    return MODE_ORDER.filter((m) => present.has(m))
+  const vehicleLayers = useMemo(() => {
+    const present = new Set(vehiclesState.vehicles.map((v) => vehicleLayerKey(v.mode)))
+    return VEHICLE_LAYERS.filter((key) => present.has(key))
   }, [vehiclesState.vehicles])
 
-  const filtered = useMemo(() => {
-    const needle = line.trim().toLowerCase()
-    return vehiclesState.vehicles.filter((v) => {
-      if (mode !== 'all' && v.mode !== mode) return false
-      if (needle !== '' && !(v.shortName?.toLowerCase().includes(needle) ?? false)) return false
-      return true
-    })
-  }, [vehiclesState.vehicles, mode, line])
+  const feedArea = useMemo(() => (stopsState.stops === null ? null : stopsBounds(stopsState.stops)), [stopsState.stops])
+  const outsideFeed = feedArea !== null && view !== null && !boundsContain(feedArea, view.center.lon, view.center.lat)
 
-  // Wczytuje się: nigdy jeszcze nie mieliśmy pozycji. Nie udało się: błąd/feed
-  // failed I zero pozycji kiedykolwiek widzianych. W obu innych przypadkach
-  // (także po chwilowym błędzie z danymi z poprzedniego pollu) renderujemy
-  // mapę z tym, co mamy — AGENTS #7.
+  const changeHidden = useCallback((next: Set<LayerKey>) => {
+    setHidden(next)
+    patchUrlParams({ hide: serializeHidden(next), vehicles: null, rail: null, mode: null })
+  }, [])
+
+  function chooseLine(next: LineListEntry | null): void {
+    setRouteParam(next?.routeId ?? null)
+    patchUrlParams({ line: next?.routeId ?? null })
+  }
+
+  function onMapSelect(hit: MapHit | null): void {
+    if (hit === null) return setSelection(null)
+    if (hit.kind === 'vehicle') return setSelection({ kind: 'vehicle', id: hit.id })
+    if (hit.kind === 'stop') {
+      const stop = stopsState.stops?.find((s) => s.id === hit.id)
+      if (stop !== undefined) setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      return
+    }
+    const station = railState.stations?.find((s) => s.id === hit.id)
+    if (station !== undefined) setSelection({ kind: 'rail', id: station.id, name: station.name, lat: station.lat, lon: station.lon })
+  }
+
+  function onSearchSelect(option: StationOption): void {
+    const lat = option.lat ?? null
+    const lon = option.lon ?? null
+    if (option.kind === 'rail') {
+      setSelection({ kind: 'rail', id: option.id, name: option.name, lat, lon })
+    } else {
+      // Zespół przystankowy: odjazdy całego zespołu; stacja metra (rodzic) ma w warstwie swój punkt.
+      setSelection({ kind: 'stop', id: option.id, groupId: option.id, name: option.name, mode: option.mode ?? 'bus', lat, lon })
+    }
+    if (lat !== null && lon !== null) setFocus({ lat, lon, nonce: Date.now() })
+  }
+
   const neverLoaded = vehiclesState.vehicles.length === 0
-  const loading = neverLoaded && vehiclesState.error === null && vehiclesState.feed.state !== 'failed'
-  const failed = neverLoaded && (vehiclesState.error !== null || vehiclesState.feed.state === 'failed')
+  const vehiclesFailed = vehiclesState.error !== null || vehiclesState.feed.state === 'failed'
+  const freshness =
+    neverLoaded && !vehiclesFailed
+      ? 'wczytuję pozycje pojazdów…'
+      : neverLoaded
+        ? 'nie udało się pobrać pozycji pojazdów'
+        : vehiclesFailed
+          ? 'pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne'
+          : vehiclesState.feed.ageMs !== null
+            ? `pozycje pojazdów: ${ageLabel(Math.round(vehiclesState.feed.ageMs / 1000))}`
+            : 'pozycje pojazdów na żywo'
+
+  const problems = [
+    stopsState.error && 'Nie udało się wczytać przystanków — ponawiam.',
+    railState.error && 'Nie udało się wczytać stacji kolejowych — ponawiam.',
+  ].filter((p): p is string => typeof p === 'string')
+
+  const card =
+    selection !== null ? <MapCard key={`${selection.kind}:${selection.id}`} selection={selection} vehicle={liveVehicle} city={city} onClose={() => setSelection(null)} /> : null
+
+  const placeSearch = (
+    <StationSearch endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`} placeholder="Szukaj stacji lub przystanku…" onSelect={onSearchSelect} wide />
+  )
+  const lineSearch = <LineSearch lines={lines} onSelect={chooseLine} />
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="px-4 py-4 sm:px-8 sm:py-5">
         <TopBar
-          title={`Mapa — ${cityName}`}
-          subtitle="Wszystkie pojazdy komunikacji miejskiej na żywo"
+          title="Mapa transportu"
+          subtitle={`${feed.name} · ${freshness}`}
           actions={<CityPicker cities={cities} current={city} hrefFor={(id) => `/city/${id}/map`} />}
         />
       </div>
 
-      <div className="relative min-h-[60vh] flex-1">
-        {loading ? (
-          <p className="p-4 text-sm text-text-secondary">Wczytuję pozycje pojazdów…</p>
-        ) : failed ? (
-          <p className="p-4 text-sm text-red-700 dark:text-red-300">Nie udało się pobrać pozycji pojazdów.</p>
-        ) : (
-          <>
-            <div ref={toolbarRef} className="glass absolute left-4 right-4 top-4 z-10 flex flex-col gap-2 rounded-2xl p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-1.5" role="group" aria-label="Warstwy mapy">
-                <button
-                  type="button"
-                  aria-pressed={showVehicles}
-                  onClick={onToggleVehicles}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    showVehicles ? 'text-white' : 'text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
-                  }`}
-                  style={showVehicles ? { background: 'var(--accent-gradient)', borderColor: 'transparent' } : { borderColor: 'var(--surface-border)' }}
-                >
-                  Pojazdy
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={showRail}
-                  onClick={onToggleRail}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    showRail ? 'text-white' : 'text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
-                  }`}
-                  style={showRail ? { background: 'var(--accent-gradient)', borderColor: 'transparent' } : { borderColor: 'var(--surface-border)' }}
-                >
-                  Kolej
-                </button>
-              </div>
-              <ModeFilter available={available} value={mode} onChange={onModeChange} />
-              <input
-                type="search"
-                value={line}
-                onChange={(event) => onLineChange(event.target.value)}
-                placeholder="Numer linii…"
-                aria-label="Filtruj po numerze linii"
-                className="glass w-full max-w-[10rem] rounded-xl px-3 py-1.5 text-sm text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <CityVehicleMap
+      <div className="relative flex min-h-[60vh] flex-1">
+        <div className="relative min-w-0 flex-1">
+          {mounted && (
+            <TransitMap
               key={city}
-              vehicles={filtered}
-              vehiclesVisible={showVehicles}
-              railStations={showRail ? railState.stations : []}
-              city={city}
-              ariaLabel={`Mapa miasta ${cityName}`}
-              topOverlayRef={toolbarRef}
+              ariaLabel={`Mapa transportu — ${feed.name}`}
+              initialCenter={feed.mapCenter}
+              vehicles={vehiclesState.vehicles}
+              stops={stopsState.stops}
+              railStations={railState.stations}
+              hidden={hidden}
+              routeId={line?.routeId ?? null}
+              selected={selectedAt}
+              focus={focus}
+              dark={resolvedTheme === 'dark'}
+              onSelect={onMapSelect}
+              onViewChange={setView}
             />
-          </>
-        )}
+          )}
+
+          <div className="pointer-events-none absolute left-3 right-14 top-3 z-10 flex flex-col gap-2 sm:left-4 sm:top-4">
+            <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
+              {isWide ? (
+                <>
+                  <div className="w-72">{placeSearch}</div>
+                  <div className="w-52">{lineSearch}</div>
+                </>
+              ) : (
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
+                    {(['place', 'line'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        aria-pressed={searchTab === tab}
+                        onClick={() => setSearchTab(tab)}
+                        className={`rounded-lg px-3 py-1 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
+                        style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
+                      >
+                        {tab === 'place' ? 'Przystanek' : 'Linia'}
+                      </button>
+                    ))}
+                  </div>
+                  {searchTab === 'place' ? placeSearch : lineSearch}
+                </div>
+              )}
+              <div className={isWide ? '' : 'self-end'}>
+                <MapFilters hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} />
+              </div>
+            </div>
+
+            {(hidden.size > 0 || line !== null) && (
+              <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
+                {line !== null && (
+                  <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
+                )}
+                {[...hidden].map((key) => (
+                  <Chip
+                    key={key}
+                    label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
+                    removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
+                    onRemove={() => {
+                      const next = new Set(hidden)
+                      next.delete(key)
+                      changeHidden(next)
+                    }}
+                  />
+                ))}
+              </ul>
+            )}
+
+            {problems.map((problem) => (
+              <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-red-700 dark:text-red-300">
+                {problem}
+              </p>
+            ))}
+          </div>
+
+          {outsideFeed && (
+            <p role="status" className="glass-strong absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-xs text-text-secondary">
+              Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
+            </p>
+          )}
+
+          {(isWide || selection === null) && (
+            <div className="absolute bottom-8 right-3 z-10 sm:right-4">
+              <MapLegend />
+            </div>
+          )}
+
+          {!isWide && card !== null && <div className="absolute inset-x-0 bottom-0 z-20 flex max-h-[62%] flex-col p-2">{card}</div>}
+        </div>
+
+        {isWide && card !== null && <aside className="flex w-[380px] shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
       </div>
     </div>
+  )
+}
+
+function Chip({ label, removeLabel, onRemove }: { label: string; removeLabel: string; onRemove: () => void }) {
+  return (
+    <li className="glass-strong inline-flex items-center gap-1 rounded-full py-1 pl-3 pr-1 text-xs font-medium">
+      {label}
+      <button type="button" onClick={onRemove} aria-label={removeLabel} className="grid h-6 w-6 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+        <CloseIcon size={12} />
+      </button>
+    </li>
   )
 }

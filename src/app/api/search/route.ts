@@ -36,6 +36,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const cityId = searchParams.get('city') ?? ''
   const query = (searchParams.get('q') ?? '').trim()
+  // Mapa transportu pokazuje kolej z całej Polski — tam szukamy stacji bez filtra prefiksu miasta.
+  const allRail = searchParams.get('rail') === 'all'
 
   if (!CITY_ID_PATTERN.test(cityId) || getCity(cityId) === null) {
     return NextResponse.json({ error: 'Nieznane miasto' }, { status: 400 })
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
   try {
     const stations = await client.searchStations(query)
     for (const station of stations) {
-      if (station.name.startsWith(city.railStationPrefix)) {
+      if (allRail || station.name.startsWith(city.railStationPrefix)) {
         // Brak/awaria pliku współrzędnych nie wywala wyszukiwarki — wynik bez pozycji.
         const coords = await getStationCoordinates(station.id).catch(() => null)
         results.push({ id: station.id, name: station.name, kind: 'rail', mode: 'rail', ...coords })

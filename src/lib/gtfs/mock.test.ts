@@ -121,6 +121,7 @@ describe('acceptance: a second, fictional city works with no code change', () =>
       alertsUrl: null,
       railStationPrefix: 'Kraków ',
       timezone: 'Europe/Warsaw',
+      mapCenter: { lat: 52.23, lon: 21.01 },
     }
 
     const schedule = await loadSchedule(createMockClient(krakow, root), krakow)
