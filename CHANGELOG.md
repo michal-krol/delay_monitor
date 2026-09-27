@@ -13,6 +13,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Dziennik serwera ostrzega o niepełnej liście pociągów tylko wtedy, gdy pobieranie
   kolejnych stron danych o realizacji faktycznie zostało przerwane (limit stron lub
   budżet zapytań), a nie przy każdej kolejnej stronie.
+- Czcionka nagłówków (Manrope) jest dołączona do aplikacji, więc budowanie nie pobiera
+  jej już z Google Fonts i nie zależy od dostępności tej usługi.
 
 ### Bezpieczeństwo
 
