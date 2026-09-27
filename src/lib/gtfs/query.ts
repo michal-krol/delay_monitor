@@ -597,6 +597,23 @@ export function vehiclesInService(
  * ten przystanek już minął (`stopsAway < 0` NIE wychodzi jako liczba ujemna).
  * Zero pola opóźnienia — niesie tylko dystans w przystankach i wiek danych.
  */
+const positionsByTripCache = new WeakMap<VehiclePosition[], Map<string, VehiclePosition>>()
+
+/**
+ * Indeks `tripId → pierwsza pozycja` (semantyka `Array.prototype.find`) — liczony
+ * raz na tablicę `positions` jednego cyklu `VehiclePoller` (ta sama tablica/te same
+ * obiekty między pollami, patrz `vehiclePoller.getPositions()`), potem z `WeakMap`.
+ * Nowy poll = nowa tablica = nowy wpis, stary naturalnie odpada z GC.
+ */
+function indexPositionsByTrip(positions: VehiclePosition[]): Map<string, VehiclePosition> {
+  const cached = positionsByTripCache.get(positions)
+  if (cached !== undefined) return cached
+  const index = new Map<string, VehiclePosition>()
+  for (const p of positions) if (!index.has(p.tripId)) index.set(p.tripId, p)
+  positionsByTripCache.set(positions, index)
+  return index
+}
+
 export function vehicleForStop(
   schedule: GtfsSchedule,
   positions: VehiclePosition[],
@@ -604,7 +621,7 @@ export function vehicleForStop(
   stopIdx: number,
   nowMs: number
 ): { stopsAway: number; ageSec: number } | null {
-  const position = positions.find((p) => p.tripId === tripId)
+  const position = indexPositionsByTrip(positions).get(tripId)
   if (position === undefined) return null
   const on = projectVehicle(schedule, position, nowMs)
   if (on === null) return null

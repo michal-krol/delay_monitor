@@ -335,6 +335,51 @@ describe('vehicleForStop', () => {
     })
     expect(vehicleForStop(schedule, [], 'T', schedule.stopIndexById.get('2002')!, Date.now())).toBeNull()
   })
+
+  async function abcSchedule() {
+    return make({
+      routes: [route('20', 0, '20')],
+      stops: [
+        { id: 'A', name: 'A', lat: 52.2, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+        { id: 'B', name: 'B', lat: 52.22, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+        { id: 'C', name: 'C', lat: 52.24, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+      ],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 'T', headsign: 'C', directionId: 0 }],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        'T,A,06:00:00,06:00:00,1', 'T,B,06:05:00,06:05:00,2', 'T,C,06:10:00,06:10:00,3',
+      ],
+    })
+  }
+
+  it('vehicleForStop result identical to linear scan', async () => {
+    // Dwie pozycje tego samego `tripId` w jednej tablicy — indeks budowany dla
+    // `vehicleForStop` musi zachować semantykę `Array.find` (pierwsze trafienie),
+    // nie ostatnie ani przypadkowe.
+    const schedule = await abcSchedule()
+    const idxC = schedule.stopIndexById.get('C')!
+    const firstNearAB = { id: 'v1', tripId: 'T', lat: 52.205, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() } // między A i B → stopsAway 1
+    const secondNearBC = { id: 'v2', tripId: 'T', lat: 52.225, lon: 21, sideNumber: '2', bearing: null, timestamp: new Date().toISOString() } // między B i C → stopsAway 0
+    const now = Date.now()
+    expect(vehicleForStop(schedule, [firstNearAB, secondNearBC], 'T', idxC, now)?.stopsAway).toBe(1)
+    // Kolejność odwrócona → nadal pierwsze trafienie w tablicy wygrywa.
+    expect(vehicleForStop(schedule, [secondNearBC, firstNearAB], 'T', idxC, now)?.stopsAway).toBe(0)
+  })
+
+  it('new poll result (new array) is re-indexed', async () => {
+    const schedule = await abcSchedule()
+    const idxC = schedule.stopIndexById.get('C')!
+    const stale = { id: 'v1', tripId: 'T', lat: 52.205, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() } // stopsAway 1
+    const fresh = { id: 'v2', tripId: 'T', lat: 52.225, lon: 21, sideNumber: '2', bearing: null, timestamp: new Date().toISOString() } // stopsAway 0
+    const now = Date.now()
+    const firstPoll = [stale]
+    expect(vehicleForStop(schedule, firstPoll, 'T', idxC, now)?.stopsAway).toBe(1)
+    // Nowa tablica z nowego cyklu pollera — indeks starej tablicy nie może przeciekać.
+    const secondPoll = [fresh]
+    expect(vehicleForStop(schedule, secondPoll, 'T', idxC, now)?.stopsAway).toBe(0)
+    // Stara tablica wciąż daje swój (skądinąd wciąż poprawny) wynik.
+    expect(vehicleForStop(schedule, firstPoll, 'T', idxC, now)?.stopsAway).toBe(1)
+  })
 })
 
 describe('linesByMode', () => {
