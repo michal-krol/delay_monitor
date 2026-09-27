@@ -22,6 +22,20 @@ describe('fetchAlertFeed', () => {
     const fakeFetch = vi.fn().mockResolvedValue(new Response('', { status: 503 }))
     await expect(fetchAlertFeed('https://x/alerts.json', fakeFetch as unknown as typeof fetch)).rejects.toThrow()
   })
+
+  it('hanging alert fetch rejects after 10 s', async () => {
+    const controller = new AbortController()
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
+    // Stub only settles when its signal aborts, like real fetch does.
+    const fakeFetch = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+    }))
+    const promise = fetchAlertFeed('https://x/alerts.json', fakeFetch as unknown as typeof fetch)
+    controller.abort()
+    await expect(promise).rejects.toThrow()
+    expect(timeoutSpy).toHaveBeenCalledWith(10_000)
+    timeoutSpy.mockRestore()
+  })
 })
 
 describe('mockAlertFeed', () => {

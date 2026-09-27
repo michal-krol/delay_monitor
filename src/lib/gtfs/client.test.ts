@@ -82,4 +82,21 @@ describe('createLiveClient', () => {
     })
     await expect(client.getFeedVersion()).rejects.toSatisfy(isRangeRequestUnsupportedError)
   })
+
+  it('hanging range read rejects after 30 s', async () => {
+    const controller = new AbortController()
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
+    // Stub only settles when its signal aborts, like real fetch does.
+    const fetchSpy = vi.fn((_url: string, _headers: Record<string, string>, signal?: AbortSignal) =>
+      new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+      }),
+    )
+    const client = createLiveClient(CITY, { fetch: fetchSpy })
+    const promise = client.readEntry('stops.txt')
+    controller.abort()
+    await expect(promise).rejects.toThrow()
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000)
+    timeoutSpy.mockRestore()
+  })
 })

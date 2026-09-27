@@ -52,8 +52,10 @@ const TAIL_BYTES = 65536
 /** 30 B nagłówka lokalnego + nazwa (≤ ~100) + pole extra (zwykle < 100). */
 const LOCAL_HEADER_PROBE = 512
 const USER_AGENT = 'delay-monitor-gtfs-loader (+https://github.com/michal-krol/delay_monitor)'
+/** Statyczny feed to ~107 MB -- zakresowe odczyty mogą trwać dłużej niż krótkie feedy live. */
+const GTFS_FETCH_TIMEOUT_MS = 30_000
 
-type RangeFetch = (url: string, headers: Record<string, string>) => Promise<Response>
+type RangeFetch = (url: string, headers: Record<string, string>, signal: AbortSignal) => Promise<Response>
 
 async function rangeRequest(
   doFetch: RangeFetch,
@@ -64,7 +66,7 @@ async function rangeRequest(
   const headers: Record<string, string> = { Range: range, 'User-Agent': USER_AGENT }
   if (ifRange !== null) headers['If-Range'] = ifRange
 
-  const response = await doFetch(url, headers)
+  const response = await doFetch(url, headers, AbortSignal.timeout(GTFS_FETCH_TIMEOUT_MS))
 
   // 200 tam, gdzie oczekiwano 206: CDN zignorował Range albo `If-Range` nie
   // pasuje (feed zregenerowany). W obu wypadkach dalej to śmieci — odrzucamy głośno.
@@ -103,7 +105,7 @@ async function linesFromResponse(response: Response, method: number): Promise<As
 }
 
 export function createLiveClient(city: CityFeed, deps: { fetch?: RangeFetch } = {}): GtfsClient {
-  const doFetch: RangeFetch = deps.fetch ?? ((url, headers) => fetch(url, { headers }))
+  const doFetch: RangeFetch = deps.fetch ?? ((url, headers, signal) => fetch(url, { headers, signal }))
   const url = city.staticUrl
 
   // ETag ze wstępnego żądania — wysyłany jako `If-Range` na każdym kolejnym.
