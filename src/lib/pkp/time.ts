@@ -114,13 +114,34 @@ function shiftDateString(dateStr: string, days: number): string {
 }
 
 /**
+ * `dateStr` opisuje kalendarzowo istniejącą datę -- czyli przejście przez
+ * `shiftDateString(d, 0)` (parsowanie i powrót do stringa) daje z powrotem
+ * dokładnie ten sam string. Łapie zarówno dni/miesiące poza zakresem, które
+ * `Date` odrzuca (`getTime()` daje `NaN`, `toISOString()` rzuca), jak i takie,
+ * które silnik po cichu przenosi na inny dzień (np. „2026-02-30" → 2 marca) --
+ * oba przypadki różnią się od stringa wejściowego po powrocie.
+ */
+function isValidDateString(dateStr: string): boolean {
+  try {
+    return shiftDateString(dateStr, 0) === dateStr
+  } catch {
+    return false
+  }
+}
+
+/**
  * Czy `operatingDate` (yyyy-MM-dd) mieści się w oknie [dziś−7, dziś+1] wg
- * kalendarza warszawskiego. `/api/train` odrzuca resztę (AGENTS.md #3) — PKP
- * i tak nie ma realizacji ani starszej, ani bardziej odległej. Porównanie
- * stringów jest bezpieczne: format yyyy-MM-dd sortuje się leksykograficznie
- * tak samo jak chronologicznie.
+ * kalendarza warszawskiego. `/api/train` odrzuca resztę (AGENTS.md #3) —
+ * świadomie wybrany zakres produktowy (nie potwierdzone źródłem, że PKP nie
+ * ma realizacji poza nim), który zawęża wejście do sensownych dat i przy
+ * okazji chroni budżet przed zapytaniami o dowolnie starą/odległą datę.
+ * Porównanie stringów jest bezpieczne dla dat, które faktycznie istnieją —
+ * `isValidDateString` odsiewa resztę wcześniej, bo dla nieistniejącej daty
+ * (np. „2026-02-30" albo „2026-08-45") samo porównanie stringów potrafi
+ * wypaść w oknie mimo braku takiej daty w kalendarzu.
  */
 export function isOperatingDateInWindow(operatingDate: string, now: Date): boolean {
+  if (!isValidDateString(operatingDate)) return false
   const today = warsawDateString(now)
   const minDate = shiftDateString(today, -7)
   const maxDate = shiftDateString(today, 1)

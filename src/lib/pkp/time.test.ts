@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   combineWarsawDateAndTime,
+  isOperatingDateInWindow,
   isoInZone,
   normalizeApiTimestamp,
   serviceDateWindow,
@@ -146,5 +147,51 @@ describe('combineWarsawDateAndTime', () => {
     // (+1) w Polsce. Odjazd 24.10 wieczorem, przystanek dnia następnego
     // (dayOffset=1) wypada już po zmianie czasu — offset musi to uwzględnić.
     expect(combineWarsawDateAndTime('2026-10-24', '23:30:00', 1)).toBe('2026-10-25T22:30:00.000Z')
+  })
+})
+
+describe('isOperatingDateInWindow', () => {
+  it('accepts a date exactly at the low boundary (today-7) and the high boundary (today+1)', () => {
+    const now = new Date('2026-08-20T10:00:00+02:00')
+    expect(isOperatingDateInWindow('2026-08-13', now)).toBe(true)
+    expect(isOperatingDateInWindow('2026-08-21', now)).toBe(true)
+  })
+
+  it('rejects a date one day outside either boundary', () => {
+    const now = new Date('2026-08-20T10:00:00+02:00')
+    expect(isOperatingDateInWindow('2026-08-12', now)).toBe(false)
+    expect(isOperatingDateInWindow('2026-08-22', now)).toBe(false)
+  })
+
+  it('rejects a calendar date that does not exist (2026-02-30 rolls over to March) even when the string would lexicographically fall inside the window', () => {
+    // "dziś" = 2 marca -> okno [23 lutego, 3 marca]. Porównanie samych stringów
+    // umieściłoby "2026-02-30" w tym oknie ("02-30" > "02-23" i "02" < "03"),
+    // mimo że taka data nie istnieje w kalendarzu.
+    const now = new Date('2026-03-02T10:00:00+01:00')
+    expect(isOperatingDateInWindow('2026-02-30', now)).toBe(false)
+  })
+
+  it('rejects a day-of-month that does not exist even far out of the real range (2026-08-45)', () => {
+    // "dziś" = 3 września -> okno [27 sierpnia, 4 września]. "2026-08-45" leży
+    // leksykograficznie w tym przedziale, mimo że sierpień ma 31 dni.
+    const now = new Date('2026-09-03T10:00:00+02:00')
+    expect(isOperatingDateInWindow('2026-08-45', now)).toBe(false)
+  })
+
+  it('rejects an impossible month (2026-13-05) even when the string falls inside a year-spanning window', () => {
+    // "dziś" = 2 stycznia 2027 -> okno [26 grudnia 2026, 3 stycznia 2027].
+    // "2026-13-05" leży leksykograficznie w tym przedziale (rok 2026, "13" > "12").
+    const now = new Date('2027-01-02T10:00:00+01:00')
+    expect(isOperatingDateInWindow('2026-13-05', now)).toBe(false)
+  })
+
+  it('uses the Warsaw calendar date for the window, not the UTC one, right at the day boundary (also under TZ=UTC)', () => {
+    // 22:30 UTC w sierpniu to już 00:30 w Warszawie następnego dnia (CEST, +2)
+    // -- okno musi być liczone względem 16, nie 15 sierpnia.
+    const now = new Date('2026-08-15T22:30:00Z')
+    expect(warsawDateString(now)).toBe('2026-08-16')
+    expect(isOperatingDateInWindow('2026-08-09', now)).toBe(true)
+    expect(isOperatingDateInWindow('2026-08-08', now)).toBe(false)
+    expect(isOperatingDateInWindow('2026-08-17', now)).toBe(true)
   })
 })
