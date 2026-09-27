@@ -39,18 +39,26 @@ const NOT_FOUND_CACHE_TTL_MS = 10 * 60 * 1000
  * Trafienia cache'u, zapamiętane 404 i dołączenia do trwającego `inFlight` NIE
  * liczą się -- tylko realny nowy fetch do PKP.
  *
- * Koszt jednego miss po cache'u tras 24h z zadania 1 (`client.ts` `fetchRoute`):
+ * Koszt jednego miss (`client.ts` `fetchRoute`):
  *  - `/operations/train/...` -- zawsze, nigdy nie cache'owane: 1
- *  - `/schedules/route/...` -- 0 w stanie ustalonym (trasa już w cache'u 24h
- *    z wcześniejszego miss tego samego pociągu), więc pomijane w rachunku
- *  - `client.getDisruptions(...)` wołane niżej w `loadTrainDetail` -- klucz
- *    cache'u zawęża się do stacji TEGO pociągu i pojedynczego dnia, więc w
- *    praktyce prawie zawsze to nowe zapytanie: 1
- * Razem w stanie ustalonym: 2 zapytania PKP na miss.
+ *  - `/schedules/route/...` -- 0, gdy trasa już jest w cache'u 24h z
+ *    wcześniejszego miss tego samego pociągu (stan ustalony), ale 1 przy
+ *    zimnym cache'u (pierwsze kliknięcie tego pociągu w ogóle) i 1 przy
+ *    zmyślonym scheduleId/orderId (404 trasy, nie cache'owany -- patrz komentarz
+ *    przy `fetchRoute`)
+ *  - `client.getDisruptions(...)` -- klucz cache'u zawęża się do stacji TEGO
+ *    pociągu i pojedynczego dnia, więc w praktyce prawie zawsze nowe
+ *    zapytanie: 1
+ * Razem: 2 przy ciepłym cache'u trasy, 3 przy zimnym (pierwsze kliknięcie) i
+ * 2 dla zmyślonych ID (operacja 404 + trasa 404, bez utrudnień -- `stationIds`
+ * puste).
  *
- * Cel: worst case ≤ 90/h (10 zapytań zapasu poniżej twardego limitu 100/h),
- * po odjęciu pollera (~40/h) i `/api/network-stats` (~7/h):
- * floor((90 − 40 − 7) / 2) = floor(43 / 2) = 21.
+ * OWNER DECISION (2026-09-27): limit zostaje na 21, mimo że worst case
+ * (wszystkie 21 misses zimne, po 3 zapytania) daje 21×3 + ~40 poller +
+ * ~7 network-stats ≈ 110/h > twardy limit 100/h. Świadomie zaakceptowane
+ * ryzyko do czasu przyznania klucza z wyższym limitem PKP (w trakcie
+ * ubiegania się). Jeśli klucz zostanie przy 100/h, obniżyć limit do
+ * floor((90 − 40 − 7) / 3) = floor(43 / 3) = 14.
  */
 const HOURLY_MISS_CAP = 21
 const HOUR_MS = 3_600_000
