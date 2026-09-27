@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
-import { CityPicker, type CityOption } from '@/components/CityPicker'
+import { CityPicker } from '@/components/CityPicker'
 import { CityStatTiles } from '@/components/CityStatTiles'
 import { CityTransitWidget } from '@/components/CityTransitWidget'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
@@ -13,11 +13,10 @@ import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { PageShell } from '@/components/aside'
 import { ArrowLeftIcon } from '@/components/icons'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
+import { useCities } from '@/hooks/useCities'
 import { useCityContext } from '@/hooks/useCityContext'
 import { useCityStats } from '@/hooks/useCityStats'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
-
-type CityEntry = CityOption & { name: string; railStationsUnknown?: boolean }
 
 export default function CityPage() {
   const params = useParams<{ city: string }>()
@@ -32,30 +31,11 @@ export default function CityPage() {
   const { setCity } = useCityContext()
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
   const { data: statsData } = useCityStats(city)
-
-  const [cities, setCities] = useState<CityEntry[]>([])
-  const [citiesState, setCitiesState] = useState<'loading' | 'failed' | 'ready'>('loading')
+  const { state: citiesState, cities } = useCities()
 
   useEffect(() => {
     setCity(city)
   }, [city, setCity])
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities: CityEntry[] }) => {
-        if (cancelled) return
-        setCities(body.cities)
-        setCitiesState('ready')
-      })
-      .catch(() => {
-        if (!cancelled) setCitiesState('failed')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const entry = useMemo(() => cities.find((option) => option.id === city) ?? null, [cities, city])
   // `null` dopóki /api/cities się nie wczyta / gdy zawiedzie / gdy wyszukanie

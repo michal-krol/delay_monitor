@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 let search = ''
@@ -52,6 +53,7 @@ const groupBoard = {
 
 beforeEach(() => {
   window.localStorage.clear()
+  resetCitiesCacheForTests()
   search = ''
   push.mockClear()
   replace.mockClear()

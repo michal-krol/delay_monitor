@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useCities } from '@/hooks/useCities'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { TransitDepartureList } from './TransitDepartureList'
@@ -21,21 +21,9 @@ type Props = {
  */
 export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
   const { data, loading, failed } = useTransitBoard(city, [stopId], 3)
-  // Ten sam wzorzec `/api/cities` co `CityWeatherCard`/`TransitStopDetail`
-  // (Task 3/4) — duplikacja świadoma, PR 5 scali w jeden hook.
-  const [cityEntries, setCityEntries] = useState<{ id: string; name: string }[]>([])
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities?: { id: string; name: string }[] }) => {
-        if (!cancelled && Array.isArray(body.cities)) setCityEntries(body.cities)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // Ten sam wspólny hook `/api/cities` co `CityWeatherCard`/`TransitStopDetail`/
+  // strona miasta (Task 9).
+  const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const board = data?.stops[0] ?? null
   const name = board?.name ?? stopName

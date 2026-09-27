@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopCard } from './TransitStopCard'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 const useTransitBoard = vi.fn()
 vi.mock('@/hooks/useTransitBoard', () => ({ useTransitBoard: (...a: unknown[]) => useTransitBoard(...a) }))
 
+beforeEach(() => resetCitiesCacheForTests())
 afterEach(() => vi.unstubAllGlobals())
 
 describe('TransitStopCard', () => {

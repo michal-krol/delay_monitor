@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CityWeatherCard } from './CityWeatherCard'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
+beforeEach(() => resetCitiesCacheForTests())
 afterEach(() => vi.unstubAllGlobals())
 
 describe('CityWeatherCard', () => {

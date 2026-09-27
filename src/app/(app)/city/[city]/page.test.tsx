@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityPage from './page'
 import { __resetCityContext } from '@/hooks/useCityContext'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
@@ -67,6 +68,7 @@ beforeEach(() => {
   search = ''
   window.localStorage.clear()
   __resetCityContext()
+  resetCitiesCacheForTests()
   vi.stubGlobal('fetch', vi.fn(() => citiesResponse()))
 })
 afterEach(() => vi.unstubAllGlobals())

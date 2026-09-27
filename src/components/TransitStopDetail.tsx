@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useCities } from '@/hooks/useCities'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useShareUrl } from '@/hooks/useShareUrl'
@@ -117,22 +118,10 @@ export function TransitStopDetail({
   // Jedno zapytanie na obie zakładki odjazdowe — „Pełny rozkład" pokazuje całą
   // listę do `SCHEDULE_FETCH_LIMIT`, „Najbliższe" tnie ją do podglądu niżej.
   const { data, error, loading, failed } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effSlupek)
-  // Nazwa miasta z `/api/cities` — ten sam wzorzec co `CityWeatherCard`
-  // (Task 3), zamiast wyświetlać surowy slug. Fallback do slugu, dopóki lista
-  // się nie wczyta. Duplikacja świadoma: PR 5 scali oba miejsca w jeden hook.
-  const [cityEntries, setCityEntries] = useState<{ id: string; name: string }[]>([])
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities?: { id: string; name: string }[] }) => {
-        if (!cancelled && Array.isArray(body.cities)) setCityEntries(body.cities)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // Nazwa miasta z `/api/cities` — jeden wspólny hook z `CityWeatherCard`,
+  // `TransitStopCard` i stroną miasta (Task 9). Fallback do slugu, dopóki
+  // lista się nie wczyta / gdy fetch zawiedzie.
+  const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
   const { share, status: shareStatus } = useShareUrl()
