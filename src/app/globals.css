@@ -82,7 +82,8 @@
 
 /* Statusy: identyczne wartości w obu motywach — samowystarczalna, nasycona
    plakietka nie zależy od tła strony (decyzja #8). Jedyne źródło kolorów
-   statusu w całej aplikacji — DelayBadge i tylko DelayBadge je konsumuje.
+   statusu w całej aplikacji — komponenty sięgają po `var(--status-*)`, nie po
+   własne heksy.
 
    `--status-*-text` (wyżej, w blokach motywu) to DRUGI zestaw tej samej
    palety, do statusu pisanego kolorowym TEKSTEM zamiast pigułką (przebieg
@@ -94,7 +95,7 @@
    notStarted 3,10:1, enRoute 2,92:1 — wszystkie poniżej progu 4,5:1.
    Warianty tekstowe: 10,55 / 8,12 / 6,83 / 7,17 / 8,58 / 9,22:1 w ciemnym
    i 4,76 / 5,34 / 5,97 / 7,20 / 5,64 / 7,51:1 w jasnym (na `#f8f9fc`).
-   To nadal jedno źródło — obie mapy konsumuje wyłącznie DelayBadge. */
+   To nadal jedno źródło palety statusu. */
 :root {
   --status-onTime-bg: #15803d;
   --status-onTime-fg: #ffffff;

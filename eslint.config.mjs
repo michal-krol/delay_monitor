@@ -9,7 +9,7 @@ const eslintConfig = defineConfig([
   // Reguly dla React Testing Library, wylacznie w plikach testowych — lapia
   // konkretna klase bledow (fireEvent zamiast userEvent, brak await waitFor,
   // zapytania po roli zamiast testid) automatycznie, zamiast polegac na
-  // przegladzie recznym przy 25 plikach testow.
+  // przegladzie recznym.
   {
     files: ["**/*.test.ts", "**/*.test.tsx"],
     ...testingLibrary.configs["flat/react"],
