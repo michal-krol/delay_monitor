@@ -65,6 +65,19 @@ function formatPlatformTrack(platform: string | null, track: string | null): str
     .join(' · ')
 }
 
+/**
+ * Pociąg, który dojechał do ostatniego przystanku (albo ma całą trasę
+ * odwołaną), już się nie zmieni. Jedna implementacja (AGENTS.md: jedna
+ * implementacja na regułę domenową) — używana zarówno przez pętlę
+ * dociągania w tle (nie ma czego dociągać dalej), jak i przez wskaźnik
+ * wieku danych w nagłówku (skończona podróż nie oczekuje odświeżenia,
+ * więc „Dane sprzed N min" byłoby szumem, nie informacją).
+ */
+function isJourneyOver(stops: TrainDetailStopWithCoords[]): boolean {
+  if (stops.length === 0) return false
+  return stops[stops.length - 1].isConfirmed || stops.every((stop) => stop.isCancelled)
+}
+
 const STOP_COLOR: Record<RealizationStatus, string> = {
   onTime: 'var(--status-onTime-bg)',
   delayed: 'var(--status-delayed-bg)',
@@ -259,17 +272,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
       }
     }
 
-    // Pociąg, który dojechał do ostatniego przystanku (albo ma całą trasę
-    // odwołaną), już się nie zmieni — nie ma czego dociągać.
-    function journeyOver(): boolean {
-      const stops = dataRef.current?.stops
-      if (stops === undefined || stops.length === 0) return false
-      return stops[stops.length - 1].isConfirmed || stops.every((stop) => stop.isCancelled)
-    }
-
     function backgroundRefresh(): void {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-      if (journeyOver()) return
+      if (isJourneyOver(dataRef.current?.stops ?? [])) return
       void load('background')
     }
 
@@ -346,9 +351,12 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // dane są starsze niż 2×BACKGROUND_REFRESH_MS (żadna próba nie padła, ale i
   // żadna się nie powiodła od dawna -- np. karta odświeżona z bookmarka po
   // przerwie). Zniknie po najbliższym udanym odświeżeniu (AGENTS.md #7: wiek
-  // danych rośnie widocznie, nigdy nie chowa się cicho).
+  // danych rośnie widocznie, nigdy nie chowa się cicho). Wyjątek: skończona
+  // podróż (patrz `isJourneyOver`, ten sam warunek co zatrzymanie dociągania
+  // w tle) nie oczekuje już żadnego odświeżenia -- wskaźnik byłby tylko szumem.
   const dataAgeMs = lastSuccessAt !== null ? now - lastSuccessAt : null
-  const showDataAge = dataAgeMs !== null && (backgroundRefreshFailed || dataAgeMs >= 2 * BACKGROUND_REFRESH_MS)
+  const showDataAge =
+    !isJourneyOver(stops) && dataAgeMs !== null && (backgroundRefreshFailed || dataAgeMs >= 2 * BACKGROUND_REFRESH_MS)
   const dataAgeMinutes = dataAgeMs !== null ? Math.floor(dataAgeMs / 60_000) : null
 
   // Mapa trasy: tylko przystanki z rzeczywistymi współrzędnymi (AGENTS.md #6 —

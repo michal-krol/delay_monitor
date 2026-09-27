@@ -981,6 +981,35 @@ describe('ConnectionDetails', () => {
       await Promise.resolve()
       expect(trainCalls(fetchMock)).toBe(1)
     })
+
+    it('finished journey does not show the data age', async () => {
+      // Pełne fałszywe zegary (nie tylko Date, jak `freezeClock`) -- ten test
+      // musi puścić realny zegar odliczania („za ile", co 30 s) naprzód, żeby
+      // sprawdzić, że próg 2×BACKGROUND_REFRESH_MS sam z siebie nie pokazuje
+      // wskaźnika po zakończeniu podróży (patrz `jsonResponse`: sprawdzone, że
+      // `advanceTimersByTimeAsync` z tym helperem działa poprawnie).
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-01T12:00:00Z'))
+      const arrived = {
+        ...RESPONSE,
+        stops: [
+          RESPONSE.stops[0],
+          { ...RESPONSE.stops[1], isConfirmed: true, actualArrival: '2026-08-01T11:25:00.000Z', arrivalDelayMinutes: 5 },
+        ],
+      }
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(arrived)))
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await vi.waitFor(() => expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument())
+
+      // 15 minut odliczania (co 30 s), niezależnie od tego, że podróż się
+      // skończyła i dociąganie w tle jest zatrzymane (test wyżej) -- gdyby
+      // wskaźnik wieku nie sprawdzał końca podróży, dawno przekroczyłby próg
+      // i pokazał się mimo że nic już nigdy nie odświeży tych danych.
+      await vi.advanceTimersByTimeAsync(15 * 60_000)
+
+      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
+    })
   })
 })
 

@@ -31,7 +31,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   powrocie na kartę) nie blokuje już innym użytkownikom pierwszego wczytania —
   ostatnie kilka zapytań w każdej godzinie jest zarezerwowane dla nowych wejść.
   Nieudane dociągnięcie w tle nie pokazuje błędu — strona zostaje przy ostatnich
-  dobrych danych.
+  dobrych danych i pokazuje, ile mają minut (chyba że pociąg już dojechał —
+  wtedy nic nie ma się już zmienić).
 
 ### Bezpieczeństwo
 
