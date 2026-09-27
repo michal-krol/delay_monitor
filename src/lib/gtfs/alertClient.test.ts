@@ -1,9 +1,11 @@
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchAlertFeed, mockAlertFeed } from './alertClient'
 import { getCity } from './cities'
+
+afterEach(() => vi.restoreAllMocks())
 
 describe('fetchAlertFeed', () => {
   it('fetches, parses and returns alerts', async () => {
@@ -34,7 +36,6 @@ describe('fetchAlertFeed', () => {
     controller.abort()
     await expect(promise).rejects.toThrow()
     expect(timeoutSpy).toHaveBeenCalledWith(10_000)
-    timeoutSpy.mockRestore()
   })
 })
 

@@ -1,9 +1,11 @@
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchVehicleFeed, mockVehicleFeed } from './vehicleClient'
 import { getCity } from './cities'
+
+afterEach(() => vi.restoreAllMocks())
 
 describe('fetchVehicleFeed', () => {
   it('fetches, parses and returns positions', async () => {
@@ -39,7 +41,6 @@ describe('fetchVehicleFeed', () => {
     controller.abort()
     await expect(promise).rejects.toThrow()
     expect(timeoutSpy).toHaveBeenCalledWith(10_000)
-    timeoutSpy.mockRestore()
   })
 })
 

@@ -43,12 +43,10 @@ if (city === null) throw new Error('brak miasta warszawa w rejestrze')
 
 snapshot('baseline (przed ładowaniem)')
 
-// `createLiveClient`'s default fetch aborts each range request after 30 s
-// (production guard against a stalled feed, `client.ts` GTFS_FETCH_TIMEOUT_MS)
-// -- too short for a single 107 MB range read over a slow link. This script
-// is a manual one-off measurement, not the guarded production path, so it
-// ignores the signal instead of stalling forever.
-const client = createLiveClient(city, { fetch: (url, headers) => fetch(url, { headers }) })
+// Real production client: `createLiveClient`'s internal fetch times out only
+// the wait for response headers (`client.ts` GTFS_FETCH_TIMEOUT_MS), not a
+// streaming 107 MB body, so no override is needed here.
+const client = createLiveClient(city)
 const t0 = performance.now()
 const schedule = await loadSchedule(client, city, { onPhase: (phase) => console.error(`  faza: ${phase}`) })
 const loadMs = performance.now() - t0

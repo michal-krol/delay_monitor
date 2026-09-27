@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from './schedule'
 import { projectVehicle } from './vehicleProject'
+
+afterEach(() => vi.restoreAllMocks())
 
 const near = (a: number, b: number, eps = 0.05) => Math.abs(a - b) <= eps
 
@@ -106,8 +108,6 @@ describe('projectVehicle', () => {
     expect(r2.afterStopOrder).toBe(r1.afterStopOrder)
     expect(r2.fraction).toBe(r1.fraction)
     expect(r2.ageSec).toBeGreaterThan(r1.ageSec) // policzone świeżo z `now2`
-
-    hypotSpy.mockRestore()
   })
 
   it('carries a null headsign when the trip has none', async () => {
