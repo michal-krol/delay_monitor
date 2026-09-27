@@ -8,6 +8,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Szybsze odpowiedzi widoków komunikacji miejskiej (statystyki miasta, tablica
+  przystanku, wyszukiwarka przystanków) dzięki zapamiętywaniu wyników obliczeń
+  dla danego rozkładu.
+- Szybsze wyznaczanie pozycji pojazdów na tablicy przystanku i mapie miasta.
+- Zawieszone połączenie z serwerem danych GTFS nie blokuje już odświeżania
+  pozycji pojazdów i alertów (rezygnacja po 10 s); pobieranie pełnego rozkładu
+  czeka najwyżej 30 s na pierwszą odpowiedź serwera.
 - Biblioteka map MapLibre GL JS zaktualizowana z 6.9.0 do 6.11.1 (wraz z dołączonymi
   kopiami skryptów wątku roboczego mapy).
 - Dziennik serwera ostrzega o niepełnej liście pociągów tylko wtedy, gdy pobieranie
