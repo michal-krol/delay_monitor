@@ -78,6 +78,27 @@ describe('CityTransitWidget', () => {
     expect(screen.getByText('Nie udało się wczytać statystyk.')).toBeInTheDocument()
   })
 
+  // transit widget: failed → error text -- state: 'failed' bez błędu sieciowego
+  // (`error` z hooka to null: fetch się udał, to poller rozkładu zawiódł po
+  // stronie serwera). Bug: dawna gałąź warunku patrzyła tylko na `error`
+  // z hooka, więc ten przypadek renderował „Wczytuję rozkład…" na zawsze.
+  it('transit widget: failed → error text (nawet bez błędu sieciowego hooka)', () => {
+    hookState.current = { data: { city: 'warszawa', state: 'failed', stats: null }, error: null }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText('Nie udało się wczytać statystyk.')).toBeInTheDocument()
+    expect(screen.queryByText('Wczytuję rozkład…')).not.toBeInTheDocument()
+  })
+
+  // Task 2: `stats === null` ze `state: 'ready'` = dzisiejsza data kursowania
+  // nieznana (feed nie odświeżony) -- to NIE jest błąd i NIE jest ładowanie.
+  it('brak dzisiejszego rozkładu (state ready, stats null) → "Brak rozkładu na dziś."', () => {
+    hookState.current = { data: { city: 'warszawa', state: 'ready', stats: null }, error: null }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText('Brak rozkładu na dziś.')).toBeInTheDocument()
+    expect(screen.queryByText('Wczytuję rozkład…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się wczytać statystyk.')).not.toBeInTheDocument()
+  })
+
   it('shows "Wczytuję…" for the alert card before the feed is ready', () => {
     hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: null, alertFeed: { state: 'loading', ageMs: null } }, error: null }
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)

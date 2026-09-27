@@ -17,7 +17,7 @@ import { useCityContext } from '@/hooks/useCityContext'
 import { useCityStats } from '@/hooks/useCityStats'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
 
-type CityEntry = CityOption & { name: string }
+type CityEntry = CityOption & { name: string; railStationsUnknown?: boolean }
 
 export default function CityPage() {
   const params = useParams<{ city: string }>()
@@ -34,6 +34,7 @@ export default function CityPage() {
   const { data: statsData } = useCityStats(city)
 
   const [cities, setCities] = useState<CityEntry[]>([])
+  const [citiesState, setCitiesState] = useState<'loading' | 'failed' | 'ready'>('loading')
 
   useEffect(() => {
     setCity(city)
@@ -44,15 +45,23 @@ export default function CityPage() {
     fetch('/api/cities')
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
       .then((body: { cities: CityEntry[] }) => {
-        if (!cancelled) setCities(body.cities)
+        if (cancelled) return
+        setCities(body.cities)
+        setCitiesState('ready')
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setCitiesState('failed')
+      })
     return () => {
       cancelled = true
     }
   }, [])
 
   const entry = useMemo(() => cities.find((option) => option.id === city) ?? null, [cities, city])
+  // `null` dopóki /api/cities się nie wczyta / gdy zawiedzie / gdy wyszukanie
+  // stacji PKP dla tego miasta zawiodło (railStationsUnknown) — nigdy `0`
+  // jako "nie wiadomo" (AGENTS.md #7). `CityStatTiles` renderuje to jako „—".
+  const railStationCount = citiesState !== 'ready' || entry === null || entry.railStationsUnknown === true ? null : entry.railStations.length
   const cityName = entry?.name ?? city
   const stats = statsData?.state === 'ready' ? statsData.stats : null
   const statsLoading = statsData === null || statsData.state === 'loading'
@@ -95,7 +104,7 @@ export default function CityPage() {
       />
 
       {!hasSelection && (
-        <CityStatTiles stats={stats} loading={statsLoading} railStationCount={entry?.railStations.length ?? 0} />
+        <CityStatTiles stats={stats} loading={statsLoading} railStationCount={railStationCount} />
       )}
 
       <StationSearch
