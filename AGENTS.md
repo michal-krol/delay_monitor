@@ -104,7 +104,7 @@ URLs; `city` validated against the registry. Load once, index at load. Many feed
 
 ### 14. Process for a change → global `~/.claude/CLAUDE.md`
 Sized by change: trivial = fix + test + gate; normal/architectural = questions first, TDD,
-gate, review (`~/.claude/rules/code-review.md`), proposals. Cite sources used in analysis
+gate, review + independent verification (`~/.claude/rules/verification.md`), proposals. Cite sources used in analysis
 (swagger, GTFS schema, `node_modules/next/dist/docs/`, README, memory, handoffs).
 
 ### 15. Economy of actions and words → global `~/.claude/rules/workflow.md`
