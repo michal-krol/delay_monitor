@@ -12,6 +12,7 @@ updates:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
       dev-dependencies:
         dependency-type: development
+    # Blockers and unblock checks for each entry: #69. Drop an entry once its blocker is gone.
     ignore:
       # TS 7: unsupported by typescript-eslint and the Next.js compiler API
       # (TS 6 is still offered: Next recommends it).
