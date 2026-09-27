@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CityFeed } from './cities'
 import { createLiveClient, isRangeRequestUnsupportedError } from './client'
 import { buildZip, rangeResponder } from '@/test-utils/zip'
@@ -32,6 +32,10 @@ async function collect(stream: AsyncIterable<string> | null): Promise<string[]> 
 }
 
 describe('createLiveClient', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('reads the central directory with a suffix range, then streams an inflated entry', async () => {
     const fetchSpy = vi.fn(rangeResponder(archive()))
     const client = createLiveClient(CITY, { fetch: fetchSpy })
@@ -83,20 +87,31 @@ describe('createLiveClient', () => {
     await expect(client.getFeedVersion()).rejects.toSatisfy(isRangeRequestUnsupportedError)
   })
 
-  it('hanging range read rejects after 30 s', async () => {
-    const controller = new AbortController()
-    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
-    // Stub only settles when its signal aborts, like real fetch does.
-    const fetchSpy = vi.fn((_url: string, _headers: Record<string, string>, signal?: AbortSignal) =>
+  it('hanging range read rejects after 30 s (response headers never arrive)', async () => {
+    vi.useFakeTimers()
+    // Stub only settles when its signal aborts, like real fetch does --
+    // never resolves on its own, so it models headers that never arrive.
+    const fetchSpy = vi.fn((_url: string, _headers: Record<string, string>, signal: AbortSignal) =>
       new Promise<Response>((_resolve, reject) => {
-        signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+        signal.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
       }),
     )
     const client = createLiveClient(CITY, { fetch: fetchSpy })
     const promise = client.readEntry('stops.txt')
-    controller.abort()
-    await expect(promise).rejects.toThrow()
-    expect(timeoutSpy).toHaveBeenCalledWith(30_000)
-    timeoutSpy.mockRestore()
+    const rejection = expect(promise).rejects.toThrow()
+    await vi.advanceTimersByTimeAsync(30_000)
+    await rejection
+  })
+
+  it('slow body after headers is not aborted', async () => {
+    vi.useFakeTimers()
+    // The stub resolves (headers in) synchronously -- the 30 s deadline must
+    // be cleared right after, so a slow body/consumer past 30 s is fine.
+    const client = createLiveClient(CITY, { fetch: rangeResponder(archive()) })
+    const stream = await client.readEntry('stops.txt')
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(30_000)
+    const lines = await collect(stream)
+    expect(lines).toEqual(['stop_id,stop_name', '100101,Centrum', '100102,Centrum'])
   })
 })
