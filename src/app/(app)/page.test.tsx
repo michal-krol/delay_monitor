@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { favouriteKey, type Favourite } from '@/hooks/useFavourites'
 import { jsonResponse } from '@/test-utils/http'
@@ -42,6 +42,12 @@ vi.mock('@/hooks/useBoard', () => ({
 }))
 
 describe('Page (Pulpit)', () => {
+  // Restore even when an assertion fails, so fake timers and stubs never leak into the next test.
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
   beforeEach(() => {
     push.mockClear()
     replace.mockClear()
@@ -131,8 +137,5 @@ describe('Page (Pulpit)', () => {
 
     // encodeURIComponent (not form-encoding) — spaces become %20, same contract as the card click.
     expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
-
-    vi.useRealTimers()
-    vi.unstubAllGlobals()
   })
 })
