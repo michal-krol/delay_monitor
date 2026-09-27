@@ -1,6 +1,8 @@
 ---
 paths:
   - "src/components/*Map*"
+  - "src/components/map/**"
+  - "src/lib/board/mapPosition.ts"
   - "src/components/StationThumb*"
   - "public/maplibre-*"
   - "src/app/globals.css"
@@ -20,8 +22,10 @@ All HTTP lives in two clients: `src/lib/pkp/client.ts` (PKP) and `src/lib/weathe
 not over `fetch`. Tests need neither network nor key — keep it that way. New source = new edge
 client. Live/mock selection happens once, at startup, in `lib/board/instance.ts`.
 
-Station coordinates: static `data/station-coordinates.json` (regenerate with
-`scripts/enrich-station-coords.mjs`), included in the image (`.next/standalone`). Two
+Station coordinates (weather, maps): static `data/station-coordinates.json` (regenerate with
+`scripts/stations-from-gtfs.mjs`, matched by PKP ID; fallback: `enrich-station-coords.mjs` —
+`city-fallback` is the town centroid, not the station position), included in the image
+(`.next/standalone`). Two
 consumers, two different degradations for a missing station: `/api/weather` returns
 `available:false` (**cached, not an error**); `/api/train` (`attachStopCoordinates()` in
 `src/app/api/train/coordinates.ts`) simply doesn't add `lat`/`lon` to the stop
@@ -74,7 +78,7 @@ screenshot/locator (compositor, not buffer).
   re-initialize mid-click and destroy the fresh popup. Same for `routeKey`
   (`points.length:color`) — a content signature, not the whole object.
 
-## Trap 4: container positioning (live city map, `CityVehicleMap.tsx`, `d41b99a`+1)
+## Trap 4: container positioning (transport map, today `map/TransitMap.tsx`, `d41b99a`+1)
 
 The map container must NOT be positioned with `absolute inset-0` directly on the element passed
 to `new Map({container})`. MapLibre adds the class `maplibregl-map`, and `maplibre-gl.css`

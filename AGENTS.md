@@ -26,7 +26,7 @@ etc.): read the linked rule file before changing code in its area.** General wor
 | `src/lib/validation.ts`, `urlState.ts`, `cache.ts`, `config.ts` | input patterns, URL view state, `createTtlCache()`, env schema |
 | `src/app/(app)/` | pages (station, connection, city, lines, map) |
 | `src/app/api/` | route handlers (board, train, gtfs/*, weather, health, …) |
-| `src/components/`, `src/hooks/` | UI (flat directory), client hooks |
+| `src/components/`, `src/hooks/` | UI (flat, transport map in `components/map/`), client hooks |
 | `fixtures/`, `data/` | mock payloads (PKP, GTFS per city), static station coordinates |
 | `e2e/` | Playwright suite |
 
@@ -55,7 +55,7 @@ stop. All realization logic lives in `src/lib/board/realization.ts` — never du
 
 ### 3. The PKP request budget is critical → `pkp-budget.md`
 100/h and 1000/day; poller ≈ 40/h. Compute cost/h before adding any call (also outside the
-poller: `/api/train`, `/api/rail-stations`, `/api/network-stats`). Missing `X-RateLimit-*` =
+poller: `/api/train`, `/api/network-stats`; the map's `/api/rail-stations/*` costs 0). Missing `X-RateLimit-*` =
 "unknown", never "zero". New indicators: derive from data the poller already has.
 
 ### 4. Input from outside the app is always hostile → `security.md`

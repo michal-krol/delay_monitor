@@ -7,6 +7,70 @@ Wersjonowanie semantyczne.
 
 ### Dodane
 
+- **Prawdziwe współrzędne stacji kolejowych** — `data/station-coordinates.json`
+  regenerowany z `polish_trains.zip` (M. Kuranowski, dane PKP PLK/KM) nowym
+  skryptem `scripts/stations-from-gtfs.mjs`: `stop_id` stacji w tym feedzie to ID
+  PKP PLK, więc dopasowanie po ID, bez heurystyk nazw. 3137 z 3266 stacji ma
+  teraz pozycję stacji (`source: "gtfs"`) zamiast centroidu miejscowości (było
+  2245 `city-fallback`, zostało 94). Nowe pole `tier` (1–3, ranga ruchu) pod
+  mapę ogólnopolską. Zero kosztu runtime — plik statyczny jak dotąd.
+- **Kolory linii metra spójne z plakietkami** — przebiegi metra i kolei miejskiej na
+  mapie (tło i tryb linii) mają kolor linii z feedu (M1 granatowa, M2 czerwona, jak
+  `LineBadge`) zamiast jednego fioletu „metra"; jasna obwódka pod przebiegiem trzyma
+  czytelność na ciemnym podkładzie. Autobusy i tramwaje zostają przy kolorze rodzaju.
+- **Komunikaty o utrudnieniach zwinięte** — każdy komunikat (mapa, strona linii,
+  przystanek) startuje zwinięty do nagłówka i dat wyciągniętych z treści („Daty
+  w komunikacie: 21.09.2026 – 28.09.2026" — feed nie ma pól z datami), rozwija się
+  na klik (`<details>`); długie URL-e i listy linii łamią się w kontenerze zamiast
+  z niego wychodzić, treść dłuższa niż ~20 wierszy przewija się w ramce (treści WTP
+  mają do ~55 KB). Link „Szczegóły na wtp.waw.pl" widoczny także po zwinięciu.
+- **Mapa transportu: „Pokaż całe miasto" i komunikat dla czytnika** — przycisk pod
+  zoomem wraca do kadru startowego miasta; niewidoczny `aria-live` mówi „Na mapie N
+  pojazdów" po zmianie filtrów/linii (nie przy każdym odczycie co 15 s).
+- **Mapa transportu: informacje** — ulubione z Pulpitu na mapie (złota obwódka,
+  menu ★ do szybkiego przeskoku, gwiazdka w karcie stacji/przystanku), utrudnienia
+  (⚠ w karcie pojazdu, baner w karcie przystanku i w trybie linii, filtr „Tylko
+  linie z utrudnieniami" `?alerts=1`; `alertLines` w `/api/gtfs/city-vehicles`),
+  „W pobliżu" — prawy klik / przytrzymanie palca albo przycisk w karcie (dla
+  klawiatury): stacje i przystanki w promieniu 500 m z najbliższym odjazdem
+  z rozkładu, oraz „Lista" — tekstowa lista obiektów w kadrze (pełnoprawna
+  ścieżka dla czytnika ekranu do obiektów z canvasu). Cele dotyku ≥ 44 px.
+- **Mapa transportu: ruch i widok** — pojazdy przejeżdżają płynnie między
+  odczytami (~1 s; przy `prefers-reduced-motion` skok), strzałka kierunku jazdy
+  z `bearing` od zoomu 14, „Śledź pojazd" w karcie (kamera jedzie za pojazdem do
+  pierwszego przesunięcia mapy ręką), przebiegi metra i kolei miejskiej jako
+  stałe tło od zoomu 9 (`/api/gtfs/backbone`, z pamięci rozkładu), kadr w URL-u
+  (`?at=lat,lon,zoom`) + ostatni widok pamiętany w przeglądarce, przycisk
+  „Udostępnij ten widok mapy".
+- **Tryb linii na mapie transportu** — wybór linii w wyszukiwarce (albo
+  „Pokaż trasę na mapie" w karcie pojazdu, w kierunku jego jazdy) rysuje przebieg
+  (`shapes.txt`, a bez niego łamaną po przystankach), dopasowuje kadr, przyciemnia
+  resztę punktów i zostawia tylko pojazdy tej linii. Panel linii w miejscu karty:
+  kierunek „start → cel" z przełącznikiem (`?dir=1`), liczba pojazdów w trasie,
+  lista przystanków (klik = karta przystanku + przelot), „×" kończy tryb. Zero
+  nowych endpointów — istniejące `/api/gtfs/line`.
+- **Nowa mapa transportu** (`/city/[city]/map`, spec „Czy dojadę? — refaktor
+  mapy"): kolej z całej Polski (stopniowo po zoomie wg `tier`: węzły → region →
+  wszystkie), przystanki miasta (metro od zoomu 11, tramwaj/autobus od 14,
+  etykiety od 16), pojazdy z etykietą linii od zoomu 15. Kolor = rodzaj środka
+  transportu, nie operator ani opóźnienie. Dwa osobne wyszukiwania: stacja/
+  przystanek (przelot + obwódka + karta, niezależnie od zoomu) i linia (filtr
+  pojazdów, chip „Linia 20 ×"). „Filtry" z licznikiem ukrytych warstw i chipami
+  ograniczeń, stan w URL-u (`?hide=`, `?line=`; stare `?vehicles=0`, `?rail=0`,
+  `?mode=` dalej działają). Karta obiektu dokowana — panel obok mapy na
+  desktopie, arkusz od dołu na telefonie: stacja PKP (odjazdy z peronem/torem
+  tylko, gdy poller zna stację — inaczej „nie śledzimy", nie „brak odjazdów"),
+  przystanek (rozkład, nie „na czas"), pojazd (następny przystanek, świeżość
+  pozycji, bez opóźnienia). Zwijana legenda rodzajów, ciemny podkład mapy
+  w trybie ciemnym, komunikat po wyjechaniu poza obszar feedu miejskiego.
+  Markery DOM i popupy MapLibre zastąpione warstwami WebGL.
+- **Dane pod nową mapę**: `/api/gtfs/stops` (wszystkie przystanki
+  miasta z pozycją, perony metra zwinięte do stacji), `/api/rail-stations/list`
+  (stacje z całej Polski, `tier`) i `/api/rail-stations/status` (statusy tylko ze
+  snapshotu pollera, peron/tor/przewoźnik), `lat`/`lon` w wynikach `/api/search`,
+  `directionId` + `nextStop` (bez czasu dojazdu) w `/api/gtfs/city-vehicles`.
+  Zero nowych zapytań do PKP.
+
 - **Mapa miasta live (wszystkie pojazdy)** — pozycja menu „Mapa" (dawniej
   wyłączona) prowadzi na pełnoekranową mapę wszystkich pojazdów komunikacji
   miejskiej danego miasta na żywo, filtr trybu (chipy) i numeru linii (stan

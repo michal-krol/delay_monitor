@@ -174,8 +174,9 @@ src/
         ├── routeKey, stationStats, upstreamEstimate
         ├── trainDetail, networkStats
         └── resilience.test.ts                   scenariusze awarii feedu PKP
-data/station-coordinates.json   współrzędne stacji do widżetu pogody
-scripts/enrich-station-coords.mjs   regeneracja powyższego
+data/station-coordinates.json   współrzędne stacji (pogoda, mapy)
+scripts/stations-from-gtfs.mjs      regeneracja z polish_trains.zip (główne źródło)
+scripts/enrich-station-coords.mjs   geokodowanie Nominatim (zapas dla stacji spoza GTFS)
 fixtures/          ręcznie napisane odpowiedzi API + feedy GTFS do trybu mock
 public/carriers/   logotypy przewoźników (SVG)
 ```
@@ -723,7 +724,10 @@ założeniami z dokumentacji, a teraz są sprawdzone na odpowiedziach API:
   deterministycznie z nazwy (gradient + inicjały); wymiana na prawdziwe zdjęcia
   to jeden komponent (`StationThumb`). Współrzędne (do widżetu pogody) też nie
   pochodzą z API — trzymamy je w lokalnym `data/station-coordinates.json`,
-  regenerowanym skryptem `scripts/enrich-station-coords.mjs`.
+  regenerowanym skryptem `scripts/stations-from-gtfs.mjs` z `polish_trains.zip`
+  (mkuran; `stop_id` stacji = ID PKP PLK, dopasowanie po ID, nie po nazwie; pole
+  `tier` 1–3 = ranga ruchu). Stacje spoza tego feedu zostają z geokodowania
+  `scripts/enrich-station-coords.mjs` (część to `city-fallback` — centroid miejscowości).
 - **Liczba odjazdów/przyjazdów „dzisiaj" pomija pociągi bez dopasowanej trasy.**
   Liczy się z rozkładu (`/schedules`), a wiersz bez dopasowania mimo to trafia
   na tablicę — pojawi się w tablicy, ale nie w liczniku. To ta sama mniejszość

@@ -18,3 +18,7 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+    # Node major follows .nvmrc (CI + engines), bumped deliberately, not by Dependabot.
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]

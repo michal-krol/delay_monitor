@@ -11,6 +11,7 @@ const CITY: CityFeed = {
   alertsUrl: null,
   railStationPrefix: 'Test ',
   timezone: 'Europe/Warsaw',
+  mapCenter: { lat: 52.23, lon: 21.01 },
 }
 
 function fakeSchedule(serviceDates: [string, string, string], dropped = 0): GtfsSchedule {

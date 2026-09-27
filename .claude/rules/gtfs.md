@@ -7,6 +7,7 @@ paths:
   - "src/app/*/map/**"
   - "src/components/{Transit,Line,City,Alert,Mode}*"
   - "src/components/stopName*"
+  - "src/components/map/**"
   - "src/components/transitMode*"
   - "fixtures/gtfs/**"
   - "e2e/gtfs-*"
@@ -86,6 +87,16 @@ paths:
   accumulates a shape ONLY for the winning pattern (line, direction) at load — never per
   request, never for unused `shape_id`s. Missing file / `shape_id` / <2 points → `null`, the
   line page then falls back to a polyline through stops (`MapRoute.points = stops`).
+- **Transport map — zero new fetches.** `/api/gtfs/backbone` (metro and city-rail patterns
+  from `routePatterns`) and `alertLines` in `/api/gtfs/city-vehicles` (line numbers with an
+  active alert, `[]` while AlertPoller isn't ready = no badge) read only memory. Colour on the
+  map = transport mode, never delay; the vehicle card shows position freshness, not
+  „LIVE +N min".
+- **Stops on the map (`/api/gtfs/stops`, `cityStops()`).** From `stops.txt` already in memory,
+  computed once per schedule (`WeakMap`). Metro platforms collapsed to the parent station,
+  rail-only stops skipped (rail = PKP layer). `CityVehicle.nextStop` from the `projectVehicle`
+  projection — stop name, **no arrival time** (it would be timetable-based and pose as a
+  prediction).
 - **Alerts (stage 5b).** `alerts.json` (mkuran) → a separate `AlertPoller` per city, same
   lifecycle as `VehiclePoller` (`onWake`/`onIdle`, 5 min rhythm). The feed doesn't know stops —
   `alertsForRoutes()` matches by `route_short_name`, the only key shared with the timetable.

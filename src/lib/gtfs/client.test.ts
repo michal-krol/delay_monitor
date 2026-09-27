@@ -11,6 +11,7 @@ const CITY: CityFeed = {
   alertsUrl: null,
   railStationPrefix: 'Test ',
   timezone: 'Europe/Warsaw',
+  mapCenter: { lat: 52.23, lon: 21.01 },
 }
 
 const FEED_INFO = Buffer.from('feed_publisher_name,feed_version\nmkuran,2026-09-02:1\n', 'utf8')

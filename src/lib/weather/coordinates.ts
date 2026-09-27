@@ -6,7 +6,10 @@ export type StationCoordinatesEntry = {
   name: string
   lat: number | null
   lon: number | null
-  source: 'station' | 'city-fallback' | 'osm-railway' | 'failed'
+  /** `gtfs` = pozycja stacji z `polish_trains.zip` (`scripts/stations-from-gtfs.mjs`) — najdokładniejsze. */
+  source: 'gtfs' | 'station' | 'city-fallback' | 'osm-railway' | 'failed'
+  /** Ranga ruchu 1 (węzeł) – 3; tylko przy `source: 'gtfs'`. Mapa kraju pokazuje niskie tiery dopiero przy zbliżeniu. */
+  tier?: 1 | 2 | 3
 }
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'station-coordinates.json')
@@ -43,7 +46,7 @@ export async function getStationCoordinates(stationId: string): Promise<{ lat: n
 /**
  * Jak `getStationCoordinates`, ale zwraca cały wpis (z `source`) zamiast
  * samych `lat`/`lon` — `/api/rail-stations` musi wiedzieć, czy pozycja jest
- * realna (`station`/`osm-railway`) czy przybliżona (`city-fallback`), żeby
+ * realna (`gtfs`/`station`/`osm-railway`) czy przybliżona (`city-fallback`), żeby
  * oznaczyć pin wizualnie, zamiast udawać precyzję, której nie ma.
  */
 export async function getStationCoordinatesEntry(stationId: string): Promise<StationCoordinatesEntry | null> {
@@ -52,3 +55,21 @@ export async function getStationCoordinatesEntry(stationId: string): Promise<Sta
   if (entry === undefined || entry.lat === null || entry.lon === null) return null
   return entry
 }
+
+/** Stacja na ogólnopolskiej warstwie kolei mapy. */
+export type MapRailStation = { id: string; name: string; lat: number; lon: number; tier: 1 | 2 | 3 }
+
+/**
+ * Stacje z PRAWDZIWĄ pozycją (bez `city-fallback` — centroid miejscowości
+ * zlepiłby kilka stacji w jeden punkt — i bez `failed`). Liczone raz; plik jest
+ * niezmienny przez życie procesu. Błąd wczytania rzuca, jak wyżej (#7).
+ */
+export const getMapRailStations = once(async (): Promise<MapRailStation[]> => {
+  const all = await loadCoordinates()
+  const stations: MapRailStation[] = []
+  for (const [id, entry] of Object.entries(all)) {
+    if (entry.lat === null || entry.lon === null || entry.source === 'city-fallback' || entry.source === 'failed') continue
+    stations.push({ id, name: entry.name, lat: entry.lat, lon: entry.lon, tier: entry.tier ?? 3 })
+  }
+  return stations
+})
