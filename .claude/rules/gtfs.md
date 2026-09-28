@@ -25,6 +25,19 @@ paths:
   (once/day + idle TTL). GTFS loads **once** (~107 MB, ~3 s parse), then only from memory.
   `/api/gtfs/*` never wait — `ensureLoaded()` fire-and-forget, `getSchedule()` returns `null`
   until ready, the client retries.
+- **Warm-up at process start (`src/instrumentation.ts`).** `register()` (Node runtime only —
+  `process.env.NEXT_RUNTIME === 'nodejs'`, dynamic import) calls `warmUpGtfsPollers()`
+  (`gtfs/instance.ts`) fire-and-forget for every `enabledGtfsCities()` — owner decision: a
+  configured city's schedule is resident from boot (~0.5 GB RSS accepted) instead of waiting
+  for the first viewer. `register()` never awaits the load itself, only the (near-instant)
+  dynamic import — Next.js requires `register()` to complete before the server serves.
+  `createGtfsPoller`'s `keepSchedule` dep (set `true` for every poller created in
+  `instance.ts`, since every poller there is for an enabled — i.e. warmed — city) keeps the
+  schedule, `status` and the hourly `maybeRollDay` reload timer alive past `idleTtlMs`; only
+  `onIdle()` still fires, so the vehicle/alert pollers stop without a viewer (no 24/7 upstream
+  polling for those). Module state (`pollers` Map) is shared between the instrumentation
+  bundle and route handlers — verified empirically (`next build --webpack` + `next start`,
+  `/api/health` before any GTFS request shows the warmed city loading/ready).
 - **Feed fetch timeouts differ by feed.** Vehicles/alerts: 10 s for the whole request. Static
   feed range reads (`client.ts`): the timeout covers only time to response headers, not the
   streamed body — a 107 MB body can legitimately take longer than 30 s; a body stalling

@@ -4,9 +4,18 @@
  * ograniczeniem jest czas parsowania. Błąd konfiguracji PKP nie może wygaszać
  * miast, więc wspólny poller odpada.
  *
- * Budzony LENIWIE (`ensureLoaded()` ≙ `registerInterest()`), nigdy awaitowany
- * w route handlerze. Bez `instrumentation.ts` — hak startowy kazałby każdemu
- * wdrożeniu ładować rozkłady miast, których nikt nie ogląda.
+ * Budzony LENIWIE (`ensureLoaded()` ≙ `registerInterest()`) przez trasy API,
+ * nigdy awaitowany w route handlerze — ale też RAZ, z góry, przez
+ * `instrumentation.ts` (`register()`, fire-and-forget) dla każdego miasta
+ * z `enabledGtfsCities()`: decyzja właściciela, rozkład skonfigurowanego
+ * miasta ma być ciepły od startu procesu (~0.5 GB RSS akceptowane), zamiast
+ * czekać na pierwszego widza. `keepSchedule` w `GtfsPollerDeps` (ustawiane
+ * w `instance.ts` dla każdego pollera — każdy tworzony tam jest dla miasta
+ * z `enabledGtfsCities()`) sprawia, że wygaśnięcie zainteresowania
+ * (`idleTtlMs`) NIE zwalnia rozkładu ani nie zatrzymuje godzinnego timera
+ * przeładowania (`maybeRollDay` dalej działa) — tylko `onIdle()` i tak
+ * odpala, więc poller pozycji pojazdów i alertów przestaje pytać feed bez
+ * widzów (żadnego pollingu 24/7 bez potrzeby).
  */
 import { zonedDateString } from '@/lib/pkp/time'
 import type { CityFeed } from './cities'
@@ -64,6 +73,13 @@ export type GtfsPollerDeps = {
   onWake?: () => void
   /** Wołane gdy timer bezczynności zwalnia rozkład — `instance.ts` zatrzymuje poller pozycji. */
   onIdle?: () => void
+  /**
+   * Rozgrzane przy starcie miasto (`instance.ts`, zawsze `true` — patrz
+   * komentarz nagłówkowy). Wygaśnięcie zainteresowania nadal odpala
+   * `onIdle()`, ale NIE czyści `schedule`/`status`/`reloadTimer` — rozkład
+   * zostaje rezydentny w pamięci na stałe.
+   */
+  keepSchedule?: boolean
 }
 
 /**
@@ -87,6 +103,11 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   let loadInFlight = false
   let lastInterestAt = now()
   let disposed = false
+  // true od `onIdle()` do najbliższego (ponownego) obudzenia — tylko dla
+  // `keepSchedule`, gdzie `status` zostaje 'ready' po wygaśnięciu
+  // zainteresowania, więc zwykła ścieżka `ensureLoaded()` niżej nie odpali
+  // `startLoad()` (a z nim `onWake`) same z siebie.
+  let idleStoppedWithKeptSchedule = false
 
   let reloadTimer: ReturnType<typeof setTimeout> | null = null
   let idleTimer: ReturnType<typeof setTimeout> | null = null
@@ -113,7 +134,9 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
         // inaczej przy `status === 'failed'` poller pozycji zostawał na zawsze.
         idleTimer = null
         deps.onIdle?.()
-        if (schedule !== null) {
+        if (deps.keepSchedule) {
+          if (schedule !== null) idleStoppedWithKeptSchedule = true
+        } else if (schedule !== null) {
           schedule = null
           status = 'idle'
           phase = null
@@ -146,6 +169,7 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   function startLoad(): void {
     if (loadInFlight || disposed) return
     loadInFlight = true
+    idleStoppedWithKeptSchedule = false
     deps.onWake?.()
     if (schedule === null) status = 'loading'
     phase = 'start'
@@ -178,6 +202,15 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
       if (disposed) return
       lastInterestAt = now()
       if (idleTimer === null) scheduleIdleTimer()
+
+      // Widz wraca po wygaśnięciu zainteresowania nad rozkładem trzymanym w
+      // pamięci (`keepSchedule`) — `status` jest wciąż 'ready', więc ścieżki
+      // niżej nie ruszą `startLoad()`. Budzimy poller pozycji/alertów osobno,
+      // bez refetchu ciepłego rozkładu.
+      if (idleStoppedWithKeptSchedule) {
+        idleStoppedWithKeptSchedule = false
+        deps.onWake?.()
+      }
 
       if (status === 'idle' || status === 'failed') {
         startLoad()

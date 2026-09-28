@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   __disposeAllGtfsPollers,
   enabledGtfsCities,
@@ -6,6 +6,7 @@ import {
   peekAlertPoller,
   peekGtfsPoller,
   peekVehiclePoller,
+  warmUpGtfsPollers,
 } from './instance'
 
 afterEach(() => {
@@ -69,5 +70,33 @@ describe('gtfs instance registry', () => {
 
     expect(peekGtfsPoller('warszawa')).toBeNull()
     expect(peekVehiclePoller('warszawa')).toBeNull()
+  })
+})
+
+// Task 1 — rozgrzewka wołana z instrumentation.ts przy starcie procesu.
+describe('warmUpGtfsPollers', () => {
+  afterEach(() => {
+    vi.doUnmock('@/lib/config')
+    vi.resetModules()
+  })
+
+  it('creates a poller per enabled city and starts loading it, fire-and-forget', () => {
+    expect(peekGtfsPoller('warszawa')).toBeNull()
+    warmUpGtfsPollers()
+    const p = peekGtfsPoller('warszawa')
+    expect(p).not.toBeNull()
+    expect(['loading', 'ready']).toContain(p!.getView().state)
+  })
+
+  it('is a no-op when GTFS is disabled', async () => {
+    vi.resetModules()
+    vi.doMock('@/lib/config', () => ({
+      loadConfig: () => ({
+        gtfs: { enabled: false, cities: [], dataSource: 'mock', idleTtlMs: 1, vehiclePollMs: 1, alertPollMs: 1 },
+      }),
+    }))
+    const mod = await import('./instance')
+    mod.warmUpGtfsPollers()
+    expect(mod.peekGtfsPoller('warszawa')).toBeNull()
   })
 })
