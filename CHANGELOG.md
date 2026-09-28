@@ -6,6 +6,15 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+## [1.0.2] — 2026-09-28
+
+### Zmienione
+
+- Wyłącznie narzędzia deweloperskie, bez wpływu na działanie aplikacji: TypeScript 6.0.3
+  i Vitest 5.0.2, szybsze testy jednostkowe (wątki zamiast procesów), kontrola zgodności
+  zainstalowanych zależności z `package-lock.json` przed wypchnięciem zmian oraz czytelny
+  komunikat, gdy brakuje przeglądarek do testów e2e.
+
 ## [1.0.1] — 2026-09-28
 
 ### Zmienione
@@ -328,7 +337,8 @@ Pierwsza wersja funkcjonalna.
 - Tryb jasny i ciemny.
 - Wdrożenie na Railway i bramka jakości w GitHub Actions.
 
-[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.0.1...HEAD
+[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/michal-krol/delay_monitor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/michal-krol/delay_monitor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/michal-krol/delay_monitor/compare/v0.9.10...v1.0.0
 [0.9.10]: https://github.com/michal-krol/delay_monitor/releases/tag/v0.9.10

@@ -1,6 +1,6 @@
 {
   "name": "delay_monitor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "engines": {
     "node": ">=24"
@@ -16,7 +16,8 @@
     "check": "npm run typecheck && npm run lint && npm run test",
     "e2e": "playwright test",
     "vendor:maplibre": "node -e \"const p=require('path'),f=require('fs'),d=p.join(p.dirname(require.resolve('maplibre-gl/package.json')),'dist');for(const n of ['worker','shared'])f.copyFileSync(p.join(d,'maplibre-gl-'+n+'.mjs'),p.join('public','maplibre-gl-'+n+'.mjs'))\"",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "deps:check": "node scripts/deps-check.mjs"
   },
   "comment:overrides": "next przypina postcss 8.5.23 (podatna); wymuszamy bezpieczna wersje zaleznosci przechodniej postcss (build-time, Tailwind). Do usuniecia, gdy Next podniesie postcss u siebie. sharp nie wymaga juz override: next 16.3.6 sam zada ^0.35.4.",
   "overrides": {
@@ -41,13 +42,13 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^5.0.1",
+    "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "eslint-plugin-testing-library": "^7.16.2",
     "jsdom": "^30.1.1",
     "tailwindcss": "^4",
-    "typescript": "^5",
+    "typescript": "^6",
     "vitest": "^5.0.1"
   }
 }
