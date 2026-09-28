@@ -30,17 +30,18 @@ async function loadCityRailStations(city: CityFeed): Promise<CityRailStation[] |
 
 /**
  * Stacje PKP należące do miasta, po prefiksie nazwy (`city.railStationPrefix`).
- * Wydzielone z `/api/cities/route.ts`, żeby `/api/rail-stations` reużywało
- * dokładnie tę samą regułę zamiast drugiej kopii filtra.
+ * Jedyny wywołujący to `/api/cities/route.ts` (rejestr miast na pickerze
+ * Odjazdy/Przyjazdy) -- wydzielone do własnego modułu, żeby domenowa reguła
+ * filtra (prefiks nazwy) była w jednym miejscu, nie w handlerze trasy.
  *
  * Cache'owane 10 min, PER MIASTO -- także wynik awarii wyszukania (`catch`
  * powyżej), jako `null` (nie `[]` -- AGENTS.md #7, „nieznane" ≠ „zero").
- * `/api/rail-stations` jest pollowany co 90 s przez KAŻDĄ otwartą kartę mapy
- * miasta (nowy, automatyczny, cykliczny wywołujący -- inaczej niż
- * `/api/cities`, wołane raz na wczytanie strony), więc bez tej negatywnej
- * pamięci sustained awaria słownika stacji PKP (`fetchAllStations()`
+ * `/api/cities` jest wołane raz na wczytanie strony, ale przez KAŻDĄ otwartą
+ * kartę/zakładkę (mnogość klientów w tym samym oknie 10 min), więc bez tej
+ * negatywnej pamięci sustained awaria słownika stacji PKP (`fetchAllStations()`
  * w `pkp/client.ts` samo nie ma negatywnego cache'u) powtarzałaby próbę
- * `searchStations` przy każdym pollu zamiast raz na 10 minut -- AGENTS.md #3.
+ * `searchStations` przy każdym takim wczytaniu zamiast raz na 10 minut --
+ * AGENTS.md #3.
  */
 export async function resolveCityRailStations(city: CityFeed): Promise<CityRailStation[] | null> {
   const cached = cache.get(city.id)
