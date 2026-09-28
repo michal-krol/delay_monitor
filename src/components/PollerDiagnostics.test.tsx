@@ -90,6 +90,31 @@ describe('PollerDiagnostics', () => {
     expect(await screen.findByText('0 / 100')).toBeInTheDocument()
   })
 
+  it('re-reads /api/health every 15 s and keeps the last state when a refresh fails', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(HEALTHY))
+        .mockImplementationOnce(() => Promise.reject(new Error('boom')))
+        .mockImplementation(() => jsonResponse({ ...HEALTHY, budget: { ...HEALTHY.budget, hourly: 40 } }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<PollerDiagnostics collapsed={false} />)
+      await vi.waitFor(() => expect(screen.getByText('62 / 100')).toBeInTheDocument())
+
+      await vi.advanceTimersByTimeAsync(15_000) // odczyt pada -- zostaje ostatni znany stan
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(screen.getByText('62 / 100')).toBeInTheDocument()
+
+      await vi.advanceTimersByTimeAsync(15_000) // ponowienie po błędzie w tym samym rytmie
+      await vi.waitFor(() => expect(screen.getByText('40 / 100')).toBeInTheDocument())
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('reports the slower pace when the poller has throttled itself', async () => {
     stubHealth({ ...HEALTHY, throttled: true, intervalMs: 300000, pollerStatus: 'degraded' })
 

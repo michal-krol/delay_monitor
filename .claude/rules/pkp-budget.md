@@ -17,8 +17,10 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
   poller permanently onto the emergency interval).
 - **Outside the poller cycle, count separately:**
   - `/api/train` — synchronous fetch when clicking a train not yet seen, plus a background
-    refresh while the connection page stays open (every 5 min + on focus/visibility, throttled
-    to 90 s — same 90 s response cache makes a tighter poll pointless anyway). Layered caches
+    refresh while the connection page stays open (`usePolling`, every 5 min on a visible tab
+    only; a tick that fell due while the tab was hidden fires once on return; no fetch on window
+    focus; a failed background refresh retries after 5 min — the 90 s response cache makes a
+    tighter poll pointless anyway). Layered caches
     (`createTtlCache()`): 90 s response cache (route.ts), 24 h route cache inside
     `getTrainDetail` (`client.ts` `fetchRoute` — the operation/realization call is never
     cached, only the static schedule route), 10 min "not found" cache for a PKP 404 so a
@@ -31,7 +33,7 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
     calls PKP; only starting a genuine new fetch does. The last `FOREGROUND_RESERVE = 7` misses
     of the hour are reserved for foreground requests (first load or a user-initiated retry —
     `background` query param absent or not exactly `'1'`); a background refresh (interval,
-    focus, visibility — `background=1`) gets a 503 once the count reaches
+    return-to-tab — `background=1`) gets a 503 once the count reaches
     `HOURLY_MISS_CAP − FOREGROUND_RESERVE`, so a page left open in a background tab can't starve
     a new user's first click. Allowed background misses still count toward the same counter.
     Arithmetic: one miss costs 2 PKP requests when the 24 h route cache is already warm for

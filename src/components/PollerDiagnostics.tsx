@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { STATUS_TEXT } from './DelayBadge'
+import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { InfoTooltip } from './InfoTooltip'
 import type { RateLimitBudget } from '@/lib/pkp/client'
 import type { PollerDiagnostics as FeedDiagnostics, PollerStatus } from '@/lib/board/poller'
@@ -68,7 +68,7 @@ function formatBudget(remaining: number | null, limit: number | null): string {
  * (`src/lib/format.ts`) — ten wrapper dokłada tylko `null` i przeliczenie
  * ISO+`nowMs` na sekundy.
  */
-function formatAge(iso: string | null, nowMs: number): string {
+function formatFeedAge(iso: string | null, nowMs: number): string {
   if (iso === null) return '—'
   const seconds = Math.max(0, Math.round((nowMs - new Date(iso).getTime()) / 1000))
   return formatAgo(seconds)
@@ -104,7 +104,7 @@ function FeedRow({
       </span>
       <span className="font-medium tabular-nums">
         {records}
-        {suffix ?? ''} · {formatAge(health.lastSuccessAt, nowMs)}
+        {suffix ?? ''} · {formatFeedAge(health.lastSuccessAt, nowMs)}
       </span>
     </div>
   )
@@ -187,35 +187,16 @@ function DiagnosticsLegend() {
 }
 
 function Panel() {
-  const [health, setHealth] = useState<Health | null>(null)
-  const [fetchedAtMs, setFetchedAtMs] = useState(() => Date.now())
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function tick(): Promise<void> {
-      try {
-        const response = await fetch('/api/health')
-        if (!response.ok) throw new Error(String(response.status))
-        const json = (await response.json()) as Health
-        if (!cancelled) {
-          setHealth(json)
-          // Znacznik odczytu, od którego liczymy wiek każdego źródła.
-          setFetchedAtMs(Date.now())
-        }
-      } catch {
-        // Panel deweloperski nie ma prawa wywrócić paska bocznego — przy
-        // awarii zostaje ostatni znany stan (albo brak wartości), bez alarmu.
-      }
-    }
-
-    void tick()
-    const timer = setInterval(() => void tick(), REFRESH_MS)
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [])
+  // Panel deweloperski nie ma prawa wywrócić paska bocznego — błąd (`error`)
+  // jest celowo ignorowany: przy awarii zostaje ostatni znany stan (albo brak
+  // wartości), bez alarmu.
+  const { data: health, lastSuccessAt } = usePolling<Health>('health', () => fetchJson<Health>('/api/health'), {
+    refreshMs: REFRESH_MS,
+  })
+  // Znacznik odczytu, od którego liczymy wiek każdego źródła. Sekcje z wiekiem
+  // renderują się dopiero, gdy `health` istnieje, czyli po pierwszym sukcesie —
+  // `0` z `??` nigdy nie trafia na ekran.
+  const fetchedAtMs = lastSuccessAt ?? 0
 
   const budget = health?.budget ?? null
   // Chwila ostatniego odczytu, nie żywy zegar: wiek odświeża się co REFRESH_MS
@@ -282,7 +263,7 @@ function Panel() {
                odpowiada na pytanie „czy oni w ogóle publikują". */
             <Row
               label="Dane PKP"
-              value={formatAge(health.feeds.dataVersion.timestamp, nowMs)}
+              value={formatFeedAge(health.feeds.dataVersion.timestamp, nowMs)}
               color={STATUS_TEXT.delayed}
             />
           )}
@@ -330,7 +311,7 @@ function GtfsSection({
             {id}
           </span>
           <span className="font-medium tabular-nums">
-            {city.feedVersion ?? '—'} · {formatAge(city.loadedAt, nowMs)}
+            {city.feedVersion ?? '—'} · {formatFeedAge(city.loadedAt, nowMs)}
           </span>
         </div>
       ))}

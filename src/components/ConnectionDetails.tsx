@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
@@ -12,6 +12,7 @@ import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatAge, formatClockTime, formatDuration } from '@/lib/format'
+import { usePolling } from '@/hooks/usePolling'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { AsideCard } from './aside'
@@ -103,18 +104,45 @@ const NOTABLE_STOP_MINUTES = 3
 const COUNTDOWN_TICK_MS = 30_000
 
 /**
- * Najkrótszy odstęp między pobraniami `/api/train` w tle. Poniżej tego i tak
- * trafiłoby w 90 s cache trasy po stronie serwera (`src/app/api/train/route.ts`),
- * więc szybciej nie ma po co pytać PKP (AGENTS.md #3).
- */
-const MIN_BACKGROUND_REFRESH_MS = 90_000
-
-/**
- * Powolny timer dociągania danych w tle — tylko gdy karta jest widoczna i pociąg
- * jeszcze jedzie. Rzadki, bo główny sygnał to powrót na kartę / focus okna; ten
- * timer łapie tylko przypadek „patrzę na stronę bez przerwy 10+ min".
+ * Odstęp między odświeżeniami `/api/train` w tle -- tylko gdy karta jest
+ * widoczna (pauzę na ukrytej karcie i wznowienie po powrocie robi `usePolling`)
+ * i pociąg jeszcze jedzie. Cache `/api/train` po stronie serwera trzyma 90 s,
+ * więc częściej nie ma sensu pytać PKP (AGENTS.md #3).
  */
 const BACKGROUND_REFRESH_MS = 5 * 60_000
+
+/** Komunikat, gdy serwer nie podał własnego (błąd sieci, nie-JSON, 5xx bez treści). */
+const GENERIC_ERROR = 'Nie udało się pobrać szczegółów połączenia.'
+
+/**
+ * Jedno pobranie `/api/train`. Błąd niesie komunikat SERWERA (np. limit
+ * godzinowy PKP, route.ts) albo `GENERIC_ERROR` -- `usePolling` przekazuje
+ * `Error.message` dalej, więc przeżywa ponowienia w tle. `background=1`
+ * dostaje tylko dociąganie w tle, nigdy pierwsze wczytanie: serwer rezerwuje
+ * ostatnie sloty godzinowego limitu wyłącznie dla żądań BEZ tego parametru.
+ */
+async function fetchTrainDetail(
+  scheduleId: string,
+  orderId: string,
+  operatingDate: string,
+  background: boolean
+): Promise<TrainDetailApiResponse> {
+  const params = new URLSearchParams({ scheduleId, orderId, operatingDate })
+  if (background) params.set('background', '1')
+  const response = await fetch(`/api/train?${params}`).catch(() => null)
+  if (response === null) throw new Error(GENERIC_ERROR)
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null)
+    const serverMessage =
+      body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
+        ? body.error
+        : null
+    throw new Error(serverMessage ?? GENERIC_ERROR)
+  }
+  const json: unknown = await response.json().catch(() => null)
+  if (json === null) throw new Error(GENERIC_ERROR)
+  return json as TrainDetailApiResponse
+}
 
 const formatTime = formatClockTime
 
@@ -179,114 +207,37 @@ function MetaItem({
 }
 
 export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLabel, onLabelResolved }: Props) {
-  const [status, setStatus] = useState<Status>('loading')
-  const [data, setData] = useState<TrainDetailApiResponse | null>(null)
-  // Komunikat serwera dla PIERWSZOPLANOWEGO błędu 503 (limit godzinowy PKP,
-  // patrz route.ts) -- pokazujemy go zamiast ogólnego „Spróbuj odświeżyć
-  // stronę", bo tamten sugeruje, że odświeżenie coś zmieni, a tu i tak trafi
-  // w ten sam limit. `null` = błąd innego rodzaju, generyczny komunikat.
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  // Wejście = fetch, a potem dociąganie co `BACKGROUND_REFRESH_MS` na widocznej
+  // karcie (AGENTS.md #3) -- inaczej marker „Pociąg jest tutaj", opóźnienia i
+  // statusy zostałyby zamrożone z chwili wczytania. Cichy tryb w tle: bez
+  // szkieletu, a błąd nie gasi działającej strony (#7). Kończy się, gdy pociąg
+  // dojedzie do stacji końcowej (`isDone`). Powrót na kartę odświeża tylko
+  // wtedy, gdy tik minął w ukryciu -- zero fokusa okna, zero dodatkowego kosztu.
+  const { data, error, lastSuccessAt } = usePolling<TrainDetailApiResponse>(
+    JSON.stringify([scheduleId, orderId, operatingDate]),
+    ({ background }) => fetchTrainDetail(scheduleId, orderId, operatingDate, background),
+    { refreshMs: BACKGROUND_REFRESH_MS, isDone: (json) => isJourneyOver(json.stops) }
+  )
+  // Baner błędu tylko wtedy, gdy nie mamy jeszcze CZEGO pokazać. Nieudany
+  // refetch (dowolny status, w tym 503 limitu) zostawia ostatni dobry stan,
+  // CICHO (AGENTS.md #7) -- ale „cicho" ≠ „bez śladu": `backgroundRefreshFailed`
+  // pozwala wskaźnikowi wieku pokazać się zaraz po nieudanej próbie, gdy dane
+  // wg zegara są jeszcze świeże.
+  const status: Status = data !== null ? 'ready' : error !== null ? 'error' : 'loading'
+  const backgroundRefreshFailed = data !== null && error !== null
   const [now, setNow] = useState(() => Date.now())
-  // Chwila ostatniego SUKCESU (nie próby) -- baza do „Dane sprzed {N} min".
-  // `null` tylko przed pierwszym wczytaniem (wtedy i tak nie ma jeszcze `data`).
-  const [lastSuccessAt, setLastSuccessAt] = useState<number | null>(null)
-  // Ostatnie dociąganie w tle padło i jeszcze nie zastąpiło go kolejny sukces
-  // -- niezależne od samego wieku danych, bo zaraz po nieudanym odświeżeniu
-  // dane mogą wciąż być świeże wg zegara, a mimo to wiadomo, że próba się nie
-  // powiodła (AGENTS.md #7: "nie udało się sprawdzić" ≠ cisza).
-  const [backgroundRefreshFailed, setBackgroundRefreshFailed] = useState(false)
   const { share, copied } = useShareUrl()
   // Pogoda punktu startu trasy — `stops[0]` to stacja początkowa (`stationId`
   // to identyfikator PKP, ten sam, którym kluczuje `/api/weather`). Pusty ciąg
   // przed odpowiedzią = hook nie bije w API (AGENTS.md #3).
   const originWeather = useStationWeather(data?.stops[0]?.stationId ?? '')
-  // Do sprawdzenia „czy jest jeszcze co odświeżać" wewnątrz efektu bez trzymania
-  // `data` w jego zależnościach — inaczej każdy refetch przepinałby listenery.
-  const dataRef = useRef<TrainDetailApiResponse | null>(null)
 
-  // Wejście = jednorazowy fetch, a strona żyje potem tylko licznikiem „za ile"
-  // (AGENTS.md #3) — więc marker „Pociąg jest tutaj", opóźnienia i statusy
-  // zostają zamrożone z chwili wczytania. Dociągamy je w tle: przy powrocie na
-  // kartę / focusie okna oraz powolnym timerem, ale nie częściej niż co
-  // `MIN_BACKGROUND_REFRESH_MS` (cache `/api/train` i tak trzyma 90 s) i nie po
-  // dojechaniu pociągu do stacji końcowej. Odświeżenie w tle jest CICHE — nie
-  // pokazuje szkieletu i nie wygasza działającej strony przy błędzie (#7).
+  // Każda próba (udana lub nie) odświeża `now`, żeby wiek danych liczył się od
+  // chwili próby, nie od ostatniego tiku zegara odliczania (patrz niżej).
   useEffect(() => {
-    let cancelled = false
-    let lastFetchAt = 0
-
-    async function load(mode: 'initial' | 'background'): Promise<void> {
-      if (mode === 'background' && Date.now() - lastFetchAt < MIN_BACKGROUND_REFRESH_MS) return
-      lastFetchAt = Date.now()
-      try {
-        const params = new URLSearchParams({ scheduleId, orderId, operatingDate })
-        // Tylko dociąganie w tle niesie ten parametr -- pierwsze wczytanie i
-        // (gdyby powstał) ręczny retry zawsze są pierwszoplanowe. Serwer
-        // (route.ts) rezerwuje ostatnie sloty godzinowego limitu wyłącznie dla
-        // żądań BEZ tego parametru, żeby karta zostawiona otwarta w tle nie
-        // zjadła całego budżetu przed pierwszym kliknięciem nowego użytkownika.
-        if (mode === 'background') params.set('background', '1')
-        const response = await fetch(`/api/train?${params}`)
-        if (!response.ok) {
-          // Komunikat serwera tylko dla PIERWSZOPLANOWEGO błędu -- baner na
-          // nieudanym dociąganiu w tle nigdy się nie pokazuje (patrz niżej),
-          // więc nie ma po co go tam czytać.
-          if (mode === 'initial') {
-            const body: unknown = await response.json().catch(() => null)
-            const serverMessage =
-              body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
-                ? body.error
-                : null
-            setErrorMessage(serverMessage)
-          }
-          throw new Error(`Błąd odpowiedzi: ${response.status}`)
-        }
-        const json = (await response.json()) as TrainDetailApiResponse
-        if (cancelled) return
-        dataRef.current = json
-        setData(json)
-        setStatus('ready')
-        // Świeży sukces -- zeguj i zgaś ewentualny wskaźnik wieku z
-        // wcześniejszej nieudanej próby w tle (patrz `backgroundRefreshFailed`).
-        const successAt = Date.now()
-        setLastSuccessAt(successAt)
-        setNow(successAt)
-        setBackgroundRefreshFailed(false)
-      } catch {
-        // Baner błędu tylko wtedy, gdy nie mamy jeszcze CZEGO pokazać. Nieudany
-        // refetch (dowolny status, w tym 503 limitu) zostawia ostatni dobry
-        // stan, CICHO -- karta w tle nigdy nie zgasza działającej strony
-        // błędem (AGENTS.md #7). Ale „cicho" ≠ „bez śladu": zaznaczamy, że
-        // ostatnia próba w tle padła, żeby wiek danych mógł się pokazać.
-        if (cancelled) return
-        if (mode === 'initial') {
-          setStatus('error')
-        } else {
-          setBackgroundRefreshFailed(true)
-          setNow(Date.now())
-        }
-      }
-    }
-
-    function backgroundRefresh(): void {
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-      if (isJourneyOver(dataRef.current?.stops ?? [])) return
-      void load('background')
-    }
-
-    void load('initial')
-
-    document.addEventListener('visibilitychange', backgroundRefresh)
-    window.addEventListener('focus', backgroundRefresh)
-    const timer = window.setInterval(backgroundRefresh, BACKGROUND_REFRESH_MS)
-
-    return () => {
-      cancelled = true
-      document.removeEventListener('visibilitychange', backgroundRefresh)
-      window.removeEventListener('focus', backgroundRefresh)
-      window.clearInterval(timer)
-    }
-  }, [scheduleId, orderId, operatingDate])
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronizacja zegara z zewnętrznym zdarzeniem (wynik odpytania), nie stan pochodny
+    setNow(Date.now())
+  }, [lastSuccessAt, error])
 
   // Własny zegar wyłącznie na potrzeby „za ile" w nagłówku. `/api/train` to
   // jednorazowy fetch po kliknięciu (AGENTS.md #3), więc bez tego odliczanie
@@ -409,12 +360,12 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
       {status === 'error' && (
         <div className="glass rounded-2xl p-6">
           <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">
-            {errorMessage ?? 'Nie udało się pobrać szczegółów połączenia.'}
+            {error}
           </p>
           {/* Komunikat serwera (np. limit godzinowy PKP) już mówi, co zrobić --
               drugi generyczny akapit dublowałby to, albo sugerowałby, że
               odświeżenie strony pomoże, gdy w rzeczywistości trafi w ten sam limit. */}
-          {errorMessage === null && (
+          {error === GENERIC_ERROR && (
             <p className="mt-1 text-sm text-text-secondary">
               Ten widok pobiera dane przy każdym otwarciu i nie ma zapisanej wcześniejszej wersji do pokazania. Spróbuj
               odświeżyć stronę.
