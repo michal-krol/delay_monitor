@@ -6,6 +6,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+## [1.0.1] — 2026-09-28
+
 ### Zmienione
 
 - Szybsze odpowiedzi widoków komunikacji miejskiej (statystyki miasta, tablica
@@ -15,7 +17,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Zawieszone połączenie z serwerem danych GTFS nie blokuje już odświeżania
   pozycji pojazdów i alertów (rezygnacja po 10 s); pobieranie pełnego rozkładu
   czeka najwyżej 30 s na pierwszą odpowiedź serwera.
-- Biblioteka map MapLibre GL JS zaktualizowana z 6.9.0 do 6.11.1 (wraz z dołączonymi
+- Biblioteka map MapLibre GL JS zaktualizowana z 6.9.0 do 6.11.2 (wraz z dołączonymi
   kopiami skryptów wątku roboczego mapy).
 - Dziennik serwera ostrzega o niepełnej liście pociągów tylko wtedy, gdy pobieranie
   kolejnych stron danych o realizacji faktycznie zostało przerwane (limit stron lub
@@ -326,6 +328,7 @@ Pierwsza wersja funkcjonalna.
 - Tryb jasny i ciemny.
 - Wdrożenie na Railway i bramka jakości w GitHub Actions.
 
-[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.0.0...HEAD
+[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/michal-krol/delay_monitor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/michal-krol/delay_monitor/compare/v0.9.10...v1.0.0
 [0.9.10]: https://github.com/michal-krol/delay_monitor/releases/tag/v0.9.10
