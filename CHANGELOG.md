@@ -25,6 +25,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Rejestr miast jest pobierany raz na stronę we wszystkich widokach i sprawdzany; błędny wpis
   nie psuje już całej listy miast.
 
+### Naprawione
+
+- Gdy źródło rozkładu komunikacji miejskiej jest niedostępne, serwer nie próbuje go pobierać
+  ponownie przy każdym odświeżeniu otwartych widoków — kolejne próby są coraz rzadsze
+  (od 30 sekund do godziny), a po udanym pobraniu wszystko wraca do normy.
+
 ## [1.0.2] — 2026-09-28
 
 ### Zmienione
