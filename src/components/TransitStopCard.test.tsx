@@ -48,6 +48,18 @@ describe('TransitStopCard', () => {
     expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
   })
 
+  it('shows the failed message, not the empty one, when the server failed to load the schedule', () => {
+    useTransitBoard.mockReturnValue({
+      data: { schedule: { state: 'failed' }, stops: [], attribution: [] },
+      error: null,
+      loading: false,
+      failed: true,
+    })
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
+    expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
+  })
+
   it('shows loading, not the empty message, while GTFS is still loading', () => {
     useTransitBoard.mockReturnValue({
       data: { stops: [null], schedule: { state: 'loading' }, attribution: [] },
