@@ -145,6 +145,64 @@ describe('usePolling', () => {
     expect(fetcherA).not.toHaveBeenCalled()
   })
 
+  it('keepPreviousData keeps the old key data until the new key delivers its first result', async () => {
+    let resolveB: (v: { value: string }) => void = () => {}
+    const fetcherA = vi.fn().mockResolvedValue({ value: 'a' })
+    const fetcherB = vi.fn().mockImplementation(() => new Promise((resolve) => (resolveB = resolve)))
+    const { result, rerender } = renderHook(
+      ({ key, fetcher }) => usePolling(key, fetcher, { refreshMs: 30_000, keepPreviousData: true }),
+      { initialProps: { key: 'a', fetcher: fetcherA } }
+    )
+    await vi.waitFor(() => expect(result.current.data).toEqual({ value: 'a' }))
+    const successA = result.current.lastSuccessAt
+
+    rerender({ key: 'b', fetcher: fetcherB })
+    // Stare dane zostają (bez mrugnięcia widoku), dopóki nie przyjdzie pierwszy wynik nowego klucza.
+    expect(result.current.data).toEqual({ value: 'a' })
+    expect(result.current.lastSuccessAt).toBe(successA)
+
+    resolveB({ value: 'b' })
+    await vi.waitFor(() => expect(result.current.data).toEqual({ value: 'b' }))
+  })
+
+  it('keepPreviousData keeps the old data with error set when the new key fails first', async () => {
+    const fetcherA = vi.fn().mockResolvedValue({ value: 'a' })
+    const fetcherB = vi.fn().mockRejectedValue(new Error('boom'))
+    const { result, rerender } = renderHook(
+      ({ key, fetcher }) => usePolling(key, fetcher, { refreshMs: 30_000, keepPreviousData: true }),
+      { initialProps: { key: 'a', fetcher: fetcherA } }
+    )
+    await vi.waitFor(() => expect(result.current.data).toEqual({ value: 'a' }))
+
+    rerender({ key: 'b', fetcher: fetcherB })
+    await vi.waitFor(() => expect(result.current.error).toBe('boom'))
+    expect(result.current.data).toEqual({ value: 'a' })
+  })
+
+  it('keepPreviousData still resets when the key becomes null', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ value: 'a' })
+    const { result, rerender } = renderHook(
+      ({ key }: { key: string | null }) => usePolling(key, fetcher, { refreshMs: 30_000, keepPreviousData: true }),
+      { initialProps: { key: 'a' as string | null } }
+    )
+    await vi.waitFor(() => expect(result.current.data).toEqual({ value: 'a' }))
+
+    rerender({ key: null })
+    await vi.waitFor(() => expect(result.current.data).toBeNull())
+  })
+
+  it('without an errorRetryMs a failed fetch retries at refreshMs, not sooner', async () => {
+    const fetcher = vi.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValue({ ok: true })
+    renderHook(() => usePolling('k', fetcher, { refreshMs: 300_000 }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(29_000) // bez błędnego skrótu do 30 s
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(271_000) // razem 300 s
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
   it('a null key means idle: no fetch, data reset', () => {
     const fetcher = vi.fn().mockResolvedValue({ ok: true })
     const { result } = renderHook(() => usePolling(null, fetcher, { refreshMs: 30_000 }))

@@ -76,6 +76,44 @@ describe('useTransitBoard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił od razu (bez czekania na kolejny tick)
   })
 
+  it('keeps the previous board while a switched member is being fetched (map pins and popup must not vanish)', async () => {
+    const fetchMock = vi.fn().mockImplementation(ready)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ member }: { member: string | null }) => useTransitBoard('warszawa', ['1001'], 20, member), {
+      initialProps: { member: null as string | null },
+    })
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+    const before = result.current.data
+
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {})) // odpowiedź dla nowego słupka jeszcze nie wróciła
+    rerender({ member: '01' })
+    expect(result.current.data).toBe(before)
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('does not show another stop\'s board under a new stop id while its response is in flight', async () => {
+    const withStop = (stopId: string) => () =>
+      jsonResponse({
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: null, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ stopId }],
+        attribution: [],
+      })
+    const fetchMock = vi.fn().mockImplementation(withStop('1001'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ stopId }: { stopId: string }) => useTransitBoard('warszawa', [stopId]), {
+      initialProps: { stopId: '1001' },
+    })
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+    rerender({ stopId: '2002' })
+    expect(result.current.data).toBeNull() // nie „przystanek 1001 pod nazwą 2002"
+    expect(result.current.loading).toBe(true)
+  })
+
   // Trójstan `loading`/`failed` — jedna implementacja dla TransitStopDetail i
   // TransitStopCard (AGENTS.md #2, #7). Przeniesione tu z komponentów (były
   // zduplikowane, patrz task-4 fix round 1).

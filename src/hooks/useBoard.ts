@@ -98,12 +98,20 @@ function stillLoading(json: BoardApiResponse): boolean {
 }
 
 export function useBoard(stationIds: string[]) {
-  // Klucz = lista stacji: zmiana stacji pokazuje stan ładowania, nie wiersze poprzedniej stacji.
+  // Klucz = lista stacji. `keepPreviousData`: dodanie/usunięcie ulubionej nie zeruje kart
+  // pulpitu do czasu nowej odpowiedzi (Dashboard łączy snapshoty po id stacji).
   const key = stationIds.length === 0 ? null : stationIds.join(',')
-  const { data, error } = usePolling<BoardApiResponse>(key, () => fetchJson(`/api/board?stations=${encodeURIComponent(key ?? '')}`), {
+  const { data: polled, error } = usePolling<BoardApiResponse>(key, () => fetchJson(`/api/board?stations=${encodeURIComponent(key ?? '')}`), {
     refreshMs: REFRESH_INTERVAL_MS,
     ladderMs: FAST_RETRY_DELAYS_MS,
     isLoading: stillLoading,
+    keepPreviousData: true,
   })
+  // Poprzednie snapshoty mają sens tylko dla pokrywającego się zestawu; rozłączny (np. `FullBoard`
+  // po zmianie stacji) wraca do „ładowania", nie do wierszy innej stacji. Odpowiedź bez snapshotów
+  // (`configError`, zimny start) niesie tylko status -- ten zostaje.
+  const received = polled?.snapshots.filter((s) => s !== null) ?? []
+  const stale = received.length > 0 && !received.some((s) => stationIds.includes(s.stationId))
+  const data = stale ? null : polled
   return { data, error }
 }

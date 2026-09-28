@@ -16,6 +16,13 @@ export type UsePollingOptions<T> = {
   /** `true` = obserwacja skończona (np. pociąg dojechał) -- koniec odpytywania do zmiany klucza. */
   isDone?: (data: T) => boolean
   initialData?: T
+  /**
+   * `true` = przy zmianie klucza (nie-`null` -> nie-`null`) hook zwraca dane
+   * (i `lastSuccessAt`) poprzedniego klucza do pierwszego wyniku nowego;
+   * pierwszy błąd nowego klucza też ich nie kasuje. `key -> null` zawsze resetuje.
+   * Domyślnie `false` -- nowy klucz zaczyna od `initialData`.
+   */
+  keepPreviousData?: boolean
 }
 
 export type UsePollingResult<T> = {
@@ -37,16 +44,13 @@ export async function fetchJson<T>(url: string): Promise<T> {
 type InternalState<T> = { key: string | null; data: T | null; error: string | null; lastSuccessAt: number | null }
 
 /**
- * Jeden wspólny silnik odpytywania: klucz + fetcher + drabinka ponowień +
- * pauza na ukrytej karcie -- docelowo zastępuje ręcznie powielony wzorzec
- * `setTimeout` + `document.hidden` w `useBoard`, `useTransitBoard`,
- * `useCityStats` i innych (plan PR 5, zadanie 3).
+ * Wspólny silnik odpytywania: klucz + fetcher + drabinka ponowień + pauza na
+ * ukrytej karcie.
  *
  * `key === null` = obserwacja wyłączona: dane resetują się do `initialData`,
  * hook nic nie odpytuje. Drabinka NIGDY się nie poddaje -- po jej wyczerpaniu
  * ponawia w rytmie `refreshMs` (albo ostatniego stopnia drabinki, gdy
- * `refreshMs` to `null`); wcześniej część widoków po prostu przestawała
- * ponawiać po ~34 s, co jest błędem usuwanym przez ten hook.
+ * `refreshMs` to `null`).
  */
 export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext) => Promise<T>, options: UsePollingOptions<T>): UsePollingResult<T> {
   const [state, setState] = useState<InternalState<T>>({
@@ -114,8 +118,8 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
         if (cancelled) return
         const message = err instanceof Error ? err.message : 'Nieznany błąd'
         setState((s) =>
-          s.key === key
-            ? { ...s, error: message } // ten sam klucz -- zachowaj ostatnie dobre dane (AGENTS.md #7)
+          s.key === key || (opts.keepPreviousData === true && s.key !== null)
+            ? { ...s, key, error: message } // ten sam klucz (albo keepPreviousData) -- zachowaj ostatnie dobre dane (AGENTS.md #7)
             : { key, data: opts.initialData ?? null, error: message, lastSuccessAt: null } // nowy klucz, jeszcze bez sukcesu -- nie przeciekają dane starego
         )
         schedule(opts.errorRetryMs ?? opts.refreshMs ?? DEFAULT_ERROR_RETRY_MS)
@@ -140,6 +144,12 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
     }
   }, [key])
 
-  if (state.key !== key) return { data: options.initialData ?? null, error: null, lastSuccessAt: null }
+  if (state.key !== key) {
+    // Nowy klucz, efekt jeszcze nie zapisał wyniku: z keepPreviousData pokazujemy dane starego (o ile był).
+    if (options.keepPreviousData === true && key !== null && state.key !== null) {
+      return { data: state.data, error: null, lastSuccessAt: state.lastSuccessAt }
+    }
+    return { data: options.initialData ?? null, error: null, lastSuccessAt: null }
+  }
   return { data: state.data, error: state.error, lastSuccessAt: state.lastSuccessAt }
 }

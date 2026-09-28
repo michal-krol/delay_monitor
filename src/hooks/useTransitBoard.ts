@@ -62,17 +62,24 @@ const REFRESH_INTERVAL_MS = 30000
 
 export function useTransitBoard(city: string | null, stopIds: string[], limit = 20, member: string | null = null) {
   const stopsKey = stopIds.join(',')
-  // Klucz obejmuje wszystko, co wchodzi do URL-a -- zmiana słupka/limitu pokazuje ładowanie, nie stare odjazdy.
+  // Klucz obejmuje wszystko, co wchodzi do URL-a; `keepPreviousData` -- przełączenie słupka nie
+  // zdejmuje pinów mapy ani podglądu w popupie (budowane z `data.stops[].members`) przed nową odpowiedzią.
   const key = city === null || stopIds.length === 0 ? null : JSON.stringify([city, stopsKey, limit, member])
-  const { data, error } = usePolling<TransitBoardResponse>(
+  const { data: polled, error } = usePolling<TransitBoardResponse>(
     key,
     () =>
       fetchJson(
         `/api/gtfs/board?city=${encodeURIComponent(city as string)}&stops=${stopsKey}&limit=${limit}` +
           (member !== null ? `&member=${encodeURIComponent(member)}` : '')
       ),
-    { refreshMs: REFRESH_INTERVAL_MS, isLoading: (json) => json.schedule.state === 'loading' }
+    { refreshMs: REFRESH_INTERVAL_MS, isLoading: (json) => json.schedule.state === 'loading', keepPreviousData: true }
   )
+
+  // `keepPreviousData` ma chronić tylko przełączenie słupka/limitu tego samego zestawu
+  // przystanków; odpowiedź o INNYCH przystankach (albo mieście) nigdy nie może udawać
+  // odpowiedzi na nowe pytanie -- wtedy wracamy do „ładowania".
+  const data =
+    polled !== null && polled.city === city && polled.stops.every((stop) => stop === null || stopIds.includes(stop.stopId)) ? polled : null
 
   // Trójstan wspólny dla każdego widoku tablicy miejskiej (TransitStopDetail,
   // TransitStopCard — AGENTS.md #2, jedna implementacja per regułę domenową).
