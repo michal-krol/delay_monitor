@@ -5,7 +5,7 @@ import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
 import { TopBar } from '@/components/TopBar'
-import { CityPicker, type CityOption } from '@/components/CityPicker'
+import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { CloseIcon, MapIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
@@ -35,6 +35,7 @@ import {
   type NearbyPoint,
   type VisibleItem,
 } from '@/components/map/mapData'
+import { useCities } from '@/hooks/useCities'
 import { useCityStops } from '@/hooks/useCityStops'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
@@ -101,7 +102,7 @@ export default function CityMapPage() {
   const feed = CITY_ID_PATTERN.test(city) ? getCity(city) : null
   if (feed === null) notFound()
 
-  const [cities, setCities] = useState<CityOption[]>([])
+  const { cities } = useCities()
   const [hidden, setHidden] = useState<Set<LayerKey>>(() => new Set())
   const [routeParam, setRouteParam] = useState<string | null>(null)
   const [directionId, setDirectionId] = useState(0)
@@ -152,19 +153,6 @@ export default function CityMapPage() {
     },
     [city]
   )
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities: CityOption[] }) => {
-        if (!cancelled) setCities(body.cities)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // `?line=` to `routeId`; stare linki niosły numer linii („20") — dopasowujemy go dokładnie.
   const line = useMemo(() => {

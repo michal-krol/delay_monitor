@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
+import { useCities } from '@/hooks/useCities'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { TopBar } from '@/components/TopBar'
-import { CityPicker, type CityOption } from '@/components/CityPicker'
+import { CityPicker } from '@/components/CityPicker'
 import { ModeFilter, type ModeValue } from '@/components/ModeFilter'
 import { LineGrid } from '@/components/LineGrid'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
@@ -34,22 +35,9 @@ export default function CityLinesPage() {
     notFound()
   }
 
-  const [cities, setCities] = useState<CityOption[]>([])
+  const { cities } = useCities()
   const [mode, setMode] = useState<ModeValue>('all')
   const [query, setQuery] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities: CityOption[] }) => {
-        if (!cancelled) setCities(body.cities)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
   const { data, error } = usePolling<LinesResponse>(city, () => fetchJson(`/api/gtfs/lines?city=${encodeURIComponent(city)}`), {

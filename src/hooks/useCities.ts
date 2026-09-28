@@ -2,17 +2,32 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-export type CityEntry = {
-  id: string
-  name: string
-  railStations: { id: string; name: string }[]
-  railStationsUnknown?: boolean
-}
+import { z } from 'zod'
+
+/** Odpowiedź serwera to dane spoza aplikacji — schemat, nie asercja typu (AGENTS.md #4). Dodatkowe pola są odrzucane. */
+const cityEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  railStations: z.array(z.object({ id: z.string(), name: z.string() })),
+  railStationsUnknown: z.boolean().optional(),
+})
+
+export type CityEntry = z.infer<typeof cityEntrySchema>
 
 type CitiesState = 'loading' | 'failed' | 'ready'
 
-function isCitiesBody(value: unknown): value is { cities: CityEntry[] } {
-  return typeof value === 'object' && value !== null && Array.isArray((value as { cities?: unknown }).cities)
+/**
+ * Ciało bez tablicy `cities` = błąd (`null`); pojedynczy zły element jest
+ * pomijany, poprawne zostają — jedno uszkodzone miasto nie ma zerować pickera.
+ */
+function parseCities(body: unknown): CityEntry[] | null {
+  if (typeof body !== 'object' || body === null) return null
+  const { cities } = body as { cities?: unknown }
+  if (!Array.isArray(cities)) return null
+  return cities.flatMap((element) => {
+    const parsed = cityEntrySchema.safeParse(element)
+    return parsed.success ? [parsed.data] : []
+  })
 }
 
 /**
@@ -49,9 +64,10 @@ function fetchCities(): Promise<CityEntry[]> {
   inFlight = fetch('/api/cities')
     .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
     .then((body: unknown) => {
-      if (!isCitiesBody(body)) throw new Error('Nieoczekiwany kształt odpowiedzi')
-      lastResult = body.cities
-      return body.cities
+      const cities = parseCities(body)
+      if (cities === null) throw new Error('Nieoczekiwany kształt odpowiedzi')
+      lastResult = cities
+      return cities
     })
     .finally(() => {
       inFlight = null

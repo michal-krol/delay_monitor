@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { notFound, useParams, useRouter } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
@@ -17,6 +17,7 @@ import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
+import { useCities } from '@/hooks/useCities'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
@@ -30,7 +31,6 @@ type LineResponse = {
   alerts: import('@/lib/gtfs/alerts').AlertRecord[]
   attribution: string[]
 }
-type CityEntry = { id: string; name: string; railStations: { id: string; name: string }[] }
 
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
@@ -46,23 +46,10 @@ export default function LineDetailPage() {
   }
 
   const router = useRouter()
-  const [cities, setCities] = useState<CityEntry[]>([])
+  const { cities } = useCities()
   const [dirIdx, setDirIdx] = useState(0)
   const [stopSel, setStopSel] = useState(0)
   const [selectedBaseSec, setSelectedBaseSec] = useState<number | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities: CityEntry[] }) => {
-        if (!cancelled) setCities(body.cities)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
   const { data, error } = usePolling<LineResponse>(

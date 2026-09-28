@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityMapPage from './page'
 import type { MapHit, MapView } from '@/components/map/TransitMap'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 const notFound = vi.fn(() => {
@@ -70,6 +71,7 @@ function setWide(wide: boolean): void {
 }
 
 beforeEach(() => {
+  resetCitiesCacheForTests()
   window.localStorage.clear()
   cityParam = 'warszawa'
   window.history.replaceState(null, '', '/city/warszawa/map')

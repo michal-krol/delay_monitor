@@ -3,6 +3,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 // Prawdziwy MapLibre nie działa w jsdom (WebGL) -- stub sprawdza tylko, co strona mu przekazuje.
@@ -102,6 +103,7 @@ function stubFetch(lineBody: unknown = LINE) {
 }
 
 beforeEach(() => {
+  resetCitiesCacheForTests()
   push.mockClear()
   params.city = 'warszawa'
   params.routeId = '20'

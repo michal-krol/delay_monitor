@@ -3,6 +3,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityLinesPage from './page'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
@@ -35,12 +36,13 @@ function stubFetch(linesBody: unknown = LINES) {
     vi.fn((url: string) =>
       url.startsWith('/api/gtfs/lines')
         ? jsonResponse(linesBody)
-        : jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] })
+        : jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [] }] })
     )
   )
 }
 
 beforeEach(() => {
+  resetCitiesCacheForTests()
   push.mockClear()
   cityParam = 'warszawa'
 })
