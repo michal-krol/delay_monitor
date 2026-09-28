@@ -6,7 +6,9 @@ import { attachStopCoordinates } from './coordinates'
 import type { TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
 import { createTtlCache } from '@/lib/cache'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
+import { isOperatingDateInWindow } from '@/lib/pkp/time'
 import { logEvent } from '@/lib/log'
+import { consumeMissBudget } from '@/lib/pkp/trainMissBudget'
 
 const EMPTY_DISRUPTIONS: GetDisruptionsResult = { disruptions: [], disruptionTypes: {} }
 
@@ -23,6 +25,14 @@ const ID_PATTERN = STATION_ID_PATTERN
  */
 const CACHE_TTL_MS = 90_000
 const CACHE_MAX_ENTRIES = 200
+
+/**
+ * PKP zapomina o pociągu, który nigdy nie kursował pod tym kluczem (literówka
+ * w URL, stary link) -- bez pamięci każde ponowne kliknięcie odpalałoby to
+ * samo zapytanie do PKP na nowo. 10 min: krócej niż sukces nie musiałby być,
+ * ale wystarczająco, żeby zgasić powtórne kliknięcia tego samego martwego linku.
+ */
+const NOT_FOUND_CACHE_TTL_MS = 10 * 60 * 1000
 
 export type TrainDetailApiResponse = {
   scheduleId: string
@@ -47,6 +57,7 @@ export type TrainDetailApiResponse = {
 }
 
 const cache = createTtlCache<TrainDetailApiResponse>({ ttlMs: CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
+const notFoundCache = createTtlCache<true>({ ttlMs: NOT_FOUND_CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
 
 /**
  * Cache sprawdzany przed `await`, zapisywany po nim — bez uchwytów na trwające
@@ -111,6 +122,9 @@ export async function GET(request: Request) {
   const scheduleId = searchParams.get('scheduleId')
   const orderId = searchParams.get('orderId')
   const operatingDate = searchParams.get('operatingDate')
+  // Dokładnie '1' liczy się jako dociąganie w tle -- każda inna wartość (albo
+  // brak parametru) jest pierwszoplanowa. Nigdy nie odbijane w odpowiedzi.
+  const isBackground = searchParams.get('background') === '1'
 
   if (!scheduleId || !orderId || !operatingDate) {
     return NextResponse.json({ error: 'Brak wymaganych parametrów' }, { status: 400 })
@@ -121,15 +135,31 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Nieprawidłowy identyfikator połączenia' }, { status: 400 })
   }
 
+  if (!isOperatingDateInWindow(operatingDate, new Date())) {
+    return NextResponse.json({ error: 'Nieprawidłowa data kursowania' }, { status: 400 })
+  }
+
   const cacheKey = `${scheduleId}-${orderId}-${operatingDate}`
   const cached = cache.get(cacheKey)
   if (cached !== undefined) {
     return NextResponse.json(cached)
   }
 
+  if (notFoundCache.get(cacheKey) !== undefined) {
+    return NextResponse.json({ error: 'Nie znaleziono połączenia' }, { status: 404 })
+  }
+
   try {
     let pending = inFlight.get(cacheKey)
     if (pending === undefined) {
+      // Dołączenie do trwającego pobrania nie kosztuje kolejnego zapytania do
+      // PKP -- limit liczy się tylko przy zakładaniu NOWEGO pobrania.
+      if (!consumeMissBudget(isBackground)) {
+        return NextResponse.json(
+          { error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' },
+          { status: 503 }
+        )
+      }
       pending = loadTrainDetail(scheduleId, orderId, operatingDate).finally(() => {
         inFlight.delete(cacheKey)
       })
@@ -141,6 +171,7 @@ export async function GET(request: Request) {
   } catch (err) {
     if (err instanceof PkpApiError) {
       if (err.status === 404) {
+        notFoundCache.set(cacheKey, true)
         return NextResponse.json({ error: 'Nie znaleziono połączenia' }, { status: 404 })
       }
       // 5xx z PKP -> 502 (błąd zależności), reszta (np. 401 błędnego klucza) przechodzi wprost.

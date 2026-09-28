@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
+import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
 
 /**
  * Pulpit przypina rzeczy z różnych światów: stacje kolejowe PKP i (docelowo)
@@ -20,7 +21,6 @@ export function favouriteKey(favourite: Favourite): string {
     : `gtfs:${favourite.city}:${favourite.id}`
 }
 
-const V1_KEY = 'pkp.favourites.v1'
 const V2_KEY = 'monitor.favourites.v2' // prefiks `pkp.` przestał być prawdziwy
 
 /**
@@ -35,12 +35,14 @@ const V2_KEY = 'monitor.favourites.v2' // prefiks `pkp.` przestał być prawdziw
  * rekord nie powinien kasować pozostałych ulubionych.
  */
 const favouriteV2Schema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('pkp'), id: z.string().min(1), name: z.string() }),
-  z.object({ kind: z.literal('gtfs'), city: z.string().min(1), id: z.string().min(1), name: z.string() }),
+  z.object({ kind: z.literal('pkp'), id: z.string().regex(STATION_ID_PATTERN), name: z.string() }),
+  z.object({
+    kind: z.literal('gtfs'),
+    city: z.string().regex(CITY_ID_PATTERN),
+    id: z.string().regex(GTFS_STOP_ID_PATTERN),
+    name: z.string(),
+  }),
 ])
-
-/** Format v1: płaskie `{ id, name }`, zawsze stacja PKP. */
-const favouriteV1Schema = z.object({ id: z.string().min(1), name: z.string() })
 
 function parseList(raw: string, parseEntry: (entry: unknown) => Favourite | null): Favourite[] {
   const parsed: unknown = JSON.parse(raw)
@@ -51,29 +53,11 @@ function parseList(raw: string, parseEntry: (entry: unknown) => Favourite | null
   })
 }
 
-/**
- * Ścieżka odczytu v1 — do usunięcia po ~2026-09-16 (2 tyg. od wdrożenia v2),
- * konwencją wygaszania z AGENTS.md #10. Do tego czasu cofnięcie wdrożenia nadal
- * znajduje dane w kluczu v1, którego NIE kasujemy.
- */
-function readV1(): Favourite[] {
-  const raw = window.localStorage.getItem(V1_KEY)
-  if (!raw) return []
-  return parseList(raw, (entry) => {
-    const result = favouriteV1Schema.safeParse(entry)
-    return result.success ? { kind: 'pkp', id: result.data.id, name: result.data.name } : null
-  })
-}
-
 function readStorage(): Favourite[] {
   try {
-    const rawV2 = window.localStorage.getItem(V2_KEY)
-    // Rozróżnikiem jest `raw === null`, nie pusta tablica: użytkownik, który
-    // usunął ostatnie ulubione, ma w v2 zapisane `[]`. Gdyby migracja
-    // uruchamiała się przy pustej tablicy, wskrzeszałaby mu skasowane wpisy z v1
-    // przy każdym odświeżeniu.
-    if (rawV2 === null) return readV1()
-    return parseList(rawV2, (entry) => {
+    const raw = window.localStorage.getItem(V2_KEY)
+    if (raw === null) return []
+    return parseList(raw, (entry) => {
       const result = favouriteV2Schema.safeParse(entry)
       return result.success ? result.data : null
     })
@@ -83,7 +67,6 @@ function readStorage(): Favourite[] {
 }
 
 function writeStorage(favourites: Favourite[]): void {
-  // Zawsze zapisujemy do v2, także dla `[]` — patrz komentarz o `raw === null`.
   window.localStorage.setItem(V2_KEY, JSON.stringify(favourites))
 }
 
@@ -97,9 +80,6 @@ export function useFavourites() {
     const initial = readStorage()
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFavourites(initial)
-    // Utrwalamy wynik migracji od razu: bez tego v2 zostałby `null` do pierwszej
-    // zmiany, a każde odświeżenie czytałoby v1 na nowo.
-    if (window.localStorage.getItem(V2_KEY) === null) writeStorage(initial)
     setLoaded(true)
   }, [])
 

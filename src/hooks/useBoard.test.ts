@@ -142,6 +142,16 @@ describe('useBoard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(5)
   })
 
+  it('board request encodes the station list', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderHook(() => useBoard(['5100', '5136']))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100%2C5136')
+  })
+
   it('clears stale data and does not fetch when watching zero stations', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' }))
     vi.stubGlobal('fetch', fetchMock)

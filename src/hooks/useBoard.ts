@@ -127,7 +127,7 @@ export function useBoard(stationIds: string[]) {
 
       let loading = false
       try {
-        const response = await fetch(`/api/board?stations=${key}`)
+        const response = await fetch(`/api/board?stations=${encodeURIComponent(key)}`)
         if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
         const json = (await response.json()) as BoardApiResponse
         if (!cancelled) {
