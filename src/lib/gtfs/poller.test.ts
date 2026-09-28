@@ -348,4 +348,93 @@ describe('createGtfsPoller', () => {
 
     poller.dispose()
   })
+
+  // Backoff po nieudanym ładowaniu: klienci ponawiają co ~15 s, każdy widok
+  // woła ensureLoaded() — bez okna każdy z nich odpalałby ~107 MB od nowa.
+  it('does not restart a failed load before the backoff window elapses', async () => {
+    const { poller, load, deferreds } = setup()
+    poller.ensureLoaded()
+    deferreds[0].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    await vi.advanceTimersByTimeAsync(29_000)
+    poller.ensureLoaded()
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(poller.getView().state).toBe('failed')
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(2)
+    poller.dispose()
+  })
+
+  it('doubles the backoff per consecutive failure up to a 1 h cap', async () => {
+    const { poller, load, deferreds } = setup()
+    const windowsSec = [30, 60, 120, 240, 480, 960, 1920, 3600, 3600]
+
+    poller.ensureLoaded()
+    for (const [i, windowSec] of windowsSec.entries()) {
+      deferreds[i].reject(new Error('feed down'))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(windowSec * 1000 - 1)
+      poller.ensureLoaded()
+      expect(load).toHaveBeenCalledTimes(i + 1)
+
+      await vi.advanceTimersByTimeAsync(1)
+      poller.ensureLoaded()
+      expect(load).toHaveBeenCalledTimes(i + 2)
+    }
+    poller.dispose()
+  })
+
+  it('resets the backoff after a successful load', async () => {
+    const { poller, load, deferreds } = setup('2026-09-02T09:00:00Z')
+    poller.ensureLoaded()
+    deferreds[0].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(30_000)
+    poller.ensureLoaded()
+    deferreds[1].reject(new Error('feed down')) // okno rośnie do 60 s
+    await vi.advanceTimersByTimeAsync(60_000)
+    poller.ensureLoaded()
+    deferreds[2].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getView().status).toBe('ready')
+
+    // Zmiana doby → przeładowanie pada; okno liczone od nowa (30 s, nie 120 s).
+    vi.setSystemTime(new Date('2026-09-03T04:00:00Z'))
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(4)
+    deferreds[3].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(30_000)
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(5)
+    expect(poller.getSchedule()).not.toBeNull() // stary rozkład serwowany w trakcie
+    poller.dispose()
+  })
+
+  it('clears the backoff when the idle timer releases the schedule, so a returning viewer loads at once', async () => {
+    // Zegar pollera sterowany ręcznie, niezależnie od fałszywych timerów:
+    // idle-stop (TTL 10 s) musi zajść WEWNĄTRZ 30-sekundowego okna backoffu.
+    let t = Date.parse('2026-09-02T20:00:00Z')
+    const { poller, load, deferreds } = setup('2026-09-02T20:00:00Z', 10_000, { now: () => t })
+    poller.ensureLoaded()
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+
+    t = Date.parse('2026-09-03T04:00:00Z') // zmiana doby → przeładowanie pada
+    poller.ensureLoaded()
+    deferreds[1].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    t += 20_000 // > idleTtlMs, < 30 s okna
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000) // tick sprawdzania bezczynności
+    expect(poller.getView().status).toBe('idle')
+
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(3)
+    expect(poller.getView().state).toBe('loading')
+    poller.dispose()
+  })
 })
