@@ -20,13 +20,13 @@ describe('usePolling', () => {
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
 
     await vi.advanceTimersByTimeAsync(1000)
-    expect(fetcher).toHaveBeenCalledTimes(2) // ladder step 1
+    expect(fetcher).toHaveBeenCalledTimes(2) // krok drabinki 1
 
     await vi.advanceTimersByTimeAsync(2000)
-    expect(fetcher).toHaveBeenCalledTimes(3) // ladder step 2
+    expect(fetcher).toHaveBeenCalledTimes(3) // krok drabinki 2
 
     await vi.advanceTimersByTimeAsync(3000)
-    expect(fetcher).toHaveBeenCalledTimes(4) // ladder step 3
+    expect(fetcher).toHaveBeenCalledTimes(4) // krok drabinki 3
   })
 
   it('never gives up: keeps retrying at refreshMs (or the last ladder step) once the ladder is exhausted', async () => {
@@ -34,13 +34,13 @@ describe('usePolling', () => {
     renderHook(() => usePolling('k', fetcher, { refreshMs: 30_000, isLoading: (d: { ready: boolean }) => !d.ready }))
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
 
-    // Burn through the whole ladder [1,2,3,5,8,15]s.
+    // Wyczerpujemy całą drabinkę [1,2,3,5,8,15]s.
     for (const step of [1000, 2000, 3000, 5000, 8000, 15000]) {
       await vi.advanceTimersByTimeAsync(step)
     }
     expect(fetcher).toHaveBeenCalledTimes(7)
 
-    // Ladder exhausted -> falls back to refreshMs, forever, not silence.
+    // Drabinka wyczerpana -> wraca do refreshMs, w nieskończoność, nie w ciszę.
     await vi.advanceTimersByTimeAsync(30_000)
     expect(fetcher).toHaveBeenCalledTimes(8)
     await vi.advanceTimersByTimeAsync(30_000)
@@ -57,7 +57,7 @@ describe('usePolling', () => {
     }
     expect(fetcher).toHaveBeenCalledTimes(7)
 
-    await vi.advanceTimersByTimeAsync(15_000) // last ladder step, repeated
+    await vi.advanceTimersByTimeAsync(15_000) // ostatni krok drabinki, powtórzony
     expect(fetcher).toHaveBeenCalledTimes(8)
   })
 
@@ -70,11 +70,11 @@ describe('usePolling', () => {
     const { result } = renderHook(() => usePolling('k', fetcher, { refreshMs: 30_000, errorRetryMs: 5_000 }))
     await vi.waitFor(() => expect(result.current.data).toEqual({ value: 'first' }))
 
-    await vi.advanceTimersByTimeAsync(30_000) // scheduled refresh -> fails
+    await vi.advanceTimersByTimeAsync(30_000) // zaplanowane odświeżenie -> pada
     await vi.waitFor(() => expect(result.current.error).toBe('network down'))
-    expect(result.current.data).toEqual({ value: 'first' }) // kept, not cleared (#7)
+    expect(result.current.data).toEqual({ value: 'first' }) // zachowane, nie wyczyszczone (#7)
 
-    await vi.advanceTimersByTimeAsync(5_000) // errorRetryMs, not refreshMs
+    await vi.advanceTimersByTimeAsync(5_000) // errorRetryMs, nie refreshMs
     await vi.waitFor(() => expect(result.current.data).toEqual({ value: 'second' }))
     expect(result.current.error).toBeNull()
   })
@@ -88,7 +88,7 @@ describe('usePolling', () => {
     await vi.advanceTimersByTimeAsync(30_000)
     expect(fetcher).toHaveBeenCalledTimes(1)
 
-    // Stayed paused, not rescheduled to fire again on its own.
+    // Zostaje wstrzymany, nie zaplanowany na ponowne odpalenie sam z siebie.
     await vi.advanceTimersByTimeAsync(60_000)
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
@@ -99,7 +99,7 @@ describe('usePolling', () => {
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
 
     setHidden(true)
-    await vi.advanceTimersByTimeAsync(30_000) // scheduled tick pauses
+    await vi.advanceTimersByTimeAsync(30_000) // zaplanowane odpytanie się wstrzymuje
     expect(fetcher).toHaveBeenCalledTimes(1)
 
     setHidden(false)
@@ -112,7 +112,7 @@ describe('usePolling', () => {
     renderHook(() => usePolling('k', fetcher, { refreshMs: 30_000 }))
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
 
-    // Tab never went hidden -> nothing was paused; a visibilitychange event is a no-op.
+    // Karta nigdy nie była ukryta -> nic się nie wstrzymało; visibilitychange nic nie robi.
     document.dispatchEvent(new Event('visibilitychange'))
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
@@ -133,13 +133,13 @@ describe('usePolling', () => {
     await vi.waitFor(() => expect(result.current.data).toEqual({ value: 'a' }))
 
     rerender({ key: 'b', fetcher: fetcherB })
-    // Old key's data never leaks under the new key, even before the new key's first result.
+    // Dane starego klucza nigdy nie przeciekają pod nowym kluczem, nawet zanim przyjdzie jego pierwszy wynik.
     expect(result.current.data).toBeNull()
     expect(result.current.lastSuccessAt).toBeNull()
 
     await vi.waitFor(() => expect(result.current.data).toEqual({ value: 'b' }))
 
-    // The old key's timer must be cancelled -- advancing time never calls fetcherA again.
+    // Timer starego klucza musi zostać anulowany -- upływ czasu już nie woła fetcherA.
     fetcherA.mockClear()
     await vi.advanceTimersByTimeAsync(30_000)
     expect(fetcherA).not.toHaveBeenCalled()
@@ -158,7 +158,7 @@ describe('usePolling', () => {
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
 
     await vi.advanceTimersByTimeAsync(60_000)
-    expect(fetcher).toHaveBeenCalledTimes(1) // no further ticks scheduled at all
+    expect(fetcher).toHaveBeenCalledTimes(1) // żadne kolejne odpytanie w ogóle nie jest zaplanowane
   })
 
   it('cleans up the timer and the visibilitychange listener on unmount', async () => {
