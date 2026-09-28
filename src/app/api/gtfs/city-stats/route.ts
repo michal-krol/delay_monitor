@@ -40,15 +40,16 @@ export async function GET(request: Request) {
   }
 
   // Alerty (etap 5b) — poza cyklem rozkładu, własny rytm 5 min. `null` (nie
-  // pusta tablica) dopóki poller nieobecny albo nie `ready` — to JEDYNE
-  // miejsce, gdzie „0 aktywnych" i „nie wiadomo" muszą się wizualnie różnić
-  // (kafelek liczbowy, #7). `line`/`board` zwracają `[]` w tej sytuacji —
-  // tam pusta lista nic nie kłamie, bo baner po prostu się nie renderuje.
+  // pusta tablica) = nie wiadomo: poller nieobecny, jeszcze się nie wczytał
+  // albo `failed` bez żadnego udanego pobrania — to JEDYNE miejsce, gdzie
+  // „0 aktywnych" i „nie wiadomo" muszą się wizualnie różnić (licznik, #7).
+  // `failed` po udanym pobraniu (`ageMs !== null`) -> ostatnie dobre alerty
+  // z wiekiem. Klient ponawia tylko przy `alertFeed.state` innym niż `failed`.
   const alertPoller = peekAlertPoller(city)
   const ap = alertPoller?.getView()
-  const alertsReady = alertPoller !== null && ap?.state === 'ready'
+  const alertsKnown = alertPoller !== null && (ap?.state === 'ready' || (ap?.state === 'failed' && ap.ageMs !== null))
   const alertFields = {
-    alerts: alertsReady ? alertPoller.getAlerts() : null,
+    alerts: alertsKnown ? alertPoller.getAlerts() : null,
     alertFeed: { state: ap?.state ?? 'loading', ageMs: ap?.ageMs ?? null },
   }
 

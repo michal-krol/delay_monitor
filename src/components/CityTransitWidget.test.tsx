@@ -119,6 +119,29 @@ describe('CityTransitWidget', () => {
     expect(screen.queryByText('Wczytuję…')).not.toBeInTheDocument()
   })
 
+  it('keeps the last good alerts with their age when a later alert fetch failed', () => {
+    hookState.current = {
+      data: {
+        city: 'warszawa',
+        state: 'ready',
+        stats,
+        alerts: [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }],
+        alertFeed: { state: 'failed', ageMs: 12 * 60_000 },
+      },
+      error: null,
+    }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
+    expect(screen.getByText('Nie udało się odświeżyć — dane sprzed 12 min')).toBeInTheDocument()
+  })
+
+  it('shows the age next to a last good empty alert list when a later alert fetch failed', () => {
+    hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: [], alertFeed: { state: 'failed', ageMs: 7 * 60_000 } }, error: null }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText('Brak aktywnych utrudnień.')).toBeInTheDocument()
+    expect(screen.getByText('Nie udało się odświeżyć — dane sprzed 7 min')).toBeInTheDocument()
+  })
+
   it('still shows "Wczytuję…" (not the error note) while the alert feed is merely loading, not failed', () => {
     hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: null, alertFeed: { state: 'loading', ageMs: null } }, error: null }
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)

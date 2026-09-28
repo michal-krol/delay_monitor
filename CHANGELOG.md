@@ -25,6 +25,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Rejestr miast jest pobierany raz na stronę we wszystkich widokach i sprawdzany; błędny wpis
   nie psuje już całej listy miast.
 
+### Naprawione
+
+- Gdy nie da się pobrać komunikatów o utrudnieniach, widżet komunikacji miejskiej przestaje
+  co 15 sekund ponawiać zapytania i pokazuje „Nie udało się pobrać utrudnień." zamiast
+  wiecznego „Wczytuję…". Jeśli wcześniej udało się je pobrać, pokazuje ostatnie znane
+  utrudnienia z informacją, jak stare są dane.
+
 ## [1.0.2] — 2026-09-28
 
 ### Zmienione
