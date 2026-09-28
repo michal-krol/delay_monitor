@@ -239,9 +239,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
     setNow(Date.now())
   }, [lastSuccessAt, error])
 
-  // Własny zegar wyłącznie na potrzeby „za ile" w nagłówku. `/api/train` to
-  // jednorazowy fetch po kliknięciu (AGENTS.md #3), więc bez tego odliczanie
-  // zamarzłoby na moment wczytania strony i po godzinie kłamałoby o godzinę.
+  // Własny zegar wyłącznie na potrzeby „za ile" w nagłówku. `/api/train` odświeża się
+  // co 5 min tylko na widocznej karcie (AGENTS.md #3), więc między odświeżeniami
+  // odliczanie bez tego stałoby w miejscu i kłamało o minuty.
   // Zero kosztu wobec PKP: to sam `Date.now()`, nie odpytanie.
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), COUNTDOWN_TICK_MS)

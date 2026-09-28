@@ -53,8 +53,7 @@ describe('useCities', () => {
     const { result } = renderHook(() => useCities())
 
     await vi.waitFor(() => expect(result.current.state).toBe('ready'))
-    expect(result.current.cities).toHaveLength(1)
-    expect(result.current.cities[0]).toMatchObject(CITY)
+    expect(result.current.cities).toEqual([CITY]) // dodatkowe pola (timezone, mapCenter) odcięte
   })
 
   it.each([
