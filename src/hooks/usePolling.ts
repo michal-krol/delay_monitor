@@ -7,8 +7,9 @@ export type PollingContext = { background: boolean }
 export type UsePollingOptions<T> = {
   /**
    * `null` = brak cyklicznego odświeżania po gotowych danych (samo ponawianie przy `isLoading`/błędzie).
-   * Funkcja = rytm zależny od wyniku, liczony z każdego udanego pobrania (np. wolne ponawianie tylko
-   * przy padniętym feedzie); nie steruje ponowieniem po błędzie (`errorRetryMs` albo 30 s).
+   * Funkcja = rytm zależny od wyniku, liczony z każdego udanego, pełnego (nie `isLoading`) pobrania
+   * (np. wolne ponawianie tylko przy padniętym feedzie); nie steruje drabinką ani ponowieniem po
+   * błędzie (`errorRetryMs` albo 30 s).
    */
   refreshMs: number | null | ((data: T) => number | null)
   /** `true`, dopóki dane są niepełne -- napędza drabinkę ponowień zamiast czekać `refreshMs`. */
@@ -110,14 +111,15 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
 
         if (opts.isDone?.(result) === true) return
 
-        const refreshMs = typeof opts.refreshMs === 'function' ? opts.refreshMs(result) : opts.refreshMs
         const ladder = opts.ladderMs ?? DEFAULT_LADDER_MS
         if (opts.isLoading?.(result) === true) {
-          const delay = ladderIndex < ladder.length ? ladder[ladderIndex++] : (refreshMs ?? ladder[ladder.length - 1])
-          schedule(delay)
+          // Ogon drabinki: tylko liczbowe `refreshMs` -- rytm z wyniku (np. 5 min) nie spowalnia ładowania.
+          const tail = typeof opts.refreshMs === 'number' ? opts.refreshMs : ladder[ladder.length - 1]
+          schedule(ladderIndex < ladder.length ? ladder[ladderIndex++] : tail)
           return
         }
         ladderIndex = 0
+        const refreshMs = typeof opts.refreshMs === 'function' ? opts.refreshMs(result) : opts.refreshMs
         if (refreshMs !== null) schedule(refreshMs)
       } catch (err) {
         if (cancelled) return

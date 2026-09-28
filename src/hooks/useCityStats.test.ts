@@ -82,6 +82,16 @@ describe('useCityStats', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it('a loading schedule keeps the 15 s ladder tail even when the alert feed already failed', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('loading', null, 'failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    renderHook(() => useCityStats('warszawa'))
+    await vi.advanceTimersByTimeAsync(34_000) // drabinka 1+2+3+5+8+15 s = 7 zapytań
+    expect(fetchMock).toHaveBeenCalledTimes(7)
+    await vi.advanceTimersByTimeAsync(30_000) // dalej co 15 s, nie co 5 min
+    expect(fetchMock).toHaveBeenCalledTimes(9)
+  })
+
   it('a failed alert feed with last good alerts also re-polls every 5 min, so the shown age stays current', async () => {
     const fetchMock = vi.fn().mockImplementation(() => body('ready', [], 'failed'))
     vi.stubGlobal('fetch', fetchMock)
