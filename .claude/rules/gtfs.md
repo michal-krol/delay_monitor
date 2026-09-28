@@ -27,7 +27,10 @@ paths:
   until ready, the client retries.
 - **Warm-up at process start (`src/instrumentation.ts`).** `register()` (Node runtime only —
   `process.env.NEXT_RUNTIME === 'nodejs'`, dynamic import) calls `warmUpGtfsPollers()`
-  (`gtfs/instance.ts`) fire-and-forget for every `enabledGtfsCities()` — owner decision: a
+  (`gtfs/instance.ts`) fire-and-forget for every `enabledGtfsCities()`; it calls the poller's
+  `preload()`, NOT `ensureLoaded()`: only the schedule load starts — no `onWake`, no
+  `lastInterestAt`, no idle timer, so the vehicle/alert feeds are not polled with zero
+  viewers (`ensureLoaded()` there polled the vehicle feed ~240×/boot) — owner decision: a
   configured city's schedule is resident from boot (~0.5 GB RSS accepted) instead of waiting
   for the first viewer. `register()` never awaits the load itself, only the (near-instant)
   dynamic import — Next.js requires `register()` to complete before the server serves.

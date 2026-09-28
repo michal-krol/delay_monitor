@@ -65,6 +65,30 @@ describe('createGtfsPoller', () => {
     poller.dispose()
   })
 
+  it('preload() starts the load without onWake or an idle timer; a later viewer still wakes it', async () => {
+    const onWake = vi.fn()
+    const onIdle = vi.fn()
+    const { poller, load, deferreds } = setup('2026-09-02T09:00:00Z', 60 * 60 * 1000, { onWake, onIdle, keepSchedule: true })
+
+    poller.preload()
+    poller.preload() // idempotentne: jedno ładowanie
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(onWake).not.toHaveBeenCalled()
+
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getView().status).toBe('ready')
+    poller.preload() // już ready -- nic
+    expect(load).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000) // brak widza: żadnego idle-stopu do odpalenia
+    expect(onIdle).not.toHaveBeenCalled()
+
+    poller.ensureLoaded() // realny widz
+    expect(onWake).toHaveBeenCalledTimes(1)
+    poller.dispose()
+  })
+
   it('reports failed with no schedule when the first load rejects', async () => {
     const { poller, deferreds } = setup()
     poller.ensureLoaded()

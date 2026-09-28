@@ -58,12 +58,14 @@ export function zonedDateString(instant: Date, timeZone: string): string {
 }
 
 /**
- * Godzina (0–23) chwili `epochMs` w strefie `timeZone`, niezależnie od strefy
- * procesu — ta sama technika co `isoInZone` (offset + odczyt pól UTC), więc
- * `TZ=UTC` w kontenerze Railway daje ten sam wynik co strefa lokalna dev-maszyny.
- * Do `currentHour` w widgetach natężenia ruchu (`FullBoard` Warszawa,
- * `TransitStopDetail`/`CityTransitWidget` strefa miasta) — bez tego `new
- * Date(now).getHours()` czytał godzinę procesu, nie widza (AGENTS.md #1).
+ * Godzina (0–23) chwili `epochMs` w strefie DANYCH (`timeZone`: Warszawa /
+ * strefa miasta), niezależnie od strefy tego, kto liczy — przeglądarki widza
+ * albo procesu serwera. `new Date(now).getHours()` czyta strefę wykonawcy, więc
+ * widz w innej strefie oglądałby natężenie ruchu przesunięte o godziny (AGENTS.md #1).
+ * Ta sama technika co `isoInZone` (offset + odczyt pól UTC): `TZ=UTC` w kontenerze
+ * Railway daje ten sam wynik co strefa lokalna dev-maszyny. Do `currentHour` w
+ * widgetach natężenia ruchu (`FullBoard`, `TransitStopDetail`/`CityTransitWidget`)
+ * i do godziny przeładowania doby w `gtfs/poller.ts`.
  */
 export function zonedHour(epochMs: number, timeZone: string): number {
   const offsetMinutes = zoneOffsetMinutes(new Date(epochMs), timeZone)

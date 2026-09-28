@@ -4,12 +4,15 @@
  * ograniczeniem jest czas parsowania. Błąd konfiguracji PKP nie może wygaszać
  * miast, więc wspólny poller odpada.
  *
- * Budzony LENIWIE (`ensureLoaded()` ≙ `registerInterest()`) przez trasy API,
+ * Budzony przez widza (`ensureLoaded()` ≙ `registerInterest()`) z tras API,
  * nigdy awaitowany w route handlerze — ale też RAZ, z góry, przez
  * `instrumentation.ts` (`register()`, fire-and-forget) dla każdego miasta
  * z `enabledGtfsCities()`: decyzja właściciela, rozkład skonfigurowanego
  * miasta ma być ciepły od startu procesu (~0.5 GB RSS akceptowane), zamiast
- * czekać na pierwszego widza. `keepSchedule` w `GtfsPollerDeps` (ustawiane
+ * czekać na pierwszego widza. Rozgrzewka woła `preload()`, NIE `ensureLoaded()`:
+ * rusza samo ładowanie rozkładu, bez `onWake` i bez śladu zainteresowania --
+ * pollery pozycji/alertów nie odpytują feedów, dopóki nie ma widza.
+ * `keepSchedule` w `GtfsPollerDeps` (ustawiane
  * w `instance.ts` dla każdego pollera — każdy tworzony tam jest dla miasta
  * z `enabledGtfsCities()`) sprawia, że wygaśnięcie zainteresowania
  * (`idleTtlMs`) NIE zwalnia rozkładu ani nie zatrzymuje godzinnego timera
@@ -21,7 +24,7 @@
  * zawsze po każdym idle-stopie (żadnego pollingu 24/7 bez potrzeby, patrz
  * komentarz przy `GtfsPollerDeps.onWake`).
  */
-import { zonedDateString } from '@/lib/pkp/time'
+import { zonedDateString, zonedHour } from '@/lib/pkp/time'
 import type { CityFeed } from './cities'
 import type { GtfsSchedule, ScheduleState } from './types'
 
@@ -59,6 +62,12 @@ export function scheduleResponseBlock(view: GtfsScheduleView) {
 export type GtfsPoller = {
   /** fire-and-forget; NIGDY nie awaitowane w route handlerze. */
   ensureLoaded(): void
+  /**
+   * Rozgrzewka przy starcie procesu (bez widza): rusza pierwsze ładowanie rozkładu, o ile poller
+   * jeszcze `idle`. NIE zapisuje zainteresowania, nie uzbraja timera bezczynności i nie woła
+   * `onWake` -- pollery pozycji/alertów budzi dopiero realny widz (`ensureLoaded()`).
+   */
+  preload(): void
   getSchedule(): GtfsSchedule | null
   getView(): GtfsScheduleView
   /** Zatrzymuje timery i zwalnia rozkład — do testów i zamknięcia procesu. */
@@ -157,18 +166,9 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
     }, IDLE_CHECK_MS)
   }
 
-  function cityHour(): number {
-    const parts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: deps.city.timezone,
-      hour: '2-digit',
-      hour12: false,
-    }).formatToParts(new Date(now()))
-    return Number(parts.find((part) => part.type === 'hour')?.value ?? '0')
-  }
-
   function maybeRollDay(): void {
     if (schedule === null) return
-    if (schedule.serviceDates[1] !== todayInCity() && cityHour() >= RELOAD_HOUR) startLoad()
+    if (schedule.serviceDates[1] !== todayInCity() && zonedHour(now(), deps.city.timezone) >= RELOAD_HOUR) startLoad()
   }
 
   function startLoad(): void {
@@ -219,6 +219,10 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
       if (status === 'ready' && schedule !== null && schedule.serviceDates[1] !== todayInCity()) {
         startLoad()
       }
+    },
+
+    preload() {
+      if (!disposed && status === 'idle') startLoad()
     },
 
     getSchedule() {

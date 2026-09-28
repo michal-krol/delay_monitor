@@ -1,7 +1,8 @@
 /**
- * Wybór live/mock i rejestr pollerów — po jednym na miasto, tworzone LENIWIE
- * (pamięć zajmują wyłącznie miasta faktycznie oglądane). Żaden inny moduł nie
- * powinien wiedzieć, skąd pochodzą dane.
+ * Wybór live/mock i rejestr pollerów — po jednym na miasto z `GTFS_CITIES`.
+ * Rozkłady włączonych miast są ładowane z góry przy starcie procesu
+ * (`warmUpGtfsPollers`) i zostają w pamięci; pollery pozycji/alertów ruszają
+ * dopiero z widzem. Żaden inny moduł nie powinien wiedzieć, skąd pochodzą dane.
  */
 import { loadConfig } from '@/lib/config'
 import { getCity, type CityFeed } from './cities'
@@ -132,13 +133,13 @@ export function enabledGtfsCities(): CityFeed[] {
 
 /**
  * Rozgrzewka przy starcie procesu — wołana WYŁĄCZNIE z `instrumentation.ts`
- * (`register()`), fire-and-forget (`ensureLoaded()` sama w sobie nigdy nie
- * czeka na ładowanie). Brak włączonych miast (GTFS wyłączony albo
- * `GTFS_CITIES` puste) = no-op.
+ * (`register()`), fire-and-forget (`preload()` nigdy nie czeka na ładowanie).
+ * Rusza TYLKO ładowanie rozkładu -- pollery pozycji i alertów budzi dopiero
+ * realny widz. Brak włączonych miast (GTFS wyłączony albo `GTFS_CITIES` puste) = no-op.
  */
 export function warmUpGtfsPollers(): void {
   for (const city of enabledGtfsCities()) {
-    getGtfsPoller(city.id)?.ensureLoaded()
+    getGtfsPoller(city.id)?.preload()
   }
 }
 

@@ -88,6 +88,14 @@ describe('warmUpGtfsPollers', () => {
     expect(['loading', 'ready']).toContain(p!.getView().state)
   })
 
+  it('preloads the schedule without waking the vehicle and alert pollers (no viewer = no feed polling)', () => {
+    warmUpGtfsPollers()
+    const p = peekGtfsPoller('warszawa')!
+    expect(p.getView().state).toBe('loading') // rozkład rusza
+    expect(peekVehiclePoller('warszawa')!.getView().state).toBe('idle')
+    expect(peekAlertPoller('warszawa')!.getView().state).toBe('idle')
+  })
+
   it('is a no-op when GTFS is disabled', async () => {
     vi.resetModules()
     vi.doMock('@/lib/config', () => ({
