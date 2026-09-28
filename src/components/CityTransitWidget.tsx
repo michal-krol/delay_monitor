@@ -29,14 +29,27 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
   const { data, error } = useCityStats(city)
   const loading = data === null || data.state === 'loading'
   const stats = data?.state === 'ready' ? data.stats : null
+  // Ta sama reguła co poprzednio (`error !== null && stats === null`), plus
+  // domain-level `state: 'failed'` (poller rozkładu zawiódł po stronie
+  // serwera -- fetch się udał, więc `error` z hooka zostaje `null`). Gdy
+  // `stats` nie jest `null` (ostatni dobry snapshot), zachowujemy go zamiast
+  // banera błędu (AGENTS.md #7 -- rosnący wiek danych, nie pusty ekran).
+  const failed = stats === null && (data?.state === 'failed' || error !== null)
+  // `state: 'ready'` ze `stats: null` = dzisiejsza data kursowania nieznana
+  // (Task 2, AGENTS.md #7) -- to nie błąd i nie ładowanie, osobny komunikat.
+  const dayUnknown = data?.state === 'ready' && stats === null
 
   return (
     <div className="flex flex-col gap-4">
       <AsideCard title={`Komunikacja miejska — ${cityName}`}>
-        {error !== null && stats === null ? (
+        {failed ? (
           <p className="text-xs text-red-600 dark:text-red-400">Nie udało się wczytać statystyk.</p>
         ) : loading || stats === null ? (
-          <p className="text-xs text-text-muted">Wczytuję rozkład…</p>
+          dayUnknown ? (
+            <p className="text-xs text-text-muted">Brak rozkładu na dziś.</p>
+          ) : (
+            <p className="text-xs text-text-muted">Wczytuję rozkład…</p>
+          )
         ) : (
           <div className="flex flex-col gap-2.5">
             {MODE_ROWS.filter((row) => stats.linesByMode[row.mode] > 0).map((row) => {

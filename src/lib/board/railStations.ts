@@ -7,7 +7,7 @@ export type CityRailStation = { id: string; name: string }
 const CACHE_TTL_MS = 10 * 60 * 1000
 const CACHE_MAX_ENTRIES = 50
 
-const cache = createTtlCache<CityRailStation[]>({ ttlMs: CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
+const cache = createTtlCache<CityRailStation[] | null>({ ttlMs: CACHE_TTL_MS, maxEntries: CACHE_MAX_ENTRIES })
 
 /**
  * Uchwyty na trwające wyszukania, tak samo jak `inFlight` w `/api/train/route.ts`
@@ -16,31 +16,34 @@ const cache = createTtlCache<CityRailStation[]>({ ttlMs: CACHE_TTL_MS, maxEntrie
  * dla tego samego miasta w tej samej chwili odpaliłoby każda swoje własne
  * `searchStations`.
  */
-const inFlight = new Map<string, Promise<CityRailStation[]>>()
+const inFlight = new Map<string, Promise<CityRailStation[] | null>>()
 
-async function loadCityRailStations(city: CityFeed): Promise<CityRailStation[]> {
+/** `null` = wyszukanie w słowniku stacji zawiodło (nieznane, nie „zero stacji", AGENTS.md #7). */
+async function loadCityRailStations(city: CityFeed): Promise<CityRailStation[] | null> {
   try {
     const matches = await client.searchStations(city.name)
     return matches.filter((station) => station.name.startsWith(city.railStationPrefix)).map((station) => ({ id: station.id, name: station.name }))
   } catch {
-    return []
+    return null
   }
 }
 
 /**
  * Stacje PKP należące do miasta, po prefiksie nazwy (`city.railStationPrefix`).
- * Wydzielone z `/api/cities/route.ts`, żeby `/api/rail-stations` reużywało
- * dokładnie tę samą regułę zamiast drugiej kopii filtra.
+ * Jedyny wywołujący to `/api/cities/route.ts` (rejestr miast na pickerze
+ * Odjazdy/Przyjazdy) -- wydzielone do własnego modułu, żeby domenowa reguła
+ * filtra (prefiks nazwy) była w jednym miejscu, nie w handlerze trasy.
  *
- * Cache'owane 10 min, PER MIASTO -- także wynik `[]` po awarii wyszukania
- * (`catch` powyżej). `/api/rail-stations` jest pollowany co 90 s przez KAŻDĄ
- * otwartą kartę mapy miasta (nowy, automatyczny, cykliczny wywołujący --
- * inaczej niż `/api/cities`, wołane raz na wczytanie strony), więc bez tej
+ * Cache'owane 10 min, PER MIASTO -- także wynik awarii wyszukania (`catch`
+ * powyżej), jako `null` (nie `[]` -- AGENTS.md #7, „nieznane" ≠ „zero").
+ * `/api/cities` jest wołane raz na wczytanie strony, ale przez KAŻDĄ otwartą
+ * kartę/zakładkę (mnogość klientów w tym samym oknie 10 min), więc bez tej
  * negatywnej pamięci sustained awaria słownika stacji PKP (`fetchAllStations()`
  * w `pkp/client.ts` samo nie ma negatywnego cache'u) powtarzałaby próbę
- * `searchStations` przy każdym pollu zamiast raz na 10 minut -- AGENTS.md #3.
+ * `searchStations` przy każdym takim wczytaniu zamiast raz na 10 minut --
+ * AGENTS.md #3.
  */
-export async function resolveCityRailStations(city: CityFeed): Promise<CityRailStation[]> {
+export async function resolveCityRailStations(city: CityFeed): Promise<CityRailStation[] | null> {
   const cached = cache.get(city.id)
   if (cached !== undefined) return cached
 

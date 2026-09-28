@@ -66,15 +66,20 @@ export function HourlyTraffic({
   loading,
   currentHour,
   emptyLabel = 'Rozkład na dziś nie zawiera odjazdów z tego miejsca.',
+  unknownLabel = 'Nie udało się pobrać rozkładu, więc nie znamy rozkładu ruchu w dobie.',
 }: {
   hourly: number[] | null
   loading: boolean
   currentHour: number
   emptyLabel?: string
+  /** Nadpisanie komunikatu dla `hourly === null` — odróżnia „nie udało się
+   * pobrać" od „pobrano, ale dzisiejszy dzień wypadł z rozkładu" (AGENTS.md
+   * #9/#10), które inaczej wyglądałyby identycznie. */
+  unknownLabel?: string
 }) {
   if (loading) return <EmptyHint>Wczytywanie rozkładu…</EmptyHint>
   if (hourly === null) {
-    return <EmptyHint>Nie udało się pobrać rozkładu, więc nie znamy rozkładu ruchu w dobie.</EmptyHint>
+    return <EmptyHint>{unknownLabel}</EmptyHint>
   }
 
   const peak = Math.max(...hourly)

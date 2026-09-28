@@ -4,7 +4,8 @@ import { BusIcon, RouteIcon, TrainIcon } from './icons'
 type Props = {
   stats: CityStats | null
   loading: boolean
-  railStationCount: number
+  /** `null` = /api/cities jeszcze się wczytuje, zawiodło, albo `railStationsUnknown` (AGENTS.md #7). */
+  railStationCount: number | null
 }
 
 function Tile({
@@ -29,7 +30,7 @@ function Tile({
   )
 }
 
-/** `null` renderuje się jako „—", nigdy jako `0` (AGENTS.md #3). */
+/** `null` renderuje się jako „—", nigdy jako `0` (AGENTS.md #7). */
 const num = (value: number | null | undefined): string =>
   value === null || value === undefined ? '—' : value.toLocaleString('pl-PL')
 

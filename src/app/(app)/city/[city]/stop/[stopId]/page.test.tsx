@@ -46,6 +46,8 @@ beforeEach(() => {
       attribution: ['ZTM', 'Mikołaj Kuranowski'],
     },
     error: null,
+    loading: false,
+    failed: false,
   })
 })
 
@@ -72,7 +74,7 @@ describe('TransitStopPage', () => {
   })
 
   it('shows loading skeletons and the name from the link before the board arrives', () => {
-    useTransitBoard.mockReturnValue({ data: null, error: null })
+    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
     const { container } = render(<TransitStopPage />)
     // Nazwa z `?name=` w nagłówku, dopóki tablica się nie wczyta.
     expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()

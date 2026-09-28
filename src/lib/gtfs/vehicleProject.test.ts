@@ -61,14 +61,6 @@ describe('projectVehicle', () => {
     expect(projectVehicle(s, p, Date.now())).toBeNull()
   })
 
-  it('falls back to ageSec 0 for an unparseable timestamp, still returns a projection', async () => {
-    const s = await schedule()
-    const p = { id: 'x', tripId: 'T', lat: 52.21, lon: 21.0, sideNumber: '1', bearing: null, timestamp: 'not-a-date' }
-    const r = projectVehicle(s, p, Date.now())!
-    expect(r).not.toBeNull()
-    expect(r.ageSec).toBe(0)
-  })
-
   it('returns null for a trip whose pattern has only one stop', async () => {
     const s = await buildSchedule({
       feedVersion: null,

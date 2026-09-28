@@ -40,18 +40,20 @@ describe('resolveCityRailStations', () => {
     expect(searchStations).toHaveBeenCalledTimes(1)
   })
 
-  // Sedno naprawy: awaria wyszukania też ma trafić do cache'u jako `[]`, nie
-  // tylko ścieżka sukcesu -- inaczej sustained awaria słownika stacji PKP
+  // Sedno naprawy: awaria wyszukania też ma trafić do cache'u, nie tylko
+  // ścieżka sukcesu -- inaczej sustained awaria słownika stacji PKP
   // powtarzałaby próbę przy KAŻDYM pollu (co 90 s) zamiast raz na TTL.
-  it("cache'uje też PORAŻKĘ wyszukania jako [], nie tylko sukces", async () => {
+  // Wartością negatywną jest `null` (nieznane), NIE `[]` (zero stacji) --
+  // AGENTS.md #7, „nie udało się sprawdzić" ≠ „brak wyników".
+  it("cache'uje też PORAŻKĘ wyszukania jako null (nieznane, nie [] -- AGENTS.md #7)", async () => {
     searchStations.mockRejectedValueOnce(new Error('słownik stacji niedostępny'))
     const { resolveCityRailStations } = await import('./railStations')
 
     const first = await resolveCityRailStations(CITY)
-    expect(first).toEqual([])
+    expect(first).toBeNull()
 
     const second = await resolveCityRailStations(CITY)
-    expect(second).toEqual([])
+    expect(second).toBeNull()
     // Druga wartość wciąż z cache'u -- searchStations wywołane tylko raz (ta awaria).
     expect(searchStations).toHaveBeenCalledTimes(1)
   })

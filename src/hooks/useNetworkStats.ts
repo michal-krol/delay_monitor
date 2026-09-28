@@ -17,13 +17,12 @@ const REFRESH_INTERVAL_MS = 15 * 60 * 1000
  * danych", nie wywalać cały render `toLocaleString()` na `undefined`.
  */
 function isNetworkStats(value: unknown): value is NetworkStats {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as NetworkStats
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as NetworkStats).totalTrains === 'number' &&
-    typeof (value as NetworkStats).generatedAt === 'string' &&
-    Array.isArray((value as NetworkStats).topCarriers) &&
-    Array.isArray((value as NetworkStats).history)
+    (v.statistics === null || typeof v.statistics === 'object') &&
+    Array.isArray(v.topCarriers) &&
+    Array.isArray(v.history)
   )
 }
 
@@ -34,6 +33,11 @@ function isNetworkStats(value: unknown): value is NetworkStats {
  * natychmiast. Bez tego widżet migał "Wczytywanie…" przy każdym powrocie.
  */
 let lastKnownStats: NetworkStats | null = null
+
+/** Wyłącznie do testów — resetuje moduł między przypadkami (ten sam wzorzec co `networkStats.ts`). */
+export function resetNetworkStatsHookForTests(): void {
+  lastKnownStats = null
+}
 
 export function useNetworkStats() {
   const [data, setData] = useState<NetworkStats | null>(lastKnownStats)

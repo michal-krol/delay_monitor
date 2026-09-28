@@ -42,8 +42,9 @@ export function mapCityVehicles(schedule: GtfsSchedule, positions: VehiclePositi
     const projected = projectVehicle(schedule, position, nowMs)
     const nextStopIdx = projected !== null ? pattern?.stops[projected.afterStopOrder + 1] : undefined
 
-    const parsed = Date.parse(position.timestamp)
-    const ageSec = Number.isFinite(parsed) ? Math.max(0, Math.floor((nowMs - parsed) / 1000)) : 0
+    // `position.timestamp` jest zawsze parsowalny — `parseVehicleFeed` odrzuca
+    // pozycje bez wiarygodnego czasu u źródła (patrz `vehicles.ts`, #7).
+    const ageSec = Math.max(0, Math.floor((nowMs - Date.parse(position.timestamp)) / 1000))
 
     return {
       id: position.id,

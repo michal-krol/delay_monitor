@@ -19,13 +19,17 @@ export type VehiclePosition = {
 const positionSchema = z
   .object({
     id: z.string().optional(),
-    timestamp: z.string().optional(),
+    timestamp: z.string(),
     lat: z.number(),
     lon: z.number(),
     side_number: z.union([z.string(), z.number()]).optional(),
     trip_id: z.string().min(1),
     bearing: z.number().nullish(),
   })
+  // Pozycja bez wiarygodnego czasu nie może być uczciwie umieszczona na mapie
+  // (`ageSec` z niej liczony) — odrzucamy ją tu, nie w konsumentach (#7:
+  // unknown ≠ zero — a nie ma "nieznanego" wieku pozycji, jest tylko brak pozycji).
+  .refine((r) => Number.isFinite(Date.parse(r.timestamp)), { message: 'unparseable timestamp' })
   .transform((r) => ({
     id: r.id ?? '',
     tripId: r.trip_id,
@@ -33,7 +37,7 @@ const positionSchema = z
     lon: r.lon,
     sideNumber: r.side_number === undefined ? '' : String(r.side_number),
     bearing: r.bearing ?? null,
-    timestamp: r.timestamp ?? '',
+    timestamp: r.timestamp,
   }))
 
 const feedSchema = z.object({ time: z.string().optional(), positions: z.array(z.unknown()) })

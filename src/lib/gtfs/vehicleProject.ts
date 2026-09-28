@@ -115,8 +115,10 @@ export function projectVehicle(
   const geometry = projectGeometry(schedule, position)
   if (geometry === null) return null
 
-  const parsed = Date.parse(position.timestamp)
-  const ageSec = Number.isFinite(parsed) ? Math.max(0, Math.floor((nowMs - parsed) / 1000)) : 0
+  // `position.timestamp` jest zawsze parsowalny — `parseVehicleFeed` odrzuca
+  // pozycje bez wiarygodnego czasu u źródła (patrz `vehicles.ts`), więc nie ma
+  // tu gałęzi "nieznany wiek" do obsłużenia (#7).
+  const ageSec = Math.max(0, Math.floor((nowMs - Date.parse(position.timestamp)) / 1000))
 
   return { ...geometry, ageSec }
 }
