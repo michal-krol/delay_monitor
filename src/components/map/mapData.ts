@@ -216,12 +216,6 @@ export function stopsBounds(stops: CityStop[]): [[number, number], [number, numb
   ]
 }
 
-/** Wiek pozycji po ludzku: „przed chwilą", „13 s temu", „2 min temu". */
-export function ageLabel(ageSec: number): string {
-  if (ageSec < 5) return 'przed chwilą'
-  return ageSec < 60 ? `${ageSec} s temu` : `${Math.round(ageSec / 60)} min temu`
-}
-
 type Bounds = [[number, number], [number, number]]
 export type RouteOverlay = {
   line: { type: 'FeatureCollection'; features: { type: 'Feature'; geometry: { type: 'LineString'; coordinates: [number, number][] }; properties: Record<string, never> }[] }

@@ -5,6 +5,7 @@ import { STATUS_TEXT } from './DelayBadge'
 import { InfoTooltip } from './InfoTooltip'
 import type { RateLimitBudget } from '@/lib/pkp/client'
 import type { PollerDiagnostics as FeedDiagnostics, PollerStatus } from '@/lib/board/poller'
+import { formatAgo } from '@/lib/format'
 
 /**
  * Kształt odpowiedzi `/api/health`. Typy `RateLimitBudget` i `PollerStatus`
@@ -62,15 +63,15 @@ function formatBudget(remaining: number | null, limit: number | null): string {
 
 /**
  * Wiek w formie, którą da się ogarnąć wzrokiem. `null` (nigdy się nie udało)
- * to „—", nie „0 s" — ta sama zasada co w `formatBudget()` wyżej.
+ * to „—", nie „0 s" — ta sama zasada co w `formatBudget()` wyżej. Samo
+ * formatowanie sekund → tekst deleguje do wspólnego `formatAgo`
+ * (`src/lib/format.ts`) — ten wrapper dokłada tylko `null` i przeliczenie
+ * ISO+`nowMs` na sekundy.
  */
 function formatAge(iso: string | null, nowMs: number): string {
   if (iso === null) return '—'
   const seconds = Math.max(0, Math.round((nowMs - new Date(iso).getTime()) / 1000))
-  if (seconds < 90) return `${seconds} s temu`
-  const minutes = Math.round(seconds / 60)
-  if (minutes < 90) return `${minutes} min temu`
-  return `${Math.round(minutes / 60)} h temu`
+  return formatAgo(seconds)
 }
 
 /** Kolor kropki źródła: zielony gdy ostatnie pobranie się udało, czerwony gdy nie, szary gdy jeszcze nie próbowano. */

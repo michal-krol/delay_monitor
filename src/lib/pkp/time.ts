@@ -58,6 +58,19 @@ export function zonedDateString(instant: Date, timeZone: string): string {
 }
 
 /**
+ * Godzina (0–23) chwili `epochMs` w strefie `timeZone`, niezależnie od strefy
+ * procesu — ta sama technika co `isoInZone` (offset + odczyt pól UTC), więc
+ * `TZ=UTC` w kontenerze Railway daje ten sam wynik co strefa lokalna dev-maszyny.
+ * Do `currentHour` w widgetach natężenia ruchu (`FullBoard` Warszawa,
+ * `TransitStopDetail`/`CityTransitWidget` strefa miasta) — bez tego `new
+ * Date(now).getHours()` czytał godzinę procesu, nie widza (AGENTS.md #1).
+ */
+export function zonedHour(epochMs: number, timeZone: string): number {
+  const offsetMinutes = zoneOffsetMinutes(new Date(epochMs), timeZone)
+  return new Date(epochMs + offsetMinutes * 60000).getUTCHours()
+}
+
+/**
  * Epoka (ms) południa dnia kursowania `serviceDate` (yyyy-MM-dd) w strefie
  * `timeZone`. GTFS definiuje czasy przystanków jako przesunięcia od
  * (południe doby kursowania − 12 h), a NIE od północy: w dni zmiany czasu

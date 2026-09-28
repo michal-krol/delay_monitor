@@ -1,4 +1,5 @@
 import type { GtfsDeparture } from '@/lib/gtfs/types'
+import { formatDuration } from '@/lib/format'
 import { LineBadge } from './LineBadge'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
@@ -20,14 +21,6 @@ type Props = {
 
 /** `plannedAt` niesie już offset strefy miasta — HH:MM wycinamy wprost z ISO. */
 const clock = (iso: string) => iso.slice(11, 16)
-
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  if (hours === 0) return `${rest} min`
-  if (rest === 0) return `${hours} h`
-  return `${hours} h ${rest} min`
-}
 
 /** `null` = odjazd już minął. Świadomie nie pokazujemy ujemnych „za −5 min" (wzorem `ConnectionDetails.tsx`). */
 function relativeLabel(plannedAt: string, now: number): string | null {

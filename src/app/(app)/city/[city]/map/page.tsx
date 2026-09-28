@@ -20,7 +20,6 @@ import {
   LAYER_LABEL,
   MAP_ZOOM,
   VEHICLE_LAYERS,
-  ageLabel,
   boundsContain,
   formatAt,
   nearbyPoints,
@@ -42,6 +41,7 @@ import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourit
 import { useLineDetail } from '@/hooks/useLineDetail'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { formatAgo } from '@/lib/format'
 import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -377,7 +377,7 @@ export default function CityMapPage() {
         : vehiclesFailed
           ? 'pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne'
           : vehiclesState.feed.ageMs !== null
-            ? `pozycje pojazdów: ${ageLabel(Math.round(vehiclesState.feed.ageMs / 1000))}`
+            ? `pozycje pojazdów: ${formatAgo(Math.round(vehiclesState.feed.ageMs / 1000))}`
             : 'pozycje pojazdów na żywo'
 
   const problems = [

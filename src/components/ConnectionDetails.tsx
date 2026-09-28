@@ -11,7 +11,7 @@ import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/l
 import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
-import { formatClockTime } from '@/lib/format'
+import { formatClockTime, formatDuration } from '@/lib/format'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { AsideCard } from './aside'
@@ -129,13 +129,9 @@ function formatOperatingDate(value: string): string | null {
   return `${day}.${month}.${year} (${weekday})`
 }
 
-function formatDuration(minutes: number | null): string | null {
-  if (minutes === null || minutes < 0) return null
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  if (hours === 0) return `${rest} min`
-  if (rest === 0) return `${hours} h`
-  return `${hours} h ${rest} min`
+/** `null`/ujemne minuty → `null` (nie ma czego pokazać); reszta deleguje do wspólnego `formatDuration`. */
+function formatDurationOrNull(minutes: number | null): string | null {
+  return minutes === null || minutes < 0 ? null : formatDuration(minutes)
 }
 
 /** `null` = nie ma czego odliczać (brak godziny albo już po). Świadomie nie pokazujemy ujemnych „za −5 min". */
@@ -400,7 +396,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
 
   const arrivalTime = formatTime(summary.destination?.displayAt ?? null)
   const countdown = formatCountdown(summary.destination?.displayAt ?? null, now)
-  const travelTime = formatDuration(summary.plannedDurationMinutes)
+  const travelTime = formatDurationOrNull(summary.plannedDurationMinutes)
 
   return (
     <div className="flex flex-col gap-6">

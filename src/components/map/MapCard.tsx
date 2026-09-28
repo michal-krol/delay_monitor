@@ -10,10 +10,10 @@ import { MODE_ICON, MODE_LABEL } from '../transitMode'
 import { TransitDepartureList } from '../TransitDepartureList'
 import { useRailStationStatus } from '@/hooks/useRailStations'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
-import { formatClockTime } from '@/lib/format'
+import { formatAgo, formatClockTime } from '@/lib/format'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import { FADE_START_SEC, MODE_COLOR, ageLabel } from './mapData'
+import { FADE_START_SEC, MODE_COLOR } from './mapData'
 
 /** Co jest wybrane na mapie. Pojazd niesie tylko `id` — pozycja/linia żyją w odczytach co 15 s. */
 export type MapSelection =
@@ -235,7 +235,7 @@ function RailBody({ id }: { id: string }) {
                 ))}
               </ul>
             )}
-            <p className="mt-2 text-xs text-text-muted">Aktualizacja {ageLabel(Math.round(status.ageMs / 1000))}</p>
+            <p className="mt-2 text-xs text-text-muted">Aktualizacja {formatAgo(Math.round(status.ageMs / 1000))}</p>
           </>
         )}
       </div>
@@ -320,7 +320,7 @@ function VehicleBody({
         <div>
           <dt className="text-xs text-text-muted">Pozycja</dt>
           <dd>
-            {ageLabel(vehicle.ageSec)} ·{' '}
+            {formatAgo(vehicle.ageSec)} ·{' '}
             <span className={fresh ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}>
               {fresh ? 'aktualna' : 'nieaktualna'}
             </span>

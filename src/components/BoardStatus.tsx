@@ -1,4 +1,5 @@
 import type { BoardApiResponse } from '@/hooks/useBoard'
+import { formatAge } from '@/lib/format'
 
 type Props = {
   fetchedAt: string | undefined
@@ -16,6 +17,7 @@ const STALE_AFTER_MS = 3 * 60 * 1000
 /** Kolor "coś wymaga uwagi, ale nie jest błędem" — dane sprzed chwili, degradacja, throttling. */
 const WARNING_CLASS = 'text-amber-700 dark:text-amber-400'
 
+/** Tablica PKP jest zawsze warszawska (AGENTS.md #1) — jawna strefa, żeby widz spoza PL widział ten sam czas co dane. */
 function formatLastUpdated(fetchedAt: string): string {
   return new Date(fetchedAt).toLocaleString('pl-PL', {
     day: '2-digit',
@@ -24,14 +26,8 @@ function formatLastUpdated(fetchedAt: string): string {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    timeZone: 'Europe/Warsaw',
   })
-}
-
-function formatAge(ageMs: number): string {
-  const minutes = Math.floor(ageMs / 60000)
-  if (minutes < 60) return `${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  return `${hours} h ${minutes % 60} min`
 }
 
 function budgetHint(data: BoardApiResponse | null): string | undefined {

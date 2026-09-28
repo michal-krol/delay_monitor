@@ -16,6 +16,7 @@ import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
+import { formatSecondsOfDay } from '@/lib/format'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
@@ -34,9 +35,6 @@ type CityEntry = { id: string; name: string; railStations: { id: string; name: s
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
 const LOADING_RETRY_MS = [1000, 2000, 3000, 5000, 8000, 15000]
 const KIND_LABEL = { regular: '', night: 'linia nocna', express: 'linia przyspieszona', replacement: 'linia zastępcza' } as const
-
-const clock = (sec: number) =>
-  `${String(Math.floor(sec / 3600) % 24).padStart(2, '0')}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}`
 
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
@@ -168,7 +166,7 @@ export default function LineDetailPage() {
               <div className="flex justify-between gap-2">
                 <dt className="text-text-muted">Pierwszy / ostatni</dt>
                 <dd className="tabular-nums text-foreground">
-                  {clock(direction.departures[0].times[0])}–{clock(direction.departures[0].times.at(-1)!)}
+                  {formatSecondsOfDay(direction.departures[0].times[0])}–{formatSecondsOfDay(direction.departures[0].times.at(-1)!)}
                 </dd>
               </div>
             ) : null}
@@ -368,7 +366,7 @@ export default function LineDetailPage() {
                             />
                           )}
                           {passSec !== null ? (
-                            <span className="shrink-0 font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">{clock(passSec)}</span>
+                            <span className="shrink-0 font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">{formatSecondsOfDay(passSec)}</span>
                           ) : (
                             index > 0 && <span className="shrink-0 text-xs tabular-nums text-text-muted">+{Math.round(stop.offsetSec / 60)} min</span>
                           )}
