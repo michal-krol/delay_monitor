@@ -130,10 +130,12 @@ paths:
   deliberately never parsed, rejected at the Zod boundary (`alerts.ts`); `link` passes only as
   `https://` (otherwise `''` — it goes into `<a href>` in `AlertBanner`, not a trusted feed).
   Two "no data yet" conventions: `/api/gtfs/city-stats` returns `alerts: null` until the poller
-  is `ready` — the only place in this subsystem where null≠[] matters (numeric tile, #7);
-  `/api/gtfs/line` and `/api/gtfs/board` always return `alerts: []` (never `null`) — those are
-  fields attached to a list, not a separate counter, so an empty list just doesn't render a
-  banner.
+  is `ready` (numeric tile, #7); `/api/gtfs/line` returns `alerts: null` while the alert poller
+  is absent/`idle`/`loading` (`failed` → last good alerts for the line, else `[]`) — the line
+  page fetches once, so without `null` a warm schedule answered `[]` before the first alert
+  fetch and the banner never appeared; `isLineLoading` retries while `alerts === null`.
+  `/api/gtfs/board` always returns `alerts: []` (never `null`) — it refreshes every 30 s, so an
+  empty list just doesn't render a banner until the next refresh.
 
 Contract: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (network, no cost).
 `GTFS_DATA_SOURCE=mock` (default) keeps dev/test/CI zero-network. Fixtures in

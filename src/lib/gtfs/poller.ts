@@ -92,7 +92,7 @@ export type GtfsPollerDeps = {
    * code review, fix round 1).
    */
   onWake?: () => void
-  /** Wołane gdy timer bezczynności zwalnia rozkład — `instance.ts` zatrzymuje poller pozycji. */
+  /** Wołane gdy wygasa zainteresowanie widzów — `instance.ts` zatrzymuje pollery pozycji i alertów (rozkład zostaje przy `keepSchedule`). */
   onIdle?: () => void
   /**
    * Rozgrzane przy starcie miasto (`instance.ts`, zawsze `true` — patrz
