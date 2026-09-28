@@ -36,7 +36,8 @@ GTFS_CONTRACT=1 npm run test -- gtfs/contract
   (a different set each time: jsdom DOM, `vi.mock` and module state leak between files).
   Threads kept isolation and cut the suite from ~75 s to ~48 s.
 - `npm run deps:check` (pre-push, before `check`): exit 1 when `node_modules` differs from
-  `package-lock.json`. Worktrees use the main checkout's `node_modules` → run `npm ci` there.
+  `package-lock.json`. Worktrees use the main checkout's `node_modules` → `npm ci` there when
+  its lockfile matches; a branch that changes the lockfile (Dependabot) → `npm ci` in the worktree.
 - `npm run check` does NOT run `next build`, and `tsc` does not see Next's route/page export
   rules. Files under `src/app/**` (`route.ts`, `page.tsx`, `layout.tsx`) may export only the
   fields Next allows (HTTP methods / route config, the default page, `metadata`…); a test-only

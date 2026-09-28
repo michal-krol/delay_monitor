@@ -28,8 +28,9 @@ if (drift.length > 0) {
     console.error(`deps:check: ${name} — lockfile ${locked}, zainstalowane ${installed ?? 'brak'}`)
   }
   console.error(
-    'deps:check: node_modules nie zgadza się z package-lock.json. ' +
-      'Uruchom `npm ci` w głównym checkoucie (worktree używają jego node_modules).',
+    'deps:check: node_modules nie zgadza się z package-lock.json tej gałęzi. ' +
+      'Worktree używają node_modules głównego checkoutu: `npm ci` tam, gdy ma ten sam ' +
+      'package-lock.json; gdy gałąź go zmienia (np. podbicie Dependabota) — `npm ci` w tym worktree.',
   )
   process.exit(1)
 }
