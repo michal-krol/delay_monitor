@@ -22,7 +22,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // Lokalnie też 1: pełny przebieg pod obciążeniem maszyny dawał 2–8 porażek
+  // (np. mapa na mobile-safari), powtórka zawsze zielona. Test, który przechodzi
+  // dopiero w powtórce, reporter oznacza jako „flaky" — nie znika z widoku.
+  retries: 1,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
   use: {
     baseURL,
