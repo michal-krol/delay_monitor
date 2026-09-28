@@ -18,6 +18,7 @@ import { MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
 import { useCities } from '@/hooks/useCities'
+import { isLineLoading } from '@/hooks/useLineDetail'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
@@ -55,7 +56,7 @@ export default function LineDetailPage() {
   const { data, error } = usePolling<LineResponse>(
     `${city}:${routeId}`,
     () => fetchJson(`/api/gtfs/line?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}`),
-    { refreshMs: null, isLoading: (json) => json.line === null && json.schedule.state === 'loading' }
+    { refreshMs: null, isLoading: isLineLoading }
   )
   const failed = error !== null
 

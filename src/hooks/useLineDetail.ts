@@ -15,7 +15,11 @@ type LineResponse = { line: LineDetail | null; schedule: { state: string }; aler
  */
 type LineDetailState = { detail: LineDetail | null | undefined; alerts: AlertRecord[]; error: boolean }
 
-const isLineLoading = (json: LineResponse) => json.line === null && json.schedule.state !== 'ready'
+/**
+ * Jedyny predykat „linia jeszcze się wczytuje" -- też dla strony linii. Rozkład `failed`
+ * NIE jest „ładowaniem": drabinka staje, a UI pokazuje błąd zamiast szkieletu w pętli.
+ */
+export const isLineLoading = (json: LineResponse) => json.line === null && json.schedule.state === 'loading'
 
 export function useLineDetail(city: string, routeId: string | null): LineDetailState {
   const { data, error } = usePolling<LineResponse>(
@@ -23,6 +27,7 @@ export function useLineDetail(city: string, routeId: string | null): LineDetailS
     () => fetchJson(`/api/gtfs/line?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId as string)}`),
     { refreshMs: null, isLoading: isLineLoading }
   )
-  const ready = data !== null && !isLineLoading(data)
-  return { detail: ready ? data.line : undefined, alerts: ready ? (data.alerts ?? []) : [], error: error !== null }
+  const scheduleFailed = data?.schedule.state === 'failed'
+  const ready = data !== null && !isLineLoading(data) && !scheduleFailed
+  return { detail: ready ? data.line : undefined, alerts: ready ? (data.alerts ?? []) : [], error: error !== null || scheduleFailed }
 }
