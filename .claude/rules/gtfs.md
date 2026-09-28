@@ -35,9 +35,14 @@ paths:
   `instance.ts`, since every poller there is for an enabled — i.e. warmed — city) keeps the
   schedule, `status` and the hourly `maybeRollDay` reload timer alive past `idleTtlMs`; only
   `onIdle()` still fires, so the vehicle/alert pollers stop without a viewer (no 24/7 upstream
-  polling for those). Module state (`pollers` Map) is shared between the instrumentation
-  bundle and route handlers — verified empirically (`next build --webpack` + `next start`,
-  `/api/health` before any GTFS request shows the warmed city loading/ready).
+  polling for those). `onWake` is fired ONLY from `ensureLoaded()` (a real viewer), never from
+  the internal `startLoad()` that `maybeRollDay()` also calls — an unattended day-rollover
+  reload of a kept schedule must NOT resurrect the vehicle/alert pollers (caught in review:
+  wiring `onWake` into `startLoad()` made every idle-stopped warmed city's pollers restart
+  forever at the next day boundary, with zero viewers). Module state (`pollers` Map) is
+  shared between the instrumentation bundle and route handlers — verified empirically
+  (`next build --webpack` + `next start`, `/api/health` before any GTFS request shows the
+  warmed city loading/ready).
 - **Feed fetch timeouts differ by feed.** Vehicles/alerts: 10 s for the whole request. Static
   feed range reads (`client.ts`): the timeout covers only time to response headers, not the
   streamed body — a 107 MB body can legitimately take longer than 30 s; a body stalling

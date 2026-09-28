@@ -13,9 +13,13 @@
  * w `instance.ts` dla każdego pollera — każdy tworzony tam jest dla miasta
  * z `enabledGtfsCities()`) sprawia, że wygaśnięcie zainteresowania
  * (`idleTtlMs`) NIE zwalnia rozkładu ani nie zatrzymuje godzinnego timera
- * przeładowania (`maybeRollDay` dalej działa) — tylko `onIdle()` i tak
- * odpala, więc poller pozycji pojazdów i alertów przestaje pytać feed bez
- * widzów (żadnego pollingu 24/7 bez potrzeby).
+ * przeładowania (`maybeRollDay` dalej działa, może przeładować rozkład BEZ
+ * widza) — tylko `onIdle()` i tak odpala, więc poller pozycji pojazdów
+ * i alertów przestaje pytać feed bez widzów. `onWake` jest CELOWO wołane
+ * WYŁĄCZNIE z `ensureLoaded()`, nigdy z `startLoad()` — inaczej godzinowe
+ * przeładowanie doby (bez widza) wskrzeszałoby poller pozycji/alertów na
+ * zawsze po każdym idle-stopie (żadnego pollingu 24/7 bez potrzeby, patrz
+ * komentarz przy `GtfsPollerDeps.onWake`).
  */
 import { zonedDateString } from '@/lib/pkp/time'
 import type { CityFeed } from './cities'
@@ -69,7 +73,15 @@ export type GtfsPollerDeps = {
   now?: () => number
   setTimer?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>
   clearTimer?: (handle: ReturnType<typeof setTimeout>) => void
-  /** Wołane gdy rusza ładowanie rozkładu — `instance.ts` startuje wtedy poller pozycji. */
+  /**
+   * Wołane WYŁĄCZNIE z `ensureLoaded()`, czyli tylko gdy jest realny widz —
+   * `instance.ts` wtedy (re)startuje poller pozycji/alertów. CELOWO nie z
+   * `startLoad()`: `maybeRollDay()` (godzinowy timer) też woła `startLoad()`
+   * bez żadnego widza — gdyby to budziło pollery pozycji/alertów, rozkład
+   * trzymany w pamięci (`keepSchedule`) wskrzeszałby je na zawsze przy
+   * każdym przeładowaniu doby, mimo idle-stopu (regresja złapana w
+   * code review, fix round 1).
+   */
   onWake?: () => void
   /** Wołane gdy timer bezczynności zwalnia rozkład — `instance.ts` zatrzymuje poller pozycji. */
   onIdle?: () => void
@@ -103,11 +115,6 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   let loadInFlight = false
   let lastInterestAt = now()
   let disposed = false
-  // true od `onIdle()` do najbliższego (ponownego) obudzenia — tylko dla
-  // `keepSchedule`, gdzie `status` zostaje 'ready' po wygaśnięciu
-  // zainteresowania, więc zwykła ścieżka `ensureLoaded()` niżej nie odpali
-  // `startLoad()` (a z nim `onWake`) same z siebie.
-  let idleStoppedWithKeptSchedule = false
 
   let reloadTimer: ReturnType<typeof setTimeout> | null = null
   let idleTimer: ReturnType<typeof setTimeout> | null = null
@@ -134,9 +141,7 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
         // inaczej przy `status === 'failed'` poller pozycji zostawał na zawsze.
         idleTimer = null
         deps.onIdle?.()
-        if (deps.keepSchedule) {
-          if (schedule !== null) idleStoppedWithKeptSchedule = true
-        } else if (schedule !== null) {
+        if (schedule !== null && !deps.keepSchedule) {
           schedule = null
           status = 'idle'
           phase = null
@@ -169,8 +174,6 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   function startLoad(): void {
     if (loadInFlight || disposed) return
     loadInFlight = true
-    idleStoppedWithKeptSchedule = false
-    deps.onWake?.()
     if (schedule === null) status = 'loading'
     phase = 'start'
 
@@ -203,14 +206,11 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
       lastInterestAt = now()
       if (idleTimer === null) scheduleIdleTimer()
 
-      // Widz wraca po wygaśnięciu zainteresowania nad rozkładem trzymanym w
-      // pamięci (`keepSchedule`) — `status` jest wciąż 'ready', więc ścieżki
-      // niżej nie ruszą `startLoad()`. Budzimy poller pozycji/alertów osobno,
-      // bez refetchu ciepłego rozkładu.
-      if (idleStoppedWithKeptSchedule) {
-        idleStoppedWithKeptSchedule = false
-        deps.onWake?.()
-      }
+      // `onWake` jest WYŁĄCZNIE od widza — tylko tutaj, nigdy z `startLoad()`
+      // (patrz komentarz przy `GtfsPollerDeps.onWake`). `ensureRunning()` po
+      // stronie pollera pozycji/alertów jest idempotentne, więc wywołanie na
+      // każdy `ensureLoaded()` (nawet gdy rozkład już `ready`) jest tanie.
+      deps.onWake?.()
 
       if (status === 'idle' || status === 'failed') {
         startLoad()

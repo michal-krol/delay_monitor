@@ -281,4 +281,47 @@ describe('createGtfsPoller', () => {
     expect(load).toHaveBeenCalledTimes(1)
     poller.dispose()
   })
+
+  // Fix round 1 (code review CRITICAL 1): godzinowy timer przeładowania nie
+  // ma prawa budzić pollerów pozycji/alertów sam z siebie — tylko widz
+  // (`ensureLoaded()`) budzi. Inaczej przeładowanie doby dla rozkładu
+  // trzymanego w pamięci (`keepSchedule`) po idle-stopie wskrzeszałoby
+  // poller pozycji na zawsze (idle timer jest wyczyszczony po idle-stopie,
+  // re-uzbraja go tylko `ensureLoaded()`) — bez widza, złamanie decyzji
+  // właściciela o zerowym pollingu 24/7.
+  it('does not wake vehicle/alert pollers for a day-rollover reload while idle-stopped — only a returning viewer wakes them', async () => {
+    const onWake = vi.fn()
+    const onIdle = vi.fn()
+    const { poller, load, deferreds } = setup('2026-09-02T20:00:00Z', 60 * 60 * 1000, {
+      onWake,
+      onIdle,
+      keepSchedule: true,
+    })
+
+    poller.ensureLoaded()
+    expect(onWake).toHaveBeenCalledTimes(1) // pierwszy widz budzi normalnie
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Brak zainteresowania > idleTtlMs (1h) -> idle-stop w tle.
+    await vi.advanceTimersByTimeAsync(70 * 60 * 1000) // 20:00Z + 70min = 21:10Z
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    expect(onWake).toHaveBeenCalledTimes(1) // idle-stop NIE budzi
+
+    // Doba się zmienia i mija próg RELOAD_HOUR (03:00 czasu warszawskiego) —
+    // godzinowy timer przeładowuje rozkład SAM Z SIEBIE, bez widza.
+    await vi.advanceTimersByTimeAsync(8 * 60 * 60 * 1000) // do ~05:10Z (07:10 Warszawa)
+    expect(load).toHaveBeenCalledTimes(2) // przeładowanie doby faktycznie ruszyło
+    expect(onWake).toHaveBeenCalledTimes(1) // ale BEZ budzenia pollerów — kluczowa asercja
+
+    // Widz wraca: teraz onWake się odpala, a timer bezczynności wraca do życia.
+    poller.ensureLoaded()
+    expect(onWake).toHaveBeenCalledTimes(2)
+
+    // Drugi okres bezczynności musi znów odpalić onIdle — idle timer faktycznie działa.
+    await vi.advanceTimersByTimeAsync(65 * 60 * 1000)
+    expect(onIdle).toHaveBeenCalledTimes(2)
+
+    poller.dispose()
+  })
 })
