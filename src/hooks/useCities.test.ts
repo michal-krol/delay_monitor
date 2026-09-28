@@ -58,6 +58,28 @@ describe('useCities', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('result with railStationsUnknown is refetched on next mount', async () => {
+    // Server-side negative cache for rail stations (railStations.ts) expires
+    // after 10 min; caching this result for the whole browser session would
+    // keep showing "—"/no weather until a full reload (AGENTS.md #7).
+    const unknownCity = { id: 'warszawa', name: 'Warszawa', railStations: [], railStationsUnknown: true }
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ cities: [unknownCity] }))
+      .mockImplementationOnce(() => jsonResponse({ cities: [CITY] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result: first, unmount } = renderHook(() => useCities())
+    await vi.waitFor(() => expect(first.current.state).toBe('ready'))
+    expect(first.current.cities).toEqual([unknownCity])
+    unmount()
+
+    const { result: second } = renderHook(() => useCities())
+    await vi.waitFor(() => expect(second.current.state).toBe('ready'))
+    expect(second.current.cities).toEqual([CITY])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('retry() refetches after failure without remounting', async () => {
     const fetchMock = vi
       .fn()
