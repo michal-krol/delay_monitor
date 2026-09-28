@@ -23,7 +23,8 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
     ONLY from `getSnapshot` of stations the poller already has — asked only while a station
     card is open, every 90 s. Never `registerInterest` — the country map would pull thousands
     of stations into the budget. `resolveCityRailStations()` (`/api/cities`) caches the
-    station lookup per city for 10 min — including `[]` after a dictionary failure.
+    station lookup per city for 10 min — including a failed lookup (`null` →
+    `railStationsUnknown: true` in `/api/cities`).
   - `/api/network-stats` — `getOperationsStatistics` (15 min), `getDisruptionCount` (20 min),
     `getDailyCarrierCounts` (24 h), `getNameDictionaries` (shared). One global widget, cache in
     `board/networkStats.ts` → ~7/h regardless of traffic.
