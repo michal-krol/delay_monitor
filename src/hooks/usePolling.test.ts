@@ -203,6 +203,31 @@ describe('usePolling', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
+  it('refreshMs as a function of the result picks the delay per result; null stops', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce({ slow: true }).mockResolvedValueOnce({ slow: true }).mockResolvedValue({ slow: false })
+    renderHook(() => usePolling('k', fetcher, { refreshMs: (d: { slow: boolean }) => (d.slow ? 300_000 : null) }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(299_000)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(fetcher).toHaveBeenCalledTimes(3) // wynik `slow: false` -> `null` -> koniec
+
+    await vi.advanceTimersByTimeAsync(600_000)
+    expect(fetcher).toHaveBeenCalledTimes(3)
+  })
+
+  it('a refreshMs function does not drive the error retry: errors retry at errorRetryMs or 30 s', async () => {
+    const fetcher = vi.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValue({ slow: false })
+    renderHook(() => usePolling('k', fetcher, { refreshMs: () => 300_000 }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
   it('a null key means idle: no fetch, data reset', () => {
     const fetcher = vi.fn().mockResolvedValue({ ok: true })
     const { result } = renderHook(() => usePolling(null, fetcher, { refreshMs: 30_000 }))
