@@ -31,6 +31,12 @@ GTFS_CONTRACT=1 npm run test -- gtfs/contract
   checks presence of fields/params — their disappearance causes silent failures
   (2026-08-30: `withPlanned`/`fullRoute`).
 - Coverage thresholds in `vitest.config.mts` (branches 87, lines 91), enforced by `test:coverage` in CI.
+- Vitest runs with `pool: 'threads'` and per-file isolation. Do not set `isolate: false`
+  despite Vitest's hint: measured 2026-09-28 it failed 117, 190 and 125 tests in three runs
+  (a different set each time: jsdom DOM, `vi.mock` and module state leak between files).
+  Threads kept isolation and cut the suite from ~75 s to ~48 s.
+- `npm run deps:check` (pre-push, before `check`): exit 1 when `node_modules` differs from
+  `package-lock.json`. Worktrees use the main checkout's `node_modules` → run `npm ci` there.
 - `npm run check` does NOT run `next build`, and `tsc` does not see Next's route/page export
   rules. Files under `src/app/**` (`route.ts`, `page.tsx`, `layout.tsx`) may export only the
   fields Next allows (HTTP methods / route config, the default page, `metadata`…); a test-only
@@ -65,4 +71,7 @@ CI (separate `e2e` job, outside the fast `quality` job).
   (`iPhone 15`). New viewport = entry in `playwright.config.ts`.
 - Outside CI `playwright.config.ts` builds with `--webpack` (Turbopack fails when
   `node_modules` is above `turbopack.root`). Don't junction `node_modules` into the worktree.
+- Locally `retries: 1` (as in CI): under full load 2 tests failed per run and passed on retry;
+  now they show as "flaky". Missing browsers after a Playwright bump → the config prints
+  `npx playwright install chromium webkit` and exits.
 - `ponytail:` visual snapshots (`toHaveScreenshot`) skipped until a real visual regression.
