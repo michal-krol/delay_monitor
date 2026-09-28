@@ -925,6 +925,38 @@ describe('ConnectionDetails', () => {
       expect(trainCalls(fetchMock)).toBe(2)
     })
 
+    it('background 503 then over an hour passes shows the data age in hours and minutes', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      let trainCallCount = 0
+      const fetchMock = vi.fn((url: string) => {
+        if (String(url).startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
+        trainCallCount++
+        return trainCallCount === 1
+          ? jsonResponse(RESPONSE)
+          : Promise.resolve(
+              new Response(
+                JSON.stringify({ error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' }),
+                { status: 503 }
+              )
+            )
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      // 1 h 5 min później -- dociąganie w tle pada (503), a wiek danych ma
+      // przejść przez `formatAge()` (godziny + minuty), nie zostać surowymi
+      // minutami: „526 min" (regresja przed poprawką) zamiast „8 h 46 min"
+      // przy dłuższych przerwach -- tu 65 min zamiast „65 min" ma dać „1 h 5 min".
+      vi.setSystemTime(new Date('2026-08-01T11:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+
+      await vi.waitFor(() => expect(screen.getByText('Dane sprzed 1 h 5 min')).toBeInTheDocument())
+      expect(screen.queryByText('Dane sprzed 65 min')).not.toBeInTheDocument()
+      expect(trainCalls(fetchMock)).toBe(2)
+    })
+
     it('successful refresh hides the age', async () => {
       freezeClock('2026-08-01T10:00:00Z')
       // Jak wyżej -- osobny licznik tylko dla /api/train, /api/weather nie

@@ -11,7 +11,7 @@ import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/l
 import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
-import { formatClockTime, formatDuration } from '@/lib/format'
+import { formatAge, formatClockTime, formatDuration } from '@/lib/format'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { AsideCard } from './aside'
@@ -353,7 +353,6 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const dataAgeMs = lastSuccessAt !== null ? now - lastSuccessAt : null
   const showDataAge =
     !isJourneyOver(stops) && dataAgeMs !== null && (backgroundRefreshFailed || dataAgeMs >= 2 * BACKGROUND_REFRESH_MS)
-  const dataAgeMinutes = dataAgeMs !== null ? Math.floor(dataAgeMs / 60_000) : null
 
   // Mapa trasy: tylko przystanki z rzeczywistymi współrzędnymi (AGENTS.md #6 —
   // reszta po prostu nie dostaje pina, polilinia łączy się dłuższym odcinkiem
@@ -471,8 +470,8 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     <span>{summary.destination.stationName}</span>
                   </p>
                 )}
-                {showDataAge && dataAgeMinutes !== null && (
-                  <p className="mt-1 text-xs text-text-muted">Dane sprzed {dataAgeMinutes} min</p>
+                {showDataAge && dataAgeMs !== null && (
+                  <p className="mt-1 text-xs text-text-muted">Dane sprzed {formatAge(dataAgeMs)}</p>
                 )}
               </div>
 
