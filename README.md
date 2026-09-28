@@ -136,7 +136,8 @@ Przeglądarka ───────────▶ /api/gtfs/* ─▶ rozkład G
   zależy od liczby oglądanych stacji, a nie bezpośrednio od liczby użytkowników.
 - **Oszczędne korzystanie z limitu API.** Poller obejmuje tylko stacje, które są
   aktualnie oglądane, usypia po okresie bezczynności, śledzi godzinowy i dobowy limit
-  klucza i zwalnia, zanim go przekroczy. Rozkłady i słowniki są buforowane.
+  klucza i zwalnia, zanim go przekroczy. Rozkłady i słowniki są buforowane, a trasy
+  pociągów zapamiętywane na dobę.
 - **Rozkład wyznacza listę połączeń, realizacja ją uzupełnia.** Wiersze tablicy
   powstają z rozkładu, a dane o ruchu dokładają opóźnienia i statusy. Brak danych
   o ruchu nie powoduje pustej tablicy.
@@ -281,6 +282,8 @@ Aktualizacje zależności proponuje Dependabot (npm, GitHub Actions, obraz Docke
   o treści zapytań do usług zewnętrznych nie decyduje klient.
 - Limit zapytań do PKP jest chroniony po stronie serwera, a równoległe żądania
   o te same dane są deduplikowane.
+- Zapytania o szczegóły połączeń mają własny limit godzinowy z rezerwą dla nowych
+  wejść, więc nie wyczerpują limitu, z którego korzystają tablice odjazdów.
 - Nagłówki bezpieczeństwa (CSP, HSTS, `frame-ancestors`, `Referrer-Policy`,
   `Permissions-Policy`) ustawia `next.config.ts`; ich zmianę kontroluje test.
 - Sekrety są przechowywane wyłącznie w zmiennych środowiskowych.
