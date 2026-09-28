@@ -10,6 +10,9 @@ export type VehicleFeedResult = {
 }
 
 const USER_AGENT = 'delay-monitor-gtfs-loader (+https://github.com/michal-krol/delay_monitor)'
+/** Pozycje i alerty są krótkie (kilkaset KB) i odświeżane co kilkanaście-kilkaset sekund --
+ * zawieszone połączenie ma trzymać obietnicę pollera znacznie krócej niż domyślne ~300 s undici. */
+const LIVE_FEED_TIMEOUT_MS = 10_000
 
 /** Krawędź sieci: goły GET JSON. Rzuca na nie-2xx (poller degraduje do ostatnich znanych). */
 export async function fetchVehicleFeed(
@@ -18,6 +21,7 @@ export async function fetchVehicleFeed(
 ): Promise<VehicleFeedResult> {
   const response = await fetchImpl(url, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+    signal: AbortSignal.timeout(LIVE_FEED_TIMEOUT_MS),
   })
   if (!response.ok) throw new Error(`vehicles.json: HTTP ${response.status}`)
   return parseVehicleFeed(await response.json())

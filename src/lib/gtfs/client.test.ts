@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CityFeed } from './cities'
 import { createLiveClient, isRangeRequestUnsupportedError } from './client'
 import { buildZip, rangeResponder } from '@/test-utils/zip'
@@ -32,6 +32,11 @@ async function collect(stream: AsyncIterable<string> | null): Promise<string[]> 
 }
 
 describe('createLiveClient', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
   it('reads the central directory with a suffix range, then streams an inflated entry', async () => {
     const fetchSpy = vi.fn(rangeResponder(archive()))
     const client = createLiveClient(CITY, { fetch: fetchSpy })
@@ -81,5 +86,48 @@ describe('createLiveClient', () => {
       fetch: async () => new Response(new Uint8Array(10), { status: 206, headers: { etag: '"x"' } }),
     })
     await expect(client.getFeedVersion()).rejects.toSatisfy(isRangeRequestUnsupportedError)
+  })
+
+  it('hanging range read rejects after 30 s (response headers never arrive)', async () => {
+    vi.useFakeTimers()
+    // Stub only settles when its signal aborts, like real fetch does --
+    // never resolves on its own, so it models headers that never arrive.
+    const fetchSpy = vi.fn((_url: string, _headers: Record<string, string>, signal: AbortSignal) =>
+      new Promise<Response>((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+      }),
+    )
+    const client = createLiveClient(CITY, { fetch: fetchSpy })
+    const promise = client.readEntry('stops.txt')
+    const rejection = expect(promise).rejects.toThrow()
+    await vi.advanceTimersByTimeAsync(30_000)
+    await rejection
+  })
+
+  it('slow body after headers is not aborted', async () => {
+    vi.useFakeTimers()
+    // `vi.getTimerCount()` cannot see a native `AbortSignal.timeout` -- it
+    // never registers with vi's fake timers, so it would read 0 whether or
+    // not the deadline still applies to the body. Capture the signal handed
+    // to `fetch` and spy on `AbortSignal.timeout` so a regression back to
+    // `signal: AbortSignal.timeout(...)` (which aborts the streaming body,
+    // not just the wait for headers) fails this test.
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
+    const respond = rangeResponder(archive())
+    let lastSignal: AbortSignal | undefined
+    const fetchSpy = vi.fn((url: string, headers: Record<string, string>, signal: AbortSignal) => {
+      lastSignal = signal
+      return respond(url, headers)
+    })
+    const client = createLiveClient(CITY, { fetch: fetchSpy })
+    const stream = await client.readEntry('stops.txt')
+    // Headers are in (readEntry resolved) -- the 30 s deadline must already
+    // be cleared, so advancing past it must not abort the in-flight body.
+    expect(lastSignal?.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(lastSignal?.aborted).toBe(false)
+    const lines = await collect(stream)
+    expect(lines).toEqual(['stop_id,stop_name', '100101,Centrum', '100102,Centrum'])
+    expect(timeoutSpy).not.toHaveBeenCalled()
   })
 })
