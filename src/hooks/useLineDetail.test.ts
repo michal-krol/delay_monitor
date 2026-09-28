@@ -66,6 +66,19 @@ describe('useLineDetail', () => {
     expect(result.current).toEqual({ detail: undefined, alerts: [], error: true }) // błąd, nie wieczny szkielet
   })
 
+  it('keeps the last good detail and alerts when a later fetch errors (AGENTS.md #7)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ line: LINE, schedule: { state: 'ready' }, alerts: null }))
+      .mockImplementation(() => Promise.reject(new Error('net')))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useLineDetail('warszawa', '20'))
+    await vi.waitFor(() => expect(result.current.detail).toEqual(LINE))
+    await vi.advanceTimersByTimeAsync(1_000) // krok drabinki (alerty nieznane) -> błąd sieci
+    await vi.waitFor(() => expect(result.current.error).toBe(true))
+    expect(result.current).toEqual({ detail: LINE, alerts: [], error: true }) // przebieg zostaje, nie znika w szkielet
+  })
+
   it('flags an error and retries after 30 s', async () => {
     const fetchMock = vi
       .fn()

@@ -136,6 +136,42 @@ describe('GET /api/gtfs/city-stats', () => {
     expect(body.alertFeed.state).toBe('loading')
   })
 
+  it.each(['idle', 'loading'] as const)('alerts is null while an existing alert poller is %s', async (state) => {
+    alertPoller = { getView: () => ({ state, ageMs: null }), getAlerts: () => [] }
+    try {
+      const { body } = await call('city=warszawa')
+      expect(body.alerts).toBeNull()
+      expect(body.alertFeed).toEqual({ state, ageMs: null })
+    } finally {
+      alertPoller = null
+    }
+  })
+
+  it('alerts stays null (unknown, never []) for a failed alert feed that never fetched anything', async () => {
+    alertPoller = { getView: () => ({ state: 'failed', ageMs: null }), getAlerts: () => [] }
+    try {
+      const { body } = await call('city=warszawa')
+      expect(body.alerts).toBeNull()
+      expect(body.alertFeed).toEqual({ state: 'failed', ageMs: null })
+    } finally {
+      alertPoller = null
+    }
+  })
+
+  it('serves the last good alerts (with their age) when a later alert fetch failed', async () => {
+    alertPoller = {
+      getView: () => ({ state: 'failed', ageMs: 600_000 }),
+      getAlerts: () => [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 't', body: 'b' }],
+    }
+    try {
+      const { body } = await call('city=warszawa')
+      expect(body.alerts).toHaveLength(1)
+      expect(body.alertFeed).toEqual({ state: 'failed', ageMs: 600_000 })
+    } finally {
+      alertPoller = null
+    }
+  })
+
   it('returns the alert list once the poller is ready', async () => {
     alertPoller = {
       getView: () => ({ state: 'ready', ageMs: 3000 }),

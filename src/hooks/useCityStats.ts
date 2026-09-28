@@ -25,12 +25,14 @@ export type CityStatsResponse = {
  *
  * Ponawiamy też, gdy sam rozkład jest już `ready`, ale poller alertów (rytm 5 min,
  * niezależny od rozkładu) jeszcze nie skończył pierwszego pobrania (`alerts == null`)
- * — inaczej widżet utyka na „Wczytuję…" na czas życia komponentu.
+ * — inaczej widżet utyka na „Wczytuję…" na czas życia komponentu. Feed alertów
+ * `failed` to stan znany („nie udało się pobrać", #7), nie ładowanie: drabinka staje
+ * (jak `failed` w `/api/gtfs/line`), zamiast odpytywać martwy feed co 15 s.
  */
 export function useCityStats(city: string | null) {
   const { data, error } = usePolling<CityStatsResponse>(city, () => fetchJson(`/api/gtfs/city-stats?city=${encodeURIComponent(city as string)}`), {
     refreshMs: null,
-    isLoading: (json) => json.state === 'loading' || json.alerts == null,
+    isLoading: (json) => json.state === 'loading' || (json.alerts == null && json.alertFeed?.state !== 'failed'),
   })
   return { data, error }
 }

@@ -4,13 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCityStats } from './useCityStats'
 import { jsonResponse } from '@/test-utils/http'
 
-const body = (state: 'ready' | 'loading' | 'failed', alerts: unknown[] | null = []) =>
+const body = (state: 'ready' | 'loading' | 'failed', alerts: unknown[] | null = [], alertState = alerts === null ? 'loading' : 'ready') =>
   jsonResponse({
     city: 'warszawa',
     state,
     stats: state === 'ready' ? { tripsToday: 10 } : null,
     alerts,
-    alertFeed: { state: alerts === null ? 'loading' : 'ready', ageMs: alerts === null ? null : 1000 },
+    alertFeed: { state: alertState, ageMs: alerts === null ? null : 1000 },
   })
 
 beforeEach(() => vi.useFakeTimers())
@@ -66,6 +66,15 @@ describe('useCityStats', () => {
     const { result } = renderHook(() => useCityStats('warszawa'))
     await vi.waitFor(() => expect(result.current.data?.state).toBe('ready'))
     await vi.advanceTimersByTimeAsync(20000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops retrying once the alert feed failed with no data: a known "unavailable" state, not "loading"', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('ready', null, 'failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('failed'))
+    await vi.advanceTimersByTimeAsync(60_000)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 

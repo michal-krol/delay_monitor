@@ -1,7 +1,7 @@
 'use client'
 
 import { useCityStats } from '@/hooks/useCityStats'
-import { formatSecondsOfDay } from '@/lib/format'
+import { formatAge, formatSecondsOfDay } from '@/lib/format'
 import { getCity } from '@/lib/gtfs/cities'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { zonedHour } from '@/lib/pkp/time'
@@ -129,12 +129,25 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
             }
             return <p className="text-xs text-text-muted">Wczytuję…</p>
           }
-          if (alerts.length === 0) return <p className="text-xs text-text-muted">Brak aktywnych utrudnień.</p>
+          // Feed `failed` po udanym pobraniu: ostatnie dobre alerty + ich wiek (#7).
+          const feed = data?.alertFeed
+          const staleNote = feed?.state === 'failed' && feed.ageMs !== null && (
+            <p className="text-xs text-text-muted">Nie udało się odświeżyć — dane sprzed {formatAge(feed.ageMs)}</p>
+          )
+          if (alerts.length === 0) {
+            return (
+              <>
+                <p className="text-xs text-text-muted">Brak aktywnych utrudnień.</p>
+                {staleNote}
+              </>
+            )
+          }
           return (
             <div className="flex flex-col gap-1.5">
               <p className="text-xs font-semibold text-foreground">
                 {alerts.length} {pluralPl(alerts.length, 'aktywne utrudnienie', 'aktywne utrudnienia', 'aktywnych utrudnień')}
               </p>
+              {staleNote}
               <ul className="flex flex-col gap-1 text-xs text-text-secondary">
                 {alerts.map((a) => (
                   <li key={a.id}>{a.title}</li>

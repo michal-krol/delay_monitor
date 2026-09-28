@@ -130,8 +130,12 @@ paths:
   ZERO delay field: `AlertRecord` carries only announcement text. `htmlbody` (foreign HTML)
   deliberately never parsed, rejected at the Zod boundary (`alerts.ts`); `link` passes only as
   `https://` (otherwise `''` — it goes into `<a href>` in `AlertBanner`, not a trusted feed).
-  Two "no data yet" conventions: `/api/gtfs/city-stats` returns `alerts: null` until the poller
-  is `ready` (numeric tile, #7); `/api/gtfs/line` returns `alerts: null` while the alert poller
+  Two "no data yet" conventions: `/api/gtfs/city-stats` returns `alerts: null` while the poller
+  is absent/`idle`/`loading` or `failed` with no successful fetch yet (`ageMs === null`) —
+  numeric tile, #7, so never `[]`; `failed` after a good fetch → last good alerts + `alertFeed.ageMs`.
+  `useCityStats` retries while `alerts == null` unless `alertFeed.state === 'failed'` (a known
+  "unavailable" state — no polling a dead feed every 15 s; deliberate: the widget does not pick
+  up a later recovery of the feed until remount, same as `useLineDetail`); `/api/gtfs/line` returns `alerts: null` while the alert poller
   is absent/`idle`/`loading` (`failed` → last good alerts for the line, else `[]`) — the line
   page fetches once, so without `null` a warm schedule answered `[]` before the first alert
   fetch and the banner never appeared; `isLineLoading` retries while `alerts === null`.

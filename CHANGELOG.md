@@ -30,6 +30,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Gdy źródło rozkładu komunikacji miejskiej jest niedostępne, serwer nie próbuje go pobierać
   ponownie przy każdym odświeżeniu otwartych widoków — kolejne próby są coraz rzadsze
   (od 30 sekund do godziny), a po udanym pobraniu wszystko wraca do normy.
+- Gdy nie da się pobrać komunikatów o utrudnieniach, widżet komunikacji miejskiej przestaje
+  co 15 sekund ponawiać zapytania i pokazuje „Nie udało się pobrać utrudnień." zamiast
+  wiecznego „Wczytuję…". Jeśli wcześniej udało się je pobrać, pokazuje ostatnie znane
+  utrudnienia z informacją, jak stare są dane.
 
 ## [1.0.2] — 2026-09-28
 
