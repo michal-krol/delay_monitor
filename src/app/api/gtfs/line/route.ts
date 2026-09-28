@@ -33,10 +33,16 @@ export async function GET(request: Request) {
   const schedule = poller.getSchedule()
   const scheduleBlock = scheduleResponseBlock(poller.getView())
 
+  // `alerts: null` = jeszcze nie wiadomo (poller alertów nieobecny albo `idle`/`loading` — np. świeżo
+  // obudzony przez to samo żądanie): klient ponawia drabinką do skutku (#7, jak `city-stats`). Feed
+  // `failed` -> lista (z ostatnich dobrych danych albo pusta), żeby nie odpytywać martwego feedu w nieskończoność.
   const alertPoller = peekAlertPoller(city)
+  const alertState = alertPoller?.getView().state
+  const alertsKnown = alertState === 'ready' || alertState === 'failed'
   const routeIdx = schedule !== null ? schedule.routeIndexById.get(route) : undefined
-  const alerts =
-    schedule !== null && alertPoller !== null && routeIdx !== undefined
+  const alerts = !alertsKnown
+    ? null
+    : schedule !== null && alertPoller !== null && routeIdx !== undefined
       ? alertsForRoutes(schedule, alertPoller.getAlerts(), new Set([routeIdx]))
       : []
 

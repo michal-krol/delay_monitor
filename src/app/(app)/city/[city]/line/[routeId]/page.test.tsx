@@ -262,6 +262,31 @@ describe('LineDetailPage', () => {
     }
   })
 
+  it('refetches while alerts are unknown (null) and then shows the banner', async () => {
+    vi.useFakeTimers()
+    try {
+      const alert = { id: 'a', routes: ['20'], effect: 'DETOUR', link: 'https://www.wtp.waw.pl/x/', title: 'Utrudnienia na linii 20', body: 'Treść.' }
+      let calls = 0
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ ...LINE, alerts: ++calls === 1 ? null : [alert] })
+          if (url.startsWith('/api/gtfs/vehicles')) return jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } })
+          return jsonResponse({ cities: [] })
+        })
+      )
+      render(<LineDetailPage />)
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(screen.getByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
+      expect(screen.queryByText('Utrudnienia na linii 20')).not.toBeInTheDocument() // nieznane != brak, ale i baner się nie pokazuje
+      await act(() => vi.advanceTimersByTimeAsync(1_000)) // pierwszy stopień drabinki
+      expect(calls).toBe(2)
+      expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('retries after a failed fetch instead of staying failed', async () => {
     vi.useFakeTimers()
     try {

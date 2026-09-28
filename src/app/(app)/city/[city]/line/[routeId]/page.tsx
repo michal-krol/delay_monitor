@@ -29,7 +29,8 @@ type LineResponse = {
   city: string
   schedule: TransitBoardResponse['schedule']
   line: LineDetail | null
-  alerts: import('@/lib/gtfs/alerts').AlertRecord[]
+  /** `null` = feed alertów jeszcze nie odpowiedział (nieznane); `isLineLoading` ponawia do skutku. */
+  alerts: import('@/lib/gtfs/alerts').AlertRecord[] | null
   attribution: string[]
 }
 
@@ -191,7 +192,7 @@ export default function LineDetailPage() {
               {MODE_LABEL[line.mode]}
               {KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · {KIND_LABEL[line.kind]}</span>}
             </p>
-            {data !== null && data.alerts.length > 0 && <AlertBanner alerts={data.alerts} />}
+            {data?.alerts != null && data.alerts.length > 0 && <AlertBanner alerts={data.alerts} />}
             {data !== null && (
               <ScheduleStatus schedule={data.schedule} cityName={cityName} title={`Rozkład jazdy linii ${line.line}`} error={failed} />
             )}
