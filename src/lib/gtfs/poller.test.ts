@@ -413,4 +413,28 @@ describe('createGtfsPoller', () => {
     expect(poller.getSchedule()).not.toBeNull() // stary rozkład serwowany w trakcie
     poller.dispose()
   })
+
+  it('clears the backoff when the idle timer releases the schedule, so a returning viewer loads at once', async () => {
+    // Zegar pollera sterowany ręcznie, niezależnie od fałszywych timerów:
+    // idle-stop (TTL 10 s) musi zajść WEWNĄTRZ 30-sekundowego okna backoffu.
+    let t = Date.parse('2026-09-02T20:00:00Z')
+    const { poller, load, deferreds } = setup('2026-09-02T20:00:00Z', 10_000, { now: () => t })
+    poller.ensureLoaded()
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+
+    t = Date.parse('2026-09-03T04:00:00Z') // zmiana doby → przeładowanie pada
+    poller.ensureLoaded()
+    deferreds[1].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    t += 20_000 // > idleTtlMs, < 30 s okna
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000) // tick sprawdzania bezczynności
+    expect(poller.getView().status).toBe('idle')
+
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(3)
+    expect(poller.getView().state).toBe('loading')
+    poller.dispose()
+  })
 })

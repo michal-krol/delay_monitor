@@ -117,6 +117,9 @@ const IDLE_CHECK_MS = 5 * 60 * 1000
  * `ensureLoaded()` — bez okna każda próba po błędzie od razu odpalałaby kolejne
  * ~107 MB. Bramka w `startLoad()`, więc obejmuje też `preload()` i godzinowe
  * przeładowanie doby. Bez timera: ponowienie dalej wyzwala widz albo godzinowy tick.
+ * ponytail: bez widza przy oknie 1 h godzinowy tick trafia tuż przed `retryAtMs`,
+ * więc samoczynne ponowienie wypada co ~2 h — stary rozkład jest w tym czasie
+ * serwowany; skróć `RETRY_MAX_MS` poniżej godziny, jeśli to zacznie przeszkadzać.
  */
 const RETRY_BASE_MS = 30 * 1000
 const RETRY_MAX_MS = HOURLY_MS
@@ -166,6 +169,9 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
           status = 'idle'
           phase = null
           loadedAtMs = null
+          // `idle` = start od zera; zostawione okno blokowałoby ładowanie przy `state: 'loading'`.
+          failedLoads = 0
+          retryAtMs = 0
           if (reloadTimer !== null) {
             clearTimer(reloadTimer)
             reloadTimer = null
