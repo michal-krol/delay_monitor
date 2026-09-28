@@ -134,8 +134,12 @@ paths:
   is absent/`idle`/`loading` or `failed` with no successful fetch yet (`ageMs === null`) —
   numeric tile, #7, so never `[]`; `failed` after a good fetch → last good alerts + `alertFeed.ageMs`.
   `useCityStats` retries while `alerts == null` unless `alertFeed.state === 'failed'` (a known
-  "unavailable" state — no polling a dead feed every 15 s; deliberate: the widget does not pick
-  up a later recovery of the feed until remount, same as `useLineDetail`); `/api/gtfs/line` returns `alerts: null` while the alert poller
+  "unavailable" state — no polling a dead feed every 15 s). Any `failed` feed (with or without
+  last good data) re-polls slowly instead, every 5 min (the `AlertPoller` retry rhythm, visible
+  tab only), via a result-driven `refreshMs` in `usePolling`, so a later recovery shows up and
+  the stale age keeps growing. Deliberately not in `useLineDetail`/the line page: the line
+  response is a list with no feed state (`failed` is indistinguishable from "no alerts"), and
+  switching lines refetches anyway. `/api/gtfs/line` returns `alerts: null` while the alert poller
   is absent/`idle`/`loading` (`failed` → last good alerts for the line, else `[]`) — the line
   page fetches once, so without `null` a warm schedule answered `[]` before the first alert
   fetch and the banner never appeared; `isLineLoading` retries while `alerts === null`.

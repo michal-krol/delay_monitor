@@ -5,13 +5,17 @@ import { useEffect, useRef, useState } from 'react'
 export type PollingContext = { background: boolean }
 
 export type UsePollingOptions<T> = {
-  /** `null` = brak cyklicznego odświeżania po gotowych danych (samo ponawianie przy `isLoading`/błędzie). */
-  refreshMs: number | null
+  /**
+   * `null` = brak cyklicznego odświeżania po gotowych danych (samo ponawianie przy `isLoading`/błędzie).
+   * Funkcja = rytm zależny od wyniku, liczony z każdego udanego pobrania (np. wolne ponawianie tylko
+   * przy padniętym feedzie); nie steruje ponowieniem po błędzie (`errorRetryMs` albo 30 s).
+   */
+  refreshMs: number | null | ((data: T) => number | null)
   /** `true`, dopóki dane są niepełne -- napędza drabinkę ponowień zamiast czekać `refreshMs`. */
   isLoading?: (data: T) => boolean
   /** Drabinka opóźnień (ms) podczas `isLoading`; domyślnie `[1,2,3,5,8,15]` s. */
   ladderMs?: number[]
-  /** Opóźnienie ponowienia po błędzie. Domyślnie `refreshMs ?? 30 000`. */
+  /** Opóźnienie ponowienia po błędzie. Domyślnie liczbowe `refreshMs`, inaczej 30 000. */
   errorRetryMs?: number
   /** `true` = obserwacja skończona (np. pociąg dojechał) -- koniec odpytywania do zmiany klucza. */
   isDone?: (data: T) => boolean
@@ -106,14 +110,15 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
 
         if (opts.isDone?.(result) === true) return
 
+        const refreshMs = typeof opts.refreshMs === 'function' ? opts.refreshMs(result) : opts.refreshMs
         const ladder = opts.ladderMs ?? DEFAULT_LADDER_MS
         if (opts.isLoading?.(result) === true) {
-          const delay = ladderIndex < ladder.length ? ladder[ladderIndex++] : (opts.refreshMs ?? ladder[ladder.length - 1])
+          const delay = ladderIndex < ladder.length ? ladder[ladderIndex++] : (refreshMs ?? ladder[ladder.length - 1])
           schedule(delay)
           return
         }
         ladderIndex = 0
-        if (opts.refreshMs !== null) schedule(opts.refreshMs)
+        if (refreshMs !== null) schedule(refreshMs)
       } catch (err) {
         if (cancelled) return
         const message = err instanceof Error ? err.message : 'Nieznany błąd'
@@ -122,7 +127,7 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
             ? { ...s, key, error: message } // ten sam klucz (albo keepPreviousData) -- zachowaj ostatnie dobre dane (AGENTS.md #7)
             : { key, data: opts.initialData ?? null, error: message, lastSuccessAt: null } // nowy klucz, jeszcze bez sukcesu -- nie przeciekają dane starego
         )
-        schedule(opts.errorRetryMs ?? opts.refreshMs ?? DEFAULT_ERROR_RETRY_MS)
+        schedule(opts.errorRetryMs ?? (typeof opts.refreshMs === 'number' ? opts.refreshMs : DEFAULT_ERROR_RETRY_MS))
       }
     }
 

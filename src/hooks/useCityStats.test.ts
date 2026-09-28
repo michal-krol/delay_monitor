@@ -69,13 +69,41 @@ describe('useCityStats', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('stops retrying once the alert feed failed with no data: a known "unavailable" state, not "loading"', async () => {
+  it('a failed alert feed with no data is not "loading": no fast ladder, re-polls only every 5 min', async () => {
     const fetchMock = vi.fn().mockImplementation(() => body('ready', null, 'failed'))
     vi.stubGlobal('fetch', fetchMock)
     const { result } = renderHook(() => useCityStats('warszawa'))
     await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('failed'))
-    await vi.advanceTimersByTimeAsync(60_000)
+    await vi.advanceTimersByTimeAsync(299_000)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('a failed alert feed with last good alerts also re-polls every 5 min, so the shown age stays current', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('ready', [], 'failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('failed'))
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('picks up a recovered alert feed on the next slow re-poll, then stops polling', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => body('ready', null, 'failed'))
+      .mockImplementation(() => body('ready', [{ id: 'a1' }]))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('failed'))
+    await vi.advanceTimersByTimeAsync(300_000)
+    await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('ready'))
+    expect(result.current.data?.alerts).toEqual([{ id: 'a1' }])
+    await vi.advanceTimersByTimeAsync(600_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('keeps retrying past the first ladder while the schedule is loading (never gives up)', async () => {
