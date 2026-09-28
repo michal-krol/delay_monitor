@@ -275,6 +275,5 @@ export const attributionSchema = z
   .object({ organization_name: z.string().optional() })
   .transform((row) => optional(row.organization_name) ?? null)
 
-// ponytail: schematy vehicles.json / alerts.json dochodzą w etapie 5 razem
-// z ich jedynym konsumentem (poller pozycji pojazdów). Dokładanie ich teraz to
-// martwy kod przez cztery etapy.
+// Schematy vehicles.json / alerts.json żyją przy swoich konsumentach:
+// `vehicles.ts` i `alerts.ts`.

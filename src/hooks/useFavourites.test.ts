@@ -75,52 +75,20 @@ describe('useFavourites', () => {
     act(() => result.current.removeFavourite(favouriteKey(WAW)))
 
     expect(result.current.favourites).toEqual([])
-    // Usunięcie ostatniego wpisu nadal zostawia klucz v2 z `[]` — bez tego
-    // odczyt spadłby na migrację z v1 i wskrzesił skasowane wpisy.
+    // Usunięcie ostatniego wpisu utrwala pusty klucz v2 — kolejny odczyt nie
+    // wskrzesza starych danych.
     expect(readV2()).toEqual([])
   })
 })
 
-describe('useFavourites — migracja v1 → v2', () => {
-  it('migrates existing v1 favourites on first load and persists them to v2', async () => {
+describe('useFavourites — stary klucz v1', () => {
+  it('ignores data only under the old v1 key (empty list, no crash)', async () => {
     window.localStorage.setItem(V1_KEY, JSON.stringify([{ id: '5136', name: 'Kraków Główny' }]))
-
-    const { result } = renderHook(() => useFavourites())
-    await waitFor(() => expect(result.current.loaded).toBe(true))
-
-    expect(result.current.favourites).toEqual([KRK])
-    expect(readV2()).toEqual([KRK])
-    // v1 zostaje nietknięty — cofnięcie wdrożenia nadal znajdzie dane.
-    expect(window.localStorage.getItem(V1_KEY)).not.toBeNull()
-  })
-
-  it('does NOT resurrect v1 entries once v2 holds an empty array', async () => {
-    window.localStorage.setItem(V1_KEY, JSON.stringify([{ id: '5136', name: 'Kraków Główny' }]))
-    window.localStorage.setItem(V2_KEY, JSON.stringify([]))
 
     const { result } = renderHook(() => useFavourites())
     await waitFor(() => expect(result.current.loaded).toBe(true))
 
     expect(result.current.favourites).toEqual([])
-  })
-
-  it('prefers v2 over v1 when both are present', async () => {
-    window.localStorage.setItem(V1_KEY, JSON.stringify([{ id: '5136', name: 'Kraków Główny' }]))
-    window.localStorage.setItem(V2_KEY, JSON.stringify([WAW]))
-
-    const { result } = renderHook(() => useFavourites())
-    await waitFor(() => expect(result.current.loaded).toBe(true))
-
-    expect(result.current.favourites).toEqual([WAW])
-  })
-
-  it('writes an empty v2 key on first load so v1 is never re-read', async () => {
-    const { result } = renderHook(() => useFavourites())
-    await waitFor(() => expect(result.current.loaded).toBe(true))
-    // Nawet bez żadnych ulubionych utrwalamy `[]` — od tej chwili odczyt nie
-    // dotyka już v1, więc późniejsze dopisanie wpisu do v1 (rollback) nie
-    // „wraca" po aktualizacji.
-    expect(readV2()).toEqual([])
   })
 })
 
@@ -156,15 +124,27 @@ describe('useFavourites — wrogie wejście z localStorage', () => {
     expect(result.current.favourites).toEqual([WAW, METRO])
   })
 
-  it('keeps valid v1 entries when only some are corrupted during migration', async () => {
+  it('favourite with malformed station id is dropped, others kept', async () => {
     window.localStorage.setItem(
-      V1_KEY,
-      JSON.stringify([{ id: '5100', name: 'Warszawa Centralna' }, null, { id: 7 }, { id: '5136', name: 'Kraków Główny' }])
+      V2_KEY,
+      JSON.stringify([WAW, { kind: 'pkp', id: 'nie-liczba', name: 'Zły id' }, KRK])
     )
 
     const { result } = renderHook(() => useFavourites())
     await waitFor(() => expect(result.current.loaded).toBe(true))
 
     expect(result.current.favourites).toEqual([WAW, KRK])
+  })
+
+  it('gtfs favourite with bad city dropped', async () => {
+    window.localStorage.setItem(
+      V2_KEY,
+      JSON.stringify([METRO, { kind: 'gtfs', city: 'Warszawa123', id: '7014M', name: 'Zła stolica' }])
+    )
+
+    const { result } = renderHook(() => useFavourites())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+
+    expect(result.current.favourites).toEqual([METRO])
   })
 })

@@ -40,21 +40,34 @@ function projectOnSegment(
   return { distanceM: Math.hypot(px - cx, py - cy), t }
 }
 
-/**
- * Czysty rzut pozycji pojazdu na sekwencję przystanków jego linii. Bez opóźnienia —
- * wynik niesie tylko `afterStopOrder` + `fraction` + `ageSec`. `null`, gdy: nieznany
- * `tripId`, brak przebiegu, przebieg < 2 przystanki, najbliższy punkt > 2000 m od trasy.
- */
-export function projectVehicle(
-  schedule: GtfsSchedule,
-  position: VehiclePosition,
-  nowMs: number
-): VehicleOnRoute | null {
-  const ref = schedule.tripPatternRef.get(position.tripId)
-  if (ref === undefined) return null
+type VehicleGeometry = Omit<VehicleOnRoute, 'ageSec'>
 
-  const pattern = schedule.routePatterns.get(`${ref.routeIdx}:${ref.direction}`)
-  if (pattern === undefined || pattern.stops.length < 2) return null
+/**
+ * Geometria rzutu (najbliższy odcinek wzorca) NIE zależy od `nowMs` — to jest
+ * droga część (przeszukanie segmentów). Liczona raz na `(schedule, position)`
+ * i trzymana w zagnieżdżonej `WeakMap`: przeładowany rozkład albo nowy obiekt
+ * pozycji z kolejnego cyklu pollera (`vehiclePoller.getPositions()` zwraca tę
+ * samą tablicę/te same obiekty MIĘDZY pollami, nową dopiero po udanym fetchu)
+ * naturalnie unieważnia wpis. `ageSec` dolicza `projectVehicle` przy każdym
+ * wywołaniu z bieżącego `nowMs`.
+ */
+const geometryCache = new WeakMap<GtfsSchedule, WeakMap<VehiclePosition, VehicleGeometry | null>>()
+
+function projectGeometry(schedule: GtfsSchedule, position: VehiclePosition): VehicleGeometry | null {
+  let byPosition = geometryCache.get(schedule)
+  if (byPosition === undefined) {
+    byPosition = new WeakMap()
+    geometryCache.set(schedule, byPosition)
+  }
+  const cached = byPosition.get(position)
+  if (cached !== undefined) return cached
+
+  const ref = schedule.tripPatternRef.get(position.tripId)
+  const pattern = ref !== undefined ? schedule.routePatterns.get(`${ref.routeIdx}:${ref.direction}`) : undefined
+  if (ref === undefined || pattern === undefined || pattern.stops.length < 2) {
+    byPosition.set(position, null)
+    return null
+  }
 
   let best: { order: number; t: number; d: number } | null = null
   for (let i = 0; i < pattern.stops.length - 1; i += 1) {
@@ -67,13 +80,13 @@ export function projectVehicle(
     )
     if (best === null || r.distanceM < best.d) best = { order: i, t: r.t, d: r.distanceM }
   }
-  if (best === null || best.d > MAX_OFF_ROUTE_M) return null
+  if (best === null || best.d > MAX_OFF_ROUTE_M) {
+    byPosition.set(position, null)
+    return null
+  }
 
   const route = schedule.routes[ref.routeIdx]
-  const parsed = Date.parse(position.timestamp)
-  const ageSec = Number.isFinite(parsed) ? Math.max(0, Math.floor((nowMs - parsed) / 1000)) : 0
-
-  return {
+  const geometry: VehicleGeometry = {
     sideNumber: position.sideNumber,
     tripId: position.tripId,
     routeId: route?.id ?? '',
@@ -82,8 +95,30 @@ export function projectVehicle(
     fraction: best.t,
     lat: position.lat,
     lon: position.lon,
-    ageSec,
     headsign: pattern.headsignIdx >= 0 ? schedule.headsigns[pattern.headsignIdx] : null,
     bearing: position.bearing,
   }
+  byPosition.set(position, geometry)
+  return geometry
+}
+
+/**
+ * Czysty rzut pozycji pojazdu na sekwencję przystanków jego linii. Bez opóźnienia —
+ * wynik niesie tylko `afterStopOrder` + `fraction` + `ageSec`. `null`, gdy: nieznany
+ * `tripId`, brak przebiegu, przebieg < 2 przystanki, najbliższy punkt > 2000 m od trasy.
+ */
+export function projectVehicle(
+  schedule: GtfsSchedule,
+  position: VehiclePosition,
+  nowMs: number
+): VehicleOnRoute | null {
+  const geometry = projectGeometry(schedule, position)
+  if (geometry === null) return null
+
+  // `position.timestamp` jest zawsze parsowalny — `parseVehicleFeed` odrzuca
+  // pozycje bez wiarygodnego czasu u źródła (patrz `vehicles.ts`), więc nie ma
+  // tu gałęzi "nieznany wiek" do obsłużenia (#7).
+  const ageSec = Math.max(0, Math.floor((nowMs - Date.parse(position.timestamp)) / 1000))
+
+  return { ...geometry, ageSec }
 }

@@ -147,6 +147,36 @@ describe('GET /api/gtfs/board', () => {
     }
   })
 
+  it('day missing from serviceDates: summary is null (not a guessed yesterday/index-1)', async () => {
+    const kept = schedule
+    schedule = await buildSchedule({
+      feedVersion: 'mock-1',
+      serviceDates: ['2020-01-01', '2020-01-02', '2020-01-03'],
+      timezone: 'Europe/Warsaw',
+      attribution: ['ZTM', 'Mikołaj Kuranowski'],
+      routes: [
+        { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular', color: null, textColor: contrastText(null) },
+      ],
+      stops: [
+        { id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 },
+        { id: '100102', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '02', wheelchair: 1 },
+      ],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'Piaski', directionId: 0 }],
+      frequencies: [],
+      calendars: [],
+      calendarDates: [{ serviceId: 'S', date: '20200102', added: true }],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        't,100101,12:00:00,12:00:00,1',
+        't,100102,12:05:00,12:05:00,2',
+      ],
+    })
+    const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
+    expect(body.schedule.state).toBe('ready')
+    expect(body.stops[0].summary).toBeNull()
+    schedule = kept
+  })
+
   it('returns state=loading with empty stops while the schedule is not ready', async () => {
     const kept = schedule
     schedule = null

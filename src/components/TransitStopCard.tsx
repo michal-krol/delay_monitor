@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useCities } from '@/hooks/useCities'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { TransitDepartureList } from './TransitDepartureList'
@@ -19,7 +20,11 @@ type Props = {
  * zapytań; Pulpit trzyma kilka przypięć, nie kilkadziesiąt).
  */
 export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
-  const { data, error } = useTransitBoard(city, [stopId], 3)
+  const { data, loading, failed } = useTransitBoard(city, [stopId], 3)
+  // Ten sam wspólny hook `/api/cities` co `CityWeatherCard`/`TransitStopDetail`/
+  // strona miasta (Task 9).
+  const { cities: cityEntries } = useCities()
+  const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const board = data?.stops[0] ?? null
   const name = board?.name ?? stopName
 
@@ -39,12 +44,12 @@ export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
         </button>
       </div>
 
-      <p className="mt-0.5 text-xs text-text-muted">Rozkład — {city}</p>
+      <p className="mt-0.5 text-xs text-text-muted">Rozkład — {cityName}</p>
 
-      {error !== null && data === null ? (
-        <p className="mt-3 text-sm text-red-600 dark:text-red-400">Nie udało się wczytać rozkładu</p>
+      {failed ? (
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400">Nie udało się pobrać rozkładu.</p>
       ) : (
-        <TransitDepartureList departures={board?.departures ?? []} loading={data === null} />
+        <TransitDepartureList departures={board?.departures ?? []} loading={loading} />
       )}
 
       <Link

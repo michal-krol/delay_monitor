@@ -35,5 +35,5 @@ General rules: `~/.claude/rules/deployment.md`, `versioning.md`. Public summary:
 # #11 `docs/` is not published
 
 `docs/` (technical design, plans, session handoffs) is in `.gitignore` on purpose. Don't add it
-back. Handoffs live only in the main checkout (`E:\Claude_Code\delay_monitor\docs\`), not in
-worktrees — use the `handoff` skill.
+back. Handoffs live only in the main checkout (`E:\Claude_Code\delay_monitor\docs\`); from a
+worktree, write to its `docs/` and hand the user an `mv` to the main checkout — see the `handoff` skill.

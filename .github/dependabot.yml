@@ -5,9 +5,25 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+    # First matching group wins: react must come before dev-dependencies so
+    # react, react-dom and their types always move together (they must match).
     groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
       dev-dependencies:
         dependency-type: development
+    # Blockers and unblock checks for each entry: #69. Drop an entry once its blocker is gone.
+    ignore:
+      # TS 7: unsupported by typescript-eslint and the Next.js compiler API
+      # (TS 6 is still offered: Next recommends it).
+      - dependency-name: typescript
+        versions: [">=7"]
+      # ESLint 10: eslint-plugin-react (via eslint-config-next) peers eslint ^9.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # Node types follow the runtime major in .nvmrc, like the docker node image below.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     target-branch: dev

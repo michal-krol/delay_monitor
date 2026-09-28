@@ -31,4 +31,10 @@ describe('CityStatTiles', () => {
     // stacje kolejowe to znane 5, nie „—"
     expect(screen.getByText('5')).toBeInTheDocument()
   })
+
+  it('cities fetch failed → tile shows —', () => {
+    render(<CityStatTiles stats={stats} loading={false} railStationCount={null} />)
+    // stacje kolejowe nieznane (/api/cities zawiodło lub railStationsUnknown) — „—", nie 0.
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
 })

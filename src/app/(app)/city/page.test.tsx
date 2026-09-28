@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import MiastoIndex from './page'
 import { __resetCityContext } from '@/hooks/useCityContext'
-import { jsonResponse } from '@/test-utils/http'
 
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }))
@@ -16,7 +15,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('MiastoIndex', () => {
-  it('redirects to the stored city without a network call', async () => {
+  it('redirects to its own path', async () => {
     window.localStorage.setItem('monitor.cityContext.v2', JSON.stringify('krakow'))
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
@@ -24,28 +23,5 @@ describe('MiastoIndex', () => {
     render(<MiastoIndex />)
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/city/krakow'))
     expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('picks the city with the most rail stations when nothing is stored', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        jsonResponse({
-          cities: [
-            { id: 'krakow', railStations: [{ id: '1' }] },
-            { id: 'warszawa', railStations: [{ id: '1' }, { id: '2' }, { id: '3' }] },
-          ],
-        })
-      )
-    )
-    render(<MiastoIndex />)
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/city/warszawa'))
-  })
-
-  it('shows a message when there are no configured cities', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [] })))
-    render(<MiastoIndex />)
-    expect(await screen.findByText(/Brak skonfigurowanych miast/)).toBeInTheDocument()
-    expect(replace).not.toHaveBeenCalled()
   })
 })

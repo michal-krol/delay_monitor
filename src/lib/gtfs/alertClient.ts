@@ -6,10 +6,15 @@ import { parseAlertFeed, type AlertRecord } from './alerts'
 export type AlertFeedResult = { alerts: AlertRecord[]; droppedAlerts: number; feedTime: string | null }
 
 const USER_AGENT = 'delay-monitor-gtfs-loader (+https://github.com/michal-krol/delay_monitor)'
+/** Ta sama wartość co w `vehicleClient.ts` -- oba to krótkie, często odświeżane feedy. */
+const LIVE_FEED_TIMEOUT_MS = 10_000
 
 /** Krawędź sieci: goły GET JSON. Rzuca na nie-2xx (poller degraduje do ostatnich znanych). */
 export async function fetchAlertFeed(url: string, fetchImpl: typeof fetch = fetch): Promise<AlertFeedResult> {
-  const response = await fetchImpl(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } })
+  const response = await fetchImpl(url, {
+    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+    signal: AbortSignal.timeout(LIVE_FEED_TIMEOUT_MS),
+  })
   if (!response.ok) throw new Error(`alerts.json: HTTP ${response.status}`)
   return parseAlertFeed(await response.json())
 }

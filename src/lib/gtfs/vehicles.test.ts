@@ -29,6 +29,18 @@ describe('parseVehicleFeed', () => {
     expect(r.droppedPositions).toBe(3)
   })
 
+  it('position without a timestamp is dropped and counted', () => {
+    const r = parseVehicleFeed({ positions: [good, { ...good, timestamp: undefined }] })
+    expect(r.positions).toHaveLength(1)
+    expect(r.droppedPositions).toBe(1)
+  })
+
+  it('position with an unparseable timestamp is dropped and counted', () => {
+    const r = parseVehicleFeed({ positions: [good, { ...good, timestamp: 'not-a-date' }] })
+    expect(r.positions).toHaveLength(1)
+    expect(r.droppedPositions).toBe(1)
+  })
+
   it('returns empty on a shape that is not the feed', () => {
     expect(parseVehicleFeed(null)).toEqual({ positions: [], droppedPositions: 0, feedTime: null })
     expect(parseVehicleFeed({ nope: 1 })).toEqual({ positions: [], droppedPositions: 0, feedTime: null })

@@ -20,7 +20,9 @@ export async function GET() {
 
   const cities = await Promise.all(
     allCities().map(async (city) => {
-      const railStations = await resolveCityRailStations(city)
+      const resolved = await resolveCityRailStations(city)
+      const railStations = resolved ?? []
+      const railStationsUnknown = resolved === null
 
       const poller = peekGtfsPoller(city.id)
       const schedule = poller?.getSchedule() ?? null
@@ -41,6 +43,7 @@ export async function GET() {
         mapCenter: city.mapCenter,
         hasTransit: gtfsEnabled.has(city.id),
         railStations,
+        railStationsUnknown,
         schedule:
           view === null
             ? { state: 'idle' as const, ageMs: null, feedVersion: null, serviceDates: null }

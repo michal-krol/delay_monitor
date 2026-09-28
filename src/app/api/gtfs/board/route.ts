@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { serviceDateWindow } from '@/lib/pkp/time'
 import { getCity } from '@/lib/gtfs/cities'
 import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
 import { scheduleResponseBlock } from '@/lib/gtfs/poller'
 import { alertsForRoutes, nextDepartures, stopGroup, stopSummary, vehicleForStop } from '@/lib/gtfs/query'
+import { todayServiceIndex } from '@/lib/gtfs/serviceDay'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 
 /** Przeniesione z `/api/board`: realny użytkownik obserwuje kilka przystanków. */
@@ -63,11 +63,10 @@ export async function GET(request: Request) {
 
   const now = Date.now()
   // Indeks doby „dziś" w oknie [wczoraj, dziś, jutro] — do podsumowania stopu.
-  const todayIndex = (() => {
-    const timezone = getCity(city)?.timezone ?? 'Europe/Warsaw'
-    const today = serviceDateWindow(new Date(now), timezone)[1]
-    return schedule.serviceDates.indexOf(today) === -1 ? 1 : schedule.serviceDates.indexOf(today)
-  })()
+  // `null` gdy dzisiejsza data kursowania wypadła z rozkładu (feed nie
+  // odświeżony) — `summary` schodzi wtedy na `null` zamiast zgadywać wczoraj (#7).
+  const timezone = getCity(city)?.timezone ?? 'Europe/Warsaw'
+  const todayIndex = todayServiceIndex(schedule.serviceDates, timezone, new Date(now))
 
   // Opcjonalne zawężenie do jednego słupka zespołu (Centrum 01 vs Centrum 02).
   const rawMember = searchParams.get('member')
@@ -93,7 +92,7 @@ export async function GET(request: Request) {
     // (TransitStopDetail) inicjuje go z `requestedMember`, ale sam steruje
     // przełącznikiem — inaczej „Cały przystanek" nie działałby na deep-linku.
     const scopeId = member !== null && group.members.some((m) => m.id === member) ? member : null
-    const summary = stopSummary(schedule, scopeId ?? group.id, todayIndex)
+    const summary = todayIndex === null ? null : stopSummary(schedule, scopeId ?? group.id, todayIndex)
     // `groupRoutes` jest kluczowany WYŁĄCZNIE id zespołu (nigdy słupka, patrz
     // `query.ts` przy `lineCount`) — alerty dotyczą linii, a linie słupka są
     // zawsze podzbiorem linii całego zespołu, więc dopasowanie zawsze idzie

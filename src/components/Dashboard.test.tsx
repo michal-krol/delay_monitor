@@ -57,7 +57,7 @@ describe('Dashboard', () => {
       />
     )
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100,5136'))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100%2C5136'))
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 

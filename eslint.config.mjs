@@ -9,10 +9,19 @@ const eslintConfig = defineConfig([
   // Reguly dla React Testing Library, wylacznie w plikach testowych — lapia
   // konkretna klase bledow (fireEvent zamiast userEvent, brak await waitFor,
   // zapytania po roli zamiast testid) automatycznie, zamiast polegac na
-  // przegladzie recznym przy 25 plikach testow.
+  // przegladzie recznym.
   {
     files: ["**/*.test.ts", "**/*.test.tsx"],
     ...testingLibrary.configs["flat/react"],
+  },
+  // next/font/google pobiera czcionke z sieci przy buildzie — build ma byc
+  // odtwarzalny bez sieci (AGENTS.md #16). Fonty leza w src/app/fonts/.
+  {
+    rules: {
+      "no-restricted-imports": ["error", {
+        paths: [{ name: "next/font/google", message: "Use next/font/local with a file in src/app/fonts/ (the build must not need the network)." }],
+      }],
+    },
   },
   {
     files: ["src/components/icons.test.tsx"],

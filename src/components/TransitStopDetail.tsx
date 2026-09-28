@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useCities } from '@/hooks/useCities'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useShareUrl } from '@/hooks/useShareUrl'
@@ -116,7 +117,12 @@ export function TransitStopDetail({
   }
   // Jedno zapytanie na obie zakładki odjazdowe — „Pełny rozkład" pokazuje całą
   // listę do `SCHEDULE_FETCH_LIMIT`, „Najbliższe" tnie ją do podglądu niżej.
-  const { data, error } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effSlupek)
+  const { data, error, loading, failed } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effSlupek)
+  // Nazwa miasta z `/api/cities` — jeden wspólny hook z `CityWeatherCard`,
+  // `TransitStopCard` i stroną miasta (Task 9). Fallback do slugu, dopóki
+  // lista się nie wczyta / gdy fetch zawiedzie.
+  const { cities: cityEntries } = useCities()
+  const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
   const { share, status: shareStatus } = useShareUrl()
   const now = useSnapshotNow(data)
@@ -139,7 +145,6 @@ export function TransitStopDetail({
   const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }
   const key = favouriteKey(favourite)
   const pinned = isFavourite(key)
-  const loading = data === null && error === null
 
   const departures = useMemo(
     () => (lineFilter === null ? (board?.departures ?? []) : (board?.departures ?? []).filter((d) => d.routeId === lineFilter)),
@@ -222,7 +227,7 @@ export function TransitStopDetail({
               )}
               {data !== null && (
                 <div className="mt-2">
-                  <ScheduleStatus schedule={data.schedule} cityName={city} error={error !== null} />
+                  <ScheduleStatus schedule={data.schedule} cityName={cityName} error={error !== null} />
                 </div>
               )}
             </div>
@@ -412,6 +417,7 @@ export function TransitStopDetail({
               <TransitDepartureList
                 departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
                 loading={loading}
+                emptyMessage={failed ? 'Nie udało się pobrać rozkładu.' : undefined}
                 city={city}
                 showSlupek={activeMember === null && members.length > 1}
                 now={now}
@@ -474,6 +480,7 @@ export function TransitStopDetail({
             loading={loading}
             currentHour={new Date(now).getHours()}
             emptyLabel="Rozkład na dziś nie zawiera odjazdów z tego przystanku."
+            unknownLabel={board !== null && board.summary === null ? 'Brak rozkładu na dziś.' : undefined}
           />
         </AsideCard>
 

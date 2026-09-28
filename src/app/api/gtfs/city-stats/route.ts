@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { serviceDateWindow } from '@/lib/pkp/time'
 import { getCity } from '@/lib/gtfs/cities'
 import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
 import { cityStats, vehiclesInService } from '@/lib/gtfs/query'
+import { todayServiceIndex } from '@/lib/gtfs/serviceDay'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
 /**
@@ -57,13 +57,14 @@ export async function GET(request: Request) {
   }
 
   const timezone = getCity(city)!.timezone
-  const today = serviceDateWindow(new Date(), timezone)[1]
-  const todayIndex = Math.max(0, schedule.serviceDates.indexOf(today))
+  const todayIndex = todayServiceIndex(schedule.serviceDates, timezone, new Date())
 
   return NextResponse.json({
     city,
     state: 'ready' as const,
-    stats: cityStats(schedule, todayIndex),
+    // `null` gdy dzisiejsza data kursowania wypadła z rozkładu (feed nie
+    // odświeżony) — klient renderuje to jako „—", nigdy jako zera (#7).
+    stats: todayIndex === null ? null : cityStats(schedule, todayIndex),
     ...vehicleFields,
     ...alertFields,
   })

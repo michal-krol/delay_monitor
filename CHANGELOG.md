@@ -6,6 +6,73 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+## [1.0.1] — 2026-09-28
+
+### Zmienione
+
+- Szybsze odpowiedzi widoków komunikacji miejskiej (statystyki miasta, tablica
+  przystanku, wyszukiwarka przystanków) dzięki zapamiętywaniu wyników obliczeń
+  dla danego rozkładu.
+- Szybsze wyznaczanie pozycji pojazdów na tablicy przystanku i mapie miasta.
+- Zawieszone połączenie z serwerem danych GTFS nie blokuje już odświeżania
+  pozycji pojazdów i alertów (rezygnacja po 10 s); pobieranie pełnego rozkładu
+  czeka najwyżej 30 s na pierwszą odpowiedź serwera.
+- Biblioteka map MapLibre GL JS zaktualizowana z 6.9.0 do 6.11.2 (wraz z dołączonymi
+  kopiami skryptów wątku roboczego mapy).
+- Dziennik serwera ostrzega o niepełnej liście pociągów tylko wtedy, gdy pobieranie
+  kolejnych stron danych o realizacji faktycznie zostało przerwane (limit stron lub
+  budżet zapytań), a nie przy każdej kolejnej stronie.
+- Czcionka nagłówków (Manrope) jest dołączona do aplikacji, więc budowanie nie pobiera
+  jej już z Google Fonts i nie zależy od dostępności tej usługi.
+
+### Usunięte
+
+- Ulubione zapisane w starym formacie (sprzed wersji 1.0.0) nie są już wczytywane — takie
+  stacje trzeba przypiąć ponownie.
+
+### Naprawione
+
+- Szczegóły połączenia zużywają mniej zapytań do PKP: trasa pociągu (lista stacji
+  z rozkładu) jest zapamiętywana na dobę, a informacja „nie znaleziono połączenia" przez
+  10 minut.
+- Gdy w ciągu godziny przyjdzie zbyt wiele zapytań o szczegóły połączeń, aplikacja
+  pokazuje komunikat „spróbuj ponownie za kilka minut" zamiast zużywać cały limit
+  zapytań do PKP, z którego korzystają też tablice odjazdów.
+- Otwarta karta szczegółów połączenia dociągająca dane w tle (co 5 minut oraz przy
+  powrocie na kartę) nie blokuje już innym użytkownikom pierwszego wczytania —
+  ostatnie kilka zapytań w każdej godzinie jest zarezerwowane dla nowych wejść.
+  Nieudane dociągnięcie w tle nie pokazuje błędu — strona zostaje przy ostatnich
+  dobrych danych i pokazuje, ile mają minut (chyba że pociąg już dojechał —
+  wtedy nic nie ma się już zmienić).
+- Widżet „Dziś w Polsce” nie pokazuje już zer ani 100 % pociągów zgodnie z planem, gdy
+  dane są niedostępne — pokazuje „—” / „Brak danych o ruchu”, błąd przed pierwszym
+  pobraniem danych oraz „nieaktualne · HH:MM” przy danych nieświeżych. Statystyki nie
+  pokazują już po północy liczb z poprzedniej doby.
+- Strona miasta: kafelek z liczbą stacji kolejowych pokazuje „—” zamiast 0, gdy ta
+  liczba nie jest znana; karta pogody nie ładuje się już w nieskończoność, gdy miasto
+  nie ma stacji lub nie uda się pobrać listy miast; widżet komunikacji miejskiej
+  pokazuje błąd przy niepowodzeniu oraz „Brak rozkładu na dziś.”, gdy nie da się
+  ustalić dzisiejszego dnia rozkładowego.
+- Strona przystanku i karta przystanku na Pulpicie odróżniają teraz ładowanie, błąd i
+  pusty rozkład oraz pokazują nazwę miasta zamiast fragmentu adresu.
+- Karta stacji na Pulpicie po nieudanym odświeżeniu zachowuje ostatnią tablicę i
+  pokazuje „Nie udało się odświeżyć · dane z HH:MM” zamiast czerwonego błędu.
+- Strony wyboru miasta (/city, /lines, /map) po nieudanym pobraniu listy miast pokazują
+  błąd z przyciskiem „Spróbuj ponownie” zamiast twierdzić, że miast nie ma.
+- Pozycje pojazdów bez poprawnego znacznika czasu nie są już pokazywane jako aktualne —
+  są pomijane.
+
+### Bezpieczeństwo
+
+- Szczegóły połączenia przyjmują tylko datę kursowania z zakresu od 7 dni wstecz do
+  jutra.
+- Ulubione stacje i przystanki zapisane w przeglądarce są sprawdzane pod kątem
+  poprawności identyfikatorów; uszkodzony wpis jest pomijany, pozostałe zostają.
+- Wyszukiwanie stacji nie zapamiętuje tysięcy nazw przy krótkim zapytaniu, a lista
+  stacji w zapytaniu o tablicę jest poprawnie kodowana.
+- Zaktualizowane zależności przechodnie `sharp` (0.35.5) i `nanoid` (3.3.19) — usuwa
+  dwie podatności o wysokiej wadze zgłaszane przez `npm audit`.
+
 ## [1.0.0] — 2026-09-27
 
 Pierwsze stabilne wydanie. Od tej wersji publiczne adresy widoków, kształt odpowiedzi
@@ -261,6 +328,7 @@ Pierwsza wersja funkcjonalna.
 - Tryb jasny i ciemny.
 - Wdrożenie na Railway i bramka jakości w GitHub Actions.
 
-[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.0.0...HEAD
+[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/michal-krol/delay_monitor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/michal-krol/delay_monitor/compare/v0.9.10...v1.0.0
 [0.9.10]: https://github.com/michal-krol/delay_monitor/releases/tag/v0.9.10

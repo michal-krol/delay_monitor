@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityPage from './page'
 import { __resetCityContext } from '@/hooks/useCityContext'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
@@ -67,6 +68,7 @@ beforeEach(() => {
   search = ''
   window.localStorage.clear()
   __resetCityContext()
+  resetCitiesCacheForTests()
   vi.stubGlobal('fetch', vi.fn(() => citiesResponse()))
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -113,5 +115,53 @@ describe('CityPage', () => {
   it('calls notFound for a malformed city id', () => {
     cityParam = 'a/b'
     expect(() => render(<CityPage />)).toThrow('NEXT_NOT_FOUND')
+  })
+
+  // cities fetch failed → tile shows — : bez entry (`/api/cities` zawiodło) stary
+  // kod liczył `entry?.railStations.length ?? 0` -- kłamliwe "0 stacji", nie
+  // "nie wiadomo" (AGENTS.md #7).
+  it('cities fetch failed → tile shows —', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.startsWith('/api/cities') ? Promise.reject(new Error('down')) : jsonResponse({ city: 'warszawa', state: 'loading', stats: null })
+      )
+    )
+    render(<CityPage />)
+    const label = await screen.findByText('stacje kolejowe')
+    expect(label.parentElement?.textContent).toBe('—stacje kolejowe')
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
+  })
+
+  // dictionary failure → railStationsUnknown : `/api/cities` odpowiada (200),
+  // ale dla tego miasta wyszukanie stacji zawiodło -- `railStations: []` +
+  // `railStationsUnknown: true`. Liczba stacji ma pozostać "nieznana" ("—"),
+  // nie "0 stacji".
+  it('railStationsUnknown → tile shows — (not 0)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.startsWith('/api/cities')
+          ? jsonResponse({
+              cities: [
+                {
+                  id: 'warszawa',
+                  name: 'Warszawa',
+                  hasTransit: true,
+                  railStations: [],
+                  railStationsUnknown: true,
+                  schedule: { state: 'ready', ageMs: 60000, feedVersion: 'mock-1', serviceDates: ['2026-09-01'] },
+                  lineCounts: { metro: 2, tram: 20, bus: 100, rail: 3, other: 0 },
+                  stopGroupCount: 1200,
+                },
+              ],
+            })
+          : jsonResponse({ city: 'warszawa', state: 'loading', stats: null })
+      )
+    )
+    render(<CityPage />)
+    const label = await screen.findByText('stacje kolejowe')
+    expect(label.parentElement?.textContent).toBe('—stacje kolejowe')
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
   })
 })

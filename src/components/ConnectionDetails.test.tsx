@@ -154,7 +154,9 @@ describe('ConnectionDetails', () => {
     expect(onLabelResolved).not.toHaveBeenCalled()
 
     await waitForRoute()
-    expect(onLabelResolved).toHaveBeenCalledWith('EIC Grunwald')
+    // Callback leci z useEffect, czyli po commicie, na którym findByRole już się
+    // rozwiązał -- pod obciążeniem (CI, coverage) efekt bywa jeszcze nieopróżniony.
+    await waitFor(() => expect(onLabelResolved).toHaveBeenCalledWith('EIC Grunwald'))
   })
 
   it('shows a weather card for the origin station in the right column', async () => {
@@ -247,6 +249,20 @@ describe('ConnectionDetails', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się pobrać szczegółów połączenia.')
+  })
+
+  it('shows the server error message on a foreground 503 (hourly cap reached), not the generic "Spróbuj odświeżyć stronę"', async () => {
+    const serverMessage = 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: serverMessage }), { status: 503 }))
+    )
+
+    render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(serverMessage)
+    expect(screen.queryByText(/Spróbuj odświeżyć stronę/)).not.toBeInTheDocument()
   })
 
   it('shows "brak danych" (not a false "punktualnie") for a confirmed stop whose delay could not be determined', async () => {
@@ -824,6 +840,126 @@ describe('ConnectionDetails', () => {
       expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
     })
 
+    it('sends background=1 only on a background refetch, never the initial load', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse(RESPONSE))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      const trainUrls = () =>
+        fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/api/train'))
+      expect(trainUrls()).toHaveLength(1)
+      expect(new URL(trainUrls()[0], 'http://localhost').searchParams.has('background')).toBe(false)
+
+      // >90 s -- dociąganie w tle, tym razem Z parametrem.
+      vi.setSystemTime(new Date('2026-08-01T10:02:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => expect(trainUrls()).toHaveLength(2))
+      expect(new URL(trainUrls()[1], 'http://localhost').searchParams.get('background')).toBe('1')
+    })
+
+    it('keeps the last good data (no error banner) when a background refetch is rejected with 503 (hourly cap reached)', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(RESPONSE))
+        .mockImplementation(() =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({ error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' }),
+              { status: 503 }
+            )
+          )
+        )
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => expect(trainCalls(fetchMock)).toBe(2))
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
+    })
+
+    it('background 503 then time passes shows the data age', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      // Osobny licznik tylko dla /api/train -- /api/weather bije w ten sam
+      // globalny mock, więc liczenie „która to wywołanie fetch" po kolei
+      // (mockImplementationOnce) trafiłoby przypadkiem w zapytanie o pogodę.
+      let trainCallCount = 0
+      const fetchMock = vi.fn((url: string) => {
+        if (String(url).startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
+        trainCallCount++
+        return trainCallCount === 1
+          ? jsonResponse(RESPONSE)
+          : Promise.resolve(
+              new Response(
+                JSON.stringify({ error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' }),
+                { status: 503 }
+              )
+            )
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+      // Świeże dane, żadnej próby w tle jeszcze nie było -- brak wskaźnika wieku.
+      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
+
+      // 5 min później -- poza throttlem (90 s), dociąganie w tle pada (503 --
+      // limit godzinowy, patrz route.ts). Ostatni dobry stan zostaje na ekranie
+      // (test wyżej), ale teraz musi być widać, że jest już nieświeży.
+      // `trainCalls` liczy wywołanie mocka SYNCHRONICZNIE, zanim obsłużenie
+      // odpowiedzi (catch + setState) się zakończy -- czekamy więc na sam tekst,
+      // nie na samą liczbę wywołań (inaczej asercja mogłaby wygrać wyścig z
+      // aktualizacją stanu).
+      vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+
+      await vi.waitFor(() => expect(screen.getByText('Dane sprzed 5 min')).toBeInTheDocument())
+      expect(trainCalls(fetchMock)).toBe(2)
+    })
+
+    it('successful refresh hides the age', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      // Jak wyżej -- osobny licznik tylko dla /api/train, /api/weather nie
+      // wchodzi w tę sekwencję.
+      let trainCallCount = 0
+      const fetchMock = vi.fn((url: string) => {
+        if (String(url).startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
+        trainCallCount++
+        if (trainCallCount === 1) return jsonResponse(RESPONSE)
+        if (trainCallCount === 2) return Promise.resolve(new Response('boom', { status: 503 }))
+        return jsonResponse(CONFIRMED_SECOND_STOP)
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      vi.setSystemTime(new Date('2026-08-01T10:05:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => expect(screen.getByText('Dane sprzed 5 min')).toBeInTheDocument())
+
+      // Kolejna próba w tle, tym razem udana -- wskaźnik wieku musi zgasnąć.
+      // Czekamy na pozytywny sygnał, że aktualizacja faktycznie doszła
+      // (potwierdzony przyjazd na drugim przystanku), nie na samą absencję --
+      // inaczej asercja przeszłaby również PRZED zastosowaniem aktualizacji.
+      vi.setSystemTime(new Date('2026-08-01T10:07:00Z'))
+      window.dispatchEvent(new Event('focus'))
+      // eslint-disable-next-line testing-library/no-node-access
+      const wwaRow = () => routeList().getByText('Warszawa Centralna').closest('li') as HTMLElement
+      await vi.waitFor(() => expect(within(wwaRow()).getByText('+1 min')).toBeInTheDocument())
+
+      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
+      expect(trainCalls(fetchMock)).toBe(3)
+    })
+
     it('stops refetching once the train has reached its final stop', async () => {
       freezeClock('2026-08-01T12:00:00Z')
       const arrived = {
@@ -844,6 +980,35 @@ describe('ConnectionDetails', () => {
       window.dispatchEvent(new Event('focus'))
       await Promise.resolve()
       expect(trainCalls(fetchMock)).toBe(1)
+    })
+
+    it('finished journey does not show the data age', async () => {
+      // Pełne fałszywe zegary (nie tylko Date, jak `freezeClock`) -- ten test
+      // musi puścić realny zegar odliczania („za ile", co 30 s) naprzód, żeby
+      // sprawdzić, że próg 2×BACKGROUND_REFRESH_MS sam z siebie nie pokazuje
+      // wskaźnika po zakończeniu podróży (patrz `jsonResponse`: sprawdzone, że
+      // `advanceTimersByTimeAsync` z tym helperem działa poprawnie).
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-01T12:00:00Z'))
+      const arrived = {
+        ...RESPONSE,
+        stops: [
+          RESPONSE.stops[0],
+          { ...RESPONSE.stops[1], isConfirmed: true, actualArrival: '2026-08-01T11:25:00.000Z', arrivalDelayMinutes: 5 },
+        ],
+      }
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(arrived)))
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await vi.waitFor(() => expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument())
+
+      // 15 minut odliczania (co 30 s), niezależnie od tego, że podróż się
+      // skończyła i dociąganie w tle jest zatrzymane (test wyżej) -- gdyby
+      // wskaźnik wieku nie sprawdzał końca podróży, dawno przekroczyłby próg
+      // i pokazał się mimo że nic już nigdy nie odświeży tych danych.
+      await vi.advanceTimersByTimeAsync(15 * 60_000)
+
+      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
     })
   })
 })

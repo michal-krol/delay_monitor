@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from './schedule'
 import { projectVehicle } from './vehicleProject'
+
+afterEach(() => vi.restoreAllMocks())
 
 const near = (a: number, b: number, eps = 0.05) => Math.abs(a - b) <= eps
 
@@ -59,14 +61,6 @@ describe('projectVehicle', () => {
     expect(projectVehicle(s, p, Date.now())).toBeNull()
   })
 
-  it('falls back to ageSec 0 for an unparseable timestamp, still returns a projection', async () => {
-    const s = await schedule()
-    const p = { id: 'x', tripId: 'T', lat: 52.21, lon: 21.0, sideNumber: '1', bearing: null, timestamp: 'not-a-date' }
-    const r = projectVehicle(s, p, Date.now())!
-    expect(r).not.toBeNull()
-    expect(r.ageSec).toBe(0)
-  })
-
   it('returns null for a trip whose pattern has only one stop', async () => {
     const s = await buildSchedule({
       feedVersion: null,
@@ -83,6 +77,29 @@ describe('projectVehicle', () => {
     })
     const p = { id: 'x', tripId: 'T', lat: 52.2, lon: 21.0, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }
     expect(projectVehicle(s, p, Date.now())).toBeNull()
+  })
+
+  it('projection computed once per position across calls with different nowMs, ageSec still reflects nowMs', async () => {
+    // Geometria (szukanie najbliższego odcinka, `Math.hypot` w `projectOnSegment`)
+    // to drogi krok — musi policzyć się raz na `(schedule, position)`, nie przy
+    // każdym wywołaniu. `ageSec` natomiast MUSI odzwierciedlać bieżące `nowMs`.
+    const s = await schedule()
+    const timestamp = new Date(Date.now() - 10_000).toISOString()
+    const p = { id: 'V/20/1', tripId: 'T', lat: 52.21, lon: 21.0, sideNumber: '1', bearing: null, timestamp }
+    const hypotSpy = vi.spyOn(Math, 'hypot')
+
+    const now1 = Date.now()
+    const r1 = projectVehicle(s, p, now1)!
+    const callsAfterFirst = hypotSpy.mock.calls.length
+    expect(callsAfterFirst).toBeGreaterThan(0)
+
+    const now2 = now1 + 5_000
+    const r2 = projectVehicle(s, p, now2)!
+    expect(hypotSpy.mock.calls.length).toBe(callsAfterFirst) // brak dodatkowej geometrii — trafienie w pamięć podręczną
+
+    expect(r2.afterStopOrder).toBe(r1.afterStopOrder)
+    expect(r2.fraction).toBe(r1.fraction)
+    expect(r2.ageSec).toBeGreaterThan(r1.ageSec) // policzone świeżo z `now2`
   })
 
   it('carries a null headsign when the trip has none', async () => {

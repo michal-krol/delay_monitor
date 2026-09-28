@@ -45,6 +45,7 @@ describe('GET /api/cities', () => {
       'Warszawa Zachodnia',
     ])
     // "Kraków Główny" nie pasuje do prefiksu "Warszawa " — odsiane.
+    expect(warszawa.railStationsUnknown).toBe(false)
     // Rozkład jeszcze nie wczytany (peekGtfsPoller → null) — pola null/idle, nie 0.
     expect(warszawa.schedule.state).toBe('idle')
     expect(warszawa.lineCounts).toBeNull()
@@ -55,5 +56,11 @@ describe('GET /api/cities', () => {
     searchStations.mockRejectedValueOnce(new Error('down'))
     const { body } = await call()
     expect(body.cities[0].railStations).toEqual([])
+  })
+
+  it('dictionary failure → railStationsUnknown', async () => {
+    searchStations.mockRejectedValueOnce(new Error('down'))
+    const { body } = await call()
+    expect(body.cities[0].railStationsUnknown).toBe(true)
   })
 })

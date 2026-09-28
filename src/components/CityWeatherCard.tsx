@@ -1,11 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useStationWeather } from '@/hooks/useStationWeather'
+import { useCities } from '@/hooks/useCities'
+import { useStationWeather, type UseStationWeatherResult } from '@/hooks/useStationWeather'
 import { AsideCard } from './aside'
 import { WeatherCard } from './StationAside'
-
-type CityEntry = { id: string; name: string; railStations: { id: string; name: string }[] }
 
 /**
  * Widżet pogody w kontekście miasta — na KAŻDYM ekranie komunikacji miejskiej.
@@ -14,22 +12,17 @@ type CityEntry = { id: string; name: string; railStations: { id: string; name: s
  * `/api/weather` po lat/lon przystanku, osobny temat.
  */
 export function CityWeatherCard({ city }: { city: string }) {
-  const [entry, setEntry] = useState<CityEntry | null>(null)
+  const { state: citiesState, cities } = useCities()
+  const entry = cities.find((option) => option.id === city) ?? null
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities: CityEntry[] }) => {
-        if (!cancelled) setEntry(body.cities.find((option) => option.id === city) ?? null)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [city])
-
-  const weather = useStationWeather(entry?.railStations?.[0]?.id ?? '')
+  const stationId = entry?.railStations?.[0]?.id ?? ''
+  const fetchedWeather = useStationWeather(stationId)
+  // /api/cities zawiodło, albo miasto nie ma (jeszcze) żadnej stacji kolejowej
+  // -- w obu przypadkach zamiast wołać `useStationWeather('')` (zostawałoby
+  // w `loading` na zawsze, bo hook nie odpytuje przy pustym `stationId`),
+  // pokazujemy istniejący stan „brak lokalizacji" karty pogody.
+  const noLocation = citiesState === 'failed' || (citiesState === 'ready' && stationId === '')
+  const weather: UseStationWeatherResult = noLocation ? { status: 'unavailable' } : fetchedWeather
 
   return (
     <AsideCard title={`Pogoda dziś — ${entry?.name ?? city}`}>

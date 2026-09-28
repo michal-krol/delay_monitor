@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
+import { jsonResponse } from '@/test-utils/http'
 
 let search = ''
 const push = vi.fn()
@@ -51,6 +53,7 @@ const groupBoard = {
 
 beforeEach(() => {
   window.localStorage.clear()
+  resetCitiesCacheForTests()
   search = ''
   push.mockClear()
   replace.mockClear()
@@ -62,8 +65,12 @@ beforeEach(() => {
       attribution: ['ZTM'],
     },
     error: null,
+    loading: false,
+    failed: false,
   })
 })
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe('TransitStopDetail', () => {
   it('shows summary facts, the board and the lines aside — never a delay', () => {
@@ -92,6 +99,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     expect(screen.getByRole('region', { name: 'Mapa przystanku Centrum' })).toBeInTheDocument()
@@ -126,6 +135,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     expect(screen.getByText('Słupki tego przystanku · 2')).toBeInTheDocument()
@@ -137,6 +148,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
 
@@ -164,6 +177,8 @@ describe('TransitStopDetail', () => {
         attribution: [],
       },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     const alertsTab = screen.getByRole('tab', { name: /Komunikaty/ })
@@ -201,6 +216,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     search = 'slupek=100102'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
@@ -211,6 +228,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     search = 'slupek=..%2F..'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
@@ -221,6 +240,8 @@ describe('TransitStopDetail', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
+      loading: false,
+      failed: false,
     })
     search = 'name=Centrum'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
@@ -238,6 +259,8 @@ describe('TransitStopDetail', () => {
         attribution: [],
       },
       error: null,
+      loading: false,
+      failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.getByText('Najbliższy odjazd')).toBeInTheDocument()
@@ -252,5 +275,81 @@ describe('TransitStopDetail', () => {
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
       { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' },
     ])
+  })
+
+  it('shows a failed message, not the empty schedule message, when the first fetch fails', () => {
+    useTransitBoard.mockReturnValue({ data: null, error: 'network', loading: false, failed: true })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
+    expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
+  })
+
+  it('treats a GTFS feed still loading as loading, never as failed', () => {
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'loading', loadedAt: null, ageMs: null, phase: 'stop_times', serviceDates: null, feedVersion: null },
+        stops: [null],
+        attribution: [],
+      },
+      error: null,
+      loading: true,
+      failed: false,
+    })
+    const { container } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie rozkładu…')).toBeInTheDocument()
+    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
+    expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
+  })
+
+  it('shows the empty schedule message, not failed, when the board is ready with zero departures', () => {
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ ...board, departures: [] }],
+        attribution: [],
+      },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
+  })
+
+  it('shows "—" and "Brak rozkładu na dziś." when the board loaded but today fell out of the schedule window', () => {
+    // `summary: null` = fetch succeeded but today's service date isn't in the
+    // schedule (day-unknown, AGENTS.md #9/#10) — must not read as a fetch
+    // failure (AGENTS.md #7).
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ ...board, summary: null }],
+        attribution: [],
+      },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    expect(screen.getByText('Brak rozkładu na dziś.')).toBeInTheDocument()
+    expect(screen.queryByText(/Nie udało się pobrać rozkładu/)).not.toBeInTheDocument()
+  })
+
+  it("shows the city's display name, not the slug, once /api/cities resolves", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.startsWith('/api/cities') ? jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] }) : Promise.reject(new Error('not stubbed'))
+      )
+    )
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(await screen.findByText('Rozkład jazdy — Warszawa')).toBeInTheDocument()
   })
 })

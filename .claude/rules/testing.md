@@ -9,6 +9,8 @@ paths:
   - "vitest.setup.ts"
   - ".githooks/**"
   - ".github/workflows/**"
+  - "src/app/**/route.ts"
+  - "src/app/**/page.tsx"
 ---
 
 # Testing in this repo (#8, #12, #16)
@@ -29,6 +31,13 @@ GTFS_CONTRACT=1 npm run test -- gtfs/contract
   checks presence of fields/params — their disappearance causes silent failures
   (2026-08-30: `withPlanned`/`fullRoute`).
 - Coverage thresholds in `vitest.config.mts` (branches 87, lines 91), enforced by `test:coverage` in CI.
+- `npm run check` does NOT run `next build`, and `tsc` does not see Next's route/page export
+  rules. Files under `src/app/**` (`route.ts`, `page.tsx`, `layout.tsx`) may export only the
+  fields Next allows (HTTP methods / route config, the default page, `metadata`…); a test-only
+  helper exported from `route.ts` passed the gate and failed `next build` (TS2344 "not
+  assignable to never"). Put such state and helpers in a `src/lib/` module. After changing
+  anything in `src/app/**`, run `npx next build --webpack` (worktree) before pushing — CI builds
+  only in the e2e job.
 
 ## #8 Fixtures don't reflect live API scale
 

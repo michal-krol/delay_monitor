@@ -1,12 +1,15 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import { Manrope } from 'next/font/google'
+import localFont from 'next/font/local'
 import { ThemeProvider } from 'next-themes'
 import './globals.css'
 
-const manrope = Manrope({
-  subsets: ['latin', 'latin-ext'], // latin-ext = polskie znaki diakrytyczne (ą ć ę ł ń ó ś ź ż)
-  weight: ['700', '800'],
+// Plik w repo (Manrope, SIL OFL 1.1 — fonts/OFL.txt), nie next/font/google: build nie pobiera
+// niczego z sieci (AGENTS.md #16), a jedno padnięcie CI na Google Fonts już było. Font zmienny
+// z pełnym zestawem znaków, więc polskie diakrytyki są w środku.
+const manrope = localFont({
+  src: './fonts/Manrope-Variable.ttf',
+  weight: '200 800',
   variable: '--font-manrope',
   display: 'swap',
 })

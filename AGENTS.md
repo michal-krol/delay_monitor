@@ -70,7 +70,8 @@ Bad URL params ignored silently. Security headers guarded by `next.config.test.t
 No horizontal scaling. Long-lived caches use `createTtlCache()` (TTL + limit), never a bare `Map`.
 
 ### 6. Network only at the edges → `maps.md`
-HTTP only in `src/lib/pkp/client.ts` and `src/lib/weather/client.ts`; domain logic is pure.
+HTTP only in edge clients: `src/lib/pkp/client.ts`, `src/lib/weather/client.ts` and the GTFS feed
+clients (`src/lib/gtfs/client.ts`, `vehicleClient.ts`, `alertClient.ts`); domain logic is pure.
 Deliberate exception: map tiles from `tiles.openfreemap.org` (the only foreign CSP origin).
 MapLibre traps (worker URL in prod builds, popup toggling, `pinsKey`, container positioning):
 read `maps.md` before touching any map component.

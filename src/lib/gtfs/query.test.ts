@@ -239,6 +239,44 @@ describe('cityStats', () => {
     expect(stats.hourly[6]).toBe(1)
     expect(stats.hourly[0]).toBe(1) // 24:15 → kubełek 0
   })
+
+  const statsFixture = () => ({
+    routes: [route('M1', 1, 'M1'), route('20', 0, '20'), route('128', 3, '128')],
+    stops: [stop('1001', 'A')],
+    trips: [
+      { routeId: '20', serviceId: 'S', tripId: 't1', headsign: 'x', directionId: 0 as const },
+      { routeId: '128', serviceId: 'S', tripId: 't2', headsign: 'x', directionId: 0 as const },
+    ],
+    stopTimeLines: [
+      'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+      't1,1001,06:00:00,06:00:00,1',
+      't2,1001,07:30:00,07:30:00,1',
+    ],
+  })
+
+  it('returns the same object for the same schedule and day', async () => {
+    const schedule = await make(statsFixture())
+    const first = cityStats(schedule, 1)
+    const second = cityStats(schedule, 1)
+    expect(second).toBe(first)
+  })
+
+  it('memoized cityStats equals a fresh computation', async () => {
+    // Dwie instancje rozkładu z tych samych danych wejściowych — jedna karmi
+    // pamięć podręczną, druga liczy „na surowo" (osobny klucz WeakMap).
+    const cached = cityStats(await make(statsFixture()), 1)
+    const fresh = cityStats(await make(statsFixture()), 1)
+    expect(cached).toEqual(fresh)
+  })
+
+  it('different day index computes separately', async () => {
+    const schedule = await make(statsFixture())
+    const day1 = cityStats(schedule, 1)
+    const day0 = cityStats(schedule, 0)
+    expect(day0).not.toBe(day1)
+    expect(day0.tripsToday).toBe(0) // oba kursy są w service day 1, nie 0
+    expect(day1.tripsToday).toBe(2)
+  })
 })
 
 describe('vehiclesInService', () => {
@@ -296,6 +334,51 @@ describe('vehicleForStop', () => {
       ],
     })
     expect(vehicleForStop(schedule, [], 'T', schedule.stopIndexById.get('2002')!, Date.now())).toBeNull()
+  })
+
+  async function abcSchedule() {
+    return make({
+      routes: [route('20', 0, '20')],
+      stops: [
+        { id: 'A', name: 'A', lat: 52.2, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+        { id: 'B', name: 'B', lat: 52.22, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+        { id: 'C', name: 'C', lat: 52.24, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+      ],
+      trips: [{ routeId: '20', serviceId: 'S', tripId: 'T', headsign: 'C', directionId: 0 }],
+      stopTimeLines: [
+        'trip_id,stop_id,arrival_time,departure_time,stop_sequence',
+        'T,A,06:00:00,06:00:00,1', 'T,B,06:05:00,06:05:00,2', 'T,C,06:10:00,06:10:00,3',
+      ],
+    })
+  }
+
+  it('vehicleForStop result identical to linear scan', async () => {
+    // Dwie pozycje tego samego `tripId` w jednej tablicy — indeks budowany dla
+    // `vehicleForStop` musi zachować semantykę `Array.find` (pierwsze trafienie),
+    // nie ostatnie ani przypadkowe.
+    const schedule = await abcSchedule()
+    const idxC = schedule.stopIndexById.get('C')!
+    const firstNearAB = { id: 'v1', tripId: 'T', lat: 52.205, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() } // między A i B → stopsAway 1
+    const secondNearBC = { id: 'v2', tripId: 'T', lat: 52.225, lon: 21, sideNumber: '2', bearing: null, timestamp: new Date().toISOString() } // między B i C → stopsAway 0
+    const now = Date.now()
+    expect(vehicleForStop(schedule, [firstNearAB, secondNearBC], 'T', idxC, now)?.stopsAway).toBe(1)
+    // Kolejność odwrócona → nadal pierwsze trafienie w tablicy wygrywa.
+    expect(vehicleForStop(schedule, [secondNearBC, firstNearAB], 'T', idxC, now)?.stopsAway).toBe(0)
+  })
+
+  it('new poll result (new array) is re-indexed', async () => {
+    const schedule = await abcSchedule()
+    const idxC = schedule.stopIndexById.get('C')!
+    const stale = { id: 'v1', tripId: 'T', lat: 52.205, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() } // stopsAway 1
+    const fresh = { id: 'v2', tripId: 'T', lat: 52.225, lon: 21, sideNumber: '2', bearing: null, timestamp: new Date().toISOString() } // stopsAway 0
+    const now = Date.now()
+    const firstPoll = [stale]
+    expect(vehicleForStop(schedule, firstPoll, 'T', idxC, now)?.stopsAway).toBe(1)
+    // Nowa tablica z nowego cyklu pollera — indeks starej tablicy nie może przeciekać.
+    const secondPoll = [fresh]
+    expect(vehicleForStop(schedule, secondPoll, 'T', idxC, now)?.stopsAway).toBe(0)
+    // Stara tablica wciąż daje swój (skądinąd wciąż poprawny) wynik.
+    expect(vehicleForStop(schedule, firstPoll, 'T', idxC, now)?.stopsAway).toBe(1)
   })
 })
 
@@ -355,6 +438,24 @@ describe('searchStops', () => {
     expect(results[0].name).toBe('Świętokrzyska')
     expect(results.map((r) => r.name)).toContain('Rondo ONZ - Świętokrzyska')
     expect(searchStops(schedule, 'dworz', 5).map((r) => r.id)).toEqual(['3003'])
+  })
+
+  it('searchStops results identical before/after memo (prefix-first ordering, Polish collation)', async () => {
+    const schedule = await make({
+      stops: [
+        stop('1001', 'Żerań'), // trafienie od początku ('zeran')
+        stop('2002', 'Żabieniec'), // trafienie od początku ('zabieniec' < 'zeran' w kolacji pl)
+        stop('3003', 'Ratusz'), // 'z' w środku/na końcu — nie prefiks
+        stop('4004', 'Dworzec'), // jw., przed 'Ratusz' w kolacji pl
+        stop('5005', 'Wilanów'), // brak trafienia
+      ],
+    })
+    // Pierwsze wywołanie buduje pamięć podręczną znormalizowanych nazw.
+    const cold = searchStops(schedule, 'z', 10)
+    // Drugie czyta z ciepłej pamięci — wynik musi być identyczny, łącznie z kolejnością.
+    const warm = searchStops(schedule, 'z', 10)
+    expect(warm).toEqual(cold)
+    expect(cold.map((r) => r.name)).toEqual(['Żabieniec', 'Żerań', 'Dworzec', 'Ratusz'])
   })
 })
 

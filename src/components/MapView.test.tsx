@@ -253,7 +253,7 @@ describe('MapView', () => {
 describe('public/maplibre-gl-worker.mjs + maplibre-gl-shared.mjs (wendorowane kopie)', () => {
   // ponytail: brak automatycznego kopiowania przy buildzie -- to jedyny
   // strażnik przed cichym rozjazdem po `npm update maplibre-gl`. Jeśli któryś
-  // padnie: `cp node_modules/maplibre-gl/dist/maplibre-gl-{worker,shared}.mjs public/`.
+  // padnie: `npm run vendor:maplibre` (kopiuje oba pliki z node_modules do public/).
   it.each(['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs'])('%s jest bajt-w-bajt tym samym plikiem co w node_modules', async (file) => {
     const { readFile } = await import('node:fs/promises')
     const path = await import('node:path')
