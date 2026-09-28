@@ -52,8 +52,15 @@ const TAIL_BYTES = 65536
 /** 30 B nagłówka lokalnego + nazwa (≤ ~100) + pole extra (zwykle < 100). */
 const LOCAL_HEADER_PROBE = 512
 const USER_AGENT = 'delay-monitor-gtfs-loader (+https://github.com/michal-krol/delay_monitor)'
+/**
+ * Czas do NADEJŚCIA NAGŁÓWKÓW odpowiedzi, NIE całego ciała -- na zwykłym
+ * łączu strumieniowanie ~107 MB feedu potrafi trwać dłużej niż 30 s.
+ * `rangeRequest` kasuje timer, gdy `fetch()` się rozstrzygnie (nagłówki są),
+ * więc dalsze płynięcie ciała nie ma limitu.
+ */
+const GTFS_FETCH_TIMEOUT_MS = 30_000
 
-type RangeFetch = (url: string, headers: Record<string, string>) => Promise<Response>
+type RangeFetch = (url: string, headers: Record<string, string>, signal: AbortSignal) => Promise<Response>
 
 async function rangeRequest(
   doFetch: RangeFetch,
@@ -64,7 +71,17 @@ async function rangeRequest(
   const headers: Record<string, string> = { Range: range, 'User-Agent': USER_AGENT }
   if (ifRange !== null) headers['If-Range'] = ifRange
 
-  const response = await doFetch(url, headers)
+  // `AbortSignal.timeout` obcinałoby też trwający transfer ciała -- własny
+  // kontroler + kasowanie timera po rozstrzygnięciu `fetch()` ogranicza limit
+  // wyłącznie do czasu do nagłówków.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), GTFS_FETCH_TIMEOUT_MS)
+  let response: Response
+  try {
+    response = await doFetch(url, headers, controller.signal)
+  } finally {
+    clearTimeout(timer)
+  }
 
   // 200 tam, gdzie oczekiwano 206: CDN zignorował Range albo `If-Range` nie
   // pasuje (feed zregenerowany). W obu wypadkach dalej to śmieci — odrzucamy głośno.
@@ -103,7 +120,7 @@ async function linesFromResponse(response: Response, method: number): Promise<As
 }
 
 export function createLiveClient(city: CityFeed, deps: { fetch?: RangeFetch } = {}): GtfsClient {
-  const doFetch: RangeFetch = deps.fetch ?? ((url, headers) => fetch(url, { headers }))
+  const doFetch: RangeFetch = deps.fetch ?? ((url, headers, signal) => fetch(url, { headers, signal }))
   const url = city.staticUrl
 
   // ETag ze wstępnego żądania — wysyłany jako `If-Range` na każdym kolejnym.
