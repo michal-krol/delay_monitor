@@ -24,7 +24,8 @@ paths:
 - **Three independent rhythms:** PKP poller 90 s ↔ browser `/api/board` 30 s ↔ GTFS poller
   (once/day + idle TTL). GTFS loads **once** (~107 MB, ~3 s parse), then only from memory.
   `/api/gtfs/*` never wait — `ensureLoaded()` fire-and-forget, `getSchedule()` returns `null`
-  until ready, the client retries.
+  until ready, the client retries. A failed load backs off server-side (30 s doubling to 1 h,
+  reset on success, gate in `startLoad()`): client retries during the window don't refetch.
 - **Warm-up at process start (`src/instrumentation.ts`).** `register()` (Node runtime only —
   `process.env.NEXT_RUNTIME === 'nodejs'`, dynamic import) calls `warmUpGtfsPollers()`
   (`gtfs/instance.ts`) fire-and-forget for every `enabledGtfsCities()`; it calls the poller's

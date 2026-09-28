@@ -111,6 +111,15 @@ export type GtfsPollerDeps = {
 const RELOAD_HOUR = 3
 const HOURLY_MS = 60 * 60 * 1000
 const IDLE_CHECK_MS = 5 * 60 * 1000
+/**
+ * Backoff po nieudanym ładowaniu: 30 s, 60 s, … do 1 h, zerowany po sukcesie.
+ * Klienci ponawiają co ~15 s (`usePolling`), każdy otwarty widok woła
+ * `ensureLoaded()` — bez okna każda próba po błędzie od razu odpalałaby kolejne
+ * ~107 MB. Bramka w `startLoad()`, więc obejmuje też `preload()` i godzinowe
+ * przeładowanie doby. Bez timera: ponowienie dalej wyzwala widz albo godzinowy tick.
+ */
+const RETRY_BASE_MS = 30 * 1000
+const RETRY_MAX_MS = HOURLY_MS
 
 export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   const now = deps.now ?? (() => Date.now())
@@ -122,6 +131,8 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   let phase: string | null = null
   let loadedAtMs: number | null = null
   let loadInFlight = false
+  let failedLoads = 0
+  let retryAtMs = 0
   let lastInterestAt = now()
   let disposed = false
 
@@ -172,7 +183,7 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   }
 
   function startLoad(): void {
-    if (loadInFlight || disposed) return
+    if (loadInFlight || disposed || now() < retryAtMs) return
     loadInFlight = true
     if (schedule === null) status = 'loading'
     phase = 'start'
@@ -187,12 +198,16 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
         status = 'ready'
         phase = null
         loadedAtMs = now()
+        failedLoads = 0
+        retryAtMs = 0
         scheduleReloadTimer()
       })
       .catch(() => {
         if (disposed) return
         // current !== null: dalej serwujemy poprzedni rozkład (UI pokaże wiek).
         status = 'failed'
+        failedLoads += 1
+        retryAtMs = now() + Math.min(RETRY_BASE_MS * 2 ** (failedLoads - 1), RETRY_MAX_MS)
         phase = null
       })
       .finally(() => {
