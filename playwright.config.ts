@@ -1,4 +1,13 @@
-import { defineConfig, devices } from '@playwright/test'
+import { existsSync } from 'node:fs'
+import { chromium, defineConfig, devices, webkit } from '@playwright/test'
+
+// Po podbiciu `@playwright/test` lokalne przeglądarki są w starej wersji i każdy
+// test pada osobno na „Executable doesn't exist" (168 razy). Jedna instrukcja
+// zamiast tego. CI instaluje przeglądarki samo (ci.yml).
+if (!process.env.CI && ![chromium, webkit].every((b) => existsSync(b.executablePath()))) {
+  console.error('Brak przeglądarek Playwrighta dla tej wersji — uruchom: npx playwright install chromium webkit')
+  process.exit(1)
+}
 
 /**
  * Pakiet regresji UI (smoke + a11y). Tryb mock, zerowo-sieciowy wobec PKP
@@ -13,7 +22,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // Lokalnie też 1: pełny przebieg pod obciążeniem maszyny dawał 2–8 porażek
+  // (np. mapa na mobile-safari), powtórka zawsze zielona. Test, który przechodzi
+  // dopiero w powtórce, reporter oznacza jako „flaky" — nie znika z widoku.
+  retries: 1,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
   use: {
     baseURL,

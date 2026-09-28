@@ -25,6 +25,10 @@ export default defineConfig({
      */
     // `e2e/**` to Playwright (`*.spec.ts`), nie Vitest -- patrz AGENTS.md #16.
     exclude: [...configDefaults.exclude, '**/.claude/**', 'e2e/**'],
+    // Wątki zamiast procesów (domyślne `forks`): pełny zestaw 73–76 s → 47–48 s,
+    // 3× zielony pod Europe/Warsaw i raz pod TZ=UTC (2026-09-28). Izolacja plików
+    // zostaje -- `isolate: false` psuje 117–190 testów, patrz `.claude/rules/testing.md`.
+    pool: 'threads',
     environment: 'node',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],

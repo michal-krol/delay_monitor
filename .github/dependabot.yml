@@ -1,3 +1,8 @@
+# Dependabot reads this file only from the DEFAULT branch (main), even though every
+# update below targets dev: "You must store this file in the .github directory of your
+# repository in the default branch" (https://docs.github.com/en/code-security/concepts/supply-chain-security/about-the-dependabot-yml-file).
+# An edit merged to dev takes effect after the next dev→main release. #71 proposed
+# TS 7 / ESLint 10 / @types/node 26 because main still had the config without the ignores.
 version: 2
 updates:
   - package-ecosystem: npm
