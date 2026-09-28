@@ -5,7 +5,7 @@ import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
 import { TopBar } from '@/components/TopBar'
-import { CityPicker, type CityOption } from '@/components/CityPicker'
+import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { CloseIcon, MapIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
@@ -20,7 +20,6 @@ import {
   LAYER_LABEL,
   MAP_ZOOM,
   VEHICLE_LAYERS,
-  ageLabel,
   boundsContain,
   formatAt,
   nearbyPoints,
@@ -36,12 +35,15 @@ import {
   type NearbyPoint,
   type VisibleItem,
 } from '@/components/map/mapData'
+import { useCities } from '@/hooks/useCities'
 import { useCityStops } from '@/hooks/useCityStops'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useLineDetail } from '@/hooks/useLineDetail'
+import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { formatAgo } from '@/lib/format'
 import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -71,32 +73,14 @@ function saveLastView(city: string, at: string): void {
   }
 }
 
-/** Jedno pobranie listy z `url` (pole `field`), ponawiane, dopóki rozkład się wczytuje (`null`). */
+/** Jedno pobranie listy z `url` (wybór pola przez `pick`), ponawiane drabinką `usePolling`, dopóki rozkład się wczytuje (`null`). */
 function useCityList<T>(url: string, pick: (json: Record<string, unknown>) => T[] | null): T[] | null {
-  const [items, setItems] = useState<T[] | null>(null)
-  const pickRef = useRef(pick)
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    async function load(): Promise<void> {
-      try {
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(String(response.status))
-        const next = pickRef.current((await response.json()) as Record<string, unknown>)
-        if (cancelled) return
-        if (next === null) timer = setTimeout(() => void load(), 2_000)
-        else setItems(next)
-      } catch {
-        if (!cancelled) timer = setTimeout(() => void load(), 30_000)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [url])
-  return items
+  // Opakowanie `{ items }`, bo `null` z `pick` („rozkład się wczytuje") ma napędzać ponawianie, a nie znaczyć „brak odpowiedzi".
+  const { data } = usePolling<{ items: T[] | null }>(url, async () => ({ items: pick(await fetchJson<Record<string, unknown>>(url)) }), {
+    refreshMs: null,
+    isLoading: (result) => result.items === null,
+  })
+  return data?.items ?? null
 }
 
 /** Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon. */
@@ -118,7 +102,7 @@ export default function CityMapPage() {
   const feed = CITY_ID_PATTERN.test(city) ? getCity(city) : null
   if (feed === null) notFound()
 
-  const [cities, setCities] = useState<CityOption[]>([])
+  const { cities } = useCities()
   const [hidden, setHidden] = useState<Set<LayerKey>>(() => new Set())
   const [routeParam, setRouteParam] = useState<string | null>(null)
   const [directionId, setDirectionId] = useState(0)
@@ -169,19 +153,6 @@ export default function CityMapPage() {
     },
     [city]
   )
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities: CityOption[] }) => {
-        if (!cancelled) setCities(body.cities)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // `?line=` to `routeId`; stare linki niosły numer linii („20") — dopasowujemy go dokładnie.
   const line = useMemo(() => {
@@ -377,7 +348,7 @@ export default function CityMapPage() {
         : vehiclesFailed
           ? 'pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne'
           : vehiclesState.feed.ageMs !== null
-            ? `pozycje pojazdów: ${ageLabel(Math.round(vehiclesState.feed.ageMs / 1000))}`
+            ? `pozycje pojazdów: ${formatAgo(Math.round(vehiclesState.feed.ageMs / 1000))}`
             : 'pozycje pojazdów na żywo'
 
   const problems = [

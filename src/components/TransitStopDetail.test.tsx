@@ -346,7 +346,7 @@ describe('TransitStopDetail', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) =>
-        url.startsWith('/api/cities') ? jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] }) : Promise.reject(new Error('not stubbed'))
+        url.startsWith('/api/cities') ? jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [] }] }) : Promise.reject(new Error('not stubbed'))
       )
     )
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)

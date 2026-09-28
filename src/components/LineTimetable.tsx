@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { formatSecondsOfDay } from '@/lib/format'
 import type { LineDepartureBlock } from '@/lib/gtfs/query'
 
 /** Stałe kolumny tygodniowe — zawsze widoczne, nawet puste (spec 0b). */
@@ -96,7 +97,7 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect }: 
                                 key={cell.base}
                                 type="button"
                                 aria-pressed={on}
-                                aria-label={`${twoDigit(hour % 24)}:${minute}`}
+                                aria-label={formatSecondsOfDay(cell.disp)}
                                 onClick={() => onSelect(on ? null : cell.base)}
                                 className={`rounded px-1 tabular-nums transition ${
                                   on ? 'font-bold text-white' : 'text-text-secondary hover:text-foreground'

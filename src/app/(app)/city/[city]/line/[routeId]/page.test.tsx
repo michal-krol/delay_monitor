@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 // Prawdziwy MapLibre nie działa w jsdom (WebGL) -- stub sprawdza tylko, co strona mu przekazuje.
@@ -102,6 +103,7 @@ function stubFetch(lineBody: unknown = LINE) {
 }
 
 beforeEach(() => {
+  resetCitiesCacheForTests()
   push.mockClear()
   params.city = 'warszawa'
   params.routeId = '20'
@@ -239,6 +241,72 @@ describe('LineDetailPage', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => (url.startsWith('/api/gtfs/line') ? Promise.reject(new Error('x')) : jsonResponse({ cities: [] }))))
     render(<LineDetailPage />)
     expect(await screen.findByText('Nie udało się pobrać przebiegu linii.')).toBeInTheDocument()
+  })
+
+  it('keeps retrying past the first ladder while the schedule is still loading (never gives up)', async () => {
+    vi.useFakeTimers()
+    try {
+      const loadingBody = { ...LINE, line: null, schedule: { ...LINE.schedule, state: 'loading' } }
+      const fetchMock = vi.fn((url: string) =>
+        url.startsWith('/api/gtfs/line?') ? jsonResponse(loadingBody) : url.startsWith('/api/gtfs/vehicles') ? jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } }) : jsonResponse({ cities: [] })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      render(<LineDetailPage />)
+      const lineCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/gtfs/line?')).length
+      await vi.advanceTimersByTimeAsync(34_000) // cała drabinka 1+2+3+5+8+15 s = 7 zapytań
+      expect(lineCalls()).toBe(7)
+      await vi.advanceTimersByTimeAsync(30_000) // po drabince ponawia dalej co 15 s
+      expect(lineCalls()).toBe(9)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('refetches while alerts are unknown (null) and then shows the banner', async () => {
+    vi.useFakeTimers()
+    try {
+      const alert = { id: 'a', routes: ['20'], effect: 'DETOUR', link: 'https://www.wtp.waw.pl/x/', title: 'Utrudnienia na linii 20', body: 'Treść.' }
+      let calls = 0
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ ...LINE, alerts: ++calls === 1 ? null : [alert] })
+          if (url.startsWith('/api/gtfs/vehicles')) return jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } })
+          return jsonResponse({ cities: [] })
+        })
+      )
+      render(<LineDetailPage />)
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(screen.getByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
+      expect(screen.queryByText('Utrudnienia na linii 20')).not.toBeInTheDocument() // nieznane != brak, ale i baner się nie pokazuje
+      await act(() => vi.advanceTimersByTimeAsync(1_000)) // pierwszy stopień drabinki
+      expect(calls).toBe(2)
+      expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retries after a failed fetch instead of staying failed', async () => {
+    vi.useFakeTimers()
+    try {
+      let calls = 0
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.startsWith('/api/gtfs/line?')) return ++calls === 1 ? Promise.reject(new Error('x')) : jsonResponse(LINE)
+          if (url.startsWith('/api/gtfs/vehicles')) return jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } })
+          return jsonResponse({ cities: [] })
+        })
+      )
+      render(<LineDetailPage />)
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(screen.getByText('Nie udało się pobrać przebiegu linii.')).toBeInTheDocument()
+      await act(() => vi.advanceTimersByTimeAsync(30_000))
+      expect(screen.getByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows an alert banner when the line has an active disruption', async () => {

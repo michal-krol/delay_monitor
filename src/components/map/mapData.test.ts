@@ -4,7 +4,6 @@ import type { CityStop } from '@/lib/gtfs/query'
 import {
   MODE_COLOR,
   UNKNOWN_COLOR,
-  ageLabel,
   boundsContain,
   arrowImage,
   distanceM,
@@ -104,7 +103,7 @@ describe('stopsToGeoJSON / railToGeoJSON', () => {
   })
 })
 
-describe('stopsBounds / boundsContain / ageLabel', () => {
+describe('stopsBounds / boundsContain', () => {
   it('computes the feed area and tests points against it', () => {
     const bounds = stopsBounds([
       { id: 'a', groupId: 'a', name: 'A', code: null, lat: 52.0, lon: 20.8, mode: 'bus' },
@@ -114,12 +113,6 @@ describe('stopsBounds / boundsContain / ageLabel', () => {
     expect(boundsContain(bounds!, 21.0, 52.2)).toBe(true)
     expect(boundsContain(bounds!, 19.46, 51.76)).toBe(false)
     expect(stopsBounds([])).toBeNull()
-  })
-
-  it('formats position age', () => {
-    expect(ageLabel(2)).toBe('przed chwilą')
-    expect(ageLabel(13)).toBe('13 s temu')
-    expect(ageLabel(150)).toBe('3 min temu')
   })
 })
 

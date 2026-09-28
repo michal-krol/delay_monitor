@@ -41,6 +41,31 @@ describe('useLineDetail', () => {
     await vi.waitFor(() => expect(result.current.detail).toBeNull())
   })
 
+  it('polls on the ladder while alerts are unknown (null) and exposes them once known', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ line: LINE, schedule: { state: 'ready' }, alerts: null }))
+      .mockImplementation(() => jsonResponse({ line: LINE, schedule: { state: 'ready' }, alerts: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useLineDetail('warszawa', '20'))
+    await vi.waitFor(() => expect(result.current.detail).toEqual(LINE)) // przebieg już jest, alerty jeszcze nie
+    expect(result.current.alerts).toEqual([])
+    await vi.advanceTimersByTimeAsync(1_000)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // alerty znane -> koniec ponawiania
+  })
+
+  it('a failed schedule is not "loading": no retry ladder (same predicate as the line page)', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ line: null, schedule: { state: 'failed' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useLineDetail('warszawa', '20'))
+    await vi.waitFor(() => expect(result.current.error).toBe(true))
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.current).toEqual({ detail: undefined, alerts: [], error: true }) // błąd, nie wieczny szkielet
+  })
+
   it('flags an error and retries after 30 s', async () => {
     const fetchMock = vi
       .fn()

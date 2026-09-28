@@ -92,7 +92,7 @@ describe('TransitStopCard', () => {
 
   it("shows the city's display name, not the slug, once /api/cities resolves", async () => {
     useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
-    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] })))
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [] }] })))
     render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
     expect(await screen.findByText('Rozkład — Warszawa')).toBeInTheDocument()
   })

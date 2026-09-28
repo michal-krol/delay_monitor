@@ -206,7 +206,7 @@ aplikacja jest dostosowana do poziomu Basic (100 zapytań na godzinę i 1000 na 
 | `GTFS_ENABLED` | `true` | Włącza komunikację miejską |
 | `GTFS_CITIES` | `warszawa` | Lista miast rozdzielona przecinkami |
 | `GTFS_DATA_SOURCE` | `mock` | `mock` \| `live` |
-| `GTFS_IDLE_TTL_MS` | `3600000` | Czas bezczynności, po którym rozkład miasta jest zwalniany z pamięci |
+| `GTFS_IDLE_TTL_MS` | `3600000` | Czas bezczynności, po którym przestają być odpytywane pozycje pojazdów i alerty miasta (rozkład zostaje w pamięci) |
 | `GTFS_VEHICLE_POLL_MS` | `15000` | Interwał odczytu pozycji pojazdów |
 | `GTFS_ALERT_POLL_MS` | `300000` | Interwał odczytu komunikatów |
 | `PORT` | `3000` | Port serwera |

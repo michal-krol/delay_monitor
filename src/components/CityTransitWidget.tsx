@@ -1,7 +1,10 @@
 'use client'
 
 import { useCityStats } from '@/hooks/useCityStats'
+import { formatSecondsOfDay } from '@/lib/format'
+import { getCity } from '@/lib/gtfs/cities'
 import type { GtfsMode } from '@/lib/gtfs/types'
+import { zonedHour } from '@/lib/pkp/time'
 import { pluralPl } from '@/lib/plural'
 import { AsideCard, HourlyTraffic } from './aside'
 import { BusIcon, MetroIcon, TrainIcon, TramIcon } from './icons'
@@ -12,11 +15,6 @@ const MODE_ROWS: { mode: GtfsMode; label: string; icon: typeof BusIcon }[] = [
   { mode: 'bus', label: 'autobus', icon: BusIcon },
   { mode: 'rail', label: 'kolej', icon: TrainIcon },
 ]
-
-/** `sec` może przekroczyć 86400 (kurs po północy) — zwijamy do zegara doby. */
-function clock(sec: number): string {
-  return `${String(Math.floor(sec / 3600) % 24).padStart(2, '0')}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}`
-}
 
 /**
  * Widżet sieci komunikacji miejskiej wybranego miasta — odpowiednik
@@ -86,12 +84,12 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
         <HourlyTraffic
           hourly={stats?.hourly ?? null}
           loading={loading}
-          currentHour={new Date().getHours()}
+          currentHour={zonedHour(new Date().getTime(), getCity(city)?.timezone ?? 'Europe/Warsaw')}
           emptyLabel="Rozkład na dziś nie zawiera odjazdów."
         />
         {stats !== null && stats.firstDepartureSec !== null && stats.lastDepartureSec !== null && (
           <p className="mt-2 text-xs text-text-muted">
-            Pierwszy kurs {clock(stats.firstDepartureSec)}, ostatni {clock(stats.lastDepartureSec)} ·{' '}
+            Pierwszy kurs {formatSecondsOfDay(stats.firstDepartureSec)}, ostatni {formatSecondsOfDay(stats.lastDepartureSec)} ·{' '}
             {stats.tripsToday.toLocaleString('pl-PL')} {pluralPl(stats.tripsToday, 'kurs', 'kursy', 'kursów')} dziś
           </p>
         )}

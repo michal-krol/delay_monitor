@@ -238,7 +238,8 @@ describe('Dashboard', () => {
     expect(await screen.findByText('IC')).toBeInTheDocument()
 
     // Warszawa usunieta z ulubionych; odpowiedz w pamieci wciaz zawiera obie
-    // stacje, bo nowy fetch jeszcze nie wrocil.
+    // stacje, bo nowy fetch jeszcze nie wrocil (`useBoard` trzyma poprzednie dane
+    // -- `keepPreviousData` -- zamiast mrugać pustymi kartami).
     rerender(
       <Dashboard
         favourites={[FAVOURITES[1]]}

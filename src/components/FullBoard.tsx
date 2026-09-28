@@ -15,6 +15,7 @@ import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { formatClockTime } from '@/lib/format'
+import { zonedHour } from '@/lib/pkp/time'
 
 type Props = {
   stationId: string
@@ -267,7 +268,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             destinationFilter={destinationFilter}
             onDestinationFilter={setDestinationFilter}
             loading={snapshot === null && error === null}
-            currentHour={new Date(now).getHours()}
+            currentHour={zonedHour(now, 'Europe/Warsaw')}
             weather={weather}
             stationName={stationName}
             stationId={stationId}

@@ -7,7 +7,20 @@ import {
   serviceDateWindow,
   serviceDayNoonEpoch,
   warsawDateString,
+  zonedHour,
 } from './time'
+
+describe('zonedHour', () => {
+  it('reads the hour in the given zone, independent of the process zone (CEST, UTC+2)', () => {
+    // 22:30 UTC = 00:30 w Warszawie latem (dzień się już przewinął) -- godzina 0,
+    // nie 22 (godzina procesu/UTC) ani 23.
+    expect(zonedHour(new Date('2026-09-28T22:30:00Z').getTime(), 'Europe/Warsaw')).toBe(0)
+  })
+
+  it('reads the hour in winter (CET, UTC+1)', () => {
+    expect(zonedHour(new Date('2026-01-15T10:15:00Z').getTime(), 'Europe/Warsaw')).toBe(11)
+  })
+})
 
 describe('warsawDateString', () => {
   it('returns the Warsaw calendar date even when the process/UTC date has not rolled over yet (CEST, UTC+2)', () => {

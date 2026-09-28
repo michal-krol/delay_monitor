@@ -59,7 +59,7 @@ describe('useTransitBoard', () => {
     await vi.waitFor(() => expect(result.current.error).toBe('network'))
   })
 
-  it('skips a scheduled refresh while the tab is hidden, reschedules instead of fetching', async () => {
+  it('pauses while the tab is hidden and resumes on visibilitychange', async () => {
     const fetchMock = vi.fn().mockImplementation(ready)
     vi.stubGlobal('fetch', fetchMock)
 
@@ -68,11 +68,50 @@ describe('useTransitBoard', () => {
 
     Object.defineProperty(document, 'hidden', { value: true, configurable: true })
     await vi.advanceTimersByTimeAsync(30000)
-    expect(fetchMock).toHaveBeenCalledTimes(1) // hidden -> nie odpytał
+    expect(fetchMock).toHaveBeenCalledTimes(1) // hidden -> pauza, żadnego fetcha ani timera
 
     Object.defineProperty(document, 'hidden', { value: false, configurable: true })
-    await vi.advanceTimersByTimeAsync(30000)
-    expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił od razu (bez czekania na kolejny tick)
+  })
+
+  it('keeps the previous board while a switched member is being fetched (map pins and popup must not vanish)', async () => {
+    const fetchMock = vi.fn().mockImplementation(ready)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ member }: { member: string | null }) => useTransitBoard('warszawa', ['1001'], 20, member), {
+      initialProps: { member: null as string | null },
+    })
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+    const before = result.current.data
+
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {})) // odpowiedź dla nowego słupka jeszcze nie wróciła
+    rerender({ member: '01' })
+    expect(result.current.data).toBe(before)
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('does not show another stop\'s board under a new stop id while its response is in flight', async () => {
+    const withStop = (stopId: string) => () =>
+      jsonResponse({
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: null, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ stopId }],
+        attribution: [],
+      })
+    const fetchMock = vi.fn().mockImplementation(withStop('1001'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ stopId }: { stopId: string }) => useTransitBoard('warszawa', [stopId]), {
+      initialProps: { stopId: '1001' },
+    })
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+    rerender({ stopId: '2002' })
+    expect(result.current.data).toBeNull() // nie „przystanek 1001 pod nazwą 2002"
+    expect(result.current.loading).toBe(true)
   })
 
   // Trójstan `loading`/`failed` — jedna implementacja dla TransitStopDetail i

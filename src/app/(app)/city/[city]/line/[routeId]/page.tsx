@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { notFound, useParams, useRouter } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
@@ -16,7 +16,11 @@ import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
+import { formatSecondsOfDay } from '@/lib/format'
+import { useCities } from '@/hooks/useCities'
+import { isLineLoading } from '@/hooks/useLineDetail'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
+import { fetchJson, usePolling } from '@/hooks/usePolling'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
@@ -25,18 +29,14 @@ type LineResponse = {
   city: string
   schedule: TransitBoardResponse['schedule']
   line: LineDetail | null
-  alerts: import('@/lib/gtfs/alerts').AlertRecord[]
+  /** `null` = feed alertów jeszcze nie odpowiedział (nieznane); `isLineLoading` ponawia do skutku. */
+  alerts: import('@/lib/gtfs/alerts').AlertRecord[] | null
   attribution: string[]
 }
-type CityEntry = { id: string; name: string; railStations: { id: string; name: string }[] }
 
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
-const LOADING_RETRY_MS = [1000, 2000, 3000, 5000, 8000, 15000]
 const KIND_LABEL = { regular: '', night: 'linia nocna', express: 'linia przyspieszona', replacement: 'linia zastępcza' } as const
-
-const clock = (sec: number) =>
-  `${String(Math.floor(sec / 3600) % 24).padStart(2, '0')}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}`
 
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
@@ -48,53 +48,18 @@ export default function LineDetailPage() {
   }
 
   const router = useRouter()
-  const [data, setData] = useState<LineResponse | null>(null)
-  const [cities, setCities] = useState<CityEntry[]>([])
-  const [failed, setFailed] = useState(false)
+  const { cities } = useCities()
   const [dirIdx, setDirIdx] = useState(0)
   const [stopSel, setStopSel] = useState(0)
   const [selectedBaseSec, setSelectedBaseSec] = useState<number | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities: CityEntry[] }) => {
-        if (!cancelled) setCities(body.cities)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    let retry = 0
-
-    function tick(): void {
-      fetch(`/api/gtfs/line?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}`)
-        .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-        .then((json: LineResponse) => {
-          if (cancelled) return
-          setData(json)
-          setFailed(false)
-          if (json.line === null && json.schedule.state === 'loading' && retry < LOADING_RETRY_MS.length) {
-            timer = setTimeout(tick, LOADING_RETRY_MS[retry++])
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setFailed(true)
-        })
-    }
-
-    tick()
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [city, routeId])
+  // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
+  const { data, error } = usePolling<LineResponse>(
+    `${city}:${routeId}`,
+    () => fetchJson(`/api/gtfs/line?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}`),
+    { refreshMs: null, isLoading: isLineLoading }
+  )
+  const failed = error !== null
 
   const entry = useMemo(() => cities.find((option) => option.id === city) ?? null, [cities, city])
   const cityName = entry?.name ?? city
@@ -168,7 +133,7 @@ export default function LineDetailPage() {
               <div className="flex justify-between gap-2">
                 <dt className="text-text-muted">Pierwszy / ostatni</dt>
                 <dd className="tabular-nums text-foreground">
-                  {clock(direction.departures[0].times[0])}–{clock(direction.departures[0].times.at(-1)!)}
+                  {formatSecondsOfDay(direction.departures[0].times[0])}–{formatSecondsOfDay(direction.departures[0].times.at(-1)!)}
                 </dd>
               </div>
             ) : null}
@@ -227,7 +192,7 @@ export default function LineDetailPage() {
               {MODE_LABEL[line.mode]}
               {KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · {KIND_LABEL[line.kind]}</span>}
             </p>
-            {data !== null && data.alerts.length > 0 && <AlertBanner alerts={data.alerts} />}
+            {data?.alerts != null && data.alerts.length > 0 && <AlertBanner alerts={data.alerts} />}
             {data !== null && (
               <ScheduleStatus schedule={data.schedule} cityName={cityName} title={`Rozkład jazdy linii ${line.line}`} error={failed} />
             )}
@@ -368,7 +333,7 @@ export default function LineDetailPage() {
                             />
                           )}
                           {passSec !== null ? (
-                            <span className="shrink-0 font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">{clock(passSec)}</span>
+                            <span className="shrink-0 font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">{formatSecondsOfDay(passSec)}</span>
                           ) : (
                             index > 0 && <span className="shrink-0 text-xs tabular-nums text-text-muted">+{Math.round(stop.offsetSec / 60)} min</span>
                           )}

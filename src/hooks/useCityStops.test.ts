@@ -27,6 +27,16 @@ describe('useCityStops', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/stops?city=warszawa')
   })
 
+  it('keeps retrying past the ladder while the schedule is still loading (never gives up)', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stops: null }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderHook(() => useCityStops('warszawa'))
+    await vi.advanceTimersByTimeAsync(34_000) // drabinka 1+2+3+5+8+15 s = 7 zapytań
+    expect(fetchMock).toHaveBeenCalledTimes(7)
+    await vi.advanceTimersByTimeAsync(30_000) // dalej co 15 s
+    expect(fetchMock).toHaveBeenCalledTimes(9)
+  })
+
   it('reports an error distinctly from loading and retries after 30 s', async () => {
     const fetchMock = vi
       .fn()

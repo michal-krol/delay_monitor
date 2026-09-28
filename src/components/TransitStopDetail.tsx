@@ -10,6 +10,9 @@ import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
 import { GTFS_STOP_ID_PATTERN } from '@/lib/validation'
+import { formatSecondsOfDay } from '@/lib/format'
+import { getCity } from '@/lib/gtfs/cities'
+import { zonedHour } from '@/lib/pkp/time'
 import { AlertBanner } from './AlertBanner'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
@@ -34,13 +37,6 @@ const STOP_TABS: { key: StopTab; label: string }[] = [
 /** Odjazdy pobierane w jednej, wspólnej dla obu tabów odjazdowych liczbie — „Najbliższe" tnie do podglądu, „Pełny rozkład" pokazuje całość. */
 const SCHEDULE_FETCH_LIMIT = 60
 const NEAREST_PREVIEW_COUNT = 10
-
-/** `sec` może przekroczyć 86400 (kurs po północy) — zwijamy do zegara doby. */
-function clockOfSec(sec: number): string {
-  const h = Math.floor(sec / 3600) % 24
-  const m = Math.floor(sec / 60) % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
 
 /** Ikona pinu na mapie: pierwszy tryb wg priorytetu prezentacji (`MODE_ORDER`) obecny na słupku. */
 function primaryMode(lines: GtfsLine[]): GtfsMode {
@@ -175,7 +171,7 @@ export function TransitStopDetail({
           .slice()
           .sort((a, b) => a.departureSec - b.departureSec)
           .slice(0, 2)
-          .map((d) => `${clockOfSec(d.departureSec)} → ${d.headsign ?? d.line}`)
+          .map((d) => `${formatSecondsOfDay(d.departureSec)} → ${d.headsign ?? d.line}`)
         return {
           id: m.id,
           lat: m.lat,
@@ -346,7 +342,7 @@ export function TransitStopDetail({
             label="Pierwszy / ostatni"
             value={
               summary && summary.firstDepartureSec !== null && summary.lastDepartureSec !== null
-                ? `${clockOfSec(summary.firstDepartureSec)}–${clockOfSec(summary.lastDepartureSec)}`
+                ? `${formatSecondsOfDay(summary.firstDepartureSec)}–${formatSecondsOfDay(summary.lastDepartureSec)}`
                 : '—'
             }
             className="card-hover"
@@ -478,7 +474,7 @@ export function TransitStopDetail({
           <HourlyTraffic
             hourly={summary?.hourly ?? null}
             loading={loading}
-            currentHour={new Date(now).getHours()}
+            currentHour={zonedHour(now, getCity(city)?.timezone ?? 'Europe/Warsaw')}
             emptyLabel="Rozkład na dziś nie zawiera odjazdów z tego przystanku."
             unknownLabel={board !== null && board.summary === null ? 'Brak rozkładu na dziś.' : undefined}
           />

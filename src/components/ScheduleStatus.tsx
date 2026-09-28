@@ -1,4 +1,5 @@
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
+import { formatAge } from '@/lib/format'
 
 type Props = {
   schedule: TransitBoardResponse['schedule']
@@ -11,13 +12,11 @@ type Props = {
 
 const WARNING_CLASS = 'text-amber-700 dark:text-amber-400'
 
-function formatAge(ageMs: number): string {
-  const minutes = Math.floor(ageMs / 60000)
-  if (minutes < 60) return `${minutes} min`
-  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`
-}
-
-/** ISO → „3 września 2026, 14:23" — kiedy poller ostatnio wczytał rozkład. */
+/**
+ * ISO → „3 września 2026, 14:23" — kiedy poller ostatnio wczytał rozkład.
+ * Jawna strefa: stała `Europe/Warsaw`, nie nowy prop per miasto — każde
+ * miasto w rejestrze GTFS jest polskie (ruling PR 5, task 2).
+ */
 function formatUpdated(iso: string): string {
   return new Date(iso).toLocaleString('pl-PL', {
     day: 'numeric',
@@ -25,6 +24,7 @@ function formatUpdated(iso: string): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Warsaw',
   })
 }
 

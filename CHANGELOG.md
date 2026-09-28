@@ -6,6 +6,25 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Zmienione
+
+- Rozkład komunikacji miejskiej zaczyna się wczytywać zaraz po starcie serwera i zostaje
+  w pamięci, więc pierwsze wejście na widok miasta nie czeka już na jego pobranie. Pozycje
+  pojazdów i komunikaty nadal są pobierane tylko wtedy, gdy ktoś je ogląda.
+- Odświeżanie danych w przeglądarce działa wszędzie tak samo: na ukrytej karcie wstrzymuje
+  się, a po powrocie na kartę dane odświeżają się od razu, jeśli minął termin odświeżenia.
+- Szczegóły połączenia nie odpytują już serwera przy każdym powrocie do okna przeglądarki;
+  odświeżają się co 5 minut, gdy karta jest widoczna.
+- Widoki linii, listy linii, przystanków i statystyk miasta ponawiają wczytywanie aż do
+  skutku, zamiast poddawać się po ok. 30 sekundach, i ponawiają je także po błędzie.
+- Godziny aktualizacji na tablicy i w statusie rozkładu oraz wyróżniona bieżąca godzina na
+  wykresie natężenia ruchu są zawsze liczone w czasie polskim, niezależnie od strefy
+  czasowej urządzenia.
+- Długi wiek danych w szczegółach połączenia jest podawany w godzinach i minutach
+  (np. „1 h 5 min" zamiast „65 min").
+- Rejestr miast jest pobierany raz na stronę we wszystkich widokach i sprawdzany; błędny wpis
+  nie psuje już całej listy miast.
+
 ## [1.0.2] — 2026-09-28
 
 ### Zmienione
