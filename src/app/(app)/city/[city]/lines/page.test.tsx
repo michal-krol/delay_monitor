@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityLinesPage from './page'
@@ -98,6 +98,45 @@ describe('CityLinesPage', () => {
     stubFetch({ ...LINES, schedule: { ...LINES.schedule, state: 'loading' }, lines: null })
     render(<CityLinesPage />)
     expect(await screen.findByText('Rozkład jeszcze się wczytuje.')).toBeInTheDocument()
+  })
+
+  it('keeps retrying past the first ladder while the schedule is still loading (never gives up)', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn((url: string) =>
+        url.startsWith('/api/gtfs/lines') ? jsonResponse({ ...LINES, schedule: { ...LINES.schedule, state: 'loading' }, lines: null }) : jsonResponse({ cities: [] })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      render(<CityLinesPage />)
+      const linesCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/gtfs/lines')).length
+      await vi.advanceTimersByTimeAsync(34_000) // cała drabinka 1+2+3+5+8+15 s = 7 zapytań
+      expect(linesCalls()).toBe(7)
+      await vi.advanceTimersByTimeAsync(30_000) // po drabince ponawia dalej co 15 s
+      expect(linesCalls()).toBe(9)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retries after a failed fetch instead of staying failed', async () => {
+    vi.useFakeTimers()
+    try {
+      let calls = 0
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.startsWith('/api/gtfs/lines')) return ++calls === 1 ? Promise.reject(new Error('x')) : jsonResponse(LINES)
+          return jsonResponse({ cities: [] })
+        })
+      )
+      render(<CityLinesPage />)
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(screen.getByText('Nie udało się pobrać listy linii.')).toBeInTheDocument()
+      await act(() => vi.advanceTimersByTimeAsync(30_000))
+      expect(screen.getByRole('link', { name: /Linia M1/ })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows an error state when the lines fetch fails', async () => {

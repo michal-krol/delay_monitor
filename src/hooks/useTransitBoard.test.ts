@@ -59,7 +59,7 @@ describe('useTransitBoard', () => {
     await vi.waitFor(() => expect(result.current.error).toBe('network'))
   })
 
-  it('skips a scheduled refresh while the tab is hidden, reschedules instead of fetching', async () => {
+  it('pauses while the tab is hidden and resumes on visibilitychange', async () => {
     const fetchMock = vi.fn().mockImplementation(ready)
     vi.stubGlobal('fetch', fetchMock)
 
@@ -68,11 +68,12 @@ describe('useTransitBoard', () => {
 
     Object.defineProperty(document, 'hidden', { value: true, configurable: true })
     await vi.advanceTimersByTimeAsync(30000)
-    expect(fetchMock).toHaveBeenCalledTimes(1) // hidden -> nie odpytał
+    expect(fetchMock).toHaveBeenCalledTimes(1) // hidden -> pauza, żadnego fetcha ani timera
 
     Object.defineProperty(document, 'hidden', { value: false, configurable: true })
-    await vi.advanceTimersByTimeAsync(30000)
-    expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił od razu (bez czekania na kolejny tick)
   })
 
   // Trójstan `loading`/`failed` — jedna implementacja dla TransitStopDetail i

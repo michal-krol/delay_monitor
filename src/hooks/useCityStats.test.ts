@@ -69,6 +69,27 @@ describe('useCityStats', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps retrying past the first ladder while the schedule is loading (never gives up)', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('loading'))
+    vi.stubGlobal('fetch', fetchMock)
+    renderHook(() => useCityStats('warszawa'))
+    await vi.advanceTimersByTimeAsync(34_000) // drabinka 1+2+3+5+8+15 s = 7 zapytań
+    expect(fetchMock).toHaveBeenCalledTimes(7)
+    await vi.advanceTimersByTimeAsync(30_000) // dalej co 15 s
+    expect(fetchMock).toHaveBeenCalledTimes(9)
+  })
+
+  it('retries after an error and recovers, keeping no stale error', async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error('network')).mockImplementation(() => body('ready'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.error).toBe('network'))
+    await vi.advanceTimersByTimeAsync(30_000)
+    await vi.waitFor(() => expect(result.current.data?.state).toBe('ready'))
+    expect(result.current.error).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('surfaces a fetch error', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('network'))
     vi.stubGlobal('fetch', fetchMock)
@@ -80,6 +101,6 @@ describe('useCityStats', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500 })
     vi.stubGlobal('fetch', fetchMock)
     const { result } = renderHook(() => useCityStats('warszawa'))
-    await vi.waitFor(() => expect(result.current.error).toBe('500'))
+    await vi.waitFor(() => expect(result.current.error).toBe('Błąd odpowiedzi: 500'))
   })
 })

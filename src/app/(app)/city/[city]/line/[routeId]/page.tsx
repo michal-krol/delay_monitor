@@ -18,6 +18,7 @@ import { MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
+import { fetchJson, usePolling } from '@/hooks/usePolling'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import type { LineDetail } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
@@ -33,7 +34,6 @@ type CityEntry = { id: string; name: string; railStations: { id: string; name: s
 
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
-const LOADING_RETRY_MS = [1000, 2000, 3000, 5000, 8000, 15000]
 const KIND_LABEL = { regular: '', night: 'linia nocna', express: 'linia przyspieszona', replacement: 'linia zastępcza' } as const
 
 export default function LineDetailPage() {
@@ -46,9 +46,7 @@ export default function LineDetailPage() {
   }
 
   const router = useRouter()
-  const [data, setData] = useState<LineResponse | null>(null)
   const [cities, setCities] = useState<CityEntry[]>([])
-  const [failed, setFailed] = useState(false)
   const [dirIdx, setDirIdx] = useState(0)
   const [stopSel, setStopSel] = useState(0)
   const [selectedBaseSec, setSelectedBaseSec] = useState<number | null>(null)
@@ -66,33 +64,13 @@ export default function LineDetailPage() {
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    let retry = 0
-
-    function tick(): void {
-      fetch(`/api/gtfs/line?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}`)
-        .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-        .then((json: LineResponse) => {
-          if (cancelled) return
-          setData(json)
-          setFailed(false)
-          if (json.line === null && json.schedule.state === 'loading' && retry < LOADING_RETRY_MS.length) {
-            timer = setTimeout(tick, LOADING_RETRY_MS[retry++])
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setFailed(true)
-        })
-    }
-
-    tick()
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [city, routeId])
+  // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
+  const { data, error } = usePolling<LineResponse>(
+    `${city}:${routeId}`,
+    () => fetchJson(`/api/gtfs/line?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}`),
+    { refreshMs: null, isLoading: (json) => json.line === null && json.schedule.state === 'loading' }
+  )
+  const failed = error !== null
 
   const entry = useMemo(() => cities.find((option) => option.id === city) ?? null, [cities, city])
   const cityName = entry?.name ?? city

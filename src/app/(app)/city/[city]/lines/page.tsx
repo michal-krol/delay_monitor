@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
+import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker, type CityOption } from '@/components/CityPicker'
 import { ModeFilter, type ModeValue } from '@/components/ModeFilter'
@@ -23,7 +24,6 @@ type LinesResponse = {
   attribution: string[]
 }
 
-const LOADING_RETRY_MS = [1000, 2000, 3000, 5000, 8000, 15000]
 const MODES: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']
 
 export default function CityLinesPage() {
@@ -34,9 +34,7 @@ export default function CityLinesPage() {
     notFound()
   }
 
-  const [data, setData] = useState<LinesResponse | null>(null)
   const [cities, setCities] = useState<CityOption[]>([])
-  const [failed, setFailed] = useState(false)
   const [mode, setMode] = useState<ModeValue>('all')
   const [query, setQuery] = useState('')
 
@@ -53,33 +51,12 @@ export default function CityLinesPage() {
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    let retry = 0
-
-    function tick(): void {
-      fetch(`/api/gtfs/lines?city=${encodeURIComponent(city)}`)
-        .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-        .then((json: LinesResponse) => {
-          if (cancelled) return
-          setData(json)
-          setFailed(false)
-          if (json.schedule.state === 'loading' && retry < LOADING_RETRY_MS.length) {
-            timer = setTimeout(tick, LOADING_RETRY_MS[retry++])
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setFailed(true)
-        })
-    }
-
-    tick()
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [city])
+  // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
+  const { data, error } = usePolling<LinesResponse>(city, () => fetchJson(`/api/gtfs/lines?city=${encodeURIComponent(city)}`), {
+    refreshMs: null,
+    isLoading: (json) => json.schedule.state === 'loading',
+  })
+  const failed = error !== null
 
   const cityName = useMemo(() => cities.find((option) => option.id === city)?.name ?? city, [cities, city])
 

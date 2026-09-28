@@ -237,8 +237,7 @@ describe('Dashboard', () => {
     )
     expect(await screen.findByText('IC')).toBeInTheDocument()
 
-    // Warszawa usunieta z ulubionych; odpowiedz w pamieci wciaz zawiera obie
-    // stacje, bo nowy fetch jeszcze nie wrocil.
+    // Warszawa usunieta z ulubionych; nowa lista stacji = nowy klucz, nowy fetch.
     rerender(
       <Dashboard
         favourites={[FAVOURITES[1]]}
@@ -247,8 +246,11 @@ describe('Dashboard', () => {
       />
     )
 
-    const krakowCard = findCardByHeading('Kraków Główny')
-    expect(krakowCard).toHaveTextContent('KM')
+    // `useBoard` jest kluczowany listą stacji (usePolling): do czasu nowej odpowiedzi
+    // nie pokazujemy odjazdów poprzedniego zestawu, potem karta Krakowa ma swoje.
+    expect(screen.queryByText('IC')).not.toBeInTheDocument()
+    expect(await screen.findByText('KM')).toBeInTheDocument()
+    expect(findCardByHeading('Kraków Główny')).toHaveTextContent('KM')
     expect(screen.queryByText('IC')).not.toBeInTheDocument()
   })
 
