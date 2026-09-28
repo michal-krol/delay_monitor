@@ -54,8 +54,8 @@ type InternalState<T> = { key: string | null; data: T | null; error: string | nu
  *
  * `key === null` = obserwacja wyłączona: dane resetują się do `initialData`,
  * hook nic nie odpytuje. Drabinka NIGDY się nie poddaje -- po jej wyczerpaniu
- * ponawia w rytmie `refreshMs` (albo ostatniego stopnia drabinki, gdy
- * `refreshMs` to `null`).
+ * ponawia w rytmie liczbowego `refreshMs` (albo ostatniego stopnia drabinki, gdy
+ * `refreshMs` to `null` lub funkcja).
  */
 export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext) => Promise<T>, options: UsePollingOptions<T>): UsePollingResult<T> {
   const [state, setState] = useState<InternalState<T>>({

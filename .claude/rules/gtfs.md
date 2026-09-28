@@ -136,7 +136,7 @@ paths:
   `useCityStats` retries while `alerts == null` unless `alertFeed.state === 'failed'` (a known
   "unavailable" state — no polling a dead feed every 15 s). Any `failed` feed (with or without
   last good data) re-polls slowly instead, every 5 min (the `AlertPoller` retry rhythm, visible
-  tab only), via a result-driven `refreshMs` in `usePolling`, so a later recovery shows up and
+  tab only; a still-`loading` schedule keeps the 15 s ladder tail), via a result-driven `refreshMs` in `usePolling`, so a later recovery shows up and
   the stale age keeps growing. Deliberately not in `useLineDetail`/the line page: the line
   response is a list with no feed state (`failed` is indistinguishable from "no alerts"), and
   switching lines refetches anyway. `/api/gtfs/line` returns `alerts: null` while the alert poller
