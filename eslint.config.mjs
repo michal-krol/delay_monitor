@@ -14,6 +14,15 @@ const eslintConfig = defineConfig([
     files: ["**/*.test.ts", "**/*.test.tsx"],
     ...testingLibrary.configs["flat/react"],
   },
+  // next/font/google pobiera czcionke z sieci przy buildzie — build ma byc
+  // odtwarzalny bez sieci (AGENTS.md #16). Fonty leza w src/app/fonts/.
+  {
+    rules: {
+      "no-restricted-imports": ["error", {
+        paths: [{ name: "next/font/google", message: "Use next/font/local with a file in src/app/fonts/ (the build must not need the network)." }],
+      }],
+    },
+  },
   {
     files: ["src/components/icons.test.tsx"],
     rules: {
