@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
@@ -12,6 +12,7 @@ import { StationThumb } from './StationThumb'
 import { PageTitle } from './PageTitle'
 import { CloseIcon, PIN_COLOR, StarIcon } from './icons'
 import { IconButton } from './IconButton'
+import { onTablistKeyDown } from './tablistKeys'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { formatClockTime } from '@/lib/format'
@@ -93,20 +94,6 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   function switchDirection(next: Direction): void {
     setDirection(next)
     setDestinationFilter(null)
-  }
-
-  /** Strzałki (z zawijaniem), Home i End przenoszą zaznaczenie ORAZ fokus (wzorzec zakładek WAI-ARIA). */
-  function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    // Alt+strzałka = Wstecz/Dalej przeglądarki itp. — nie przechwytujemy skrótów.
-    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-    const last = DIRECTIONS.length - 1
-    const at = DIRECTIONS.indexOf(direction)
-    const target =
-      event.key === 'ArrowRight' ? (at === last ? 0 : at + 1) : event.key === 'ArrowLeft' ? (at === 0 ? last : at - 1) : event.key === 'Home' ? 0 : event.key === 'End' ? last : null
-    if (target === null) return
-    event.preventDefault()
-    switchDirection(DIRECTIONS[target])
-    document.getElementById(tabId(DIRECTIONS[target]))?.focus()
   }
 
   const allRows = useMemo(() => (snapshot ? snapshot[direction] : []), [snapshot, direction])
@@ -217,7 +204,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                 <div
                   role="tablist"
                   aria-label="Kierunek"
-                  onKeyDown={onTabKeyDown}
+                  onKeyDown={(event) => onTablistKeyDown(event, DIRECTIONS.indexOf(direction), (index) => switchDirection(DIRECTIONS[index]))}
                   className="inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5"
                 >
                   <TabButton id={tabId('departures')} panelId={panelId} active={direction === 'departures'} onClick={() => switchDirection('departures')}>
