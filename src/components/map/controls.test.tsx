@@ -7,6 +7,7 @@ import { MapFilters } from './MapFilters'
 import { MapLegend } from './MapLegend'
 import type { LayerKey } from './mapData'
 import type { LineListEntry } from '@/lib/gtfs/query'
+import { ON_REQUEST_TITLE } from '../OnRequestBadge'
 
 const line = (routeId: string, name = routeId, longName = ''): LineListEntry => ({
   routeId, line: name, longName, color: null, textColor: '#ffffff', mode: 'bus', kind: 'regular',
@@ -119,6 +120,6 @@ describe('LinePanel', () => {
     render(<LinePanel {...props} detail={detail} error={false} />)
     expect(screen.queryByRole('button', { name: 'Zmień kierunek' })).toBeNull()
     expect(screen.getByText('— → —')).toBeInTheDocument()
-    expect(screen.getByText('na żądanie')).toBeInTheDocument()
+    expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
   })
 })

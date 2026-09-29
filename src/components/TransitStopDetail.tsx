@@ -25,6 +25,7 @@ import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, CheckIcon, ShareIcon, StarIcon } from './icons'
+import { IconButton } from './IconButton'
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
@@ -239,22 +240,15 @@ export function TransitStopDetail({
                 <button
                   type="button"
                   onClick={() => void share()}
-                  className="card-hover inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                  style={{ borderColor: 'var(--surface-border)' }}
+                  className="card-hover inline-flex h-9 items-center gap-2 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <ShareIcon size={15} />
                   Udostępnij
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => (pinned ? removeFavourite(key) : addFavourite(favourite))}
-                aria-label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}
-                className="card-hover grid h-9 w-9 shrink-0 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                style={{ borderColor: 'var(--surface-border)' }}
-              >
+              <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={() => (pinned ? removeFavourite(key) : addFavourite(favourite))}>
                 <StarIcon size={15} className={pinned ? 'fill-current text-amber-400' : ''} />
-              </button>
+              </IconButton>
             </div>
           </div>
         </section>
@@ -278,12 +272,8 @@ export function TransitStopDetail({
                 role="tab"
                 onClick={() => selectSlupek(null)}
                 aria-selected={effSlupek === null}
-                className={`card-hover relative rounded-xl border px-3 py-2.5 text-left text-xs transition ${effSlupek === null ? 'ring-2 ring-indigo-500 glow-ring' : ''}`}
-                style={
-                  effSlupek === null
-                    ? ({ borderColor: 'transparent', '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties)
-                    : { borderColor: 'var(--surface-border)' }
-                }
+                className={`card-hover relative rounded-xl border px-3 py-2.5 text-left text-xs transition ${effSlupek === null ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
+                style={effSlupek === null ? ({ '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties) : undefined}
               >
                 {effSlupek === null && (
                   <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
@@ -304,12 +294,8 @@ export function TransitStopDetail({
                     role="tab"
                     onClick={() => selectSlupek(member.id)}
                     aria-selected={on}
-                    className={`card-hover relative flex flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left transition ${on ? 'ring-2 ring-indigo-500 glow-ring' : ''}`}
-                    style={
-                      on
-                        ? ({ borderColor: 'transparent', '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties)
-                        : { borderColor: 'var(--surface-border)' }
-                    }
+                    className={`card-hover relative flex flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left transition ${on ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
+                    style={on ? ({ '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties) : undefined}
                   >
                     {on && (
                       <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
@@ -361,13 +347,9 @@ export function TransitStopDetail({
                 aria-selected={activeTab === tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === tab.key ? 'text-white' : 'text-text-secondary'
+                  activeTab === tab.key ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
                 }`}
-                style={
-                  activeTab === tab.key
-                    ? { background: 'var(--accent-gradient)', borderColor: 'transparent' }
-                    : { borderColor: 'var(--surface-border)' }
-                }
+                style={activeTab === tab.key ? { background: 'var(--accent-gradient)' } : undefined}
               >
                 {tab.label}
                 {tab.key === 'alerts' && (board?.alerts?.length ?? 0) > 0 && (
@@ -390,9 +372,9 @@ export function TransitStopDetail({
                     onClick={() => setLineFilter(null)}
                     aria-pressed={lineFilter === null}
                     className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      lineFilter === null ? 'text-white' : 'text-text-secondary'
+                      lineFilter === null ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
                     }`}
-                    style={lineFilter === null ? { background: 'var(--accent-gradient)', borderColor: 'transparent' } : { borderColor: 'var(--surface-border)' }}
+                    style={lineFilter === null ? { background: 'var(--accent-gradient)' } : undefined}
                   >
                     Wszystkie
                   </button>

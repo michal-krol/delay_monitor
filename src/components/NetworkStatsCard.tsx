@@ -6,11 +6,12 @@ import { AlertCircleIcon } from './icons'
 import { formatClockTime } from '@/lib/format'
 import type { NetworkStats, NetworkStatsStatistics } from '@/lib/board/networkStats'
 
+/** Te same tokeny co plakietki statusu na tablicy (`DelayBadge`) — jedno źródło palety. */
 const STATUS_COLORS = {
-  completed: '#15803d',
-  inProgress: '#4f46e5',
-  notStarted: '#94a3b8',
-  cancelled: '#e11d48',
+  completed: 'var(--status-onTime-bg)',
+  inProgress: 'var(--status-enRoute-bg)',
+  notStarted: 'var(--status-notStarted-bg)',
+  cancelled: 'var(--status-cancelled-bg)',
 }
 
 const RING_RADIUS = 15.5
@@ -57,7 +58,7 @@ function Sparkline({ history }: { history: NetworkStats['history'] }) {
     .join(' ')
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none" aria-hidden="true">
-      <polyline points={points} fill="none" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={points} fill="none" style={{ stroke: STATUS_COLORS.completed }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -131,7 +132,7 @@ export function NetworkStatsCard() {
                     cy={18}
                     r={RING_RADIUS}
                     fill="none"
-                    stroke={segment.color}
+                    style={{ stroke: segment.color }}
                     strokeWidth={5}
                     strokeDasharray={`${segment.length} ${RING_CIRCUMFERENCE - segment.length}`}
                     strokeDashoffset={segment.offset}

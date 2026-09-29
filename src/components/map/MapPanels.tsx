@@ -1,47 +1,12 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { CloseIcon, StarIcon } from '../icons'
+import { useEffect, useId, useRef, useState } from 'react'
+import { StarIcon } from '../icons'
 import { MODE_ICON } from '../transitMode'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { MODE_COLOR, type NearbyPoint, type VisibleItem } from './mapData'
-
-/**
- * Panele dodatkowe mapy w dokowanym miejscu karty (spec §15 + dodatki
- * 2026-09-26): „co jest w pobliżu" i lista obiektów w kadrze. Wspólna rama
- * z kartą obiektu — niemodalny dialog z fokusem na nagłówku i „×".
- */
-function PanelFrame({ title, subtitle, closeLabel, onClose, children }: { title: string; subtitle?: string; closeLabel: string; onClose: () => void; children: ReactNode }) {
-  const headingId = useId()
-  const headingRef = useRef<HTMLHeadingElement>(null)
-  useEffect(() => {
-    headingRef.current?.focus({ preventScroll: true })
-  }, [])
-  return (
-    <section role="dialog" aria-modal="false" aria-labelledby={headingId} className="glass-strong flex max-h-full flex-col overflow-hidden rounded-2xl shadow-xl">
-      <header className="flex items-start gap-3 border-b p-4" style={{ borderColor: 'var(--surface-border)' }}>
-        <div className="min-w-0 flex-1">
-          <h2 ref={headingRef} id={headingId} tabIndex={-1} className="font-heading text-lg font-bold leading-tight outline-none">
-            {title}
-          </h2>
-          {subtitle !== undefined && <p className="mt-0.5 text-sm text-text-secondary">{subtitle}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={closeLabel}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-        >
-          <CloseIcon size={16} />
-        </button>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3" tabIndex={0} aria-label={title}>
-        {children}
-      </div>
-    </section>
-  )
-}
+import { PanelFrame } from './PanelFrame'
 
 function ModeChip({ mode }: { mode: GtfsMode }) {
   const Icon = MODE_ICON[mode]

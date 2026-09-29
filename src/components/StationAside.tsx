@@ -183,7 +183,7 @@ export function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
         <WeatherStat icon={<GaugeIcon size={14} />} label="Ciśnienie" value={`${Math.round(current.pressureHpa)} hPa`} />
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-t pt-3 text-xs" style={{ borderColor: 'var(--surface-border)' }}>
+      <div className="grid grid-cols-3 gap-2 border-t border-surface-border pt-3 text-xs">
         <div>
           <span className="block text-text-muted">Min / max dziś</span>
           <span className="tabular-nums text-foreground">

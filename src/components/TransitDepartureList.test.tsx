@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { TransitDepartureList } from './TransitDepartureList'
+import { ON_REQUEST_TITLE } from './OnRequestBadge'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 
 type Dep = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
@@ -77,5 +78,16 @@ describe('TransitDepartureList', () => {
     const { container } = render(<TransitDepartureList departures={[]} loading />)
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
+  })
+
+  it('marks an on-request stop with the shared „na żądanie” badge', () => {
+    render(<TransitDepartureList departures={[dep({ onRequest: true })]} />)
+    expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
+  })
+
+  it('highlights the next departure in the accent colour, never green (#13)', () => {
+    const now = new Date('2026-09-02T14:20:00+02:00').getTime()
+    render(<TransitDepartureList departures={[dep()]} now={now} highlightFirst />)
+    expect(screen.getByText('za 10 min')).toHaveClass('text-indigo-600')
   })
 })

@@ -41,7 +41,7 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
     <div className="flex flex-col gap-4">
       <AsideCard title={`Komunikacja miejska — ${cityName}`}>
         {failed ? (
-          <p className="text-xs text-red-600 dark:text-red-400">Nie udało się wczytać statystyk.</p>
+          <p className="text-xs text-error-text">Nie udało się wczytać statystyk.</p>
         ) : loading || stats === null ? (
           dayUnknown ? (
             <p className="text-xs text-text-muted">Brak rozkładu na dziś.</p>
@@ -125,7 +125,7 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
           const alerts = data?.state === 'ready' ? (data.alerts ?? null) : null
           if (alerts === null) {
             if (data?.alertFeed?.state === 'failed') {
-              return <p className="text-xs text-red-600 dark:text-red-400">Nie udało się pobrać utrudnień.</p>
+              return <p className="text-xs text-error-text">Nie udało się pobrać utrudnień.</p>
             }
             return <p className="text-xs text-text-muted">Wczytuję…</p>
           }

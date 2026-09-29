@@ -8,6 +8,7 @@ import { TopBar } from '@/components/TopBar'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { AlertBanner } from '@/components/AlertBanner'
 import { LineBadge } from '@/components/LineBadge'
+import { OnRequestBadge } from '@/components/OnRequestBadge'
 import { LineTimetable } from '@/components/LineTimetable'
 import { MapView, type MapMover, type MapPin } from '@/components/MapView'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
@@ -151,7 +152,7 @@ export default function LineDetailPage() {
       {showVehicles && direction !== undefined && (
         <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
           {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
-            <p className="text-xs text-red-600 dark:text-red-400">Nie udało się pobrać pozycji.</p>
+            <p className="text-xs text-error-text">Nie udało się pobrać pozycji.</p>
           ) : liveVehicles.feed.state === 'loading' ? (
             <p className="text-xs text-text-muted">Wczytuję pozycje…</p>
           ) : liveVehicles.vehicles.length === 0 ? (
@@ -205,7 +206,7 @@ export default function LineDetailPage() {
         )}
 
         {failed && data === null ? (
-          <p className="text-sm text-red-700 dark:text-red-300">Nie udało się pobrać przebiegu linii.</p>
+          <p className="text-sm text-error-text">Nie udało się pobrać przebiegu linii.</p>
         ) : loading ? (
           <p className="text-sm text-text-secondary">Wczytuję przebieg linii…</p>
         ) : line === null || direction === undefined ? (
@@ -219,8 +220,7 @@ export default function LineDetailPage() {
               onClick={switchDirection}
               disabled={directions.length < 2}
               aria-label="Zmień kierunek"
-              className="inline-flex w-fit items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold text-foreground transition enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
-              style={{ borderColor: 'var(--surface-border)' }}
+              className="inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
             >
               <span>{direction.origin ?? stops[0]?.name}</span>
               <ArrowRightIcon size={13} className="text-text-muted" />
@@ -277,7 +277,7 @@ export default function LineDetailPage() {
                             />
                           )}
                           {!last && (
-                            <span className="relative mt-1 w-0.5 flex-1" style={{ background: 'var(--surface-border)' }} aria-hidden="true">
+                            <span className="relative mt-1 w-0.5 flex-1 bg-surface-border" aria-hidden="true">
                               {showVehicles &&
                                 liveVehicles.vehicles
                                   .filter((v) => v.afterStopOrder === index)
@@ -316,12 +316,8 @@ export default function LineDetailPage() {
                               <span className="ml-1 text-[11px] font-semibold tabular-nums text-text-muted">{stop.code}</span>
                             )}
                             {stop.onRequest && (
-                              <span
-                                title="Przystanek na żądanie"
-                                className="ml-1.5 rounded border px-1 text-[10px] font-bold text-amber-700 dark:text-amber-300"
-                                style={{ borderColor: 'var(--surface-border)' }}
-                              >
-                                NŻ
+                              <span className="ml-1.5 inline-block align-middle">
+                                <OnRequestBadge />
                               </span>
                             )}
                             {(first || last) && (
@@ -352,7 +348,7 @@ export default function LineDetailPage() {
                 </ol>
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted">
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} /> przystanek</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} /> na żądanie (NŻ)</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} /> na żądanie</span>
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2" style={{ background: 'var(--foreground)' }} /> przystanek krańcowy</span>
                 </div>
               </section>
