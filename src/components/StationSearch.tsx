@@ -110,6 +110,14 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    // Komunikat („Szukam…”, „Brak…”, błąd) też jest czymś do zamknięcia: zjadamy Escape, żeby panel
+    // mapy (nasłuch na window) nie zamknął się tym samym klawiszem. Czyszczenie zapytania anuluje
+    // też zapytanie w locie — samo `status = 'idle'` nadpisałaby spóźniona odpowiedź.
+    if (event.key === 'Escape' && !isOpen && message !== null) {
+      event.preventDefault()
+      setQuery('')
+      return
+    }
     if (!isOpen) return
 
     if (event.key === 'ArrowDown') {
