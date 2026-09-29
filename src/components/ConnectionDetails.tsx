@@ -5,7 +5,7 @@ import { useTheme } from 'next-themes'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
-import { AlertCircleIcon, CalendarIcon, ClockIcon, InfoIcon, LinkIcon, PauseIcon, RouteIcon, ShareIcon, TrainIcon } from './icons'
+import { AlertCircleIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ClockIcon, InfoIcon, PauseIcon, ShareIcon, TimerIcon, TrainIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import { resolvePositionAnchor } from '@/lib/board/trainDetail'
 import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
@@ -417,9 +417,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 {summary.origin !== null && summary.destination !== null && (
                   <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-lg font-semibold text-foreground sm:text-xl">
                     <span>{summary.origin.stationName}</span>
-                    <span aria-hidden="true" className="text-text-muted">
-                      →
-                    </span>
+                    <ArrowRightIcon size={18} className="text-text-muted" />
                     <span>{summary.destination.stationName}</span>
                   </p>
                 )}
@@ -469,7 +467,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 hint={summary.destination?.stationName ?? null}
               />
               <MetaItem
-                icon={<RouteIcon size={16} />}
+                icon={<TimerIcon size={16} />}
                 label="Czas podróży"
                 value={travelTime ?? '—'}
                 hint={`${summary.stopCount} ${pluralPl(summary.stopCount, 'przystanek', 'przystanki', 'przystanków')}`}
@@ -489,7 +487,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               {scheduleMode && (
                 <div className="glass flex items-start gap-3 rounded-2xl p-4">
                   <span className="mt-0.5 shrink-0 text-text-muted">
-                    <InfoIcon size={17} />
+                    <InfoIcon size={16} />
                   </span>
                   <div>
                     <p className="text-sm font-medium text-foreground">Brak potwierdzeń przejazdu z PKP.</p>
@@ -652,7 +650,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                       color: 'var(--status-enRoute-fg)',
                                     }}
                                   >
-                                    <TrainIcon size={12} />
+                                    <TrainIcon size={14} />
                                     {scheduleMode
                                       ? 'Pociąg jest tutaj — wg rozkładu'
                                       : staleProjection
@@ -664,20 +662,22 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                   <span
                                     className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary"
                                   >
-                                    <PauseIcon size={11} />
+                                    <PauseIcon size={14} />
                                     Postój {stopMinutes} min
                                   </span>
                                 )}
                                 {stopTypeName !== null && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                    <InfoIcon size={11} />
+                                  // Ograniczenie postoju („tylko dla wysiadających”), nie utrudnienie: neutralny
+                                  // chip jak „Postój”, bo amber + AlertCircle to wyłącznie „Utrudnienie” obok.
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary">
+                                    <InfoIcon size={14} />
                                     {stopTypeName}
                                   </span>
                                 )}
                                 {messages.length > 0 && (
                                   <details className="w-full">
                                     <summary className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                      <AlertCircleIcon size={11} />
+                                      <AlertCircleIcon size={14} />
                                       Utrudnienie
                                     </summary>
                                     <p className="mt-1.5 text-xs text-text-secondary">{messages.join(' ')}</p>
@@ -712,7 +712,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               {routeDisruptions.length === 0 ? (
                 <div className="glass flex items-start gap-3 rounded-2xl p-4">
                   <span className="mt-0.5 shrink-0 text-text-muted">
-                    <InfoIcon size={17} />
+                    <InfoIcon size={16} />
                   </span>
                   <div>
                     <p className="text-sm font-medium text-foreground">Aktualnie brak utrudnień na trasie.</p>
@@ -724,7 +724,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               ) : (
                 <div className="glass flex items-start gap-3 rounded-2xl p-4">
                   <span className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400">
-                    <AlertCircleIcon size={17} />
+                    <AlertCircleIcon size={16} />
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">
@@ -801,7 +801,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   onClick={() => void share()}
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-surface-border px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  {copied ? <LinkIcon size={15} /> : <ShareIcon size={15} />}
+                  {copied ? <CheckIcon size={15} /> : <ShareIcon size={15} />}
                   {copied ? 'Skopiowano link' : 'Kopiuj link'}
                 </button>
               </section>

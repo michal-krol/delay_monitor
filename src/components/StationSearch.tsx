@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
 import { LineBadge } from './LineBadge'
-import { BusIcon, MetroIcon, TrainIcon, TramIcon } from './icons'
+import { MODE_ICON } from './transitMode'
 
 export type StationOption = {
   id: string
@@ -32,7 +32,6 @@ type Props = {
   wide?: boolean
 }
 
-const MODE_ICON = { metro: MetroIcon, tram: TramIcon, bus: BusIcon, rail: TrainIcon, other: BusIcon } as const
 const MAX_TILE_LINES = 6
 
 const DEBOUNCE_MS = 300

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { contrastText } from '@/lib/gtfs/schema'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import { BusIcon, MetroIcon, TrainIcon, TramIcon } from './icons'
+import { MODE_ICON } from './transitMode'
 
 type Props = {
   line: string
@@ -13,8 +13,6 @@ type Props = {
   /** Gdy podane — plakietka jest linkiem do szczegółów linii. */
   href?: string
 }
-
-const MODE_ICON = { metro: MetroIcon, tram: TramIcon, bus: BusIcon, rail: TrainIcon, other: BusIcon } as const
 
 /**
  * Plakietka linii w kolorze z feedu. Kolor tekstu liczymy sami (luminancja

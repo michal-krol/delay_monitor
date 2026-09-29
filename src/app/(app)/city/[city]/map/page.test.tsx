@@ -203,7 +203,8 @@ describe('CityMapPage — line mode', () => {
     window.history.replaceState(null, '', '/city/warszawa/map?line=20')
     render(<CityMapPage />)
     const panel = await screen.findByRole('dialog', { name: 'Linia 20' })
-    expect(await within(panel).findByText('Boernerowo → Żerań')).toBeInTheDocument()
+    expect(await within(panel).findByText('Boernerowo Żerań')).toBeInTheDocument()
+    expect(within(panel).getByRole('img', { name: 'do' })).toBeInTheDocument()
     expect(within(panel).getByText(/w trasie: 1/)).toBeInTheDocument()
     await waitFor(() => expect(map().route?.key).toBe('20:0'))
 

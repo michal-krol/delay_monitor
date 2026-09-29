@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { trapTab } from '@/lib/focusTrap'
-import { CloseIcon, MenuIcon } from './icons'
+import { AppLogo, CloseIcon, MenuIcon } from './icons'
 import { IconButton } from './IconButton'
 import { activeItemFromPath, NavList } from './navItems'
 
@@ -62,18 +62,7 @@ export function MobileNav() {
         style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--sidebar-border)' }}
       >
         <div className="flex items-center gap-2.5">
-          <div
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white shadow"
-            style={{ background: 'var(--accent-gradient)' }}
-          >
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 12.5V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6.5" />
-              <rect x="4.3" y="12.5" width="11.4" height="2.4" rx="1.2" />
-              <circle cx="7.3" cy="9" r="1" />
-              <circle cx="12.7" cy="9" r="1" />
-              <path d="M6.3 15.8 4.6 18M13.7 15.8l1.7 2.2" />
-            </svg>
-          </div>
+          <AppLogo size={32} />
           <span className="font-heading text-[15px] font-bold">Monitor opóźnień</span>
         </div>
 
@@ -112,7 +101,7 @@ export function MobileNav() {
             <div className="flex items-center justify-between gap-2 px-1">
               <span className="font-heading text-[15px] font-bold">Monitor opóźnień</span>
               <IconButton ref={closeRef} label="Zamknij menu" onClick={close}>
-                <CloseIcon size={14} />
+                <CloseIcon size={16} />
               </IconButton>
             </div>
             <NavList activeItem={activeItemFromPath(pathname)} onNavigate={close} />

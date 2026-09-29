@@ -1,14 +1,11 @@
 import { AppTitle } from './AppTitle'
-import { TrainIcon } from './icons'
+import { AppLogo } from './icons'
 
 export function EmptyState() {
   return (
     <div className="glass mx-auto mt-16 flex max-w-md flex-col items-center gap-5 rounded-3xl px-8 py-12 text-center">
-      <div
-        className="float ring-pulse grid h-16 w-16 place-items-center rounded-2xl text-white shadow-lg"
-        style={{ background: 'var(--accent-gradient)' }}
-      >
-        <TrainIcon size={30} />
+      <div className="float ring-pulse rounded-2xl">
+        <AppLogo size={64} />
       </div>
       {/* font-heading nie jest na samym AppTitle (poza zasięgiem tego taska) —
           dziedziczy font-family z tego wrappera, bo h1 w AppTitle nie ustawia

@@ -3,18 +3,19 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertBanner } from '../AlertBanner'
-import { AlertCircleIcon, ArrowRightIcon, StarIcon } from '../icons'
+import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, PIN_COLOR, StarIcon } from '../icons'
 import { IconButton } from '../IconButton'
 import { DelayBadge } from '../DelayBadge'
 import { LineBadge } from '../LineBadge'
-import { MODE_ICON, MODE_LABEL } from '../transitMode'
+import { MODE_LABEL } from '../transitMode'
 import { TransitDepartureList } from '../TransitDepartureList'
 import { useRailStationStatus } from '@/hooks/useRailStations'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { formatAgo, formatClockTime } from '@/lib/format'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import { FADE_START_SEC, MODE_COLOR } from './mapData'
+import { FADE_START_SEC } from './mapData'
+import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
 
 /** Co jest wybrane na mapie. Pojazd niesie tylko `id` — pozycja/linia żyją w odczytach co 15 s. */
@@ -97,7 +98,7 @@ export function MapCard({
         favourite !== undefined &&
         onToggleFavourite !== undefined && (
           <IconButton label={favourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'} onClick={onToggleFavourite} pressed={favourite} size="lg">
-            <StarIcon size={16} className={favourite ? 'text-amber-500' : ''} />
+            <StarIcon size={16} filled={favourite} className={favourite ? PIN_COLOR : ''} />
           </IconButton>
         )
       }
@@ -132,25 +133,26 @@ export function MapCard({
   )
 }
 
-function ModeDot({ mode }: { mode: GtfsMode }) {
-  const Icon = MODE_ICON[mode]
-  return (
-    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-white" style={{ background: MODE_COLOR[mode] }} aria-hidden="true">
-      <Icon size={13} />
-    </span>
-  )
-}
-
 function Subtitle({ selection, vehicle }: { selection: MapSelection; vehicle: CityVehicle | null }) {
-  const [mode, text] =
+  const [mode, text]: [GtfsMode, ReactNode] =
     selection.kind === 'rail'
-      ? (['rail', 'Stacja kolejowa'] as const)
+      ? ['rail', 'Stacja kolejowa']
       : selection.kind === 'stop'
-        ? ([selection.mode, selection.mode === 'metro' ? 'Stacja metra' : `Przystanek ${selection.mode === 'tram' ? 'tramwajowy' : 'autobusowy'}`] as const)
-        : ([vehicle?.mode ?? 'bus', vehicle?.headsign !== null && vehicle?.headsign !== undefined ? `→ ${vehicle.headsign}` : 'kierunek nieznany'] as const)
+        ? [selection.mode, selection.mode === 'metro' ? 'Stacja metra' : `Przystanek ${selection.mode === 'tram' ? 'tramwajowy' : 'autobusowy'}`]
+        : [
+            vehicle?.mode ?? 'bus',
+            vehicle?.headsign !== null && vehicle?.headsign !== undefined ? (
+              <span className="inline-flex items-center gap-1">
+                <ArrowRightIcon size={14} label="do" />
+                {vehicle.headsign}
+              </span>
+            ) : (
+              'kierunek nieznany'
+            ),
+          ]
   return (
     <p className="mt-1 flex items-center gap-2 text-sm text-text-secondary">
-      <ModeDot mode={mode} />
+      <ModeChip mode={mode} />
       {text}
     </p>
   )
@@ -164,7 +166,7 @@ function Action({ href, children }: { href: string; children: ReactNode }) {
       style={{ background: 'var(--accent-gradient)' }}
     >
       {children}
-      <ArrowRightIcon size={14} />
+      <ChevronRightIcon size={14} />
     </Link>
   )
 }

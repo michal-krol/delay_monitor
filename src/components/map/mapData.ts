@@ -36,11 +36,11 @@ export const POLAND_BOUNDS: [[number, number], [number, number]] = [
  * mapie — kontrast ≥ 3:1 do jasnego i ciemnego podkładu.
  */
 export const MODE_COLOR: Record<GtfsMode, string> = {
-  bus: '#15803d',
+  bus: '#a21caf',
   tram: '#dc2626',
   metro: '#7c3aed',
   rail: '#2563eb',
-  other: '#15803d',
+  other: '#6b7280',
 }
 export const UNKNOWN_COLOR = '#6b7280'
 

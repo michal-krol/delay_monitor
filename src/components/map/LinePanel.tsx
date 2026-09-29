@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRightIcon, SwapIcon } from '../icons'
+import { ArrowRightIcon, ChevronRightIcon, SwapIcon } from '../icons'
 import { AlertBanner } from '../AlertBanner'
 import { LineBadge } from '../LineBadge'
 import { OnRequestBadge } from '../OnRequestBadge'
@@ -71,8 +71,8 @@ export function LinePanel({
       {direction !== undefined && (
         <>
           <div className="flex items-center gap-2">
-            <p className="min-w-0 flex-1 text-sm font-semibold">
-              {direction.origin ?? '—'} → {direction.headsign ?? '—'}
+            <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-sm font-semibold">
+              {direction.origin ?? '—'} <ArrowRightIcon size={14} label="do" className="shrink-0 text-text-muted" /> {direction.headsign ?? '—'}
             </p>
             {other !== undefined && (
               <button
@@ -108,7 +108,7 @@ export function LinePanel({
         style={{ background: 'var(--accent-gradient)' }}
       >
         Rozkład linii
-        <ArrowRightIcon size={14} />
+        <ChevronRightIcon size={14} />
       </Link>
     </PanelFrame>
   )

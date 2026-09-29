@@ -119,7 +119,9 @@ describe('LinePanel', () => {
     const detail = { ...entry, directions: [{ directionId: 0, headsign: null, origin: null, departures: [], shape: null, stops: [stop] }] }
     render(<LinePanel {...props} detail={detail} error={false} />)
     expect(screen.queryByRole('button', { name: 'Zmień kierunek' })).toBeNull()
-    expect(screen.getByText('— → —')).toBeInTheDocument()
+    // Strzałka kierunku to ikona z nazwą „do”, nie tekstowe „→”.
+    expect(screen.getByText('— —')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
     expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
   })
 })

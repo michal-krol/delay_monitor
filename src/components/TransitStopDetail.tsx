@@ -24,7 +24,7 @@ import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, CheckIcon, ShareIcon, StarIcon } from './icons'
+import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, ShareIcon, StarIcon } from './icons'
 import { IconButton } from './IconButton'
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
@@ -196,15 +196,15 @@ export function TransitStopDetail({
               <div className="flex items-center gap-2">
                 <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stopName}</h1>
                 {board?.wheelchairNote != null && (
-                  <span
-                    title={
-                      board.wheelchairNote === 'inaccessible'
-                        ? 'Przystanek niedostępny dla osób poruszających się na wózku'
-                        : 'Część słupków tego przystanku niedostępna dla osób na wózku'
-                    }
-                    className="text-amber-600 dark:text-amber-400"
-                  >
-                    <AccessibleIcon size={18} />
+                  <span className="text-amber-600 dark:text-amber-400">
+                    <AccessibleIcon
+                      size={18}
+                      label={
+                        board.wheelchairNote === 'inaccessible'
+                          ? 'Przystanek niedostępny dla osób poruszających się na wózku'
+                          : 'Część słupków tego przystanku niedostępna dla osób na wózku'
+                      }
+                    />
                   </span>
                 )}
               </div>
@@ -247,7 +247,7 @@ export function TransitStopDetail({
                 </button>
               )}
               <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={() => (pinned ? removeFavourite(key) : addFavourite(favourite))}>
-                <StarIcon size={15} className={pinned ? 'fill-current text-amber-400' : ''} />
+                <StarIcon size={15} filled={pinned} className={pinned ? PIN_COLOR : ''} />
               </IconButton>
             </div>
           </div>
@@ -353,10 +353,10 @@ export function TransitStopDetail({
               >
                 {tab.label}
                 {tab.key === 'alerts' && (board?.alerts?.length ?? 0) > 0 && (
-                  <span
-                    aria-hidden="true"
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ background: activeTab === tab.key ? '#fff' : 'var(--status-delayed-bg)' }}
+                  <AlertCircleIcon
+                    size={14}
+                    label="aktywne utrudnienia"
+                    className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`}
                   />
                 )}
               </button>

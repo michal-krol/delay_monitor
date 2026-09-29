@@ -1,5 +1,6 @@
 import { DelayBadge } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
+import { ArrowRightIcon } from './icons'
 import { formatClockTime } from '@/lib/format'
 import type { BoardApiRow } from '@/hooks/useBoard'
 
@@ -31,7 +32,8 @@ export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) 
           </div>
           <div className="mt-0.5 text-text-muted">
             <span className="tabular-nums">{formatClockTime(row.plannedAt)}</span>{' '}
-            · {row.trainLabel} → {row.headsign ?? '—'} · <span>Peron/Tor: {row.platform ?? '—'}</span>
+            · {row.trainLabel} <ArrowRightIcon size={12} label="do" className="inline align-[-2px]" /> {row.headsign ?? '—'} ·{' '}
+            <span>Peron/Tor: {row.platform ?? '—'}</span>
           </div>
         </li>
       ))}

@@ -29,7 +29,7 @@ describe('NearbyPanel', () => {
     expect(screen.getByText('Centrum 01')).toBeInTheDocument()
     expect(screen.getByText('80 m')).toBeInTheDocument()
     expect(screen.getByText('1,3 km')).toBeInTheDocument()
-    expect(screen.getByText('rozkład: 128 → Dworzec o 20:31')).toBeInTheDocument()
+    expect(screen.getByText(/rozkład: 128/)).toHaveTextContent('rozkład: 128 do Dworzec o 20:31')
     fireEvent.click(screen.getByRole('button', { name: /Warszawa Centralna/ }))
     expect(onOpen).toHaveBeenCalledWith(railPoint)
   })
