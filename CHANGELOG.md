@@ -41,9 +41,31 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Najbliższy odjazd na tablicy przystanku i „aktualna" pozycja pojazdu na mapie są wyróżnione
   kolorem akcentu zamiast zielonego — w komunikacji miejskiej nie znamy opóźnień, więc nic
   nie powinno wyglądać jak „na czas".
+- Ikony mają jeden styl, a każde pojęcie ma własną ikonę. Strzałka „→" oznacza wyłącznie
+  kierunek jazdy, a „otwórz" i „rozwiń" to szewron. Średnie opóźnienie, punktualność, czas
+  podróży, liczba przystanków, liczba środków transportu i „Pokaż całe miasto" dostały
+  własne ikony zamiast pożyczonych od innych pojęć. Po skopiowaniu linku pojawia się
+  „ptaszek". Odjazdy i przyjazdy na stronie stacji mają parę strzałek od peronu i do peronu.
+- Logo w pasku bocznym, w nagłówku na telefonie i na pustym Pulpicie to ten sam rysunek co
+  ikona aplikacji w przeglądarce.
+- Autobusy i przystanki autobusowe na mapie są fuksjowe zamiast zielonych, bo zieleń oznacza
+  „na czas". Środki transportu spoza listy („inne") mają szary kolor i własną ikonę zamiast
+  autobusu. Legenda mapy pokazuje pojazdy tak, jak rysuje je mapa: kropka ze strzałką
+  kierunku.
+- Gwiazdka przypięcia ma wszędzie ten sam bursztynowy odcień i jest pełna, gdy obiekt jest
+  przypięty. Na kartach Pulpitu odpina się ją tą samą gwiazdką co na stronie stacji
+  i przystanku, zamiast krzyżyka widocznego dopiero po najechaniu.
+- Oznaczenie „tylko dla wysiadających" w szczegółach połączenia jest neutralne zamiast
+  bursztynowego, żeby nie mylić go z utrudnieniem. Zakładka „Komunikaty" przystanku
+  sygnalizuje aktywne utrudnienia ikoną ostrzeżenia zamiast kropki.
 
 ### Naprawione
 
+- Pogoda „bezchmurnie" pokazuje słońce zamiast księżyca, a przełącznik motywu rysuje
+  słońce i księżyc tam, gdzie powinien.
+- Czytniki ekranu odczytują ikony, które niosą znaczenie bez tekstu obok: niedostępność
+  przystanku dla osób na wózku, utrudnienie na trasie w tablicy, aktywne utrudnienia na
+  zakładce „Komunikaty" i strzałkę kierunku („do"). Kropki legend są pomijane.
 - Zakładka „Komunikaty" na stronie przystanku nie twierdzi już przez pierwsze pół minuty, że
   nie ma komunikatów, gdy serwer dopiero je pobiera — pokazuje „Wczytywanie komunikatów…",
   a utrudnienie pojawia się po kilku sekundach.
