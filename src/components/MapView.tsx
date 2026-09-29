@@ -8,6 +8,7 @@ import { trapTab } from '@/lib/focusTrap'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { MODE_ICON } from './transitMode'
 import { ExpandIcon, CloseIcon, MapIcon } from './icons'
+import { IconButton } from './IconButton'
 import { MODE_COLOR, UNKNOWN_COLOR, routeColor } from './map/mapData'
 
 export type MapPin = {
@@ -380,15 +381,13 @@ export function MapView({
             />
             <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={ariaLabel} className="absolute inset-4 overflow-hidden rounded-2xl shadow-2xl sm:inset-10">
               <div ref={fullscreenContainerRef} className="h-full w-full" />
-              <button
-                ref={closeButtonRef}
-                type="button"
-                onClick={() => setExpanded(false)}
-                aria-label="Zamknij powiększoną mapę"
-                className="glass absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-foreground transition hover:bg-[var(--surface-strong)]"
-              >
-                <CloseIcon size={16} />
-              </button>
+              {/* Tło na opakowaniu, nie na przycisku: tło i hover `IconButton` to ta sama
+                  właściwość, więc na przycisku jedno kasowałoby drugie. */}
+              <div className="absolute right-3 top-3 rounded-full bg-surface-strong shadow-md backdrop-blur-xl">
+                <IconButton ref={closeButtonRef} label="Zamknij powiększoną mapę" onClick={() => setExpanded(false)}>
+                  <CloseIcon size={16} />
+                </IconButton>
+              </div>
             </div>
           </div>,
           document.body

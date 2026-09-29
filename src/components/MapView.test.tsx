@@ -315,6 +315,13 @@ describe('MapView', () => {
       expect(fullscreenMap.remove).toHaveBeenCalled()
     })
 
+    it('zamknięcie powiększonej mapy to wspólny IconButton', async () => {
+      const user = userEvent.setup()
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)
+      await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+      expect(screen.getByRole('button', { name: 'Zamknij powiększoną mapę' })).toHaveClass('border-surface-border')
+    })
+
     it('klik w tło zamyka dialog', async () => {
       const user = userEvent.setup()
       render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)

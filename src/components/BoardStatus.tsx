@@ -82,7 +82,8 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
       {/* `display: contents` -- węzeł istnieje dla `aria-live`, ale nie wchodzi
           we flex-wrap rodzica (chipy układają się tak samo jak wcześniej). */}
       <span className="contents" aria-live="polite">
-        {error && <span className="text-error-text">Błąd ostatniego odświeżenia</span>}
+        {/* Ostrzeżenie, nie błąd: ostatni dobry snapshot wciąż jest na ekranie (#7), jak w `ScheduleStatus`. */}
+        {error && <span className={WARNING_CLASS}>Błąd ostatniego odświeżenia</span>}
 
         {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 

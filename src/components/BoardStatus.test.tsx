@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { BoardStatus } from './BoardStatus'
+import { BoardStatus, WARNING_CLASS } from './BoardStatus'
 import type { BoardApiResponse } from '@/hooks/useBoard'
 
 function makeData(overrides: Partial<BoardApiResponse> = {}): BoardApiResponse {
@@ -174,13 +174,14 @@ describe('BoardStatus', () => {
     expect(screen.getByText(/API nie odpowiada/)).toBeInTheDocument()
   })
 
-  it('uses the same tokens as ScheduleStatus: secondary text, one error colour', () => {
+  it('uses the same tokens as ScheduleStatus: error colour only without data, a failed refresh over data is a warning', () => {
     const { container, rerender } = render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={true} />)
     // eslint-disable-next-line testing-library/no-node-access
     expect(container.firstElementChild).toHaveClass('text-text-secondary')
     expect(screen.getByText('Błąd pobierania danych')).toHaveClass('text-error-text')
     rerender(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} data={makeData()} error={true} />)
-    expect(screen.getByText('Błąd ostatniego odświeżenia')).toHaveClass('text-error-text')
+    // Ostatni dobry snapshot wciąż jest na ekranie (#7) — jak „błąd ostatniego odświeżenia" w ScheduleStatus.
+    expect(screen.getByText('Błąd ostatniego odświeżenia')).toHaveClass(...WARNING_CLASS.split(' '))
   })
 })
 

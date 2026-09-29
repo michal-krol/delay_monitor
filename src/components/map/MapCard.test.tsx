@@ -122,6 +122,20 @@ describe('MapCard — focus and closing', () => {
   })
 })
 
+describe('MapCard — focus return', () => {
+  it('gives focus back to the element that opened the card when it closes', () => {
+    railStatus.mockReturnValue({ status: null, error: false })
+    const trigger = document.createElement('button')
+    document.body.append(trigger)
+    trigger.focus()
+    const { unmount } = render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(trigger).not.toHaveFocus()
+    unmount()
+    expect(trigger).toHaveFocus()
+    trigger.remove()
+  })
+})
+
 describe('MapCard — favourites, nearby, disruptions', () => {
   it('toggles the favourite star and offers "what is nearby" for places', () => {
     railStatus.mockReturnValue({ status: null, error: false })
