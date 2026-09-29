@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event'
 import type { MapPin } from './MapView'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
-import { MapView } from './MapView'
+import { MapView, STYLE_DARK, STYLE_LIGHT } from './MapView'
+import { MODE_COLOR, UNKNOWN_COLOR } from './map/mapData'
 
 type PopupMock = { setDOMContent: (node: HTMLElement) => PopupMock; content: HTMLElement | null }
 
@@ -15,6 +16,7 @@ vi.mock('maplibre-gl', () => {
     addTo: vi.fn().mockReturnThis(),
     remove: vi.fn(),
     getPopup: vi.fn(() => ({ setDOMContent: vi.fn() })),
+    setRotation: vi.fn().mockReturnThis(),
   }
   const map = {
     fitBounds: vi.fn(),
@@ -44,6 +46,13 @@ vi.mock('maplibre-gl', () => {
   }
 })
 
+/** Kolor po normalizacji jsdom (hex → `rgb(...)`), żeby porównywać z `MODE_COLOR` wprost. */
+function css(color: string): string {
+  const probe = document.createElement('div')
+  probe.style.backgroundColor = color
+  return probe.style.backgroundColor
+}
+
 function markerElementAt(callIndex: number): HTMLElement {
   const call = vi.mocked(maplibregl.Marker).mock.calls[callIndex]
   const options = call?.[0]
@@ -57,19 +66,20 @@ describe('MapView', () => {
   })
 
   it('renders nic, gdy brak pinów — nie inicjalizuje mapy', () => {
-    const { container } = render(<MapView pins={[]} ariaLabel="Mapa" />)
+    const { container } = render(<MapView dark={false} pins={[]} ariaLabel="Mapa" />)
     expect(container).toBeEmptyDOMElement()
     expect(maplibregl.Map).not.toHaveBeenCalled()
   })
 
   it('wystawia dostępny region dla czytnika ekranu, gdy są piny', () => {
-    render(<MapView pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa przystanku Foo" />)
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa przystanku Foo" />)
     expect(screen.getByRole('region', { name: 'Mapa przystanku Foo' })).toBeInTheDocument()
   })
 
   it('tworzy jeden marker na pin i wyśrodkowuje na pierwszym', async () => {
     render(
       <MapView
+        dark={false}
         pins={[
           { id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' },
           { id: 'b', lat: 52.2, lon: 21.1, label: 'Słupek B' },
@@ -85,7 +95,7 @@ describe('MapView', () => {
   })
 
   it('renderuje ikonę trybu w markerze (reużyta z transitMode.tsx, zero duplikacji SVG)', async () => {
-    render(<MapView pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Tramwaj X', mode: 'tram' }]} ariaLabel="Mapa" />)
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Tramwaj X', mode: 'tram' }]} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
     const element = markerElementAt(0)
@@ -96,7 +106,7 @@ describe('MapView', () => {
   })
 
   it('bez `mode` renderuje neutralną ikonę lokalizacji zamiast się wywalać', async () => {
-    render(<MapView pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Stacja' }]} ariaLabel="Mapa" />)
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Stacja' }]} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
     const element = markerElementAt(0)
@@ -104,9 +114,44 @@ describe('MapView', () => {
     await waitFor(() => expect(element.querySelector('svg')).not.toBeNull())
   })
 
+  it('pinezka ma kolor rodzaju środka (MODE_COLOR), jak kropki na mapie miasta', async () => {
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Tramwaj X', mode: 'tram' }]} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
+    expect(markerElementAt(0).style.backgroundColor).toBe(css(MODE_COLOR.tram))
+  })
+
+  it('pinezka bez `mode` ma neutralny kolor', async () => {
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Stacja' }]} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
+    expect(markerElementAt(0).style.backgroundColor).toBe(css(UNKNOWN_COLOR))
+  })
+
+  it('podkład jak na mapie miasta: jasny bez `dark`, ciemny z `dark`; zmiana motywu montuje mapę od nowa', async () => {
+    const pins: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'A' }]
+    const { rerender } = render(<MapView dark={false} pins={pins} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(maplibregl.Map).mock.calls[0][0].style).toBe(STYLE_LIGHT)
+
+    rerender(<MapView dark pins={pins} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(maplibregl.Map).mock.calls[1][0].style).toBe(STYLE_DARK)
+    expect(vi.mocked(maplibregl.Map).mock.results[0].value.remove).toHaveBeenCalled()
+  })
+
+  it('przemontowanie (zmiana motywu) nie odmontowuje korzeni ikon pinów w trakcie renderu Reacta', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const pins: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'A', mode: 'tram' }]
+    const { rerender } = render(<MapView dark={false} pins={pins} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
+    rerender(<MapView dark pins={pins} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
+    expect(consoleError.mock.calls.flat().join(' ')).not.toContain('synchronously unmount a root')
+    consoleError.mockRestore()
+  })
+
   it('klik na pin woła onPinClick z jego id', async () => {
     const onPinClick = vi.fn()
-    render(<MapView pins={[{ id: 'slupek-1', lat: 52.1, lon: 21.0, label: 'Słupek 1' }]} onPinClick={onPinClick} ariaLabel="Mapa" />)
+    render(<MapView dark={false} pins={[{ id: 'slupek-1', lat: 52.1, lon: 21.0, label: 'Słupek 1' }]} onPinClick={onPinClick} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
     markerElementAt(0).dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -116,12 +161,12 @@ describe('MapView', () => {
 
   it('nie przeinicjalizowuje mapy, gdy `pins` to nowa referencja o tej samej treści (poller tablicy odświeża co ~30s)', async () => {
     const pinsA: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]
-    const { rerender } = render(<MapView pins={pinsA} ariaLabel="Mapa" />)
+    const { rerender } = render(<MapView dark={false} pins={pinsA} ariaLabel="Mapa" />)
     await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
 
     // Nowa tablica, identyczna treść -- tak jak po kolejnym pollu w TransitStopDetail/StationAside.
     const pinsB: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]
-    rerender(<MapView pins={pinsB} ariaLabel="Mapa" />)
+    rerender(<MapView dark={false} pins={pinsB} ariaLabel="Mapa" />)
 
     expect(maplibregl.Map).toHaveBeenCalledTimes(1)
     expect(vi.mocked(maplibregl.Map).mock.results[0]?.value.remove).not.toHaveBeenCalled()
@@ -129,52 +174,84 @@ describe('MapView', () => {
 
   describe('trasa i ruchome punkty (mapa linii)', () => {
     const PIN: MapPin = { id: 'a', lat: 52, lon: 21, label: 'A' }
-    const ROUTE = { points: [{ lat: 52, lon: 21 }, { lat: 52.01, lon: 21.02 }], color: '#E2001A' }
+    const ROUTE = { points: [{ lat: 52, lon: 21 }, { lat: 52.01, lon: 21.02 }], mode: 'metro' as const, color: '#E2001A' }
 
-    it('rysuje trasę jako linię po punktach (lon, lat) w kolorze linii', async () => {
-      render(<MapView pins={[PIN]} route={ROUTE} ariaLabel="Mapa" />)
-      await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
-      const map = vi.mocked(maplibregl.Map).mock.results[0].value
-      await waitFor(() => expect(map.addSource).toHaveBeenCalledTimes(1))
-      expect(map.addSource.mock.calls[0][1].data.geometry.coordinates).toEqual([[21, 52], [21.02, 52.01]])
-      expect(map.addLayer.mock.calls[0][0].paint['line-color']).toBe('#E2001A')
-    })
-
-    it('niezaufany kolor (nie #RRGGBB) zastępuje kolorem domyślnym', async () => {
-      render(<MapView pins={[PIN]} route={{ ...ROUTE, color: 'red;background:url(x)' }} ariaLabel="Mapa" />)
+    async function lineColor(route: typeof ROUTE | { points: typeof ROUTE.points; mode: 'tram' | 'rail'; color: string | null }): Promise<string> {
+      render(<MapView dark={false} pins={[PIN]} route={route} ariaLabel="Mapa" />)
       await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
       const map = vi.mocked(maplibregl.Map).mock.results[0].value
       await waitFor(() => expect(map.addLayer).toHaveBeenCalledTimes(1))
-      expect(map.addLayer.mock.calls[0][0].paint['line-color']).toBe('#4f46e5')
+      return map.addLayer.mock.calls[0][0].paint['line-color']
+    }
+
+    it('rysuje trasę jako linię po punktach (lon, lat); metro w kolorze linii z feedu', async () => {
+      expect(await lineColor(ROUTE)).toBe('#E2001A')
+      const map = vi.mocked(maplibregl.Map).mock.results[0].value
+      expect(map.addSource.mock.calls[0][1].data.geometry.coordinates).toEqual([[21, 52], [21.02, 52.01]])
+    })
+
+    it('tramwaj: kolor rodzaju (routeColor), nie z feedu — jak na mapie miasta', async () => {
+      expect(await lineColor({ ...ROUTE, mode: 'tram' })).toBe(MODE_COLOR.tram)
+    })
+
+    it('kolej bez koloru (pociąg PKP): kolor rodzaju', async () => {
+      expect(await lineColor({ ...ROUTE, mode: 'rail', color: null })).toBe(MODE_COLOR.rail)
+    })
+
+    it('niezaufany kolor (nie #RRGGBB) zastępuje kolorem rodzaju', async () => {
+      expect(await lineColor({ ...ROUTE, color: 'red;background:url(x)' })).toBe(MODE_COLOR.metro)
     })
 
     it('bez `route` nie dodaje warstwy', async () => {
-      render(<MapView pins={[PIN]} ariaLabel="Mapa" />)
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)
       await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
       expect(vi.mocked(maplibregl.Map).mock.results[0].value.addLayer).not.toHaveBeenCalled()
     })
 
     it('pojazdy: marker per pojazd, aktualizacja w miejscu bez przebudowy mapy, usunięcie po zniknięciu', async () => {
-      const mover = { id: 'v1', lat: 52.001, lon: 21.001, label: '#1' }
-      const { rerender } = render(<MapView pins={[PIN]} movers={[mover]} ariaLabel="Mapa" />)
+      const mover = { id: 'v1', lat: 52.001, lon: 21.001, label: '#1', mode: 'tram' as const, bearing: null }
+      const { rerender } = render(<MapView dark={false} pins={[PIN]} movers={[mover]} ariaLabel="Mapa" />)
       // 1 pin + 1 pojazd
       await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
       const marker = vi.mocked(maplibregl.Marker).mock.results[0].value
 
       marker.setLngLat.mockClear()
-      rerender(<MapView pins={[PIN]} movers={[{ ...mover, lat: 52.002 }]} ariaLabel="Mapa" />)
+      rerender(<MapView dark={false} pins={[PIN]} movers={[{ ...mover, lat: 52.002 }]} ariaLabel="Mapa" />)
       expect(maplibregl.Marker).toHaveBeenCalledTimes(2)
       expect(maplibregl.Map).toHaveBeenCalledTimes(1)
       expect(marker.setLngLat).toHaveBeenCalledWith([21.001, 52.002])
 
       marker.remove.mockClear()
-      rerender(<MapView pins={[PIN]} movers={[]} ariaLabel="Mapa" />)
+      rerender(<MapView dark={false} pins={[PIN]} movers={[]} ariaLabel="Mapa" />)
       expect(marker.remove).toHaveBeenCalledTimes(1)
+    })
+
+    it('pojazd: kropka w kolorze rodzaju, strzałka kierunku obrócona wg `bearing` (jak na mapie miasta)', async () => {
+      const mover = { id: 'v1', lat: 52.001, lon: 21.001, label: '#1', mode: 'tram' as const, bearing: 90 }
+      const { rerender } = render(<MapView dark={false} pins={[PIN]} movers={[mover]} ariaLabel="Mapa" />)
+      await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
+      const options = vi.mocked(maplibregl.Marker).mock.calls[0][0]
+      const element = options?.element as HTMLElement
+      expect(element.dataset.testid).toBe('map-mover')
+      expect(options?.rotation).toBe(90)
+      expect(options?.rotationAlignment).toBe('map')
+      // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+      const [dot, arrow] = [element.querySelector<HTMLElement>('[data-part="dot"]'), element.querySelector<HTMLElement>('[data-part="arrow"]')]
+      expect(dot?.style.backgroundColor).toBe(css(MODE_COLOR.tram))
+      expect(arrow?.hidden).toBe(false)
+
+      const marker = vi.mocked(maplibregl.Marker).mock.results[0].value
+      rerender(<MapView dark={false} pins={[PIN]} movers={[{ ...mover, bearing: 180 }]} ariaLabel="Mapa" />)
+      expect(marker.setRotation).toHaveBeenLastCalledWith(180)
+
+      // Brak kierunku w feedzie (albo pociąg szacowany wg rozkładu) = sama kropka.
+      rerender(<MapView dark={false} pins={[PIN]} movers={[{ ...mover, bearing: null }]} ariaLabel="Mapa" />)
+      expect(arrow?.hidden).toBe(true)
     })
   })
 
   it('ustawia workerUrl na własny statyczny asset przed konstrukcją mapy', async () => {
-    render(<MapView pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa" />)
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
     // Bez tego `new Worker("", {type:"module"})` w buildzie produkcyjnym --
@@ -188,6 +265,7 @@ describe('MapView', () => {
   it('mini popup pokazuje sam label, bez `preview`/`href` nawet gdy podane', async () => {
     render(
       <MapView
+        dark={false}
         pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Centrum 02', preview: ['18:12 → Kutno'], href: '/station/1' }]}
         ariaLabel="Mapa"
       />
@@ -208,7 +286,7 @@ describe('MapView', () => {
 
     it('przycisk „Powiększ mapę" otwiera dialog i montuje drugą mapę z bogatym popupem', async () => {
       const user = userEvent.setup()
-      render(<MapView pins={[PIN]} ariaLabel="Mapa przystanku Centrum" />)
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa przystanku Centrum" />)
       await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
 
       await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
@@ -226,7 +304,7 @@ describe('MapView', () => {
 
     it('Escape zamyka dialog i odmontowuje powiększoną mapę', async () => {
       const user = userEvent.setup()
-      render(<MapView pins={[PIN]} ariaLabel="Mapa" />)
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)
       await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
       await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(2))
       const fullscreenMap = vi.mocked(maplibregl.Map).mock.results[1].value
@@ -239,7 +317,7 @@ describe('MapView', () => {
 
     it('klik w tło zamyka dialog', async () => {
       const user = userEvent.setup()
-      render(<MapView pins={[PIN]} ariaLabel="Mapa" />)
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)
       await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
       expect(screen.getByRole('dialog')).toBeInTheDocument()
 

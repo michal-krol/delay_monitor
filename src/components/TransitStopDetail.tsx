@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useTheme } from 'next-themes'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
@@ -159,6 +160,7 @@ export function TransitStopDetail({
 
   const summary = board?.summary
 
+  const { resolvedTheme } = useTheme()
   const mapPins = useMemo(
     () =>
       members.map((m) => {
@@ -466,7 +468,7 @@ export function TransitStopDetail({
 
         {mapPins.length > 0 && (
           <AsideCard title="Mapa" className="card-hover">
-            <MapView pins={mapPins} onPinClick={setSlupekChoice} ariaLabel={`Mapa przystanku ${stopName}`} />
+            <MapView pins={mapPins} onPinClick={setSlupekChoice} ariaLabel={`Mapa przystanku ${stopName}`} dark={resolvedTheme === 'dark'} />
           </AsideCard>
         )}
 

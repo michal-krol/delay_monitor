@@ -193,6 +193,36 @@
   border-top-color: #0f172a !important;
   border-bottom-color: #0f172a !important;
 }
+/* Popup przy bocznej krawędzi mapy kotwiczy się bokiem — grot rysuje wtedy obramowanie
+   boczne (pozostałe boki muszą zostać przezroczyste, inaczej grot staje się kwadratem). */
+.dark .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: #0f172a;
+}
+.dark .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: #0f172a;
+}
+
+/* Reszta kontrolek MapLibre (ten sam powód: twardy `#fff`/czarne ikony w wendorowanym CSS).
+   Zoom +/− na mapie miasta: tło jak popup, ikony (SVG w `background-image`, czarne)
+   odwrócone filtrem. Krzyżyk popupu: kolor tekstu motywu i jasne podświetlenie zamiast
+   `rgba(0,0,0,.05)`, niewidocznego na ciemnym tle. */
+.dark .maplibregl-ctrl-group {
+  background-color: #0f172a;
+  box-shadow: 0 0 0 1px var(--surface-border);
+}
+.dark .maplibregl-ctrl-group button + button {
+  border-top-color: var(--surface-border);
+}
+.dark .maplibregl-ctrl-group .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.dark .maplibregl-ctrl button:not(:disabled):hover,
+.dark .maplibregl-popup-close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.dark .maplibregl-popup-close-button {
+  color: var(--foreground);
+}
 
 /* Poświata na elementach hero (decyzja #11) — parametr koloru przez CSS var,
    ustawiany inline per użycie (np. style={{ '--glow-color': '...' }}). */

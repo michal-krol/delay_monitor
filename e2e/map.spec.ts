@@ -221,6 +221,26 @@ test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', a
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
 
+// Każda mapa `MapView` w obu motywach (PR 6: ciemny podkład, piny w kolorze rodzaju, kontrolki `glass`).
+// Mapa stacji siedzi w bocznym panelu, na telefonie ukrytym — stąd `toBeAttached`, nie `toBeVisible`.
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const [name, path, ready] of [
+    ['linii', LINE_20, 'Mapa trasy linii 20'],
+    ['połączenia', TRAIN_104, 'Mapa trasy pociągu'],
+    ['stacji', STATION_BOARD, 'Mapa stacji'],
+  ] as const) {
+    if (colorScheme === 'light' && name !== 'stacji') continue // jasne skany linii i połączenia są wyżej
+    test(`a11y: mapa ${name} w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} bez naruszeń serious/critical`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme })
+      await page.goto(path)
+      await expect(page.getByRole('region', { name: new RegExp(`^${ready}`) }).locator('.maplibregl-marker').first()).toBeAttached({ timeout: READY })
+      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+      const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+      expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+    })
+  }
+}
+
 // Mapa transportu (refaktor 2026-09-26): kolej z całej Polski + przystanki
 // i pojazdy miasta jako warstwy WebGL. Obiekty na canvasie nie są fokusowalne —
 // ścieżką klawiatury i testów jest wyszukiwarka → karta (MapCard).

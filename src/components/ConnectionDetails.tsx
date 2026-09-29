@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useTheme } from 'next-themes'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
@@ -310,6 +311,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // do następnego punktu, bez dashed-line/nowego stanu w MapView). Marker
   // zawsze podpisany jako szacowany (AGENTS.md #7) -- `resolveInterpolatedPosition`
   // nigdy nie zwraca "pewnej" pozycji.
+  const { resolvedTheme } = useTheme()
   const mapPins = useMemo<MapPin[]>(
     () =>
       stops.reduce<MapPin[]>((pins, stop, index) => {
@@ -320,14 +322,14 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
     [stops]
   )
   const mapRoute = useMemo(
-    () => ({ points: mapPins.map(({ lat, lon }) => ({ lat, lon })), color: null }),
+    () => ({ points: mapPins.map(({ lat, lon }) => ({ lat, lon })), mode: 'rail' as const, color: null }),
     [mapPins]
   )
   const mapMovers = useMemo<MapMover[]>(() => {
     const position = resolveInterpolatedPosition(stops, data?.trainStatus ?? null, new Date(now))
     return position === null
       ? []
-      : [{ id: 'train', lat: position.lat, lon: position.lon, label: 'Pociąg — szacowane wg rozkładu' }]
+      : [{ id: 'train', lat: position.lat, lon: position.lon, label: 'Pociąg — szacowane wg rozkładu', mode: 'rail' as const }]
   }, [stops, data?.trainStatus, now])
 
   const categoryLabel = data?.category ?? null
@@ -696,7 +698,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               {mapPins.length >= 2 && (
                 <section className="glass rounded-2xl p-4">
                   <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
-                  <MapView pins={mapPins} route={mapRoute} movers={mapMovers} ariaLabel={`Mapa trasy pociągu ${trainNumber}`} />
+                  <MapView pins={mapPins} route={mapRoute} movers={mapMovers} ariaLabel={`Mapa trasy pociągu ${trainNumber}`} dark={resolvedTheme === 'dark'} />
                   {/* Etykieta „szacowane" na samym popupie markera (klik) nie
                       wystarcza (AGENTS.md #7) -- kropka rusza się po mapie i bez
                       podpisu widocznego OD RAZU wygląda jak realny GPS. */}
