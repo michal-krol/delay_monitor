@@ -62,8 +62,10 @@ function TabButton({
       tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-        active ? 'bg-indigo-600 text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
+        active ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
       }`}
+      // Ten sam akcent co zakładki przystanku (TransitStopDetail) — stacja wygląda jak przystanek.
+      style={active ? { background: 'var(--accent-gradient)' } : undefined}
     >
       {children}
     </button>
