@@ -27,6 +27,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Zakładka „Komunikaty" na stronie przystanku nie twierdzi już przez pierwsze pół minuty, że
+  nie ma komunikatów, gdy serwer dopiero je pobiera — pokazuje „Wczytywanie komunikatów…",
+  a utrudnienie pojawia się po kilku sekundach.
 - Gdy źródło rozkładu komunikacji miejskiej jest niedostępne, serwer nie próbuje go pobierać
   ponownie przy każdym odświeżeniu otwartych widoków — kolejne próby są coraz rzadsze
   (od 30 sekund do godziny), a po udanym pobraniu wszystko wraca do normy.

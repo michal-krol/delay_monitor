@@ -368,7 +368,7 @@ export function TransitStopDetail({
                 }
               >
                 {tab.label}
-                {tab.key === 'alerts' && board !== null && board.alerts.length > 0 && (
+                {tab.key === 'alerts' && (board?.alerts?.length ?? 0) > 0 && (
                   <span
                     aria-hidden="true"
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
@@ -453,10 +453,13 @@ export function TransitStopDetail({
             ))}
 
           {activeTab === 'alerts' &&
-            (board === null || board.alerts.length === 0 ? (
-              <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla tego przystanku.</p>
-            ) : (
+            (board?.alerts === null ? (
+              // Feed alertów jeszcze nie odpowiedział — nieznane, nie „brak" (#7); hook ponawia drabinką.
+              <p className="text-sm text-text-muted">Wczytywanie komunikatów…</p>
+            ) : board?.alerts?.length ? (
               <AlertBanner alerts={board.alerts} />
+            ) : (
+              <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla tego przystanku.</p>
             ))}
         </section>
       </div>

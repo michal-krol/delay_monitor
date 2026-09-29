@@ -51,6 +51,28 @@ describe('useTransitBoard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it('retries on the loading backoff while the alert feed is still unknown (alerts: null), without flagging the board as loading', async () => {
+    const withAlerts = (alerts: unknown[] | null) =>
+      jsonResponse({
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: null, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ stopId: '1001', alerts }],
+        attribution: [],
+      })
+    const fetchMock = vi.fn().mockImplementationOnce(() => withAlerts(null)).mockImplementation(() => withAlerts([]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+    expect(result.current.loading).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    // Alerty znane -> wraca do zwykłego odświeżania co 30 s.
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('surfaces a fetch error without discarding the hook', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('network'))
     vi.stubGlobal('fetch', fetchMock)

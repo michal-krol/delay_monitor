@@ -139,8 +139,11 @@ paths:
   is absent/`idle`/`loading` (`failed` → last good alerts for the line, else `[]`) — the line
   page fetches once, so without `null` a warm schedule answered `[]` before the first alert
   fetch and the banner never appeared; `isLineLoading` retries while `alerts === null`.
-  `/api/gtfs/board` always returns `alerts: []` (never `null`) — it refreshes every 30 s, so an
-  empty list just doesn't render a banner until the next refresh.
+  `/api/gtfs/board` follows the line convention per stop (`stop.alerts: null` while absent/`idle`/
+  `loading`, `failed` → list); `useTransitBoard` retries on the ladder while any stop has
+  `alerts === null`. It used to answer `[]` and wait for the 30 s refresh — the stop page's
+  „Komunikaty" tab then claimed „Aktualnie brak komunikatów" for the first viewer after a wake
+  (flaky e2e 2026-09-29).
 
 Contract: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (network, no cost).
 `GTFS_DATA_SOURCE=mock` (default) keeps dev/test/CI zero-network. Fixtures in
