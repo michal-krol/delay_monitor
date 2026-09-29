@@ -228,7 +228,7 @@ export default function LineDetailPage() {
               {directions.length >= 2 && <SwapIcon size={15} className="ml-1 text-indigo-600 dark:text-indigo-400" />}
             </button>
 
-            {/* W treści głównej, nie w aside: aside jest `hidden xl:flex`, a mapa ma działać też na telefonie. */}
+            {/* W treści głównej, nie w aside: aside schodzi pod treść poniżej `xl`, a mapa ma być tuż pod nagłówkiem trasy, także na telefonie. */}
             {stops.length >= 2 && (
               <section className="glass rounded-2xl p-4">
                 <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>

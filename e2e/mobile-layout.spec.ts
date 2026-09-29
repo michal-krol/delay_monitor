@@ -17,8 +17,9 @@ test('wiersz odjazdu na 375 px: bez poziomego przewijania, nagłówek kursu wido
   })
 
   await page.goto('/city/warszawa/stop/100101')
-  const row = page.locator('li:has(time)').first()
+  const row = page.getByTestId('departure-list').locator('li').first()
   await expect(row).toBeVisible({ timeout: 45_000 })
+  await expect(row).toContainText('na żądanie')
 
   const { scrollWidth, clientWidth } = await row.evaluate((el) => ({
     scrollWidth: el.scrollWidth,

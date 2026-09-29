@@ -124,6 +124,8 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
         selectOption(options[activeIndex])
       }
     } else if (event.key === 'Escape') {
+      // Zjadamy Escape: panel mapy (nasłuch na window) nie ma się zamknąć tym samym klawiszem.
+      event.preventDefault()
       setOptions([])
       setStatus('idle')
       setActiveIndex(-1)

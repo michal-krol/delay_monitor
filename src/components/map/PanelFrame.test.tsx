@@ -32,6 +32,26 @@ describe('PanelFrame', () => {
     expect(screen.getByRole('heading', { name: 'B' })).toHaveFocus()
   })
 
+  it('returns focus to the original trigger, not the heading, after a focusKey change', () => {
+    const trigger = document.createElement('button')
+    document.body.append(trigger)
+    trigger.focus()
+    const { rerender, unmount } = render(
+      <PanelFrame title="A" closeLabel="Zamknij" onClose={vi.fn()} focusKey="a">
+        x
+      </PanelFrame>,
+    )
+    rerender(
+      <PanelFrame title="B" closeLabel="Zamknij" onClose={vi.fn()} focusKey="b">
+        x
+      </PanelFrame>,
+    )
+    expect(screen.getByRole('heading', { name: 'B' })).toHaveFocus()
+    unmount()
+    expect(trigger).toHaveFocus()
+    trigger.remove()
+  })
+
   it('closes on Escape and returns focus to the element that opened it', () => {
     const trigger = document.createElement('button')
     document.body.append(trigger)

@@ -18,7 +18,7 @@ export function LineSearch({
   onSelect,
   className = '',
 }: {
-  /** `null` = lista jeszcze się wczytuje (pole działa, pokazuje „Wczytuję…"). */
+  /** `null` = lista jeszcze się wczytuje (pole działa, pokazuje „Wczytywanie…"). */
   lines: LineListEntry[] | null
   onSelect: (line: LineListEntry) => void
   className?: string

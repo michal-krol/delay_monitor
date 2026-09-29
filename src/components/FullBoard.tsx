@@ -97,6 +97,8 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
 
   /** Strzałki (z zawijaniem), Home i End przenoszą zaznaczenie ORAZ fokus (wzorzec zakładek WAI-ARIA). */
   function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    // Alt+strzałka = Wstecz/Dalej przeglądarki itp. — nie przechwytujemy skrótów.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
     const last = DIRECTIONS.length - 1
     const at = DIRECTIONS.indexOf(direction)
     const target =

@@ -80,7 +80,8 @@ function DepartureRow({
         {departure.headsign ?? '—'}
       </span>
       {/* Oznaczenia dodatkowe: na wąskiej liście (kontener < `@xl`) schodzą do
-          drugiego wiersza pod nazwę kierunku (`order-last basis-full`), na
+          drugiego wiersza (`order-last basis-full`), wcięte `pl-15` pod plakietkę
+          linii (nie pod nazwę kierunku), na
           szerokiej zostają w jednym rzędzie z resztą. Do sześciu `shrink-0` w
           jednym wierszu ściskało kierunek do 0 px na 375 px. */}
       {hasMeta && (
@@ -175,7 +176,7 @@ export function TransitDepartureList({
       )}
 
       {listed.length > 0 && (
-        <ul className="@container mt-3 divide-y divide-surface-border">
+        <ul data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
           {listed.map((departure, index) => (
             <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showSlupek={showSlupek} now={now} />
           ))}

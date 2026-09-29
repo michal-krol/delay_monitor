@@ -329,8 +329,8 @@
     box-shadow: 0 0 0 18px rgba(56, 189, 248, 0);
   }
 }
-/* Nie jako `::after` w `@utility` (Tailwind v4 nie generuje pseudoelementów
-   z inline stylem tła nadrzędnika) — zwykła reguła, tak jak `.card-hover`. */
+/* Zwykła reguła, nie `@utility`: `::after` pulsu dziedziczy `border-radius` i
+   nadrzędnik ma tło w inline stylu — tak jak `.card-hover`. */
 .ring-pulse {
   position: relative;
 }

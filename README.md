@@ -17,14 +17,14 @@ i [dokumentacji technicznej](#część-ii--dokumentacja-techniczna).
 Monitor opóźnień odpowiada na pytanie „czy i kiedy dojadę”. Łączy oficjalne dane
 o ruchu pociągów PKP Polskich Linii Kolejowych z rozkładami i pozycjami pojazdów
 komunikacji miejskiej oraz uzupełnia je o kontekst: utrudnienia, pogodę na stacji
-i położenie na mapie. Nie wymaga zakładania konta — ulubione stacje zapamiętuje
+i położenie na mapie. Nie wymaga zakładania konta — przypięte do Pulpitu stacje zapamiętuje
 przeglądarka.
 
 ## Główne możliwości
 
 ### Pulpit
 
-Strona startowa zbiera ulubione stacje. Każda karta pokazuje najbliższe odjazdy
+Strona startowa zbiera przypięte stacje. Każda karta pokazuje najbliższe odjazdy
 (godzina, przewoźnik, relacja, status) oraz liczbę opóźnionych pociągów. Obok
 znajduje się widżet stanu sieci kolejowej w całym kraju: liczba pociągów w danym
 dniu według statusu, punktualność, najczęstsi przewoźnicy i liczba zgłoszonych

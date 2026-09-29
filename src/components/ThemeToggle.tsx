@@ -8,9 +8,8 @@ import { SunIcon, MoonIcon } from './icons'
  * Przełącznik jasny/ciemny jako ikona bez podpisu — przeniesiony z dolnej
  * części Sidebara (gdzie miał etykietę "Tryb ciemny" + osobny suwak) do
  * prawego górnego rogu, obok innych przycisków-ikon w
- * `TopBar`, na wyraźną prośbę użytkownika. Wydzielony z `Sidebar`, żeby ten
- * sam przycisk dało się osadzić też w `FullBoard` (strona `/station/[stationId]`
- * nie renderuje `TopBar` i inaczej straciłaby możliwość przełączania motywu).
+ * `TopBar`, na wyraźną prośbę użytkownika. Wydzielony z `Sidebar` jako
+ * samodzielny komponent.
  */
 export function ThemeToggle() {
   // next-themes rozwiązuje prawdziwy motyw synchronicznie już przy

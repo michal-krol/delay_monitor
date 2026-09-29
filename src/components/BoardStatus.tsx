@@ -73,6 +73,7 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
   }
 
   const isStale = ageMs !== undefined && ageMs >= STALE_AFTER_MS
+  const hint = budgetHint(data)
 
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
@@ -113,9 +114,9 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
           ))}
 
         {data?.throttled === true && (
-          <span className={WARNING_CLASS} title={budgetHint(data)}>
+          <span className={WARNING_CLASS} title={hint}>
             odświeżanie ograniczone
-            {budgetHint(data) !== undefined && <span className="sr-only"> {budgetHint(data)}</span>}
+            {hint !== undefined && <span className="sr-only"> {hint}</span>}
           </span>
         )}
       </span>

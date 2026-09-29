@@ -207,6 +207,15 @@ describe('FullBoard', () => {
       expect(arrivals).toHaveFocus()
     })
 
+    it('leaves modified arrows alone (Alt+ArrowRight is a browser shortcut)', async () => {
+      const user = await setupBoard()
+      const departures = screen.getByRole('tab', { name: 'Odjazdy' })
+      departures.focus()
+      await user.keyboard('{Alt>}{ArrowRight}{/Alt}')
+      expect(departures).toHaveAttribute('aria-selected', 'true')
+      expect(departures).toHaveFocus()
+    })
+
     it('End and Home jump to the last and first tab', async () => {
       const user = await setupBoard()
       const departures = screen.getByRole('tab', { name: 'Odjazdy' })

@@ -28,7 +28,7 @@ const ALERT_RETRY_MS = 5 * 60_000
  *
  * Ponawiamy też, gdy sam rozkład jest już `ready`, ale poller alertów (rytm 5 min,
  * niezależny od rozkładu) jeszcze nie skończył pierwszego pobrania (`alerts == null`)
- * — inaczej widżet utyka na „Wczytuję…" na czas życia komponentu. Feed alertów
+ * — inaczej widżet utyka na „Wczytywanie…" na czas życia komponentu. Feed alertów
  * `failed` to stan znany („nie udało się pobrać", #7), nie ładowanie: zamiast drabinki co
  * 15 s widżet ponawia co `ALERT_RETRY_MS`, żeby zauważyć, gdy serwerowy poller alertów
  * (ponawia co `GTFS_ALERT_POLL_MS`) znów pobierze feed. Tylko na widocznej karcie (`usePolling`).

@@ -48,3 +48,18 @@ test('minuty w rozkładzie linii mają >= 24×24 px (WCAG 2.5.8)', async ({ page
   expect(box?.width).toBeGreaterThanOrEqual(24)
   expect(box?.height).toBeGreaterThanOrEqual(24)
 })
+
+test('link „Wróć do Pulpitu” w TopBarze ma obszar trafienia >= 44×44', async ({ page }) => {
+  await page.goto('/station/33605?name=Warszawa%20Centralna')
+  const { w, h } = await afterSize(page.getByRole('link', { name: 'Wróć do Pulpitu' }))
+  expect(w).toBeGreaterThanOrEqual(44)
+  expect(h).toBeGreaterThanOrEqual(44)
+})
+
+test('przełącznik paska bocznego (desktop) ma obszar trafienia >= 44×44', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'pasek boczny tylko od sm')
+  await page.goto('/')
+  const { w, h } = await afterSize(page.getByRole('button', { name: /pasek boczny/ }))
+  expect(w).toBeGreaterThanOrEqual(44)
+  expect(h).toBeGreaterThanOrEqual(44)
+})

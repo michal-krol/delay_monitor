@@ -190,6 +190,30 @@ describe('StationSearch', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('consumes Escape (defaultPrevented) only when a list was open', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const seen: boolean[] = []
+    // Nasłuch na window (jak PanelFrame) — widzi zdarzenie po obsłudze w polu.
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') seen.push(event.defaultPrevented)
+    }
+    window.addEventListener('keydown', onKey)
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    const input = screen.getByRole('combobox')
+    input.focus()
+    await user.keyboard('{Escape}')
+    await user.type(input, 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    await user.keyboard('{Escape}')
+    window.removeEventListener('keydown', onKey)
+
+    expect(seen).toEqual([false, true])
+  })
+
   it('exposes an accessible name and the list-autocomplete pattern', () => {
     render(<StationSearch onSelect={vi.fn()} placeholder="Dodaj stację…" />)
     const input = screen.getByRole('combobox')

@@ -35,3 +35,25 @@ for (const view of VIEWS) {
     expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
   })
 }
+
+// Pulpit z przypiętymi kartami (PKP + GTFS): karty, gwiazdki i rozwijane tablice
+// nie występują na pustym Pulpicie z powyższej pętli.
+test('a11y: pulpit z przypiętymi kartami bez naruszeń serious/critical', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'monitor.favourites.v2',
+      JSON.stringify([
+        { kind: 'pkp', id: '33605', name: 'Warszawa Centralna' },
+        { kind: 'gtfs', city: 'warszawa', id: '100101', name: 'Centrum 01' },
+      ]),
+    )
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Warszawa Centralna' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Rozkład — Warszawa')).toBeVisible({ timeout: 15_000 })
+
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+
+  const blocking = violations.filter((v) => BLOCKING.includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+})
