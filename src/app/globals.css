@@ -235,6 +235,24 @@
 .dark .maplibregl-popup-close-button {
   color: var(--foreground);
 }
+/* Atrybucja („i" z listą źródeł): wendorowany CSS daje białą pigułkę (`#fff`) albo
+   pasek `hsla(0,0%,100%,.5)` z czarnymi linkami i czarną ikoną „i" w `background-image`.
+   Tło nieprzezroczyste z tego samego powodu co popup (axe liczy kontrast linków
+   względem nieprzezroczystego przodka). */
+.dark .maplibregl-ctrl.maplibregl-ctrl-attrib,
+.dark .maplibregl-ctrl-attrib.maplibregl-compact {
+  background-color: var(--map-surface);
+  color: var(--text-secondary);
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: var(--text-secondary);
+}
+.dark .maplibregl-ctrl-attrib a:hover {
+  color: var(--foreground);
+}
+.dark .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
 
 /* Poświata na elementach hero (decyzja #11) — parametr koloru przez CSS var,
    ustawiany inline per użycie (np. style={{ '--glow-color': '...' }}). */
