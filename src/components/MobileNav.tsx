@@ -72,7 +72,7 @@ export function MobileNav() {
           onClick={() => setOpen(true)}
           aria-label="Otwórz menu"
           aria-expanded={open}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+          className="touch-44 relative grid h-9 w-9 shrink-0 place-items-center rounded-md text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           <MenuIcon size={20} />
         </button>

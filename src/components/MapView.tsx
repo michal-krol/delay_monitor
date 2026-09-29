@@ -360,7 +360,7 @@ export function MapView({
           type="button"
           onClick={() => setExpanded(true)}
           aria-label="Powiększ mapę"
-          className="glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
+          className="touch-44 glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
         >
           <ExpandIcon size={16} />
         </button>

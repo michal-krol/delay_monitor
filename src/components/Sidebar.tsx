@@ -58,7 +58,7 @@ export function Sidebar({ activeItem }: Props) {
           type="button"
           onClick={toggle}
           aria-label={collapsed ? 'Rozwiń pasek boczny' : 'Zwiń pasek boczny'}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
+          className="touch-44 relative grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           <ChevronRightIcon size={14} className={collapsed ? '' : 'rotate-180'} />
         </button>
