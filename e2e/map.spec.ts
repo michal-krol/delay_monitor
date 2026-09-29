@@ -81,9 +81,12 @@ test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', a
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
   const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
   await expect(dialog).toBeVisible()
-  // MapLibre przebudowuje atrybucję (linki) po załadowaniu stylu -- Tab przed tym gubi fokus na body.
+  // MapLibre przebudowuje atrybucję (`replaceChildren`, nowe linki) za każdym razem, gdy używane
+  // źródło stylu dołoży swoją -- fokusowany link znika i fokus spada na body. Sam „MapLibre" to
+  // PIERWSZA wersja (flaky 2026-09-29: przebudowa ~250 ms po tej bramce, 3/30 porażek);
+  // „OpenStreetMap" przychodzi w ostatniej, a identyczny HTML MapLibre pomija (`_updateAttributions`).
   await expectTilesRendered(dialog.locator('canvas'))
-  await expect(dialog.getByRole('link', { name: 'MapLibre' })).toBeVisible()
+  await expect(dialog.getByRole('link', { name: /OpenStreetMap/ })).toBeVisible()
 
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press('Tab')
