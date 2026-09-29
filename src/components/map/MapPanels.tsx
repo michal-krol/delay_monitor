@@ -123,7 +123,9 @@ export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePo
   useEffect(() => {
     if (!open) return
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key !== 'Escape') return
+      event.preventDefault() // jak w MapFilters: Escape zamyka tylko listę, nie panel
+      setOpen(false)
     }
     const onPointer = (event: PointerEvent): void => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)

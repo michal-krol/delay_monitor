@@ -165,6 +165,62 @@ describe('FullBoard', () => {
     expect(screen.queryByText('EIC 1')).not.toBeInTheDocument()
   })
 
+  describe('direction tabs (WAI-ARIA tabs pattern)', () => {
+    async function setupBoard() {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+      expect(await screen.findByText('EIC 1')).toBeInTheDocument()
+      return user
+    }
+
+    it('links each tab to the labelled tabpanel around the board, with a roving tabindex', async () => {
+      const user = await setupBoard()
+      const departures = screen.getByRole('tab', { name: 'Odjazdy' })
+      const arrivals = screen.getByRole('tab', { name: 'Przyjazdy' })
+      const panel = screen.getByRole('tabpanel')
+      expect(departures).toHaveAttribute('aria-controls', panel.id)
+      expect(arrivals).toHaveAttribute('aria-controls', panel.id)
+      expect(panel).toHaveAttribute('aria-labelledby', departures.id)
+      expect(departures).toHaveAttribute('tabindex', '0')
+      expect(arrivals).toHaveAttribute('tabindex', '-1')
+      await user.click(arrivals)
+      expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', arrivals.id)
+      expect(arrivals).toHaveAttribute('tabindex', '0')
+      expect(departures).toHaveAttribute('tabindex', '-1')
+      expect(within(screen.getByRole('tabpanel')).getByRole('table')).toBeInTheDocument()
+    })
+
+    it('ArrowRight/ArrowLeft move selection and focus, wrapping around', async () => {
+      const user = await setupBoard()
+      const departures = screen.getByRole('tab', { name: 'Odjazdy' })
+      const arrivals = screen.getByRole('tab', { name: 'Przyjazdy' })
+      departures.focus()
+      await user.keyboard('{ArrowRight}')
+      expect(arrivals).toHaveAttribute('aria-selected', 'true')
+      expect(arrivals).toHaveFocus()
+      await user.keyboard('{ArrowRight}')
+      expect(departures).toHaveAttribute('aria-selected', 'true')
+      expect(departures).toHaveFocus()
+      await user.keyboard('{ArrowLeft}')
+      expect(arrivals).toHaveAttribute('aria-selected', 'true')
+      expect(arrivals).toHaveFocus()
+    })
+
+    it('End and Home jump to the last and first tab', async () => {
+      const user = await setupBoard()
+      const departures = screen.getByRole('tab', { name: 'Odjazdy' })
+      const arrivals = screen.getByRole('tab', { name: 'Przyjazdy' })
+      departures.focus()
+      await user.keyboard('{End}')
+      expect(arrivals).toHaveAttribute('aria-selected', 'true')
+      expect(arrivals).toHaveFocus()
+      await user.keyboard('{Home}')
+      expect(departures).toHaveAttribute('aria-selected', 'true')
+      expect(departures).toHaveFocus()
+    })
+  })
+
   it('uses direction-aware wording for a not-yet-happened connection: "jeszcze nie wyjechał" for departures, "jeszcze nie przyjechał" for arrivals', async () => {
     const notStartedSnapshot = {
       ...SNAPSHOT,

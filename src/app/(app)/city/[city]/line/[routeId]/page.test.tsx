@@ -150,6 +150,11 @@ describe('LineDetailPage', () => {
     probe.style.backgroundColor = MODE_COLOR.tram
     expect(onTimeline.style.backgroundColor).toBe(probe.style.backgroundColor)
     expect(onTimeline).not.toHaveTextContent('▲')
+    // Marker jest czytelny dla technologii asystujących (rail nie siedzi pod aria-hidden).
+    expect(onTimeline).toHaveTextContent('Pojazd 3801')
+    expect(onTimeline).toBeVisible()
+    // eslint-disable-next-line testing-library/no-node-access -- żaden przodek markera nie jest aria-hidden
+    expect(onTimeline.closest('[aria-hidden="true"]')).toBeNull()
     // eslint-disable-next-line testing-library/no-node-access -- ikona dekoracyjna (aria-hidden), bez roli do zapytania
     expect(onTimeline.querySelector('svg')).not.toBeNull()
   })

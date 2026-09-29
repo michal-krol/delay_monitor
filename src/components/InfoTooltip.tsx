@@ -61,7 +61,10 @@ export function InfoTooltip({
       // tooltipa (nie dialogu). Focus zostaje, więc `onFocus` nie otworzy jej
       // z powrotem, dopóki użytkownik nie odejdzie i nie wróci.
       onKeyDown={(event) => {
-        if (event.key === 'Escape') setOpen(false)
+        if (event.key === 'Escape' && open) {
+          event.preventDefault() // zamyka tylko podpowiedź, nie otaczający panel
+          setOpen(false)
+        }
       }}
     >
       <button

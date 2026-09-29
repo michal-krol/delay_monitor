@@ -115,6 +115,7 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
         {data?.throttled === true && (
           <span className={WARNING_CLASS} title={budgetHint(data)}>
             odświeżanie ograniczone
+            {budgetHint(data) !== undefined && <span className="sr-only"> {budgetHint(data)}</span>}
           </span>
         )}
       </span>

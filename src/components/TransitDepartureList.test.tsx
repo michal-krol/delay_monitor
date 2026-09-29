@@ -69,6 +69,17 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('2 przyst.')).toBeInTheDocument()
   })
 
+  it('gives the stop-code and vehicle chips readable (not title-only) text', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: '06', vehicle: { stopsAway: 2, ageSec: 15 } })]} showSlupek />)
+    expect(screen.getByText('Odjazd z:')).toHaveClass('sr-only')
+    expect(screen.getByText(/pozycja na żywo/)).toHaveClass('sr-only')
+  })
+
+  it('says how old a stale vehicle position is', () => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 150 } })]} />)
+    expect(screen.getByText(/pozycja sprzed 3 min/)).toHaveClass('sr-only')
+  })
+
   it('shows "zaraz będzie" (approaching, not departed) at stopsAway 0', () => {
     render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 0, ageSec: 15 } })]} />)
     expect(screen.getByText('zaraz będzie')).toBeInTheDocument()

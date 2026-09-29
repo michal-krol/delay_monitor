@@ -53,6 +53,7 @@ export function LineSearch({
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === 'Escape') {
+      if (query !== '') event.preventDefault() // jest co wyczyścić — Escape nie zamyka panelu
       setQuery('')
       setActiveIndex(-1)
       return

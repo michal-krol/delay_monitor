@@ -277,7 +277,7 @@ export default function LineDetailPage() {
                             />
                           )}
                           {!last && (
-                            <span className="relative mt-1 w-0.5 flex-1 bg-surface-border" aria-hidden="true">
+                            <span className="relative mt-1 w-0.5 flex-1 bg-surface-border">
                               {showVehicles &&
                                 liveVehicles.vehicles
                                   .filter((v) => v.afterStopOrder === index)
@@ -297,6 +297,10 @@ export default function LineDetailPage() {
                                       }}
                                     >
                                       <ArrowRightIcon size={10} className="rotate-90" />
+                                      <span className="sr-only">
+                                        Pojazd {v.sideNumber}
+                                        {v.ageSec > 60 ? `, ${Math.round(v.ageSec / 60)} min temu` : ''}
+                                      </span>
                                     </span>
                                   ))}
                             </span>

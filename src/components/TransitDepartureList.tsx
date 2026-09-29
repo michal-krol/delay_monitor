@@ -90,6 +90,7 @@ function DepartureRow({
               title={`Odjazd z: ${departure.stopCode ?? departure.platformCode}`}
               className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
             >
+              <span className="sr-only">Odjazd z: </span>
               {departure.stopCode ?? departure.platformCode}
             </span>
           )}
@@ -99,6 +100,9 @@ function DepartureRow({
               className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300"
             >
               {departure.vehicle.stopsAway === 0 ? 'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
+              <span className="sr-only">
+                , {departure.vehicle.ageSec > 60 ? `pozycja sprzed ${Math.round(departure.vehicle.ageSec / 60)} min` : 'pozycja na żywo'}
+              </span>
             </span>
           )}
           {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}

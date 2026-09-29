@@ -84,6 +84,7 @@ describe('BoardStatus', () => {
     const chip = screen.getByText('odświeżanie ograniczone')
     expect(chip).toBeInTheDocument()
     expect(chip).toHaveAttribute('title', 'Pozostało 41 zapytań do API na dobę')
+    expect(screen.getByText('Pozostało 41 zapytań do API na dobę')).toHaveClass('sr-only')
   })
 
   it('keeps showing the last-updated timestamp and data age when a later refresh fails, instead of blanking out to the error banner', () => {

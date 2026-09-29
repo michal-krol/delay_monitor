@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
@@ -35,13 +35,30 @@ export type Direction = 'departures' | 'arrivals'
 /** Sufit długości filtra kierunku odtwarzanego z URL-a -- patrz komentarz przy odczycie. */
 const MAX_DESTINATION_FILTER_LENGTH = 100
 
-/** Zakładki Odjazdy/Przyjazdy. */
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+const DIRECTIONS: Direction[] = ['departures', 'arrivals']
+
+/** Zakładki Odjazdy/Przyjazdy; `tabIndex` roving — Tab wchodzi tylko na aktywną, strzałki przełączają. */
+function TabButton({
+  id,
+  panelId,
+  active,
+  onClick,
+  children,
+}: {
+  id: string
+  panelId: string
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
   return (
     <button
       type="button"
       role="tab"
+      id={id}
+      aria-controls={panelId}
       aria-selected={active}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
         active ? 'bg-indigo-600 text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
@@ -54,6 +71,9 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 
 export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
+  const idBase = useId()
+  const tabId = (d: Direction): string => `${idBase}-tab-${d}`
+  const panelId = `${idBase}-panel`
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
   const { data, error } = useBoard([stationId])
@@ -73,6 +93,18 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   function switchDirection(next: Direction): void {
     setDirection(next)
     setDestinationFilter(null)
+  }
+
+  /** Strzałki (z zawijaniem), Home i End przenoszą zaznaczenie ORAZ fokus (wzorzec zakładek WAI-ARIA). */
+  function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    const last = DIRECTIONS.length - 1
+    const at = DIRECTIONS.indexOf(direction)
+    const target =
+      event.key === 'ArrowRight' ? (at === last ? 0 : at + 1) : event.key === 'ArrowLeft' ? (at === 0 ? last : at - 1) : event.key === 'Home' ? 0 : event.key === 'End' ? last : null
+    if (target === null) return
+    event.preventDefault()
+    switchDirection(DIRECTIONS[target])
+    document.getElementById(tabId(DIRECTIONS[target]))?.focus()
   }
 
   const allRows = useMemo(() => (snapshot ? snapshot[direction] : []), [snapshot, direction])
@@ -180,11 +212,16 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
 
             <section className="glass rounded-2xl p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div role="tablist" aria-label="Kierunek" className="inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5">
-                  <TabButton active={direction === 'departures'} onClick={() => switchDirection('departures')}>
+                <div
+                  role="tablist"
+                  aria-label="Kierunek"
+                  onKeyDown={onTabKeyDown}
+                  className="inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5"
+                >
+                  <TabButton id={tabId('departures')} panelId={panelId} active={direction === 'departures'} onClick={() => switchDirection('departures')}>
                     Odjazdy
                   </TabButton>
-                  <TabButton active={direction === 'arrivals'} onClick={() => switchDirection('arrivals')}>
+                  <TabButton id={tabId('arrivals')} panelId={panelId} active={direction === 'arrivals'} onClick={() => switchDirection('arrivals')}>
                     Przyjazdy
                   </TabButton>
                 </div>
@@ -201,13 +238,15 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 )}
               </div>
 
-              <BoardTable
-                stationName={stationName}
-                direction={direction}
-                rows={rows}
-                now={now}
-                loading={snapshot === null && error === null}
-              />
+              <div role="tabpanel" id={panelId} aria-labelledby={tabId(direction)}>
+                <BoardTable
+                  stationName={stationName}
+                  direction={direction}
+                  rows={rows}
+                  now={now}
+                  loading={snapshot === null && error === null}
+                />
+              </div>
             </section>
           </>
         )}

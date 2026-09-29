@@ -36,6 +36,7 @@ export function MapFilters({
     if (!open) return
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
+      event.preventDefault() // zjadamy Escape — ramka panelu (PanelFrame) się wtedy nie zamyka
       setOpen(false)
       buttonRef.current?.focus()
     }
