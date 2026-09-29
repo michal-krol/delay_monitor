@@ -31,7 +31,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Kolory statusu (poświata karty stacji, podbarwienie wierszy tablicy, pierścień stanu sieci)
   pochodzą z tej samej palety co plakietki statusu. W stanie sieci pociągi, które „jeszcze nie
   wyruszyły", mają kolor statusu „jeszcze nie wyjechał" zamiast szarego.
-- Komunikaty o błędach mają w całej aplikacji jeden odcień czerwieni.
+- Komunikaty o błędach mają w całej aplikacji jeden odcień czerwieni. Nieudane odświeżenie
+  tablicy, gdy widać jeszcze ostatnie dane, jest oznaczone na bursztynowo jako ostrzeżenie,
+  tak jak w rozkładzie komunikacji miejskiej.
 - Przyciski zamykania, przypinania i usuwania mają wszędzie ten sam wygląd: okrągłe,
   z cienką obwódką. Karta obiektu, panel linii i listy na mapie transportu mają wspólną ramkę.
 - Przystanek na żądanie jest oznaczony wszędzie tak samo: plakietką „na żądanie" na tablicy
