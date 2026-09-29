@@ -211,7 +211,7 @@ export default function LineDetailPage() {
           <p className="text-sm text-text-secondary">Wczytywanie przebiegu linii…</p>
         ) : line === null || direction === undefined ? (
           <p className="text-sm text-text-secondary">
-            {data?.schedule.state === 'loading' ? 'Rozkład jeszcze się wczytuje.' : 'Nie znaleziono takiej linii w rozkładzie.'}
+            {data?.schedule.state === 'loading' ? 'Wczytywanie rozkładu…' : 'Nie znaleziono takiej linii w rozkładzie.'}
           </p>
         ) : (
           <>

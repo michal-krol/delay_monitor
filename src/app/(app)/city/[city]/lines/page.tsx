@@ -78,7 +78,7 @@ export default function CityLinesPage() {
       ) : loading ? (
         <p className="text-sm text-text-secondary">Wczytywanie linii…</p>
       ) : filteredLines === null ? (
-        <p className="text-sm text-text-secondary">Rozkład jeszcze się wczytuje.</p>
+        <p className="text-sm text-text-secondary">Wczytywanie rozkładu…</p>
       ) : (
         <>
           <input
