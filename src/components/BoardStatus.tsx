@@ -14,8 +14,6 @@ type Props = {
  */
 const STALE_AFTER_MS = 3 * 60 * 1000
 
-/** Kolor "coś wymaga uwagi, ale nie jest błędem" — dane sprzed chwili, degradacja, throttling. Wspólny z `ScheduleStatus`. */
-export const WARNING_CLASS = 'text-amber-700 dark:text-amber-400'
 
 /** Tablica PKP jest zawsze warszawska (AGENTS.md #1) — jawna strefa, żeby widz spoza PL widział ten sam czas co dane. */
 function formatLastUpdated(fetchedAt: string): string {
@@ -84,9 +82,9 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
           we flex-wrap rodzica (chipy układają się tak samo jak wcześniej). */}
       <span className="contents" aria-live="polite">
         {/* Ostrzeżenie, nie błąd: ostatni dobry snapshot wciąż jest na ekranie (#7), jak w `ScheduleStatus`. */}
-        {error && <span className={WARNING_CLASS}>Błąd ostatniego odświeżenia</span>}
+        {error && <span className="text-warning-text">Błąd ostatniego odświeżenia</span>}
 
-        {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
+        {isStale && <span className="text-warning-text">dane sprzed {formatAge(ageMs)}</span>}
 
         {data?.status === 'degraded' &&
           (data.realizationStale === true ? (
@@ -98,7 +96,7 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
                w tym stanie odwołany dziś pociąg wygląda jak normalny kurs.
                Poważniejsze niż `realizationIncomplete` niżej (brak CAŁEGO dnia,
                nie kawałka) -- dlatego sprawdzane pierwsze. */
-            <span className={WARNING_CLASS}>
+            <span className="text-warning-text">
               PKP nie podaje dziś danych o ruchu — godziny wg rozkładu, możliwe niewidoczne odwołania
             </span>
           ) : data.realizationIncomplete === true ? (
@@ -106,15 +104,15 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
                stron) -- część pociągów jest bez realizacji i renderuje się jako
                „jeszcze nie wyjechał" mimo że jedzie. Reszta tablicy (godziny,
                perony, pociągi z realizacją) jest aktualna. */
-            <span className={WARNING_CLASS}>
+            <span className="text-warning-text">
               Duży ruch — część pociągów może być pokazana jako „jeszcze nie wyjechał”, mimo że jadą
             </span>
           ) : (
-            <span className={WARNING_CLASS}>API nie odpowiada — pokazujemy ostatnie znane dane</span>
+            <span className="text-warning-text">API nie odpowiada — pokazujemy ostatnie znane dane</span>
           ))}
 
         {data?.throttled === true && (
-          <span className={WARNING_CLASS} title={hint}>
+          <span className="text-warning-text" title={hint}>
             odświeżanie ograniczone
             {hint !== undefined && <span className="sr-only"> {hint}</span>}
           </span>

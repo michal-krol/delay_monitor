@@ -278,7 +278,7 @@ function VehicleBody({
           <dt className="text-xs text-text-muted">Pozycja</dt>
           <dd>
             {formatAgo(vehicle.ageSec)} ·{' '}
-            <span className={fresh ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-700 dark:text-amber-400'}>
+            <span className={fresh ? 'text-indigo-600 dark:text-indigo-400' : 'text-warning-text'}>
               {fresh ? 'aktualna' : 'nieaktualna'}
             </span>
           </dd>

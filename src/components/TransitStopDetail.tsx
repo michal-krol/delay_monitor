@@ -195,7 +195,7 @@ export function TransitStopDetail({
               <div className="flex items-center gap-2">
                 <PageTitle as={embedded ? 'h2' : 'h1'}>{stopName}</PageTitle>
                 {board?.wheelchairNote != null && (
-                  <span className="text-amber-600 dark:text-amber-400">
+                  <span className="text-warning-text">
                     <AccessibleIcon
                       size={18}
                       label={
@@ -340,7 +340,7 @@ export function TransitStopDetail({
                   <AlertCircleIcon
                     size={14}
                     label="aktywne utrudnienia"
-                    className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`}
+                    className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-warning-text'}`}
                   />
                 )}
               </button>

@@ -378,7 +378,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
         <span className="inline-flex items-center gap-1">
           {row.hasDisruption === true && (
-            <span className="text-amber-600 dark:text-amber-400">
+            <span className="text-warning-text">
               <AlertCircleIcon size={14} label="Utrudnienie na trasie" />
             </span>
           )}

@@ -336,7 +336,7 @@ export default function LineDetailPage() {
                           {stop.wheelchair === 2 && (
                             <AccessibleIcon
                               size={13}
-                              className="shrink-0 self-center text-amber-600 dark:text-amber-400"
+                              className="shrink-0 self-center text-warning-text"
                               label="Przystanek niedostępny dla osób na wózku"
                             />
                           )}

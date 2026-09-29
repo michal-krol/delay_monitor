@@ -724,7 +724,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 </div>
               ) : (
                 <div className="glass flex items-start gap-3 rounded-2xl p-4">
-                  <span className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400">
+                  <span className="mt-0.5 shrink-0 text-warning-text">
                     <AlertCircleIcon size={16} />
                   </span>
                   <div className="min-w-0">
