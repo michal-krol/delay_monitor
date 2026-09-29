@@ -129,6 +129,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   a czytniki ekranu wiedzą, którą tablicę zakładka pokazuje.
 - Link „Zobacz pełną tablicę" w dymku mapy ma szewron zamiast tekstowej strzałki „→".
 - Pusty Pulpit i ekran miasta z wybranym przystankiem miały dwa główne nagłówki naraz.
+- Na ekranie 375 px strona linii nie przewija się już w poziomie (karty trasy i rozkładu były
+  szersze od ekranu), a przyciski w nagłówku ekranu miasta schodzą pod tytuł, zamiast
+  wystawać poza stronę.
 
 ## [1.0.2] — 2026-09-28
 
