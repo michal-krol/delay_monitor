@@ -28,6 +28,17 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   transportu. Pinezki i trasa mają kolor rodzaju środka transportu. Pojazd to kropka w tym
   samym kolorze ze strzałką kierunku jazdy. Na osi czasu linii pojazd ma ten sam kolor
   i strzałkę w dół zamiast fioletowego trójkąta.
+- Kolory statusu (poświata karty stacji, podbarwienie wierszy tablicy, pierścień stanu sieci)
+  pochodzą z tej samej palety co plakietki statusu. W stanie sieci pociągi, które „jeszcze nie
+  wyruszyły", mają kolor statusu „jeszcze nie wyjechał" zamiast szarego.
+- Komunikaty o błędach mają w całej aplikacji jeden odcień czerwieni.
+- Przyciski zamykania, przypinania i usuwania mają wszędzie ten sam wygląd: okrągłe,
+  z cienką obwódką. Karta obiektu, panel linii i listy na mapie transportu mają wspólną ramkę.
+- Przystanek na żądanie jest oznaczony wszędzie tak samo: plakietką „na żądanie" na tablicy
+  odjazdów, na trasie linii (zamiast skrótu „NŻ") i w panelu linii na mapie.
+- Najbliższy odjazd na tablicy przystanku i „aktualna" pozycja pojazdu na mapie są wyróżnione
+  kolorem akcentu zamiast zielonego — w komunikacji miejskiej nie znamy opóźnień, więc nic
+  nie powinno wyglądać jak „na czas".
 
 ### Naprawione
 
@@ -38,6 +49,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   motywie i przełączają go razem z motywem. Przycisk powiększenia i zamknięcia mapy,
   przyciski przybliżania na mapie transportu oraz krzyżyk i grot dymka mają ciemne style
   w ciemnym motywie.
+- Informacja o źródłach mapy (przycisk „i" z listą źródeł) ma ciemne tło w ciemnym motywie
+  zamiast białego.
+- Linie oddzielające wiersze na listach odjazdów i w szczegółach połączenia mają kolor
+  obramowania kart zamiast koloru tekstu.
 - Gdy źródło rozkładu komunikacji miejskiej jest niedostępne, serwer nie próbuje go pobierać
   ponownie przy każdym odświeżeniu otwartych widoków — kolejne próby są coraz rzadsze
   (od 30 sekund do godziny), a po udanym pobraniu wszystko wraca do normy.
