@@ -38,15 +38,14 @@ test('pulpit na 375 px: karta „Dziś w Polsce" jest widoczna pod treścią', a
 })
 
 test('linii na 375 px: karty Trasy i Rozkładu mają się zmieścić bez poziomego przewijania', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/city/warszawa/line/20')
   await expect(page.getByRole('heading', { level: 1, name: /Centrum – Dworzec Centralny/ })).toBeVisible()
   await expect(page.getByRole('heading', { name: /^Rozkład/ })).toBeVisible()
 
-  const docWidth = await page.evaluate(() => {
-    return {
-      scrollWidth: document.documentElement.scrollWidth,
-      innerWidth: window.innerWidth,
-    }
-  })
-  expect(docWidth.scrollWidth).toBeLessThanOrEqual(docWidth.innerWidth)
+  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }))
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
 })
