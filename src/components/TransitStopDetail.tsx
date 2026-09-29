@@ -187,7 +187,7 @@ export function TransitStopDetail({
   )
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass-strong glow-ring rounded-2xl p-5" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
           <div className="flex flex-wrap items-start justify-between gap-3">

@@ -139,7 +139,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   }, [])
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass rounded-2xl p-5">
           {configError && <ConfigErrorBanner />}

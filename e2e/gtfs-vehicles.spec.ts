@@ -9,24 +9,19 @@ const LINE_20 = '/city/warszawa/line/20'
 // z pollerem rozkładu przy pierwszym trafieniu /api/gtfs/* — strona ponawia.
 const READY = 45_000
 
-test('linia: marker pojazdu na osi + karta „Pojazdy w trasie" ze znakiem bocznym', async ({ page }, testInfo) => {
+test('linia: marker pojazdu na osi + karta „Pojazdy w trasie" ze znakiem bocznym', async ({ page }) => {
   await page.goto(LINE_20)
   // Nagłówek „Trasa linii" renderuje się na każdym viewporcie (nagłówek „Linia 20"
-  // to tytuł karty w PageAside → `hidden xl:flex`, nie ma go na mobile).
+  // to tytuł karty w PageAside).
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
   // Marker na osi trasy renderuje się na każdym viewporcie (jest w <ol>, nie w aside).
   await expect(page.getByTitle(/^Pojazd 380\d/).first()).toBeVisible({ timeout: READY })
 
-  // Karta „Pojazdy w trasie" żyje w PageAside (`hidden xl:flex`) — asercje listy
-  // aside tylko na desktopie; marker na osi (wyżej) sprawdzamy na każdym viewporcie.
-  if (testInfo.project.name === 'desktop-chromium') {
-    await expect(page.getByText(/#380\d/).first()).toBeVisible({ timeout: READY })
-  }
+  // Karta „Pojazdy w trasie" w PageAside (od `xl` po prawej, niżej pod treścią).
+  await expect(page.getByText(/#380\d/).first()).toBeVisible({ timeout: READY })
 })
 
-test('widżet sieci: „W trasie teraz" pokazuje liczbę, nie „—"', async ({ page }, testInfo) => {
-  // Widżet sieci renderuje się dopiero od `xl` (`hidden xl:flex` w page.tsx).
-  test.skip(testInfo.project.name !== 'desktop-chromium', 'widżet sieci tylko na desktopie')
+test('widżet sieci: „W trasie teraz" pokazuje liczbę, nie „—"', async ({ page }) => {
   await page.goto('/city/warszawa')
   const line = page.getByText(/W trasie teraz/)
   await expect(line).toBeVisible({ timeout: READY })

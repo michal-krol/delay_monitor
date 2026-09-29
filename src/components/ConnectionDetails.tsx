@@ -390,7 +390,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
       )}
 
       {status === 'ready' && data !== null && data.stops.length > 0 && (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem]">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
           {/* Nagłówek + przebieg trasy w jednej kolumnie (`col-start-1`), prawy pasek
               w drugiej i przez oba wiersze — dzięki temu widżety zaczynają się od
               samej góry, a karta nagłówka ma szerokość listy przystanków. */}

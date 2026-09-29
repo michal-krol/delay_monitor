@@ -586,7 +586,7 @@ export default function CityMapPage() {
           {!isWide && card !== null && <div className="absolute inset-x-0 bottom-0 z-20 flex max-h-[62%] flex-col p-2">{card}</div>}
         </div>
 
-        {isWide && card !== null && <aside className="flex w-[380px] shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
+        {isWide && card !== null && <aside className="flex w-aside shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
       </div>
     </div>
   )

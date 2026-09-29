@@ -159,6 +159,9 @@
   --color-surface-strong: var(--surface-strong);
   --color-surface-border: var(--surface-border);
   --color-error-text: var(--error-text);
+  /* Jedna szerokość prawej kolumny (PageAside, tablice, karta mapy) — właściciel
+     2026-09-29: 320 px przy 1280, 380 px od ok. 1520. */
+  --spacing-aside: clamp(20rem, 25vw, 23.75rem);
   --font-heading: var(--font-manrope), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 

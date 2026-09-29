@@ -3,21 +3,23 @@ import { pluralPl } from '@/lib/plural'
 
 /**
  * Prawa kolumna kontekstowa — pozycjonowanie wspólne dla czterech ekranów
- * (pulpit, miasto, linie, linia). Dzieci to karty. Schowana poniżej `xl`, żeby
- * nie ściskać treści głównej na węższych ekranach (#7). Zakłada, że rodzic jest
- * `flex`-rzędem — `(app)/layout.tsx` nim jest. Zwykle przez `PageShell`
- * niżej, nie bezpośrednio — patrz tam.
+ * (pulpit, miasto, linie, linia). Dzieci to karty. Od `xl` to kolumna po
+ * prawej (szerokość `w-aside`, przyklejona, własne przewijanie); poniżej `xl`
+ * karty lądują pod treścią głównej kolumny, na pełną szerokość i z tym samym
+ * odstępem od krawędzi co `main` — nic nie znika na węższych ekranach (#7).
+ * Zakłada, że rodzic to kontener `flex` (kolumna → wiersz od `xl`); daje go
+ * `PageShell`, przez który zwykle się z niej korzysta — patrz tam.
  */
 export function PageAside({ children }: { children: ReactNode }) {
   return (
-    // `tabIndex`/`aria-label`: `max-h-dvh overflow-y-auto` czyni z tej kolumny
-    // region przewijalny; gdy karty przekroczą wysokość ekranu, użytkownik
+    // `tabIndex`/`aria-label`: od `xl` `max-h-dvh overflow-y-auto` czyni z tej
+    // kolumny region przewijalny; gdy karty przekroczą wysokość ekranu, użytkownik
     // klawiatury musi móc go sfokusować i przewinąć strzałkami (axe
     // `scrollable-region-focusable`, WCAG 2.1.1).
     <aside
       tabIndex={0}
       aria-label="Panel kontekstowy"
-      className="hidden w-72 shrink-0 self-start sticky top-0 max-h-dvh overflow-y-auto py-7 pr-8 xl:flex xl:flex-col xl:gap-4"
+      className="flex flex-col gap-4 px-4 pb-5 sm:px-8 sm:pb-7 xl:sticky xl:top-0 xl:w-aside xl:shrink-0 xl:self-start xl:max-h-dvh xl:overflow-y-auto xl:px-0 xl:py-7 xl:pr-8"
     >
       {children}
     </aside>
@@ -36,10 +38,11 @@ export function PageAside({ children }: { children: ReactNode }) {
  */
 export function PageShell({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
-    <>
+    // Kolumna na węższych ekranach (aside pod treścią), wiersz od `xl`.
+    <div className="flex min-w-0 flex-1 flex-col xl:flex-row">
       <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">{children}</main>
       {aside !== undefined && <PageAside>{aside}</PageAside>}
-    </>
+    </div>
   )
 }
 
