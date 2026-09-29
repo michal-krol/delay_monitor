@@ -31,6 +31,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Zakładka „Komunikaty" na stronie przystanku nie twierdzi już przez pierwsze pół minuty, że
+  nie ma komunikatów, gdy serwer dopiero je pobiera — pokazuje „Wczytywanie komunikatów…",
+  a utrudnienie pojawia się po kilku sekundach.
 - Mapy na stronach linii, przystanku, stacji i połączenia mają ciemny podkład w ciemnym
   motywie i przełączają go razem z motywem. Przycisk powiększenia i zamknięcia mapy,
   przyciski przybliżania na mapie transportu oraz krzyżyk i grot dymka mają ciemne style

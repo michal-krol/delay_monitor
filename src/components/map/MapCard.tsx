@@ -255,7 +255,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
 
   return (
     <>
-      {board !== null && board.alerts.length > 0 && (
+      {board?.alerts != null && board.alerts.length > 0 && (
         <div className="mb-3">
           <AlertBanner alerts={board.alerts} />
         </div>
