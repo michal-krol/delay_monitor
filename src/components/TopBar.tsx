@@ -49,7 +49,9 @@ export function TopBar(props: Props) {
   const back = props.backLabel === undefined ? null : props
 
   return (
-    <div className="relative flex items-center justify-between gap-4">
+    // Wariant nagłówka zawija rząd (kontrolki schodzą pod tytuł na wąskim ekranie
+    // zamiast wychodzić poza stronę); wariant z ← zostaje w jednym rzędzie.
+    <div className={`relative flex items-center justify-between gap-4 ${back === null ? 'flex-wrap gap-y-2' : ''}`}>
       {back !== null ? (
         <div className="flex min-w-0 items-center gap-3">
           {back.backHref !== undefined ? (
@@ -70,7 +72,7 @@ export function TopBar(props: Props) {
         </div>
       )}
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className={`flex shrink-0 items-center gap-2 ${back === null ? 'ml-auto' : ''}`}>
         {back === null ? props.actions : back.share === true && <ShareButton />}
         <ThemeToggle />
         {/* Dzwonek „Powiadomienia" usunięty: nie miał żadnej akcji, a
