@@ -64,9 +64,7 @@ export function TopBar(props: Props) {
         {/* Dzwonek „Powiadomienia" usunięty: nie miał żadnej akcji, a
             powiadomienia wymagają service workera, kluczy VAPID i trwałego
             zapisu subskrypcji — których ta aplikacja świadomie nie ma
-            (AGENTS.md #5). Przycisk bez akcji obiecuje funkcję, której nie ma.
-            Wyciszony placeholder w `Sidebar` (`kind: 'disabled'`, „Wkrótce")
-            zostaje — ten niczego nie udaje. */}
+            (AGENTS.md #5). Przycisk bez akcji obiecuje funkcję, której nie ma. */}
       </div>
     </div>
   )

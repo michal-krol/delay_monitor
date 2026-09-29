@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { HomeIcon, BellIcon, TrainIcon, ArrowRightIcon, ShareIcon, InfoIcon, PauseIcon } from './icons'
+import { HomeIcon, TrainIcon, ArrowRightIcon, ShareIcon, InfoIcon, PauseIcon } from './icons'
 import * as icons from './icons'
 
 describe('icons', () => {
@@ -15,7 +15,7 @@ describe('icons', () => {
   })
 
   it('przyjmuje niestandardowy rozmiar i className', () => {
-    const { container } = render(<BellIcon size={24} className="text-amber-500" />)
+    const { container } = render(<HomeIcon size={24} className="text-amber-500" />)
     const svg = container.querySelector('svg')
     expect(svg).toHaveAttribute('width', '24')
     expect(svg).toHaveAttribute('height', '24')

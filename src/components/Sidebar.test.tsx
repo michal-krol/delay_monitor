@@ -83,14 +83,14 @@ describe('Sidebar', () => {
     expect(link).toHaveAttribute('aria-current', 'page')
   })
 
-  it('Ulubione/Powiadomienia/Ustawienia są nieaktywne — brak href, aria-disabled', () => {
-    render(<Sidebar activeItem="pulpit" />)
+  it('nawigacja ma dokładnie 4 linki i żadnych nieaktywnych placeholderów', () => {
+    const { container } = render(<Sidebar activeItem="pulpit" />)
+    const names = screen.getAllByRole('link').map((l) => l.getAttribute('aria-label'))
+    expect(names).toEqual(['Pulpit', 'Odjazdy / Przyjazdy', 'Trasy', 'Mapa'])
+    // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- brak jakiegokolwiek elementu z aria-disabled
+    expect(container.querySelector('[aria-disabled]')).toBeNull()
     for (const label of ['Ulubione', 'Powiadomienia', 'Ustawienia']) {
-      // eslint-disable-next-line testing-library/no-node-access -- najbliższy element z aria-disabled to cały wiersz pozycji nawigacji
-      const item = screen.getByText(label).closest('[aria-disabled]')
-      expect(item).toHaveAttribute('aria-disabled', 'true')
-      // eslint-disable-next-line testing-library/no-node-access -- sprawdzamy brak <a> wewnątrz TEGO konkretnego wiersza
-      expect(item?.querySelector('a')).toBeNull()
+      expect(screen.queryByText(label)).toBeNull()
     }
   })
 
