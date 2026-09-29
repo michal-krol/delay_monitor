@@ -34,6 +34,7 @@ describe('Breadcrumb', () => {
 
     // jsdom nie zna media queries — sprawdzamy klasy: rodzic (z separatorem) ukryty do `sm`,
     // bieżąca strona ucinana wielokropkiem zamiast łamania na kilka wierszy.
+    // eslint-disable-next-line testing-library/no-node-access -- klasa widoczności siedzi na opakowaniu linku i separatora
     expect(screen.getByRole('link', { name: 'Pulpit' }).parentElement).toHaveClass('hidden', 'sm:flex')
     const current = screen.getByText('Warszawa Centralna')
     expect(current).toHaveClass('truncate')
