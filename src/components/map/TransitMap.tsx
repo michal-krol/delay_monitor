@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap, MapGeoJSONFeature } from 'maplibre-gl'
-import { WORKER_URL } from '../MapView'
+import { STYLE_DARK, STYLE_LIGHT, WORKER_URL } from '../MapView'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { BackboneLine, CityStop } from '@/lib/gtfs/query'
 import type { MapRailStation } from '@/lib/weather/coordinates'
@@ -24,8 +24,6 @@ import {
   VISIBLE_LIMIT,
 } from './mapData'
 
-const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty'
-const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
 const FONT = ['Noto Sans Regular']
 
 export type MapHit = { kind: 'vehicle' | 'stop' | 'rail'; id: string }

@@ -82,8 +82,12 @@ export async function GET(request: Request) {
   const vehiclePoller = peekVehiclePoller(city)
   const positions = vehiclePoller?.getPositions() ?? []
 
+  // `alerts: null` = jeszcze nie wiadomo (poller alertów `idle`/`loading` — np. świeżo obudzony
+  // przez to samo żądanie): klient ponawia drabinką zamiast pokazać „brak komunikatów" na 30 s (#7).
+  // Feed `failed` -> lista (ostatnie dobre albo pusta), żeby nie odpytywać martwego feedu — jak `/api/gtfs/line`.
   const alertPoller = peekAlertPoller(city)
-  const allAlerts = alertPoller?.getAlerts() ?? []
+  const alertState = alertPoller?.getView().state
+  const allAlerts = alertState === 'ready' || alertState === 'failed' ? (alertPoller?.getAlerts() ?? []) : null
 
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
@@ -98,7 +102,7 @@ export async function GET(request: Request) {
     // zawsze podzbiorem linii całego zespołu, więc dopasowanie zawsze idzie
     // po zespole, niezależnie od zawężenia `?member=`.
     const groupRouteIdxs = schedule.groupRoutes.get(group.id) ?? new Set<number>()
-    const alerts = alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
+    const alerts = allAlerts === null ? null : alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
     // Indeks obserwowanego przystanku w przebiegu — do policzenia „ile przystanków
     // stąd" jest pojazd. `undefined` (pytano o cały zespół, nie o słupek) → brak tagu.
     const scopeStopIdx = schedule.stopIndexById.get(scopeId ?? group.id)

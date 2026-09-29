@@ -195,6 +195,24 @@ describe('TransitStopDetail', () => {
     expect(screen.getByText('Aktualnie brak komunikatów dla tego przystanku.')).toBeInTheDocument()
   })
 
+  it('shows a loading hint, not "no alerts", on the Komunikaty tab while alerts are still unknown (alerts: null)', async () => {
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ ...board, alerts: null }],
+        attribution: [],
+      },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
+    expect(screen.getByText('Wczytywanie komunikatów…')).toBeInTheDocument()
+    expect(screen.queryByText('Aktualnie brak komunikatów dla tego przystanku.')).not.toBeInTheDocument()
+  })
+
   it('shows all lines grouped by mode on the Wszystkie linie tab', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('tab', { name: 'Wszystkie linie' }))

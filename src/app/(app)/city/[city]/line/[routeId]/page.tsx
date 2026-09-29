@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useTheme } from 'next-themes'
 import { notFound, useParams, useRouter } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
 import { Breadcrumb } from '@/components/Breadcrumb'
@@ -13,7 +14,8 @@ import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
-import { AccessibleIcon, ArrowRightIcon, SwapIcon } from '@/components/icons'
+import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon } from '@/components/icons'
+import { MODE_COLOR } from '@/components/map/mapData'
 import { MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
@@ -92,8 +94,8 @@ export default function LineDetailPage() {
     [stops, line?.mode, city]
   )
   const mapRoute = useMemo(
-    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, color: line?.color ?? null }),
-    [direction?.shape, stops, line?.color]
+    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', color: line?.color ?? null }),
+    [direction?.shape, stops, line?.mode, line?.color]
   )
   const mapMovers = useMemo<MapMover[]>(() => {
     if (!showVehicles) return []
@@ -102,8 +104,11 @@ export default function LineDetailPage() {
       lat: v.lat,
       lon: v.lon,
       label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”`,
+      mode: line?.mode ?? 'bus',
+      bearing: v.bearing,
     }))
-  }, [showVehicles, liveVehicles.vehicles, stops])
+  }, [showVehicles, liveVehicles.vehicles, stops, line?.mode])
+  const { resolvedTheme } = useTheme()
   const onMapPinClick = useCallback((id: string) => setStopSel(Number(id)), [])
 
   function switchDirection(): void {
@@ -233,6 +238,7 @@ export default function LineDetailPage() {
                   movers={mapMovers}
                   onPinClick={onMapPinClick}
                   ariaLabel={`Mapa trasy linii ${line.line}`}
+                  dark={resolvedTheme === 'dark'}
                 />
               </section>
             )}
@@ -279,16 +285,18 @@ export default function LineDetailPage() {
                                     <span
                                       key={v.sideNumber + v.tripId}
                                       title={`Pojazd ${v.sideNumber}${v.ageSec > 60 ? ` · ${Math.round(v.ageSec / 60)} min temu` : ''}`}
-                                      className="absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-[9px] font-bold text-white shadow"
+                                      data-testid="timeline-vehicle"
+                                      className="absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full text-white shadow ring-2 ring-white dark:ring-slate-900"
                                       style={{
                                         top: `${v.fraction * 100}%`,
-                                        // Bez rotacji: geograficzny azymut na pionowej, schematycznej
-                                        // osi czasu nie wskazuje niczego sensownego. `v.bearing` zostaje
-                                        // w typie/API — może się przydać na mapie.
+                                        // Kolor rodzaju jak na mapie; strzałka = kierunek jazdy NA OSI (w dół
+                                        // listy), nie `v.bearing` — geograficzny azymut na pionowej,
+                                        // schematycznej osi nie wskazuje niczego sensownego (ten idzie na mapę).
+                                        backgroundColor: MODE_COLOR[line.mode],
                                         transform: 'translateY(-50%)',
                                       }}
                                     >
-                                      ▲
+                                      <ChevronRightIcon size={10} className="rotate-90" />
                                     </span>
                                   ))}
                             </span>

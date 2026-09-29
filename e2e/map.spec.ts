@@ -81,9 +81,12 @@ test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', a
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
   const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
   await expect(dialog).toBeVisible()
-  // MapLibre przebudowuje atrybucję (linki) po załadowaniu stylu -- Tab przed tym gubi fokus na body.
+  // MapLibre przebudowuje atrybucję (`replaceChildren`, nowe linki) za każdym razem, gdy używane
+  // źródło stylu dołoży swoją -- fokusowany link znika i fokus spada na body. Sam „MapLibre" to
+  // PIERWSZA wersja (flaky 2026-09-29: przebudowa ~250 ms po tej bramce, 3/30 porażek);
+  // „OpenStreetMap" przychodzi w ostatniej, a identyczny HTML MapLibre pomija (`_updateAttributions`).
   await expectTilesRendered(dialog.locator('canvas'))
-  await expect(dialog.getByRole('link', { name: 'MapLibre' })).toBeVisible()
+  await expect(dialog.getByRole('link', { name: /OpenStreetMap/ })).toBeVisible()
 
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press('Tab')
@@ -217,6 +220,26 @@ test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', a
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
+
+// Każda mapa `MapView` w obu motywach (PR 6: ciemny podkład, piny w kolorze rodzaju, kontrolki `glass`).
+// Mapa stacji siedzi w bocznym panelu, na telefonie ukrytym — stąd `toBeAttached`, nie `toBeVisible`.
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const [name, path, ready] of [
+    ['linii', LINE_20, 'Mapa trasy linii 20'],
+    ['połączenia', TRAIN_104, 'Mapa trasy pociągu'],
+    ['stacji', STATION_BOARD, 'Mapa stacji'],
+  ] as const) {
+    if (colorScheme === 'light' && name !== 'stacji') continue // jasne skany linii i połączenia są wyżej
+    test(`a11y: mapa ${name} w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} bez naruszeń serious/critical`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme })
+      await page.goto(path)
+      await expect(page.getByRole('region', { name: new RegExp(`^${ready}`) }).locator('.maplibregl-marker').first()).toBeAttached({ timeout: READY })
+      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+      const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+      expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+    })
+  }
+}
 
 // Mapa transportu (refaktor 2026-09-26): kolej z całej Polski + przystanki
 // i pojazdy miasta jako warstwy WebGL. Obiekty na canvasie nie są fokusowalne —

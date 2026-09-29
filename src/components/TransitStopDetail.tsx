@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useTheme } from 'next-themes'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
@@ -159,6 +160,7 @@ export function TransitStopDetail({
 
   const summary = board?.summary
 
+  const { resolvedTheme } = useTheme()
   const mapPins = useMemo(
     () =>
       members.map((m) => {
@@ -368,7 +370,7 @@ export function TransitStopDetail({
                 }
               >
                 {tab.label}
-                {tab.key === 'alerts' && board !== null && board.alerts.length > 0 && (
+                {tab.key === 'alerts' && (board?.alerts?.length ?? 0) > 0 && (
                   <span
                     aria-hidden="true"
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
@@ -453,10 +455,13 @@ export function TransitStopDetail({
             ))}
 
           {activeTab === 'alerts' &&
-            (board === null || board.alerts.length === 0 ? (
-              <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla tego przystanku.</p>
-            ) : (
+            (board?.alerts === null ? (
+              // Feed alertów jeszcze nie odpowiedział — nieznane, nie „brak" (#7); hook ponawia drabinką.
+              <p className="text-sm text-text-muted">Wczytywanie komunikatów…</p>
+            ) : board?.alerts?.length ? (
               <AlertBanner alerts={board.alerts} />
+            ) : (
+              <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla tego przystanku.</p>
             ))}
         </section>
       </div>
@@ -466,7 +471,7 @@ export function TransitStopDetail({
 
         {mapPins.length > 0 && (
           <AsideCard title="Mapa" className="card-hover">
-            <MapView pins={mapPins} onPinClick={setSlupekChoice} ariaLabel={`Mapa przystanku ${stopName}`} />
+            <MapView pins={mapPins} onPinClick={setSlupekChoice} ariaLabel={`Mapa przystanku ${stopName}`} dark={resolvedTheme === 'dark'} />
           </AsideCard>
         )}
 

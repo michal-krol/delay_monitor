@@ -28,7 +28,8 @@ export type TransitStopBoard = {
    */
   summary: StopSummary | null
   /** Alerty tej linii/przystanku (przez linie zespołu) — nigdy pole opóźnienia (#13). */
-  alerts: AlertRecord[]
+  /** `null` = feed alertów jeszcze nie odpowiedział (nieznane, nie „brak") -- patrz `/api/gtfs/board`. */
+  alerts: AlertRecord[] | null
   /**
    * `vehicle` = pozycja pojazdu realizującego ten kurs, wyrażona jako dystans
    * w przystankach od obserwowanego słupka (`stopsAway`, 0 = „zaraz będzie" —
@@ -55,10 +56,14 @@ export type TransitBoardResponse = {
 
 /**
  * Odświeżanie co 30 s; dopóki rozkład się wczytuje (`schedule.state === 'loading'`)
- * ponawiamy domyślną drabinką `usePolling` (`stop_times` mierzone lokalnie na 3,0 s,
- * całe ładowanie to rząd kilkunastu sekund).
+ * albo alerty są jeszcze nieznane (`alerts: null`), ponawiamy domyślną drabinką
+ * `usePolling` (`stop_times` mierzone lokalnie na 3,0 s, całe ładowanie to rząd
+ * kilkunastu sekund).
  */
 const REFRESH_INTERVAL_MS = 30000
+
+const isBoardLoading = (json: TransitBoardResponse) =>
+  json.schedule.state === 'loading' || json.stops.some((stop) => stop !== null && stop.alerts === null)
 
 export function useTransitBoard(city: string | null, stopIds: string[], limit = 20, member: string | null = null) {
   const stopsKey = stopIds.join(',')
@@ -72,7 +77,7 @@ export function useTransitBoard(city: string | null, stopIds: string[], limit = 
         `/api/gtfs/board?city=${encodeURIComponent(city as string)}&stops=${stopsKey}&limit=${limit}` +
           (member !== null ? `&member=${encodeURIComponent(member)}` : '')
       ),
-    { refreshMs: REFRESH_INTERVAL_MS, isLoading: (json) => json.schedule.state === 'loading', keepPreviousData: true }
+    { refreshMs: REFRESH_INTERVAL_MS, isLoading: isBoardLoading, keepPreviousData: true }
   )
 
   // `keepPreviousData` ma chronić tylko przełączenie słupka/limitu tego samego zestawu
