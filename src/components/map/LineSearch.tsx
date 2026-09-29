@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type KeyboardEvent } from 'react'
 import { LineBadge } from '../LineBadge'
+import { SEARCH_INPUT_CLASS } from '../StationSearch'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import { normalizeForSearch } from '@/lib/search'
 
@@ -89,7 +90,7 @@ export function LineSearch({
           setActiveIndex(-1)
         }}
         onKeyDown={onKeyDown}
-        className="glass w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500"
+        className={SEARCH_INPUT_CLASS}
       />
       {message !== null && (
         <p role="status" className="glass-strong absolute z-20 mt-2 w-full rounded-xl px-3.5 py-2 text-sm text-text-secondary">
