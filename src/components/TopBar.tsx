@@ -75,10 +75,6 @@ export function TopBar(props: Props) {
       <div className={`flex shrink-0 items-center gap-2 ${back === null ? 'ml-auto' : ''}`}>
         {back === null ? props.actions : back.share === true && <ShareButton />}
         <ThemeToggle />
-        {/* Dzwonek „Powiadomienia" usunięty: nie miał żadnej akcji, a
-            powiadomienia wymagają service workera, kluczy VAPID i trwałego
-            zapisu subskrypcji — których ta aplikacja świadomie nie ma
-            (AGENTS.md #5). Przycisk bez akcji obiecuje funkcję, której nie ma. */}
       </div>
     </div>
   )
