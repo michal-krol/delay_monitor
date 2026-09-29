@@ -5,8 +5,10 @@ import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
 import { trapTab } from '@/lib/focusTrap'
+import type { GtfsMode } from '@/lib/gtfs/types'
 import { MODE_ICON } from './transitMode'
 import { ExpandIcon, CloseIcon, MapIcon } from './icons'
+import { MODE_COLOR, UNKNOWN_COLOR, routeColor } from './map/mapData'
 
 export type MapPin = {
   id: string
@@ -21,17 +23,23 @@ export type MapPin = {
   href?: string
 }
 
-/** Ruchomy punkt (pojazd) — markery aktualizowane w miejscu, bez przebudowy mapy. */
-export type MapMover = { id: string; lat: number; lon: number; label: string }
-/** Trasa rysowana po kolejnych punktach — kontur ulic z `shapes.txt` gdy wzorzec go ma, inaczej łamana po przystankach (`schedule.ts`/`query.ts` decydują, MapView tylko rysuje). */
-export type MapRoute = { points: { lat: number; lon: number }[]; color: string | null }
+/**
+ * Ruchomy punkt (pojazd) — markery aktualizowane w miejscu, bez przebudowy mapy.
+ * Ta sama konwencja co na mapie miasta: kropka w kolorze rodzaju + strzałka kierunku
+ * (`bearing`, azymut od północy); bez `bearing` sama kropka.
+ */
+export type MapMover = { id: string; lat: number; lon: number; label: string; mode: GtfsMode; bearing?: number | null }
+/**
+ * Trasa rysowana po kolejnych punktach — kontur ulic z `shapes.txt` gdy wzorzec go ma, inaczej łamana po przystankach (`schedule.ts`/`query.ts` decydują, MapView tylko rysuje).
+ * Kolor liczy `routeColor(mode, color)` — ta sama reguła co na mapie miasta; `color` = surowy `route_color` z feedu.
+ */
+export type MapRoute = { points: { lat: number; lon: number }[]; mode: GtfsMode; color: string | null }
 
 type MoverHandle = { sync: (movers: MapMover[]) => void }
 
-const ROUTE_FALLBACK_COLOR = '#4f46e5'
-export const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
-
-export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
+/** Podkłady OpenFreeMap — wspólne dla `MapView` i mapy miasta (`map/TransitMap.tsx`). */
+export const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty'
+export const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
 
 /**
  * `setWorkerUrl` PRZED pierwszym `new Map()` -- MapLibre w wersji ESM tworzy
@@ -53,11 +61,11 @@ export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
  */
 export const WORKER_URL = '/maplibre-gl-worker.mjs'
 
-/** Kółko z ikoną trybu zamiast domyślnej łezki MapLibre — `createRoot` do oderwanego diva, zero duplikacji SVG z `icons.tsx`. Kotwica na środku (poprawniejsze niż łezka: punkt = dokładna lokalizacja). */
-export function createMarkerElement(pin: MapPin, background = 'var(--accent-gradient)'): { element: HTMLDivElement; root: Root } {
+/** Kółko w kolorze rodzaju (`MODE_COLOR`, jak kropki i legenda mapy miasta) z ikoną trybu zamiast domyślnej łezki MapLibre — `createRoot` do oderwanego diva, zero duplikacji SVG z `icons.tsx`. Kotwica na środku (poprawniejsze niż łezka: punkt = dokładna lokalizacja). */
+export function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root } {
   const element = document.createElement('div')
   element.className = 'grid h-8 w-8 cursor-pointer place-items-center rounded-full text-white shadow-lg ring-2 ring-white'
-  element.style.background = background
+  element.style.backgroundColor = pin.mode !== undefined ? MODE_COLOR[pin.mode] : UNKNOWN_COLOR
   const root = createRoot(element)
   const Icon = pin.mode !== undefined ? MODE_ICON[pin.mode] : MapIcon
   root.render(<Icon size={16} />)
@@ -101,6 +109,30 @@ export function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
   return wrap
 }
 
+/**
+ * Pojazd jak na mapie miasta (`vehicles` + `vehicles-arrows` w `TransitMap`): kropka w kolorze
+ * rodzaju, strzałka przed nią. Cały marker obraca MapLibre (`rotation`), więc strzałka stoi
+ * „na górze" elementu; bez kierunku jest ukryta.
+ */
+function createMoverElement(mover: MapMover): HTMLDivElement {
+  const color = MODE_COLOR[mover.mode]
+  const element = document.createElement('div')
+  element.className = 'relative h-4 w-4 cursor-pointer'
+  element.setAttribute('data-testid', 'map-mover')
+  const dot = document.createElement('div')
+  dot.dataset.part = 'dot'
+  dot.className = 'h-4 w-4 rounded-full shadow ring-2 ring-white'
+  dot.style.backgroundColor = color
+  const arrow = document.createElement('div')
+  arrow.dataset.part = 'arrow'
+  // Trójkąt z obramowań (ostrzem do góry), 3 px nad kropką.
+  arrow.className = 'absolute -top-[11px] left-[3px] h-0 w-0 border-x-[5px] border-b-[8px] border-x-transparent'
+  arrow.style.borderBottomColor = color
+  arrow.hidden = mover.bearing === null || mover.bearing === undefined
+  element.append(dot, arrow)
+  return element
+}
+
 function moverPopup(label: string): HTMLElement {
   const el = document.createElement('div')
   el.className = 'text-sm font-semibold text-foreground'
@@ -120,12 +152,14 @@ function mountMap(
   rich: boolean,
   route: MapRoute | undefined,
   moverHandle: { current: MoverHandle | null },
-  initialMovers: MapMover[]
+  initialMovers: MapMover[],
+  dark: boolean
 ): () => void {
   let cancelled = false
   let map: MapLibreMap | null = null
   const markers: { marker: MapLibreMarker; root: Root }[] = []
   const moverMarkers = new Map<string, MapLibreMarker>()
+  const moverArrows = new Map<string, HTMLElement>()
 
   import('maplibre-gl').then((lib) => {
     if (cancelled) return
@@ -133,7 +167,7 @@ function mountMap(
     lib.setWorkerUrl(WORKER_URL)
     map = new lib.Map({
       container,
-      style: STYLE_URL,
+      style: dark ? STYLE_DARK : STYLE_LIGHT,
       center: [pins[0].lon, pins[0].lat],
       zoom: pins.length === 1 ? 15 : 13,
     })
@@ -146,14 +180,16 @@ function mountMap(
         const existing = moverMarkers.get(mover.id)
         if (existing !== undefined) {
           existing.setLngLat([mover.lon, mover.lat])
+          existing.setRotation(mover.bearing ?? 0)
+          const arrow = moverArrows.get(mover.id)
+          if (arrow !== undefined) arrow.hidden = mover.bearing === null || mover.bearing === undefined
           existing.getPopup()?.setDOMContent(moverPopup(mover.label))
           continue
         }
-        const dot = document.createElement('div')
-        dot.className = 'h-4 w-4 rounded-full shadow ring-2 ring-white'
-        dot.style.background = route !== undefined && route.color !== null && HEX_COLOR.test(route.color) ? route.color : ROUTE_FALLBACK_COLOR
-        dot.setAttribute('data-testid', 'map-mover')
-        const marker = new lib.Marker({ element: dot })
+        const element = createMoverElement(mover)
+        const arrow = element.querySelector<HTMLElement>('[data-part="arrow"]')
+        if (arrow !== null) moverArrows.set(mover.id, arrow)
+        const marker = new lib.Marker({ element, rotation: mover.bearing ?? 0, rotationAlignment: 'map' })
           .setLngLat([mover.lon, mover.lat])
           .setPopup(new lib.Popup({ offset: 10 }).setDOMContent(moverPopup(mover.label)))
           .addTo(mapInstance)
@@ -163,13 +199,14 @@ function mountMap(
         if (seen.has(id)) continue
         marker.remove()
         moverMarkers.delete(id)
+        moverArrows.delete(id)
       }
     }
     moverHandle.current = { sync: syncMovers }
     syncMovers(initialMovers)
 
     if (route !== undefined && route.points.length >= 2) {
-      const color = route.color !== null && HEX_COLOR.test(route.color) ? route.color : ROUTE_FALLBACK_COLOR
+      const color = routeColor(route.mode, route.color)
       const addRoute = (): void => {
         if (mapInstance.getSource('route') !== undefined) return
         mapInstance.addSource('route', {
@@ -221,7 +258,9 @@ function mountMap(
     moverHandle.current = null
     for (const { marker, root } of markers) {
       marker.remove()
-      root.unmount()
+      // Sprzątanie efektu biegnie w trakcie commitu Reacta (np. przemontowanie po zmianie
+      // motywu) — synchroniczne `unmount()` osobnego korzenia daje tam ostrzeżenie o wyścigu.
+      queueMicrotask(() => root.unmount())
     }
     for (const marker of moverMarkers.values()) marker.remove()
     map?.remove()
@@ -234,7 +273,10 @@ export function MapView({
   ariaLabel,
   route,
   movers,
+  dark,
 }: {
+  /** Motyw z `resolvedTheme` wołającego — podkład jak na mapie miasta. Zmiana = mapa montowana od nowa (rzadkie: klik w przełącznik motywu). */
+  dark: boolean
   pins: MapPin[]
   onPinClick?: (id: string) => void
   ariaLabel: string
@@ -267,7 +309,7 @@ export function MapView({
   // faktycznie się zmieni, więc treść w domknięciu jest wtedy aktualna.
   const pinsKey = pins.map((p) => `${p.id}:${p.lat}:${p.lon}:${p.label}`).join('|')
   // Trasa zmienia się razem z pinami (kierunek linii); kolor dopisany, bo zmienia rysunek.
-  const routeKey = route === undefined ? '' : `${route.points.length}:${route.color ?? ''}`
+  const routeKey = route === undefined ? '' : `${route.points.length}:${routeColor(route.mode, route.color)}`
 
   useEffect(() => {
     moversRef.current = movers ?? []
@@ -277,18 +319,18 @@ export function MapView({
 
   useEffect(() => {
     if (containerRef.current === null || pins.length === 0) return
-    return mountMap(containerRef.current, pins, onPinClick, false, route, miniHandle, moversRef.current)
+    return mountMap(containerRef.current, pins, onPinClick, false, route, miniHandle, moversRef.current, dark)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `pinsKey`/`routeKey` to celowe sygnatury treści `pins`/`route`, patrz komentarz wyżej.
-  }, [pinsKey, routeKey, onPinClick])
+  }, [pinsKey, routeKey, onPinClick, dark])
 
   // Powiększona mapa montowana dopiero gdy `expanded` -- kontener istnieje w
   // DOM wyłącznie wtedy (portal niżej), więc efekt musi mieć `expanded` w
   // zależnościach: sama zmiana refa nie wywołuje ponownego uruchomienia.
   useEffect(() => {
     if (!expanded || fullscreenContainerRef.current === null || pins.length === 0) return
-    return mountMap(fullscreenContainerRef.current, pins, onPinClick, true, route, fullHandle, moversRef.current)
+    return mountMap(fullscreenContainerRef.current, pins, onPinClick, true, route, fullHandle, moversRef.current, dark)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- jak wyżej + `expanded` steruje montowaniem.
-  }, [expanded, pinsKey, routeKey, onPinClick])
+  }, [expanded, pinsKey, routeKey, onPinClick, dark])
 
   // Escape zamyka powiększenie -- ten sam wzorzec co `MobileNav.tsx`.
   useEffect(() => {
@@ -317,7 +359,7 @@ export function MapView({
           type="button"
           onClick={() => setExpanded(true)}
           aria-label="Powiększ mapę"
-          className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg bg-white/90 text-gray-700 shadow transition hover:bg-white"
+          className="glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
         >
           <ExpandIcon size={16} />
         </button>
@@ -343,7 +385,7 @@ export function MapView({
                 type="button"
                 onClick={() => setExpanded(false)}
                 aria-label="Zamknij powiększoną mapę"
-                className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white"
+                className="glass absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-foreground transition hover:bg-[var(--surface-strong)]"
               >
                 <CloseIcon size={16} />
               </button>

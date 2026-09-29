@@ -5,14 +5,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
+import { MODE_COLOR } from '@/components/map/mapData'
 
 // Prawdziwy MapLibre nie działa w jsdom (WebGL) -- stub sprawdza tylko, co strona mu przekazuje.
 vi.mock('@/components/MapView', () => ({
-  MapView: ({ pins, movers, route, ariaLabel }: { pins: unknown[]; movers?: { label: string; lat: number; lon: number }[]; route?: { points: unknown[] }; ariaLabel: string }) => (
-    <div data-testid="map" aria-label={ariaLabel}>
+  MapView: ({
+    pins,
+    movers,
+    route,
+    ariaLabel,
+  }: {
+    pins: unknown[]
+    movers?: { label: string; lat: number; lon: number; mode: string; bearing?: number | null }[]
+    route?: { points: unknown[]; mode: string }
+    ariaLabel: string
+  }) => (
+    <div data-testid="map" aria-label={ariaLabel} data-route-mode={route?.mode}>
       {pins.length} pins, {route?.points.length ?? 0} route points
       {(movers ?? []).map((m) => (
-        <span key={m.label} data-testid="mover" data-lat={m.lat} data-lon={m.lon}>
+        <span key={m.label} data-testid="mover" data-lat={m.lat} data-lon={m.lon} data-mode={m.mode} data-bearing={m.bearing ?? ''}>
           {m.label}
         </span>
       ))}
@@ -91,7 +102,7 @@ function stubFetch(lineBody: unknown = LINE) {
               lon: 21.012,
               ageSec: 10,
               headsign: 'x',
-              bearing: null,
+              bearing: 135,
             },
           ],
           feed: { state: 'ready', ageMs: 5000 },
@@ -122,6 +133,24 @@ describe('LineDetailPage', () => {
     // Pozycja pojazdu na mapie to surowe lat/lon z feedu (nie interpolacja po przystankach).
     expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.015)
     expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.012)
+  })
+
+  it('draws route and vehicles in the mode colour convention: mode + bearing go to the map, the timeline vehicle is a mode-coloured dot with a downward arrow', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    const map = await screen.findByTestId('map')
+    expect(map).toHaveAttribute('data-route-mode', 'tram')
+    const mover = await screen.findByTestId('mover')
+    expect(mover).toHaveAttribute('data-mode', 'tram')
+    expect(mover).toHaveAttribute('data-bearing', '135')
+
+    const onTimeline = await screen.findByTestId('timeline-vehicle')
+    const probe = document.createElement('div')
+    probe.style.backgroundColor = MODE_COLOR.tram
+    expect(onTimeline.style.backgroundColor).toBe(probe.style.backgroundColor)
+    expect(onTimeline).not.toHaveTextContent('▲')
+    // eslint-disable-next-line testing-library/no-node-access -- ikona dekoracyjna (aria-hidden), bez roli do zapytania
+    expect(onTimeline.querySelector('svg')).not.toBeNull()
   })
 
   it('draws the shape polyline instead of the stop-to-stop chord when the direction has one', async () => {

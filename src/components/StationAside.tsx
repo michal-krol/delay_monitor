@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useTheme } from 'next-themes'
 import type { StationInsights } from '@/lib/board/stationStats'
 import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
 import { MapView } from './MapView'
@@ -250,6 +251,7 @@ export function StationAside({
   stationId,
   mapPreview,
 }: Props) {
+  const { resolvedTheme } = useTheme()
   const mapPins = useMemo(
     () =>
       weather.status === 'ready'
@@ -279,7 +281,7 @@ export function StationAside({
       </AsideCard>
       {mapPins.length > 0 && (
         <AsideCard title="Mapa">
-          <MapView pins={mapPins} ariaLabel={`Mapa stacji ${stationName}`} />
+          <MapView pins={mapPins} ariaLabel={`Mapa stacji ${stationName}`} dark={resolvedTheme === 'dark'} />
         </AsideCard>
       )}
     </div>
