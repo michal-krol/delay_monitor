@@ -81,6 +81,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Małe przyciski-ikony (przypnij, zamknij, motyw, menu, zwijanie paska, powiększenie mapy,
   „wstecz") reagują na dotyk w polu 44 × 44 px, bez zmiany wyglądu. Minuty w rozkładzie linii
   mają co najmniej 24 × 24 px.
+- Ostrzeżenia („dane sprzed …", utrudnienia, degradacja źródła) mają w całej aplikacji jeden
+  odcień bursztynu zamiast trzech.
+- Aktywna zakładka „Odjazdy"/„Przyjazdy" na stronie stacji ma ten sam kolor akcentu co
+  zakładki na stronie przystanku.
+- Na wąskim ekranie ścieżka nawigacji obok przycisku „wstecz" pokazuje tylko bieżącą stronę,
+  w jednym wierszu (długa nazwa kończy się wielokropkiem); „wstecz" prowadzi do rodzica.
+- Strona linii i lista linii mówią „Wczytywanie rozkładu…", jak reszta aplikacji.
 
 ### Usunięte
 
@@ -132,6 +139,21 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Na ekranie 375 px strona linii nie przewija się już w poziomie (karty trasy i rozkładu były
   szersze od ekranu), a przyciski w nagłówku ekranu miasta schodzą pod tytuł, zamiast
   wystawać poza stronę.
+- Kafelki z liczbą pociągów, średnim opóźnieniem i punktualnością na stronie stacji przy
+  oknie 1280 px mieszczą się w dwóch kolumnach zamiast czterech ściśniętych (napis
+  „Punktualność" był ucięty), a tablica odjazdów nie przewija się w poziomie. Nazwa
+  przewoźnika w tablicy kończy się wielokropkiem zamiast nachodzić na kolumnę „Kierunek".
+- Escape w wyszukiwarce na mapie transportu, gdy widać „Szukam…", „Brak …" albo błąd, czyści
+  pole zamiast zamykać otwarty panel mapy.
+- Zakładki na stronie przystanku („Najbliższe odjazdy", „Wszystkie linie", …) i wybór słupka
+  przełącza się strzałkami, Home i End, a klawisz Tab zatrzymuje się tylko na wybranej
+  zakładce — jak na stronie stacji.
+- Prawa kolumna, podsumowanie połączenia, treść paneli mapy i rozwinięty komunikat
+  o utrudnieniu są przystankiem klawisza Tab tylko wtedy, gdy faktycznie się przewijają
+  (na telefonie był to zbędny przystanek).
+- Przycisk usuwania filtra („Linia …") na mapie transportu reaguje na dotyk w polu 44 × 44 px.
+- Pełna albo zablokowana pamięć przeglądarki nie wywraca już strony przy przypinaniu stacji
+  ani przy zwijaniu paska bocznego — przypięcie działa do końca wizyty, tylko się nie zapisze.
 
 ## [1.0.2] — 2026-09-28
 
