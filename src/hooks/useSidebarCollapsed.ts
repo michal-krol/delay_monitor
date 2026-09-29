@@ -23,7 +23,7 @@ export function useSidebarCollapsed() {
 
   useEffect(() => {
     // Odłożone do efektu: odczyt localStorage podczas renderu dałby rozjazd
-    // znacznika serwer/klient przy pierwszym malowaniu (ten sam powód co w useFavourites).
+    // znacznika serwer/klient przy pierwszym malowaniu (ten sam powód co w usePinned).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(readStorage())
   }, [])

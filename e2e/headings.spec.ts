@@ -8,12 +8,12 @@ function warsawToday(): string {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Warsaw' })
 }
 
-const PAGES: { name: string; path: string; favourites?: unknown[] }[] = [
+const PAGES: { name: string; path: string; pinnedItems?: unknown[] }[] = [
   { name: 'pulpit (pusty)', path: '/' },
   {
     name: 'pulpit z przypiętą stacją',
     path: '/',
-    favourites: [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }],
+    pinnedItems: [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }],
   },
   { name: 'stacja', path: '/station/33605?name=Warszawa%20Centralna' },
   { name: 'ekran miasta', path: '/city/warszawa' },
@@ -25,10 +25,10 @@ const PAGES: { name: string; path: string; favourites?: unknown[] }[] = [
   { name: 'mapa', path: '/city/warszawa/map' },
 ]
 
-for (const { name, path, favourites } of PAGES) {
+for (const { name, path, pinnedItems } of PAGES) {
   test(`jeden h1: ${name}`, async ({ page }) => {
-    if (favourites !== undefined) {
-      await page.addInitScript((value) => window.localStorage.setItem('monitor.favourites.v2', JSON.stringify(value)), favourites)
+    if (pinnedItems !== undefined) {
+      await page.addInitScript((value) => window.localStorage.setItem('monitor.favourites.v2', JSON.stringify(value)), pinnedItems)
     }
     await page.goto(path)
     // GTFS mock parsuje się raz przy starcie (~kilkanaście s); `toHaveCount` ponawia.

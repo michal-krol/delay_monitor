@@ -292,7 +292,7 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByText('Najbliższy odjazd')).not.toBeInTheDocument()
   })
 
-  it('pins as a gtfs favourite carrying the city', async () => {
+  it('pins as a gtfs pinned item carrying the city', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([

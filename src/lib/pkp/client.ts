@@ -49,7 +49,7 @@ const RETRY_BASE_DELAY_MS = 500
 const RETRY_JITTER_MS = 1000
 
 // Klucz cache'u rozkładów to posortowany zestaw obserwowanych stacji, więc
-// każda zmiana ulubionych tworzy nowy wpis. Limit trzyma to w ryzach.
+// każda zmiana przypiętych tworzy nowy wpis. Limit trzyma to w ryzach.
 const SCHEDULES_CACHE_MAX_ENTRIES = 64
 
 /** Trasa rozkładowa (schedules/route) jest statyczną daną rozkładową jak /schedules — ta sama długość TTL. */

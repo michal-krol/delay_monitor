@@ -71,7 +71,7 @@ describe('GET /api/board', () => {
     expect(response.status).toBe(400)
   })
 
-  it('accepts a realistic number of favourite stations', async () => {
+  it('accepts a realistic number of pinned stations', async () => {
     const { GET } = await import('./route')
     const realistic = Array.from({ length: 12 }, (_, i) => String(5100 + i)).join(',')
 
@@ -103,7 +103,7 @@ describe('GET /api/board', () => {
 
     expect(poller.registerInterest).toHaveBeenCalledWith(['5100'])
     // Nieznana stacja nadal dostaje miejsce w odpowiedzi, tyle ze puste —
-    // jeden nieaktualny wpis w ulubionych nie moze wywrocic calego dashboardu.
+    // jeden nieaktualny wpis w przypiętych nie moze wywrocic calego dashboardu.
     expect(response.status).toBe(200)
     expect(body.snapshots).toHaveLength(2)
     expect(body.snapshots[1]).toBeNull()

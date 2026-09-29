@@ -20,8 +20,8 @@ import { zonedHour } from '@/lib/pkp/time'
 type Props = {
   stationId: string
   stationName: string
-  isFavourite: boolean
-  onToggleFavourite: () => void
+  isPinned: boolean
+  onTogglePin: () => void
   /**
    * Osadzone pod wyszukiwarką na ekranie miasta, które ma już własny h1 —
    * nazwa stacji jest wtedy h2. Wyjście, motyw i „Udostępnij" rysuje zawsze
@@ -69,7 +69,7 @@ function TabButton({
   )
 }
 
-export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, embedded = false }: Props) {
+export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
   const idBase = useId()
   const tabId = (d: Direction): string => `${idBase}-tab-${d}`
@@ -196,8 +196,8 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
-                <StarIcon size={15} filled={isFavourite} className={isFavourite ? PIN_COLOR : ''} />
+              <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
+                <StarIcon size={15} filled={isPinned} className={isPinned ? PIN_COLOR : ''} />
               </IconButton>
             </div>
           </div>

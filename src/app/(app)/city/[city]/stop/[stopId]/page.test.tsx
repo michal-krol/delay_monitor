@@ -61,7 +61,7 @@ describe('TransitStopPage', () => {
     expect(screen.queryByText(/opóźni|na czas/i)).not.toBeInTheDocument()
   })
 
-  it('pins the stop to the Pulpit as a gtfs favourite carrying its city', async () => {
+  it('pins the stop to the Pulpit as a gtfs pinned item carrying its city', async () => {
     render(<TransitStopPage />)
     await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
     const stored = JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')

@@ -169,7 +169,7 @@ describe('StationCard', () => {
     expect(onExpand).toHaveBeenCalledWith({ id: '5100', name: 'Warszawa Centralna' })
   })
 
-  it('removes the station from favourites without also expanding it', async () => {
+  it('removes the station from pinnedItems without also expanding it', async () => {
     const onRemove = vi.fn()
     const onExpand = vi.fn()
     const user = userEvent.setup()

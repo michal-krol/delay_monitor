@@ -27,7 +27,7 @@ const state = vi.hoisted(() => ({
     onUserMove: () => void
     onContextPoint: (point: { lat: number; lon: number }) => void
     onVisibleChange: (items: { kind: 'vehicle' | 'stop' | 'rail'; id: string; label: string }[], overflow: boolean) => void
-    favourites: { lat: number; lon: number }[]
+    pinnedItems: { lat: number; lon: number }[]
     onlyLines: Set<string> | null
     listOpen: boolean
     route: { key: string } | null
@@ -275,22 +275,22 @@ describe('CityMapPage — view, sharing, following', () => {
   })
 })
 
-describe('CityMapPage — favourites, nearby, list, disruptions', () => {
-  it('rings Pulpit favourites on the map, toggles the star and jumps from the menu', async () => {
+describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
+  it('rings Pulpit pinnedItems on the map, toggles the star and jumps from the menu', async () => {
     window.localStorage.setItem('monitor.favourites.v2', JSON.stringify([{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]))
     render(<CityMapPage />)
-    await waitFor(() => expect(map().favourites).toMatchObject([{ lat: 52.2288, lon: 21.0033 }]))
+    await waitFor(() => expect(map().pinnedItems).toMatchObject([{ lat: 52.2288, lon: 21.0033 }]))
 
     fireEvent.click(screen.getByRole('button', { name: 'Przypięte' }))
     fireEvent.click(screen.getByRole('button', { name: 'Warszawa Centralna' }))
     const card = await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
     fireEvent.click(within(card).getByRole('button', { name: 'Odepnij z Pulpitu' }))
-    await waitFor(() => expect(map().favourites).toEqual([]))
+    await waitFor(() => expect(map().pinnedItems).toEqual([]))
 
     map().onSelect({ kind: 'stop', id: '100101' })
     const stopCard = await screen.findByRole('dialog', { name: 'Centrum' })
     fireEvent.click(within(stopCard).getByRole('button', { name: 'Przypnij do Pulpitu' }))
-    await waitFor(() => expect(map().favourites).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
+    await waitFor(() => expect(map().pinnedItems).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
   })
 
   it('right-click opens "nearby" with the closest places; a row opens its card', async () => {

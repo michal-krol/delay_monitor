@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
-import type { Favourite } from '@/hooks/useFavourites'
+import type { PinnedItem } from '@/hooks/usePinned'
 import { jsonResponse } from '@/test-utils/http'
 
 // BoardTable (rendered via FocusedStation in the focused branch) navigates via useRouter().
@@ -23,7 +23,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const FAVOURITES: Favourite[] = [
+const PINNED_ITEMS: PinnedItem[] = [
   { kind: 'pkp', id: '5100', name: 'Warszawa Centralna' },
   { kind: 'pkp', id: '5136', name: 'Kraków Główny' },
 ]
@@ -36,7 +36,7 @@ function findCardByHeading(name: string): HTMLElement {
 }
 
 describe('Dashboard', () => {
-  it('fetches both favourites in a single request', async () => {
+  it('fetches both pinnedItems in a single request', async () => {
     const fetchMock = vi.fn().mockImplementation(() =>
       jsonResponse({
         snapshots: [
@@ -51,7 +51,7 @@ describe('Dashboard', () => {
 
     render(
       <Dashboard
-        favourites={FAVOURITES}
+        pinnedItems={PINNED_ITEMS}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
@@ -76,7 +76,7 @@ describe('Dashboard', () => {
 
     render(
       <Dashboard
-        favourites={FAVOURITES}
+        pinnedItems={PINNED_ITEMS}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
@@ -107,7 +107,7 @@ describe('Dashboard', () => {
 
     render(
       <Dashboard
-        favourites={FAVOURITES}
+        pinnedItems={PINNED_ITEMS}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
@@ -119,7 +119,7 @@ describe('Dashboard', () => {
   })
 
   it('matches snapshots to cards by station id, not by array position', async () => {
-    // Serwer odsyła stacje w innej kolejności niż lista ulubionych. Przy
+    // Serwer odsyła stacje w innej kolejności niż lista przypiętych. Przy
     // dopasowaniu po indeksie Warszawa dostałaby odjazdy Krakowa.
     const fetchMock = vi.fn().mockImplementation(() =>
       jsonResponse({
@@ -149,7 +149,7 @@ describe('Dashboard', () => {
 
     render(
       <Dashboard
-        favourites={FAVOURITES}
+        pinnedItems={PINNED_ITEMS}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
@@ -174,7 +174,7 @@ describe('Dashboard', () => {
 
     render(
       <Dashboard
-        favourites={FAVOURITES}
+        pinnedItems={PINNED_ITEMS}
         onExpand={vi.fn()}
         onRemove={onRemove}
       />
@@ -185,13 +185,13 @@ describe('Dashboard', () => {
     expect(onRemove).toHaveBeenCalledWith('pkp:5136')
   })
 
-  it('renders a transit stop card for a gtfs favourite alongside station cards (Pulpit is above cities)', async () => {
+  it('renders a transit stop card for a gtfs pinned item alongside station cards (Pulpit is above cities)', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' }))
     vi.stubGlobal('fetch', fetchMock)
 
     render(
       <Dashboard
-        favourites={[...FAVOURITES, { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }]}
+        pinnedItems={[...PINNED_ITEMS, { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }]}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
@@ -201,7 +201,7 @@ describe('Dashboard', () => {
     expect(screen.getByText('Rozkład — warszawa')).toBeInTheDocument()
   })
 
-  it('drops stale snapshots for stations that are no longer favourites', async () => {
+  it('drops stale snapshots for stations that are no longer pinnedItems', async () => {
     const fetchMock = vi.fn().mockImplementation(() =>
       jsonResponse({
         snapshots: [
@@ -230,19 +230,19 @@ describe('Dashboard', () => {
 
     const { rerender } = render(
       <Dashboard
-        favourites={FAVOURITES}
+        pinnedItems={PINNED_ITEMS}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
     expect(await screen.findByText('IC')).toBeInTheDocument()
 
-    // Warszawa usunieta z ulubionych; odpowiedz w pamieci wciaz zawiera obie
+    // Warszawa usunieta z przypiętych; odpowiedz w pamieci wciaz zawiera obie
     // stacje, bo nowy fetch jeszcze nie wrocil (`useBoard` trzyma poprzednie dane
     // -- `keepPreviousData` -- zamiast mrugać pustymi kartami).
     rerender(
       <Dashboard
-        favourites={[FAVOURITES[1]]}
+        pinnedItems={[PINNED_ITEMS[1]]}
         onExpand={vi.fn()}
         onRemove={vi.fn()}
       />

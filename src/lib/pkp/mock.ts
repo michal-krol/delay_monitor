@@ -164,7 +164,7 @@ export function createMockClient(): PkpClient {
       const route = schedules.routes.find((r) => r.scheduleId === scheduleId && r.orderId === orderId) ?? null
       // `operations.json` niesie słownik nazw dla wszystkich stacji użytych
       // w fixture'ach (nie tylko tych 4 z stations-search.json, które są
-      // wyłącznie na potrzeby wyszukiwarki ulubionych) — to właściwe źródło.
+      // wyłącznie na potrzeby wyszukiwarki przypiętych) — to właściwe źródło.
       return { operation, route, stationNames: operations.stations }
     },
 

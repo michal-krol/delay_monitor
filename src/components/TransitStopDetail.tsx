@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useTheme } from 'next-themes'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
-import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
+import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -121,7 +121,7 @@ export function TransitStopDetail({
   // lista się nie wczyta / gdy fetch zawiedzie.
   const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
-  const { isFavourite, addFavourite, removeFavourite } = useFavourites()
+  const { isPinned, addPinned, removePinned } = usePinned()
   const now = useSnapshotNow(data)
 
   const board = data?.stops[0] ?? null
@@ -139,9 +139,9 @@ export function TransitStopDetail({
   const members = useMemo(() => (board?.members ?? []).filter((m) => m.lines.length > 0), [board])
   const activeMember = effSlupek !== null ? members.find((m) => m.id === effSlupek) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
-  const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }
-  const key = favouriteKey(favourite)
-  const pinned = isFavourite(key)
+  const pinnedItem: PinnedItem = { kind: 'gtfs', city, id: stopId, name: stopName }
+  const key = pinnedKey(pinnedItem)
+  const pinned = isPinned(key)
 
   const departures = useMemo(
     () => (lineFilter === null ? (board?.departures ?? []) : (board?.departures ?? []).filter((d) => d.routeId === lineFilter)),
@@ -230,7 +230,7 @@ export function TransitStopDetail({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={() => (pinned ? removeFavourite(key) : addFavourite(favourite))}>
+              <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={() => (pinned ? removePinned(key) : addPinned(pinnedItem))}>
                 <StarIcon size={15} filled={pinned} className={pinned ? PIN_COLOR : ''} />
               </IconButton>
             </div>

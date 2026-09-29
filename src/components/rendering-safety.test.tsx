@@ -112,8 +112,8 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
         <FullBoard
           stationId="5100"
           stationName={payload}
-          isFavourite={false}
-          onToggleFavourite={vi.fn()}
+          isPinned={false}
+          onTogglePin={vi.fn()}
         />
       )
 

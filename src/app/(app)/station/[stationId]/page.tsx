@@ -1,7 +1,7 @@
 'use client'
 
 import { notFound, useParams, useSearchParams } from 'next/navigation'
-import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
+import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { TopBar } from '@/components/TopBar'
 import { PageShell } from '@/components/aside'
 import { FullBoard } from '@/components/FullBoard'
@@ -30,11 +30,11 @@ export default function Page() {
   }
 
   const searchParams = useSearchParams()
-  const { isFavourite, addFavourite, removeFavourite } = useFavourites()
+  const { isPinned, addPinned, removePinned } = usePinned()
   const stationName = searchParams.get('name') ?? stationId
 
-  const favourite: Favourite = { kind: 'pkp', id: stationId, name: stationName }
-  const key = favouriteKey(favourite)
+  const pinnedItem: PinnedItem = { kind: 'pkp', id: stationId, name: stationName }
+  const key = pinnedKey(pinnedItem)
 
   return (
     <PageShell>
@@ -45,8 +45,8 @@ export default function Page() {
       <FullBoard
         stationId={stationId}
         stationName={stationName}
-        isFavourite={isFavourite(key)}
-        onToggleFavourite={() => (isFavourite(key) ? removeFavourite(key) : addFavourite(favourite))}
+        isPinned={isPinned(key)}
+        onTogglePin={() => (isPinned(key) ? removePinned(key) : addPinned(pinnedItem))}
       />
     </PageShell>
   )

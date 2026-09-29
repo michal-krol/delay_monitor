@@ -141,7 +141,7 @@ type Props = {
 /**
  * Tabela wycięta z `FullBoard` — czysto prezentacyjna, nic nie fetchuje.
  * Dzięki temu bezpieczna do zasilenia snapshotem, który wywołujący już ma
- * (np. `Dashboard`'s wspólny `useBoard` dla wszystkich ulubionych), bez
+ * (np. `Dashboard`'s wspólny `useBoard` dla wszystkich przypiętych), bez
  * ryzyka drugiego, niezależnego zapytania do pollera.
  */
 export function BoardTable({ stationName, direction, rows, now, loading }: Props) {

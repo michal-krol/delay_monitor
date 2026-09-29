@@ -13,7 +13,7 @@ import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { MapFilters } from '@/components/map/MapFilters'
 import { MapLegend } from '@/components/map/MapLegend'
-import { FavouritesMenu, NearbyPanel, VisibleListPanel, type FavouritePoint } from '@/components/map/MapPanels'
+import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
 import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
 import {
   HIDE_AFTER_SEC,
@@ -38,7 +38,7 @@ import {
 import { useCities } from '@/hooks/useCities'
 import { useCityStops } from '@/hooks/useCityStops'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
-import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
+import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useLineDetail } from '@/hooks/useLineDetail'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
@@ -124,7 +124,7 @@ export default function CityMapPage() {
   const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
   const { share, status: shareStatus } = useShareUrl()
-  const { favourites, addFavourite, removeFavourite, isFavourite } = useFavourites()
+  const { pinnedItems, addPinned, removePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
@@ -206,20 +206,20 @@ export default function CityMapPage() {
 
   const onlyLines = useMemo(() => (alertsOnly ? new Set(vehiclesState.alertLines) : null), [alertsOnly, vehiclesState.alertLines])
 
-  // Ulubione (Pulpit) z pozycją na mapie: stacje z listy kolei, przystanki tego miasta z listy przystanków.
-  const favouritePoints = useMemo<FavouritePoint[]>(() => {
-    const points: FavouritePoint[] = []
-    for (const fav of favourites) {
+  // Przypięte (Pulpit) z pozycją na mapie: stacje z listy kolei, przystanki tego miasta z listy przystanków.
+  const pinnedPoints = useMemo<PinnedPoint[]>(() => {
+    const points: PinnedPoint[] = []
+    for (const fav of pinnedItems) {
       const hit =
         fav.kind === 'pkp'
           ? railState.stations?.find((s) => s.id === fav.id)
           : fav.city === city
             ? stopsState.stops?.find((s) => s.id === fav.id || s.groupId === fav.id)
             : undefined
-      if (hit !== undefined) points.push({ key: favouriteKey(fav), name: fav.name, lat: hit.lat, lon: hit.lon })
+      if (hit !== undefined) points.push({ key: pinnedKey(fav), name: fav.name, lat: hit.lat, lon: hit.lon })
     }
     return points
-  }, [favourites, railState.stations, stopsState.stops, city])
+  }, [pinnedItems, railState.stations, stopsState.stops, city])
 
   // Pojazdy w liście z kierunkiem — dwa „20" obok siebie muszą się dać odróżnić.
   const visibleItems = useMemo<VisibleItem[] | null>(
@@ -297,18 +297,18 @@ export default function CityMapPage() {
     if (at !== undefined) focusOn(at.lat, at.lon)
   }
 
-  function openFavourite(favourite: FavouritePoint): void {
-    const fav = favourites.find((f) => favouriteKey(f) === favourite.key)
+  function openPinned(pinnedItem: PinnedPoint): void {
+    const fav = pinnedItems.find((f) => pinnedKey(f) === pinnedItem.key)
     if (fav?.kind === 'pkp') onMapSelect({ kind: 'rail', id: fav.id })
     else {
       const stop = stopsState.stops?.find((s) => s.id === fav?.id || s.groupId === fav?.id)
       if (stop !== undefined) onMapSelect({ kind: 'stop', id: stop.id })
     }
-    focusOn(favourite.lat, favourite.lon)
+    focusOn(pinnedItem.lat, pinnedItem.lon)
   }
 
-  /** Klucz ulubionego dla karty stacji/przystanku; `null` dla pojazdu. */
-  function favouriteFor(sel: MapSelection): Favourite | null {
+  /** Klucz przypiętego dla karty stacji/przystanku; `null` dla pojazdu. */
+  function pinnedItemFor(sel: MapSelection): PinnedItem | null {
     if (sel.kind === 'rail') return { kind: 'pkp', id: sel.id, name: sel.name }
     if (sel.kind === 'stop') return { kind: 'gtfs', city, id: sel.id, name: sel.name }
     return null
@@ -358,7 +358,7 @@ export default function CityMapPage() {
 
   const vehiclesOnLine = line === null ? 0 : vehiclesState.vehicles.filter((v) => v.routeId === line.routeId && v.ageSec <= HIDE_AFTER_SEC).length
   // Karta wybranego obiektu ma pierwszeństwo; po jej zamknięciu wraca panel linii.
-  const selectionFavourite = selection !== null ? favouriteFor(selection) : null
+  const selectionPinned = selection !== null ? pinnedItemFor(selection) : null
   const following = followId !== null && selection?.kind === 'vehicle' && selection.id === followId && liveVehicle !== null
   const card =
     selection !== null ? (
@@ -374,14 +374,14 @@ export default function CityMapPage() {
         onShowRoute={showRoute}
         following={following}
         onToggleFollow={() => setFollowId(following ? null : selection.id)}
-        favourite={selectionFavourite !== null ? isFavourite(favouriteKey(selectionFavourite)) : undefined}
-        onToggleFavourite={
-          selectionFavourite === null
+        pinned={selectionPinned !== null ? isPinned(pinnedKey(selectionPinned)) : undefined}
+        onTogglePin={
+          selectionPinned === null
             ? undefined
             : () => {
-                const key = favouriteKey(selectionFavourite)
-                if (isFavourite(key)) removeFavourite(key)
-                else addFavourite(selectionFavourite)
+                const key = pinnedKey(selectionPinned)
+                if (isPinned(key)) removePinned(key)
+                else addPinned(selectionPinned)
               }
         }
         onNearby={
@@ -445,7 +445,7 @@ export default function CityMapPage() {
               focus={focus}
               route={route}
               follow={following ? liveVehicle : null}
-              favourites={favouritePoints}
+              pinnedItems={pinnedPoints}
               onlyLines={onlyLines}
               listOpen={listOpen}
               onContextPoint={(point) => {
@@ -503,7 +503,7 @@ export default function CityMapPage() {
                 >
                   Lista
                 </button>
-                <FavouritesMenu favourites={favouritePoints} onOpen={openFavourite} />
+                <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
                 <MapFilters
                   hidden={hidden}
                   vehicleLayers={vehicleLayers}
