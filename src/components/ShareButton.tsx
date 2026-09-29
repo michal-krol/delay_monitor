@@ -13,7 +13,9 @@ export function ShareButton() {
   return (
     <>
       {status !== 'idle' && (
-        <span role="status" className="text-sm text-text-secondary">
+        // Pod rzędem `TopBar` (jego `relative`), nie w grupie `shrink-0` obok przycisków —
+        // na 375 px długi komunikat poszerzałby wiersz. `role="status"` zostaje, więc jest zapowiadany.
+        <span role="status" className="absolute top-full right-0 mt-1 max-w-full text-right text-sm text-text-secondary">
           {status === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
         </span>
       )}

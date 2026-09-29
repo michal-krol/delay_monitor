@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { notFound, useParams } from 'next/navigation'
+import { PageTitle } from '@/components/PageTitle'
 import { TopBar } from '@/components/TopBar'
 import { AlertBanner } from '@/components/AlertBanner'
 import { LineBadge } from '@/components/LineBadge'
@@ -191,7 +192,7 @@ export default function LineDetailPage() {
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-3">
               <LineBadge line={line.line} color={line.color} mode={line.mode} />
-              <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{line.longName}</h1>
+              <PageTitle>{line.longName}</PageTitle>
             </div>
             <p className="text-sm text-text-secondary">
               {MODE_LABEL[line.mode]}

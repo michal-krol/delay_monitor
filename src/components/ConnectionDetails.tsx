@@ -6,7 +6,7 @@ import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { PageTitle } from './PageTitle'
-import { AlertCircleIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ClockIcon, InfoIcon, PauseIcon, ShareIcon, TimerIcon, TrainIcon } from './icons'
+import { AlertCircleIcon, ArrowRightIcon, CalendarIcon, ClockIcon, InfoIcon, PauseIcon, TimerIcon, TrainIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import { resolvePositionAnchor } from '@/lib/board/trainDetail'
 import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
@@ -15,7 +15,6 @@ import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatAge, formatClockTime, formatDuration } from '@/lib/format'
 import { usePolling } from '@/hooks/usePolling'
-import { useShareUrl } from '@/hooks/useShareUrl'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { AsideCard } from './aside'
 import { WeatherCard } from './StationAside'
@@ -228,7 +227,6 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const status: Status = data !== null ? 'ready' : error !== null ? 'error' : 'loading'
   const backgroundRefreshFailed = data !== null && error !== null
   const [now, setNow] = useState(() => Date.now())
-  const { share, copied } = useShareUrl()
   // Pogoda punktu startu trasy — `stops[0]` to stacja początkowa (`stationId`
   // to identyfikator PKP, ten sam, którym kluczuje `/api/weather`). Pusty ciąg
   // przed odpowiedzią = hook nie bije w API (AGENTS.md #3).
@@ -362,6 +360,8 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
 
       {status === 'error' && (
         <div className="glass rounded-2xl p-6">
+          {/* Każdy stan ma jeden h1 — etykieta z linku, jak przy wczytywaniu. */}
+          <PageTitle className="mb-2">{trainLabel}</PageTitle>
           <p role="alert" className="text-sm font-medium text-error-text">
             {error}
           </p>
@@ -743,7 +743,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             </div>
 
             {/* ── Prawa kolumna ──────────────────────────────────────── */}
-            <aside className="flex flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
+            {/* `tabIndex`/`aria-label`: kolumna jest przewijalna (`lg:overflow-y-auto`), a po usunięciu przycisku
+                „Udostępnij" nie ma w niej fokusowalnej treści — axe `scrollable-region-focusable`, jak w `aside.tsx`. */}
+            <aside tabIndex={0} aria-label="Podsumowanie połączenia" className="flex flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
               <AsideCard title={`Pogoda dziś — ${data.stops[0].stationName}`}>
                 <WeatherCard weather={originWeather} />
               </AsideCard>
@@ -788,21 +790,6 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   arrivalStatus={overallStatus}
                   className="mt-4"
                 />
-              </section>
-
-              <section className="glass rounded-2xl p-5">
-                <SectionHeading>Udostępnij połączenie</SectionHeading>
-                <p className="mt-2 text-sm text-text-secondary">
-                  Wyślij szczegóły tego połączenia innym lub skopiuj link do niego.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void share()}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-surface-border px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  {copied ? <CheckIcon size={15} /> : <ShareIcon size={15} />}
-                  {copied ? 'Skopiowano link' : 'Kopiuj link'}
-                </button>
               </section>
             </aside>
           </div>

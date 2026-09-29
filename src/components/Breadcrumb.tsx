@@ -3,7 +3,7 @@ import Link from 'next/link'
 export type BreadcrumbItem = { label: string; href?: string }
 
 /**
- * Ścieżka nawigacji nad `TopBar` dla widoków głębszych niż jeden poziom
+ * Ścieżka nawigacji w `TopBar` (obok przycisku ←) dla widoków głębszych niż jeden poziom
  * (miasto → linia, miasto → przystanek). Ostatni element to zawsze bieżąca
  * strona — bez linku, `aria-current="page"`. Wcześniejsze elementy bez
  * `href` (np. dane jeszcze się wczytują) renderują się jako zwykły tekst.

@@ -122,7 +122,8 @@ export default function CityPage() {
                 isFavourite(favouriteKey(railFavourite))
                   ? removeFavourite(favouriteKey(railFavourite))
                   : addFavourite(railFavourite)
-              }            />
+              }
+            />
           )}
 
           {transitId !== null && (

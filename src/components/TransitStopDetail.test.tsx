@@ -132,6 +132,7 @@ describe('TransitStopDetail', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Świętokrzyska' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
+
   it('shows the słupek switcher only when the group has more than one member', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.queryByText('Słupki tego przystanku', { exact: false })).not.toBeInTheDocument()

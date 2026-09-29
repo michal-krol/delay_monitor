@@ -366,6 +366,7 @@ describe('FullBoard', () => {
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
+
   it('has no ✕, theme toggle or share of its own; the title is h1 standalone and h2 embedded', async () => {
     // Wyjście, motyw i „Udostępnij” daje `TopBar` strony (station) albo ekran
     // nadrzędny (city) -- tablica ma tylko przypięcie.

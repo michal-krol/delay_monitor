@@ -49,7 +49,7 @@ export function TopBar(props: Props) {
   const back = props.backLabel === undefined ? null : props
 
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="relative flex items-center justify-between gap-4">
       {back !== null ? (
         <div className="flex min-w-0 items-center gap-3">
           {back.backHref !== undefined ? (
@@ -64,7 +64,7 @@ export function TopBar(props: Props) {
           <Breadcrumb items={back.crumbs} />
         </div>
       ) : (
-        <div>
+        <div className="min-w-0">
           <PageTitle>{props.title}</PageTitle>
           <p className="mt-0.5 text-sm text-text-muted">{props.subtitle}</p>
         </div>

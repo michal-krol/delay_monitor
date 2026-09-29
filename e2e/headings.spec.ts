@@ -63,3 +63,38 @@ for (const { name, path, back } of DETAIL_PAGES) {
     expect(overflow).toBeLessThanOrEqual(0)
   })
 }
+
+// Komunikat „Nie udało się skopiować — link w pasku adresu” nie może poszerzyć
+// wiersza (375 px): wymuszamy porażkę schowka i brak natywnego arkusza.
+const SHARE_PAGES = [
+  { name: 'stacja', path: '/station/33605?name=Warszawa%20Centralna' },
+  { name: 'ekran miasta z przystankiem', path: '/city/warszawa?stop=1001&name=Centrum' },
+]
+
+for (const { name, path } of SHARE_PAGES) {
+  test(`porażka kopiowania linku nie przepełnia strony: ${name}`, async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: () => Promise.reject(new Error('blocked')) },
+        configurable: true,
+      })
+    })
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.goto(path)
+    // Sama strona (nie wąski viewport) nie może się przewijać poziomo — przed i po kliknięciu.
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    await expect(page.getByRole('button', { name: 'Udostępnij', exact: true })).toBeVisible({ timeout: 45_000 })
+    expect(await overflow()).toBeLessThanOrEqual(0)
+
+    await page.getByRole('button', { name: 'Udostępnij', exact: true }).click()
+    const status = page.getByRole('status')
+    await expect(status).toContainText('link w pasku adresu')
+    expect(await overflow()).toBeLessThanOrEqual(0)
+    // Sam komunikat i przełącznik motywu mieszczą się w oknie (dokument mógłby ukrywać przepełnienie).
+    for (const box of await Promise.all([status.boundingBox(), page.getByRole('button', { name: /Przełącz na tryb/ }).boundingBox()])) {
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(375)
+    }
+  })
+}
