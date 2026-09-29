@@ -1,21 +1,11 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { StarIcon } from '../icons'
-import { MODE_ICON } from '../transitMode'
+import { ArrowRightIcon, PIN_COLOR, StarIcon } from '../icons'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
-import type { GtfsMode } from '@/lib/gtfs/types'
-import { MODE_COLOR, type NearbyPoint, type VisibleItem } from './mapData'
+import { type NearbyPoint, type VisibleItem } from './mapData'
+import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
-
-function ModeChip({ mode }: { mode: GtfsMode }) {
-  const Icon = MODE_ICON[mode]
-  return (
-    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white" style={{ background: MODE_COLOR[mode] }} aria-hidden="true">
-      <Icon size={14} />
-    </span>
-  )
-}
 
 const rowClass = 'flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10'
 
@@ -58,7 +48,7 @@ export function NearbyPanel({
                     <span className="block truncate font-medium">{name}</span>
                     {departure !== undefined && (
                       <span className="block truncate text-xs text-text-muted">
-                        rozkład: {departure.line} → {departure.headsign ?? '—'} o {departure.plannedAt.slice(11, 16)}
+                        rozkład: {departure.line} <ArrowRightIcon size={12} label="do" className="inline align-[-2px]" /> {departure.headsign ?? '—'} o {departure.plannedAt.slice(11, 16)}
                       </span>
                     )}
                   </span>
@@ -154,7 +144,7 @@ export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePo
         aria-controls={panelId}
         aria-label="Ulubione"
         onClick={() => setOpen((o) => !o)}
-        className="glass grid h-full min-h-11 w-11 place-items-center rounded-xl text-amber-500 transition hover:bg-black/5 dark:hover:bg-white/10"
+        className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl ${PIN_COLOR} transition hover:bg-black/5 dark:hover:bg-white/10`}
       >
         <StarIcon size={16} />
       </button>

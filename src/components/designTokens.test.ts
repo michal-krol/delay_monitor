@@ -43,6 +43,27 @@ describe('design tokens', () => {
     expect(offenders(/borderColor: 'var\(--surface-border\)'/)).toEqual([])
   })
 
+  it('inline <svg> only in icons.tsx, except charts and the card background art (PR 7b)', () => {
+    // Wykresy (DelayForecast: wykres + dwie próbki linii w legendzie; NetworkStatsCard: sparkline + pierścień)
+    // i dekoracyjne tło karty stacji to nie ikony.
+    const allowed: Record<string, number> = { 'components/DelayForecast.tsx': 3, 'components/NetworkStatsCard.tsx': 2, 'components/StationCard.tsx': 1 }
+    const counts: Record<string, number> = {}
+    for (const hit of offenders(/<svg\b/, (file) => file === 'components/icons.tsx')) {
+      const file = hit.split(':')[0].replaceAll('\\', '/')
+      counts[file] = (counts[file] ?? 0) + 1
+    }
+    expect(counts).toEqual(allowed)
+  })
+
+  it('mode colours on the map never reuse a status colour (#13: a bus must not read as „na czas”)', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const statusBg = [...css.matchAll(/--status-\w+-bg:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())
+    const modeColors = [...readFileSync(join(SRC, 'components/map/mapData.ts'), 'utf8').matchAll(/^\s+(?:bus|tram|metro|rail|other): '(#[0-9a-f]{6})'/gim)].map((m) => m[1].toLowerCase())
+    expect(statusBg.length).toBeGreaterThan(0)
+    expect(modeColors).toHaveLength(5)
+    expect(modeColors.filter((color) => statusBg.includes(color))).toEqual([])
+  })
+
   it('GTFS views never use green, which reads as „na czas” (#13)', () => {
     expect(offenders(/\b(text|bg)-(green|emerald)-\d/)).toEqual([])
   })

@@ -2,6 +2,7 @@
 
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { IconButton } from './IconButton'
+import { PIN_COLOR, StarIcon } from './icons'
 import { BoardRowList } from './BoardRowList'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
@@ -92,24 +93,11 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
               {delayedCount} {pluralPl(delayedCount, 'opóźniony', 'opóźnione', 'opóźnionych')}
             </span>
           )}
-          {/* Gwiazdka ulubionej stacji z makiety — dekoracyjna (karta na Pulpicie
-              to z definicji ulubiona stacja), więc aria-hidden zamiast dublować
-              informację, którą czytnik ekranu już ma z samego umieszczenia karty. */}
-          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 20 20" fill="#facc15" stroke="#facc15" strokeWidth="1" strokeLinejoin="round" className="shrink-0">
-            <path d="m10 3 2.2 4.5 4.9.7-3.6 3.5.9 4.9L10 14.2l-4.4 2.4.9-4.9L2.9 8.2l4.9-.7z" />
-          </svg>
-          {/* z-10 stawia przycisk nad nakładką rozwijającą tablicę, która
-              w drzewie stoi później i domyślnie przykryłaby go w całości.
-              Domyślnie niewidoczny (mockup nie eksponuje usuwania na karcie) —
-              pojawia się na hover/focus karty, żeby nie konkurował z gwiazdką. */}
-          <IconButton
-            label={`Usuń z ulubionych: ${stationName}`}
-            onClick={onRemove}
-            className="relative z-10 opacity-0 group-hover:opacity-100 focus:opacity-100"
-          >
-            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
+          {/* Odpięcie tą samą pełną gwiazdką co na stronie stacji (PR 7b): przypięte =
+              pełna, klik odpina. z-10 stawia przycisk nad nakładką rozwijającą tablicę,
+              która w drzewie stoi później i domyślnie przykryłaby go w całości. */}
+          <IconButton label={`Usuń z ulubionych: ${stationName}`} onClick={onRemove} className="relative z-10">
+            <StarIcon size={16} filled className={PIN_COLOR} />
           </IconButton>
         </div>
       </div>

@@ -32,7 +32,7 @@ function StatusLegend() {
       <ul className="flex flex-col gap-2">
         {STATUS_ORDER.map((status) => (
           <li key={status} className="flex gap-2">
-            <span className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: TOKENS[status].bg }} />
+            <span className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: TOKENS[status].bg }} aria-hidden="true" />
             <span>
               {/* text-foreground, nie text-text-primary -- ten drugi nie
                   odpowiada żadnemu zdefiniowanemu tokenowi w globals.css
@@ -375,8 +375,8 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
         <span className="inline-flex items-center gap-1">
           {row.hasDisruption === true && (
-            <span title="Utrudnienie na trasie" className="text-amber-600 dark:text-amber-400">
-              <AlertCircleIcon size={14} />
+            <span className="text-amber-600 dark:text-amber-400">
+              <AlertCircleIcon size={14} label="Utrudnienie na trasie" />
             </span>
           )}
           {canOpenDetails && (

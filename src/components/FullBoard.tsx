@@ -10,7 +10,7 @@ import { StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
 import { ThemeToggle } from './ThemeToggle'
-import { CloseIcon, ShareIcon, StarIcon } from './icons'
+import { CloseIcon, PIN_COLOR, ShareIcon, StarIcon } from './icons'
 import { IconButton } from './IconButton'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
@@ -170,7 +170,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 </span>
               )}
               <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
-                <StarIcon size={15} className={isFavourite ? 'fill-current text-amber-400' : ''} />
+                <StarIcon size={15} filled={isFavourite} className={isFavourite ? PIN_COLOR : ''} />
               </IconButton>
               {/* Przycisk z podpisem, nie sama ikona (makieta §17) -- to
                   główna akcja nagłówka, a „Udostępnij" bez etykiety było
@@ -187,7 +187,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
               {!embedded && (
                 <>
                   <IconButton onClick={onClose} label="Zamknij">
-                    <CloseIcon size={15} />
+                    <CloseIcon size={16} />
                   </IconButton>
                   <ThemeToggle />
                 </>

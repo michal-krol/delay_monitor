@@ -7,14 +7,13 @@ import type { GtfsMode } from '@/lib/gtfs/types'
 import { zonedHour } from '@/lib/pkp/time'
 import { pluralPl } from '@/lib/plural'
 import { AsideCard, HourlyTraffic } from './aside'
-import { BusIcon, MetroIcon, TrainIcon, TramIcon } from './icons'
+import { MODE_ICON, MODE_LABEL, MODE_ORDER } from './transitMode'
 
-const MODE_ROWS: { mode: GtfsMode; label: string; icon: typeof BusIcon }[] = [
-  { mode: 'metro', label: 'metro', icon: MetroIcon },
-  { mode: 'tram', label: 'tramwaj', icon: TramIcon },
-  { mode: 'bus', label: 'autobus', icon: BusIcon },
-  { mode: 'rail', label: 'kolej', icon: TrainIcon },
-]
+const MODE_ROWS = MODE_ORDER.filter((mode): mode is Exclude<GtfsMode, 'other'> => mode !== 'other').map((mode) => ({
+  mode,
+  label: MODE_LABEL[mode],
+  icon: MODE_ICON[mode],
+}))
 
 /**
  * Widżet sieci komunikacji miejskiej wybranego miasta — odpowiednik

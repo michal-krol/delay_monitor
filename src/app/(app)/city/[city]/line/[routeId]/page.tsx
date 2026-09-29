@@ -296,7 +296,7 @@ export default function LineDetailPage() {
                                         transform: 'translateY(-50%)',
                                       }}
                                     >
-                                      <ChevronRightIcon size={10} className="rotate-90" />
+                                      <ArrowRightIcon size={10} className="rotate-90" />
                                     </span>
                                   ))}
                             </span>
@@ -333,7 +333,7 @@ export default function LineDetailPage() {
                             <AccessibleIcon
                               size={13}
                               className="shrink-0 self-center text-amber-600 dark:text-amber-400"
-                              aria-label="Przystanek niedostępny dla osób na wózku"
+                              label="Przystanek niedostępny dla osób na wózku"
                             />
                           )}
                           {passSec !== null ? (
@@ -347,9 +347,9 @@ export default function LineDetailPage() {
                   })}
                 </ol>
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted">
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} /> przystanek</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} /> na żądanie</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2" style={{ background: 'var(--foreground)' }} /> przystanek krańcowy</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} aria-hidden="true" /> na żądanie</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek krańcowy</span>
                 </div>
               </section>
 
@@ -361,7 +361,8 @@ export default function LineDetailPage() {
                       href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
                       className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                     >
-                      pełna tablica słupka →
+                      pełna tablica słupka
+                      <ChevronRightIcon size={12} className="ml-0.5 inline align-[-2px]" />
                     </Link>
                   )}
                 </div>

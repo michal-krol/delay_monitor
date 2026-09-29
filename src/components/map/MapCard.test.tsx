@@ -88,7 +88,8 @@ describe('MapCard — vehicle', () => {
   it('shows line, direction, next stop and freshness — no delay', () => {
     render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} />)
     expect(screen.getByRole('heading', { name: 'tramwaj 20' })).toBeInTheDocument()
-    expect(screen.getByText('→ Dworzec Centralny')).toBeInTheDocument()
+    expect(screen.getByText('Dworzec Centralny')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
     expect(screen.getByText('Rondo ONZ')).toBeInTheDocument()
     expect(screen.getByText('aktualna')).toBeInTheDocument()
     expect(screen.queryByText(/opóźnieni[ae] \+/)).toBeNull()

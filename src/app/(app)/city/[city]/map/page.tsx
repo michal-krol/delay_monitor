@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { CloseIcon, MapIcon, ShareIcon } from '@/components/icons'
+import { CityIcon, CloseIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
@@ -568,7 +568,7 @@ export default function CityMapPage() {
             title="Pokaż całe miasto"
             className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
           >
-            <MapIcon size={18} />
+            <CityIcon size={18} />
           </button>
 
           {outsideFeed && (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
-import { ChevronRightIcon } from './icons'
+import { AppLogo, ChevronRightIcon } from './icons'
 import { NavList, type ActiveItem } from './navItems'
 import { PollerDiagnostics } from './PollerDiagnostics'
 
@@ -50,18 +50,7 @@ export function Sidebar({ activeItem }: Props) {
     >
       <div className="flex items-center justify-between gap-2 px-1">
         <div className="flex items-center gap-2.5 overflow-hidden">
-          <div
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] text-white shadow-lg"
-            style={{ background: 'var(--accent-gradient)' }}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 12.5V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6.5" />
-              <rect x="4.3" y="12.5" width="11.4" height="2.4" rx="1.2" />
-              <circle cx="7.3" cy="9" r="1" />
-              <circle cx="12.7" cy="9" r="1" />
-              <path d="M6.3 15.8 4.6 18M13.7 15.8l1.7 2.2" />
-            </svg>
-          </div>
+          <AppLogo size={36} />
           {!collapsed && (
             <div className="min-w-0">
               <div className="font-heading truncate text-[15px] font-bold">Monitor opóźnień</div>
