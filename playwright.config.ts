@@ -15,7 +15,9 @@ if (!process.env.CI && ![chromium, webkit].every((b) => existsSync(b.executableP
  * `GTFS_DATA_SOURCE=mock`. Osobny od `npm run test` (Vitest) i od joba
  * `quality` w CI. Patrz AGENTS.md #16.
  */
-const PORT = 3123
+// `E2E_PORT`: lokalnie `reuseExistingServer` podpina się pod KAŻDY serwer na tym porcie — także
+// z innego worktree/sesji (stary build = fałszywe wyniki). Inny port wymusza świeży build tej gałęzi.
+const PORT = Number(process.env.E2E_PORT ?? 3123)
 const baseURL = `http://localhost:${PORT}`
 
 export default defineConfig({
