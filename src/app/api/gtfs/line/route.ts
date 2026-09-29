@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getGtfsPoller, peekAlertPoller } from '@/lib/gtfs/instance'
+import { knownAlerts } from '@/lib/gtfs/alertPoller'
 import { scheduleResponseBlock } from '@/lib/gtfs/poller'
 import { alertsForRoutes, lineDetail } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
@@ -33,18 +34,16 @@ export async function GET(request: Request) {
   const schedule = poller.getSchedule()
   const scheduleBlock = scheduleResponseBlock(poller.getView())
 
-  // `alerts: null` = jeszcze nie wiadomo (poller alertów nieobecny albo `idle`/`loading` — np. świeżo
-  // obudzony przez to samo żądanie): klient ponawia drabinką do skutku (#7, jak `city-stats`). Feed
-  // `failed` -> lista (z ostatnich dobrych danych albo pusta), żeby nie odpytywać martwego feedu w nieskończoność.
-  const alertPoller = peekAlertPoller(city)
-  const alertState = alertPoller?.getView().state
-  const alertsKnown = alertState === 'ready' || alertState === 'failed'
+  // `alerts: null` = jeszcze nie wiadomo — klient ponawia drabinką do skutku (#7). Definicja „znane"
+  // (w tym `failed` -> lista, żeby nie odpytywać martwego feedu): `knownAlerts()`.
+  const allAlerts = knownAlerts(peekAlertPoller(city))
   const routeIdx = schedule !== null ? schedule.routeIndexById.get(route) : undefined
-  const alerts = !alertsKnown
-    ? null
-    : schedule !== null && alertPoller !== null && routeIdx !== undefined
-      ? alertsForRoutes(schedule, alertPoller.getAlerts(), new Set([routeIdx]))
-      : []
+  const alerts =
+    allAlerts === null
+      ? null
+      : schedule !== null && routeIdx !== undefined
+        ? alertsForRoutes(schedule, allAlerts, new Set([routeIdx]))
+        : []
 
   if (schedule === null) {
     return NextResponse.json({ city, schedule: scheduleBlock, line: null, alerts, attribution: [] })
