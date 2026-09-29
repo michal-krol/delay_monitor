@@ -63,7 +63,7 @@ export const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
 export const WORKER_URL = '/maplibre-gl-worker.mjs'
 
 /** Kółko w kolorze rodzaju (`MODE_COLOR`, jak kropki i legenda mapy miasta) z ikoną trybu zamiast domyślnej łezki MapLibre — `createRoot` do oderwanego diva, zero duplikacji SVG z `icons.tsx`. Kotwica na środku (poprawniejsze niż łezka: punkt = dokładna lokalizacja). */
-export function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root } {
+function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root } {
   const element = document.createElement('div')
   element.className = 'grid h-8 w-8 cursor-pointer place-items-center rounded-full text-white shadow-lg ring-2 ring-white'
   element.style.backgroundColor = pin.mode !== undefined ? MODE_COLOR[pin.mode] : UNKNOWN_COLOR
@@ -79,7 +79,7 @@ export function createMarkerElement(pin: MapPin): { element: HTMLDivElement; roo
  * wrogie), `textContent` nie interpretuje znaczników. Mini popup = sam label;
  * powiększony dokłada `preview` i `href`, gdy podane.
  */
-export function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
+function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
   const wrap = document.createElement('div')
   wrap.className = 'text-sm'
 
