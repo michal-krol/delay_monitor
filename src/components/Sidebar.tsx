@@ -6,10 +6,7 @@ import { NavList, type ActiveItem } from './navItems'
 import { PollerDiagnostics } from './PollerDiagnostics'
 
 type Props = {
-  // Opcjonalny -- jedyny prawdziwy wpis nawigacji to "Pulpit"; reszta jest
-  // `kind: 'disabled'` (patrz NAV_ITEMS w navItems.tsx), więc strony bez
-  // odpowiednika w menu (np. /station/[stationId], /connection/...) nie mają
-  // czego podświetlić.
+  // Opcjonalny -- strony bez odpowiednika w menu (np. /station/[stationId], /connection/...) nic nie podświetlają.
   activeItem?: ActiveItem
 }
 
@@ -34,10 +31,7 @@ export function Sidebar({ activeItem }: Props) {
       // Poniżej `sm` menu chowa się całkowicie. Nawet zwinięte (76 px) zjadało
       // piątą część szerokości telefonu, przez co główna treść dostawała 123 px
       // z 375 -- tablica w układzie kartowym nie miała się gdzie zmieścić.
-      // Nawigacja i tak jest dziś w większości wyłączonymi placeholderami
-      // („Wkrótce"), więc na małym ekranie nie traci się nic działającego.
-      // ponytail: ukrycie, nie szuflada -- do zamiany na wysuwane menu, gdy
-      // pozycje nawigacji zaczną coś robić.
+      // Poniżej `sm` nawigacja żyje w szufladzie `MobileNav`.
       // Przypięty do okna: własna wysokość ekranu i własny scroll, żeby przy
       // długiej liście połączeń nawigacja i „Diagnostyka" (`mt-auto`, na dole)
       // nie odjeżdżały z widoku razem z treścią głównej kolumny.
@@ -64,7 +58,7 @@ export function Sidebar({ activeItem }: Props) {
           type="button"
           onClick={toggle}
           aria-label={collapsed ? 'Rozwiń pasek boczny' : 'Zwiń pasek boczny'}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
+          className="touch-44 relative grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           <ChevronRightIcon size={14} className={collapsed ? '' : 'rotate-180'} />
         </button>

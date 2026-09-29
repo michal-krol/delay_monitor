@@ -107,7 +107,7 @@ describe('Page (Pulpit)', () => {
     const user = userEvent.setup()
     render(<Page />)
 
-    await user.click(screen.getByRole('button', { name: /Usuń z ulubionych:/ }))
+    await user.click(screen.getByRole('button', { name: /Odepnij z Pulpitu:/ }))
 
     expect(await screen.findByText(/Wyszukaj stację/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
@@ -137,5 +137,16 @@ describe('Page (Pulpit)', () => {
 
     // encodeURIComponent (not form-encoding) — spaces become %20, same contract as the card click.
     expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
+  })
+
+  it('exactly one h1 on the empty Pulpit and on the Pulpit with pinned cards', () => {
+    initialFavourites = []
+    const { unmount } = render(<Page />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    unmount()
+
+    initialFavourites = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
+    render(<Page />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })

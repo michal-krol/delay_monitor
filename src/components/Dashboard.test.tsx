@@ -115,7 +115,7 @@ describe('Dashboard', () => {
 
     expect(await screen.findByText('IC')).toBeInTheDocument()
     expect(screen.getByText('Kraków Główny')).toBeInTheDocument()
-    expect(screen.getAllByText('Ładowanie…')).toHaveLength(1)
+    expect(screen.getAllByText('Wczytywanie…')).toHaveLength(1)
   })
 
   it('matches snapshots to cards by station id, not by array position', async () => {
@@ -180,7 +180,7 @@ describe('Dashboard', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: 'Usuń z ulubionych: Kraków Główny' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Kraków Główny' }))
 
     expect(onRemove).toHaveBeenCalledWith('pkp:5136')
   })

@@ -32,14 +32,14 @@ afterEach(() => {
 })
 
 describe('NetworkStatsCard', () => {
-  it('keeps the collapsed subtitle short (no train count, no static "zgodnie z planem") so it never gets truncated', async () => {
+  it('keeps the collapsed subtitle short (no train count, no static "bez odwołań") so it never gets truncated', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STATS)))
 
     render(<NetworkStatsCard />)
 
     expect(await screen.findByText(/^\d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText(/7\s?250 pociągów/)).not.toBeInTheDocument()
-    expect(screen.queryByText('zgodnie z planem')).not.toBeInTheDocument()
+    expect(screen.queryByText('bez odwołań')).not.toBeInTheDocument()
   })
 
   it('does not draw the on-time completion ring next to the collapsed title', async () => {
@@ -64,6 +64,22 @@ describe('NetworkStatsCard', () => {
     await user.click(screen.getByRole('button', { name: /Dziś w Polsce/ }))
 
     expect(screen.getByText(/7.?250/)).toBeInTheDocument()
+  })
+
+  it('labels the trend „bez odwołań” (share of trains not cancelled), never „zgodnie z planem”', async () => {
+    const history = [
+      { at: '2026-09-29T08:00:00Z', onTimePct: 96 },
+      { at: '2026-09-29T09:00:00Z', onTimePct: 97 },
+    ]
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ ...STATS, history })))
+    const user = userEvent.setup()
+
+    render(<NetworkStatsCard />)
+    await screen.findByText(/^\d{2}:\d{2}$/)
+    await user.click(screen.getByRole('button', { name: /Dziś w Polsce/ }))
+
+    expect(screen.getByText(/Trend .bez odwołań. dziś/)).toBeInTheDocument()
+    expect(screen.queryByText(/zgodnie z planem/)).not.toBeInTheDocument()
   })
 
   it('shows an icon next to the disruption count', async () => {

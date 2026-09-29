@@ -66,7 +66,7 @@ describe('FullBoard', () => {
   it('renders a table with caption and scoped headers, defaulting to departures', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
 
     expect(await screen.findByText('EIC 1')).toBeInTheDocument()
     expect(screen.getAllByRole('columnheader')[0]).toHaveAttribute('scope', 'col')
@@ -80,7 +80,7 @@ describe('FullBoard', () => {
   it('shows the carrier logo next to the code for a known carrier', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
 
     expect(await screen.findByText('EIC 1')).toBeInTheDocument()
 
@@ -103,7 +103,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshotWithoutCarrier], budget: undefined, status: 'ok' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
 
     await screen.findByText('EIC 1')
     const row = screen.getAllByRole('row').find((r) => within(r).queryByText('EIC 1'))
@@ -114,7 +114,7 @@ describe('FullBoard', () => {
     const snapshotWithName = { ...SNAPSHOT, departures: [{ ...SNAPSHOT.departures[0], carrierName: 'PKP Intercity' }] }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshotWithName], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     // Wcześniej kod i pełna nazwa renderowały się OBA, przełączane klasami
@@ -127,7 +127,7 @@ describe('FullBoard', () => {
   it('shows the platform and track column on narrow screens too, no longer hidden', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     // Peron i tor to teraz dwie osobne wartości pod sobą (makieta §10),
@@ -143,7 +143,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [past, future] }], budget: undefined, status: 'ok' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await screen.findByText('PAST1')
 
     const pastRow = screen.getAllByRole('row').find((r) => within(r).queryByText('PAST1'))
@@ -156,13 +156,78 @@ describe('FullBoard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     expect(await screen.findByText('EIC 1')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Przyjazdy' }))
 
     expect(screen.getByText('TLK 2')).toBeInTheDocument()
     expect(screen.queryByText('EIC 1')).not.toBeInTheDocument()
+  })
+
+  describe('direction tabs (WAI-ARIA tabs pattern)', () => {
+    async function setupBoard() {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+      expect(await screen.findByText('EIC 1')).toBeInTheDocument()
+      return user
+    }
+
+    it('links each tab to the labelled tabpanel around the board, with a roving tabindex', async () => {
+      const user = await setupBoard()
+      const departures = screen.getByRole('tab', { name: 'Odjazdy' })
+      const arrivals = screen.getByRole('tab', { name: 'Przyjazdy' })
+      const panel = screen.getByRole('tabpanel')
+      expect(departures).toHaveAttribute('aria-controls', panel.id)
+      expect(arrivals).toHaveAttribute('aria-controls', panel.id)
+      expect(panel).toHaveAttribute('aria-labelledby', departures.id)
+      expect(departures).toHaveAttribute('tabindex', '0')
+      expect(arrivals).toHaveAttribute('tabindex', '-1')
+      await user.click(arrivals)
+      expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', arrivals.id)
+      expect(arrivals).toHaveAttribute('tabindex', '0')
+      expect(departures).toHaveAttribute('tabindex', '-1')
+      expect(within(screen.getByRole('tabpanel')).getByRole('table')).toBeInTheDocument()
+    })
+
+    it('ArrowRight/ArrowLeft move selection and focus, wrapping around', async () => {
+      const user = await setupBoard()
+      const departures = screen.getByRole('tab', { name: 'Odjazdy' })
+      const arrivals = screen.getByRole('tab', { name: 'Przyjazdy' })
+      departures.focus()
+      await user.keyboard('{ArrowRight}')
+      expect(arrivals).toHaveAttribute('aria-selected', 'true')
+      expect(arrivals).toHaveFocus()
+      await user.keyboard('{ArrowRight}')
+      expect(departures).toHaveAttribute('aria-selected', 'true')
+      expect(departures).toHaveFocus()
+      await user.keyboard('{ArrowLeft}')
+      expect(arrivals).toHaveAttribute('aria-selected', 'true')
+      expect(arrivals).toHaveFocus()
+    })
+
+    it('leaves modified arrows alone (Alt+ArrowRight is a browser shortcut)', async () => {
+      const user = await setupBoard()
+      const departures = screen.getByRole('tab', { name: 'Odjazdy' })
+      departures.focus()
+      await user.keyboard('{Alt>}{ArrowRight}{/Alt}')
+      expect(departures).toHaveAttribute('aria-selected', 'true')
+      expect(departures).toHaveFocus()
+    })
+
+    it('End and Home jump to the last and first tab', async () => {
+      const user = await setupBoard()
+      const departures = screen.getByRole('tab', { name: 'Odjazdy' })
+      const arrivals = screen.getByRole('tab', { name: 'Przyjazdy' })
+      departures.focus()
+      await user.keyboard('{End}')
+      expect(arrivals).toHaveAttribute('aria-selected', 'true')
+      expect(arrivals).toHaveFocus()
+      await user.keyboard('{Home}')
+      expect(departures).toHaveAttribute('aria-selected', 'true')
+      expect(departures).toHaveFocus()
+    })
   })
 
   it('uses direction-aware wording for a not-yet-happened connection: "jeszcze nie wyjechał" for departures, "jeszcze nie przyjechał" for arrivals', async () => {
@@ -174,7 +239,7 @@ describe('FullBoard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [notStartedSnapshot], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     expect(await screen.findByText('jeszcze nie wyjechał')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Przyjazdy' }))
@@ -193,7 +258,7 @@ describe('FullBoard', () => {
     }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [enRouteSnapshot], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
 
     expect(await screen.findByText('w trasie, ~+30 min')).toBeInTheDocument()
     expect(screen.getByText('w trasie')).toBeInTheDocument()
@@ -204,7 +269,7 @@ describe('FullBoard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [empty], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
 
     expect(await screen.findByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
 
@@ -219,13 +284,13 @@ describe('FullBoard', () => {
     const onToggleFavourite = vi.fn()
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={onToggleFavourite} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Dodaj do ulubionych' }))
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={onToggleFavourite} />)
+    await user.click(screen.getByRole('button', { name: 'Przypnij do Pulpitu' }))
 
     expect(onToggleFavourite).toHaveBeenCalled()
   })
 
-  it('hides the tabs and table behind the config-error banner, but keeps a way out', async () => {
+  it('hides the tabs and table behind the config-error banner', async () => {
     // Bez tego użytkownik widziałby baner "sprawdź klucz API" razem z wyglądającą
     // na działającą tabelą (pustą albo, gorzej, ostatnimi dobrymi danymi sprzed
     // awarii klucza) — mieszanie sygnałów, przed którym ostrzega AGENTS.md.
@@ -233,9 +298,8 @@ describe('FullBoard', () => {
       'fetch',
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'configError' }))
     )
-    const onClose = vi.fn()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={onClose} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
 
@@ -244,16 +308,15 @@ describe('FullBoard', () => {
     expect(screen.queryByRole('tab', { name: 'Odjazdy' })).not.toBeInTheDocument()
     expect(screen.queryByText(/Ostatnia aktualizacja/)).not.toBeInTheDocument()
 
-    const closeButton = screen.getByRole('button', { name: 'Zamknij' })
-    await userEvent.setup().click(closeButton)
-    expect(onClose).toHaveBeenCalled()
+    // Wyjście ze strony daje `TopBar` (← i ścieżka), nie sama tablica.
+    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
   })
 
   it('shows the absolute last-updated date and time instead of a relative age', async () => {
     const snapshot = { ...SNAPSHOT, fetchedAt: '2026-08-01T20:24:11.827Z' }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshot], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
 
     expect(await screen.findByText(/Ostatnia aktualizacja:/)).toBeInTheDocument()
     expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
@@ -263,7 +326,7 @@ describe('FullBoard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await user.click(await screen.findByRole('button', { name: 'EIC 1' }))
 
     expect(push).toHaveBeenCalledWith('/connection/2026/12345/2026-08-01?train=EIC%201')
@@ -276,7 +339,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [rowWithoutDate] }], budget: undefined, status: 'ok' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     expect(screen.queryByRole('button', { name: 'EIC 1' })).not.toBeInTheDocument()
@@ -286,7 +349,7 @@ describe('FullBoard', () => {
     window.history.pushState({}, '', '/?tab=arrivals')
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
 
     // Zakładka Przyjazdy aktywna od razu -- TLK 2 widoczne, EIC 1 (odjazdy) nie.
     expect(await screen.findByText('TLK 2')).toBeInTheDocument()
@@ -296,49 +359,19 @@ describe('FullBoard', () => {
   it('writes the tab to the URL, and clears it when the board closes', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
-    const onClose = vi.fn()
 
     const { unmount } = render(
-      <FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={onClose} />
+      <FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />
     )
     await user.click(await screen.findByRole('tab', { name: 'Przyjazdy' }))
     // The URL is written from a useEffect, not the click handler.
     await waitFor(() => expect(window.location.search).toContain('tab=arrivals'))
 
-    // Odmontowanie tablicy (odpowiednik kliknięcia "Zamknij" w page.tsx) musi
+    // Odmontowanie tablicy (odpowiednik wyjścia ze strony) musi
     // wyczyścić `tab` -- inaczej kolejna, inna stacja odziedziczyłaby zakładkę
     // sprzed zamknięcia.
     unmount()
     expect(window.location.search).not.toContain('tab=')
-  })
-
-  it('copies the current URL to the clipboard and shows a confirmation', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    const user = userEvent.setup()
-    // Po `userEvent.setup()`, nie przed -- ono samo ustawia własną atrapę
-    // `navigator.clipboard` (na potrzeby symulacji kopiuj/wklej), więc
-    // wcześniejsze przypisanie zostałoby nadpisane.
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
-    await screen.findByText('EIC 1')
-    await user.click(screen.getByRole('button', { name: 'Udostępnij' }))
-
-    expect(writeText).toHaveBeenCalledWith(window.location.href)
-    expect(await screen.findByRole('status')).toHaveTextContent('Skopiowano link')
-  })
-
-  it('shows a manual-copy hint instead of failing silently when the Clipboard API is unavailable', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
-    const user = userEvent.setup()
-    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
-
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
-    await screen.findByText('EIC 1')
-    await user.click(screen.getByRole('button', { name: 'Udostępnij' }))
-
-    expect(await screen.findByRole('status')).toHaveTextContent(/link w pasku adresu/)
   })
 
   it('shows a disruption indicator on a row flagged hasDisruption, not on a plain row', async () => {
@@ -348,7 +381,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [disrupted] }], budget: undefined, status: 'ok' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     expect(screen.getByTitle('Utrudnienie na trasie')).toBeInTheDocument()
@@ -357,7 +390,7 @@ describe('FullBoard', () => {
   it('does not show a disruption indicator when hasDisruption is absent (existing rows predating this field)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     expect(screen.queryByTitle('Utrudnienie na trasie')).not.toBeInTheDocument()
@@ -366,7 +399,7 @@ describe('FullBoard', () => {
   it('offers a status legend next to the "Status" column header, revealed on focus, covering all six statuses', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     const legendButton = screen.getByRole('button', { name: 'Legenda statusów' })
@@ -387,7 +420,7 @@ describe('FullBoard', () => {
   it('closes the status legend on Escape without moving focus off the trigger', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     const legendButton = screen.getByRole('button', { name: 'Legenda statusów' })
@@ -399,17 +432,20 @@ describe('FullBoard', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
-  it('closes even while the board is still loading (snapshot not yet received)', async () => {
-    // Zgłoszony błąd: kliknięcie Zamknij tuż po wejściu, zanim dane się
-    // załadują, czasem nic nie robiło. Fetch tu celowo nigdy się nie
-    // rozwiązuje -- snapshot zostaje `null` na cały czas trwania testu.
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(() => {})))
-    const onClose = vi.fn()
-    const user = userEvent.setup()
+  it('has no ✕, theme toggle or share of its own; the title is h1 standalone and h2 embedded', async () => {
+    // Wyjście, motyw i „Udostępnij” daje `TopBar` strony (station) albo ekran
+    // nadrzędny (city) -- tablica ma tylko przypięcie.
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+    const { rerender } = render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    await screen.findByText('EIC 1')
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} onClose={onClose} />)
+    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Przełącz na tryb/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Warszawa Centralna' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Zamknij' }))
-    expect(onClose).toHaveBeenCalled()
+    rerender(<FullBoard embedded stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    expect(screen.getByRole('heading', { level: 2, name: 'Warszawa Centralna' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 })

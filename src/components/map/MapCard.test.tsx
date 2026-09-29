@@ -143,7 +143,7 @@ describe('MapCard — favourites, nearby, disruptions', () => {
     const onToggleFavourite = vi.fn()
     const onNearby = vi.fn()
     render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} favourite={false} onToggleFavourite={onToggleFavourite} onNearby={onNearby} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Dodaj do ulubionych' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Przypnij do Pulpitu' }))
     expect(onToggleFavourite).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Co jest w pobliżu?' }))
     expect(onNearby).toHaveBeenCalled()
@@ -152,7 +152,7 @@ describe('MapCard — favourites, nearby, disruptions', () => {
   it('shows the pressed star for a favourite', () => {
     railStatus.mockReturnValue({ status: null, error: false })
     render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} favourite onToggleFavourite={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Usuń z ulubionych' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Odepnij z Pulpitu' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('flags a vehicle whose line has an active disruption', () => {

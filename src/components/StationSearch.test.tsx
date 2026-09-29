@@ -141,6 +141,28 @@ describe('StationSearch', () => {
     await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Nie udało się pobrać listy stacji'))
   })
 
+  it('says "stacji ani przystanków" for an empty result of the stations+stops endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ stations: [] })))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=warszawa" />)
+    await user.type(screen.getByRole('combobox'), 'zzz')
+    await vi.advanceTimersByTimeAsync(300)
+
+    await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Brak stacji ani przystanków o tej nazwie'))
+  })
+
+  it('uses a generic failure text for the stations+stops endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 503 }))))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=warszawa" />)
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+
+    await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Nie udało się wyszukać'))
+  })
+
   it('shows no message at all below the 3-character minimum', async () => {
     vi.stubGlobal('fetch', vi.fn())
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -166,6 +188,30 @@ describe('StationSearch', () => {
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('consumes Escape (defaultPrevented) only when a list was open', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const seen: boolean[] = []
+    // Nasłuch na window (jak PanelFrame) — widzi zdarzenie po obsłudze w polu.
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') seen.push(event.defaultPrevented)
+    }
+    window.addEventListener('keydown', onKey)
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    const input = screen.getByRole('combobox')
+    input.focus()
+    await user.keyboard('{Escape}')
+    await user.type(input, 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    await user.keyboard('{Escape}')
+    window.removeEventListener('keydown', onKey)
+
+    expect(seen).toEqual([false, true])
   })
 
   it('exposes an accessible name and the list-autocomplete pattern', () => {

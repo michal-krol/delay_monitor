@@ -99,7 +99,7 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect }: 
                                 aria-pressed={on}
                                 aria-label={formatSecondsOfDay(cell.disp)}
                                 onClick={() => onSelect(on ? null : cell.base)}
-                                className={`rounded px-1 tabular-nums transition ${
+                                className={`inline-flex min-h-6 min-w-6 items-center justify-center rounded px-1 tabular-nums transition ${
                                   on ? 'font-bold text-white' : 'text-text-secondary hover:text-foreground'
                                 }`}
                                 style={on ? { background: 'var(--accent-gradient)' } : undefined}

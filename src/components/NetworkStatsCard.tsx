@@ -165,7 +165,7 @@ export function NetworkStatsCard() {
 
           {data.history.length >= 2 && (
             <div>
-              <p className="mb-1 text-xs text-text-muted">Trend &bdquo;zgodnie z planem&rdquo; dziś</p>
+              <p className="mb-1 text-xs text-text-muted">Trend &bdquo;bez odwołań&rdquo; dziś</p>
               <Sparkline history={data.history} />
             </div>
           )}

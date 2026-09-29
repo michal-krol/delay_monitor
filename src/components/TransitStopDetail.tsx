@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
-import { useShareUrl } from '@/hooks/useShareUrl'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
@@ -24,7 +23,8 @@ import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, ShareIcon, StarIcon } from './icons'
+import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, StarIcon } from './icons'
+import { PageTitle } from './PageTitle'
 import { IconButton } from './IconButton'
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
@@ -122,7 +122,6 @@ export function TransitStopDetail({
   const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const { isFavourite, addFavourite, removeFavourite } = useFavourites()
-  const { share, status: shareStatus } = useShareUrl()
   const now = useSnapshotNow(data)
 
   const board = data?.stops[0] ?? null
@@ -188,13 +187,13 @@ export function TransitStopDetail({
   )
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass-strong glow-ring rounded-2xl p-5" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stopName}</h1>
+                <PageTitle as={embedded ? 'h2' : 'h1'}>{stopName}</PageTitle>
                 {board?.wheelchairNote != null && (
                   <span className="text-amber-600 dark:text-amber-400">
                     <AccessibleIcon
@@ -231,21 +230,6 @@ export function TransitStopDetail({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {shareStatus !== 'idle' && (
-                <span role="status" className="text-sm text-text-secondary">
-                  {shareStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować'}
-                </span>
-              )}
-              {!embedded && (
-                <button
-                  type="button"
-                  onClick={() => void share()}
-                  className="card-hover inline-flex h-9 items-center gap-2 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  <ShareIcon size={15} />
-                  Udostępnij
-                </button>
-              )}
               <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={() => (pinned ? removeFavourite(key) : addFavourite(favourite))}>
                 <StarIcon size={15} filled={pinned} className={pinned ? PIN_COLOR : ''} />
               </IconButton>

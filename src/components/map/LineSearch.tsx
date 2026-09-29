@@ -18,7 +18,7 @@ export function LineSearch({
   onSelect,
   className = '',
 }: {
-  /** `null` = lista jeszcze się wczytuje (pole działa, pokazuje „Wczytuję…"). */
+  /** `null` = lista jeszcze się wczytuje (pole działa, pokazuje „Wczytywanie…"). */
   lines: LineListEntry[] | null
   onSelect: (line: LineListEntry) => void
   className?: string
@@ -43,7 +43,7 @@ export function LineSearch({
   }, [needle, lines])
 
   const isOpen = options.length > 0
-  const message = needle === '' ? null : lines === null ? 'Wczytuję linie…' : options.length === 0 ? 'Nie znaleziono linii' : null
+  const message = needle === '' ? null : lines === null ? 'Wczytywanie linii…' : options.length === 0 ? 'Nie znaleziono linii' : null
 
   function choose(line: LineListEntry): void {
     onSelect(line)
@@ -53,6 +53,7 @@ export function LineSearch({
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === 'Escape') {
+      if (query !== '') event.preventDefault() // jest co wyczyścić — Escape nie zamyka panelu
       setQuery('')
       setActiveIndex(-1)
       return

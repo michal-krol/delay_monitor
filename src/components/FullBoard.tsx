@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
@@ -9,12 +9,11 @@ import { BoardTable } from './BoardTable'
 import { StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
-import { ThemeToggle } from './ThemeToggle'
-import { CloseIcon, PIN_COLOR, ShareIcon, StarIcon } from './icons'
+import { PageTitle } from './PageTitle'
+import { CloseIcon, PIN_COLOR, StarIcon } from './icons'
 import { IconButton } from './IconButton'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
-import { useShareUrl } from '@/hooks/useShareUrl'
 import { formatClockTime } from '@/lib/format'
 import { zonedHour } from '@/lib/pkp/time'
 
@@ -23,10 +22,10 @@ type Props = {
   stationName: string
   isFavourite: boolean
   onToggleFavourite: () => void
-  onClose: () => void
   /**
-   * Osadzone pod wyszukiwarką na ekranie miasta — przycisk „wstecz" i
-   * `ThemeToggle` rysuje wtedy ekran nadrzędny, więc wewnętrzny „✕" znika.
+   * Osadzone pod wyszukiwarką na ekranie miasta, które ma już własny h1 —
+   * nazwa stacji jest wtedy h2. Wyjście, motyw i „Udostępnij" rysuje zawsze
+   * strona nadrzędna (`TopBar`), nie tablica.
    */
   embedded?: boolean
 }
@@ -36,13 +35,30 @@ export type Direction = 'departures' | 'arrivals'
 /** Sufit długości filtra kierunku odtwarzanego z URL-a -- patrz komentarz przy odczycie. */
 const MAX_DESTINATION_FILTER_LENGTH = 100
 
-/** Zakładki Odjazdy/Przyjazdy. */
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+const DIRECTIONS: Direction[] = ['departures', 'arrivals']
+
+/** Zakładki Odjazdy/Przyjazdy; `tabIndex` roving — Tab wchodzi tylko na aktywną, strzałki przełączają. */
+function TabButton({
+  id,
+  panelId,
+  active,
+  onClick,
+  children,
+}: {
+  id: string
+  panelId: string
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
   return (
     <button
       type="button"
       role="tab"
+      id={id}
+      aria-controls={panelId}
       aria-selected={active}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
         active ? 'bg-indigo-600 text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
@@ -53,11 +69,13 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   )
 }
 
-export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, onClose, embedded = false }: Props) {
+export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
+  const idBase = useId()
+  const tabId = (d: Direction): string => `${idBase}-tab-${d}`
+  const panelId = `${idBase}-panel`
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
-  const { share, status: shareStatus } = useShareUrl()
   const { data, error } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
@@ -75,6 +93,20 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   function switchDirection(next: Direction): void {
     setDirection(next)
     setDestinationFilter(null)
+  }
+
+  /** Strzałki (z zawijaniem), Home i End przenoszą zaznaczenie ORAZ fokus (wzorzec zakładek WAI-ARIA). */
+  function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    // Alt+strzałka = Wstecz/Dalej przeglądarki itp. — nie przechwytujemy skrótów.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    const last = DIRECTIONS.length - 1
+    const at = DIRECTIONS.indexOf(direction)
+    const target =
+      event.key === 'ArrowRight' ? (at === last ? 0 : at + 1) : event.key === 'ArrowLeft' ? (at === 0 ? last : at - 1) : event.key === 'Home' ? 0 : event.key === 'End' ? last : null
+    if (target === null) return
+    event.preventDefault()
+    switchDirection(DIRECTIONS[target])
+    document.getElementById(tabId(DIRECTIONS[target]))?.focus()
   }
 
   const allRows = useMemo(() => (snapshot ? snapshot[direction] : []), [snapshot, direction])
@@ -141,7 +173,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   }, [])
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass rounded-2xl p-5">
           {configError && <ConfigErrorBanner />}
@@ -150,7 +182,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             <div className="flex min-w-0 items-center gap-4">
               <StationThumb stationName={stationName} />
               <div className="min-w-0">
-                <h2 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stationName}</h2>
+                <PageTitle as={embedded ? 'h2' : 'h1'}>{stationName}</PageTitle>
                 {/* Przy błędzie konfiguracji NIE pokazujemy statusu danych --
                     „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API"
                     to dokładnie to mieszanie sygnałów, przed którym ostrzega
@@ -164,34 +196,9 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {shareStatus !== 'idle' && (
-                <span role="status" className="text-sm text-text-secondary">
-                  {shareStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
-                </span>
-              )}
-              <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
+              <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
                 <StarIcon size={15} filled={isFavourite} className={isFavourite ? PIN_COLOR : ''} />
               </IconButton>
-              {/* Przycisk z podpisem, nie sama ikona (makieta §17) -- to
-                  główna akcja nagłówka, a „Udostępnij" bez etykiety było
-                  najmniej odgadywalnym elementem tego widoku. */}
-              <button
-                type="button"
-                onClick={() => void share()}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-              >
-                <ShareIcon size={15} />
-                Udostępnij
-              </button>
-              {/* Osadzone: przycisk „wstecz" i motyw rysuje ekran nadrzędny. */}
-              {!embedded && (
-                <>
-                  <IconButton onClick={onClose} label="Zamknij">
-                    <CloseIcon size={16} />
-                  </IconButton>
-                  <ThemeToggle />
-                </>
-              )}
             </div>
           </div>
         </section>
@@ -207,11 +214,16 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
 
             <section className="glass rounded-2xl p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div role="tablist" aria-label="Kierunek" className="inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5">
-                  <TabButton active={direction === 'departures'} onClick={() => switchDirection('departures')}>
+                <div
+                  role="tablist"
+                  aria-label="Kierunek"
+                  onKeyDown={onTabKeyDown}
+                  className="inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5"
+                >
+                  <TabButton id={tabId('departures')} panelId={panelId} active={direction === 'departures'} onClick={() => switchDirection('departures')}>
                     Odjazdy
                   </TabButton>
-                  <TabButton active={direction === 'arrivals'} onClick={() => switchDirection('arrivals')}>
+                  <TabButton id={tabId('arrivals')} panelId={panelId} active={direction === 'arrivals'} onClick={() => switchDirection('arrivals')}>
                     Przyjazdy
                   </TabButton>
                 </div>
@@ -228,13 +240,15 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 )}
               </div>
 
-              <BoardTable
-                stationName={stationName}
-                direction={direction}
-                rows={rows}
-                now={now}
-                loading={snapshot === null && error === null}
-              />
+              <div role="tabpanel" id={panelId} aria-labelledby={tabId(direction)}>
+                <BoardTable
+                  stationName={stationName}
+                  direction={direction}
+                  rows={rows}
+                  now={now}
+                  loading={snapshot === null && error === null}
+                />
+              </div>
             </section>
           </>
         )}

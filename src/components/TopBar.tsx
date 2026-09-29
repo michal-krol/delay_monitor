@@ -1,7 +1,12 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { ArrowLeftIcon, ShareIcon } from './icons'
+import Link from 'next/link'
+import { ArrowLeftIcon } from './icons'
+import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
+import { ICON_BUTTON_CLASS, ICON_BUTTON_MD_SIZE, IconButton } from './IconButton'
+import { PageTitle } from './PageTitle'
+import { ShareButton } from './ShareButton'
 import { ThemeToggle } from './ThemeToggle'
 
 type HeaderVariant = {
@@ -10,63 +15,70 @@ type HeaderVariant = {
   /** Kontrolki po prawej stronie nagłówka (np. wybór miasta), przed `ThemeToggle`. */
   actions?: ReactNode
   backLabel?: never
+  backHref?: never
   onBack?: never
+  crumbs?: never
+  share?: never
 }
 
 /**
- * Strona-trasa (np. `/connection/...`) nie zawsze zna adres strony-źródła
- * (mogła to być zakładka Odjazdy albo Przyjazdy pełnej tablicy) — stąd
- * `onBack` zamiast stałego `href`: cofa przez `router.back()`/`router.push('/')`
- * wybrane przez wywołującego, nie przez `TopBar`.
+ * Strony szczegółowe (stacja, przystanek, linia, połączenie): jeden rząd —
+ * po lewej ← i ścieżka, po prawej „Udostępnij” i motyw. Tytuł (h1) jest w
+ * karcie treści strony, nie tutaj.
+ *
+ * Dokąd prowadzi ←: `backHref`, gdy rodzic jest jednoznaczny (link), albo
+ * `onBack`, gdy nie jest — `/connection/...` nie zna strony-źródła (mogła to
+ * być zakładka Odjazdy albo Przyjazdy pełnej tablicy), więc cofa przez
+ * `router.back()` wybrane przez wywołującego. Dokładnie jedno z dwóch.
  */
 type BackVariant = {
+  /** Nazwa dostępna przycisku ←, np. „Wróć do Pulpitu”. */
   backLabel: string
-  onBack: () => void
-  /** Udostępnienie bieżącej trasy. Pominięte na stronach, których nie ma sensu wysyłać dalej. */
-  onShare?: () => void
+  /** Ścieżka: rodzic(e) i bieżąca strona (ostatni element = `aria-current`). */
+  crumbs: BreadcrumbItem[]
+  /** „Udostępnij” obok przełącznika motywu. Pominięte tam, gdzie nie ma sensu wysyłać strony dalej. */
+  share?: boolean
   title?: never
   subtitle?: never
-}
+  actions?: never
+} & ({ backHref: string; onBack?: never } | { onBack: () => void; backHref?: never })
 
 type Props = HeaderVariant | BackVariant
 
 export function TopBar(props: Props) {
-  const isBackVariant = 'backLabel' in props && props.backLabel !== undefined
-  const backLinkClassName = 'flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-foreground'
+  const back = props.backLabel === undefined ? null : props
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      {isBackVariant ? (
-        <button type="button" onClick={props.onBack} className={backLinkClassName}>
-          <ArrowLeftIcon size={16} />
-          {props.backLabel}
-        </button>
+    // Wariant nagłówka zawija rząd (kontrolki schodzą pod tytuł na wąskim ekranie
+    // zamiast wychodzić poza stronę); wariant z ← zostaje w jednym rzędzie.
+    <div className={`relative flex items-center justify-between gap-4 ${back === null ? 'flex-wrap gap-y-2' : ''}`}>
+      {back !== null ? (
+        <div className="flex min-w-0 items-center gap-3">
+          {back.backHref !== undefined ? (
+            <Link href={back.backHref} aria-label={back.backLabel} className={`${ICON_BUTTON_CLASS} ${ICON_BUTTON_MD_SIZE}`}>
+              <ArrowLeftIcon size={16} />
+            </Link>
+          ) : (
+            <IconButton label={back.backLabel} onClick={back.onBack}>
+              <ArrowLeftIcon size={16} />
+            </IconButton>
+          )}
+          <Breadcrumb items={back.crumbs} />
+        </div>
       ) : (
-        <div>
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight">{props.title}</h1>
+        <div className="min-w-0">
+          <PageTitle>{props.title}</PageTitle>
           <p className="mt-0.5 text-sm text-text-muted">{props.subtitle}</p>
         </div>
       )}
 
-      <div className="flex shrink-0 items-center gap-2">
-        {!isBackVariant && props.actions}
-        {isBackVariant && props.onShare !== undefined && (
-          <button
-            type="button"
-            onClick={props.onShare}
-            className="inline-flex items-center gap-2 rounded-full border border-surface-border px-3 py-1.5 text-sm font-semibold text-text-secondary transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
-          >
-            <ShareIcon size={15} />
-            Udostępnij
-          </button>
-        )}
+      <div className={`flex shrink-0 items-center gap-2 ${back === null ? 'ml-auto' : ''}`}>
+        {back === null ? props.actions : back.share === true && <ShareButton />}
         <ThemeToggle />
         {/* Dzwonek „Powiadomienia" usunięty: nie miał żadnej akcji, a
             powiadomienia wymagają service workera, kluczy VAPID i trwałego
             zapisu subskrypcji — których ta aplikacja świadomie nie ma
-            (AGENTS.md #5). Przycisk bez akcji obiecuje funkcję, której nie ma.
-            Wyciszony placeholder w `Sidebar` (`kind: 'disabled'`, „Wkrótce")
-            zostaje — ten niczego nie udaje. */}
+            (AGENTS.md #5). Przycisk bez akcji obiecuje funkcję, której nie ma. */}
       </div>
     </div>
   )

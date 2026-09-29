@@ -122,10 +122,15 @@ describe('TransitStopDetail', () => {
     expect(link).toHaveAttribute('href', '/city/warszawa/line/M1')
   })
 
-  it('hides the internal share button when embedded', () => {
-    render(<TransitStopDetail city="warszawa" stopId="7014M" embedded />)
+  it('has no share button of its own (TopBar owns it); title is h1 standalone, h2 embedded', () => {
+    const { rerender } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Przypnij do Pulpitu/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Świętokrzyska' })).toBeInTheDocument()
+
+    rerender(<TransitStopDetail city="warszawa" stopId="7014M" embedded />)
+    expect(screen.getByRole('heading', { level: 2, name: 'Świętokrzyska' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
   it('shows the słupek switcher only when the group has more than one member', () => {

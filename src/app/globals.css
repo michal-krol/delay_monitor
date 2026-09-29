@@ -159,7 +159,26 @@
   --color-surface-strong: var(--surface-strong);
   --color-surface-border: var(--surface-border);
   --color-error-text: var(--error-text);
+  /* Jedna szerokość prawej kolumny (PageAside, tablice, karta mapy) — właściciel
+     2026-09-29: 320 px przy 1280, 380 px od ok. 1520. */
+  --spacing-aside: clamp(20rem, 25vw, 23.75rem);
   --font-heading: var(--font-manrope), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Niewidoczny obszar trafienia 44×44 px (WCAG 2.5.5) wokół małego przycisku;
+   wygląd bez zmian (właściciel 2026-09-29). Tylko `::after` — bez `position`
+   na samym elemencie, żeby nie nadpisać `absolute` (np. „Powiększ mapę”).
+   Element MUSI być pozycjonowany (`relative` albo `absolute`/`fixed`). */
+@utility touch-44 {
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
 }
 
 @utility glass {
@@ -310,8 +329,8 @@
     box-shadow: 0 0 0 18px rgba(56, 189, 248, 0);
   }
 }
-/* Nie jako `::after` w `@utility` (Tailwind v4 nie generuje pseudoelementów
-   z inline stylem tła nadrzędnika) — zwykła reguła, tak jak `.card-hover`. */
+/* Zwykła reguła, nie `@utility`: `::after` pulsu dziedziczy `border-radius` i
+   nadrzędnik ma tło w inline stylu — tak jak `.card-hover`. */
 .ring-pulse {
   position: relative;
 }

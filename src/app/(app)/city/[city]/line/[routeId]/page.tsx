@@ -3,9 +3,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { notFound, useParams, useRouter } from 'next/navigation'
+import { notFound, useParams } from 'next/navigation'
+import { PageTitle } from '@/components/PageTitle'
 import { TopBar } from '@/components/TopBar'
-import { Breadcrumb } from '@/components/Breadcrumb'
 import { AlertBanner } from '@/components/AlertBanner'
 import { LineBadge } from '@/components/LineBadge'
 import { OnRequestBadge } from '@/components/OnRequestBadge'
@@ -50,7 +50,6 @@ export default function LineDetailPage() {
     notFound()
   }
 
-  const router = useRouter()
   const { cities } = useCities()
   const [dirIdx, setDirIdx] = useState(0)
   const [stopSel, setStopSel] = useState(0)
@@ -154,7 +153,7 @@ export default function LineDetailPage() {
           {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
             <p className="text-xs text-error-text">Nie udało się pobrać pozycji.</p>
           ) : liveVehicles.feed.state === 'loading' ? (
-            <p className="text-xs text-text-muted">Wczytuję pozycje…</p>
+            <p className="text-xs text-text-muted">Wczytywanie pozycji…</p>
           ) : liveVehicles.vehicles.length === 0 ? (
             <p className="text-xs text-text-muted">Brak pojazdów w trasie w tym kierunku.</p>
           ) : (
@@ -180,19 +179,20 @@ export default function LineDetailPage() {
 
   return (
     <PageShell aside={asideContent}>
-      <Breadcrumb
-        items={[
+      <TopBar
+        backLabel="Wróć do tras"
+        backHref={`/city/${city}/lines`}
+        crumbs={[
           { label: 'Trasy', href: `/city/${city}/lines` },
           { label: line?.longName ?? routeId },
         ]}
       />
-      <TopBar backLabel="Wróć do linii" onBack={() => router.push(`/city/${city}/lines`)} />
 
         {line !== null && (
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-3">
               <LineBadge line={line.line} color={line.color} mode={line.mode} />
-              <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{line.longName}</h1>
+              <PageTitle>{line.longName}</PageTitle>
             </div>
             <p className="text-sm text-text-secondary">
               {MODE_LABEL[line.mode]}
@@ -208,7 +208,7 @@ export default function LineDetailPage() {
         {failed && data === null ? (
           <p className="text-sm text-error-text">Nie udało się pobrać przebiegu linii.</p>
         ) : loading ? (
-          <p className="text-sm text-text-secondary">Wczytuję przebieg linii…</p>
+          <p className="text-sm text-text-secondary">Wczytywanie przebiegu linii…</p>
         ) : line === null || direction === undefined ? (
           <p className="text-sm text-text-secondary">
             {data?.schedule.state === 'loading' ? 'Rozkład jeszcze się wczytuje.' : 'Nie znaleziono takiej linii w rozkładzie.'}
@@ -228,7 +228,7 @@ export default function LineDetailPage() {
               {directions.length >= 2 && <SwapIcon size={15} className="ml-1 text-indigo-600 dark:text-indigo-400" />}
             </button>
 
-            {/* W treści głównej, nie w aside: aside jest `hidden xl:flex`, a mapa ma działać też na telefonie. */}
+            {/* W treści głównej, nie w aside: aside schodzi pod treść poniżej `xl`, a mapa ma być tuż pod nagłówkiem trasy, także na telefonie. */}
             {stops.length >= 2 && (
               <section className="glass rounded-2xl p-4">
                 <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
@@ -243,7 +243,7 @@ export default function LineDetailPage() {
               </section>
             )}
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+            <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
               <section className="glass rounded-2xl p-4">
                 <h2 className="text-sm font-bold text-foreground">
                   Trasa linii · {stops.length} {pluralPl(stops.length, 'przystanek', 'przystanki', 'przystanków')}
@@ -277,7 +277,7 @@ export default function LineDetailPage() {
                             />
                           )}
                           {!last && (
-                            <span className="relative mt-1 w-0.5 flex-1 bg-surface-border" aria-hidden="true">
+                            <span className="relative mt-1 w-0.5 flex-1 bg-surface-border">
                               {showVehicles &&
                                 liveVehicles.vehicles
                                   .filter((v) => v.afterStopOrder === index)
@@ -297,6 +297,10 @@ export default function LineDetailPage() {
                                       }}
                                     >
                                       <ArrowRightIcon size={10} className="rotate-90" />
+                                      <span className="sr-only">
+                                        Pojazd {v.sideNumber}
+                                        {v.ageSec > 60 ? `, ${Math.round(v.ageSec / 60)} min temu` : ''}
+                                      </span>
                                     </span>
                                   ))}
                             </span>

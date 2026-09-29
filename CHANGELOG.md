@@ -58,6 +58,34 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Oznaczenie „tylko dla wysiadających" w szczegółach połączenia jest neutralne zamiast
   bursztynowego, żeby nie mylić go z utrudnieniem. Zakładka „Komunikaty" przystanku
   sygnalizuje aktywne utrudnienia ikoną ostrzeżenia zamiast kropki.
+- Przypinanie ma jedną nazwę: „Przypnij do Pulpitu" i „Odepnij z Pulpitu" na stronie stacji,
+  na karcie mapy i na kartach Pulpitu (zamiast „Dodaj do ulubionych" i „Usuń z ulubionych").
+  Przycisk szybkiego przeskoku na mapie nazywa się „Przypięte".
+- Teksty są spójne w całej aplikacji: wczytywanie to zawsze „Wczytywanie…", przyciski powrotu
+  mówią „Wróć do …", zerowe opóźnienie pociągu to „punktualnie", a trend w stanie sieci nazywa
+  się „bez odwołań" (tyle mierzy). Wyszukiwarka stacji i przystanków przy braku wyników pisze
+  „Brak stacji ani przystanków o tej nazwie".
+- Strony stacji, przystanku, linii i połączenia mają u góry jeden wiersz: przycisk „wstecz",
+  ścieżkę nawigacji, „Udostępnij" i przełącznik motywu. Strona stacji nie ma już osobnego
+  krzyżyka i drugiego przełącznika motywu w karcie, a szczegóły połączenia — drugiego
+  przycisku udostępniania. Tytuły stron mają jeden styl, a każda strona ma dokładnie jeden
+  główny nagłówek.
+- Prawa kolumna ma na wszystkich stronach tę samą szerokość: 320 px przy ekranie 1280 px,
+  rośnie do 380 px na szerokich ekranach (także karta obiektu na mapie transportu). Na
+  węższych ekranach i na telefonie jej karty (np. „Dziś w Polsce", pogoda) są pod treścią
+  zamiast znikać.
+- Karty na Pulpicie mają co najmniej ok. 270 px szerokości — przy 1280 px nie ścieśniają się
+  już do ok. 150 px i nie ucinają treści.
+- Na telefonie wiersz odjazdu z plakietką „na żądanie" i peronem przenosi dodatkowe
+  oznaczenia do drugiej linii, więc kierunek i czas „za … min" są w całości widoczne.
+- Małe przyciski-ikony (przypnij, zamknij, motyw, menu, zwijanie paska, powiększenie mapy,
+  „wstecz") reagują na dotyk w polu 44 × 44 px, bez zmiany wyglądu. Minuty w rozkładzie linii
+  mają co najmniej 24 × 24 px.
+
+### Usunięte
+
+- Wyłączone pozycje menu „Ulubione", „Powiadomienia" i „Ustawienia" („Wkrótce") — nie
+  prowadziły nigdzie. Przypięte stacje i przystanki są na Pulpicie.
 
 ### Naprawione
 
@@ -87,6 +115,23 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Widżet komunikacji miejskiej sam zauważa, że komunikaty o utrudnieniach znów są dostępne:
   po nieudanym pobraniu sprawdza je ponownie co 5 minut, gdy karta jest widoczna, zamiast
   czekać na przeładowanie strony. Wiek pokazywanych danych też się wtedy aktualizuje.
+- Opis wydania 1.0.0 obiecywał „ścieżkę nawigacji we wszystkich widokach" i „prawą kolumnę
+  o jednej szerokości". W rzeczywistości strona stacji nie miała ścieżki ani głównego
+  nagłówka, a prawa kolumna miała cztery różne szerokości i znikała poniżej szerokiego
+  ekranu. Teraz obie obietnice są spełnione (patrz „Zmienione").
+- Czytniki ekranu dostają informacje, które dotąd były tylko w dymku po najechaniu myszą:
+  wiek pozycji pojazdu na tablicy przystanku i na osi czasu linii, słupek odjazdu oraz powód
+  ograniczonego odświeżania tablicy.
+- Karta obiektu, panel linii i listy na mapie transportu zamykają się klawiszem Escape
+  i oddają fokus tam, skąd go wzięły; Escape w otwartej liście rozwijanej zamyka najpierw
+  tylko listę. Po zamknięciu powiększonej mapy fokus wraca na przycisk „Powiększ mapę".
+- Zakładki „Odjazdy" i „Przyjazdy" na stronie stacji przełącza się strzałkami, Home i End,
+  a czytniki ekranu wiedzą, którą tablicę zakładka pokazuje.
+- Link „Zobacz pełną tablicę" w dymku mapy ma szewron zamiast tekstowej strzałki „→".
+- Pusty Pulpit i ekran miasta z wybranym przystankiem miały dwa główne nagłówki naraz.
+- Na ekranie 375 px strona linii nie przewija się już w poziomie (karty trasy i rozkładu były
+  szersze od ekranu), a przyciski w nagłówku ekranu miasta schodzą pod tytuł, zamiast
+  wystawać poza stronę.
 
 ## [1.0.2] — 2026-09-28
 

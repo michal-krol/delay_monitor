@@ -114,7 +114,6 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
           stationName={payload}
           isFavourite={false}
           onToggleFavourite={vi.fn()}
-          onClose={vi.fn()}
         />
       )
 

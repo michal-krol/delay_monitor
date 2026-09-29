@@ -49,10 +49,19 @@ function DepartureRow({
   now?: number
 }) {
   const relative = now !== undefined ? relativeLabel(departure.plannedAt, now) : null
+  const hasStopTag = showSlupek && (departure.stopCode ?? departure.platformCode) !== null
+  const hasMeta =
+    hasStopTag ||
+    departure.vehicle != null ||
+    departure.lineKind === 'night' ||
+    departure.lineKind === 'express' ||
+    departure.frequencyBased ||
+    departure.onRequest ||
+    departure.platformCode !== null
   return (
     <li
       key={`${departure.tripId}-${departure.stopId}-${index}`}
-      className="flex items-center gap-3 py-2.5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5"
     >
       <time
         dateTime={departure.plannedAt}
@@ -67,33 +76,46 @@ function DepartureRow({
         size="sm"
         href={city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined}
       />
-      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+      <span data-testid="departure-headsign" className="min-w-0 flex-1 truncate text-sm text-foreground">
         {departure.headsign ?? '—'}
       </span>
-      {showSlupek && (departure.stopCode ?? departure.platformCode) !== null && (
-        <span
-          title={`Odjazd z: ${departure.stopCode ?? departure.platformCode}`}
-          className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
-        >
-          {departure.stopCode ?? departure.platformCode}
-        </span>
-      )}
-      {departure.vehicle != null && (
-        <span
-          title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
-          className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300"
-        >
-          {departure.vehicle.stopsAway === 0 ? 'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
-        </span>
-      )}
-      {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
-      {departure.lineKind === 'express' && <span className="shrink-0 text-xs text-text-muted">przyspieszona</span>}
-      {departure.frequencyBased && (
-        <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
-      )}
-      {departure.onRequest && <OnRequestBadge />}
-      {departure.platformCode !== null && (
-        <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
+      {/* Oznaczenia dodatkowe: na wąskiej liście (kontener < `@xl`) schodzą do
+          drugiego wiersza (`order-last basis-full`), wcięte `pl-15` pod plakietkę
+          linii (nie pod nazwę kierunku), na
+          szerokiej zostają w jednym rzędzie z resztą. Do sześciu `shrink-0` w
+          jednym wierszu ściskało kierunek do 0 px na 375 px. */}
+      {hasMeta && (
+        <div className="order-last flex basis-full flex-wrap items-center gap-x-2 gap-y-1 pl-15 @xl:order-none @xl:basis-auto @xl:flex-nowrap @xl:pl-0">
+          {hasStopTag && (
+            <span
+              title={`Odjazd z: ${departure.stopCode ?? departure.platformCode}`}
+              className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
+            >
+              <span className="sr-only">Odjazd z: </span>
+              {departure.stopCode ?? departure.platformCode}
+            </span>
+          )}
+          {departure.vehicle != null && (
+            <span
+              title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
+              className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300"
+            >
+              {departure.vehicle.stopsAway === 0 ? 'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
+              <span className="sr-only">
+                , {departure.vehicle.ageSec > 60 ? `pozycja sprzed ${Math.round(departure.vehicle.ageSec / 60)} min` : 'pozycja na żywo'}
+              </span>
+            </span>
+          )}
+          {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
+          {departure.lineKind === 'express' && <span className="shrink-0 text-xs text-text-muted">przyspieszona</span>}
+          {departure.frequencyBased && (
+            <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
+          )}
+          {departure.onRequest && <OnRequestBadge />}
+          {departure.platformCode !== null && (
+            <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
+          )}
+        </div>
       )}
       {relative !== null && (
         <span className="shrink-0 text-xs font-semibold tabular-nums text-text-secondary">{relative}</span>
@@ -154,7 +176,7 @@ export function TransitDepartureList({
       )}
 
       {listed.length > 0 && (
-        <ul className="mt-3 divide-y divide-surface-border">
+        <ul data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
           {listed.map((departure, index) => (
             <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showSlupek={showSlupek} now={now} />
           ))}

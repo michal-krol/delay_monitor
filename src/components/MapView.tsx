@@ -102,12 +102,38 @@ export function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
   if (rich && pin.href !== undefined) {
     const link = document.createElement('a')
     link.href = pin.href
-    link.textContent = 'Zobacz pełną tablicę →'
-    link.className = 'mt-1.5 block text-xs font-medium text-indigo-600 dark:text-indigo-400'
+    link.textContent = 'Zobacz pełną tablicę'
+    link.className = 'mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400'
+    link.appendChild(createChevronElement())
     wrap.appendChild(link)
   }
 
   return wrap
+}
+
+/**
+ * Chevron „dalej” do popupu (DOM poza Reactem) — ta sama geometria co `ChevronRightIcon`
+ * z `icons.tsx` (viewBox 20×20, obrys 1.7). `createElementNS`, nie innerHTML (#4).
+ */
+function createChevronElement(): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(ns, 'svg')
+  const attrs: Record<string, string> = {
+    viewBox: '0 0 20 20',
+    width: '14',
+    height: '14',
+    fill: 'none',
+    stroke: 'currentColor',
+    'stroke-width': '1.7',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'aria-hidden': 'true',
+  }
+  for (const [name, value] of Object.entries(attrs)) svg.setAttribute(name, value)
+  const path = document.createElementNS(ns, 'path')
+  path.setAttribute('d', 'm8 5 5 5-5 5')
+  svg.appendChild(path)
+  return svg
 }
 
 /**
@@ -288,6 +314,7 @@ export function MapView({
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const expandButtonRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   // Ruchome punkty aktualizowane w miejscu (dwie mapy: miniatura i pełny ekran) -- `movers`
   // celowo NIE wchodzi do zależności montowania, inaczej każdy poll pojazdów resetowałby mapę.
@@ -337,6 +364,7 @@ export function MapView({
   useEffect(() => {
     if (!expanded) return
     closeButtonRef.current?.focus()
+    const opener = expandButtonRef.current
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     function onKeyDown(event: KeyboardEvent): void {
@@ -347,6 +375,8 @@ export function MapView({
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
+      // Zamknięcie (Escape, tło, ✕) oddaje fokus przyciskowi, który otworzył powiększenie.
+      opener?.focus({ preventScroll: true })
     }
   }, [expanded])
 
@@ -357,10 +387,11 @@ export function MapView({
       <div className="relative">
         <div ref={containerRef} role="region" aria-label={ariaLabel} className="h-64 w-full overflow-hidden rounded-2xl" />
         <button
+          ref={expandButtonRef}
           type="button"
           onClick={() => setExpanded(true)}
           aria-label="Powiększ mapę"
-          className="glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
+          className="touch-44 glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
         >
           <ExpandIcon size={16} />
         </button>

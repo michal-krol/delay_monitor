@@ -123,7 +123,9 @@ export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePo
   useEffect(() => {
     if (!open) return
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key !== 'Escape') return
+      event.preventDefault() // jak w MapFilters: Escape zamyka tylko listę, nie panel
+      setOpen(false)
     }
     const onPointer = (event: PointerEvent): void => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
@@ -142,14 +144,14 @@ export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePo
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label="Ulubione"
+        aria-label="Przypięte"
         onClick={() => setOpen((o) => !o)}
         className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl ${PIN_COLOR} transition hover:bg-black/5 dark:hover:bg-white/10`}
       >
         <StarIcon size={16} />
       </button>
       {open && (
-        <ul id={panelId} aria-label="Ulubione" className="glass-strong absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">
+        <ul id={panelId} aria-label="Przypięte" className="glass-strong absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">
           {favourites.map((favourite) => (
             <li key={favourite.key}>
               <button

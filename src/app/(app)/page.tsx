@@ -62,7 +62,7 @@ function PulpitPage() {
 
   return (
     <PageShell aside={<NetworkStatsCard />}>
-      <TopBar title="Pulpit" subtitle="Twoje ulubione stacje i najbliższe odjazdy" />
+      <TopBar title="Pulpit" subtitle="Przypięte stacje i przystanki z najbliższymi odjazdami" />
       <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />
 
       {favourites.length === 0 ? (
