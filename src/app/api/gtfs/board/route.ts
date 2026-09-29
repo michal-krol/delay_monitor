@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCity } from '@/lib/gtfs/cities'
 import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
+import { knownAlerts } from '@/lib/gtfs/alertPoller'
 import { scheduleResponseBlock } from '@/lib/gtfs/poller'
 import { alertsForRoutes, nextDepartures, stopGroup, stopSummary, vehicleForStop } from '@/lib/gtfs/query'
 import { todayServiceIndex } from '@/lib/gtfs/serviceDay'
@@ -82,12 +83,9 @@ export async function GET(request: Request) {
   const vehiclePoller = peekVehiclePoller(city)
   const positions = vehiclePoller?.getPositions() ?? []
 
-  // `alerts: null` = jeszcze nie wiadomo (poller alertów `idle`/`loading` — np. świeżo obudzony
-  // przez to samo żądanie): klient ponawia drabinką zamiast pokazać „brak komunikatów" na 30 s (#7).
-  // Feed `failed` -> lista (ostatnie dobre albo pusta), żeby nie odpytywać martwego feedu — jak `/api/gtfs/line`.
-  const alertPoller = peekAlertPoller(city)
-  const alertState = alertPoller?.getView().state
-  const allAlerts = alertState === 'ready' || alertState === 'failed' ? (alertPoller?.getAlerts() ?? []) : null
+  // `alerts: null` = jeszcze nie wiadomo — klient ponawia drabinką zamiast pokazać „brak komunikatów"
+  // na 30 s (#7). Definicja „znane" wspólna z `/api/gtfs/line`: `knownAlerts()`.
+  const allAlerts = knownAlerts(peekAlertPoller(city))
 
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)

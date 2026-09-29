@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCity } from '@/lib/gtfs/cities'
 import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
+import { knownAlerts } from '@/lib/gtfs/alertPoller'
 import { cityStats, vehiclesInService } from '@/lib/gtfs/query'
 import { todayServiceIndex } from '@/lib/gtfs/serviceDay'
 import { CITY_ID_PATTERN } from '@/lib/validation'
@@ -39,17 +40,15 @@ export async function GET(request: Request) {
     vehicleFeed: { state: vv?.state ?? 'loading', ageMs: vv?.ageMs ?? null },
   }
 
-  // Alerty (etap 5b) — poza cyklem rozkładu, własny rytm 5 min. `null` (nie
-  // pusta tablica) = nie wiadomo: poller nieobecny, jeszcze się nie wczytał
-  // albo `failed` bez żadnego udanego pobrania — to JEDYNE miejsce, gdzie
-  // „0 aktywnych" i „nie wiadomo" muszą się wizualnie różnić (licznik, #7).
-  // `failed` po udanym pobraniu (`ageMs !== null`) -> ostatnie dobre alerty
-  // z wiekiem. Klient ponawia tylko przy `alertFeed.state` innym niż `failed`.
+  // Alerty (etap 5b) — poza cyklem rozkładu, własny rytm 5 min. `requireFetch`:
+  // `failed` bez żadnego udanego pobrania też `null` (nie `[]`) — licznik, gdzie
+  // „0 aktywnych" i „nie wiadomo" muszą się wizualnie różnić (#7). `failed` po
+  // udanym pobraniu -> ostatnie dobre alerty z wiekiem. Klient przy
+  // `alertFeed.state === 'failed'` zamiast drabinki 15 s ponawia co 5 min.
   const alertPoller = peekAlertPoller(city)
   const ap = alertPoller?.getView()
-  const alertsKnown = alertPoller !== null && (ap?.state === 'ready' || (ap?.state === 'failed' && ap.ageMs !== null))
   const alertFields = {
-    alerts: alertsKnown ? alertPoller.getAlerts() : null,
+    alerts: knownAlerts(alertPoller, { requireFetch: true }),
     alertFeed: { state: ap?.state ?? 'loading', ageMs: ap?.ageMs ?? null },
   }
 

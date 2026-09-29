@@ -130,22 +130,25 @@ paths:
   ZERO delay field: `AlertRecord` carries only announcement text. `htmlbody` (foreign HTML)
   deliberately never parsed, rejected at the Zod boundary (`alerts.ts`); `link` passes only as
   `https://` (otherwise `''` — it goes into `<a href>` in `AlertBanner`, not a trusted feed).
-  Two "no data yet" conventions: `/api/gtfs/city-stats` returns `alerts: null` while the poller
-  is absent/`idle`/`loading` or `failed` with no successful fetch yet (`ageMs === null`) —
-  numeric tile, #7, so never `[]`; `failed` after a good fetch → last good alerts + `alertFeed.ageMs`.
-  `useCityStats` retries while `alerts == null` unless `alertFeed.state === 'failed'` (a known
-  "unavailable" state — no polling a dead feed every 15 s). Any `failed` feed (with or without
-  last good data) re-polls slowly instead, every 5 min (the `AlertPoller` retry rhythm, visible
-  tab only; a still-`loading` schedule keeps the 15 s ladder tail), via a result-driven `refreshMs` in `usePolling`, so a later recovery shows up and
-  the stale age keeps growing. Deliberately not in `useLineDetail`/the line page: the line
-  response is a list with no feed state (`failed` is indistinguishable from "no alerts"), and
-  switching lines refetches anyway. `/api/gtfs/line` returns `alerts: null` while the alert poller
-  is absent/`idle`/`loading` (`failed` → last good alerts for the line, else `[]`) — the line
-  page fetches once, so without `null` a warm schedule answered `[]` before the first alert
-  fetch and the banner never appeared; `isLineLoading` retries while `alerts === null`.
-  `/api/gtfs/board` follows the line convention per stop (`stop.alerts: null` while absent/`idle`/
-  `loading`, `failed` → list); `useTransitBoard` retries on the ladder while any stop has
-  `alerts === null`. It used to answer `[]` and wait for the 30 s refresh — the stop page's
+  "Alerts known?" has ONE definition: `knownAlerts(poller, { requireFetch? })` in
+  `alertPoller.ts` — never re-derive it from `getView().state` in a route. `null` = unknown
+  (poller absent/`idle`/`loading`); `ready` → alerts; `failed` → last good alerts. The only
+  variation is `failed` with no successful fetch yet (`ageMs === null`):
+  - default (`/api/gtfs/line`, `/api/gtfs/board` per stop) → `[]`. Their clients retry while
+    `alerts === null` and never see the feed state, so `null` there would poll a dead feed
+    forever. The line page fetches once, so without `null` a warm schedule answered `[]` before
+    the first alert fetch and the banner never appeared; `isLineLoading` retries while
+    `alerts === null`, `useTransitBoard` on the ladder while any stop has `alerts === null`.
+  - `requireFetch: true` (`/api/gtfs/city-stats` only) → `null`: numeric tile, #7, „0" must
+    differ from „unknown". It also returns `alertFeed.{state,ageMs}`; `useCityStats` retries
+    while `alerts == null` unless `alertFeed.state === 'failed'` (no polling a dead feed every
+    15 s). Any `failed` feed (with or without last good data) re-polls slowly instead, every
+    5 min (the `AlertPoller` retry rhythm, visible tab only; a still-`loading` schedule keeps the
+    15 s ladder tail), via a result-driven `refreshMs` in `usePolling`, so a later recovery shows
+    up and the stale age keeps growing. Deliberately not in `useLineDetail`/the line page: the
+    line response is a list with no feed state (`failed` is indistinguishable from "no alerts"),
+    and switching lines refetches anyway.
+  `/api/gtfs/board` used to answer `[]` and wait for the 30 s refresh — the stop page's
   „Komunikaty" tab then claimed „Aktualnie brak komunikatów" for the first viewer after a wake
   (flaky e2e 2026-09-29).
 

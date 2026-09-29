@@ -33,6 +33,28 @@ export type AlertPollerDeps = {
   clearTimer?: (h: ReturnType<typeof setTimeout>) => void
 }
 
+/**
+ * JEDYNA definicja „alerty znane" dla tras (#7). `null` = nie wiadomo: poller
+ * nieobecny albo `idle`/`loading` (np. świeżo obudzony przez to samo żądanie) —
+ * klient ponawia. `ready` -> alerty; `failed` -> ostatnie dobre (feed nie czyści
+ * ich przy błędzie), a bez żadnego udanego pobrania `[]` — terminal dla klientów,
+ * które ponawiają dopóki `null` i nie widzą stanu feedu (line, board): inaczej
+ * odpytywałyby martwy feed w nieskończoność.
+ *
+ * `requireFetch`: `failed` bez udanego pobrania (`ageMs === null`) też `null`.
+ * Dla liczników (city-stats), gdzie `[]` wyrenderowałoby „0 aktywnych"; tamten
+ * klient przy `alertFeed.state === 'failed'` zamiast drabinki 15 s ponawia co 5 min.
+ */
+export function knownAlerts(
+  poller: AlertPoller | null,
+  { requireFetch = false }: { requireFetch?: boolean } = {},
+): AlertRecord[] | null {
+  if (poller === null) return null
+  const { state, ageMs } = poller.getView()
+  if (state === 'ready' || (state === 'failed' && (ageMs !== null || !requireFetch))) return poller.getAlerts()
+  return null
+}
+
 export function createAlertPoller(deps: AlertPollerDeps): AlertPoller {
   const now = deps.now ?? (() => Date.now())
   const setTimer = deps.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
