@@ -188,7 +188,7 @@ npm run dev
 
 Bez klucza API aplikacja uruchamia się w trybie mock: dane pochodzą z katalogu
 `fixtures/`, a czasy są przesuwane względem bieżącej chwili. Tryb mock używa
-prawdziwych identyfikatorów stacji, dzięki czemu ulubione działają również po
+prawdziwych identyfikatorów stacji, dzięki czemu przypięte stacje działają również po
 przełączeniu na dane na żywo.
 
 Aby pracować na danych na żywo, skopiuj `.env.example` do `.env.local` i ustaw
