@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
+import { notFound, useParams, useSearchParams } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
-import { Breadcrumb } from '@/components/Breadcrumb'
 import { PageShell } from '@/components/aside'
 import { TransitStopDetail } from '@/components/TransitStopDetail'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN, decodeStopIdFromPathSegment } from '@/lib/validation'
@@ -22,19 +21,19 @@ export default function TransitStopPage() {
     notFound()
   }
 
-  const router = useRouter()
   const initialName = useSearchParams().get('name') ?? undefined
   const [resolvedName, setResolvedName] = useState<string | undefined>(undefined)
 
   return (
     <PageShell>
-      {/* „Odjazdy / Przyjazdy", nie „Trasy": ta strona wraca do `/city/{city}`
-          (patrz `backLabel` niżej) — breadcrumb ma wskazywać ten sam rodzic co
-          przycisk powrotu, inaczej dwa elementy nawigacji przeczyłyby sobie. */}
-      <Breadcrumb
-        items={[{ label: 'Odjazdy / Przyjazdy', href: `/city/${city}` }, { label: resolvedName ?? initialName ?? stopId }]}
+      {/* „Odjazdy / Przyjazdy", nie „Trasy": ta strona wraca do `/city/{city}` —
+          ← i pierwszy element ścieżki wskazują ten sam rodzic. */}
+      <TopBar
+        backLabel="Wróć do odjazdów"
+        backHref={`/city/${city}`}
+        crumbs={[{ label: 'Odjazdy / Przyjazdy', href: `/city/${city}` }, { label: resolvedName ?? initialName ?? stopId }]}
+        share
       />
-      <TopBar backLabel="Wróć do odjazdów" onBack={() => router.push(`/city/${city}`)} />
       <TransitStopDetail city={city} stopId={stopId} initialName={initialName} onNameResolved={setResolvedName} />
     </PageShell>
   )

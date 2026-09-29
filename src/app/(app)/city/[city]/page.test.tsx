@@ -164,4 +164,18 @@ describe('CityPage', () => {
     expect(label.parentElement?.textContent).toBe('—stacje kolejowe')
     expect(screen.queryByText('0')).not.toBeInTheDocument()
   })
+
+  it('with a selection: one h1 (the TopBar\'s) and Udostępnij in the TopBar; without: no share', () => {
+    search = 'stop=7014M&name=%C5%9Awi%C4%99tokrzyska'
+    const { unmount } = render(<CityPage />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Udostępnij' })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 2, name: 'Świętokrzyska' })).toBeInTheDocument()
+    unmount()
+
+    search = ''
+    render(<CityPage />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
+  })
 })

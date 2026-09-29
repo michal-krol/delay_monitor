@@ -4,10 +4,8 @@ import { useState } from 'react'
 import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ConnectionDetails } from '@/components/ConnectionDetails'
 import { TopBar } from '@/components/TopBar'
-import { Breadcrumb } from '@/components/Breadcrumb'
 import { PageShell } from '@/components/aside'
 import { OPERATING_DATE_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
-import { useShareUrl } from '@/hooks/useShareUrl'
 
 /**
  * Segmenty dynamiczne czytane przez `useParams()`, nie przez prop `params`.
@@ -39,7 +37,6 @@ export default function Page() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { share } = useShareUrl()
   // `train` = tymczasowy tytuł widoczny przed odpowiedzią `/api/train` —
   // zamiennik dzisiejszego propa `trainLabel` z dawnego modala.
   const trainLabel = searchParams.get('train') ?? ''
@@ -62,16 +59,16 @@ export default function Page() {
 
   return (
     <PageShell>
-      {/* Pierwszy segment bez `href`, nie zgadujemy: nie znamy tu adresu
-          strony-źródła (mogła to być zakładka Odjazdy albo Przyjazdy pełnej
-          tablicy, PKP albo GTFS) — ten sam powód co `onBack` niżej zamiast
-          stałego `backHref`. `Breadcrumb` renderuje element bez `href` jako
-          zwykły tekst, nie link donikąd. */}
-      <Breadcrumb items={[{ label: 'Tablica odjazdów' }, { label: resolvedLabel ?? (trainLabel || 'Połączenie') }]} />
-      {/* Nie znamy tu adresu strony-źródła — mogła to być zakładka Odjazdy
-          albo Przyjazdy pełnej tablicy — więc `onBack` (router.back()), nie
-          stały `backHref`. */}
-      <TopBar onBack={handleBack} backLabel="Wróć do tablicy" onShare={() => void share()} />
+      {/* Nie znamy tu adresu strony-źródła (mogła to być zakładka Odjazdy albo
+          Przyjazdy pełnej tablicy, PKP albo GTFS), więc ← to `onBack`
+          (router.back()), nie `backHref`, a pierwszy segment ścieżki nie ma
+          `href` — `Breadcrumb` rysuje go jako zwykły tekst, nie link donikąd. */}
+      <TopBar
+        backLabel="Wróć do tablicy"
+        onBack={handleBack}
+        crumbs={[{ label: 'Tablica odjazdów' }, { label: resolvedLabel ?? (trainLabel || 'Połączenie') }]}
+        share
+      />
       <ConnectionDetails
         scheduleId={scheduleId}
         orderId={orderId}

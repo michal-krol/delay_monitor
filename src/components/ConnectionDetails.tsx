@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
+import { PageTitle } from './PageTitle'
 import { AlertCircleIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ClockIcon, InfoIcon, PauseIcon, ShareIcon, TimerIcon, TrainIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import { resolvePositionAnchor } from '@/lib/board/trainDetail'
@@ -354,7 +355,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
     <div className="flex flex-col gap-6">
       {status === 'loading' && (
         <div className="glass rounded-2xl p-6">
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{trainLabel}</h1>
+          <PageTitle>{trainLabel}</PageTitle>
           <p className="mt-1 text-sm text-text-muted">Wczytywanie trasy…</p>
         </div>
       )}
@@ -407,9 +408,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                       {categoryLabel}
                     </span>
                   )}
-                  <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-                    {trainNumber}
-                  </h1>
+                  <PageTitle>{trainNumber}</PageTitle>
                   {data.carrierCode !== null && <CarrierLogo carrierCode={data.carrierCode} size={18} />}
                   <span className="text-sm text-text-secondary">{data.carrierName ?? data.carrierCode ?? ''}</span>
                   {routeNameSuffix !== null && <span className="text-sm font-medium text-text-muted">· {routeNameSuffix}</span>}

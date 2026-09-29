@@ -7,12 +7,7 @@ export function EmptyState() {
       <div className="float ring-pulse rounded-2xl">
         <AppLogo size={64} />
       </div>
-      {/* font-heading nie jest na samym AppTitle (poza zasięgiem tego taska) —
-          dziedziczy font-family z tego wrappera, bo h1 w AppTitle nie ustawia
-          własnego. */}
-      <div className="font-heading">
-        <AppTitle />
-      </div>
+      <AppTitle />
       <p className="-mt-2 text-sm text-text-muted">
         Wyszukaj stację i przypnij ją do Pulpitu, żeby śledzić opóźnienia.
       </p>

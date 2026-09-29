@@ -3,9 +3,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { notFound, useParams, useRouter } from 'next/navigation'
+import { notFound, useParams } from 'next/navigation'
 import { TopBar } from '@/components/TopBar'
-import { Breadcrumb } from '@/components/Breadcrumb'
 import { AlertBanner } from '@/components/AlertBanner'
 import { LineBadge } from '@/components/LineBadge'
 import { OnRequestBadge } from '@/components/OnRequestBadge'
@@ -50,7 +49,6 @@ export default function LineDetailPage() {
     notFound()
   }
 
-  const router = useRouter()
   const { cities } = useCities()
   const [dirIdx, setDirIdx] = useState(0)
   const [stopSel, setStopSel] = useState(0)
@@ -180,13 +178,14 @@ export default function LineDetailPage() {
 
   return (
     <PageShell aside={asideContent}>
-      <Breadcrumb
-        items={[
+      <TopBar
+        backLabel="Wróć do tras"
+        backHref={`/city/${city}/lines`}
+        crumbs={[
           { label: 'Trasy', href: `/city/${city}/lines` },
           { label: line?.longName ?? routeId },
         ]}
       />
-      <TopBar backLabel="Wróć do tras" onBack={() => router.push(`/city/${city}/lines`)} />
 
         {line !== null && (
           <div className="flex flex-col gap-2">

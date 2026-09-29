@@ -13,6 +13,12 @@ type Props = {
   ref?: Ref<HTMLButtonElement>
 }
 
+/** Wspólny wygląd `IconButton` (bez rozmiaru) — używa go też link ← w `TopBar`, żeby oba wyglądały tak samo. */
+export const ICON_BUTTON_CLASS =
+  'grid shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10'
+/** Rozmiar `md` (36 px). */
+export const ICON_BUTTON_MD_SIZE = 'h-9 w-9'
+
 /**
  * Jeden przycisk-ikona bez podpisu dla „zamknij / przypnij / usuń” w całej appce —
  * ten sam krój co `ThemeToggle`, obok którego zwykle stoi. Wcześniej sześć
@@ -26,9 +32,7 @@ export function IconButton({ label, onClick, children, pressed, size = 'md', cla
       onClick={onClick}
       aria-label={label}
       aria-pressed={pressed}
-      className={`grid shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10 ${
-        size === 'lg' ? 'h-11 w-11' : 'h-9 w-9'
-      } ${className}`}
+      className={`${ICON_BUTTON_CLASS} ${size === 'lg' ? 'h-11 w-11' : ICON_BUTTON_MD_SIZE} ${className}`}
     >
       {children}
     </button>

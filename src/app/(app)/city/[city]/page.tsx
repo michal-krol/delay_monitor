@@ -12,6 +12,7 @@ import { TransitStopDetail } from '@/components/TransitStopDetail'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { PageShell } from '@/components/aside'
 import { ArrowLeftIcon } from '@/components/icons'
+import { ShareButton } from '@/components/ShareButton'
 import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
 import { useCities } from '@/hooks/useCities'
 import { useCityContext } from '@/hooks/useCityContext'
@@ -80,7 +81,13 @@ export default function CityPage() {
       <TopBar
         title={`Odjazdy i przyjazdy — ${cityName}`}
         subtitle="Stacje kolejowe i przystanki komunikacji miejskiej"
-        actions={<CityPicker cities={cities} current={city} />}
+        actions={
+          <>
+            {/* „Udostępnij" tylko z wybraną stacją/przystankiem — sam ekran miasta to wyszukiwarka. */}
+            {hasSelection && <ShareButton />}
+            <CityPicker cities={cities} current={city} />
+          </>
+        }
       />
 
       {!hasSelection && (
@@ -115,9 +122,7 @@ export default function CityPage() {
                 isFavourite(favouriteKey(railFavourite))
                   ? removeFavourite(favouriteKey(railFavourite))
                   : addFavourite(railFavourite)
-              }
-              onClose={clearSelection}
-            />
+              }            />
           )}
 
           {transitId !== null && (

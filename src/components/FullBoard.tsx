@@ -9,12 +9,11 @@ import { BoardTable } from './BoardTable'
 import { StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
-import { ThemeToggle } from './ThemeToggle'
-import { CloseIcon, PIN_COLOR, ShareIcon, StarIcon } from './icons'
+import { PageTitle } from './PageTitle'
+import { CloseIcon, PIN_COLOR, StarIcon } from './icons'
 import { IconButton } from './IconButton'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
-import { useShareUrl } from '@/hooks/useShareUrl'
 import { formatClockTime } from '@/lib/format'
 import { zonedHour } from '@/lib/pkp/time'
 
@@ -23,10 +22,10 @@ type Props = {
   stationName: string
   isFavourite: boolean
   onToggleFavourite: () => void
-  onClose: () => void
   /**
-   * Osadzone pod wyszukiwarką na ekranie miasta — przycisk „wstecz" i
-   * `ThemeToggle` rysuje wtedy ekran nadrzędny, więc wewnętrzny „✕" znika.
+   * Osadzone pod wyszukiwarką na ekranie miasta, które ma już własny h1 —
+   * nazwa stacji jest wtedy h2. Wyjście, motyw i „Udostępnij" rysuje zawsze
+   * strona nadrzędna (`TopBar`), nie tablica.
    */
   embedded?: boolean
 }
@@ -53,11 +52,10 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   )
 }
 
-export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, onClose, embedded = false }: Props) {
+export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
-  const { share, status: shareStatus } = useShareUrl()
   const { data, error } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
@@ -150,7 +148,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             <div className="flex min-w-0 items-center gap-4">
               <StationThumb stationName={stationName} />
               <div className="min-w-0">
-                <h2 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stationName}</h2>
+                <PageTitle as={embedded ? 'h2' : 'h1'}>{stationName}</PageTitle>
                 {/* Przy błędzie konfiguracji NIE pokazujemy statusu danych --
                     „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API"
                     to dokładnie to mieszanie sygnałów, przed którym ostrzega
@@ -164,34 +162,9 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {shareStatus !== 'idle' && (
-                <span role="status" className="text-sm text-text-secondary">
-                  {shareStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
-                </span>
-              )}
               <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
                 <StarIcon size={15} filled={isFavourite} className={isFavourite ? PIN_COLOR : ''} />
               </IconButton>
-              {/* Przycisk z podpisem, nie sama ikona (makieta §17) -- to
-                  główna akcja nagłówka, a „Udostępnij" bez etykiety było
-                  najmniej odgadywalnym elementem tego widoku. */}
-              <button
-                type="button"
-                onClick={() => void share()}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-              >
-                <ShareIcon size={15} />
-                Udostępnij
-              </button>
-              {/* Osadzone: przycisk „wstecz" i motyw rysuje ekran nadrzędny. */}
-              {!embedded && (
-                <>
-                  <IconButton onClick={onClose} label="Zamknij">
-                    <CloseIcon size={16} />
-                  </IconButton>
-                  <ThemeToggle />
-                </>
-              )}
             </div>
           </div>
         </section>

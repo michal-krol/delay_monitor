@@ -11,18 +11,18 @@ export type BreadcrumbItem = { label: string; href?: string }
 export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
   const lastIndex = items.length - 1
   return (
-    <nav aria-label="Ścieżka nawigacji" className="flex flex-wrap items-center gap-1.5 text-sm text-text-muted">
+    <nav aria-label="Ścieżka nawigacji" className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm text-text-muted">
       {items.map((item, index) => {
         const isCurrent = index === lastIndex
         return (
-          <span key={index} className="flex items-center gap-1.5">
+          <span key={index} className="flex min-w-0 items-center gap-1.5">
             {index > 0 && <span aria-hidden="true">/</span>}
             {!isCurrent && item.href !== undefined ? (
               <Link href={item.href} className="transition hover:text-foreground">
                 {item.label}
               </Link>
             ) : (
-              <span aria-current={isCurrent ? 'page' : undefined} className={isCurrent ? 'font-medium text-foreground' : undefined}>
+              <span aria-current={isCurrent ? 'page' : undefined} className={isCurrent ? 'min-w-0 break-words font-medium text-foreground' : undefined}>
                 {item.label}
               </span>
             )}

@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest'
 import { AppTitle } from './AppTitle'
 
 describe('AppTitle', () => {
-  it('shows the app title', () => {
+  it('shows the app title as h2 -- the page h1 is the TopBar\'s "Pulpit"', () => {
     render(<AppTitle />)
-    expect(screen.getByRole('heading', { name: 'Monitor opóźnień' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Monitor opóźnień' })).toBeInTheDocument()
   })
 
   // Wersję/gałąź (odróżnienie dev od prod) pokazuje teraz `Sidebar` — patrz

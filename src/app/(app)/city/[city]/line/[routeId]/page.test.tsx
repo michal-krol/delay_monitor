@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
@@ -348,5 +348,16 @@ describe('LineDetailPage', () => {
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
     expect(screen.getByText('Treść.')).toBeInTheDocument()
+  })
+
+  it('jeden górny rząd: ← do tras i ścieżka; nazwa linii to jedyny h1', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { level: 1, name: 'Piaski – Międzylesie' })
+    expect(screen.getByRole('link', { name: 'Wróć do tras' })).toHaveAttribute('href', '/city/warszawa/lines')
+    const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
+    expect(within(nav).getByRole('link', { name: 'Trasy' })).toHaveAttribute('href', '/city/warszawa/lines')
+    expect(within(nav).getByText('Piaski – Międzylesie')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })

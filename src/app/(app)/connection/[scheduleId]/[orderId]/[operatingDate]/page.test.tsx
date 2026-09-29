@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 
@@ -50,5 +50,18 @@ describe('Page (/connection/...)', () => {
     render(<Page />)
 
     expect(notFound).not.toHaveBeenCalled()
+  })
+
+  it('jeden górny rząd: ← wraca przez historię, ścieżka i Udostępnij; jeden h1', () => {
+    useParamsMock.mockReturnValue({ scheduleId: '123', orderId: '456', operatingDate: '2026-08-23' })
+    searchParamsValue = new URLSearchParams({ train: 'IC 5100' })
+
+    render(<Page />)
+
+    expect(screen.getByRole('button', { name: 'Wróć do tablicy' })).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
+    expect(within(nav).getByText('IC 5100')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getAllByRole('button', { name: 'Udostępnij' })[0]).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })

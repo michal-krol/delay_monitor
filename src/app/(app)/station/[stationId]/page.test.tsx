@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 
@@ -65,5 +65,19 @@ describe('Page (/station/[stationId])', () => {
 
     expect(notFound).not.toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: '33605' })).toBeInTheDocument()
+  })
+
+  it('jeden górny rząd: ← do Pulpitu, ścieżka, Udostępnij; nazwa stacji to jedyny h1', () => {
+    useParamsMock.mockReturnValue({ stationId: '33605' })
+    searchParamsValue = new URLSearchParams({ name: 'Warszawa Centralna' })
+
+    render(<Page />)
+
+    expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
+    const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
+    expect(within(nav).getByText('Warszawa Centralna')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Udostępnij' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })
