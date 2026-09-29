@@ -1,4 +1,7 @@
+'use client'
+
 import type { ReactNode } from 'react'
+import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import { pluralPl } from '@/lib/plural'
 
 /**
@@ -11,13 +14,13 @@ import { pluralPl } from '@/lib/plural'
  * `PageShell`, przez który zwykle się z niej korzysta — patrz tam.
  */
 export function PageAside({ children }: { children: ReactNode }) {
+  // Od `xl` `max-h-dvh overflow-y-auto` czyni z kolumny region przewijalny; fokusowalny
+  // tylko wtedy, gdy karty faktycznie przekraczają wysokość ekranu (`useScrollableFocus`).
+  const [scrollRef, tabIndex] = useScrollableFocus<HTMLElement>()
   return (
-    // `tabIndex`/`aria-label`: od `xl` `max-h-dvh overflow-y-auto` czyni z tej
-    // kolumny region przewijalny; gdy karty przekroczą wysokość ekranu, użytkownik
-    // klawiatury musi móc go sfokusować i przewinąć strzałkami (axe
-    // `scrollable-region-focusable`, WCAG 2.1.1).
     <aside
-      tabIndex={0}
+      ref={scrollRef}
+      tabIndex={tabIndex}
       aria-label="Panel kontekstowy"
       className="flex flex-col gap-4 px-4 pb-5 sm:px-8 sm:pb-7 xl:sticky xl:top-0 xl:w-aside xl:shrink-0 xl:self-start xl:max-h-dvh xl:overflow-y-auto xl:px-0 xl:py-7 xl:pr-8"
     >
