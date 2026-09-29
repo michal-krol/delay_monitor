@@ -45,6 +45,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   co 15 sekund ponawiać zapytania i pokazuje „Nie udało się pobrać utrudnień." zamiast
   wiecznego „Wczytuję…". Jeśli wcześniej udało się je pobrać, pokazuje ostatnie znane
   utrudnienia z informacją, jak stare są dane.
+- Widżet komunikacji miejskiej sam zauważa, że komunikaty o utrudnieniach znów są dostępne:
+  po nieudanym pobraniu sprawdza je ponownie co 5 minut, gdy karta jest widoczna, zamiast
+  czekać na przeładowanie strony. Wiek pokazywanych danych też się wtedy aktualizuje.
 
 ## [1.0.2] — 2026-09-28
 

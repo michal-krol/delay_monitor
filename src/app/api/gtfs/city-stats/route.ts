@@ -43,8 +43,8 @@ export async function GET(request: Request) {
   // Alerty (etap 5b) — poza cyklem rozkładu, własny rytm 5 min. `requireFetch`:
   // `failed` bez żadnego udanego pobrania też `null` (nie `[]`) — licznik, gdzie
   // „0 aktywnych" i „nie wiadomo" muszą się wizualnie różnić (#7). `failed` po
-  // udanym pobraniu -> ostatnie dobre alerty z wiekiem. Klient ponawia tylko
-  // przy `alertFeed.state` innym niż `failed`.
+  // udanym pobraniu -> ostatnie dobre alerty z wiekiem. Klient przy
+  // `alertFeed.state === 'failed'` zamiast drabinki 15 s ponawia co 5 min.
   const alertPoller = peekAlertPoller(city)
   const ap = alertPoller?.getView()
   const alertFields = {

@@ -43,7 +43,7 @@ export type AlertPollerDeps = {
  *
  * `requireFetch`: `failed` bez udanego pobrania (`ageMs === null`) też `null`.
  * Dla liczników (city-stats), gdzie `[]` wyrenderowałoby „0 aktywnych"; tamten
- * klient przestaje ponawiać po `alertFeed.state === 'failed'`.
+ * klient przy `alertFeed.state === 'failed'` zamiast drabinki 15 s ponawia co 5 min.
  */
 export function knownAlerts(
   poller: AlertPoller | null,
