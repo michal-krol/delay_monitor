@@ -134,7 +134,7 @@ type Props = {
   direction: Direction
   rows: BoardApiRow[]
   now: number
-  /** Brak snapshotu jeszcze, nie brak połączeń -- bez tego "Brak odjazdów..." i "Ładowanie…" nad tabelą (BoardStatus) potrafiły się pokazać jednocześnie. */
+  /** Brak snapshotu jeszcze, nie brak połączeń -- bez tego "Brak odjazdów..." i "Wczytywanie…" nad tabelą (BoardStatus) potrafiły się pokazać jednocześnie. */
   loading: boolean
 }
 
@@ -159,7 +159,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   }
 
   const emptyMessage = loading
-    ? 'Ładowanie…'
+    ? 'Wczytywanie…'
     : direction === 'departures'
       ? 'Brak odjazdów w najbliższych godzinach'
       : 'Brak przyjazdów w najbliższych godzinach'

@@ -108,7 +108,7 @@ describe('CityMapPage', () => {
     expect(screen.getByText('Warszawa · pozycje pojazdów: 13 s temu')).toBeInTheDocument()
     state.vehicles = { vehicles: [], feed: { state: 'loading', ageMs: null }, alertLines: [], error: null }
     rerender(<CityMapPage />)
-    expect(screen.getByText(/wczytuję pozycje pojazdów/)).toBeInTheDocument()
+    expect(screen.getByText(/wczytywanie pozycji pojazdów/)).toBeInTheDocument()
     state.vehicles = { vehicles: [], feed: { state: 'failed', ageMs: null }, alertLines: [], error: 'x' }
     rerender(<CityMapPage />)
     expect(screen.getByText(/nie udało się pobrać pozycji pojazdów/)).toBeInTheDocument()
@@ -281,15 +281,15 @@ describe('CityMapPage — favourites, nearby, list, disruptions', () => {
     render(<CityMapPage />)
     await waitFor(() => expect(map().favourites).toMatchObject([{ lat: 52.2288, lon: 21.0033 }]))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ulubione' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Przypięte' }))
     fireEvent.click(screen.getByRole('button', { name: 'Warszawa Centralna' }))
     const card = await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
-    fireEvent.click(within(card).getByRole('button', { name: 'Usuń z ulubionych' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Odepnij z Pulpitu' }))
     await waitFor(() => expect(map().favourites).toEqual([]))
 
     map().onSelect({ kind: 'stop', id: '100101' })
     const stopCard = await screen.findByRole('dialog', { name: 'Centrum' })
-    fireEvent.click(within(stopCard).getByRole('button', { name: 'Dodaj do ulubionych' }))
+    fireEvent.click(within(stopCard).getByRole('button', { name: 'Przypnij do Pulpitu' }))
     await waitFor(() => expect(map().favourites).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
   })
 

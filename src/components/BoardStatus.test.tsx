@@ -19,7 +19,7 @@ const FETCHED_AT = '2026-08-01T20:24:11.827Z'
 describe('BoardStatus', () => {
   it('reports the loading state before the first snapshot arrives', () => {
     render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={false} />)
-    expect(screen.getByText('Ładowanie…')).toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
   })
 
   it('reports a fetch error', () => {

@@ -66,7 +66,7 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
     }
     return (
       <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-        <span>Ładowanie…</span>
+        <span>Wczytywanie…</span>
         {REFRESH_HINT}
       </p>
     )

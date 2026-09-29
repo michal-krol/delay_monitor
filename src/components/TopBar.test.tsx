@@ -6,17 +6,17 @@ import { TopBar } from './TopBar'
 
 describe('TopBar', () => {
   it('wariant nagłówka pokazuje tytuł i podtytuł', () => {
-    render(<TopBar title="Pulpit" subtitle="Twoje ulubione stacje" />)
+    render(<TopBar title="Pulpit" subtitle="Przypięte stacje" />)
     expect(screen.getByRole('heading', { name: 'Pulpit' })).toBeInTheDocument()
-    expect(screen.getByText('Twoje ulubione stacje')).toBeInTheDocument()
+    expect(screen.getByText('Przypięte stacje')).toBeInTheDocument()
   })
 
   it('wariant powrotu pokazuje przycisk i wywołuje onBack po kliknięciu', async () => {
     const onBack = vi.fn()
     const user = userEvent.setup()
-    render(<TopBar onBack={onBack} backLabel="Powrót do wyników" />)
+    render(<TopBar onBack={onBack} backLabel="Wróć do tablicy" />)
 
-    await user.click(screen.getByRole('button', { name: /Powrót do wyników/ }))
+    await user.click(screen.getByRole('button', { name: /Wróć do tablicy/ }))
 
     expect(onBack).toHaveBeenCalledTimes(1)
   })

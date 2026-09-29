@@ -220,7 +220,7 @@ describe('FullBoard', () => {
     const user = userEvent.setup()
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={onToggleFavourite} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Dodaj do ulubionych' }))
+    await user.click(screen.getByRole('button', { name: 'Przypnij do Pulpitu' }))
 
     expect(onToggleFavourite).toHaveBeenCalled()
   })

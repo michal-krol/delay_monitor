@@ -43,7 +43,7 @@ export function LineSearch({
   }, [needle, lines])
 
   const isOpen = options.length > 0
-  const message = needle === '' ? null : lines === null ? 'Wczytuję linie…' : options.length === 0 ? 'Nie znaleziono linii' : null
+  const message = needle === '' ? null : lines === null ? 'Wczytywanie linii…' : options.length === 0 ? 'Nie znaleziono linii' : null
 
   function choose(line: LineListEntry): void {
     onSelect(line)

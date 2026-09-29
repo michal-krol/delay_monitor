@@ -81,11 +81,11 @@ describe('VisibleListPanel', () => {
 describe('FavouritesMenu', () => {
   it('is absent without favourites, otherwise jumps to the chosen one', () => {
     const { rerender } = render(<FavouritesMenu favourites={[]} onOpen={() => {}} />)
-    expect(screen.queryByRole('button', { name: 'Ulubione' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Przypięte' })).toBeNull()
     const onOpen = vi.fn()
     const fav = { key: 'pkp:33605', name: 'Warszawa Centralna', lat: 52.23, lon: 21.0 }
     rerender(<FavouritesMenu favourites={[fav]} onOpen={onOpen} />)
-    const button = screen.getByRole('button', { name: 'Ulubione' })
+    const button = screen.getByRole('button', { name: 'Przypięte' })
     fireEvent.click(button)
     expect(button).toHaveAttribute('aria-expanded', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Warszawa Centralna' }))

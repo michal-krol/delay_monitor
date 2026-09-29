@@ -32,6 +32,7 @@ type Props = {
   wide?: boolean
 }
 
+const DEFAULT_ENDPOINT = '/api/stations'
 const MAX_TILE_LINES = 6
 
 const DEBOUNCE_MS = 300
@@ -41,7 +42,7 @@ const LOADING_RETRY_MS = 1500
 
 type SearchStatus = 'idle' | 'searching' | 'ready' | 'error'
 
-export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations', wide = false }: Props) {
+export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOINT, wide = false }: Props) {
   const [query, setQuery] = useState('')
   const [options, setOptions] = useState<StationOption[]>([])
   const [status, setStatus] = useState<SearchStatus>('idle')
@@ -134,13 +135,19 @@ export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations
   // Komunikat zamiast listy: rozróżnia "szukam", "nie ma takiej stacji"
   // i "nie udało się sprawdzić". Trzyma się poza <ul role="listbox">, żeby nie
   // udawać opcji, której nie da się wybrać.
+  // Endpoint domyślny zwraca same stacje PKP; `/api/search?…` także przystanki miejskie.
+  const stationsOnly = endpoint === DEFAULT_ENDPOINT
   const message =
     status === 'searching'
       ? 'Szukam…'
       : status === 'error'
-        ? 'Nie udało się pobrać listy stacji'
+        ? stationsOnly
+          ? 'Nie udało się pobrać listy stacji'
+          : 'Nie udało się wyszukać'
         : status === 'ready' && options.length === 0
-          ? 'Brak stacji o tej nazwie'
+          ? stationsOnly
+            ? 'Brak stacji o tej nazwie'
+            : 'Brak stacji ani przystanków o tej nazwie'
           : null
 
   return (

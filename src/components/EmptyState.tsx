@@ -14,7 +14,7 @@ export function EmptyState() {
         <AppTitle />
       </div>
       <p className="-mt-2 text-sm text-text-muted">
-        Wyszukaj stację, aby dodać ją do ulubionych i śledzić opóźnienia.
+        Wyszukaj stację i przypnij ją do Pulpitu, żeby śledzić opóźnienia.
       </p>
     </div>
   )

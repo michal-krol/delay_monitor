@@ -169,7 +169,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                   {shareStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
                 </span>
               )}
-              <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
+              <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
                 <StarIcon size={15} filled={isFavourite} className={isFavourite ? PIN_COLOR : ''} />
               </IconButton>
               {/* Przycisk z podpisem, nie sama ikona (makieta §17) -- to

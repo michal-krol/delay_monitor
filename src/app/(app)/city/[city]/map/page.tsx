@@ -342,7 +342,7 @@ export default function CityMapPage() {
   const vehiclesFailed = vehiclesState.error !== null || vehiclesState.feed.state === 'failed'
   const freshness =
     neverLoaded && !vehiclesFailed
-      ? 'wczytuję pozycje pojazdów…'
+      ? 'wczytywanie pozycji pojazdów…'
       : neverLoaded
         ? 'nie udało się pobrać pozycji pojazdów'
         : vehiclesFailed

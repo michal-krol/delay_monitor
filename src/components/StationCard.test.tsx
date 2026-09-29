@@ -175,7 +175,7 @@ describe('StationCard', () => {
     const user = userEvent.setup()
 
     render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={onExpand} onRemove={onRemove} />)
-    await user.click(screen.getByRole('button', { name: 'Usuń z ulubionych: Warszawa Centralna' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Warszawa Centralna' }))
 
     expect(onRemove).toHaveBeenCalledTimes(1)
     // Przycisk usuwania leży na nakładce rozwijającej tablicę — klik w niego
@@ -185,7 +185,7 @@ describe('StationCard', () => {
 
   it('shows a loading message when there is no snapshot yet', () => {
     render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
-    expect(screen.getByText('Ładowanie…')).toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
   })
 
   it('shows the empty-station message instead of an error when there are no departures', () => {

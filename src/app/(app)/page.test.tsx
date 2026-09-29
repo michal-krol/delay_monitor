@@ -107,7 +107,7 @@ describe('Page (Pulpit)', () => {
     const user = userEvent.setup()
     render(<Page />)
 
-    await user.click(screen.getByRole('button', { name: /Usuń z ulubionych:/ }))
+    await user.click(screen.getByRole('button', { name: /Odepnij z Pulpitu:/ }))
 
     expect(await screen.findByText(/Wyszukaj stację/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()

@@ -40,7 +40,7 @@ describe('LineSearch', () => {
   it('tells loading apart from "no such line"', () => {
     const { rerender } = render(<LineSearch lines={null} onSelect={() => {}} />)
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '999' } })
-    expect(screen.getByRole('status')).toHaveTextContent('Wczytuję linie…')
+    expect(screen.getByRole('status')).toHaveTextContent('Wczytywanie linii…')
     rerender(<LineSearch lines={lines} onSelect={() => {}} />)
     expect(screen.getByRole('status')).toHaveTextContent('Nie znaleziono linii')
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' })

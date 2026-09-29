@@ -34,7 +34,7 @@ export default function TransitStopPage() {
       <Breadcrumb
         items={[{ label: 'Odjazdy / Przyjazdy', href: `/city/${city}` }, { label: resolvedName ?? initialName ?? stopId }]}
       />
-      <TopBar backLabel="Wróć do miasta" onBack={() => router.push(`/city/${city}`)} />
+      <TopBar backLabel="Wróć do odjazdów" onBack={() => router.push(`/city/${city}`)} />
       <TransitStopDetail city={city} stopId={stopId} initialName={initialName} onNameResolved={setResolvedName} />
     </PageShell>
   )

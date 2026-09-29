@@ -16,7 +16,7 @@ type Props = {
 export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) {
   return (
     <ul className="mt-4 divide-y divide-black/5 dark:divide-white/5">
-      {loading && <li className="py-2 text-sm text-text-muted">Ładowanie…</li>}
+      {loading && <li className="py-2 text-sm text-text-muted">Wczytywanie…</li>}
       {showEmpty && <li className="py-2 text-sm text-text-muted">{emptyMessage}</li>}
       {rows.map((row) => (
         <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">

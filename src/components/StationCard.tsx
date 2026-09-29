@@ -96,7 +96,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
           {/* Odpięcie tą samą pełną gwiazdką co na stronie stacji (PR 7b): przypięte =
               pełna, klik odpina. z-10 stawia przycisk nad nakładką rozwijającą tablicę,
               która w drzewie stoi później i domyślnie przykryłaby go w całości. */}
-          <IconButton label={`Usuń z ulubionych: ${stationName}`} onClick={onRemove} className="relative z-10">
+          <IconButton label={`Odepnij z Pulpitu: ${stationName}`} onClick={onRemove} className="relative z-10">
             <StarIcon size={16} filled className={PIN_COLOR} />
           </IconButton>
         </div>

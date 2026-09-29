@@ -97,7 +97,7 @@ export function MapCard({
       actions={
         favourite !== undefined &&
         onToggleFavourite !== undefined && (
-          <IconButton label={favourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'} onClick={onToggleFavourite} pressed={favourite} size="lg">
+          <IconButton label={favourite ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onToggleFavourite} pressed={favourite} size="lg">
             <StarIcon size={16} filled={favourite} className={favourite ? PIN_COLOR : ''} />
           </IconButton>
         )

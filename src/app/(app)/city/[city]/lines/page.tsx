@@ -76,7 +76,7 @@ export default function CityLinesPage() {
       {failed && data === null ? (
         <p className="text-sm text-error-text">Nie udało się pobrać listy linii.</p>
       ) : loading ? (
-        <p className="text-sm text-text-secondary">Wczytuję linie…</p>
+        <p className="text-sm text-text-secondary">Wczytywanie linii…</p>
       ) : filteredLines === null ? (
         <p className="text-sm text-text-secondary">Rozkład jeszcze się wczytuje.</p>
       ) : (

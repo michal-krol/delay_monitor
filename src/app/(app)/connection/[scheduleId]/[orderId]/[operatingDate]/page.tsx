@@ -71,7 +71,7 @@ export default function Page() {
       {/* Nie znamy tu adresu strony-źródła — mogła to być zakładka Odjazdy
           albo Przyjazdy pełnej tablicy — więc `onBack` (router.back()), nie
           stały `backHref`. */}
-      <TopBar onBack={handleBack} backLabel="Powrót do wyników" onShare={() => void share()} />
+      <TopBar onBack={handleBack} backLabel="Wróć do tablicy" onShare={() => void share()} />
       <ConnectionDetails
         scheduleId={scheduleId}
         orderId={orderId}

@@ -141,6 +141,28 @@ describe('StationSearch', () => {
     await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Nie udało się pobrać listy stacji'))
   })
 
+  it('says "stacji ani przystanków" for an empty result of the stations+stops endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ stations: [] })))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=warszawa" />)
+    await user.type(screen.getByRole('combobox'), 'zzz')
+    await vi.advanceTimersByTimeAsync(300)
+
+    await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Brak stacji ani przystanków o tej nazwie'))
+  })
+
+  it('uses a generic failure text for the stations+stops endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 503 }))))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} endpoint="/api/search?city=warszawa" />)
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+
+    await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Nie udało się wyszukać'))
+  })
+
   it('shows no message at all below the 3-character minimum', async () => {
     vi.stubGlobal('fetch', vi.fn())
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })

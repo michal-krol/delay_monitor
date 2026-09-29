@@ -154,7 +154,7 @@ export default function LineDetailPage() {
           {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
             <p className="text-xs text-error-text">Nie udało się pobrać pozycji.</p>
           ) : liveVehicles.feed.state === 'loading' ? (
-            <p className="text-xs text-text-muted">Wczytuję pozycje…</p>
+            <p className="text-xs text-text-muted">Wczytywanie pozycji…</p>
           ) : liveVehicles.vehicles.length === 0 ? (
             <p className="text-xs text-text-muted">Brak pojazdów w trasie w tym kierunku.</p>
           ) : (
@@ -186,7 +186,7 @@ export default function LineDetailPage() {
           { label: line?.longName ?? routeId },
         ]}
       />
-      <TopBar backLabel="Wróć do linii" onBack={() => router.push(`/city/${city}/lines`)} />
+      <TopBar backLabel="Wróć do tras" onBack={() => router.push(`/city/${city}/lines`)} />
 
         {line !== null && (
           <div className="flex flex-col gap-2">
@@ -208,7 +208,7 @@ export default function LineDetailPage() {
         {failed && data === null ? (
           <p className="text-sm text-error-text">Nie udało się pobrać przebiegu linii.</p>
         ) : loading ? (
-          <p className="text-sm text-text-secondary">Wczytuję przebieg linii…</p>
+          <p className="text-sm text-text-secondary">Wczytywanie przebiegu linii…</p>
         ) : line === null || direction === undefined ? (
           <p className="text-sm text-text-secondary">
             {data?.schedule.state === 'loading' ? 'Rozkład jeszcze się wczytuje.' : 'Nie znaleziono takiej linii w rozkładzie.'}

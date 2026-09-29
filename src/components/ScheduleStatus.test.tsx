@@ -18,7 +18,7 @@ const block = (over: Partial<Block>): Block => ({
 describe('ScheduleStatus', () => {
   it('shows the loading phase by name, not a second counter', () => {
     render(<ScheduleStatus schedule={block({ state: 'loading', phase: 'stop_times', ageMs: null, loadedAt: null })} cityName="Warszawa" />)
-    expect(screen.getByText(/Wczytuję rozkład — Warszawa/)).toBeInTheDocument()
+    expect(screen.getByText(/Wczytywanie rozkładu — Warszawa/)).toBeInTheDocument()
     expect(screen.getByText(/rozkład przejazdów/)).toBeInTheDocument()
   })
 
