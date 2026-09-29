@@ -596,7 +596,7 @@ function Chip({ label, removeLabel, onRemove }: { label: string; removeLabel: st
   return (
     <li className="glass-strong inline-flex items-center gap-1 rounded-full py-1 pl-3 pr-1 text-xs font-medium">
       {label}
-      <button type="button" onClick={onRemove} aria-label={removeLabel} className="-my-1 grid h-9 w-9 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+      <button type="button" onClick={onRemove} aria-label={removeLabel} className="touch-44 relative -my-1 grid h-9 w-9 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
         <CloseIcon size={12} />
       </button>
     </li>
