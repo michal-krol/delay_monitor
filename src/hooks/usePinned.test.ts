@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { pinnedKey, usePinned, type PinnedItem } from './usePinned'
 
 const V1_KEY = 'pkp.favourites.v1'
@@ -18,7 +18,25 @@ beforeEach(() => {
   window.localStorage.clear()
 })
 
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
 describe('usePinned', () => {
+  it('keeps the pin in memory when localStorage refuses the write (full or blocked storage)', async () => {
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError')
+    })
+
+    act(() => result.current.addPinned(WAW))
+    expect(result.current.pinnedItems).toEqual([WAW])
+
+    act(() => result.current.removePinned(pinnedKey(WAW)))
+    expect(result.current.pinnedItems).toEqual([])
+  })
+
   it('starts empty and marks loaded after the initial effect', async () => {
     const { result } = renderHook(() => usePinned())
     await waitFor(() => expect(result.current.loaded).toBe(true))

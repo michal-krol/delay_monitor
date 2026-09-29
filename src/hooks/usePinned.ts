@@ -67,7 +67,12 @@ function readStorage(): PinnedItem[] {
 }
 
 function writeStorage(pinnedItems: PinnedItem[]): void {
-  window.localStorage.setItem(V2_KEY, JSON.stringify(pinnedItems))
+  try {
+    window.localStorage.setItem(V2_KEY, JSON.stringify(pinnedItems))
+  } catch {
+    // Pełny albo zablokowany storage — przypięcie działa do końca sesji, tylko bez zapisu.
+    // Wyjątek z updatera `setState` wywróciłby cały render (#7).
+  }
 }
 
 export function usePinned() {

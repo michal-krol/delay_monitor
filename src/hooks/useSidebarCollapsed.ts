@@ -31,7 +31,11 @@ export function useSidebarCollapsed() {
   const toggle = useCallback(() => {
     setCollapsed((current) => {
       const next = !current
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      } catch {
+        // Pełny/zablokowany storage — zwinięcie działa, tylko się nie zapamięta.
+      }
       return next
     })
   }, [])
