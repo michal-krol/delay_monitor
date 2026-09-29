@@ -170,7 +170,7 @@ export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations
         <p
           role="status"
           className={`glass-strong absolute z-10 mt-2 w-full rounded-xl px-3.5 py-2 text-sm ${
-            status === 'error' ? 'text-red-700 dark:text-red-300' : 'text-text-secondary'
+            status === 'error' ? 'text-error-text' : 'text-text-secondary'
           }`}
         >
           {message}

@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertBanner } from '../AlertBanner'
-import { AlertCircleIcon, CloseIcon, ArrowRightIcon, StarIcon } from '../icons'
+import { AlertCircleIcon, ArrowRightIcon, StarIcon } from '../icons'
+import { IconButton } from '../IconButton'
 import { DelayBadge } from '../DelayBadge'
 import { LineBadge } from '../LineBadge'
 import { MODE_ICON, MODE_LABEL } from '../transitMode'
@@ -14,6 +15,7 @@ import { formatAgo, formatClockTime } from '@/lib/format'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { FADE_START_SEC, MODE_COLOR } from './mapData'
+import { PanelFrame } from './PanelFrame'
 
 /** Co jest wybrane na mapie. Pojazd niesie tylko `id` — pozycja/linia żyją w odczytach co 15 s. */
 export type MapSelection =
@@ -60,18 +62,11 @@ export function MapCard({
   /** Numery linii z aktywnym alertem. */
   alertLines?: string[]
 }) {
-  const headingId = useId()
-  const headingRef = useRef<HTMLHeadingElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
     onCloseRef.current = onClose
   })
-
-  useEffect(() => {
-    returnFocusRef.current ??= document.activeElement instanceof HTMLElement ? document.activeElement : null
-    headingRef.current?.focus({ preventScroll: true })
-  }, [selection.kind, selection.id])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -80,6 +75,8 @@ export function MapCard({
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
+      // Celowo wartość z chwili zamknięcia: `PanelFrame` wpisuje ją przy pierwszym przejęciu fokusu.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       const target = returnFocusRef.current
       if (target !== null && target.isConnected) target.focus({ preventScroll: true })
     }
@@ -93,66 +90,45 @@ export function MapCard({
       : selection.name
 
   return (
-    <section
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby={headingId}
-      className="glass-strong flex max-h-full flex-col overflow-hidden rounded-2xl shadow-xl"
+    <PanelFrame
+      title={heading}
+      subtitle={<Subtitle selection={selection} vehicle={vehicle} />}
+      actions={
+        favourite !== undefined &&
+        onToggleFavourite !== undefined && (
+          <IconButton label={favourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'} onClick={onToggleFavourite} pressed={favourite} size="lg">
+            <StarIcon size={16} className={favourite ? 'text-amber-500' : ''} />
+          </IconButton>
+        )
+      }
+      closeLabel="Zamknij kartę"
+      onClose={onClose}
+      bodyLabel="Szczegóły"
+      focusKey={`${selection.kind}:${selection.id}`}
+      returnFocusRef={returnFocusRef}
     >
-      <header className="flex items-start gap-3 border-b p-4" style={{ borderColor: 'var(--surface-border)' }}>
-        <div className="min-w-0 flex-1">
-          <h2 ref={headingRef} id={headingId} tabIndex={-1} className="font-heading text-lg font-bold leading-tight outline-none first-letter:uppercase">
-            {heading}
-          </h2>
-          <Subtitle selection={selection} vehicle={vehicle} />
-        </div>
-        {favourite !== undefined && onToggleFavourite !== undefined && (
-          <button
-            type="button"
-            onClick={onToggleFavourite}
-            aria-pressed={favourite}
-            aria-label={favourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10 ${
-              favourite ? 'text-amber-500' : 'text-text-secondary'
-            }`}
-          >
-            <StarIcon size={16} />
-          </button>
-        )}
+      {selection.kind === 'rail' && <RailBody id={selection.id} />}
+      {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
+      {selection.kind !== 'vehicle' && onNearby !== undefined && (
         <button
           type="button"
-          onClick={onClose}
-          aria-label="Zamknij kartę"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+          onClick={onNearby}
+          className="mt-2 w-full rounded-xl border border-surface-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
         >
-          <CloseIcon size={16} />
+          Co jest w pobliżu?
         </button>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={0} aria-label="Szczegóły">
-        {selection.kind === 'rail' && <RailBody id={selection.id} />}
-        {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
-        {selection.kind !== 'vehicle' && onNearby !== undefined && (
-          <button
-            type="button"
-            onClick={onNearby}
-            className="mt-2 w-full rounded-xl border px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-            style={{ borderColor: 'var(--surface-border)' }}
-          >
-            Co jest w pobliżu?
-          </button>
-        )}
-        {selection.kind === 'vehicle' && (
-          <VehicleBody
-            vehicle={vehicle}
-            city={city}
-            onShowRoute={onShowRoute}
-            following={following}
-            onToggleFollow={onToggleFollow}
-            disrupted={vehicle?.shortName !== null && vehicle?.shortName !== undefined && alertLines.includes(vehicle.shortName)}
-          />
-        )}
-      </div>
-    </section>
+      )}
+      {selection.kind === 'vehicle' && (
+        <VehicleBody
+          vehicle={vehicle}
+          city={city}
+          onShowRoute={onShowRoute}
+          following={following}
+          onToggleFollow={onToggleFollow}
+          disrupted={vehicle?.shortName !== null && vehicle?.shortName !== undefined && alertLines.includes(vehicle.shortName)}
+        />
+      )}
+    </PanelFrame>
   )
 }
 
@@ -210,7 +186,7 @@ function RailBody({ id }: { id: string }) {
       <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">Najbliższe odjazdy</h3>
       <div className="mt-2" aria-live="polite">
         {status === undefined && !error && <Skeleton />}
-        {status === undefined && error && <p className="text-sm text-red-700 dark:text-red-300">Nie udało się sprawdzić odjazdów.</p>}
+        {status === undefined && error && <p className="text-sm text-error-text">Nie udało się sprawdzić odjazdów.</p>}
         {status === null && (
           <p className="text-sm text-text-secondary">Nie śledzimy teraz tej stacji. Otwórz tablicę — pobierzemy jej odjazdy.</p>
         )}
@@ -219,7 +195,7 @@ function RailBody({ id }: { id: string }) {
             {status.nextDepartures.length === 0 ? (
               <p className="text-sm text-text-secondary">Brak odjazdów w najbliższym czasie.</p>
             ) : (
-              <ul className="divide-y" style={{ borderColor: 'var(--surface-border)' }}>
+              <ul className="divide-y divide-surface-border">
                 {status.nextDepartures.map((d) => (
                   <li key={`${d.plannedAt}-${d.trainLabel}`} className="flex items-center gap-3 py-2 text-sm">
                     <span className="w-11 shrink-0 font-semibold tabular-nums">{formatClockTime(d.plannedAt)}</span>
@@ -272,7 +248,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
       <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">Najbliższe odjazdy · rozkład</h3>
       <div aria-live="polite">
         {error !== null && data === null ? (
-          <p className="mt-2 text-sm text-red-700 dark:text-red-300">Nie udało się pobrać rozkładu.</p>
+          <p className="mt-2 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
         ) : (
           <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} />
         )}
@@ -321,7 +297,7 @@ function VehicleBody({
           <dt className="text-xs text-text-muted">Pozycja</dt>
           <dd>
             {formatAgo(vehicle.ageSec)} ·{' '}
-            <span className={fresh ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}>
+            <span className={fresh ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-700 dark:text-amber-400'}>
               {fresh ? 'aktualna' : 'nieaktualna'}
             </span>
           </dd>
@@ -337,9 +313,9 @@ function VehicleBody({
           aria-pressed={following}
           onClick={onToggleFollow}
           className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-            following ? 'text-white' : 'text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
+            following ? 'border-transparent text-white' : 'border-surface-border text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
           }`}
-          style={following ? { background: 'var(--accent-gradient)', borderColor: 'transparent' } : { borderColor: 'var(--surface-border)' }}
+          style={following ? { background: 'var(--accent-gradient)' } : undefined}
         >
           {following ? 'Śledzę pojazd' : 'Śledź pojazd'}
         </button>
@@ -351,8 +327,7 @@ function VehicleBody({
             <button
               type="button"
               onClick={() => onShowRoute(vehicle.routeId!, vehicle.directionId)}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:hover:bg-white/10"
-              style={{ borderColor: 'var(--surface-border)' }}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-surface-border px-4 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:hover:bg-white/10"
             >
               Pokaż trasę na mapie
             </button>

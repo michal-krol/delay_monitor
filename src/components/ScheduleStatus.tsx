@@ -1,5 +1,6 @@
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import { formatAge } from '@/lib/format'
+import { WARNING_CLASS } from './BoardStatus'
 
 type Props = {
   schedule: TransitBoardResponse['schedule']
@@ -9,8 +10,6 @@ type Props = {
   /** Bieżący błąd sieci z hooka — dokłada się jako chip, nie zastępuje wieku. */
   error?: boolean
 }
-
-const WARNING_CLASS = 'text-amber-700 dark:text-amber-400'
 
 /**
  * ISO → „3 września 2026, 14:23" — kiedy poller ostatnio wczytał rozkład.

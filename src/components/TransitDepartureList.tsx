@@ -1,6 +1,7 @@
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 import { formatDuration } from '@/lib/format'
 import { LineBadge } from './LineBadge'
+import { OnRequestBadge } from './OnRequestBadge'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
 
@@ -90,15 +91,7 @@ function DepartureRow({
       {departure.frequencyBased && (
         <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
       )}
-      {departure.onRequest && (
-        <span
-          title="Przystanek na żądanie — zasygnalizuj kierowcy chęć wsiadania / wysiadania"
-          className="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
-          style={{ borderColor: 'var(--surface-border)' }}
-        >
-          na żądanie
-        </span>
-      )}
+      {departure.onRequest && <OnRequestBadge />}
       {departure.platformCode !== null && (
         <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
       )}
@@ -151,7 +144,7 @@ export function TransitDepartureList({
               {first.headsign ?? '—'}
             </span>
             <div className="shrink-0 text-right">
-              <div className="font-heading text-2xl font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400">
+              <div className="font-heading text-2xl font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">
                 {highlightRelative}
               </div>
               <div className="text-xs text-text-secondary">Planowo: {clock(first.plannedAt)}</div>
@@ -161,7 +154,7 @@ export function TransitDepartureList({
       )}
 
       {listed.length > 0 && (
-        <ul className="mt-3 divide-y" style={{ borderColor: 'var(--surface-border)' }}>
+        <ul className="mt-3 divide-y divide-surface-border">
           {listed.map((departure, index) => (
             <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showSlupek={showSlupek} now={now} />
           ))}

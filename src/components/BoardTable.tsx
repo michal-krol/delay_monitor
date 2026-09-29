@@ -6,6 +6,7 @@ import { DelayBadge, LABELS, STATUS_TEXT, TOKENS } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
 import { CategoryBadge } from './CategoryBadge'
 import { InfoTooltip } from './InfoTooltip'
+import { statusTint } from './realizationColors'
 import { AlertCircleIcon, ChevronRightIcon } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
@@ -52,12 +53,10 @@ function StatusLegend() {
 }
 
 // Delikatne podbarwienie wiersza dla statusów wymagających uwagi — z makiety
-// (`FullBoard.dc.html`). Niezależne od `--status-*-bg` (te są zastrzeżone
-// wyłącznie dla `DelayBadge`, patrz decyzja #8 w globals.css) — to osobna,
-// dużo bardziej przezroczysta warstwa czysto dekoracyjna.
+// (`FullBoard.dc.html`): ten sam token co plakietka, rozcieńczony do 5 %.
 const ROW_TINT: Partial<Record<RealizationStatus, string>> = {
-  delayed: 'rgba(234,88,12,0.05)',
-  cancelled: 'rgba(225,29,72,0.05)',
+  delayed: statusTint('delayed', 5),
+  cancelled: statusTint('cancelled', 5),
 }
 
 /**
@@ -225,8 +224,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium text-text-secondary transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-            style={{ borderColor: 'var(--surface-border)' }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             Pokaż więcej połączeń
             <span className="text-text-muted">({hiddenCount})</span>

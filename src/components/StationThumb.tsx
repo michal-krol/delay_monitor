@@ -52,11 +52,8 @@ export function StationThumb({ stationName }: { stationName: string }) {
       // aria-hidden: to czysta dekoracja. Nazwa stacji stoi obok w <h1>,
       // więc czytnik ekranu nie ma powtarzać jej inicjałów.
       aria-hidden="true"
-      className="relative hidden h-24 w-40 shrink-0 overflow-hidden rounded-xl sm:block"
-      style={{
-        background: `linear-gradient(135deg, hsl(${hue} 62% 32%), hsl(${(hue + 40) % 360} 58% 20%))`,
-        border: '1px solid var(--surface-border)',
-      }}
+      className="relative hidden h-24 w-40 shrink-0 overflow-hidden rounded-xl border border-surface-border sm:block"
+      style={{ background: `linear-gradient(135deg, hsl(${hue} 62% 32%), hsl(${(hue + 40) % 360} 58% 20%))` }}
     >
       <span className="absolute inset-0 grid place-items-center text-white/25">
         <TrainIcon size={44} />

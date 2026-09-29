@@ -29,13 +29,9 @@ export function ModeFilter({ available, value, onChange }: Props) {
             aria-pressed={active}
             onClick={() => onChange(mode)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
-              active ? 'text-white' : 'text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
+              active ? 'border-transparent text-white' : 'border-surface-border text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
             }`}
-            style={
-              active
-                ? { background: 'var(--accent-gradient)', borderColor: 'transparent' }
-                : { borderColor: 'var(--surface-border)' }
-            }
+            style={active ? { background: 'var(--accent-gradient)' } : undefined}
           >
             {Icon !== null && <Icon size={13} />}
             {mode === 'all' ? 'Wszystko' : MODE_LABEL[mode]}

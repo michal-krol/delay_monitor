@@ -34,8 +34,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Przełącz na tryb jasny' : 'Przełącz na tryb ciemny'}
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-      style={{ borderColor: 'var(--surface-border)' }}
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
     >
       {isDark ? <MoonIcon size={15} /> : <SunIcon size={15} />}
     </button>

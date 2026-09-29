@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { trapTab } from '@/lib/focusTrap'
 import { CloseIcon, MenuIcon } from './icons'
+import { IconButton } from './IconButton'
 import { activeItemFromPath, NavList } from './navItems'
 
 /**
@@ -110,15 +111,9 @@ export function MobileNav() {
           >
             <div className="flex items-center justify-between gap-2 px-1">
               <span className="font-heading text-[15px] font-bold">Monitor opóźnień</span>
-              <button
-                ref={closeRef}
-                type="button"
-                onClick={close}
-                aria-label="Zamknij menu"
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
-              >
+              <IconButton ref={closeRef} label="Zamknij menu" onClick={close}>
                 <CloseIcon size={14} />
-              </button>
+              </IconButton>
             </div>
             <NavList activeItem={activeItemFromPath(pathname)} onNavigate={close} />
           </aside>

@@ -6,6 +6,7 @@ import LineDetailPage from './page'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 import { MODE_COLOR } from '@/components/map/mapData'
+import { ON_REQUEST_TITLE } from '@/components/OnRequestBadge'
 
 // Prawdziwy MapLibre nie działa w jsdom (WebGL) -- stub sprawdza tylko, co strona mu przekazuje.
 vi.mock('@/components/MapView', () => ({
@@ -238,12 +239,12 @@ describe('LineDetailPage', () => {
     stubFetch() // LINE fixture already has a request stop + streets after this task's edit
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
-    // request stop badge
-    expect(screen.getByText('NŻ')).toBeInTheDocument()
+    // request stop badge — the same marker as on the departure board and the map panel
+    expect(screen.getByTitle(ON_REQUEST_TITLE)).toHaveTextContent('na żądanie')
     // street name shown somewhere on the route
     expect(screen.getByText('Marszałkowska')).toBeInTheDocument()
     // mini-legend
-    expect(screen.getByText(/na żądanie/i)).toBeInTheDocument()
+    expect(screen.getByText('przystanek krańcowy')).toBeInTheDocument()
   })
 
   it('explains an unknown line instead of rendering an empty page', async () => {

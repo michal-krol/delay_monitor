@@ -361,7 +361,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
 
       {status === 'error' && (
         <div className="glass rounded-2xl p-6">
-          <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">
+          <p role="alert" className="text-sm font-medium text-error-text">
             {error}
           </p>
           {/* Komunikat serwera (np. limit godzinowy PKP) już mówi, co zrobić --
@@ -449,8 +449,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             </div>
 
             <div
-              className="mt-5 grid gap-4 border-t pt-4 text-sm @md:grid-cols-2 @xl:grid-cols-4"
-              style={{ borderColor: 'var(--surface-border)' }}
+              className="mt-5 grid gap-4 border-t border-surface-border pt-4 text-sm @md:grid-cols-2 @xl:grid-cols-4"
             >
               <MetaItem
                 icon={<CalendarIcon size={16} />}
@@ -663,8 +662,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                 )}
                                 {showStopMinutes && (
                                   <span
-                                    className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-text-secondary"
-                                    style={{ borderColor: 'var(--surface-border)' }}
+                                    className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary"
                                   >
                                     <PauseIcon size={11} />
                                     Postój {stopMinutes} min
@@ -753,7 +751,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
 
               <section className="glass rounded-2xl p-5">
                 <SectionHeading>Informacje o połączeniu</SectionHeading>
-                <dl className="mt-2 divide-y" style={{ borderColor: 'var(--surface-border)' }}>
+                <dl className="mt-2 divide-y divide-surface-border">
                   <InfoRow label="Przewoźnik" value={data.carrierName ?? data.carrierCode ?? '—'} />
                   <InfoRow
                     label="Kategoria"
@@ -801,8 +799,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 <button
                   type="button"
                   onClick={() => void share()}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
-                  style={{ borderColor: 'var(--surface-border)' }}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-surface-border px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   {copied ? <LinkIcon size={15} /> : <ShareIcon size={15} />}
                   {copied ? 'Skopiowano link' : 'Kopiuj link'}

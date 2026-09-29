@@ -110,8 +110,7 @@ export function MapFilters({
               onChange(new Set())
               onAlertsOnly?.(false)
             }}
-            className="w-full rounded-lg border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
-            style={{ borderColor: 'var(--surface-border)' }}
+            className="w-full rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
           >
             Pokaż wszystko
           </button>

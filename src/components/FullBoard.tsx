@@ -11,6 +11,7 @@ import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
 import { ThemeToggle } from './ThemeToggle'
 import { CloseIcon, ShareIcon, StarIcon } from './icons'
+import { IconButton } from './IconButton'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { useShareUrl } from '@/hooks/useShareUrl'
@@ -35,27 +36,8 @@ export type Direction = 'departures' | 'arrivals'
 /** Sufit długości filtra kierunku odtwarzanego z URL-a -- patrz komentarz przy odczycie. */
 const MAX_DESTINATION_FILTER_LENGTH = 100
 
-/**
- * Przycisk-ikona bez podpisu — ten sam krój co `ThemeToggle` (obok którego
- * zawsze stoi w tym samym rzędzie), żeby wszystkie przyciski nagłówka
- * wyglądały spójnie. Eksportowany do reużycia w `FocusedStation`.
- */
-export function IconButton({ onClick, label, children }: { onClick: () => void; label: string; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-      style={{ borderColor: 'var(--surface-border)' }}
-    >
-      {children}
-    </button>
-  )
-}
-
-/** Eksportowany do reużycia w `FocusedStation` — te same zakładki Odjazdy/Przyjazdy. */
-export function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+/** Zakładki Odjazdy/Przyjazdy. */
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -196,8 +178,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
               <button
                 type="button"
                 onClick={() => void share()}
-                className="inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                style={{ borderColor: 'var(--surface-border)' }}
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
               >
                 <ShareIcon size={15} />
                 Udostępnij
@@ -239,8 +220,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                   <button
                     type="button"
                     onClick={() => setDestinationFilter(null)}
-                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground"
-                    style={{ borderColor: 'var(--surface-border)' }}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground"
                   >
                     Kierunek: {destinationFilter}
                     <CloseIcon size={12} />

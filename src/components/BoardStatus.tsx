@@ -14,8 +14,8 @@ type Props = {
  */
 const STALE_AFTER_MS = 3 * 60 * 1000
 
-/** Kolor "coś wymaga uwagi, ale nie jest błędem" — dane sprzed chwili, degradacja, throttling. */
-const WARNING_CLASS = 'text-amber-700 dark:text-amber-400'
+/** Kolor "coś wymaga uwagi, ale nie jest błędem" — dane sprzed chwili, degradacja, throttling. Wspólny z `ScheduleStatus`. */
+export const WARNING_CLASS = 'text-amber-700 dark:text-amber-400'
 
 /** Tablica PKP jest zawsze warszawska (AGENTS.md #1) — jawna strefa, żeby widz spoza PL widział ten sam czas co dane. */
 function formatLastUpdated(fetchedAt: string): string {
@@ -58,14 +58,14 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
   if (fetchedAt === undefined) {
     if (error) {
       return (
-        <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          <span className="text-red-600 dark:text-red-400">Błąd pobierania danych</span>
+        <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
+          <span className="text-error-text">Błąd pobierania danych</span>
           {REFRESH_HINT}
         </p>
       )
     }
     return (
-      <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+      <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
         <span>Ładowanie…</span>
         {REFRESH_HINT}
       </p>
@@ -75,14 +75,14 @@ export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
   const isStale = ageMs !== undefined && ageMs >= STALE_AFTER_MS
 
   return (
-    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
       <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
       {REFRESH_HINT}
 
       {/* `display: contents` -- węzeł istnieje dla `aria-live`, ale nie wchodzi
           we flex-wrap rodzica (chipy układają się tak samo jak wcześniej). */}
       <span className="contents" aria-live="polite">
-        {error && <span className="text-red-600 dark:text-red-400">Błąd ostatniego odświeżenia</span>}
+        {error && <span className="text-error-text">Błąd ostatniego odświeżenia</span>}
 
         {isStale && <span className={WARNING_CLASS}>dane sprzed {formatAge(ageMs)}</span>}
 

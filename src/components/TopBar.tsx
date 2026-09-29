@@ -54,8 +54,7 @@ export function TopBar(props: Props) {
           <button
             type="button"
             onClick={props.onShare}
-            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold text-text-secondary transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
-            style={{ borderColor: 'var(--surface-border)' }}
+            className="inline-flex items-center gap-2 rounded-full border border-surface-border px-3 py-1.5 text-sm font-semibold text-text-secondary transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
           >
             <ShareIcon size={15} />
             Udostępnij

@@ -173,4 +173,14 @@ describe('BoardStatus', () => {
 
     expect(screen.getByText(/API nie odpowiada/)).toBeInTheDocument()
   })
+
+  it('uses the same tokens as ScheduleStatus: secondary text, one error colour', () => {
+    const { container, rerender } = render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={true} />)
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(container.firstElementChild).toHaveClass('text-text-secondary')
+    expect(screen.getByText('Błąd pobierania danych')).toHaveClass('text-error-text')
+    rerender(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} data={makeData()} error={true} />)
+    expect(screen.getByText('Błąd ostatniego odświeżenia')).toHaveClass('text-error-text')
+  })
 })
+

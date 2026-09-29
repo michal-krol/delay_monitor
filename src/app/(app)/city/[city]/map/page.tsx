@@ -551,7 +551,7 @@ export default function CityMapPage() {
               </p>
             )}
             {problems.map((problem) => (
-              <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-red-700 dark:text-red-300">
+              <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
                 {problem}
               </p>
             ))}

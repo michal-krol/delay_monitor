@@ -19,7 +19,7 @@ function Tile({
 }) {
   return (
     <div className="glass flex items-center gap-3 rounded-2xl px-4 py-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary" style={{ background: 'var(--surface-border)' }}>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-border text-text-secondary">
         {icon}
       </span>
       <span className="min-w-0">

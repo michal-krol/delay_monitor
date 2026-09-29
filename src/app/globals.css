@@ -48,6 +48,10 @@
   --status-unknown-text: #475569;
   --status-notStarted-text: #0369a1;
   --status-enRoute-text: #4338ca;
+
+  /* Jeden kolor tekstu błędu w całej appce (wcześniej red-600/400 i red-700/300
+     na przemian). red-700: 6,0:1 na tle karty `glass` w jasnym motywie. */
+  --error-text: #b91c1c;
 }
 
 .dark {
@@ -78,6 +82,12 @@
   --status-unknown-text: #94a3b8;
   --status-notStarted-text: #38bdf8;
   --status-enRoute-text: #a5b4fc;
+
+  /* red-300: 9,6:1 na `#0d1424` (efektywne tło `glass` w ciemnym motywie). */
+  --error-text: #fca5a5;
+  /* Nieprzezroczyste tło kontrolek MapLibre (popup, zoom, atrybucja) -- patrz
+     komentarz przy regułach `.maplibregl-*` niżej. */
+  --map-surface: #0f172a;
 }
 
 /* Statusy: identyczne wartości w obu motywach — samowystarczalna, nasycona
@@ -147,6 +157,8 @@
   --color-text-muted: var(--text-muted);
   --color-surface: var(--surface);
   --color-surface-strong: var(--surface-strong);
+  --color-surface-border: var(--surface-border);
+  --color-error-text: var(--error-text);
   --font-heading: var(--font-manrope), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -185,21 +197,21 @@
    Naprawa: osobny, w pełni opaque kolor tylko dla popupu (nie `--surface-strong`,
    które ma zostać przezroczyste dla `.glass-strong` gdzie indziej w appce). */
 .dark .maplibregl-popup-content {
-  background-color: #0f172a;
+  background-color: var(--map-surface);
   backdrop-filter: blur(24px) saturate(150%);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
 }
 .dark .maplibregl-popup-tip {
-  border-top-color: #0f172a !important;
-  border-bottom-color: #0f172a !important;
+  border-top-color: var(--map-surface) !important;
+  border-bottom-color: var(--map-surface) !important;
 }
 /* Popup przy bocznej krawędzi mapy kotwiczy się bokiem — grot rysuje wtedy obramowanie
    boczne (pozostałe boki muszą zostać przezroczyste, inaczej grot staje się kwadratem). */
 .dark .maplibregl-popup-anchor-left .maplibregl-popup-tip {
-  border-right-color: #0f172a;
+  border-right-color: var(--map-surface);
 }
 .dark .maplibregl-popup-anchor-right .maplibregl-popup-tip {
-  border-left-color: #0f172a;
+  border-left-color: var(--map-surface);
 }
 
 /* Reszta kontrolek MapLibre (ten sam powód: twardy `#fff`/czarne ikony w wendorowanym CSS).
@@ -207,7 +219,7 @@
    odwrócone filtrem. Krzyżyk popupu: kolor tekstu motywu i jasne podświetlenie zamiast
    `rgba(0,0,0,.05)`, niewidocznego na ciemnym tle. */
 .dark .maplibregl-ctrl-group {
-  background-color: #0f172a;
+  background-color: var(--map-surface);
   box-shadow: 0 0 0 1px var(--surface-border);
 }
 .dark .maplibregl-ctrl-group button + button {

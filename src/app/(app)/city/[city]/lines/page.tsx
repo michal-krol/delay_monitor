@@ -74,7 +74,7 @@ export default function CityLinesPage() {
       {data !== null && <ScheduleStatus schedule={data.schedule} cityName={cityName} error={failed} />}
 
       {failed && data === null ? (
-        <p className="text-sm text-red-700 dark:text-red-300">Nie udało się pobrać listy linii.</p>
+        <p className="text-sm text-error-text">Nie udało się pobrać listy linii.</p>
       ) : loading ? (
         <p className="text-sm text-text-secondary">Wczytuję linie…</p>
       ) : filteredLines === null ? (
