@@ -72,6 +72,9 @@ CI (separate `e2e` job, outside the fast `quality` job).
   (`iPhone 15`). New viewport = entry in `playwright.config.ts`.
 - Outside CI `playwright.config.ts` builds with `--webpack` (Turbopack fails when
   `node_modules` is above `turbopack.root`). Don't junction `node_modules` into the worktree.
+- Locally `reuseExistingServer` attaches to ANY server on port 3123 — also another worktree's or
+  session's build (seen 2026-09-29: a different branch's old UI, 14 false failures). Run
+  `E2E_PORT=<free port> npm run e2e` in a worktree; `CI=1` does not help there (Turbopack build fails).
 - Locally `retries: 1` (as in CI): under full load 2 tests failed per run and passed on retry;
   now they show as "flaky". Missing browsers after a Playwright bump → the config prints
   `npx playwright install chromium webkit` and exits.
