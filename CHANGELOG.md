@@ -24,12 +24,20 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   (np. „1 h 5 min" zamiast „65 min").
 - Rejestr miast jest pobierany raz na stronę we wszystkich widokach i sprawdzany; błędny wpis
   nie psuje już całej listy miast.
+- Mapy na stronach linii, przystanku, stacji i połączenia wyglądają tak samo jak mapa
+  transportu. Pinezki i trasa mają kolor rodzaju środka transportu. Pojazd to kropka w tym
+  samym kolorze ze strzałką kierunku jazdy. Na osi czasu linii pojazd ma ten sam kolor
+  i strzałkę w dół zamiast fioletowego trójkąta.
 
 ### Naprawione
 
 - Zakładka „Komunikaty" na stronie przystanku nie twierdzi już przez pierwsze pół minuty, że
   nie ma komunikatów, gdy serwer dopiero je pobiera — pokazuje „Wczytywanie komunikatów…",
   a utrudnienie pojawia się po kilku sekundach.
+- Mapy na stronach linii, przystanku, stacji i połączenia mają ciemny podkład w ciemnym
+  motywie i przełączają go razem z motywem. Przycisk powiększenia i zamknięcia mapy,
+  przyciski przybliżania na mapie transportu oraz krzyżyk i grot dymka mają ciemne style
+  w ciemnym motywie.
 - Gdy źródło rozkładu komunikacji miejskiej jest niedostępne, serwer nie próbuje go pobierać
   ponownie przy każdym odświeżeniu otwartych widoków — kolejne próby są coraz rzadsze
   (od 30 sekund do godziny), a po udanym pobraniu wszystko wraca do normy.
