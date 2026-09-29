@@ -243,7 +243,7 @@ export default function LineDetailPage() {
               </section>
             )}
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+            <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
               <section className="glass rounded-2xl p-4">
                 <h2 className="text-sm font-bold text-foreground">
                   Trasa linii · {stops.length} {pluralPl(stops.length, 'przystanek', 'przystanki', 'przystanków')}

@@ -36,3 +36,17 @@ test('pulpit na 375 px: karta „Dziś w Polsce" jest widoczna pod treścią', a
   await page.goto('/')
   await expect(page.getByRole('button', { name: /Dziś w Polsce/ })).toBeVisible()
 })
+
+test('linii na 375 px: karty Trasy i Rozkładu mają się zmieścić bez poziomego przewijania', async ({ page }) => {
+  await page.goto('/city/warszawa/line/20')
+  await expect(page.getByRole('heading', { level: 1, name: /Centrum – Dworzec Centralny/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Rozkład/ })).toBeVisible()
+
+  const docWidth = await page.evaluate(() => {
+    return {
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+    }
+  })
+  expect(docWidth.scrollWidth).toBeLessThanOrEqual(docWidth.innerWidth)
+})
