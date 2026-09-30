@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { HomeIcon, ListIcon, RouteIcon, MapIcon } from './icons'
 
-export type ActiveItem = 'pulpit' | 'odjazdy' | 'trasy' | 'mapa'
+export type ActiveItem = 'pulpit' | 'odjazdy' | 'linie' | 'mapa'
 
 type NavItem = { key: ActiveItem; href: string; label: string; icon: typeof HomeIcon }
 
 /**
- * „Odjazdy / Przyjazdy" prowadzi na `/city`, „Trasy" na `/lines`, „Mapa" na
+ * „Odjazdy / Przyjazdy" prowadzi na `/city`, „Linie" na `/lines`, „Mapa" na
  * `/map` — wszystkie trzy dobierają domyślne miasto (ostatnie z
  * `useCityContext` albo to z największą liczbą stacji kolejowych) i
  * przekierowują. Przełącznik miasta jest w treści tamtych ekranów, nie
@@ -16,7 +16,7 @@ type NavItem = { key: ActiveItem; href: string; label: string; icon: typeof Home
 export const NAV_ITEMS: NavItem[] = [
   { key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
   { key: 'odjazdy', href: '/city', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
-  { key: 'trasy', href: '/lines', label: 'Trasy', icon: RouteIcon },
+  { key: 'linie', href: '/lines', label: 'Linie', icon: RouteIcon },
   { key: 'mapa', href: '/map', label: 'Mapa', icon: MapIcon },
 ]
 
@@ -27,7 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
 export function activeItemFromPath(pathname: string): ActiveItem | undefined {
   if (pathname === '/') return 'pulpit'
   if (pathname === '/map' || /^\/city\/[^/]+\/map$/.test(pathname)) return 'mapa'
-  if (pathname === '/lines' || /^\/city\/[^/]+\/lines?/.test(pathname)) return 'trasy'
+  if (pathname === '/lines' || /^\/city\/[^/]+\/lines?/.test(pathname)) return 'linie'
   if (pathname === '/city' || pathname.startsWith('/city/')) return 'odjazdy'
   return undefined
 }

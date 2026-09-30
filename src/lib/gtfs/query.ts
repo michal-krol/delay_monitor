@@ -233,7 +233,7 @@ export function linesByMode(schedule: GtfsSchedule): Record<GtfsMode, GtfsRoute[
   return grouped
 }
 
-/** Wiersz przeglądarki „Trasy" — plakietka linii z nazwą kierunkową. */
+/** Wiersz strony „Linie" — plakietka linii z nazwą kierunkową. */
 export type LineListEntry = {
   routeId: string
   line: string

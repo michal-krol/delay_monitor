@@ -69,9 +69,9 @@ describe('Sidebar', () => {
     expect(link).toHaveAttribute('aria-current', 'page')
   })
 
-  it('„Trasy" prowadzi na /lines (trasa dobiera domyślne miasto)', () => {
-    render(<Sidebar activeItem="trasy" />)
-    const link = screen.getByRole('link', { name: 'Trasy' })
+  it('„Linie" prowadzi na /lines (trasa dobiera domyślne miasto)', () => {
+    render(<Sidebar activeItem="linie" />)
+    const link = screen.getByRole('link', { name: 'Linie' })
     expect(link).toHaveAttribute('href', '/lines')
     expect(link).toHaveAttribute('aria-current', 'page')
   })
@@ -87,7 +87,7 @@ describe('Sidebar', () => {
     const { container } = render(<Sidebar activeItem="pulpit" />)
     const links = screen.getAllByRole('link')
     expect(links).toHaveLength(4)
-    for (const [index, name] of ['Pulpit', 'Odjazdy / Przyjazdy', 'Trasy', 'Mapa'].entries()) {
+    for (const [index, name] of ['Pulpit', 'Odjazdy / Przyjazdy', 'Linie', 'Mapa'].entries()) {
       expect(links[index]).toHaveAccessibleName(name)
     }
     // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- brak jakiegokolwiek elementu z aria-disabled

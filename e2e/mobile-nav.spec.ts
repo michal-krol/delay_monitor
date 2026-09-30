@@ -19,7 +19,7 @@ test('mobile: hamburger otwiera szufladę, link nawiguje i zamyka ją', async ({
   await expect(drawer).toBeVisible()
   await expect(drawer.getByRole('link', { name: 'Pulpit' })).toHaveAttribute('aria-current', 'page')
 
-  await drawer.getByRole('link', { name: 'Trasy' }).click()
+  await drawer.getByRole('link', { name: 'Linie' }).click()
   await expect(page).toHaveURL(/\/city\/[^/]+\/lines/)
   await expect(page.getByRole('dialog')).not.toBeVisible()
 })

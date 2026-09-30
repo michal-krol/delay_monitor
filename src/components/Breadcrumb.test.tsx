@@ -8,13 +8,13 @@ describe('Breadcrumb', () => {
     render(
       <Breadcrumb
         items={[
-          { label: 'Trasy', href: '/city/warszawa/lines' },
+          { label: 'Linie', href: '/city/warszawa/lines' },
           { label: 'Centrum' },
         ]}
       />
     )
 
-    const link = screen.getByRole('link', { name: 'Trasy' })
+    const link = screen.getByRole('link', { name: 'Linie' })
     expect(link).toHaveAttribute('href', '/city/warszawa/lines')
 
     const current = screen.getByText('Centrum')
@@ -46,13 +46,13 @@ describe('Breadcrumb', () => {
     render(
       <Breadcrumb
         items={[
-          { label: 'Trasy' },
+          { label: 'Linie' },
           { label: 'Wczytywanie…' },
         ]}
       />
     )
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
-    expect(screen.getByText('Trasy')).toBeInTheDocument()
+    expect(screen.getByText('Linie')).toBeInTheDocument()
   })
 })

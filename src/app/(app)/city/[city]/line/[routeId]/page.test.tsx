@@ -369,13 +369,13 @@ describe('LineDetailPage', () => {
     expect(screen.getByText('Treść.')).toBeInTheDocument()
   })
 
-  it('jeden górny rząd: ← do tras i ścieżka; nazwa linii to jedyny h1', async () => {
+  it('jeden górny rząd: ← do linii i ścieżka; nazwa linii to jedyny h1', async () => {
     stubFetch()
     render(<LineDetailPage />)
     await screen.findByRole('heading', { level: 1, name: 'Piaski – Międzylesie' })
-    expect(screen.getByRole('link', { name: 'Wróć do tras' })).toHaveAttribute('href', '/city/warszawa/lines')
+    expect(screen.getByRole('link', { name: 'Wróć do linii' })).toHaveAttribute('href', '/city/warszawa/lines')
     const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
-    expect(within(nav).getByRole('link', { name: 'Trasy' })).toHaveAttribute('href', '/city/warszawa/lines')
+    expect(within(nav).getByRole('link', { name: 'Linie' })).toHaveAttribute('href', '/city/warszawa/lines')
     expect(within(nav).getByText('Piaski – Międzylesie')).toHaveAttribute('aria-current', 'page')
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })

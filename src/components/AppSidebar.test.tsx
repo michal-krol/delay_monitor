@@ -29,14 +29,14 @@ describe('AppSidebar', () => {
     expect(screen.getByRole('link', { name: 'Pulpit' })).not.toHaveAttribute('aria-current')
   })
 
-  it('marks "Odjazdy / Przyjazdy" on a city page, "Trasy" on a line page', () => {
+  it('marks "Odjazdy / Przyjazdy" on a city page, "Linie" on a line page', () => {
     usePathname.mockReturnValue('/city/warszawa')
     const { rerender } = render(<AppSidebar />)
     expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).toHaveAttribute('aria-current', 'page')
 
     usePathname.mockReturnValue('/city/warszawa/line/20')
     rerender(<AppSidebar />)
-    expect(screen.getByRole('link', { name: 'Trasy' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Linie' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).not.toHaveAttribute('aria-current')
   })
 })

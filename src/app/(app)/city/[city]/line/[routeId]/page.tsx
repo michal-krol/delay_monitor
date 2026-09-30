@@ -197,10 +197,10 @@ export default function LineDetailPage() {
   return (
     <PageShell aside={asideContent}>
       <TopBar
-        backLabel="Wróć do tras"
+        backLabel="Wróć do linii"
         backHref={`/city/${city}/lines`}
         crumbs={[
-          { label: 'Trasy', href: `/city/${city}/lines` },
+          { label: 'Linie', href: `/city/${city}/lines` },
           { label: line?.longName ?? routeId },
         ]}
       />

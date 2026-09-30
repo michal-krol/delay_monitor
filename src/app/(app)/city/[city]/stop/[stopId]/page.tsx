@@ -26,7 +26,7 @@ export default function TransitStopPage() {
 
   return (
     <PageShell>
-      {/* „Odjazdy / Przyjazdy", nie „Trasy": ta strona wraca do `/city/{city}` —
+      {/* „Odjazdy / Przyjazdy", nie „Linie": ta strona wraca do `/city/{city}` —
           ← i pierwszy element ścieżki wskazują ten sam rodzic. */}
       <TopBar
         backLabel="Wróć do odjazdów"

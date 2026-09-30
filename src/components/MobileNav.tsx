@@ -10,7 +10,7 @@ import { activeItemFromPath, NavList } from './navItems'
 /**
  * Nawigacja mobilna: poniżej `sm` pasek boczny jest schowany całkowicie
  * (`Sidebar` `hidden sm:flex`), bo nawet zwinięty zjadał piątą część szerokości
- * telefonu. Odkąd trzy pozycje menu coś robią (Pulpit / Odjazdy / Trasy),
+ * telefonu. Odkąd trzy pozycje menu coś robią (Pulpit / Odjazdy / Linie),
  * schowanie ich odcinało realne funkcje — stąd cienki pasek app-level z
  * hamburgerem i wysuwana szuflada NAD treścią (overlay + backdrop), tylko
  * `sm:hidden`. Desktop nietknięty.
