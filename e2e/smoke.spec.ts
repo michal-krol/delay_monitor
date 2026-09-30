@@ -32,14 +32,18 @@ test('tablica → wiersze połączeń → szczegóły połączenia po kliknięci
   await expect(page).toHaveURL(/\/connection\//)
 })
 
-test('linie GTFS: przeglądarka linii miasta pokazuje siatkę linii', async ({ page }) => {
+test('linie GTFS: strona Linie pokazuje sekcje z liniami miasta', async ({ page }) => {
   await page.goto('/city/warszawa/lines')
 
-  await expect(page.getByRole('heading', { name: 'Trasy — Warszawa' })).toBeVisible()
-  await expect(page.getByLabel('Szukaj linii')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Linie — Warszawa' })).toBeVisible()
 
   // GTFS mock parsuje się raz przy starcie (~kilkanaście s), strona sama ponawia.
-  await expect(page.getByRole('link', { name: /^Linia / }).first()).toBeVisible({ timeout: 45_000 })
+  await expect(page.getByLabel('Szukaj linii')).toBeVisible({ timeout: 45_000 })
+  await expect(page.getByTestId('line-section').first()).toBeVisible()
+  // Na wąskim ekranie sekcje startują zwinięte — kafle widać po rozwinięciu pierwszej.
+  const first = page.getByTestId('line-section').first()
+  if (!(await first.evaluate((node) => (node as HTMLDetailsElement).open))) await first.locator('summary').click()
+  await expect(page.getByRole('link', { name: /^Linia / }).first()).toBeVisible()
 })
 
 test('tablica → szczegóły → wstecz: bezpośrednie wejście na stację wraca do tablicy', async ({ page }) => {
