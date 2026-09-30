@@ -73,6 +73,9 @@ describe('lineKindFrom', () => {
   it('maps L10 to local', () => {
     expect(lineKindFrom('L10', undefined)).toBe('local')
   })
+  it('does not treat a name that merely starts with L as local', () => {
+    expect(lineKindFrom('Lotnisko', undefined)).toBe('regular')
+  })
   it('maps 727 to zone', () => {
     expect(lineKindFrom('727', undefined)).toBe('zone')
   })

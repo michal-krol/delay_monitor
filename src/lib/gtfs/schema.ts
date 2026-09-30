@@ -61,7 +61,7 @@ export function lineKindFrom(shortName: string, desc: string | undefined): LineK
   const number = Number(name)
   if (Number.isFinite(number) && number >= 400 && number <= 599) return 'express'
   // Warszawa (pomiar 2026-09-30): 7xx i 8xx to zielone linie strefowe/podmiejskie ZTM, `L-1`…`L55` lokalne.
-  if (/^L/i.test(name)) return 'local'
+  if (/^L[-\d]/i.test(name)) return 'local'
   if (Number.isFinite(number) && number >= 700 && number <= 899) return 'zone'
   return 'regular'
 }
