@@ -51,8 +51,41 @@ export const UNKNOWN_COLOR = '#6b7280'
  * Obrys kropki/obwódka linii pod kolorem na mapie: biały, ale żółte metro na jasnym podkładzie
  * miałoby ~1,5:1 — ciemnoczerwony z palety daje ≥ 3:1 (jasny i ciemny podkład) i żółty ≥ 3:1 do obrysu.
  */
+const STROKE_DEFAULT = '#ffffff'
 export function strokeFor(color: string): string {
-  return color === LINE_PALETTE.metro.bg ? LINE_PALETTE.metro.fg : '#ffffff'
+  return color === LINE_PALETTE.metro.bg ? LINE_PALETTE.metro.fg : STROKE_DEFAULT
+}
+
+/** Obwódka pod linią: na ciemnym podkładzie zawsze biała (żółć sama kontrastuje, ciemnoczerwona brudziłaby ją na pomarańcz), na jasnym `strokeFor`. */
+export function casingFor(color: string, dark: boolean): string {
+  return dark ? STROKE_DEFAULT : strokeFor(color)
+}
+
+/** Obwódka białej kropki przystanku trasy: kolor linii, a dla żółtego metra `strokeFor` (żółć na bieli znika). */
+export function outlineFor(color: string): string {
+  const stroke = strokeFor(color)
+  return stroke === STROKE_DEFAULT ? color : stroke
+}
+
+/** Ta sama reguła `strokeFor` jako wyrażenie MapLibre po `['get', 'color']` (kropki, pojazdy, obwódka tła). */
+export function strokeExpression(): unknown[] {
+  return ['match', ['get', 'color'], LINE_PALETTE.metro.bg, strokeFor(LINE_PALETTE.metro.bg), STROKE_DEFAULT]
+}
+
+/** `casingFor` per obiekt (`['get', 'color']`) — obwódka tła metra/SKM. */
+export function casingExpression(dark: boolean): unknown {
+  return dark ? STROKE_DEFAULT : strokeExpression()
+}
+
+/** Obrys trójkąta z obramowań CSS (strzałki w DOM i w legendzie) — `drop-shadow` w 4 kierunkach w kolorze `strokeFor`. */
+export function outlineFilter(color: string): string {
+  const stroke = strokeFor(color)
+  return ['1px 0', '-1px 0', '0 1px', '0 -1px'].map((offset) => `drop-shadow(${offset} 0 ${stroke})`).join(' ')
+}
+
+/** Czy kolor potrzebuje niebiałego obrysu (żółte metro) — dla elementów, które domyślnie mają biały pierścień. */
+export function hasCustomStroke(color: string): boolean {
+  return strokeFor(color) !== STROKE_DEFAULT
 }
 
 /** Warstwy przełączane w „Filtrach". Domyślnie wszystkie widoczne. */

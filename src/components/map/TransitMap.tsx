@@ -6,12 +6,14 @@ import { STYLE_DARK, STYLE_LIGHT, WORKER_URL } from '../MapView'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { BackboneLine, CityStop } from '@/lib/gtfs/query'
 import type { MapRailStation } from '@/lib/weather/coordinates'
-import { LINE_PALETTE } from '../transitMode'
 import {
   MAP_ZOOM,
   arrowImage,
   interpolatePoints,
-  strokeFor,
+  casingExpression,
+  casingFor,
+  outlineFor,
+  strokeExpression,
   MODE_COLOR,
   POLAND_BOUNDS,
   railToGeoJSON,
@@ -76,9 +78,6 @@ const VISIBLE_KIND: Record<string, VisibleItem['kind']> = { vehicles: 'vehicle',
 const GLIDE_MS = 1000
 const GLIDE_FRAME_MS = 66
 
-/** Biała kropka przystanku trasy z kolorową obwódką; żółta obwódka metra na białym znikałaby → ciemnoczerwona. */
-const routeStopStroke = (color: string): string => (color === LINE_PALETTE.metro.bg ? LINE_PALETTE.metro.fg : color)
-
 function backboneCollection(lines: BackboneLine[] | null): Data['backbone'] {
   return {
     type: 'FeatureCollection',
@@ -108,8 +107,8 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     'text-halo-color': dark ? '#0f172a' : '#ffffff',
     'text-halo-width': 1.5,
   }
-  // Obrys/obwódka: biały, a pod żółtym metrem ciemnoczerwony (`strokeFor`) — żółć na białym podkładzie ~1,5:1.
-  const strokeColor = ['match', ['get', 'color'], LINE_PALETTE.metro.bg, LINE_PALETTE.metro.fg, '#ffffff'] as never
+  // Obrys kropek i strzałek: reguła `strokeFor` (biały, pod żółtym metrem ciemnoczerwony) jako wyrażenie MapLibre.
+  const strokeColor = strokeExpression() as never
   const stroke = { 'circle-stroke-color': strokeColor, 'circle-stroke-width': 1.5 }
 
   map.addSource('backbone', { type: 'geojson', data: data.backbone as never })
@@ -130,7 +129,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     source: 'backbone',
     minzoom: 9,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': dark ? '#ffffff' : strokeColor, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4.5, 15, 8.5], 'line-opacity': dark ? 0.55 : 0.9 },
+    paint: { 'line-color': casingExpression(dark) as never, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4.5, 15, 8.5], 'line-opacity': dark ? 0.55 : 0.9 },
   })
   map.addLayer({
     id: 'backbone',
@@ -211,7 +210,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     type: 'line',
     source: 'route-line',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': strokeFor(data.routeColor), 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 10], 'line-opacity': dark ? 0.55 : 0.9 },
+    paint: { 'line-color': casingFor(data.routeColor, dark), 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 10], 'line-opacity': dark ? 0.55 : 0.9 },
   })
   map.addLayer({
     id: 'route-line',
@@ -227,7 +226,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     paint: {
       'circle-color': '#ffffff',
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 16, 5],
-      'circle-stroke-color': routeStopStroke(data.routeColor),
+      'circle-stroke-color': outlineFor(data.routeColor),
       'circle-stroke-width': 2,
     },
   })
@@ -616,8 +615,8 @@ export function TransitMap({
     ;(map.getSource('route-line') as GeoJSONSource).setData(dataRef.current.route.line)
     ;(map.getSource('route-stops') as GeoJSONSource).setData(dataRef.current.route.stops)
     map.setPaintProperty('route-line', 'line-color', dataRef.current.routeColor)
-    map.setPaintProperty('route-casing', 'line-color', strokeFor(dataRef.current.routeColor))
-    map.setPaintProperty('route-stops', 'circle-stroke-color', routeStopStroke(dataRef.current.routeColor))
+    map.setPaintProperty('route-casing', 'line-color', casingFor(dataRef.current.routeColor, darkRef.current))
+    map.setPaintProperty('route-stops', 'circle-stroke-color', outlineFor(dataRef.current.routeColor))
     applyDim(map, route !== null)
     const bounds = route?.overlay.bounds
     if (bounds !== null && bounds !== undefined) fitRoute(map, bounds)

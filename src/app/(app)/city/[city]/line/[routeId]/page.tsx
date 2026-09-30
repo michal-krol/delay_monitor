@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { notFound, useParams } from 'next/navigation'
@@ -24,7 +24,9 @@ import { isLineLoading } from '@/hooks/useLineDetail'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
+import { hasCustomStroke, strokeFor } from '@/components/map/mapData'
 import type { LineDetail } from '@/lib/gtfs/query'
+import type { LineKind } from '@/lib/gtfs/types'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
 
 type LineResponse = {
@@ -91,9 +93,11 @@ export default function LineDetailPage() {
       })),
     [stops, line?.mode, city]
   )
+  // Rodzaj do koloru mapy; `'regular'` tylko na czas ładowania linii — sekcja mapy renderuje się dopiero, gdy `line` jest znane.
+  const mapKind: LineKind = line?.kind ?? 'regular'
   const mapRoute = useMemo(
-    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', kind: line?.kind }),
-    [direction?.shape, stops, line?.mode, line?.kind]
+    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', kind: mapKind }),
+    [direction?.shape, stops, line?.mode, mapKind]
   )
   const mapMovers = useMemo<MapMover[]>(() => {
     if (!showVehicles) return []
@@ -103,10 +107,10 @@ export default function LineDetailPage() {
       lon: v.lon,
       label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”`,
       mode: line?.mode ?? 'bus',
-      kind: line?.kind,
+      kind: mapKind,
       bearing: v.bearing,
     }))
-  }, [showVehicles, liveVehicles.vehicles, stops, line?.mode, line?.kind])
+  }, [showVehicles, liveVehicles.vehicles, stops, line?.mode, mapKind])
   const { resolvedTheme } = useTheme()
   const onMapPinClick = useCallback((id: string) => setStopSel(Number(id)), [])
 
@@ -293,6 +297,8 @@ export default function LineDetailPage() {
                                         // schematycznej osi nie wskazuje niczego sensownego (ten idzie na mapę).
                                         backgroundColor: lineColor(line.mode, line.kind).bg, color: lineColor(line.mode, line.kind).fg,
                                         transform: 'translateY(-50%)',
+                                        // Żółte metro na białym pierścieniu jasnej karty znika — pierścień w kolorze obrysu z mapy.
+                                        ...(hasCustomStroke(lineColor(line.mode, line.kind).bg) ? ({ '--tw-ring-color': strokeFor(lineColor(line.mode, line.kind).bg) } as CSSProperties) : {}),
                                       }}
                                     >
                                       <ArrowRightIcon size={10} className="rotate-90" />

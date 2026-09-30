@@ -5,7 +5,7 @@ import type { MapPin, MapRoute } from './MapView'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { MapView, STYLE_DARK, STYLE_LIGHT } from './MapView'
-import { MODE_COLOR, UNKNOWN_COLOR } from './map/mapData'
+import { MODE_COLOR, UNKNOWN_COLOR, outlineFilter } from './map/mapData'
 import { LINE_PALETTE } from './transitMode'
 
 type PopupMock = { setDOMContent: (node: HTMLElement) => PopupMock; content: HTMLElement | null }
@@ -175,7 +175,7 @@ describe('MapView', () => {
 
   describe('trasa i ruchome punkty (mapa linii)', () => {
     const PIN: MapPin = { id: 'a', lat: 52, lon: 21, label: 'A' }
-    const ROUTE: MapRoute = { points: [{ lat: 52, lon: 21 }, { lat: 52.01, lon: 21.02 }], mode: 'metro' }
+    const ROUTE: MapRoute = { points: [{ lat: 52, lon: 21 }, { lat: 52.01, lon: 21.02 }], mode: 'metro', kind: 'regular' }
 
     /** Kolor trasy i obwódki pod nią (kolejność: trasa, potem obwódka wstawiona `przed` trasą). */
     async function lineColors(route: MapRoute): Promise<{ line: string; casing: string }> {
@@ -191,6 +191,27 @@ describe('MapView', () => {
       expect(await lineColors(ROUTE)).toEqual({ line: MODE_COLOR.metro, casing: LINE_PALETTE.metro.fg })
       const map = vi.mocked(maplibregl.Map).mock.results[0].value
       expect(map.addSource.mock.calls[0][1].data.geometry.coordinates).toEqual([[21, 52], [21.02, 52.01]])
+    })
+
+    it('styl jeszcze niezaładowany: trasa czeka na `style.load` (nie `load`, który czeka na kafle i bywa, że nie przychodzi)', async () => {
+      // Mock zwraca zawsze ten sam obiekt mapy — sięgamy po niego przed renderem.
+      const map = new (maplibregl.Map as unknown as new () => { isStyleLoaded: ReturnType<typeof vi.fn>; once: ReturnType<typeof vi.fn>; addLayer: ReturnType<typeof vi.fn> })()
+      vi.mocked(maplibregl.Map).mockClear()
+      map.isStyleLoaded.mockReturnValueOnce(false)
+      render(<MapView dark={false} pins={[PIN]} route={ROUTE} ariaLabel="Mapa" />)
+      await waitFor(() => expect(map.once).toHaveBeenCalledWith('style.load', expect.any(Function)))
+      expect(map.addLayer).not.toHaveBeenCalled()
+      map.once.mock.calls.find((call: unknown[]) => call[0] === 'style.load')![1]()
+      expect(map.addLayer).toHaveBeenCalledTimes(2)
+    })
+
+    it('na ciemnym podkładzie obwódka trasy metra jest biała (ciemnoczerwona brudziłaby żółć na pomarańcz)', async () => {
+      render(<MapView dark pins={[PIN]} route={ROUTE} ariaLabel="Mapa" />)
+      await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+      const map = vi.mocked(maplibregl.Map).mock.results[0].value
+      await waitFor(() => expect(map.addLayer).toHaveBeenCalledTimes(2))
+      expect(map.addLayer.mock.calls[0][0].paint['line-color']).toBe(MODE_COLOR.metro)
+      expect(map.addLayer.mock.calls[1][0].paint['line-color']).toBe('#ffffff')
     })
 
     it('tramwaj: kolor rodzaju z palety, biała obwódka — jak na mapie miasta', async () => {
@@ -212,7 +233,7 @@ describe('MapView', () => {
     })
 
     it('pojazdy: marker per pojazd, aktualizacja w miejscu bez przebudowy mapy, usunięcie po zniknięciu', async () => {
-      const mover = { id: 'v1', lat: 52.001, lon: 21.001, label: '#1', mode: 'tram' as const, bearing: null }
+      const mover = { id: 'v1', lat: 52.001, lon: 21.001, label: '#1', mode: 'tram' as const, kind: 'regular' as const, bearing: null }
       const { rerender } = render(<MapView dark={false} pins={[PIN]} movers={[mover]} ariaLabel="Mapa" />)
       // 1 pin + 1 pojazd
       await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
@@ -229,8 +250,20 @@ describe('MapView', () => {
       expect(marker.remove).toHaveBeenCalledTimes(1)
     })
 
+    it('pojazd metra: kropka, pierścień i strzałka mają ciemnoczerwony obrys (żółć bez niego ~1,3:1 na jasnym podkładzie)', async () => {
+      const mover = { id: 'm1', lat: 52.001, lon: 21.001, label: '#1', mode: 'metro' as const, kind: 'regular' as const, bearing: 90 }
+      render(<MapView dark={false} pins={[PIN]} movers={[mover]} ariaLabel="Mapa" />)
+      await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
+      const element = vi.mocked(maplibregl.Marker).mock.calls[0][0]?.element as HTMLElement
+      // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+      const [dot, arrow] = [element.querySelector<HTMLElement>('[data-part="dot"]'), element.querySelector<HTMLElement>('[data-part="arrow"]')]
+      expect(dot?.style.getPropertyValue('--tw-ring-color')).toBe(LINE_PALETTE.metro.fg)
+      expect(arrow?.style.filter).toBe(outlineFilter(MODE_COLOR.metro))
+      expect(arrow?.style.filter).toContain(LINE_PALETTE.metro.fg)
+    })
+
     it('pojazd: kropka w kolorze rodzaju, strzałka kierunku obrócona wg `bearing` (jak na mapie miasta)', async () => {
-      const mover = { id: 'v1', lat: 52.001, lon: 21.001, label: '#1', mode: 'tram' as const, bearing: 90 }
+      const mover = { id: 'v1', lat: 52.001, lon: 21.001, label: '#1', mode: 'tram' as const, kind: 'regular' as const, bearing: 90 }
       const { rerender } = render(<MapView dark={false} pins={[PIN]} movers={[mover]} ariaLabel="Mapa" />)
       await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
       const options = vi.mocked(maplibregl.Marker).mock.calls[0][0]

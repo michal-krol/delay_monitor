@@ -323,14 +323,14 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
     [stops]
   )
   const mapRoute = useMemo(
-    () => ({ points: mapPins.map(({ lat, lon }) => ({ lat, lon })), mode: 'rail' as const }),
+    () => ({ points: mapPins.map(({ lat, lon }) => ({ lat, lon })), mode: 'rail' as const, kind: 'regular' as const }),
     [mapPins]
   )
   const mapMovers = useMemo<MapMover[]>(() => {
     const position = resolveInterpolatedPosition(stops, data?.trainStatus ?? null, new Date(now))
     return position === null
       ? []
-      : [{ id: 'train', lat: position.lat, lon: position.lon, label: 'Pociąg — szacowane wg rozkładu', mode: 'rail' as const }]
+      : [{ id: 'train', lat: position.lat, lon: position.lon, label: 'Pociąg — szacowane wg rozkładu', mode: 'rail' as const, kind: 'regular' as const }]
   }, [stops, data?.trainStatus, now])
 
   const categoryLabel = data?.category ?? null

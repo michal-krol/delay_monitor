@@ -228,6 +228,16 @@ describe('TransitMap', () => {
     expect(casing.paint['line-color']).toBe('#ffffff')
   })
 
+  it('route casing follows the same light/dark rule as the backbone casing, also when the route changes', async () => {
+    const overlay = { line: { type: 'FeatureCollection' as const, features: [] }, stops: { type: 'FeatureCollection' as const, features: [] }, bounds: null }
+    const dark = await mounted({ dark: true, route: { key: 'M1:0', overlay, color: MODE_COLOR.metro } })
+    const initial = dark.map.addLayer.mock.calls.find(([l]: [{ id: string }]) => l.id === 'route-casing')![0]
+    expect(initial.paint['line-color']).toBe('#ffffff')
+    dark.rerender(<TransitMap {...base} dark route={{ key: 'M2:0', overlay, color: MODE_COLOR.metro }} />)
+    expect(dark.map.setPaintProperty).toHaveBeenCalledWith('route-stops', 'circle-stroke-color', LINE_PALETTE.metro.fg)
+    expect(dark.map.setPaintProperty).toHaveBeenCalledWith('route-casing', 'line-color', '#ffffff')
+  })
+
   it('adds the direction arrow and the metro/rail backbone; follows a vehicle; reports a user drag', async () => {
     const onUserMove = vi.fn()
     const { map, rerender } = await mounted({ onUserMove })

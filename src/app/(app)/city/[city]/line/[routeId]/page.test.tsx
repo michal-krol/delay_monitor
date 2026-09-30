@@ -6,6 +6,7 @@ import LineDetailPage from './page'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 import { MODE_COLOR } from '@/components/map/mapData'
+import { LINE_PALETTE } from '@/components/transitMode'
 import { ON_REQUEST_TITLE } from '@/components/OnRequestBadge'
 
 // Prawdziwy MapLibre nie działa w jsdom (WebGL) -- stub sprawdza tylko, co strona mu przekazuje.
@@ -134,6 +135,19 @@ describe('LineDetailPage', () => {
     // Pozycja pojazdu na mapie to surowe lat/lon z feedu (nie interpolacja po przystankach).
     expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.015)
     expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.012)
+  })
+
+  it('metro timeline dot gets the dark-red ring (yellow on a white ring vanishes on the light card); a tram dot keeps the default ring', async () => {
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'metro', kind: 'regular' } })
+    const { unmount } = render(<LineDetailPage />)
+    const metroDot = await screen.findByTestId('timeline-vehicle')
+    expect(metroDot.style.getPropertyValue('--tw-ring-color')).toBe(LINE_PALETTE.metro.fg)
+    unmount()
+
+    stubFetch()
+    render(<LineDetailPage />)
+    const tramDot = await screen.findByTestId('timeline-vehicle')
+    expect(tramDot.style.getPropertyValue('--tw-ring-color')).toBe('')
   })
 
   it('draws route and vehicles in the mode colour convention: mode + bearing go to the map, the timeline vehicle is a mode-coloured dot with a downward arrow', async () => {

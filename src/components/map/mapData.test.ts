@@ -14,6 +14,10 @@ import {
   parseAt,
   parseHidden,
   strokeFor,
+  casingFor,
+  outlineFor,
+  outlineFilter,
+  strokeExpression,
   routeOverlay,
   railToGeoJSON,
   serializeHidden,
@@ -210,5 +214,26 @@ describe('MODE_COLOR / strokeFor', () => {
   it('outline is white, except for yellow metro that would vanish on a light basemap', () => {
     expect(strokeFor(MODE_COLOR.tram)).toBe('#ffffff')
     expect(strokeFor(MODE_COLOR.metro)).toBe(LINE_PALETTE.metro.fg)
+  })
+
+  it('casing follows the basemap: white on dark for every line, the outline rule on light', () => {
+    expect(casingFor(MODE_COLOR.metro, true)).toBe('#ffffff')
+    expect(casingFor(MODE_COLOR.metro, false)).toBe(LINE_PALETTE.metro.fg)
+    expect(casingFor(MODE_COLOR.rail, false)).toBe('#ffffff')
+  })
+
+  it('route-stop ring keeps the line colour, except yellow metro, which takes the outline colour', () => {
+    expect(outlineFor(MODE_COLOR.tram)).toBe(MODE_COLOR.tram)
+    expect(outlineFor(MODE_COLOR.metro)).toBe(LINE_PALETTE.metro.fg)
+  })
+
+  it('the MapLibre stroke expression is built from the same rule', () => {
+    expect(strokeExpression()).toEqual(['match', ['get', 'color'], MODE_COLOR.metro, strokeFor(MODE_COLOR.metro), strokeFor(MODE_COLOR.tram)])
+  })
+
+  it('outlineFilter gives a 4-direction outline in the stroke colour (DOM/CSS arrows)', () => {
+    const filter = outlineFilter(MODE_COLOR.metro)
+    expect(filter.match(/drop-shadow/g)).toHaveLength(4)
+    expect(filter).toContain(LINE_PALETTE.metro.fg)
   })
 })
