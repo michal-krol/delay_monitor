@@ -154,6 +154,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   oknie 1280 px mieszczą się w dwóch kolumnach zamiast czterech ściśniętych (napis
   „Punktualność" był ucięty), a tablica odjazdów nie przewija się w poziomie. Nazwa
   przewoźnika w tablicy kończy się wielokropkiem zamiast nachodzić na kolumnę „Kierunek".
+- Na stronach stacji, połączenia i przystanku przy oknie węższym niż 1280 px prawa kolumna
+  (kierunki, pogoda, mapa, natężenie ruchu) schodzi pod treść. Przy 1024 px tablica odjazdów
+  nie przewija się już w poziomie, a treść ma dwa razy więcej miejsca.
 - Escape w wyszukiwarce na mapie transportu, gdy widać „Szukam…", „Brak …" albo błąd, czyści
   pole zamiast zamykać otwarty panel mapy.
 - Zakładki na stronie przystanku („Najbliższe odjazdy", „Wszystkie linie", …) i wybór słupka
