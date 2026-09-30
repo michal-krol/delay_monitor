@@ -180,9 +180,9 @@ export function TramIcon(props: IconProps) {
 export function MetroIcon(props: IconProps) {
   return base(
     <>
-      <path d="M4 15 10 4l6 11" />
-      <path d="M6.3 15h7.4" />
-      <path d="M8 10.5 10 7l2 3.5" />
+      {/* Własny piktogram (koło + „M”), nie oficjalne logo Metra Warszawskiego. */}
+      <circle cx="10" cy="10" r="7.6" />
+      <path d="M6.4 13.4V6.8l3.6 4.4 3.6-4.4v6.6" />
     </>,
     props
   )
