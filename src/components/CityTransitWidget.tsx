@@ -54,16 +54,17 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
               const extras =
                 row.mode === 'bus'
                   ? [
-                      stats.busKinds.night > 0 &&
-                        `${stats.busKinds.night} ${pluralPl(stats.busKinds.night, 'nocna', 'nocne', 'nocnych')}`,
+                      // Kolejność jak w legendzie ekranu „Linie” (`BUS_KIND_ORDER` w LineGrid.tsx; zwykłych tu nie wymieniamy).
                       stats.busKinds.express > 0 &&
                         `${stats.busKinds.express} ${pluralPl(stats.busKinds.express, 'przyspieszona', 'przyspieszone', 'przyspieszonych')}`,
-                      stats.busKinds.replacement > 0 &&
-                        `${stats.busKinds.replacement} ${pluralPl(stats.busKinds.replacement, 'zastępcza', 'zastępcze', 'zastępczych')}`,
                       stats.busKinds.zone > 0 &&
                         `${stats.busKinds.zone} ${pluralPl(stats.busKinds.zone, 'podmiejska', 'podmiejskie', 'podmiejskich')}`,
                       stats.busKinds.local > 0 &&
                         `${stats.busKinds.local} ${pluralPl(stats.busKinds.local, 'lokalna', 'lokalne', 'lokalnych')}`,
+                      stats.busKinds.night > 0 &&
+                        `${stats.busKinds.night} ${pluralPl(stats.busKinds.night, 'nocna', 'nocne', 'nocnych')}`,
+                      stats.busKinds.replacement > 0 &&
+                        `${stats.busKinds.replacement} ${pluralPl(stats.busKinds.replacement, 'zastępcza', 'zastępcze', 'zastępczych')}`,
                     ].filter(Boolean)
                   : []
               return (

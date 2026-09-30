@@ -39,6 +39,8 @@ describe('CityTransitWidget', () => {
     expect(screen.getByText(/5 przyspieszonych/)).toBeInTheDocument()
     expect(screen.getByText(/30 podmiejskich/)).toBeInTheDocument()
     expect(screen.getByText(/2 lokalne/)).toBeInTheDocument()
+    // Kolejność rodzajów jak w legendzie ekranu „Linie”: przyspieszone, podmiejskie, lokalne, nocne.
+    expect(screen.getByText(/5 przyspieszonych/).textContent).toMatch(/przyspieszonych.*podmiejskich.*lokalne.*nocnych/)
     // kolej strefowa ma 0 linii — wiersz odsiany
     expect(screen.queryByText('kolej strefowa')).not.toBeInTheDocument()
     expect(screen.getByText(/Pierwszy kurs 04:00, ostatni 02:00/)).toBeInTheDocument()
