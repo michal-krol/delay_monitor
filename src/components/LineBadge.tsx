@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
-import { MODE_ICON, lineColor } from './transitMode'
+import { MODE_ICON, darkRingClass, lineColor } from './transitMode'
 
 type Props = {
   line: string
@@ -15,12 +15,12 @@ type Props = {
 /**
  * Plakietka linii w kolorze KATEGORII (`lineColor` w `transitMode.tsx`), nie `route_color` z feedu —
  * kolor z cudzego serwera nie trafia do CSS w ogóle. Czerń (nocna) i granat (lokalna) giną na ciemnym
- * tle, więc dostają jasny pierścień w trybie ciemnym.
+ * tle, więc dostają jasny pierścień w trybie ciemnym (`darkRingClass`).
  */
 export function LineBadge({ line, mode, kind, size = 'md', href }: Props) {
   const Icon = MODE_ICON[mode]
   const { bg, fg } = lineColor(mode, kind)
-  const ring = kind === 'night' || kind === 'local' ? 'dark:ring-1 dark:ring-white/40' : ''
+  const ring = darkRingClass(kind)
 
   const badge = (
     <span

@@ -50,5 +50,13 @@ export function lineColor(mode: GtfsMode, kind: LineKind): LineColor {
   return (mode === 'bus' || mode === 'tram') && kind !== 'regular' ? LINE_PALETTE[kind] : LINE_PALETTE[mode]
 }
 
+/**
+ * Czerń (nocna) i granat (lokalna) giną na ciemnym tle — w trybie ciemnym dostają jasny pierścień.
+ * Jedna reguła dla plakietki i próbki koloru w legendzie podsekcji.
+ */
+export function darkRingClass(kind: LineKind): string {
+  return kind === 'night' || kind === 'local' ? 'dark:ring-1 dark:ring-white/40' : ''
+}
+
 /** Kolejność prezentacji rodzajów (metro → tramwaj → autobus → kolej → inne). */
 export const MODE_ORDER: GtfsMode[] = ['metro', 'tram', 'bus', 'rail', 'other']

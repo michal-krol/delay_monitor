@@ -180,7 +180,8 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
       const { container, unmount } = render(
         <LineGrid
           city="warszawa"
-          filter="all"
+          isOpen={() => true}
+          onToggle={() => {}}
           linesByMode={{
             metro: [],
             tram: [],
