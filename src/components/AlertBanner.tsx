@@ -1,4 +1,7 @@
+'use client'
+
 import { AlertCircleIcon } from './icons'
+import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 
 const DATE_IN_TEXT = /\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/g
@@ -24,7 +27,7 @@ export function alertDateRange(body: string): string | null {
 
 /**
  * Jeden styl dla wszystkich `effect` (decyzja usera, spec §1/§9) — bursztyn,
- * konwencja z `NetworkStatsCard.tsx` (`text-amber-600 dark:text-amber-400`).
+ * tekst i ikona w tokenie `text-warning-text` (jak `NetworkStatsCard.tsx`).
  * `body` renderowany jako plain text (`htmlbody` nigdy nie dotarł do
  * `AlertRecord` — patrz `alerts.ts`), `link` jako zwykłe `<a href>`.
  *
@@ -33,6 +36,20 @@ export function alertDateRange(body: string): string | null {
  * kartę. Natywne `<details>`: rozwijanie z klawiatury i stan dla czytnika
  * ekranu za darmo. Link do źródła zostaje widoczny także w formie zwiniętej.
  */
+/** Długi komunikat przewija się w `max-h-80`; fokusowalny z klawiatury tylko wtedy, gdy faktycznie się przewija. */
+function AlertBody({ body }: { body: string }) {
+  const [ref, tabIndex] = useScrollableFocus<HTMLParagraphElement>()
+  return (
+    <p
+      ref={ref}
+      tabIndex={tabIndex}
+      className="mx-3 mb-2 max-h-80 overflow-y-auto whitespace-pre-line pl-6 text-text-secondary [overflow-wrap:anywhere]"
+    >
+      {body}
+    </p>
+  )
+}
+
 export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
   if (alerts.length === 0) return null
   return (
@@ -51,31 +68,24 @@ export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
           >
             <details className="group">
               <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2 p-3 [&::-webkit-details-marker]:hidden">
-                <AlertCircleIcon size={16} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <AlertCircleIcon size={16} className="mt-0.5 shrink-0 text-warning-text" />
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-foreground [overflow-wrap:anywhere]">{alert.title || 'Utrudnienie'}</span>
                   {dates !== null && <span className="mt-0.5 block text-xs text-text-muted">Daty w komunikacie: {dates}</span>}
                 </span>
-                <span className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-400">
+                <span className="shrink-0 text-xs font-medium text-warning-text">
                   <span className="group-open:hidden">Rozwiń</span>
                   <span className="hidden group-open:inline">Zwiń</span>
                 </span>
               </summary>
-              {alert.body !== '' && (
-                <p
-                  tabIndex={0}
-                  className="mx-3 mb-2 max-h-80 overflow-y-auto whitespace-pre-line pl-6 text-text-secondary [overflow-wrap:anywhere]"
-                >
-                  {alert.body}
-                </p>
-              )}
+              {alert.body !== '' && <AlertBody body={alert.body} />}
             </details>
             {safeLink !== '' && (
               <a
                 href={safeLink}
                 target="_blank"
                 rel="noreferrer"
-                className="mb-3 ml-9 inline-block text-xs font-medium text-amber-700 underline dark:text-amber-400"
+                className="mb-3 ml-9 inline-block text-xs font-medium text-warning-text underline"
               >
                 Szczegóły na wtp.waw.pl
               </a>

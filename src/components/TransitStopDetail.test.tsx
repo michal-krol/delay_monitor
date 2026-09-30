@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
@@ -122,10 +122,15 @@ describe('TransitStopDetail', () => {
     expect(link).toHaveAttribute('href', '/city/warszawa/line/M1')
   })
 
-  it('hides the internal share button when embedded', () => {
-    render(<TransitStopDetail city="warszawa" stopId="7014M" embedded />)
+  it('has no share button of its own (TopBar owns it); title is h1 standalone, h2 embedded', () => {
+    const { rerender } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Przypnij do Pulpitu/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Świętokrzyska' })).toBeInTheDocument()
+
+    rerender(<TransitStopDetail city="warszawa" stopId="7014M" embedded />)
+    expect(screen.getByRole('heading', { level: 2, name: 'Świętokrzyska' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
   it('shows the słupek switcher only when the group has more than one member', () => {
@@ -166,6 +171,47 @@ describe('TransitStopDetail', () => {
     await userEvent.click(wholeGroup)
     expect(wholeGroup).toHaveAttribute('aria-selected', 'true')
     expect(slupek02).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('view tabs follow the WAI-ARIA tabs pattern: one tab stop, arrows/Home/End move selection and focus, a labelled tabpanel', async () => {
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    const tabs = within(screen.getByRole('tablist', { name: 'Widok przystanku' })).getAllByRole('tab')
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Najbliższe odjazdy')
+
+    tabs[0].focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[1]).toHaveFocus()
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Wszystkie linie')
+
+    await userEvent.keyboard('{End}')
+    expect(tabs[3]).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(tabs[0]).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(tabs[3]).toHaveAttribute('aria-selected', 'true')
+    await userEvent.keyboard('{Home}')
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
+  })
+
+  it('słupek tabs: one tab stop and arrow keys select the next słupek', async () => {
+    useTransitBoard.mockReturnValue({
+      data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    const tabs = within(screen.getByRole('tablist', { name: 'Słupek przystanku' })).getAllByRole('tab')
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1'])
+
+    tabs[0].focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[1]).toHaveFocus()
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['-1', '0', '-1'])
   })
 
   it('flags the Komunikaty tab and shows the alert once opened, when the board carries an active alert', async () => {
@@ -287,7 +333,7 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByText('Najbliższy odjazd')).not.toBeInTheDocument()
   })
 
-  it('pins as a gtfs favourite carrying the city', async () => {
+  it('pins as a gtfs pinned item carrying the city', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([

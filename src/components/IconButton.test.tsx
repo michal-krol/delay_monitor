@@ -24,6 +24,11 @@ describe('IconButton', () => {
     expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('extends the hit area to 44 px without changing the look (touch-44)', () => {
+    render(<IconButton label="Zamknij" onClick={vi.fn()}>×</IconButton>)
+    expect(screen.getByRole('button')).toHaveClass('touch-44', 'relative')
+  })
+
   it('has a 44 px target in the large size', () => {
     render(<IconButton label="Zamknij" onClick={vi.fn()} size="lg">×</IconButton>)
     expect(screen.getByRole('button')).toHaveClass('h-11', 'w-11')

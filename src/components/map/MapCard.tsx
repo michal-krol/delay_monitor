@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertBanner } from '../AlertBanner'
 import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, PIN_COLOR, StarIcon } from '../icons'
@@ -40,8 +40,8 @@ export function MapCard({
   onShowRoute,
   following = false,
   onToggleFollow,
-  favourite,
-  onToggleFavourite,
+  pinned,
+  onTogglePin,
   onNearby,
   alertLines = [],
 }: {
@@ -55,34 +55,14 @@ export function MapCard({
   /** Kamera jedzie za tym pojazdem. */
   following?: boolean
   onToggleFollow?: () => void
-  /** Stacja/przystanek jest w ulubionych (Pulpit). `undefined` = brak przełącznika. */
-  favourite?: boolean
-  onToggleFavourite?: () => void
+  /** Stacja/przystanek jest w przypiętych (Pulpit). `undefined` = brak przełącznika. */
+  pinned?: boolean
+  onTogglePin?: () => void
   /** „Co jest w pobliżu?" — dostępna z klawiatury alternatywa dla prawego kliku. */
   onNearby?: () => void
   /** Numery linii z aktywnym alertem. */
   alertLines?: string[]
 }) {
-  const returnFocusRef = useRef<HTMLElement | null>(null)
-  const onCloseRef = useRef(onClose)
-  useEffect(() => {
-    onCloseRef.current = onClose
-  })
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onCloseRef.current()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      // Celowo wartość z chwili zamknięcia: `PanelFrame` wpisuje ją przy pierwszym przejęciu fokusu.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      const target = returnFocusRef.current
-      if (target !== null && target.isConnected) target.focus({ preventScroll: true })
-    }
-  }, [])
-
   const heading =
     selection.kind === 'vehicle'
       ? vehicle?.shortName !== null && vehicle?.shortName !== undefined
@@ -95,10 +75,10 @@ export function MapCard({
       title={heading}
       subtitle={<Subtitle selection={selection} vehicle={vehicle} />}
       actions={
-        favourite !== undefined &&
-        onToggleFavourite !== undefined && (
-          <IconButton label={favourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'} onClick={onToggleFavourite} pressed={favourite} size="lg">
-            <StarIcon size={16} filled={favourite} className={favourite ? PIN_COLOR : ''} />
+        pinned !== undefined &&
+        onTogglePin !== undefined && (
+          <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onTogglePin} pressed={pinned} size="lg">
+            <StarIcon size={16} filled={pinned} className={pinned ? PIN_COLOR : ''} />
           </IconButton>
         )
       }
@@ -106,7 +86,6 @@ export function MapCard({
       onClose={onClose}
       bodyLabel="Szczegóły"
       focusKey={`${selection.kind}:${selection.id}`}
-      returnFocusRef={returnFocusRef}
     >
       {selection.kind === 'rail' && <RailBody id={selection.id} />}
       {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
@@ -299,7 +278,7 @@ function VehicleBody({
           <dt className="text-xs text-text-muted">Pozycja</dt>
           <dd>
             {formatAgo(vehicle.ageSec)} ·{' '}
-            <span className={fresh ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-700 dark:text-amber-400'}>
+            <span className={fresh ? 'text-indigo-600 dark:text-indigo-400' : 'text-warning-text'}>
               {fresh ? 'aktualna' : 'nieaktualna'}
             </span>
           </dd>

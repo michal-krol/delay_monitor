@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
@@ -150,6 +150,11 @@ describe('LineDetailPage', () => {
     probe.style.backgroundColor = MODE_COLOR.tram
     expect(onTimeline.style.backgroundColor).toBe(probe.style.backgroundColor)
     expect(onTimeline).not.toHaveTextContent('▲')
+    // Marker jest czytelny dla technologii asystujących (rail nie siedzi pod aria-hidden).
+    expect(onTimeline).toHaveTextContent('Pojazd 3801')
+    expect(onTimeline).toBeVisible()
+    // eslint-disable-next-line testing-library/no-node-access -- żaden przodek markera nie jest aria-hidden
+    expect(onTimeline.closest('[aria-hidden="true"]')).toBeNull()
     // eslint-disable-next-line testing-library/no-node-access -- ikona dekoracyjna (aria-hidden), bez roli do zapytania
     expect(onTimeline.querySelector('svg')).not.toBeNull()
   })
@@ -256,7 +261,7 @@ describe('LineDetailPage', () => {
   it('says the schedule is still loading when the feed is not ready', async () => {
     stubFetch({ ...LINE, line: null, schedule: { ...LINE.schedule, state: 'loading' } })
     render(<LineDetailPage />)
-    expect(await screen.findByText('Rozkład jeszcze się wczytuje.')).toBeInTheDocument()
+    expect(await screen.findByText('Wczytywanie rozkładu…')).toBeInTheDocument()
   })
 
   it('keeps the weather card in the right column even before the line loads', async () => {
@@ -348,5 +353,16 @@ describe('LineDetailPage', () => {
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
     expect(screen.getByText('Treść.')).toBeInTheDocument()
+  })
+
+  it('jeden górny rząd: ← do tras i ścieżka; nazwa linii to jedyny h1', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { level: 1, name: 'Piaski – Międzylesie' })
+    expect(screen.getByRole('link', { name: 'Wróć do tras' })).toHaveAttribute('href', '/city/warszawa/lines')
+    const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
+    expect(within(nav).getByRole('link', { name: 'Trasy' })).toHaveAttribute('href', '/city/warszawa/lines')
+    expect(within(nav).getByText('Piaski – Międzylesie')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })

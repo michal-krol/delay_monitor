@@ -39,6 +39,11 @@ describe('design tokens', () => {
     expect(offenders(/\btext-(red|rose)-\d/)).toEqual([])
   })
 
+  it('warning text uses the single --warning-text token (was amber-600/700 + dark:amber-400 in three variants)', () => {
+    // Plakietki z własnym bursztynowym tłem (StationCard, OnRequestBadge, MapCard) to para tło+tekst, nie kolor ostrzeżenia.
+    expect(offenders(/\btext-amber-600\b|\bdark:text-amber-400\b|WARNING_CLASS/)).toEqual([])
+  })
+
   it('surface border comes from the border-surface-border utility, not inline styles', () => {
     expect(offenders(/borderColor: 'var\(--surface-border\)'/)).toEqual([])
   })

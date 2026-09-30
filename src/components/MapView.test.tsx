@@ -302,6 +302,39 @@ describe('MapView', () => {
       expect(richContent.querySelector('a')).toHaveAttribute('href', '/station/1')
     })
 
+    it('link w popupie ma ikonę chevron (SVG z createElementNS, aria-hidden), a nie tekstowe „→”', async () => {
+      const user = userEvent.setup()
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)
+      await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+      await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(2))
+      const richContent = vi.mocked(maplibregl.Popup).mock.results.at(-1)?.value.content as HTMLElement
+      // eslint-disable-next-line testing-library/no-node-access -- jak wyżej: węzeł poza drzewem RTL
+      const link = richContent.querySelector('a') as HTMLAnchorElement
+      expect(link.textContent).toBe('Zobacz pełną tablicę')
+      expect(link.textContent).not.toContain('→')
+      // eslint-disable-next-line testing-library/no-node-access
+      const svg = link.querySelector('svg[aria-hidden="true"]')
+      expect(svg).not.toBeNull()
+      expect(svg?.namespaceURI).toBe('http://www.w3.org/2000/svg')
+      // eslint-disable-next-line testing-library/no-node-access
+      expect(svg?.querySelector('path')).toHaveAttribute('d', 'm8 5 5 5-5 5')
+    })
+
+    it.each([
+      ['Escape', async (user: ReturnType<typeof userEvent.setup>) => user.keyboard('{Escape}')],
+      ['tło', async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByTestId('map-fullscreen-backdrop'))],
+      ['przycisk ✕', async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Zamknij powiększoną mapę' }))],
+    ])('po zamknięciu (%s) fokus wraca na „Powiększ mapę"', async (_name, close) => {
+      const user = userEvent.setup()
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)
+      const opener = screen.getByRole('button', { name: 'Powiększ mapę' })
+      await user.click(opener)
+      expect(screen.getByRole('button', { name: 'Zamknij powiększoną mapę' })).toHaveFocus()
+      await close(user)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(opener).toHaveFocus()
+    })
+
     it('Escape zamyka dialog i odmontowuje powiększoną mapę', async () => {
       const user = userEvent.setup()
       render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)

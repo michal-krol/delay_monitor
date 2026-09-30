@@ -51,16 +51,6 @@ export function StarIcon({ filled = false, ...props }: IconProps & { filled?: bo
 /** Jeden odcień przypięcia (gwiazdka; złota obwódka na mapie to ten sam #f59e0b) — amber-500. */
 export const PIN_COLOR = 'text-amber-500'
 
-export function BellIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M5.5 8a4.5 4.5 0 0 1 9 0c0 3.2 1.2 4.2 1.8 5.3H3.7C4.3 12.2 5.5 11.2 5.5 8Z" />
-      <path d="M8.3 15.8a1.8 1.8 0 0 0 3.4 0" />
-    </>,
-    props
-  )
-}
-
 export function RouteIcon(props: IconProps) {
   return base(
     <>
@@ -78,16 +68,6 @@ export function MapIcon(props: IconProps) {
     <>
       <path d="M10 17s6-5.1 6-9.5A6 6 0 0 0 4 7.5C4 11.9 10 17 10 17Z" />
       <circle cx="10" cy="7.5" r="2" />
-    </>,
-    props
-  )
-}
-
-export function SettingsIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="10" r="2.6" />
-      <path d="M10 3.5v2M10 14.5v2M16.5 10h-2M5.5 10h-2M14.8 5.2l-1.4 1.4M6.6 13.4l-1.4 1.4M14.8 14.8l-1.4-1.4M6.6 6.6 5.2 5.2" />
     </>,
     props
   )

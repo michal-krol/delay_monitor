@@ -98,7 +98,7 @@ function stillLoading(json: BoardApiResponse): boolean {
 }
 
 export function useBoard(stationIds: string[]) {
-  // Klucz = lista stacji. `keepPreviousData`: dodanie/usunięcie ulubionej nie zeruje kart
+  // Klucz = lista stacji. `keepPreviousData`: dodanie/usunięcie przypiętej nie zeruje kart
   // pulpitu do czasu nowej odpowiedzi (Dashboard łączy snapshoty po id stacji).
   const key = stationIds.length === 0 ? null : stationIds.join(',')
   const { data: polled, error } = usePolling<BoardApiResponse>(key, () => fetchJson(`/api/board?stations=${encodeURIComponent(key ?? '')}`), {

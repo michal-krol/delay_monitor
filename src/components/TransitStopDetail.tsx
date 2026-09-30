@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react'
 import { useTheme } from 'next-themes'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
-import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
+import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
-import { useShareUrl } from '@/hooks/useShareUrl'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
@@ -24,8 +23,10 @@ import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, ShareIcon, StarIcon } from './icons'
+import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, StarIcon } from './icons'
+import { PageTitle } from './PageTitle'
 import { IconButton } from './IconButton'
+import { onTablistKeyDown } from './tablistKeys'
 
 const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
@@ -89,6 +90,9 @@ export function TransitStopDetail({
   const [lineFilter, setLineFilter] = useState<string | null>(null)
   const [requestedMember, setRequestedMember] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<StopTab>('departures')
+  const tabIdBase = useId()
+  const viewTabId = (tab: StopTab): string => `${tabIdBase}-tab-${tab}`
+  const viewPanelId = `${tabIdBase}-panel`
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -121,8 +125,7 @@ export function TransitStopDetail({
   // lista się nie wczyta / gdy fetch zawiedzie.
   const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
-  const { isFavourite, addFavourite, removeFavourite } = useFavourites()
-  const { share, status: shareStatus } = useShareUrl()
+  const { isPinned, addPinned, removePinned } = usePinned()
   const now = useSnapshotNow(data)
 
   const board = data?.stops[0] ?? null
@@ -138,11 +141,15 @@ export function TransitStopDetail({
   // Pomijamy „słupki" bez linii (stacje-rodzice metra, np. 7014M) — nie da się
   // z nich odjechać, tylko zaśmiecają przełącznik.
   const members = useMemo(() => (board?.members ?? []).filter((m) => m.lines.length > 0), [board])
+  // Kolejność zakładek słupka: „Cały przystanek” (null), potem słupki. Nieznany `?slupek=` (poprawny format,
+  // spoza zespołu) nie zaznacza żadnej — przystanek Tab dostaje wtedy pierwsza.
+  const slupekIds: (string | null)[] = [null, ...members.map((member) => member.id)]
+  const slupekIndex = Math.max(0, slupekIds.indexOf(effSlupek))
   const activeMember = effSlupek !== null ? members.find((m) => m.id === effSlupek) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
-  const favourite: Favourite = { kind: 'gtfs', city, id: stopId, name: stopName }
-  const key = favouriteKey(favourite)
-  const pinned = isFavourite(key)
+  const pinnedItem: PinnedItem = { kind: 'gtfs', city, id: stopId, name: stopName }
+  const key = pinnedKey(pinnedItem)
+  const pinned = isPinned(key)
 
   const departures = useMemo(
     () => (lineFilter === null ? (board?.departures ?? []) : (board?.departures ?? []).filter((d) => d.routeId === lineFilter)),
@@ -188,15 +195,15 @@ export function TransitStopDetail({
   )
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass-strong glow-ring rounded-2xl p-5" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">{stopName}</h1>
+                <PageTitle as={embedded ? 'h2' : 'h1'}>{stopName}</PageTitle>
                 {board?.wheelchairNote != null && (
-                  <span className="text-amber-600 dark:text-amber-400">
+                  <span className="text-warning-text">
                     <AccessibleIcon
                       size={18}
                       label={
@@ -231,22 +238,7 @@ export function TransitStopDetail({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {shareStatus !== 'idle' && (
-                <span role="status" className="text-sm text-text-secondary">
-                  {shareStatus === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować'}
-                </span>
-              )}
-              {!embedded && (
-                <button
-                  type="button"
-                  onClick={() => void share()}
-                  className="card-hover inline-flex h-9 items-center gap-2 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  <ShareIcon size={15} />
-                  Udostępnij
-                </button>
-              )}
-              <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={() => (pinned ? removeFavourite(key) : addFavourite(favourite))}>
+              <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={() => (pinned ? removePinned(key) : addPinned(pinnedItem))}>
                 <StarIcon size={15} filled={pinned} className={pinned ? PIN_COLOR : ''} />
               </IconButton>
             </div>
@@ -265,6 +257,7 @@ export function TransitStopDetail({
             <div
               role="tablist"
               aria-label="Słupek przystanku"
+              onKeyDown={(event) => onTablistKeyDown(event, slupekIndex, (index) => selectSlupek(slupekIds[index]))}
               className="mt-2.5 grid grid-flow-col auto-cols-[minmax(11rem,1fr)] gap-2 overflow-x-auto pb-1 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3"
             >
               <button
@@ -272,6 +265,7 @@ export function TransitStopDetail({
                 role="tab"
                 onClick={() => selectSlupek(null)}
                 aria-selected={effSlupek === null}
+                tabIndex={slupekIndex === 0 ? 0 : -1}
                 className={`card-hover relative rounded-xl border px-3 py-2.5 text-left text-xs transition ${effSlupek === null ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
                 style={effSlupek === null ? ({ '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties) : undefined}
               >
@@ -283,7 +277,7 @@ export function TransitStopDetail({
                 <span className="font-semibold">Cały przystanek</span>
                 <span className="mt-0.5 block text-text-secondary">wszystkie słupki razem</span>
               </button>
-              {members.map((member) => {
+              {members.map((member, index) => {
                 const on = effSlupek === member.id
                 const visibleLines = member.lines.slice(0, 5)
                 const overflow = member.lines.length - visibleLines.length
@@ -294,6 +288,7 @@ export function TransitStopDetail({
                     role="tab"
                     onClick={() => selectSlupek(member.id)}
                     aria-selected={on}
+                    tabIndex={slupekIndex === index + 1 ? 0 : -1}
                     className={`card-hover relative flex flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left transition ${on ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
                     style={on ? ({ '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties) : undefined}
                   >
@@ -338,13 +333,21 @@ export function TransitStopDetail({
         </div>
 
         <section className="glass rounded-2xl p-5">
-          <div role="tablist" aria-label="Widok przystanku" className="mb-3 flex flex-wrap items-center gap-1.5">
+          <div
+            role="tablist"
+            aria-label="Widok przystanku"
+            onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => setActiveTab(STOP_TABS[index].key))}
+            className="mb-3 flex flex-wrap items-center gap-1.5"
+          >
             {STOP_TABS.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
                 role="tab"
+                id={viewTabId(tab.key)}
+                aria-controls={viewPanelId}
                 aria-selected={activeTab === tab.key}
+                tabIndex={activeTab === tab.key ? 0 : -1}
                 onClick={() => setActiveTab(tab.key)}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                   activeTab === tab.key ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
@@ -356,95 +359,97 @@ export function TransitStopDetail({
                   <AlertCircleIcon
                     size={14}
                     label="aktywne utrudnienia"
-                    className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`}
+                    className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-warning-text'}`}
                   />
                 )}
               </button>
             ))}
           </div>
 
-          {(activeTab === 'departures' || activeTab === 'schedule') && (
-            <>
-              {board !== null && board.lines.length > 1 && (
-                <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setLineFilter(null)}
-                    aria-pressed={lineFilter === null}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      lineFilter === null ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
-                    }`}
-                    style={lineFilter === null ? { background: 'var(--accent-gradient)' } : undefined}
-                  >
-                    Wszystkie
-                  </button>
-                  {board.lines.map((line) => (
+          <div role="tabpanel" id={viewPanelId} aria-labelledby={viewTabId(activeTab)}>
+            {(activeTab === 'departures' || activeTab === 'schedule') && (
+              <>
+                {board !== null && board.lines.length > 1 && (
+                  <div className="mb-3 flex flex-wrap items-center gap-1.5">
                     <button
-                      key={line.routeId}
                       type="button"
-                      onClick={() => setLineFilter(lineFilter === line.routeId ? null : line.routeId)}
-                      aria-pressed={lineFilter === line.routeId}
-                      className="rounded-full"
+                      onClick={() => setLineFilter(null)}
+                      aria-pressed={lineFilter === null}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                        lineFilter === null ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
+                      }`}
+                      style={lineFilter === null ? { background: 'var(--accent-gradient)' } : undefined}
                     >
-                      <span style={{ opacity: lineFilter !== null && lineFilter !== line.routeId ? 0.4 : 1 }}>
-                        <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
-                      </span>
+                      Wszystkie
                     </button>
+                    {board.lines.map((line) => (
+                      <button
+                        key={line.routeId}
+                        type="button"
+                        onClick={() => setLineFilter(lineFilter === line.routeId ? null : line.routeId)}
+                        aria-pressed={lineFilter === line.routeId}
+                        className="rounded-full"
+                      >
+                        <span style={{ opacity: lineFilter !== null && lineFilter !== line.routeId ? 0.4 : 1 }}>
+                          <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <TransitDepartureList
+                  departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
+                  loading={loading}
+                  emptyMessage={failed ? 'Nie udało się pobrać rozkładu.' : undefined}
+                  city={city}
+                  showSlupek={activeMember === null && members.length > 1}
+                  now={now}
+                  highlightFirst={activeTab === 'departures'}
+                />
+              </>
+            )}
+
+            {activeTab === 'lines' &&
+              (linesByMode.length === 0 ? (
+                <p className="text-sm text-text-muted">—</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {linesByMode.map(([mode, lines]) => (
+                    <div key={mode}>
+                      <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">
+                        {MODE_LABEL[mode]}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {lines.map((line) => (
+                          <span key={line.routeId} className="inline-flex items-center gap-1.5">
+                            <LineBadge
+                              line={line.line}
+                              color={line.color}
+                              mode={line.mode}
+                              href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
+                            />
+                            {LINE_KIND_LABEL[line.kind] !== '' && (
+                              <span className="text-xs text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
-              )}
+              ))}
 
-              <TransitDepartureList
-                departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
-                loading={loading}
-                emptyMessage={failed ? 'Nie udało się pobrać rozkładu.' : undefined}
-                city={city}
-                showSlupek={activeMember === null && members.length > 1}
-                now={now}
-                highlightFirst={activeTab === 'departures'}
-              />
-            </>
-          )}
-
-          {activeTab === 'lines' &&
-            (linesByMode.length === 0 ? (
-              <p className="text-sm text-text-muted">—</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {linesByMode.map(([mode, lines]) => (
-                  <div key={mode}>
-                    <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">
-                      {MODE_LABEL[mode]}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {lines.map((line) => (
-                        <span key={line.routeId} className="inline-flex items-center gap-1.5">
-                          <LineBadge
-                            line={line.line}
-                            color={line.color}
-                            mode={line.mode}
-                            href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
-                          />
-                          {LINE_KIND_LABEL[line.kind] !== '' && (
-                            <span className="text-xs text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-
-          {activeTab === 'alerts' &&
-            (board?.alerts === null ? (
-              // Feed alertów jeszcze nie odpowiedział — nieznane, nie „brak" (#7); hook ponawia drabinką.
-              <p className="text-sm text-text-muted">Wczytywanie komunikatów…</p>
-            ) : board?.alerts?.length ? (
-              <AlertBanner alerts={board.alerts} />
-            ) : (
-              <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla tego przystanku.</p>
-            ))}
+            {activeTab === 'alerts' &&
+              (board?.alerts === null ? (
+                // Feed alertów jeszcze nie odpowiedział — nieznane, nie „brak" (#7); hook ponawia drabinką.
+                <p className="text-sm text-text-muted">Wczytywanie komunikatów…</p>
+              ) : board?.alerts?.length ? (
+                <AlertBanner alerts={board.alerts} />
+              ) : (
+                <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla tego przystanku.</p>
+              ))}
+          </div>
         </section>
       </div>
 

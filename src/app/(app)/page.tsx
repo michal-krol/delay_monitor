@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useFavourites } from '@/hooks/useFavourites'
+import { usePinned } from '@/hooks/usePinned'
 import { Dashboard } from '@/components/Dashboard'
 import { EmptyState } from '@/components/EmptyState'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
@@ -27,7 +27,7 @@ export default function Page() {
 function PulpitPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { favourites, loaded, removeFavourite } = useFavourites()
+  const { pinnedItems, loaded, removePinned } = usePinned()
 
   const rawFocus = searchParams.get('focus')
   const focusedStationId = rawFocus && STATION_ID_PATTERN.test(rawFocus) ? rawFocus : null
@@ -48,12 +48,12 @@ function PulpitPage() {
    */
   useEffect(() => {
     if (focusedStationId === null || !loaded) return
-    const name = favourites.find(
-      (favourite) => favourite.kind === 'pkp' && favourite.id === focusedStationId
+    const name = pinnedItems.find(
+      (pinnedItem) => pinnedItem.kind === 'pkp' && pinnedItem.id === focusedStationId
     )?.name
     const query = name === undefined ? '' : `?name=${encodeURIComponent(name)}`
     router.replace(`/station/${focusedStationId}${query}`)
-  }, [focusedStationId, loaded, favourites, router])
+  }, [focusedStationId, loaded, pinnedItems, router])
 
   if (!loaded) return null
   // Przekierowanie leci w efekcie wyżej; przez tę jedną klatkę nie ma po co
@@ -62,13 +62,13 @@ function PulpitPage() {
 
   return (
     <PageShell aside={<NetworkStatsCard />}>
-      <TopBar title="Pulpit" subtitle="Twoje ulubione stacje i najbliższe odjazdy" />
+      <TopBar title="Pulpit" subtitle="Przypięte stacje i przystanki z najbliższymi odjazdami" />
       <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />
 
-      {favourites.length === 0 ? (
+      {pinnedItems.length === 0 ? (
         <EmptyState />
       ) : (
-        <Dashboard favourites={favourites} onExpand={goToBoard} onRemove={removeFavourite} />
+        <Dashboard pinnedItems={pinnedItems} onExpand={goToBoard} onRemove={removePinned} />
       )}
     </PageShell>
   )

@@ -32,6 +32,11 @@ type Props = {
   wide?: boolean
 }
 
+/** Wygląd pola wyszukiwania — wspólny dla stacji/przystanków, linii na mapie i listy linii. */
+export const SEARCH_INPUT_CLASS =
+  'glass w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500'
+
+const DEFAULT_ENDPOINT = '/api/stations'
 const MAX_TILE_LINES = 6
 
 const DEBOUNCE_MS = 300
@@ -41,7 +46,7 @@ const LOADING_RETRY_MS = 1500
 
 type SearchStatus = 'idle' | 'searching' | 'ready' | 'error'
 
-export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations', wide = false }: Props) {
+export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOINT, wide = false }: Props) {
   const [query, setQuery] = useState('')
   const [options, setOptions] = useState<StationOption[]>([])
   const [status, setStatus] = useState<SearchStatus>('idle')
@@ -109,6 +114,14 @@ export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    // Komunikat („Szukam…”, „Brak…”, błąd) też jest czymś do zamknięcia: zjadamy Escape, żeby panel
+    // mapy (nasłuch na window) nie zamknął się tym samym klawiszem. Czyszczenie zapytania anuluje
+    // też zapytanie w locie — samo `status = 'idle'` nadpisałaby spóźniona odpowiedź.
+    if (event.key === 'Escape' && !isOpen && message !== null) {
+      event.preventDefault()
+      setQuery('')
+      return
+    }
     if (!isOpen) return
 
     if (event.key === 'ArrowDown') {
@@ -123,6 +136,8 @@ export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations
         selectOption(options[activeIndex])
       }
     } else if (event.key === 'Escape') {
+      // Zjadamy Escape: panel mapy (nasłuch na window) nie ma się zamknąć tym samym klawiszem.
+      event.preventDefault()
       setOptions([])
       setStatus('idle')
       setActiveIndex(-1)
@@ -134,13 +149,19 @@ export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations
   // Komunikat zamiast listy: rozróżnia "szukam", "nie ma takiej stacji"
   // i "nie udało się sprawdzić". Trzyma się poza <ul role="listbox">, żeby nie
   // udawać opcji, której nie da się wybrać.
+  // Endpoint domyślny zwraca same stacje PKP; `/api/search?…` także przystanki miejskie.
+  const stationsOnly = endpoint === DEFAULT_ENDPOINT
   const message =
     status === 'searching'
       ? 'Szukam…'
       : status === 'error'
-        ? 'Nie udało się pobrać listy stacji'
+        ? stationsOnly
+          ? 'Nie udało się pobrać listy stacji'
+          : 'Nie udało się wyszukać'
         : status === 'ready' && options.length === 0
-          ? 'Brak stacji o tej nazwie'
+          ? stationsOnly
+            ? 'Brak stacji o tej nazwie'
+            : 'Brak stacji ani przystanków o tej nazwie'
           : null
 
   return (
@@ -159,7 +180,7 @@ export function StationSearch({ onSelect, placeholder, endpoint = '/api/stations
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
-        className="glass w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500"
+        className={SEARCH_INPUT_CLASS}
         placeholder={placeholder ?? 'Szukaj stacji…'}
         value={query}
         onChange={(event) => setQuery(event.target.value)}

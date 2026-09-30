@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
-import { favouriteKey, type Favourite } from '@/hooks/useFavourites'
+import { pinnedKey, type PinnedItem } from '@/hooks/usePinned'
 import { jsonResponse } from '@/test-utils/http'
 
 const push = vi.fn()
@@ -18,21 +18,21 @@ vi.mock('next/navigation', () => ({
 
 // Mutable seed read once per `render(<Page />)` (fresh component tree per
 // test) — set it in `beforeEach`/per-test before rendering. The hook itself
-// uses real `useState` so `removeFavourite` triggers a real re-render within
-// a test, the same reactivity a stateful `useFavourites()` gives the real page.
-let initialFavourites: Favourite[] = []
+// uses real `useState` so `removePinned` triggers a real re-render within
+// a test, the same reactivity a stateful `usePinned()` gives the real page.
+let initialPinned: PinnedItem[] = []
 
-vi.mock('@/hooks/useFavourites', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/hooks/useFavourites')>()),
-  useFavourites: () => {
-    const [favourites, setFavourites] = useState(initialFavourites)
+vi.mock('@/hooks/usePinned', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/usePinned')>()),
+  usePinned: () => {
+    const [pinnedItems, setPinnedItems] = useState(initialPinned)
     return {
-      favourites,
+      pinnedItems,
       loaded: true,
-      addFavourite: vi.fn(),
-      removeFavourite: (key: string) =>
-        setFavourites((current) => current.filter((item) => favouriteKey(item) !== key)),
-      isFavourite: () => true,
+      addPinned: vi.fn(),
+      removePinned: (key: string) =>
+        setPinnedItems((current) => current.filter((item) => pinnedKey(item) !== key)),
+      isPinned: () => true,
     }
   },
 }))
@@ -52,7 +52,7 @@ describe('Page (Pulpit)', () => {
     push.mockClear()
     replace.mockClear()
     searchParamsSeed = ''
-    initialFavourites = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
+    initialPinned = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
   })
 
   it('klik w kartę stacji otwiera pełny widok stacji, z nazwą w adresie', async () => {
@@ -62,7 +62,7 @@ describe('Page (Pulpit)', () => {
     expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna')
   })
 
-  it('przekierowuje stary adres ?focus= na widok stacji, zachowując nazwę z ulubionych', () => {
+  it('przekierowuje stary adres ?focus= na widok stacji, zachowując nazwę z przypiętych', () => {
     searchParamsSeed = 'focus=33605'
     render(<Page />)
 
@@ -72,7 +72,7 @@ describe('Page (Pulpit)', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('przekierowuje ?focus= także dla stacji spoza ulubionych, bez nazwy', () => {
+  it('przekierowuje ?focus= także dla stacji spoza przypiętych, bez nazwy', () => {
     searchParamsSeed = 'focus=999999999'
     render(<Page />)
 
@@ -87,8 +87,8 @@ describe('Page (Pulpit)', () => {
     expect(replace).not.toHaveBeenCalled()
   })
 
-  it('pokazuje stan pusty z wyszukiwarką, gdy nie ma ulubionych', () => {
-    initialFavourites = []
+  it('pokazuje stan pusty z wyszukiwarką, gdy nie ma przypiętych', () => {
+    initialPinned = []
     render(<Page />)
 
     expect(screen.getByRole('combobox')).toBeInTheDocument()
@@ -96,29 +96,29 @@ describe('Page (Pulpit)', () => {
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
 
-  it('pokazuje dashboard zamiast stanu pustego, gdy ulubione są zapisane', () => {
+  it('pokazuje dashboard zamiast stanu pustego, gdy przypięte są zapisane', () => {
     render(<Page />)
 
     expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.queryByText(/Wyszukaj stację/)).not.toBeInTheDocument()
   })
 
-  it('usuwa ostatnią ulubioną stację i wraca do stanu pustego', async () => {
+  it('usuwa ostatnią przypiętą stację i wraca do stanu pustego', async () => {
     const user = userEvent.setup()
     render(<Page />)
 
-    await user.click(screen.getByRole('button', { name: /Usuń z ulubionych:/ }))
+    await user.click(screen.getByRole('button', { name: /Odepnij z Pulpitu:/ }))
 
     expect(await screen.findByText(/Wyszukaj stację/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
 
-  it('wyszukiwarka stacji jest dostępna także wtedy, gdy dashboard ma już ulubione stacje', async () => {
+  it('wyszukiwarka stacji jest dostępna także wtedy, gdy dashboard ma już przypięte stacje', async () => {
     render(<Page />)
 
     const search = screen.getByRole('combobox')
     expect(search).toBeInTheDocument()
-    // Karta ulubionej stacji nadal widoczna obok wyszukiwarki — to dodatkowe
+    // Karta przypiętej stacji nadal widoczna obok wyszukiwarki — to dodatkowe
     // pole, nie zamiennik dashboardu.
     expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
   })
@@ -137,5 +137,16 @@ describe('Page (Pulpit)', () => {
 
     // encodeURIComponent (not form-encoding) — spaces become %20, same contract as the card click.
     expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
+  })
+
+  it('exactly one h1 on the empty Pulpit and on the Pulpit with pinned cards', () => {
+    initialPinned = []
+    const { unmount } = render(<Page />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    unmount()
+
+    initialPinned = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
+    render(<Page />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })

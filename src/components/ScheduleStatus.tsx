@@ -1,6 +1,5 @@
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import { formatAge } from '@/lib/format'
-import { WARNING_CLASS } from './BoardStatus'
 
 type Props = {
   schedule: TransitBoardResponse['schedule']
@@ -50,7 +49,7 @@ export function ScheduleStatus({ schedule, cityName, title, error = false }: Pro
       <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-500" />
-          Wczytuję rozkład — {cityName}
+          Wczytywanie rozkładu — {cityName}
           {schedule.phase !== null && <span className="text-text-muted">· {PHASE_LABEL[schedule.phase] ?? schedule.phase}</span>}
         </span>
       </p>
@@ -67,11 +66,11 @@ export function ScheduleStatus({ schedule, cityName, title, error = false }: Pro
       )}
       <span className="contents" aria-live="polite">
         {(schedule.state === 'failed' || stale) && schedule.ageMs !== null && (
-          <span className={WARNING_CLASS}>dane sprzed {formatAge(schedule.ageMs)}</span>
+          <span className="text-warning-text">dane sprzed {formatAge(schedule.ageMs)}</span>
         )}
-        {schedule.state === 'failed' && <span className={WARNING_CLASS}>odświeżanie nie powiodło się</span>}
+        {schedule.state === 'failed' && <span className="text-warning-text">odświeżanie nie powiodło się</span>}
         {error && schedule.state !== 'failed' && (
-          <span className={WARNING_CLASS}>błąd ostatniego odświeżenia</span>
+          <span className="text-warning-text">błąd ostatniego odświeżenia</span>
         )}
       </span>
     </p>

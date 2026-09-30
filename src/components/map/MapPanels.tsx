@@ -113,17 +113,19 @@ export function VisibleListPanel({
   )
 }
 
-export type FavouritePoint = { key: string; name: string; lat: number; lon: number }
+export type PinnedPoint = { key: string; name: string; lat: number; lon: number }
 
-/** Szybki przeskok do ulubionych stacji/przystanków (te same co na Pulpicie). */
-export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePoint[]; onOpen: (favourite: FavouritePoint) => void }) {
+/** Szybki przeskok do przypiętych stacji/przystanków (te same co na Pulpicie). */
+export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]; onOpen: (pinnedItem: PinnedPoint) => void }) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key !== 'Escape') return
+      event.preventDefault() // jak w MapFilters: Escape zamyka tylko listę, nie panel
+      setOpen(false)
     }
     const onPointer = (event: PointerEvent): void => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
@@ -135,32 +137,32 @@ export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePo
       document.removeEventListener('pointerdown', onPointer)
     }
   }, [open])
-  if (favourites.length === 0) return null
+  if (pinnedItems.length === 0) return null
   return (
     <div ref={rootRef} className="relative">
       <button
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label="Ulubione"
+        aria-label="Przypięte"
         onClick={() => setOpen((o) => !o)}
         className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl ${PIN_COLOR} transition hover:bg-black/5 dark:hover:bg-white/10`}
       >
         <StarIcon size={16} />
       </button>
       {open && (
-        <ul id={panelId} aria-label="Ulubione" className="glass-strong absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">
-          {favourites.map((favourite) => (
-            <li key={favourite.key}>
+        <ul id={panelId} aria-label="Przypięte" className="glass-strong absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">
+          {pinnedItems.map((pinnedItem) => (
+            <li key={pinnedItem.key}>
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false)
-                  onOpen(favourite)
+                  onOpen(pinnedItem)
                 }}
                 className={rowClass}
               >
-                <span className="truncate">{favourite.name}</span>
+                <span className="truncate">{pinnedItem.name}</span>
               </button>
             </li>
           ))}

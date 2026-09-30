@@ -5,6 +5,7 @@ import { LinePanel } from './LinePanel'
 import { LineSearch } from './LineSearch'
 import { MapFilters } from './MapFilters'
 import { MapLegend } from './MapLegend'
+import { PanelFrame } from './PanelFrame'
 import type { LayerKey } from './mapData'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import { ON_REQUEST_TITLE } from '../OnRequestBadge'
@@ -40,7 +41,7 @@ describe('LineSearch', () => {
   it('tells loading apart from "no such line"', () => {
     const { rerender } = render(<LineSearch lines={null} onSelect={() => {}} />)
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '999' } })
-    expect(screen.getByRole('status')).toHaveTextContent('Wczytuję linie…')
+    expect(screen.getByRole('status')).toHaveTextContent('Wczytywanie linii…')
     rerender(<LineSearch lines={lines} onSelect={() => {}} />)
     expect(screen.getByRole('status')).toHaveTextContent('Nie znaleziono linii')
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' })
@@ -123,5 +124,52 @@ describe('LinePanel', () => {
     expect(screen.getByText('— —')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
     expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
+  })
+
+  it('closes on Escape', () => {
+    const onClose = vi.fn()
+    render(<LinePanel {...props} onClose={onClose} detail={undefined} error={false} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+})
+
+describe('Escape inside a panel page — the innermost open thing closes first', () => {
+  it('MapFilters open dropdown consumes Escape, the panel stays; a second Escape closes the panel', () => {
+    const onClose = vi.fn()
+    render(
+      <>
+        <MapFilters hidden={new Set<LayerKey>()} vehicleLayers={[]} onChange={() => {}} />
+        <PanelFrame title="A" closeLabel="Zamknij" onClose={onClose}>
+          x
+        </PanelFrame>
+      </>,
+    )
+    const button = screen.getByRole('button', { name: /Filtry/ })
+    fireEvent.click(button)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('LineSearch with a query consumes Escape; with an empty query the panel closes', () => {
+    const onClose = vi.fn()
+    render(
+      <>
+        <LineSearch lines={[line('20')]} onSelect={() => {}} />
+        <PanelFrame title="A" closeLabel="Zamknij" onClose={onClose}>
+          x
+        </PanelFrame>
+      </>,
+    )
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: '20' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input).toHaveValue('')
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
   })
 })

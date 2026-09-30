@@ -12,7 +12,8 @@ import { TransitStopDetail } from '@/components/TransitStopDetail'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { PageShell } from '@/components/aside'
 import { ArrowLeftIcon } from '@/components/icons'
-import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
+import { ShareButton } from '@/components/ShareButton'
+import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useCities } from '@/hooks/useCities'
 import { useCityContext } from '@/hooks/useCityContext'
 import { useCityStats } from '@/hooks/useCityStats'
@@ -29,7 +30,7 @@ export default function CityPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setCity } = useCityContext()
-  const { isFavourite, addFavourite, removeFavourite } = useFavourites()
+  const { isPinned, addPinned, removePinned } = usePinned()
   const { data: statsData } = useCityStats(city)
   const { state: citiesState, cities } = useCities()
 
@@ -63,7 +64,7 @@ export default function CityPage() {
     router.push(`/city/${city}`)
   }
 
-  const railFavourite: Favourite | null =
+  const railPinned: PinnedItem | null =
     railId !== null ? { kind: 'pkp', id: railId, name: selectedName ?? railId } : null
 
   return (
@@ -80,7 +81,13 @@ export default function CityPage() {
       <TopBar
         title={`Odjazdy i przyjazdy — ${cityName}`}
         subtitle="Stacje kolejowe i przystanki komunikacji miejskiej"
-        actions={<CityPicker cities={cities} current={city} />}
+        actions={
+          <>
+            {/* „Udostępnij" tylko z wybraną stacją/przystankiem — sam ekran miasta to wyszukiwarka. */}
+            {hasSelection && <ShareButton />}
+            <CityPicker cities={cities} current={city} />
+          </>
+        }
       />
 
       {!hasSelection && (
@@ -105,18 +112,17 @@ export default function CityPage() {
             Wróć do wyszukiwania
           </button>
 
-          {railId !== null && railFavourite !== null && (
+          {railId !== null && railPinned !== null && (
             <FullBoard
               embedded
               stationId={railId}
-              stationName={railFavourite.name}
-              isFavourite={isFavourite(favouriteKey(railFavourite))}
-              onToggleFavourite={() =>
-                isFavourite(favouriteKey(railFavourite))
-                  ? removeFavourite(favouriteKey(railFavourite))
-                  : addFavourite(railFavourite)
+              stationName={railPinned.name}
+              isPinned={isPinned(pinnedKey(railPinned))}
+              onTogglePin={() =>
+                isPinned(pinnedKey(railPinned))
+                  ? removePinned(pinnedKey(railPinned))
+                  : addPinned(railPinned)
               }
-              onClose={clearSelection}
             />
           )}
 

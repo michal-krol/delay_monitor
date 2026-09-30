@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   // zewnętrzne API, i zużywa nasz limit.
   //
   // Odsiewamy, zamiast odrzucać całe żądanie: jeden nieaktualny wpis
-  // w ulubionych (np. przeniesiony z trybu mock) nie może wywrócić dashboardu.
+  // w przypiętych (np. przeniesiony z trybu mock) nie może wywrócić dashboardu.
   // Nieznana stacja dostaje w odpowiedzi `null`, dokładnie jak stacja bez danych.
   //
   // `getCachedStationIds()` czyta wyłącznie pamięć i nigdy nie wyzwala pobrania,

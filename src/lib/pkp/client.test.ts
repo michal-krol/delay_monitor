@@ -793,7 +793,7 @@ describe('createLiveClient', () => {
   })
 
   it('does not grow with the number of station sets asked for (one snapshot, not one entry per set)', async () => {
-    // Dawniej klucz to zestaw obserwowanych stacji, więc każda zmiana ulubionych
+    // Dawniej klucz to zestaw obserwowanych stacji, więc każda zmiana przypiętych
     // dokładała wpis i kolejne pobranie. Teraz jedna migawka na okno dat.
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ routes: [] }))
     vi.stubGlobal('fetch', fetchMock)

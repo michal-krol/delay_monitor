@@ -41,3 +41,24 @@ test('linie GTFS: przeglądarka linii miasta pokazuje siatkę linii', async ({ p
   // GTFS mock parsuje się raz przy starcie (~kilkanaście s), strona sama ponawia.
   await expect(page.getByRole('link', { name: /^Linia / }).first()).toBeVisible({ timeout: 45_000 })
 })
+
+test('tablica → szczegóły → wstecz: bezpośrednie wejście na stację wraca do tablicy', async ({ page }) => {
+  // Regresja: `patchUrlParams` (replaceState przy montowaniu) kasował stan
+  // historii Next na wpisie załadowanym bezpośrednio, więc „wstecz" zmieniało
+  // tylko URL, a widok zostawał na szczegółach połączenia.
+  await page.goto(boardUrl)
+
+  const rowButton = page.locator('td button[aria-label]').first()
+  await expect(async () => {
+    await page.reload()
+    await expect(rowButton).toBeVisible({ timeout: 5_000 })
+  }).toPass({ timeout: 40_000 })
+
+  await rowButton.click()
+  await expect(page).toHaveURL(/\/connection\//)
+
+  await page.goBack()
+  await expect(page).toHaveURL(/\/station\/33605/)
+  await expect(page.getByRole('tablist', { name: 'Kierunek' })).toBeVisible()
+  await expect(page.locator('td button[aria-label]').first()).toBeVisible({ timeout: 15_000 })
+})

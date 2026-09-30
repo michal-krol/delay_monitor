@@ -49,7 +49,7 @@ export function StationThumb({ stationName }: { stationName: string }) {
 
   return (
     <div
-      // aria-hidden: to czysta dekoracja. Nazwa stacji stoi obok w <h1>,
+      // aria-hidden: to czysta dekoracja. Nazwa stacji stoi obok w nagłówku (h1, a po osadzeniu h2),
       // więc czytnik ekranu nie ma powtarzać jej inicjałów.
       aria-hidden="true"
       className="relative hidden h-24 w-40 shrink-0 overflow-hidden rounded-xl border border-surface-border sm:block"

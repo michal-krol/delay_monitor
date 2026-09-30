@@ -1,11 +1,13 @@
-import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { CloseIcon } from '../icons'
 import { IconButton } from '../IconButton'
+import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 
 /**
  * Jedna rama dokowanego panelu mapy (spec §15): karta obiektu (`MapCard`),
  * panel linii (`LinePanel`) i panele dodatkowe (`MapPanels`). Niemodalny
- * dialog, fokus wchodzi na nagłówek przy każdym nowym obiekcie (`focusKey`).
+ * dialog, fokus wchodzi na nagłówek przy każdym nowym obiekcie (`focusKey`),
+ * Escape zamyka, a po zamknięciu fokus wraca tam, skąd przyszedł.
  */
 export function PanelFrame({
   title,
@@ -16,7 +18,6 @@ export function PanelFrame({
   onClose,
   bodyLabel,
   focusKey,
-  returnFocusRef,
   children,
 }: {
   title: string
@@ -31,20 +32,37 @@ export function PanelFrame({
   /** Nazwa przewijanego obszaru treści; domyślnie `title`. */
   bodyLabel?: string
   focusKey?: string
-  /** Dostaje element, który miał fokus przed pierwszym przejęciem — rodzic zwraca mu fokus po zamknięciu. */
-  returnFocusRef?: RefObject<HTMLElement | null>
   children: ReactNode
 }) {
   const headingId = useId()
+  const [bodyRef, bodyTabIndex] = useScrollableFocus<HTMLDivElement>()
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
   useEffect(() => {
-    if (returnFocusRef !== undefined) {
-      returnFocusRef.current ??= document.activeElement instanceof HTMLElement ? document.activeElement : null
-    }
+    onCloseRef.current = onClose
+  })
+
+  useEffect(() => {
+    returnFocusRef.current ??= document.activeElement instanceof HTMLElement ? document.activeElement : null
     headingRef.current?.focus({ preventScroll: true })
-    // `returnFocusRef` to stabilny ref — celowo poza zależnościami.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusKey])
+
+  useEffect(() => {
+    // `window` (bąbelkowanie po `document`), żeby widzieć `defaultPrevented` z listenerów
+    // rejestrowanych później (otwarta lista rozwijana, szuflada nawigacji) — najbardziej
+    // wewnętrzny element zamyka się pierwszy, panel dopiero drugim Escape.
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && !event.defaultPrevented) onCloseRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      // Celowo wartość z chwili zamknięcia: wpisuje ją pierwsze przejęcie fokusu.
+      const target = returnFocusRef.current
+      if (target !== null && target.isConnected) target.focus({ preventScroll: true })
+    }
+  }, [])
 
   return (
     <section role="dialog" aria-modal="false" aria-labelledby={headingId} className="glass-strong flex max-h-full flex-col overflow-hidden rounded-2xl shadow-xl">
@@ -61,7 +79,7 @@ export function PanelFrame({
           <CloseIcon size={16} />
         </IconButton>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={0} aria-label={bodyLabel ?? title}>
+      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>
         {children}
       </div>
     </section>

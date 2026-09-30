@@ -1,8 +1,8 @@
 'use client'
 
-import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation'
-import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
-import { Breadcrumb } from '@/components/Breadcrumb'
+import { notFound, useParams, useSearchParams } from 'next/navigation'
+import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
+import { TopBar } from '@/components/TopBar'
 import { PageShell } from '@/components/aside'
 import { FullBoard } from '@/components/FullBoard'
 import { STATION_ID_PATTERN } from '@/lib/validation'
@@ -29,26 +29,24 @@ export default function Page() {
     notFound()
   }
 
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const { isFavourite, addFavourite, removeFavourite } = useFavourites()
+  const { isPinned, addPinned, removePinned } = usePinned()
   const stationName = searchParams.get('name') ?? stationId
 
-  const favourite: Favourite = { kind: 'pkp', id: stationId, name: stationName }
-  const key = favouriteKey(favourite)
+  const pinnedItem: PinnedItem = { kind: 'pkp', id: stationId, name: stationName }
+  const key = pinnedKey(pinnedItem)
 
   return (
     <PageShell>
       {/* Jedyna droga tutaj to wyszukiwarka na Pulpicie (`goToBoard`) i stary
           `?focus=` (też z Pulpitu) — rodzic jednoznaczny, w przeciwieństwie
-          do `/connection/...` niżej. */}
-      <Breadcrumb items={[{ label: 'Pulpit', href: '/' }, { label: stationName }]} />
+          do `/connection/...`, więc ← to link. */}
+      <TopBar backLabel="Wróć do Pulpitu" backHref="/" crumbs={[{ label: 'Pulpit', href: '/' }, { label: stationName }]} share />
       <FullBoard
         stationId={stationId}
         stationName={stationName}
-        isFavourite={isFavourite(key)}
-        onToggleFavourite={() => (isFavourite(key) ? removeFavourite(key) : addFavourite(favourite))}
-        onClose={() => router.push('/')}
+        isPinned={isPinned(key)}
+        onTogglePin={() => (isPinned(key) ? removePinned(key) : addPinned(pinnedItem))}
       />
     </PageShell>
   )

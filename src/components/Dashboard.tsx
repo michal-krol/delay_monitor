@@ -5,27 +5,27 @@ import { StationCard } from './StationCard'
 import { TransitStopCard } from './TransitStopCard'
 import { BoardStatus } from './BoardStatus'
 import type { StationOption } from './StationSearch'
-import { favouriteKey, type Favourite } from '@/hooks/useFavourites'
+import { pinnedKey, type PinnedItem } from '@/hooks/usePinned'
 
 type Props = {
-  favourites: Favourite[]
+  pinnedItems: PinnedItem[]
   onExpand: (station: StationOption) => void
   onRemove: (key: string) => void
 }
 
-export function Dashboard({ favourites, onExpand, onRemove }: Props) {
+export function Dashboard({ pinnedItems, onExpand, onRemove }: Props) {
   // Pulpit jest ponad miastami: stacja PKP i przystanek miejski (dowolnego
   // miasta) wiszą obok siebie na jednej siatce. Stacje idą przez wspólny
   // `useBoard` (jedno zapytanie), przystanki miejskie mają własne karty.
-  const stations = favourites.filter((favourite) => favourite.kind === 'pkp')
-  const transitStops = favourites.filter((favourite) => favourite.kind === 'gtfs')
-  const stationIds = stations.map((favourite) => favourite.id)
+  const stations = pinnedItems.filter((pinnedItem) => pinnedItem.kind === 'pkp')
+  const transitStops = pinnedItems.filter((pinnedItem) => pinnedItem.kind === 'gtfs')
+  const stationIds = stations.map((pinnedItem) => pinnedItem.id)
   const { data, error } = useBoard(stationIds)
 
   const received = (data?.snapshots ?? []).filter((snapshot) => snapshot !== null)
 
-  // Łączenie po stationId, nie po pozycji w tablicy. Po zmianie ulubionych
-  // `favourites` aktualizuje się natychmiast, a `data` jeszcze przez jeden cykl
+  // Łączenie po stationId, nie po pozycji w tablicy. Po zmianie przypiętych
+  // `pinnedItems` aktualizuje się natychmiast, a `data` jeszcze przez jeden cykl
   // trzyma poprzednią odpowiedź — przy dopasowaniu po indeksie karta pokazałaby
   // wtedy nazwę jednej stacji z odjazdami innej.
   const snapshotsById = new Map(received.map((snapshot) => [snapshot.stationId, snapshot]))
@@ -43,28 +43,28 @@ export function Dashboard({ favourites, onExpand, onRemove }: Props) {
       <div className="glass mb-5 inline-flex rounded-full px-3.5 py-1.5">
         <BoardStatus fetchedAt={freshest?.fetchedAt} ageMs={freshest?.ageMs} data={data} error={error !== null} />
       </div>
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {stations.map((favourite) => (
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-5">
+        {stations.map((pinnedItem) => (
           <StationCard
-            key={favourite.id}
-            stationId={favourite.id}
-            stationName={favourite.name}
-            snapshot={snapshotsById.get(favourite.id) ?? null}
+            key={pinnedItem.id}
+            stationId={pinnedItem.id}
+            stationName={pinnedItem.name}
+            snapshot={snapshotsById.get(pinnedItem.id) ?? null}
             error={error !== null}
             configError={data?.status === 'configError'}
             onExpand={onExpand}
-            onRemove={() => onRemove(favouriteKey(favourite))}
+            onRemove={() => onRemove(pinnedKey(pinnedItem))}
           />
         ))}
         {transitStops.map(
-          (favourite) =>
-            favourite.kind === 'gtfs' && (
+          (pinnedItem) =>
+            pinnedItem.kind === 'gtfs' && (
               <TransitStopCard
-                key={favouriteKey(favourite)}
-                city={favourite.city}
-                stopId={favourite.id}
-                stopName={favourite.name}
-                onRemove={() => onRemove(favouriteKey(favourite))}
+                key={pinnedKey(pinnedItem)}
+                city={pinnedItem.city}
+                stopId={pinnedItem.id}
+                stopName={pinnedItem.name}
+                onRemove={() => onRemove(pinnedKey(pinnedItem))}
               />
             )
         )}

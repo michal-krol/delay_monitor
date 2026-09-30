@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TransitStopPage from './page'
@@ -61,7 +61,7 @@ describe('TransitStopPage', () => {
     expect(screen.queryByText(/opóźni|na czas/i)).not.toBeInTheDocument()
   })
 
-  it('pins the stop to the Pulpit as a gtfs favourite carrying its city', async () => {
+  it('pins the stop to the Pulpit as a gtfs pinned item carrying its city', async () => {
     render(<TransitStopPage />)
     await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
     const stored = JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')
@@ -80,5 +80,15 @@ describe('TransitStopPage', () => {
     expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
+  })
+
+  it('jeden górny rząd: ← do odjazdów, ścieżka, jedno Udostępnij; nazwa przystanku to jedyny h1', () => {
+    render(<TransitStopPage />)
+    expect(screen.getByRole('link', { name: 'Wróć do odjazdów' })).toHaveAttribute('href', '/city/warszawa')
+    const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
+    expect(within(nav).getByRole('link', { name: 'Odjazdy / Przyjazdy' })).toHaveAttribute('href', '/city/warszawa')
+    expect(within(nav).getByText('Świętokrzyska')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getAllByRole('button', { name: 'Udostępnij' })).toHaveLength(1)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })

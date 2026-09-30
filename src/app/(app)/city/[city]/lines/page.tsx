@@ -8,6 +8,7 @@ import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { ModeFilter, type ModeValue } from '@/components/ModeFilter'
 import { LineGrid } from '@/components/LineGrid'
+import { SEARCH_INPUT_CLASS } from '@/components/StationSearch'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
@@ -76,9 +77,9 @@ export default function CityLinesPage() {
       {failed && data === null ? (
         <p className="text-sm text-error-text">Nie udało się pobrać listy linii.</p>
       ) : loading ? (
-        <p className="text-sm text-text-secondary">Wczytuję linie…</p>
+        <p className="text-sm text-text-secondary">Wczytywanie linii…</p>
       ) : filteredLines === null ? (
-        <p className="text-sm text-text-secondary">Rozkład jeszcze się wczytuje.</p>
+        <p className="text-sm text-text-secondary">Wczytywanie rozkładu…</p>
       ) : (
         <>
           <input
@@ -87,7 +88,7 @@ export default function CityLinesPage() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Szukaj linii (numer lub kierunek)…"
             aria-label="Szukaj linii"
-            className="glass w-full max-w-md rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500"
+            className={`${SEARCH_INPUT_CLASS} max-w-md`}
           />
           <ModeFilter available={available} value={mode} onChange={setMode} />
           <LineGrid linesByMode={filteredLines} city={city} filter={mode} />

@@ -23,7 +23,7 @@ const MIN_TOP_MINUTES = 5
 type Placed = DelayPoint & { x: number; y: number | null }
 
 function formatSigned(minutes: number): string {
-  return minutes > 0 ? `+${minutes} min` : minutes < 0 ? `${minutes} min` : 'na czas'
+  return minutes > 0 ? `+${minutes} min` : minutes < 0 ? `${minutes} min` : 'punktualnie'
 }
 
 /**

@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { ConnectionDetails } from './ConnectionDetails'
@@ -264,6 +263,9 @@ describe('ConnectionDetails', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się pobrać szczegółów połączenia.')
+    // Każdy stan ma dokładnie jeden h1 (etykieta z linku), nie tylko wczytywanie i gotowe dane.
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 1, name: 'EIC 1' })).toBeInTheDocument()
   })
 
   it('shows the server error message on a foreground 503 (hourly cap reached), not the generic "Spróbuj odświeżyć stronę"', async () => {
@@ -777,18 +779,14 @@ describe('ConnectionDetails', () => {
     expect(screen.getByText('Aktualnie brak utrudnień na trasie.')).toBeInTheDocument()
   })
 
-  it('copies the connection URL when the browser has no native share sheet', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('navigator', { clipboard: { writeText } })
+  it('has no share control of its own -- sharing lives in the page TopBar', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
 
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
     await waitForRoute()
 
-    await userEvent.click(screen.getByRole('button', { name: /Kopiuj link/ }))
-
-    expect(writeText).toHaveBeenCalledWith(window.location.href)
-    expect(await screen.findByText('Skopiowano link')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Kopiuj link|Udostępnij/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Udostępnij połączenie')).not.toBeInTheDocument()
   })
 
   describe('background refresh', () => {

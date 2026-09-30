@@ -99,7 +99,7 @@ describe('CityLinesPage', () => {
   it('shows a loading note while the schedule is still warming up', async () => {
     stubFetch({ ...LINES, schedule: { ...LINES.schedule, state: 'loading' }, lines: null })
     render(<CityLinesPage />)
-    expect(await screen.findByText('Rozkład jeszcze się wczytuje.')).toBeInTheDocument()
+    expect(await screen.findByText('Wczytywanie rozkładu…')).toBeInTheDocument()
   })
 
   it('keeps retrying past the first ladder while the schedule is still loading (never gives up)', async () => {

@@ -45,7 +45,7 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
           dayUnknown ? (
             <p className="text-xs text-text-muted">Brak rozkładu na dziś.</p>
           ) : (
-            <p className="text-xs text-text-muted">Wczytuję rozkład…</p>
+            <p className="text-xs text-text-muted">Wczytywanie rozkładu…</p>
           )
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -126,7 +126,7 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
             if (data?.alertFeed?.state === 'failed') {
               return <p className="text-xs text-error-text">Nie udało się pobrać utrudnień.</p>
             }
-            return <p className="text-xs text-text-muted">Wczytuję…</p>
+            return <p className="text-xs text-text-muted">Wczytywanie…</p>
           }
           // Feed `failed` po udanym pobraniu: ostatnie dobre alerty + ich wiek (#7).
           const feed = data?.alertFeed

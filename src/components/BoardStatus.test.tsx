@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { BoardStatus, WARNING_CLASS } from './BoardStatus'
+import { BoardStatus } from './BoardStatus'
 import type { BoardApiResponse } from '@/hooks/useBoard'
 
 function makeData(overrides: Partial<BoardApiResponse> = {}): BoardApiResponse {
@@ -19,7 +19,7 @@ const FETCHED_AT = '2026-08-01T20:24:11.827Z'
 describe('BoardStatus', () => {
   it('reports the loading state before the first snapshot arrives', () => {
     render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={false} />)
-    expect(screen.getByText('Ładowanie…')).toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
   })
 
   it('reports a fetch error', () => {
@@ -84,6 +84,7 @@ describe('BoardStatus', () => {
     const chip = screen.getByText('odświeżanie ograniczone')
     expect(chip).toBeInTheDocument()
     expect(chip).toHaveAttribute('title', 'Pozostało 41 zapytań do API na dobę')
+    expect(screen.getByText('Pozostało 41 zapytań do API na dobę')).toHaveClass('sr-only')
   })
 
   it('keeps showing the last-updated timestamp and data age when a later refresh fails, instead of blanking out to the error banner', () => {
@@ -181,7 +182,7 @@ describe('BoardStatus', () => {
     expect(screen.getByText('Błąd pobierania danych')).toHaveClass('text-error-text')
     rerender(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} data={makeData()} error={true} />)
     // Ostatni dobry snapshot wciąż jest na ekranie (#7) — jak „błąd ostatniego odświeżenia" w ScheduleStatus.
-    expect(screen.getByText('Błąd ostatniego odświeżenia')).toHaveClass(...WARNING_CLASS.split(' '))
+    expect(screen.getByText('Błąd ostatniego odświeżenia')).toHaveClass('text-warning-text')
   })
 })
 
