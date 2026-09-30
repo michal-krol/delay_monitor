@@ -60,6 +60,10 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
                         `${stats.busKinds.express} ${pluralPl(stats.busKinds.express, 'przyspieszona', 'przyspieszone', 'przyspieszonych')}`,
                       stats.busKinds.replacement > 0 &&
                         `${stats.busKinds.replacement} ${pluralPl(stats.busKinds.replacement, 'zastępcza', 'zastępcze', 'zastępczych')}`,
+                      stats.busKinds.zone > 0 &&
+                        `${stats.busKinds.zone} ${pluralPl(stats.busKinds.zone, 'podmiejska', 'podmiejskie', 'podmiejskich')}`,
+                      stats.busKinds.local > 0 &&
+                        `${stats.busKinds.local} ${pluralPl(stats.busKinds.local, 'lokalna', 'lokalne', 'lokalnych')}`,
                     ].filter(Boolean)
                   : []
               return (

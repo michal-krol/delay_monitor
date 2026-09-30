@@ -17,7 +17,7 @@ import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon } from '@/components/icons'
 import { MODE_COLOR } from '@/components/map/mapData'
-import { MODE_LABEL } from '@/components/transitMode'
+import { LINE_KIND_LABEL, MODE_LABEL } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
 import { useCities } from '@/hooks/useCities'
@@ -39,7 +39,6 @@ type LineResponse = {
 
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
-const KIND_LABEL = { regular: '', night: 'linia nocna', express: 'linia przyspieszona', replacement: 'linia zastępcza' } as const
 
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
@@ -196,7 +195,7 @@ export default function LineDetailPage() {
             </div>
             <p className="text-sm text-text-secondary">
               {MODE_LABEL[line.mode]}
-              {KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · {KIND_LABEL[line.kind]}</span>}
+              {LINE_KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · linia {LINE_KIND_LABEL[line.kind]}</span>}
             </p>
             {data?.alerts != null && data.alerts.length > 0 && <AlertBanner alerts={data.alerts} />}
             {data !== null && (

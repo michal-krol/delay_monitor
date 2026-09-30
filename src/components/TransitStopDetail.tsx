@@ -22,13 +22,11 @@ import { MapView } from './MapView'
 import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
-import { MODE_LABEL, MODE_ORDER } from './transitMode'
+import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, StarIcon } from './icons'
 import { PageTitle } from './PageTitle'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
-
-const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
 type StopTab = 'departures' | 'lines' | 'schedule' | 'alerts'
 const STOP_TABS: { key: StopTab; label: string }[] = [

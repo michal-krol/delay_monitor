@@ -45,7 +45,7 @@ export function contrastText(hex: string | null): '#000000' | '#ffffff' {
 /**
  * Rodzaj linii — GTFS nie ma takiego pola, wyprowadzamy z numeru linii wg
  * konwencji ZTM: `N…` nocna, `Z…` zastępcza, `E…`/400–599 przyspieszona,
- * reszta zwykła. `route_desc` (gdy jest) ma pierwszeństwo. Best-effort —
+ * 700–899 strefowa (podmiejska), `L…` lokalna, reszta zwykła. `route_desc` (gdy jest) ma pierwszeństwo. Best-effort —
  * kolejne miasto może wymagać innej reguły (wtedy trafi do `CityFeed`).
  */
 export function lineKindFrom(shortName: string, desc: string | undefined): LineKind {
@@ -60,6 +60,9 @@ export function lineKindFrom(shortName: string, desc: string | undefined): LineK
   if (/^E/i.test(name)) return 'express'
   const number = Number(name)
   if (Number.isFinite(number) && number >= 400 && number <= 599) return 'express'
+  // Warszawa (pomiar 2026-09-30): 7xx i 8xx to zielone linie strefowe/podmiejskie ZTM, `L-1`…`L55` lokalne.
+  if (/^L/i.test(name)) return 'local'
+  if (Number.isFinite(number) && number >= 700 && number <= 899) return 'zone'
   return 'regular'
 }
 

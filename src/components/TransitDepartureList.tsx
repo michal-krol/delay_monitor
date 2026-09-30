@@ -2,6 +2,7 @@ import type { GtfsDeparture } from '@/lib/gtfs/types'
 import { formatDuration } from '@/lib/format'
 import { LineBadge } from './LineBadge'
 import { OnRequestBadge } from './OnRequestBadge'
+import { LINE_KIND_LABEL } from './transitMode'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
 
@@ -53,8 +54,7 @@ function DepartureRow({
   const hasMeta =
     hasStopTag ||
     departure.vehicle != null ||
-    departure.lineKind === 'night' ||
-    departure.lineKind === 'express' ||
+    LINE_KIND_LABEL[departure.lineKind] !== '' ||
     departure.frequencyBased ||
     departure.onRequest ||
     departure.platformCode !== null
@@ -106,8 +106,7 @@ function DepartureRow({
               </span>
             </span>
           )}
-          {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
-          {departure.lineKind === 'express' && <span className="shrink-0 text-xs text-text-muted">przyspieszona</span>}
+          {LINE_KIND_LABEL[departure.lineKind] !== '' && <span className="shrink-0 text-xs text-text-muted">{LINE_KIND_LABEL[departure.lineKind]}</span>}
           {departure.frequencyBased && (
             <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
           )}

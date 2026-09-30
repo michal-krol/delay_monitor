@@ -58,6 +58,12 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('nocna')).toBeInTheDocument()
   })
 
+  it('labels zone and local lines with the shared kind label', () => {
+    render(<TransitDepartureList departures={[dep({ lineKind: 'zone' }), dep({ lineKind: 'local' })]} />)
+    expect(screen.getByText('podmiejska')).toBeInTheDocument()
+    expect(screen.getByText('lokalna')).toBeInTheDocument()
+  })
+
   it('tags the słupek with the bare code, never the word "słupek"', () => {
     render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showSlupek />)
     expect(screen.getByText('06')).toBeInTheDocument()
