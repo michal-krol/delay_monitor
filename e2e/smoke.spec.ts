@@ -60,5 +60,7 @@ test('tablica → szczegóły → wstecz: bezpośrednie wejście na stację wrac
   await page.goBack()
   await expect(page).toHaveURL(/\/station\/33605/)
   await expect(page.getByRole('tablist', { name: 'Kierunek' })).toBeVisible()
-  await expect(page.locator('td button[aria-label]').first()).toBeVisible({ timeout: 15_000 })
+  // Wiersze wracają z pamięci klienta od razu (cache `usePolling`), bez czekania na nowe
+  // zapytanie ani na komunikat „Ładowanie" -- limit << 30 s odświeżania.
+  await expect(page.locator('td button[aria-label]').first()).toBeVisible({ timeout: 2_000 })
 })
