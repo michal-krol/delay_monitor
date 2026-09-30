@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { notFound, useParams } from 'next/navigation'
@@ -22,6 +22,7 @@ import { formatSecondsOfDay } from '@/lib/format'
 import { useCities } from '@/hooks/useCities'
 import { isLineLoading } from '@/hooks/useLineDetail'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
+import { useRecentLines } from '@/hooks/useRecentLines'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import { hasCustomStroke, strokeFor } from '@/components/map/mapData'
@@ -67,6 +68,19 @@ export default function LineDetailPage() {
   const cityName = entry?.name ?? city
 
   const line = data?.line ?? null
+
+  // „Ostatnio oglądane": zapis dopiero, gdy linia się wczytała (nigdy dla nieznanego id)
+  // i tylko raz na trasę — nie przy każdym odświeżeniu danych.
+  const { record: recordRecent } = useRecentLines(city)
+  const recordedRef = useRef<string | null>(null)
+  const lineKnown = line !== null
+  useEffect(() => {
+    const key = `${city}:${routeId}`
+    if (!lineKnown || recordedRef.current === key) return
+    recordedRef.current = key
+    recordRecent(routeId)
+  }, [lineKnown, city, routeId, recordRecent])
+
   const loading = data === null && !failed
   const directions = line?.directions ?? []
   const direction = directions[Math.min(dirIdx, Math.max(0, directions.length - 1))]
