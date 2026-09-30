@@ -654,7 +654,7 @@ describe('createLiveClient', () => {
   })
 
   it('does not let the schedules cache grow without bound', async () => {
-    // Klucz to zestaw obserwowanych stacji, więc każda zmiana ulubionych
+    // Klucz to zestaw obserwowanych stacji, więc każda zmiana przypiętych
     // dokładała wpis, którego nic nigdy nie usuwało.
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ routes: [] }))
     vi.stubGlobal('fetch', fetchMock)

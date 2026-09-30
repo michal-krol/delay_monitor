@@ -85,8 +85,11 @@ describe('Sidebar', () => {
 
   it('nawigacja ma dokładnie 4 linki i żadnych nieaktywnych placeholderów', () => {
     const { container } = render(<Sidebar activeItem="pulpit" />)
-    const names = screen.getAllByRole('link').map((l) => l.getAttribute('aria-label'))
-    expect(names).toEqual(['Pulpit', 'Odjazdy / Przyjazdy', 'Trasy', 'Mapa'])
+    const links = screen.getAllByRole('link')
+    expect(links).toHaveLength(4)
+    for (const [index, name] of ['Pulpit', 'Odjazdy / Przyjazdy', 'Trasy', 'Mapa'].entries()) {
+      expect(links[index]).toHaveAccessibleName(name)
+    }
     // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- brak jakiegokolwiek elementu z aria-disabled
     expect(container.querySelector('[aria-disabled]')).toBeNull()
     for (const label of ['Ulubione', 'Powiadomienia', 'Ustawienia']) {

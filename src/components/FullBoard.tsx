@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
@@ -12,6 +12,7 @@ import { StationThumb } from './StationThumb'
 import { PageTitle } from './PageTitle'
 import { CloseIcon, PIN_COLOR, StarIcon } from './icons'
 import { IconButton } from './IconButton'
+import { onTablistKeyDown } from './tablistKeys'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { formatClockTime } from '@/lib/format'
@@ -20,8 +21,8 @@ import { zonedHour } from '@/lib/pkp/time'
 type Props = {
   stationId: string
   stationName: string
-  isFavourite: boolean
-  onToggleFavourite: () => void
+  isPinned: boolean
+  onTogglePin: () => void
   /**
    * Osadzone pod wyszukiwarką na ekranie miasta, które ma już własny h1 —
    * nazwa stacji jest wtedy h2. Wyjście, motyw i „Udostępnij" rysuje zawsze
@@ -61,15 +62,17 @@ function TabButton({
       tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-        active ? 'bg-indigo-600 text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
+        active ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
       }`}
+      // Ten sam akcent co zakładki przystanku (TransitStopDetail) — stacja wygląda jak przystanek.
+      style={active ? { background: 'var(--accent-gradient)' } : undefined}
     >
       {children}
     </button>
   )
 }
 
-export function FullBoard({ stationId, stationName, isFavourite, onToggleFavourite, embedded = false }: Props) {
+export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
   const idBase = useId()
   const tabId = (d: Direction): string => `${idBase}-tab-${d}`
@@ -93,20 +96,6 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
   function switchDirection(next: Direction): void {
     setDirection(next)
     setDestinationFilter(null)
-  }
-
-  /** Strzałki (z zawijaniem), Home i End przenoszą zaznaczenie ORAZ fokus (wzorzec zakładek WAI-ARIA). */
-  function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    // Alt+strzałka = Wstecz/Dalej przeglądarki itp. — nie przechwytujemy skrótów.
-    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-    const last = DIRECTIONS.length - 1
-    const at = DIRECTIONS.indexOf(direction)
-    const target =
-      event.key === 'ArrowRight' ? (at === last ? 0 : at + 1) : event.key === 'ArrowLeft' ? (at === 0 ? last : at - 1) : event.key === 'Home' ? 0 : event.key === 'End' ? last : null
-    if (target === null) return
-    event.preventDefault()
-    switchDirection(DIRECTIONS[target])
-    document.getElementById(tabId(DIRECTIONS[target]))?.focus()
   }
 
   const allRows = useMemo(() => (snapshot ? snapshot[direction] : []), [snapshot, direction])
@@ -196,8 +185,8 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <IconButton onClick={onToggleFavourite} label={isFavourite ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
-                <StarIcon size={15} filled={isFavourite} className={isFavourite ? PIN_COLOR : ''} />
+              <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
+                <StarIcon size={15} filled={isPinned} className={isPinned ? PIN_COLOR : ''} />
               </IconButton>
             </div>
           </div>
@@ -217,7 +206,7 @@ export function FullBoard({ stationId, stationName, isFavourite, onToggleFavouri
                 <div
                   role="tablist"
                   aria-label="Kierunek"
-                  onKeyDown={onTabKeyDown}
+                  onKeyDown={(event) => onTablistKeyDown(event, DIRECTIONS.indexOf(direction), (index) => switchDirection(DIRECTIONS[index]))}
                   className="inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5"
                 >
                   <TabButton id={tabId('departures')} panelId={panelId} active={direction === 'departures'} onClick={() => switchDirection('departures')}>

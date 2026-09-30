@@ -141,7 +141,7 @@ type Props = {
 /**
  * Tabela wycięta z `FullBoard` — czysto prezentacyjna, nic nie fetchuje.
  * Dzięki temu bezpieczna do zasilenia snapshotem, który wywołujący już ma
- * (np. `Dashboard`'s wspólny `useBoard` dla wszystkich ulubionych), bez
+ * (np. `Dashboard`'s wspólny `useBoard` dla wszystkich przypiętych), bez
  * ryzyka drugiego, niezależnego zapytania do pollera.
  */
 export function BoardTable({ stationName, direction, rows, now, loading }: Props) {
@@ -165,7 +165,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
       : 'Brak przyjazdów w najbliższych godzinach'
 
   return (
-    <div className="mt-3">
+    <div className="mt-3 @container">
       <div className="overflow-x-auto">
         <table className="board-table w-full text-left text-sm">
           <caption className="sr-only">
@@ -274,9 +274,9 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
       <CategoryBadge category={row.category} categoryName={row.categoryName} />
       <span className="min-w-0">
         <span className="block truncate font-semibold text-foreground">{row.trainLabel}</span>
-        <span className="flex items-center gap-1 text-xs text-text-muted">
+        <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
           <CarrierLogo carrierCode={row.carrier} size={12} />
-          <span className="truncate">{row.carrierName ?? (row.carrier || '—')}</span>
+          <span className="min-w-0 truncate">{row.carrierName ?? (row.carrier || '—')}</span>
         </span>
       </span>
     </span>
@@ -336,7 +336,10 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
       <td data-cell="time" className="py-2.5 pr-3 pl-3 whitespace-nowrap" style={{ boxShadow: `inset 3px 0 0 0 ${accentColor(row.status)}` }}>
         <TimePair row={row} />
       </td>
-      <td data-cell="train" className="max-w-[13rem] py-2.5 pr-3">
+      {/* `truncate` nie kurczy komórki (min-content = pełna nazwa przewoźnika), więc w wąskiej tabeli
+          (kontener < 42rem, np. FullBoard przy oknie 1280 px) limit jest niższy — inaczej tabela 600 px
+          przewijała się w karcie 565 px. Tylko w trybie tabeli (`sm:`): karta na telefonie ma własną siatkę. */}
+      <td data-cell="train" className="max-w-[13rem] py-2.5 pr-3 sm:@max-2xl:max-w-[10rem]">
         {canOpenDetails ? (
           <button
             type="button"
@@ -348,7 +351,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
             // (plakietka kategorii, numer, przewoźnik) -- bez tego czytnik
             // ekranu odczytałby „EIC EIC 1 PKP Intercity" zamiast nazwy pociągu.
             aria-label={row.trainLabel}
-            className="rounded text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="block max-w-full rounded text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             <TrainIdentity row={row} />
           </button>
@@ -375,7 +378,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
         <span className="inline-flex items-center gap-1">
           {row.hasDisruption === true && (
-            <span className="text-amber-600 dark:text-amber-400">
+            <span className="text-warning-text">
               <AlertCircleIcon size={14} label="Utrudnienie na trasie" />
             </span>
           )}

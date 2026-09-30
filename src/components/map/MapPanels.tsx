@@ -113,10 +113,10 @@ export function VisibleListPanel({
   )
 }
 
-export type FavouritePoint = { key: string; name: string; lat: number; lon: number }
+export type PinnedPoint = { key: string; name: string; lat: number; lon: number }
 
-/** Szybki przeskok do ulubionych stacji/przystanków (te same co na Pulpicie). */
-export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePoint[]; onOpen: (favourite: FavouritePoint) => void }) {
+/** Szybki przeskok do przypiętych stacji/przystanków (te same co na Pulpicie). */
+export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]; onOpen: (pinnedItem: PinnedPoint) => void }) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -137,7 +137,7 @@ export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePo
       document.removeEventListener('pointerdown', onPointer)
     }
   }, [open])
-  if (favourites.length === 0) return null
+  if (pinnedItems.length === 0) return null
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -152,17 +152,17 @@ export function FavouritesMenu({ favourites, onOpen }: { favourites: FavouritePo
       </button>
       {open && (
         <ul id={panelId} aria-label="Przypięte" className="glass-strong absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">
-          {favourites.map((favourite) => (
-            <li key={favourite.key}>
+          {pinnedItems.map((pinnedItem) => (
+            <li key={pinnedItem.key}>
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false)
-                  onOpen(favourite)
+                  onOpen(pinnedItem)
                 }}
                 className={rowClass}
               >
-                <span className="truncate">{favourite.name}</span>
+                <span className="truncate">{pinnedItem.name}</span>
               </button>
             </li>
           ))}

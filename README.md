@@ -165,7 +165,7 @@ src/
 │   └── api/              endpointy: board, train, stations, search, weather,
 │                         network-stats, rail-stations, cities, health, gtfs/*
 ├── components/           komponenty UI (mapa transportu w components/map/)
-├── hooks/                hooki klienta (tablica, ulubione, pogoda, kontekst miasta)
+├── hooks/                hooki klienta (tablica, przypięte, pogoda, kontekst miasta)
 └── lib/
     ├── pkp/              klient PKP PLK, schematy Zod, normalizacja czasu, tryb mock
     ├── board/            poller, budowa tablicy, realizacja i opóźnienia, statystyki

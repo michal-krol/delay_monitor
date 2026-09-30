@@ -100,7 +100,7 @@ function StationDisruptions({ messages }: { messages: string[] }) {
     <ul className="flex flex-col gap-2">
       {messages.map((message) => (
         <li key={message} className="flex gap-2 text-xs text-text-secondary">
-          <span className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true">
+          <span className="mt-0.5 shrink-0 text-warning-text" aria-hidden="true">
             <AlertCircleIcon size={14} />
           </span>
           <span>{message}</span>

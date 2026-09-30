@@ -58,7 +58,7 @@ type Data = {
   stops: PointCollection
   rail: PointCollection
   selected: PointCollection
-  favourites: PointCollection
+  pinnedItems: PointCollection
   route: RouteOverlay
   routeColor: string
 }
@@ -111,7 +111,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
   map.addSource('stops', { type: 'geojson', data: data.stops })
   map.addSource('vehicles', { type: 'geojson', data: data.vehicles })
   map.addSource('selected', { type: 'geojson', data: data.selected })
-  map.addSource('favourites', { type: 'geojson', data: data.favourites })
+  map.addSource('pinnedItems', { type: 'geojson', data: data.pinnedItems })
   map.addSource('route-line', { type: 'geojson', data: data.route.line })
   map.addSource('route-stops', { type: 'geojson', data: data.route.stops })
 
@@ -265,11 +265,11 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     paint: labelPaint,
   })
 
-  // Ulubione (Pulpit) — złota obwódka, widoczna przy każdym zoomie.
+  // Przypięte (Pulpit) — złota obwódka, widoczna przy każdym zoomie.
   map.addLayer({
-    id: 'favourites',
+    id: 'pinnedItems',
     type: 'circle',
-    source: 'favourites',
+    source: 'pinnedItems',
     paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#f59e0b', 'circle-stroke-width': 2.5 },
   })
 
@@ -343,7 +343,7 @@ export function TransitMap({
   focus,
   route,
   follow,
-  favourites = [],
+  pinnedItems = [],
   onlyLines = null,
   listOpen = false,
   dark,
@@ -372,8 +372,8 @@ export function TransitMap({
   route: { key: string; overlay: RouteOverlay; color: string } | null
   /** Śledzony pojazd — kamera przesuwa się za nim z każdym odczytem. */
   follow: { lat: number; lon: number } | null
-  /** Pozycje ulubionych stacji/przystanków. */
-  favourites?: { lat: number; lon: number }[]
+  /** Pozycje przypiętych stacji/przystanków. */
+  pinnedItems?: { lat: number; lon: number }[]
   /** „Tylko linie z utrudnieniami" — `null` = wszystkie. */
   onlyLines?: ReadonlySet<string> | null
   /** Lista „w widoku" otwarta — dopiero wtedy liczymy widoczne obiekty. */
@@ -390,7 +390,7 @@ export function TransitMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
-  const dataRef = useRef<Data>({ backbone: backboneCollection(null), vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, favourites: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
+  const dataRef = useRef<Data>({ backbone: backboneCollection(null), vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, pinnedItems: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
   const dimmedRef = useRef(false)
   /** Kadr trasy wybranej, zanim styl mapy się wczytał — dopasujemy go po `style.load`. */
   const pendingFitRef = useRef<RouteOverlay['bounds']>(null)
@@ -545,15 +545,15 @@ export function TransitMap({
     return () => cancelAnimationFrame(raf)
   }, [vehicles, hidden, routeId, onlyLines])
 
-  const favouritesKey = favourites.map((f) => `${f.lat},${f.lon}`).join('|')
+  const pinnedItemsKey = pinnedItems.map((f) => `${f.lat},${f.lon}`).join('|')
   useEffect(() => {
-    dataRef.current.favourites = {
+    dataRef.current.pinnedItems = {
       type: 'FeatureCollection',
-      features: favourites.map((f) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.lon, f.lat] }, properties: {} })),
+      features: pinnedItems.map((f) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.lon, f.lat] }, properties: {} })),
     }
-    ;(mapRef.current?.getSource('favourites') as GeoJSONSource | undefined)?.setData(dataRef.current.favourites)
+    ;(mapRef.current?.getSource('pinnedItems') as GeoJSONSource | undefined)?.setData(dataRef.current.pinnedItems)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnatura pozycji, nie tożsamość tablicy z każdego renderu
-  }, [favouritesKey])
+  }, [pinnedItemsKey])
 
   useEffect(() => {
     // Otwarcie listy: przerysowanie wywoła `idle` → pierwsza lista od razu.

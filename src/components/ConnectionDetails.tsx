@@ -16,6 +16,7 @@ import { pluralPl } from '@/lib/plural'
 import { formatAge, formatClockTime, formatDuration } from '@/lib/format'
 import { usePolling } from '@/hooks/usePolling'
 import { useStationWeather } from '@/hooks/useStationWeather'
+import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import { AsideCard } from './aside'
 import { WeatherCard } from './StationAside'
 
@@ -208,6 +209,7 @@ function MetaItem({
 }
 
 export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLabel, onLabelResolved }: Props) {
+  const [asideRef, asideTabIndex] = useScrollableFocus<HTMLElement>()
   // Wejście = fetch, a potem dociąganie co `BACKGROUND_REFRESH_MS` na widocznej
   // karcie (AGENTS.md #3) -- inaczej marker „Pociąg jest tutaj", opóźnienia i
   // statusy zostałyby zamrożone z chwili wczytania. Cichy tryb w tle: bez
@@ -722,7 +724,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 </div>
               ) : (
                 <div className="glass flex items-start gap-3 rounded-2xl p-4">
-                  <span className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400">
+                  <span className="mt-0.5 shrink-0 text-warning-text">
                     <AlertCircleIcon size={16} />
                   </span>
                   <div className="min-w-0">
@@ -743,9 +745,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             </div>
 
             {/* ── Prawa kolumna ──────────────────────────────────────── */}
-            {/* `tabIndex`/`aria-label`: kolumna jest przewijalna (`lg:overflow-y-auto`), a po usunięciu przycisku
-                „Udostępnij" nie ma w niej fokusowalnej treści — axe `scrollable-region-focusable`, jak w `aside.tsx`. */}
-            <aside tabIndex={0} aria-label="Podsumowanie połączenia" className="flex flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
+            {/* `tabIndex`/`aria-label`: od `lg` kolumna bywa przewijalna (`lg:overflow-y-auto`), a nie ma w niej
+                fokusowalnej treści — axe `scrollable-region-focusable`; fokusowalna tylko, gdy faktycznie się przewija. */}
+            <aside ref={asideRef} tabIndex={asideTabIndex} aria-label="Podsumowanie połączenia" className="flex flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
               <AsideCard title={`Pogoda dziś — ${data.stops[0].stationName}`}>
                 <WeatherCard weather={originWeather} />
               </AsideCard>

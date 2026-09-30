@@ -271,10 +271,10 @@ describe('TransitMap', () => {
     )
   })
 
-  it('rings favourites and filters vehicles to disrupted lines', async () => {
+  it('rings pinnedItems and filters vehicles to disrupted lines', async () => {
     const { rerender } = await mounted()
-    rerender(<TransitMap {...base} favourites={[{ lat: 52.23, lon: 21.0 }]} onlyLines={new Set(['9'])} />)
-    expect(sources.get('favourites')!.setData.mock.calls.at(-1)![0].features[0].geometry.coordinates).toEqual([21.0, 52.23])
+    rerender(<TransitMap {...base} pinnedItems={[{ lat: 52.23, lon: 21.0 }]} onlyLines={new Set(['9'])} />)
+    expect(sources.get('pinnedItems')!.setData.mock.calls.at(-1)![0].features[0].geometry.coordinates).toEqual([21.0, 52.23])
     expect(sources.get('vehicles')!.setData.mock.calls.at(-1)![0].features).toEqual([])
   })
 

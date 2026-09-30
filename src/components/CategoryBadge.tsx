@@ -47,7 +47,7 @@ const SERVICE_CLASS: Record<string, ServiceClass> = {
   ŁKA: 'urban',
 }
 
-export function serviceClassOf(category: string): ServiceClass {
+function serviceClassOf(category: string): ServiceClass {
   return SERVICE_CLASS[category.toUpperCase()] ?? 'default'
 }
 

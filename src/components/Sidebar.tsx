@@ -6,7 +6,8 @@ import { NavList, type ActiveItem } from './navItems'
 import { PollerDiagnostics } from './PollerDiagnostics'
 
 type Props = {
-  // Opcjonalny -- strony bez odpowiednika w menu (np. /station/[stationId], /connection/...) nic nie podświetlają.
+  // Opcjonalny -- strony bez odpowiednika w menu (np. /station/[stationId],
+  // /connection/...) nic nie podświetlają.
   activeItem?: ActiveItem
 }
 

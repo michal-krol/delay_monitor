@@ -137,21 +137,21 @@ describe('MapCard — focus return', () => {
   })
 })
 
-describe('MapCard — favourites, nearby, disruptions', () => {
-  it('toggles the favourite star and offers "what is nearby" for places', () => {
+describe('MapCard — pinned items, nearby, disruptions', () => {
+  it('toggles the pin star and offers "what is nearby" for places', () => {
     railStatus.mockReturnValue({ status: null, error: false })
-    const onToggleFavourite = vi.fn()
+    const onTogglePin = vi.fn()
     const onNearby = vi.fn()
-    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} favourite={false} onToggleFavourite={onToggleFavourite} onNearby={onNearby} />)
+    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} pinned={false} onTogglePin={onTogglePin} onNearby={onNearby} />)
     fireEvent.click(screen.getByRole('button', { name: 'Przypnij do Pulpitu' }))
-    expect(onToggleFavourite).toHaveBeenCalled()
+    expect(onTogglePin).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Co jest w pobliżu?' }))
     expect(onNearby).toHaveBeenCalled()
   })
 
-  it('shows the pressed star for a favourite', () => {
+  it('shows the pressed star for a pinned item', () => {
     railStatus.mockReturnValue({ status: null, error: false })
-    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} favourite onToggleFavourite={() => {}} />)
+    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} pinned onTogglePin={() => {}} />)
     expect(screen.getByRole('button', { name: 'Odepnij z Pulpitu' })).toHaveAttribute('aria-pressed', 'true')
   })
 

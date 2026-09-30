@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { CloseIcon } from '../icons'
 import { IconButton } from '../IconButton'
+import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 
 /**
  * Jedna rama dokowanego panelu mapy (spec §15): karta obiektu (`MapCard`),
@@ -34,6 +35,7 @@ export function PanelFrame({
   children: ReactNode
 }) {
   const headingId = useId()
+  const [bodyRef, bodyTabIndex] = useScrollableFocus<HTMLDivElement>()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const onCloseRef = useRef(onClose)
@@ -77,7 +79,7 @@ export function PanelFrame({
           <CloseIcon size={16} />
         </IconButton>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={0} aria-label={bodyLabel ?? title}>
+      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>
         {children}
       </div>
     </section>

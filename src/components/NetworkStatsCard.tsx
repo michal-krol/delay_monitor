@@ -171,7 +171,7 @@ export function NetworkStatsCard() {
           )}
 
           <p className="flex items-center gap-1.5 text-xs text-text-secondary">
-            <AlertCircleIcon size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+            <AlertCircleIcon size={14} className="shrink-0 text-warning-text" />
             {data.disruptionCount === null ? '—' : formatNumber(data.disruptionCount)} zgłoszonych utrudnień na sieci
           </p>
         </div>

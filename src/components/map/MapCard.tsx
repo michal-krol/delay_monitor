@@ -40,8 +40,8 @@ export function MapCard({
   onShowRoute,
   following = false,
   onToggleFollow,
-  favourite,
-  onToggleFavourite,
+  pinned,
+  onTogglePin,
   onNearby,
   alertLines = [],
 }: {
@@ -55,9 +55,9 @@ export function MapCard({
   /** Kamera jedzie za tym pojazdem. */
   following?: boolean
   onToggleFollow?: () => void
-  /** Stacja/przystanek jest w ulubionych (Pulpit). `undefined` = brak przełącznika. */
-  favourite?: boolean
-  onToggleFavourite?: () => void
+  /** Stacja/przystanek jest w przypiętych (Pulpit). `undefined` = brak przełącznika. */
+  pinned?: boolean
+  onTogglePin?: () => void
   /** „Co jest w pobliżu?" — dostępna z klawiatury alternatywa dla prawego kliku. */
   onNearby?: () => void
   /** Numery linii z aktywnym alertem. */
@@ -75,10 +75,10 @@ export function MapCard({
       title={heading}
       subtitle={<Subtitle selection={selection} vehicle={vehicle} />}
       actions={
-        favourite !== undefined &&
-        onToggleFavourite !== undefined && (
-          <IconButton label={favourite ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onToggleFavourite} pressed={favourite} size="lg">
-            <StarIcon size={16} filled={favourite} className={favourite ? PIN_COLOR : ''} />
+        pinned !== undefined &&
+        onTogglePin !== undefined && (
+          <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onTogglePin} pressed={pinned} size="lg">
+            <StarIcon size={16} filled={pinned} className={pinned ? PIN_COLOR : ''} />
           </IconButton>
         )
       }
@@ -278,7 +278,7 @@ function VehicleBody({
           <dt className="text-xs text-text-muted">Pozycja</dt>
           <dd>
             {formatAgo(vehicle.ageSec)} ·{' '}
-            <span className={fresh ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-700 dark:text-amber-400'}>
+            <span className={fresh ? 'text-indigo-600 dark:text-indigo-400' : 'text-warning-text'}>
               {fresh ? 'aktualna' : 'nieaktualna'}
             </span>
           </dd>

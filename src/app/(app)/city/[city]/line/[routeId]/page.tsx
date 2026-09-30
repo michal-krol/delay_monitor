@@ -211,7 +211,7 @@ export default function LineDetailPage() {
           <p className="text-sm text-text-secondary">Wczytywanie przebiegu linii…</p>
         ) : line === null || direction === undefined ? (
           <p className="text-sm text-text-secondary">
-            {data?.schedule.state === 'loading' ? 'Rozkład jeszcze się wczytuje.' : 'Nie znaleziono takiej linii w rozkładzie.'}
+            {data?.schedule.state === 'loading' ? 'Wczytywanie rozkładu…' : 'Nie znaleziono takiej linii w rozkładzie.'}
           </p>
         ) : (
           <>
@@ -336,7 +336,7 @@ export default function LineDetailPage() {
                           {stop.wheelchair === 2 && (
                             <AccessibleIcon
                               size={13}
-                              className="shrink-0 self-center text-amber-600 dark:text-amber-400"
+                              className="shrink-0 self-center text-warning-text"
                               label="Przystanek niedostępny dla osób na wózku"
                             />
                           )}

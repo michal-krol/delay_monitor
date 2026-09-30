@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSidebarCollapsed } from './useSidebarCollapsed'
 
 const STORAGE_KEY = 'pkp.sidebarCollapsed.v1'
@@ -8,6 +8,19 @@ const STORAGE_KEY = 'pkp.sidebarCollapsed.v1'
 describe('useSidebarCollapsed', () => {
   beforeEach(() => {
     window.localStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('toggle() przełącza stan także wtedy, gdy localStorage odrzuca zapis', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError')
+    })
+    const { result } = renderHook(() => useSidebarCollapsed())
+    act(() => result.current.toggle())
+    expect(result.current.collapsed).toBe(true)
   })
 
   it('domyślnie rozwinięty, gdy nic nie ma w localStorage', () => {

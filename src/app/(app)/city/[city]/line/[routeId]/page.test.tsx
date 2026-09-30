@@ -261,7 +261,7 @@ describe('LineDetailPage', () => {
   it('says the schedule is still loading when the feed is not ready', async () => {
     stubFetch({ ...LINE, line: null, schedule: { ...LINE.schedule, state: 'loading' } })
     render(<LineDetailPage />)
-    expect(await screen.findByText('Rozkład jeszcze się wczytuje.')).toBeInTheDocument()
+    expect(await screen.findByText('Wczytywanie rozkładu…')).toBeInTheDocument()
   })
 
   it('keeps the weather card in the right column even before the line loads', async () => {

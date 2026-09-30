@@ -32,6 +32,10 @@ type Props = {
   wide?: boolean
 }
 
+/** Wygląd pola wyszukiwania — wspólny dla stacji/przystanków, linii na mapie i listy linii. */
+export const SEARCH_INPUT_CLASS =
+  'glass w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500'
+
 const DEFAULT_ENDPOINT = '/api/stations'
 const MAX_TILE_LINES = 6
 
@@ -110,6 +114,14 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    // Komunikat („Szukam…”, „Brak…”, błąd) też jest czymś do zamknięcia: zjadamy Escape, żeby panel
+    // mapy (nasłuch na window) nie zamknął się tym samym klawiszem. Czyszczenie zapytania anuluje
+    // też zapytanie w locie — samo `status = 'idle'` nadpisałaby spóźniona odpowiedź.
+    if (event.key === 'Escape' && !isOpen && message !== null) {
+      event.preventDefault()
+      setQuery('')
+      return
+    }
     if (!isOpen) return
 
     if (event.key === 'ArrowDown') {
@@ -168,7 +180,7 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
-        className="glass w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500"
+        className={SEARCH_INPUT_CLASS}
         placeholder={placeholder ?? 'Szukaj stacji…'}
         value={query}
         onChange={(event) => setQuery(event.target.value)}

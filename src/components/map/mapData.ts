@@ -95,7 +95,7 @@ export function vehicleLayerKey(mode: GtfsMode | null): LayerKey {
   return 'buses'
 }
 
-export function stopLayerKey(mode: CityStop['mode']): LayerKey {
+function stopLayerKey(mode: CityStop['mode']): LayerKey {
   if (mode === 'metro') return 'metroStops'
   if (mode === 'tram') return 'tramStops'
   return 'busStops'

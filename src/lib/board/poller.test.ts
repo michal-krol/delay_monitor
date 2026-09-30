@@ -377,7 +377,7 @@ describe('createPoller', () => {
   })
 
   it('still fetches immediately for the first few new stations', async () => {
-    // Limit nie moze psuc normalnego uzycia: dodanie kilku ulubionych stacji
+    // Limit nie moze psuc normalnego uzycia: dodanie kilku przypiętych stacji
     // ma nadal dawac dane od razu, bez czekania na kolejny przebieg.
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makePkpClient({ getOperations })

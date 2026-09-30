@@ -190,7 +190,32 @@ describe('StationSearch', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('consumes Escape (defaultPrevented) only when a list was open', async () => {
+  it.each([
+    ['„Szukam…”', () => new Promise<Response>(() => {}), 'Szukam…'],
+    ['„Brak…”', () => jsonResponse({ stations: [] }), 'Brak stacji o tej nazwie'],
+    ['an error', () => Promise.resolve(new Response('{}', { status: 503 })), 'Nie udało się pobrać listy stacji'],
+  ])('consumes Escape and clears the query while %s is shown (the map panel must stay open)', async (_name, respond, text) => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(respond))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const seen: boolean[] = []
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') seen.push(event.defaultPrevented)
+    }
+    window.addEventListener('keydown', onKey)
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('combobox'), 'zzzz')
+    await vi.advanceTimersByTimeAsync(300)
+    await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(text))
+    await user.keyboard('{Escape}')
+    window.removeEventListener('keydown', onKey)
+
+    expect(seen).toEqual([true])
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toHaveValue('')
+  })
+
+  it('consumes Escape (defaultPrevented) only when there is something to clear', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })

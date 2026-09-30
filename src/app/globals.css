@@ -52,6 +52,9 @@
   /* Jeden kolor tekstu błędu w całej appce (wcześniej red-600/400 i red-700/300
      na przemian). red-700: 6,0:1 na tle karty `glass` w jasnym motywie. */
   --error-text: #b91c1c;
+  /* Jeden kolor „wymaga uwagi, ale nie błąd” (dane sprzed chwili, utrudnienia, degradacja);
+     wcześniej amber-600/700 i dark:amber-400 na przemian. amber-700: 5,0:1 na `glass`. */
+  --warning-text: #b45309;
 }
 
 .dark {
@@ -85,6 +88,8 @@
 
   /* red-300: 9,6:1 na `#0d1424` (efektywne tło `glass` w ciemnym motywie). */
   --error-text: #fca5a5;
+  /* amber-400 na `#0d1424`. */
+  --warning-text: #fbbf24;
   /* Nieprzezroczyste tło kontrolek MapLibre (popup, zoom, atrybucja) -- patrz
      komentarz przy regułach `.maplibregl-*` niżej. */
   --map-surface: #0f172a;
@@ -159,6 +164,7 @@
   --color-surface-strong: var(--surface-strong);
   --color-surface-border: var(--surface-border);
   --color-error-text: var(--error-text);
+  --color-warning-text: var(--warning-text);
   /* Jedna szerokość prawej kolumny (PageAside, tablice, karta mapy) — właściciel
      2026-09-29: 320 px przy 1280, 380 px od ok. 1520. */
   --spacing-aside: clamp(20rem, 25vw, 23.75rem);

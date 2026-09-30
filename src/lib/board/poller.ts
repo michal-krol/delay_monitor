@@ -62,7 +62,7 @@ export const MAX_OPERATIONS_PAGES = 6
 
 /**
  * Stacja bez danych wymusza przebieg poza harmonogramem, żeby pokazać rozkład
- * od razu po dodaniu do ulubionych. Bez limitu jest to jednak dźwignia: każde
+ * od razu po dodaniu do przypiętych. Bez limitu jest to jednak dźwignia: każde
  * nieznane ID omija dławik 45 s i zamienia się w zapytanie do PKP, więc seria
  * żądań wyczerpuje limit 100/h i degraduje aplikację dla wszystkich.
  *

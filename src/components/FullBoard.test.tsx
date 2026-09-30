@@ -66,7 +66,7 @@ describe('FullBoard', () => {
   it('renders a table with caption and scoped headers, defaulting to departures', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     expect(await screen.findByText('EIC 1')).toBeInTheDocument()
     expect(screen.getAllByRole('columnheader')[0]).toHaveAttribute('scope', 'col')
@@ -80,7 +80,7 @@ describe('FullBoard', () => {
   it('shows the carrier logo next to the code for a known carrier', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     expect(await screen.findByText('EIC 1')).toBeInTheDocument()
 
@@ -103,7 +103,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshotWithoutCarrier], budget: undefined, status: 'ok' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     await screen.findByText('EIC 1')
     const row = screen.getAllByRole('row').find((r) => within(r).queryByText('EIC 1'))
@@ -114,7 +114,7 @@ describe('FullBoard', () => {
     const snapshotWithName = { ...SNAPSHOT, departures: [{ ...SNAPSHOT.departures[0], carrierName: 'PKP Intercity' }] }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshotWithName], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     // Wcześniej kod i pełna nazwa renderowały się OBA, przełączane klasami
@@ -127,7 +127,7 @@ describe('FullBoard', () => {
   it('shows the platform and track column on narrow screens too, no longer hidden', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     // Peron i tor to teraz dwie osobne wartości pod sobą (makieta §10),
@@ -143,7 +143,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [past, future] }], budget: undefined, status: 'ok' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('PAST1')
 
     const pastRow = screen.getAllByRole('row').find((r) => within(r).queryByText('PAST1'))
@@ -156,7 +156,7 @@ describe('FullBoard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     expect(await screen.findByText('EIC 1')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Przyjazdy' }))
@@ -169,7 +169,7 @@ describe('FullBoard', () => {
     async function setupBoard() {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
       const user = userEvent.setup()
-      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
       expect(await screen.findByText('EIC 1')).toBeInTheDocument()
       return user
     }
@@ -239,7 +239,7 @@ describe('FullBoard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [notStartedSnapshot], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     expect(await screen.findByText('jeszcze nie wyjechał')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Przyjazdy' }))
@@ -258,7 +258,7 @@ describe('FullBoard', () => {
     }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [enRouteSnapshot], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     expect(await screen.findByText('w trasie, ~+30 min')).toBeInTheDocument()
     expect(screen.getByText('w trasie')).toBeInTheDocument()
@@ -269,7 +269,7 @@ describe('FullBoard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [empty], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     expect(await screen.findByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
 
@@ -279,15 +279,15 @@ describe('FullBoard', () => {
     expect(screen.queryByText('Brak odjazdów w najbliższych godzinach')).not.toBeInTheDocument()
   })
 
-  it('shows the correct favourite toggle label and calls the handler', async () => {
+  it('shows the correct pin toggle label and calls the handler', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
-    const onToggleFavourite = vi.fn()
+    const onTogglePin = vi.fn()
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={onToggleFavourite} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={onTogglePin} />)
     await user.click(screen.getByRole('button', { name: 'Przypnij do Pulpitu' }))
 
-    expect(onToggleFavourite).toHaveBeenCalled()
+    expect(onTogglePin).toHaveBeenCalled()
   })
 
   it('hides the tabs and table behind the config-error banner', async () => {
@@ -299,7 +299,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'configError' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
 
@@ -316,7 +316,7 @@ describe('FullBoard', () => {
     const snapshot = { ...SNAPSHOT, fetchedAt: '2026-08-01T20:24:11.827Z' }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshot], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     expect(await screen.findByText(/Ostatnia aktualizacja:/)).toBeInTheDocument()
     expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
@@ -326,7 +326,7 @@ describe('FullBoard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await user.click(await screen.findByRole('button', { name: 'EIC 1' }))
 
     expect(push).toHaveBeenCalledWith('/connection/2026/12345/2026-08-01?train=EIC%201')
@@ -339,7 +339,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [rowWithoutDate] }], budget: undefined, status: 'ok' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     expect(screen.queryByRole('button', { name: 'EIC 1' })).not.toBeInTheDocument()
@@ -349,7 +349,7 @@ describe('FullBoard', () => {
     window.history.pushState({}, '', '/?tab=arrivals')
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     // Zakładka Przyjazdy aktywna od razu -- TLK 2 widoczne, EIC 1 (odjazdy) nie.
     expect(await screen.findByText('TLK 2')).toBeInTheDocument()
@@ -361,7 +361,7 @@ describe('FullBoard', () => {
     const user = userEvent.setup()
 
     const { unmount } = render(
-      <FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />
+      <FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />
     )
     await user.click(await screen.findByRole('tab', { name: 'Przyjazdy' }))
     // The URL is written from a useEffect, not the click handler.
@@ -381,7 +381,7 @@ describe('FullBoard', () => {
       vi.fn().mockImplementation(() => jsonResponse({ snapshots: [{ ...SNAPSHOT, departures: [disrupted] }], budget: undefined, status: 'ok' }))
     )
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     expect(screen.getByTitle('Utrudnienie na trasie')).toBeInTheDocument()
@@ -390,7 +390,7 @@ describe('FullBoard', () => {
   it('does not show a disruption indicator when hasDisruption is absent (existing rows predating this field)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     expect(screen.queryByTitle('Utrudnienie na trasie')).not.toBeInTheDocument()
@@ -399,7 +399,7 @@ describe('FullBoard', () => {
   it('offers a status legend next to the "Status" column header, revealed on focus, covering all six statuses', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     const legendButton = screen.getByRole('button', { name: 'Legenda statusów' })
@@ -420,7 +420,7 @@ describe('FullBoard', () => {
   it('closes the status legend on Escape without moving focus off the trigger', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     const legendButton = screen.getByRole('button', { name: 'Legenda statusów' })
@@ -436,7 +436,7 @@ describe('FullBoard', () => {
     // Wyjście, motyw i „Udostępnij” daje `TopBar` strony (station) albo ekran
     // nadrzędny (city) -- tablica ma tylko przypięcie.
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
-    const { rerender } = render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    const { rerender } = render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
 
     expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
@@ -444,7 +444,7 @@ describe('FullBoard', () => {
     expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Warszawa Centralna' })).toBeInTheDocument()
 
-    rerender(<FullBoard embedded stationId="5100" stationName="Warszawa Centralna" isFavourite={false} onToggleFavourite={vi.fn()} />)
+    rerender(<FullBoard embedded stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     expect(screen.getByRole('heading', { level: 2, name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
