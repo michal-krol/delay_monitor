@@ -41,5 +41,10 @@ export function patchUrlParams(patch: Record<string, string | null>): void {
 
   const query = params.toString()
   const url = `${window.location.pathname}${query ? `?${query}` : ''}`
-  window.history.replaceState(null, '', url)
+  // Stan bieżącego wpisu przekazujemy dalej, nie `null`: przy bezpośrednim
+  // wejściu na stronę efekt komponentu-dziecka odpala się przed efektem routera,
+  // który dopiero podmienia `history.replaceState` na wersję kopiującą wewnętrzny
+  // stan Next (`__NA`). Natywne `replaceState(null)` kasowało go, a router
+  // ignorował potem `popstate` — powrót z /connection zmieniał URL, nie widok.
+  window.history.replaceState(window.history.state, '', url)
 }
