@@ -101,7 +101,7 @@ export function useBoard(stationIds: string[]) {
   // Klucz = lista stacji. `keepPreviousData`: dodanie/usunięcie przypiętej nie zeruje kart
   // pulpitu do czasu nowej odpowiedzi (Dashboard łączy snapshoty po id stacji).
   const key = stationIds.length === 0 ? null : stationIds.join(',')
-  const { data: polled, error } = usePolling<BoardApiResponse>(key, () => fetchJson(`/api/board?stations=${encodeURIComponent(key ?? '')}`), {
+  const { data: polled, error, lastSuccessAt } = usePolling<BoardApiResponse>(key, () => fetchJson(`/api/board?stations=${encodeURIComponent(key ?? '')}`), {
     refreshMs: REFRESH_INTERVAL_MS,
     ladderMs: FAST_RETRY_DELAYS_MS,
     isLoading: stillLoading,
@@ -115,5 +115,5 @@ export function useBoard(stationIds: string[]) {
   const received = polled?.snapshots.filter((s) => s !== null) ?? []
   const stale = received.length > 0 && !received.some((s) => stationIds.includes(s.stationId))
   const data = stale ? null : polled
-  return { data, error }
+  return { data, error, lastSuccessAt }
 }

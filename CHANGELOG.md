@@ -6,6 +6,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Naprawione
+
+- Ostrzeżenie „dane sprzed …" na tablicy i pulpicie liczy wiek danych od chwili ich
+  pobrania w przeglądarce, a nie tylko od chwili ich zapisania na serwerze. Wcześniej stare
+  dane, które przy nieudanym odświeżeniu zostawały na ekranie, wciąż wyglądały na świeże;
+  teraz wiek rośnie razem z upływem czasu.
+
 ### Zmienione
 
 - Powrót z widoku połączenia na tablicę stacji pokazuje od razu ostatnio pobrane dane razem

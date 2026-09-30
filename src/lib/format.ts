@@ -51,6 +51,18 @@ export function formatAge(ageMs: number): string {
 }
 
 /**
+ * Wiek danych „teraz": `ageMs` z odpowiedzi jest zamrożony w chwili jej powstania,
+ * więc dokładamy czas od udanego pobrania (`lastSuccessAt`, ms epoch, zegar klienta).
+ * Nieznany wiek odpowiedzi zostaje nieznany; brak `lastSuccessAt` = wiek z odpowiedzi.
+ * Cofnięty zegar nie zmniejsza wieku poniżej wartości z odpowiedzi.
+ */
+export function effectiveAgeMs(ageMs: number | undefined, lastSuccessAt: number | null | undefined, now: number): number | undefined {
+  if (ageMs === undefined) return undefined
+  if (lastSuccessAt === null || lastSuccessAt === undefined) return ageMs
+  return ageMs + Math.max(0, now - lastSuccessAt)
+}
+
+/**
  * Wiek chwili w formie rozmownej -- „przed chwilą" / „N s temu" / „N min
  * temu" / „N h temu". Do diagnostyki (`PollerDiagnostics`) i pozycji na
  * mapie (dawny `ageLabel` w `mapData.ts`), gdzie liczy się szybki rzut oka,

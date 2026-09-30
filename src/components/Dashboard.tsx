@@ -20,7 +20,7 @@ export function Dashboard({ pinnedItems, onExpand, onRemove }: Props) {
   const stations = pinnedItems.filter((pinnedItem) => pinnedItem.kind === 'pkp')
   const transitStops = pinnedItems.filter((pinnedItem) => pinnedItem.kind === 'gtfs')
   const stationIds = stations.map((pinnedItem) => pinnedItem.id)
-  const { data, error } = useBoard(stationIds)
+  const { data, error, lastSuccessAt } = useBoard(stationIds)
 
   const received = (data?.snapshots ?? []).filter((snapshot) => snapshot !== null)
 
@@ -41,7 +41,7 @@ export function Dashboard({ pinnedItems, onExpand, onRemove }: Props) {
   return (
     <div>
       <div className="glass mb-5 inline-flex rounded-full px-3.5 py-1.5">
-        <BoardStatus fetchedAt={freshest?.fetchedAt} ageMs={freshest?.ageMs} data={data} error={error !== null} />
+        <BoardStatus fetchedAt={freshest?.fetchedAt} ageMs={freshest?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} />
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-5">
         {stations.map((pinnedItem) => (
