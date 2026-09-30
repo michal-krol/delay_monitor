@@ -162,7 +162,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   }, [])
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass rounded-2xl p-5">
           {configError && <ConfigErrorBanner />}
@@ -244,7 +244,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
       </div>
 
       {!configError && (
-        <aside className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
+        <aside className="xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">
           <StationAside
             insights={snapshot?.insights}
             disruptionMessages={snapshot?.disruptionMessages ?? []}

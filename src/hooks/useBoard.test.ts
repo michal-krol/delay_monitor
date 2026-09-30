@@ -38,6 +38,20 @@ describe('useBoard', () => {
     expect(result.current.lastSuccessAt).toBeLessThanOrEqual(Date.now())
   })
 
+  it('returns the last snapshot immediately when the board is remounted (back from a connection view)', async () => {
+    const body = { snapshots: [{ stationId: '5100' }], budget: undefined, status: 'ok' }
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse(body))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, unmount } = renderHook(() => useBoard(['5100']))
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+    unmount()
+
+    fetchMock.mockImplementation(() => new Promise(() => {})) // odświeżenie w tle jeszcze nie odpowiedziało
+    const { result: remounted } = renderHook(() => useBoard(['5100']))
+    expect(remounted.current.data?.snapshots).toHaveLength(1)
+  })
+
   it('refetches every 30 seconds while visible', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' }))
     vi.stubGlobal('fetch', fetchMock)

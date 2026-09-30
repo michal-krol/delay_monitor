@@ -137,6 +137,21 @@ describe('ConnectionDetails', () => {
     expect(screen.getByText(/peron 3 · tor 1/)).toBeInTheDocument()
   })
 
+  it('shows the last data at once, without the loading skeleton, when the same connection is opened again', async () => {
+    const props = { scheduleId: '2026', orderId: '12345', operatingDate: '2026-08-01', trainLabel: 'EIC 1' }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+    const { unmount } = render(<ConnectionDetails {...props} />)
+    await waitForRoute()
+    unmount()
+
+    // Powrót na to samo połączenie: odświeżenie w tle jeszcze nie odpowiedziało.
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(() => {})))
+    render(<ConnectionDetails {...props} />)
+
+    expect(screen.queryByText('Wczytywanie trasy…')).not.toBeInTheDocument()
+    expect(routeList().getByText('Gdańsk Główny')).toBeInTheDocument()
+  })
+
   it('reports the resolved train number once loaded, for a parent breadcrumb', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
     const onLabelResolved = vi.fn()
