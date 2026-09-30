@@ -45,7 +45,8 @@ export default function CityLinesPage() {
   // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
   const { data, error } = usePolling<LinesResponse>(city, () => fetchJson(`/api/gtfs/lines?city=${encodeURIComponent(city)}`), {
     refreshMs: null,
-    isLoading: (json) => json.schedule.state === 'loading',
+    // Brak listy = dalej ponawiamy (także po nieudanym pierwszym wczytaniu rozkładu: `state: 'failed'`, `lines: null`).
+    isLoading: (json) => json.lines === null,
   })
   const failed = error !== null
 

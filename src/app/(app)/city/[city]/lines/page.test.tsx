@@ -270,6 +270,29 @@ describe('CityLinesPage', () => {
     }
   })
 
+  it('keeps polling when the first schedule load failed on the server (state failed, lines null) and renders once lines exist', async () => {
+    vi.useFakeTimers()
+    try {
+      let calls = 0
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.startsWith('/api/gtfs/lines')) {
+            return ++calls === 1 ? jsonResponse({ ...LINES, schedule: { ...READY, state: 'failed', loadedAt: null }, lines: null }) : jsonResponse(LINES)
+          }
+          return jsonResponse({ cities: [] })
+        })
+      )
+      render(<CityLinesPage />)
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
+      await act(() => vi.advanceTimersByTimeAsync(1_000)) // pierwszy stopień drabinki
+      expect(screen.getByRole('link', { name: /Linia M1/ })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('retries after a failed fetch instead of staying failed', async () => {
     vi.useFakeTimers()
     try {
