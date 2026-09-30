@@ -68,7 +68,16 @@ paths:
   validated (Zod → `#RRGGBB` or `null`, `route_text_color` ignored) but the UI no longer reads
   it. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
   dark outline/casing on the map (`strokeFor()` in `mapData.ts`). Callers without a kind derive
-  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`.
+  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Why: `adr/0004`.
+  Kinds (`lineKindFrom`, ZTM convention): `N…` night, `Z…` replacement, `E…`/400–599 express,
+  `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
+  `LINE_KIND_LABEL` in `transitMode.tsx`.
+- **„Linie” page** (`/city/<city>/lines`, `LineGrid.tsx`): `<details>` sections per mode, bus
+  subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
+  (`useSectionOpen`), recent lines `monitor.recentLines.v1` (`useRecentLines`, recorded by the
+  line page only after its detail loaded) — both through Zod (#4). React fires `toggle` also
+  for a programmatic `open` change: `setOpen(key, open, count)` skips writes equal to the
+  current state, otherwise the first render would freeze the defaults.
 - **`schedule.routePatterns`** (stop sequence per direction + second `offsets` from the first
   stop) accumulated in the hot `stop_times` loop — don't scan millions of events per line-page
   request. `lineDetail()` reads the ready index; the page computes a time as

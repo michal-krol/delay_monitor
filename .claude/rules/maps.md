@@ -34,6 +34,14 @@ consumers, two different degradations for a missing station: `/api/weather` retu
 (`.catch(() => null)` — a file-read failure doesn't break the whole `/api/train`, only the map
 enrichment).
 
+## Colours on the map
+
+Every map colour (pins, vehicles, route and backbone lines) comes from `lineColor()` /
+`MODE_COLOR` (`adr/0004`, `gtfs.md`), never from the feed. Yellow metro: every outline,
+casing, ring and arrow outline goes through `strokeFor()` / `casingFor()` in `mapData.ts`
+(one rule). On the dark basemap casings are translucent white — a dark-red casing tints the
+yellow orange there.
+
 ## Exception: map tiles
 
 `MapView.tsx` (MapLibre GL JS + `tiles.openfreemap.org`, free, no key/limit, ODbL) is the only

@@ -6,7 +6,30 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Dodane
+
+- Nowy ekran „Linie” (dawniej „Trasy”). Każdy środek transportu ma zwijaną sekcję, a
+  autobusy dzielą się dodatkowo na zwykłe, przyspieszone, podmiejskie, lokalne, nocne i
+  zastępcze. Nagłówki tych podsekcji objaśniają zarazem kolory. Kafel linii pokazuje jej
+  numer i końcówki „A → B”, więc kierunek widać także na telefonie, bez najeżdżania kursorem.
+  Stan zwinięcia sekcji zostaje zapamiętany. Na telefonie sekcje startują zwinięte.
+- Pasek „Ostatnio oglądane” z sześcioma ostatnio otwartymi liniami.
+- Wyszukiwarka linii przeszukuje wszystkie środki naraz. Wyniki mają oznaczenie rodzaju
+  linii („nocna”, „przyspieszona”…).
+- Rodzaje linii „podmiejska” (7xx, 8xx) i „lokalna” (L). Widżet komunikacji miejskiej
+  podaje ich liczbę.
+
 ### Zmienione
+
+- Jeden kolor oznacza w całej aplikacji jedną kategorię linii: na plakietkach, tablicach
+  przystanków i na mapie. Metro jest żółte, tramwaje morskie, a kolej niebieska. Autobusy
+  mają kolory ZTM: zwykłe fioletowe, przyspieszone czerwone, podmiejskie zielone, lokalne
+  granatowe, nocne czarne i zastępcze szare. Wcześniej tramwaje i autobusy przyspieszone
+  miały ten sam czerwony kolor, a M2 niemal ten sam.
+- Metro ma nowy piktogram: „M” w kole.
+- Ekran „Linie” ma w prawej kolumnie pogodę i widżet komunikacji miejskiej, jak ekran
+  „Odjazdy / Przyjazdy”. Godzina aktualizacji rozkładu jest w stopce. Ostrzeżenie o
+  nieświeżym rozkładzie zostaje na górze.
 
 - Rozkład komunikacji miejskiej zaczyna się wczytywać zaraz po starcie serwera i zostaje
   w pamięci, więc pierwsze wejście na widok miasta nie czeka już na jego pobranie. Pozycje
@@ -91,6 +114,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Usunięte
 
+- Filtr środka transportu na ekranie „Linie”. Dublował podział na sekcje.
 - Wyłączone pozycje menu „Ulubione", „Powiadomienia" i „Ustawienia" („Wkrótce") — nie
   prowadziły nigdzie. Przypięte stacje i przystanki są na Pulpicie.
 
