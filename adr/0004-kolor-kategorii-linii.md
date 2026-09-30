@@ -23,6 +23,9 @@ PD-textlogo, ale może być chronionym znakiem towarowym.
 
 - M1/M2 i linie SKM nie mają już na mapie własnych barw.
 - Żółte metro potrzebuje ciemnej obwódki na jasnej mapie (`strokeFor`, WCAG 1.4.11).
+- Zieleń linii podmiejskich (#006800) i czerwień przyspieszonych (#b60000) są bliskie
+  kolorom statusów („na czas” / „odwołany”); ryzyko przyjęte świadomie, bo konwencja ZTM
+  ma pierwszeństwo, a plakietki niosą numer linii, nigdy status (#13).
 - Nowe miasto z inną konwencją kolorów wymaga zmiany palety albo reguł rodzaju linii.
 
 ## Odrzucone alternatywy

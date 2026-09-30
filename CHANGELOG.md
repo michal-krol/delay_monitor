@@ -30,7 +30,6 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Ekran „Linie” ma w prawej kolumnie pogodę i widżet komunikacji miejskiej, jak ekran
   „Odjazdy / Przyjazdy”. Godzina aktualizacji rozkładu jest w stopce. Ostrzeżenie o
   nieświeżym rozkładzie zostaje na górze.
-
 - Rozkład komunikacji miejskiej zaczyna się wczytywać zaraz po starcie serwera i zostaje
   w pamięci, więc pierwsze wejście na widok miasta nie czeka już na jego pobranie. Pozycje
   pojazdów i komunikaty nadal są pobierane tylko wtedy, gdy ktoś je ogląda.

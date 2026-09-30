@@ -131,7 +131,7 @@ paths:
 - **Transport map — zero new fetches.** `/api/gtfs/backbone` (metro and city-rail patterns
   from `routePatterns`) and `alertLines` in `/api/gtfs/city-vehicles` (line numbers with an
   active alert, `[]` while AlertPoller isn't ready = no badge) read only memory. Colour on the
-  map = transport mode, never delay; the vehicle card shows position freshness, not
+  map = line category (`lineColor(mode, kind)`, `adr/0004`), never delay; the vehicle card shows position freshness, not
   „LIVE +N min".
 - **Stops on the map (`/api/gtfs/stops`, `cityStops()`).** From `stops.txt` already in memory,
   computed once per schedule (`WeakMap`). Metro platforms collapsed to the parent station,
