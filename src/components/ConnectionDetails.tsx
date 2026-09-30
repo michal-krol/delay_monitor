@@ -323,7 +323,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
     [stops]
   )
   const mapRoute = useMemo(
-    () => ({ points: mapPins.map(({ lat, lon }) => ({ lat, lon })), mode: 'rail' as const, color: null }),
+    () => ({ points: mapPins.map(({ lat, lon }) => ({ lat, lon })), mode: 'rail' as const }),
     [mapPins]
   )
   const mapMovers = useMemo<MapMover[]>(() => {

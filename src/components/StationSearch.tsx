@@ -228,7 +228,7 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
                   {option.kind === 'transit' && lines.length > 0 && (
                     <span className="mt-1 flex flex-wrap gap-1">
                       {lines.slice(0, MAX_TILE_LINES).map((entry) => (
-                        <LineBadge key={entry.routeId} line={entry.line} color={entry.color} mode={entry.mode} size="sm" />
+                        <LineBadge key={entry.routeId} line={entry.line} mode={entry.mode} kind={entry.kind} size="sm" />
                       ))}
                       {lines.length > MAX_TILE_LINES && (
                         <span className="text-xs text-text-muted">+{lines.length - MAX_TILE_LINES}</span>

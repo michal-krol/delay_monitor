@@ -25,7 +25,6 @@ import {
   nearbyPoints,
   parseAt,
   parseHidden,
-  routeColor,
   routeOverlay,
   serializeHidden,
   stopsBounds,
@@ -49,6 +48,7 @@ import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/quer
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
+import { lineColor } from '@/components/transitMode'
 
 const WIDE_QUERY = '(min-width: 40rem)'
 const LAST_VIEW_KEY = 'monitor.map.view.v1'
@@ -165,7 +165,7 @@ export default function CityMapPage() {
     const directions = lineDetail.detail?.directions ?? []
     const direction = directions.find((d) => d.directionId === directionId) ?? directions[0]
     if (line === null || direction === undefined) return null
-    return { key: `${line.routeId}:${direction.directionId}`, overlay: routeOverlay(direction), color: routeColor(line.mode, line.color) }
+    return { key: `${line.routeId}:${direction.directionId}`, overlay: routeOverlay(direction), color: lineColor(line.mode, line.kind).bg }
   }, [line, lineDetail.detail, directionId])
 
   const vehiclesById = useMemo(() => new Map(vehiclesState.vehicles.map((v) => [v.id, v])), [vehiclesState.vehicles])

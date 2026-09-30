@@ -6,11 +6,12 @@ import { STYLE_DARK, STYLE_LIGHT, WORKER_URL } from '../MapView'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { BackboneLine, CityStop } from '@/lib/gtfs/query'
 import type { MapRailStation } from '@/lib/weather/coordinates'
+import { LINE_PALETTE } from '../transitMode'
 import {
   MAP_ZOOM,
   arrowImage,
   interpolatePoints,
-  routeColor,
+  strokeFor,
   MODE_COLOR,
   POLAND_BOUNDS,
   railToGeoJSON,
@@ -75,14 +76,17 @@ const VISIBLE_KIND: Record<string, VisibleItem['kind']> = { vehicles: 'vehicle',
 const GLIDE_MS = 1000
 const GLIDE_FRAME_MS = 66
 
+/** Biała kropka przystanku trasy z kolorową obwódką; żółta obwódka metra na białym znikałaby → ciemnoczerwona. */
+const routeStopStroke = (color: string): string => (color === LINE_PALETTE.metro.bg ? LINE_PALETTE.metro.fg : color)
+
 function backboneCollection(lines: BackboneLine[] | null): Data['backbone'] {
   return {
     type: 'FeatureCollection',
     features: (lines ?? []).map((l) => ({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: l.points.map(([lat, lon]) => [lon, lat]) },
-      // Kolor linii z feedu (M1 granatowa, M2 czerwona — jak plakietki `LineBadge`); rodzaj tylko jako zapas.
-      properties: { color: routeColor(l.mode, l.color) },
+      // Kolor rodzaju z jednej palety (metro żółte, SKM niebieskie — jak plakietki `LineBadge`), nie `route_color` z feedu.
+      properties: { color: MODE_COLOR[l.mode] },
     })),
   }
 }
@@ -104,7 +108,9 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     'text-halo-color': dark ? '#0f172a' : '#ffffff',
     'text-halo-width': 1.5,
   }
-  const stroke = { 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 }
+  // Obrys/obwódka: biały, a pod żółtym metrem ciemnoczerwony (`strokeFor`) — żółć na białym podkładzie ~1,5:1.
+  const strokeColor = ['match', ['get', 'color'], LINE_PALETTE.metro.bg, LINE_PALETTE.metro.fg, '#ffffff'] as never
+  const stroke = { 'circle-stroke-color': strokeColor, 'circle-stroke-width': 1.5 }
 
   map.addSource('backbone', { type: 'geojson', data: data.backbone as never })
   map.addSource('rail', { type: 'geojson', data: data.rail })
@@ -116,14 +122,15 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
   map.addSource('route-stops', { type: 'geojson', data: data.route.stops })
 
   // Metro i kolej miejska jako cienkie tło — orientacja w mieście, zanim pokażą się przystanki.
-  // Jasna obwódka pod przebiegiem — granat M1 ginąłby na ciemnym podkładzie.
+  // Obwódka pod przebiegiem. Jasny podkład: biała (niebieska kolej), ale pod żółtym metrem ciemnoczerwona — żółć na bieli
+  // jest niewidoczna. Ciemny podkład: zawsze biała półprzezroczysta (żółć sama kontrastuje; czerwona obwódka brudziła ją na pomarańcz).
   map.addLayer({
     id: 'backbone-casing',
     type: 'line',
     source: 'backbone',
     minzoom: 9,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 15, 6.5], 'line-opacity': dark ? 0.55 : 0.9 },
+    paint: { 'line-color': dark ? '#ffffff' : strokeColor, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4.5, 15, 8.5], 'line-opacity': dark ? 0.55 : 0.9 },
   })
   map.addLayer({
     id: 'backbone',
@@ -131,7 +138,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     source: 'backbone',
     minzoom: 9,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 15, 3.5], 'line-opacity': 0.9 },
+    paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.5, 15, 5], 'line-opacity': 0.9 },
   })
 
   // Kolej: ranga ruchu decyduje, od jakiego zoomu stacja jest widoczna — mapa
@@ -166,7 +173,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
           key === 'metroStops'
             ? ['interpolate', ['linear'], ['zoom'], 11, 3.5, 16, 7]
             : ['interpolate', ['linear'], ['zoom'], 14, 2.5, 17, 5],
-        'circle-stroke-color': '#ffffff',
+        'circle-stroke-color': strokeColor,
         'circle-stroke-width': 1,
       },
     })
@@ -200,6 +207,13 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
 
   // Trasa wybranej linii — nad przystankami i koleją, pod pojazdami.
   map.addLayer({
+    id: 'route-casing',
+    type: 'line',
+    source: 'route-line',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': strokeFor(data.routeColor), 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 10], 'line-opacity': dark ? 0.55 : 0.9 },
+  })
+  map.addLayer({
     id: 'route-line',
     type: 'line',
     source: 'route-line',
@@ -213,7 +227,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     paint: {
       'circle-color': '#ffffff',
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 16, 5],
-      'circle-stroke-color': data.routeColor,
+      'circle-stroke-color': routeStopStroke(data.routeColor),
       'circle-stroke-width': 2,
     },
   })
@@ -254,7 +268,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
       // Przesunięcie „do przodu" obraca się razem z ikoną — strzałka stoi przed kropką.
       'icon-offset': [0, -22],
     },
-    paint: { 'icon-color': ['get', 'color'], 'icon-opacity': ['get', 'opacity'] },
+    paint: { 'icon-color': ['get', 'color'], 'icon-opacity': ['get', 'opacity'], 'icon-halo-color': strokeColor, 'icon-halo-width': 1 },
   })
   map.addLayer({
     id: 'vehicles-labels',
@@ -602,7 +616,8 @@ export function TransitMap({
     ;(map.getSource('route-line') as GeoJSONSource).setData(dataRef.current.route.line)
     ;(map.getSource('route-stops') as GeoJSONSource).setData(dataRef.current.route.stops)
     map.setPaintProperty('route-line', 'line-color', dataRef.current.routeColor)
-    map.setPaintProperty('route-stops', 'circle-stroke-color', dataRef.current.routeColor)
+    map.setPaintProperty('route-casing', 'line-color', strokeFor(dataRef.current.routeColor))
+    map.setPaintProperty('route-stops', 'circle-stroke-color', routeStopStroke(dataRef.current.routeColor))
     applyDim(map, route !== null)
     const bounds = route?.overlay.bounds
     if (bounds !== null && bounds !== undefined) fitRoute(map, bounds)

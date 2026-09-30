@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { MapPin } from './MapView'
+import type { MapPin, MapRoute } from './MapView'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { MapView, STYLE_DARK, STYLE_LIGHT } from './MapView'
 import { MODE_COLOR, UNKNOWN_COLOR } from './map/mapData'
+import { LINE_PALETTE } from './transitMode'
 
 type PopupMock = { setDOMContent: (node: HTMLElement) => PopupMock; content: HTMLElement | null }
 
@@ -174,32 +175,34 @@ describe('MapView', () => {
 
   describe('trasa i ruchome punkty (mapa linii)', () => {
     const PIN: MapPin = { id: 'a', lat: 52, lon: 21, label: 'A' }
-    const ROUTE = { points: [{ lat: 52, lon: 21 }, { lat: 52.01, lon: 21.02 }], mode: 'metro' as const, color: '#E2001A' }
+    const ROUTE: MapRoute = { points: [{ lat: 52, lon: 21 }, { lat: 52.01, lon: 21.02 }], mode: 'metro' }
 
-    async function lineColor(route: typeof ROUTE | { points: typeof ROUTE.points; mode: 'tram' | 'rail'; color: string | null }): Promise<string> {
+    /** Kolor trasy i obwódki pod nią (kolejność: trasa, potem obwódka wstawiona `przed` trasą). */
+    async function lineColors(route: MapRoute): Promise<{ line: string; casing: string }> {
       render(<MapView dark={false} pins={[PIN]} route={route} ariaLabel="Mapa" />)
       await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
       const map = vi.mocked(maplibregl.Map).mock.results[0].value
-      await waitFor(() => expect(map.addLayer).toHaveBeenCalledTimes(1))
-      return map.addLayer.mock.calls[0][0].paint['line-color']
+      await waitFor(() => expect(map.addLayer).toHaveBeenCalledTimes(2))
+      expect(map.addLayer.mock.calls[1][1]).toBe('route')
+      return { line: map.addLayer.mock.calls[0][0].paint['line-color'], casing: map.addLayer.mock.calls[1][0].paint['line-color'] }
     }
 
-    it('rysuje trasę jako linię po punktach (lon, lat); metro w kolorze linii z feedu', async () => {
-      expect(await lineColor(ROUTE)).toBe('#E2001A')
+    it('rysuje trasę jako linię po punktach (lon, lat); metro w kolorze metra z palety, z ciemną obwódką', async () => {
+      expect(await lineColors(ROUTE)).toEqual({ line: MODE_COLOR.metro, casing: LINE_PALETTE.metro.fg })
       const map = vi.mocked(maplibregl.Map).mock.results[0].value
       expect(map.addSource.mock.calls[0][1].data.geometry.coordinates).toEqual([[21, 52], [21.02, 52.01]])
     })
 
-    it('tramwaj: kolor rodzaju (routeColor), nie z feedu — jak na mapie miasta', async () => {
-      expect(await lineColor({ ...ROUTE, mode: 'tram' })).toBe(MODE_COLOR.tram)
+    it('tramwaj: kolor rodzaju z palety, biała obwódka — jak na mapie miasta', async () => {
+      expect(await lineColors({ ...ROUTE, mode: 'tram' })).toEqual({ line: MODE_COLOR.tram, casing: '#ffffff' })
     })
 
-    it('kolej bez koloru (pociąg PKP): kolor rodzaju', async () => {
-      expect(await lineColor({ ...ROUTE, mode: 'rail', color: null })).toBe(MODE_COLOR.rail)
+    it('kolej (pociąg PKP, bez rodzaju linii): kolor rodzaju', async () => {
+      expect((await lineColors({ ...ROUTE, mode: 'rail' })).line).toBe(MODE_COLOR.rail)
     })
 
-    it('niezaufany kolor (nie #RRGGBB) zastępuje kolorem rodzaju', async () => {
-      expect(await lineColor({ ...ROUTE, color: 'red;background:url(x)' })).toBe(MODE_COLOR.metro)
+    it('autobus nocny: kolor rodzaju linii, jak plakietka', async () => {
+      expect((await lineColors({ ...ROUTE, mode: 'bus', kind: 'night' })).line).toBe(LINE_PALETTE.night.bg)
     })
 
     it('bez `route` nie dodaje warstwy', async () => {

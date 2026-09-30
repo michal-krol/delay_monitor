@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { CityStop } from '@/lib/gtfs/query'
+import { LINE_PALETTE, lineColor } from '../transitMode'
 import {
   MODE_COLOR,
   UNKNOWN_COLOR,
@@ -12,7 +13,7 @@ import {
   interpolatePoints,
   parseAt,
   parseHidden,
-  routeColor,
+  strokeFor,
   routeOverlay,
   railToGeoJSON,
   serializeHidden,
@@ -54,6 +55,15 @@ describe('vehiclesToGeoJSON', () => {
     expect(feature.properties).toEqual({ id: 'v1', color: MODE_COLOR.tram, opacity: 1, label: '20' })
     expect(vehiclesToGeoJSON([vehicle({ bearing: -110 })], new Set(), null).features[0].properties.bearing).toBe(-110)
     expect(feature.geometry.coordinates).toEqual([21.0, 52.2])
+  })
+
+  it('a bus takes the colour of its line kind (derived from the line number), like its badge', () => {
+    const night = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: 'N32' })], new Set(), null).features[0]
+    const zone = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: '727' })], new Set(), null).features[0]
+    const regular = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: '131' })], new Set(), null).features[0]
+    expect(night.properties.color).toBe(LINE_PALETTE.night.bg)
+    expect(zone.properties.color).toBe(LINE_PALETTE.zone.bg)
+    expect(regular.properties.color).toBe(MODE_COLOR.bus)
   })
 
   it('greys out a vehicle of an unknown trip but keeps it on the map', () => {
@@ -190,12 +200,15 @@ describe('distanceM / nearbyPoints', () => {
   })
 })
 
-describe('routeColor', () => {
-  it('uses the feed line colour for metro and rail, the mode colour for bus/tram or a missing/bad colour', () => {
-    expect(routeColor('metro', '#0000BB')).toBe('#0000BB')
-    expect(routeColor('metro', '#BB0000')).toBe('#BB0000')
-    expect(routeColor('rail', null)).toBe(MODE_COLOR.rail)
-    expect(routeColor('metro', 'red; x')).toBe(MODE_COLOR.metro)
-    expect(routeColor('tram', '#009944')).toBe(MODE_COLOR.tram)
+describe('MODE_COLOR / strokeFor', () => {
+  it('MODE_COLOR is the regular-line colour of each mode from the one palette', () => {
+    for (const mode of ['metro', 'tram', 'bus', 'rail', 'other'] as const) {
+      expect(MODE_COLOR[mode]).toBe(lineColor(mode, 'regular').bg)
+    }
+  })
+
+  it('outline is white, except for yellow metro that would vanish on a light basemap', () => {
+    expect(strokeFor(MODE_COLOR.tram)).toBe('#ffffff')
+    expect(strokeFor(MODE_COLOR.metro)).toBe(LINE_PALETTE.metro.fg)
   })
 })

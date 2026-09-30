@@ -61,9 +61,14 @@ paths:
   not 400 — unknown-ID convention). Regexes `GTFS_STOP_ID_PATTERN` / `GTFS_ROUTE_ID_PATTERN` in
   `validation.ts` = cheap format guard. `city` **MUST** be checked against the registry — it
   selects the feed.
-- **`route_color` = untrusted string.** Zod (`schema.ts`) → `#RRGGBB` or `null`;
-  `route_text_color` ignored entirely, we compute contrast ourselves (`contrastText`).
-  `LineBadge` uses only `style={{ background }}` with the validated value.
+- **Colour = line category, never the feed.** One palette `LINE_PALETTE` / `lineColor(mode, kind)`
+  in `src/components/transitMode.tsx` (metro yellow, tram, rail, bus, express, zone, local,
+  night, replacement, other) drives `LineBadge` and the whole map (pins, vehicles, route and
+  backbone overlays; `MODE_COLOR` is derived from it). `route_color` is still parsed and
+  validated (Zod → `#RRGGBB` or `null`, `route_text_color` ignored) but the UI no longer reads
+  it. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
+  dark outline/casing on the map (`strokeFor()` in `mapData.ts`). Callers without a kind derive
+  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`.
 - **`schedule.routePatterns`** (stop sequence per direction + second `offsets` from the first
   stop) accumulated in the hot `stop_times` loop — don't scan millions of events per line-page
   request. `lineDetail()` reads the ready index; the page computes a time as

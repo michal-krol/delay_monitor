@@ -38,7 +38,7 @@ export function LineGrid({ linesByMode, city, filter }: Props) {
                   aria-label={`Linia ${entry.line} — ${entry.longName}`}
                   className="inline-flex rounded-md outline-none ring-offset-2 transition focus-visible:ring-2 focus-visible:ring-indigo-500 hover:opacity-80"
                 >
-                  <LineBadge line={entry.line} color={entry.color} mode={entry.mode} />
+                  <LineBadge line={entry.line} mode={entry.mode} kind={entry.kind} />
                 </Link>
               </li>
             ))}

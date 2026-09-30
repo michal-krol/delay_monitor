@@ -16,8 +16,7 @@ import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon } from '@/components/icons'
-import { MODE_COLOR } from '@/components/map/mapData'
-import { LINE_KIND_LABEL, MODE_LABEL } from '@/components/transitMode'
+import { LINE_KIND_LABEL, MODE_LABEL, lineColor } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
 import { useCities } from '@/hooks/useCities'
@@ -93,8 +92,8 @@ export default function LineDetailPage() {
     [stops, line?.mode, city]
   )
   const mapRoute = useMemo(
-    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', color: line?.color ?? null }),
-    [direction?.shape, stops, line?.mode, line?.color]
+    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', kind: line?.kind }),
+    [direction?.shape, stops, line?.mode, line?.kind]
   )
   const mapMovers = useMemo<MapMover[]>(() => {
     if (!showVehicles) return []
@@ -104,9 +103,10 @@ export default function LineDetailPage() {
       lon: v.lon,
       label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”`,
       mode: line?.mode ?? 'bus',
+      kind: line?.kind,
       bearing: v.bearing,
     }))
-  }, [showVehicles, liveVehicles.vehicles, stops, line?.mode])
+  }, [showVehicles, liveVehicles.vehicles, stops, line?.mode, line?.kind])
   const { resolvedTheme } = useTheme()
   const onMapPinClick = useCallback((id: string) => setStopSel(Number(id)), [])
 
@@ -190,7 +190,7 @@ export default function LineDetailPage() {
         {line !== null && (
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-3">
-              <LineBadge line={line.line} color={line.color} mode={line.mode} />
+              <LineBadge line={line.line} mode={line.mode} kind={line.kind} />
               <PageTitle>{line.longName}</PageTitle>
             </div>
             <p className="text-sm text-text-secondary">
@@ -291,7 +291,7 @@ export default function LineDetailPage() {
                                         // Kolor rodzaju jak na mapie; strzałka = kierunek jazdy NA OSI (w dół
                                         // listy), nie `v.bearing` — geograficzny azymut na pionowej,
                                         // schematycznej osi nie wskazuje niczego sensownego (ten idzie na mapę).
-                                        backgroundColor: MODE_COLOR[line.mode],
+                                        backgroundColor: lineColor(line.mode, line.kind).bg, color: lineColor(line.mode, line.kind).fg,
                                         transform: 'translateY(-50%)',
                                       }}
                                     >

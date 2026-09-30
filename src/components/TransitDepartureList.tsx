@@ -71,7 +71,7 @@ function DepartureRow({
       </time>
       <LineBadge
         line={departure.line}
-        color={departure.color}
+        kind={departure.lineKind}
         mode={departure.mode}
         size="sm"
         href={city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined}
@@ -160,7 +160,7 @@ export function TransitDepartureList({
         <div className="mt-3 glass-strong rounded-2xl p-4">
           <div className="text-xs font-medium uppercase tracking-wide text-text-muted">Najbliższy odjazd</div>
           <div className="mt-2 flex items-center gap-3">
-            <LineBadge line={first.line} color={first.color} mode={first.mode} size="md" />
+            <LineBadge line={first.line} mode={first.mode} kind={first.lineKind} size="md" />
             <span className="min-w-0 flex-1 truncate font-heading text-lg font-bold text-foreground">
               {first.headsign ?? '—'}
             </span>
