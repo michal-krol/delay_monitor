@@ -219,7 +219,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const { data, error, lastSuccessAt } = usePolling<TrainDetailApiResponse>(
     JSON.stringify([scheduleId, orderId, operatingDate]),
     ({ background }) => fetchTrainDetail(scheduleId, orderId, operatingDate, background),
-    { refreshMs: BACKGROUND_REFRESH_MS, isDone: (json) => isJourneyOver(json.stops) }
+    { refreshMs: BACKGROUND_REFRESH_MS, isDone: (json) => isJourneyOver(json.stops), cacheNamespace: 'train' }
   )
   // Baner błędu tylko wtedy, gdy nie mamy jeszcze CZEGO pokazać. Nieudany
   // refetch (dowolny status, w tym 503 limitu) zostawia ostatni dobry stan,

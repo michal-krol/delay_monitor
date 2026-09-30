@@ -106,6 +106,8 @@ export function useBoard(stationIds: string[]) {
     ladderMs: FAST_RETRY_DELAYS_MS,
     isLoading: stillLoading,
     keepPreviousData: true,
+    // Powrót z widoku połączenia na tablicę: ostatni snapshot od razu (z wiekiem), odświeżenie w tle.
+    cacheNamespace: 'board',
   })
   // Poprzednie snapshoty mają sens tylko dla pokrywającego się zestawu; rozłączny (np. `FullBoard`
   // po zmianie stacji) wraca do „ładowania", nie do wierszy innej stacji. Odpowiedź bez snapshotów

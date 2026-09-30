@@ -36,15 +36,28 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
     return-to-tab — `background=1`) gets a 503 once the count reaches
     `HOURLY_MISS_CAP − FOREGROUND_RESERVE`, so a page left open in a background tab can't starve
     a new user's first click. Allowed background misses still count toward the same counter.
-    Arithmetic: one miss costs 2 PKP requests when the 24 h route cache is already warm for
-    that train (`/operations/train/...`, always uncached, + `getDisruptions(...)`, whose cache
-    key is this train's own stations + a single day so it's effectively always a fresh call),
-    but 3 when the route cache is cold (adds `/schedules/route/...`) — the same as a made-up
-    scheduleId/orderId, which costs 2 (operation 404 + route 404, no disruptions call since
-    `stationIds` is empty). OWNER DECISION (2026-09-27): the cap stays at 21 even though the
-    worst case (all 21 misses cold, 3 requests each) is 21×3 + ~40 poller + ~7 network-stats ≈
-    110/h, over the hard 100/h limit — accepted deliberately while a higher-limit PKP key is
-    pending. If the key stays at 100/h, lower the cap to `floor((90 − 40 − 7) / 3) = 14`.
+    Arithmetic: one miss costs 2 PKP requests when the train's route is already known — from
+    the national timetable snapshot (below) or the 24 h route cache (`/operations/train/...`,
+    always uncached, + `getDisruptions(...)`, whose cache key is this train's own stations + a
+    single day so it's effectively always a fresh call) — and 3 only when neither has it (no
+    snapshot yet, e.g. right after a cold start, or a train missing from the timetable: adds
+    `/schedules/route/...`); a made-up scheduleId/orderId costs 2 (operation 404 + route 404, no
+    disruptions call since `stationIds` is empty). OWNER DECISION (2026-09-27): the cap stays at
+    21 even though the old worst case (all 21 misses cold, 3 requests each) was 21×3 + ~40
+    poller + ~7 network-stats ≈ 110/h, over the hard 100/h limit. With the snapshot serving
+    routes the realistic worst case is 21×2 + ~40 + ~7 ≈ 89/h; the 110/h case remains only right
+    after a restart. If the key stays at 100/h and that matters, lower the cap to
+    `floor((90 − 40 − 7) / 3) = 14`.
+  - **National timetable snapshot** (`getSchedules` in `client.ts`): ONE `/schedules` request
+    without `stations` (whole country, today+tomorrow, `fullRoute=true`), valid 12 h and per
+    date window → 2–3 requests/day regardless of users or stations. Measured 2026-09-29: 43 MB,
+    9 014 routes, 161 k stops, ~1.4 s download, ~1.7 s parse+index (blocks the event loop once per
+    refresh), ~125 MB heap raw / ~230 MB in the process (replica limit 8 GB, weekly max 1.8 GB).
+    `getSchedules(stationIds)` only filters the in-memory index (`byStation`), so station ids
+    never reach the PKP query (#4). A failed refresh keeps the last snapshot of the same window
+    and retries after 10 min (not every poller tick, it is 43 MB). Do NOT add a per-station or
+    per-set `/schedules` call — that was the old cache keyed by the union of everyone's stations,
+    where any change to the set (even someone leaving) refetched everything.
   - `/api/rail-stations/list` + `/status` (nationwide rail layer of the map) — **0 PKP
     requests**: the list comes from `data/station-coordinates.json` (once per visit), statuses
     ONLY from `getSnapshot` of stations the poller already has — asked only while a station
@@ -59,6 +72,6 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
     in-flight dedup.
 - Station KPI tiles, „najpopularniejsze kierunki", traffic intensity, „przez…" in a row
   **cost 0 requests** — computed in the poller tick from what it already has: full-day
-  `/operations` + `/schedules` routes (24 h cache, `fullRoute=true`). Arithmetic in
+  `/operations` + `/schedules` routes (national snapshot, `fullRoute=true`). Arithmetic in
   `src/lib/board/stationStats.ts`, pure functions once per tick. New indicator → first check
   whether it can be computed from the same data.

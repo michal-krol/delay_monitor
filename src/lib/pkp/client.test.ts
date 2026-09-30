@@ -346,7 +346,9 @@ describe('createLiveClient', () => {
     ])
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url] = fetchMock.mock.calls[0]
-    expect(String(url)).toContain('/api/v1/schedules?stations=5100,5136')
+    // Rozkład idzie ogólnopolsko (bez `stations`), stacje tylko filtrują wynik po stronie serwera.
+    expect(String(url)).toContain('/api/v1/schedules?dateFrom=')
+    expect(String(url)).not.toContain('stations=')
   })
 
   it('ponawia /schedules bez fullRoute, gdy PKP zwraca trasy z pustą listą przystanków', async () => {
@@ -482,26 +484,175 @@ describe('createLiveClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('caches schedules per station set regardless of id order', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
-    vi.stubGlobal('fetch', fetchMock)
+  describe('ogólnopolska migawka rozkładu', () => {
+    // Trzy trasy: A przez 5100 i 5136, B tylko przez 4900, C przez 5100 i 4900.
+    const routesBody = {
+      routes: [
+        { scheduleId: 1, orderId: 10, trainOrderId: 10, stations: [{ stationId: 5100 }, { stationId: 5136 }] },
+        { scheduleId: 1, orderId: 20, trainOrderId: 20, stations: [{ stationId: 4900 }] },
+        { scheduleId: 1, orderId: 30, trainOrderId: 30, stations: [{ stationId: 5100 }, { stationId: 4900 }] },
+      ],
+    }
+    const orderIds = (routes: { orderId: string }[]) => routes.map((route) => route.orderId).sort()
 
-    const client = createLiveClient('secret-key')
-    await client.getSchedules(['5100', '5136'])
-    await client.getSchedules(['5136', '5100'])
+    it('fetches the national timetable once for any mix of stations (one request, not one per station set)', async () => {
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse(routesBody))
+      vi.stubGlobal('fetch', fetchMock)
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
+      const client = createLiveClient('secret-key')
+      await client.getSchedules(['5100'])
+      await client.getSchedules(['5100', '5136'])
+      await client.getSchedules(['4900'])
+      await client.getSchedules(['5136', '5100'])
 
-  it('refetches schedules for a different station set', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ routes: [] }))
-    vi.stubGlobal('fetch', fetchMock)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
 
-    const client = createLiveClient('secret-key')
-    await client.getSchedules(['5100'])
-    await client.getSchedules(['4900'])
+    it('returns only routes that pass through the requested stations, each once', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(routesBody)))
+      const client = createLiveClient('secret-key')
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(orderIds((await client.getSchedules(['5136'])).routes)).toEqual(['10'])
+      expect(orderIds((await client.getSchedules(['4900'])).routes)).toEqual(['20', '30'])
+      // Trasy 10 i 30 dotykają 5100, trasa 30 dotyka też 4900 -- ale w wyniku jest raz.
+      expect(orderIds((await client.getSchedules(['5100', '4900'])).routes)).toEqual(['10', '20', '30'])
+      expect((await client.getSchedules(['unknown'])).routes).toEqual([])
+    })
+
+    it('keeps separate records of the same run for different orderIds (one per operating day)', async () => {
+      const body = {
+        routes: [
+          { scheduleId: 1, orderId: 10, trainOrderId: 10, operatingDates: ['2026-08-30'], stations: [{ stationId: 5100 }] },
+          { scheduleId: 1, orderId: 11, trainOrderId: 10, operatingDates: ['2026-08-31'], stations: [{ stationId: 5100 }] },
+        ],
+      }
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(body)))
+      const client = createLiveClient('secret-key')
+
+      expect(orderIds((await client.getSchedules(['5100'])).routes)).toEqual(['10', '11'])
+    })
+
+    it('never sends station ids to PKP, so client input cannot shape the schedules query', async () => {
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ routes: [] }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      await client.getSchedules(['4900&foo=bar'])
+
+      const url = new URL(String(fetchMock.mock.calls[0][0]))
+      expect(url.searchParams.get('foo')).toBeNull()
+      expect(url.searchParams.has('stations')).toBe(false)
+    })
+
+    it('keeps serving the last snapshot when a refresh fails, and does not hammer PKP while it is failing', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(routesBody))
+        .mockImplementation(() => Promise.reject(new Error('PKP down')))
+      vi.stubGlobal('fetch', fetchMock)
+
+      let clock = new Date('2026-08-30T08:00:00+02:00')
+      const client = createLiveClient('secret-key', () => clock)
+      await client.getSchedules(['5100'])
+
+      clock = new Date('2026-08-30T21:00:00+02:00') // po TTL, to samo okno dat
+      expect(orderIds((await client.getSchedules(['5100'])).routes)).toEqual(['10', '30'])
+      const callsAfterFailure = fetchMock.mock.calls.length
+      await client.getSchedules(['5100'])
+      await client.getSchedules(['5100'])
+      expect(fetchMock.mock.calls.length).toBe(callsAfterFailure) // odczekanie przed kolejną próbą
+    })
+
+    it('does not hammer PKP after a failed refresh even when the date window changed (no usable stale snapshot)', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(routesBody))
+        .mockImplementation(() => Promise.reject(new Error('PKP down')))
+      vi.stubGlobal('fetch', fetchMock)
+
+      let clock = new Date('2026-08-30T12:00:00+02:00')
+      const client = createLiveClient('secret-key', () => clock)
+      await client.getSchedules(['5100'])
+
+      clock = new Date('2026-08-31T00:30:00+02:00') // po północy: inne okno, stara migawka nie pasuje
+      await expect(client.getSchedules(['5100'])).rejects.toThrow()
+      const callsAfterFailure = fetchMock.mock.calls.length
+      await expect(client.getSchedules(['5100'])).rejects.toThrow()
+      await expect(client.getSchedules(['5100'])).rejects.toThrow()
+      expect(fetchMock.mock.calls.length).toBe(callsAfterFailure)
+    })
+
+    it('does not let a slow refresh of an older date window replace the newer snapshot', async () => {
+      let releaseOld: (response: Response) => void = () => {}
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => new Promise<Response>((resolve) => (releaseOld = resolve)))
+        .mockImplementation(() => jsonResponse(routesBody))
+      vi.stubGlobal('fetch', fetchMock)
+
+      let clock = new Date('2026-08-30T23:59:00+02:00')
+      const client = createLiveClient('secret-key', () => clock)
+      const oldRequest = client.getSchedules(['5100']) // wisi
+
+      clock = new Date('2026-08-31T00:01:00+02:00')
+      await client.getSchedules(['5100']) // nowe okno, odpowiada od razu
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+
+      releaseOld(await jsonResponse({ routes: [] }))
+      await oldRequest
+      // Nowsza migawka została: brak trzeciego pobrania i trasy nadal są.
+      expect(orderIds((await client.getSchedules(['5100'])).routes)).toEqual(['10', '30'])
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('reports usedFullRouteFallback and does not serve train routes from a snapshot that lacks full routes', async () => {
+      // Awaria PKP: fullRoute=true zwraca trasy bez przystanków -> ponowienie bez fullRoute (trasy okrojone).
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        const target = String(url)
+        if (target.includes('/schedules?') && target.includes('fullRoute=true')) {
+          return jsonResponse({ routes: [{ scheduleId: 1, orderId: 10, trainOrderId: 10 }] })
+        }
+        if (target.includes('/schedules?')) return jsonResponse(routesBody)
+        if (target.includes('/schedules/route/')) return jsonResponse({ scheduleId: 1, orderId: 10, stations: [{ stationId: 5100 }] })
+        if (target.includes('/operations/train/')) return jsonResponse({ scheduleId: 1, orderId: 10, trainOrderId: 10, operatingDate: '2026-08-30', stations: [] })
+        return jsonResponse({ stations: [] })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      const result = await client.getSchedules(['5100'])
+      expect(result.usedFullRouteFallback).toBe(true)
+
+      await client.getTrainDetail('1', '10', '2026-08-30')
+      const urls = fetchMock.mock.calls.map(([url]) => String(url))
+      expect(urls.some((url) => url.includes('/schedules/route/'))).toBe(true) // okrojona migawka się nie nadaje
+    })
+
+    it('throws when there is no snapshot at all and the fetch fails (unknown is not an empty timetable)', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.reject(new Error('PKP down'))))
+      const client = createLiveClient('secret-key')
+
+      await expect(client.getSchedules(['5100'])).rejects.toThrow()
+    })
+
+    it('serves a train route from the snapshot, so getTrainDetail skips /schedules/route', async () => {
+      const operation = { scheduleId: 1, orderId: 10, trainOrderId: 10, operatingDate: '2026-08-30', stations: [] }
+      const fetchMock = vi.fn().mockImplementation((url: string) =>
+        String(url).includes('/schedules?')
+          ? jsonResponse(routesBody)
+          : String(url).includes('/operations/train/')
+            ? jsonResponse(operation)
+            : jsonResponse({ stations: [] })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key')
+      await client.getSchedules(['5100'])
+      const detail = await client.getTrainDetail('1', '10', '2026-08-30')
+
+      expect(detail.route?.orderId).toBe('10')
+      expect(fetchMock.mock.calls.map(([url]) => String(url)).some((url) => url.includes('/schedules/route/'))).toBe(false)
+    })
   })
 
   it('encodes station ids so they cannot inject extra query parameters', async () => {
@@ -531,18 +682,6 @@ describe('createLiveClient', () => {
 
     const url = new URL(String(fetchMock.mock.calls[0][0]))
     expect(url.hash).toBe('')
-  })
-
-  it('encodes station ids on the schedules endpoint too', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ routes: [] }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    const client = createLiveClient('secret-key')
-    await client.getSchedules(['4900&foo=bar'])
-
-    const url = new URL(String(fetchMock.mock.calls[0][0]))
-    expect(url.searchParams.get('foo')).toBeNull()
-    expect(url.searchParams.get('stations')).toBe('4900&foo=bar')
   })
 
   it('requests both today and tomorrow (Warsaw calendar date) so a train departing just after midnight still gets a matching route', async () => {
@@ -653,9 +792,9 @@ describe('createLiveClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('does not let the schedules cache grow without bound', async () => {
-    // Klucz to zestaw obserwowanych stacji, więc każda zmiana przypiętych
-    // dokładała wpis, którego nic nigdy nie usuwało.
+  it('does not grow with the number of station sets asked for (one snapshot, not one entry per set)', async () => {
+    // Dawniej klucz to zestaw obserwowanych stacji, więc każda zmiana przypiętych
+    // dokładała wpis i kolejne pobranie. Teraz jedna migawka na okno dat.
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ routes: [] }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -663,15 +802,7 @@ describe('createLiveClient', () => {
     for (let i = 0; i < 200; i += 1) {
       await client.getSchedules([`stacja-${i}`])
     }
-    expect(fetchMock).toHaveBeenCalledTimes(200)
-
-    // Najstarsze zestawy zostały wyeksmitowane, więc trzeba je pobrać ponownie...
-    await client.getSchedules(['stacja-0'])
-    expect(fetchMock).toHaveBeenCalledTimes(201)
-
-    // ...a najświeższe wciąż siedzą w cache'u.
-    await client.getSchedules(['stacja-199'])
-    expect(fetchMock).toHaveBeenCalledTimes(201)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   describe('getTrainDetail', () => {
