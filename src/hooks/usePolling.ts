@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { readCached, writeCached } from './pollingCache'
 
 export type PollingContext = { background: boolean }
 
@@ -28,6 +29,15 @@ export type UsePollingOptions<T> = {
    * Domyślnie `false` -- nowy klucz zaczyna od `initialData`.
    */
   keepPreviousData?: boolean
+  /**
+   * Niepusta nazwa = ostatni udany wynik każdego klucza żyje w pamięci modułu (do końca
+   * sesji karty, z limitem `MAX_CACHED_ENTRIES`) i jest pokazywany od razu po ponownym
+   * zamontowaniu widoku (np. powrót z `/connection/...` na tablicę stacji), zamiast pustego
+   * ekranu. Pierwszy tik i tak leci od razu, więc dane odświeżają się w tle, a wiek liczy się
+   * od pierwotnego sukcesu (`lastSuccessAt`, AGENTS.md #7). Wpis z `isDone` nie jest już
+   * odpytywany.
+   */
+  cacheNamespace?: string
 }
 
 export type UsePollingResult<T> = {
@@ -58,11 +68,9 @@ type InternalState<T> = { key: string | null; data: T | null; error: string | nu
  * `refreshMs` to `null` lub funkcja).
  */
 export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext) => Promise<T>, options: UsePollingOptions<T>): UsePollingResult<T> {
-  const [state, setState] = useState<InternalState<T>>({
-    key,
-    data: options.initialData ?? null,
-    error: null,
-    lastSuccessAt: null,
+  const [state, setState] = useState<InternalState<T>>(() => {
+    const cached = readCached<T>(options.cacheNamespace, key)
+    return { key, data: cached?.data ?? options.initialData ?? null, error: null, lastSuccessAt: cached?.lastSuccessAt ?? null }
   })
 
   // Najświeższe callbacki/opcje przez ref -- efekt niżej zależy TYLKO od
@@ -82,6 +90,10 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
       setState({ key: null, data: optionsRef.current.initialData ?? null, error: null, lastSuccessAt: null })
       return
     }
+
+    // Zakończona obserwacja z cache (np. pociąg, który już dojechał): nic do odświeżania.
+    const cached = readCached<T>(optionsRef.current.cacheNamespace, key)
+    if (cached !== undefined && optionsRef.current.isDone?.(cached.data) === true) return
 
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -107,6 +119,7 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
         const result = await fetcherRef.current({ background: scheduled })
         if (cancelled) return
         const successAt = Date.now()
+        writeCached(opts.cacheNamespace, key, { data: result, lastSuccessAt: successAt })
         setState({ key, data: result, error: null, lastSuccessAt: successAt })
 
         if (opts.isDone?.(result) === true) return
@@ -124,10 +137,11 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
       } catch (err) {
         if (cancelled) return
         const message = err instanceof Error ? err.message : 'Nieznany błąd'
+        const seeded = readCached<T>(opts.cacheNamespace, key)
         setState((s) =>
           s.key === key || (opts.keepPreviousData === true && s.key !== null)
             ? { ...s, key, error: message } // ten sam klucz (albo keepPreviousData) -- zachowaj ostatnie dobre dane (AGENTS.md #7)
-            : { key, data: opts.initialData ?? null, error: message, lastSuccessAt: null } // nowy klucz, jeszcze bez sukcesu -- nie przeciekają dane starego
+            : { key, data: seeded?.data ?? opts.initialData ?? null, error: message, lastSuccessAt: seeded?.lastSuccessAt ?? null } // nowy klucz, jeszcze bez sukcesu -- nie przeciekają dane starego (własny cache tego klucza tak)
         )
         schedule(opts.errorRetryMs ?? (typeof opts.refreshMs === 'number' ? opts.refreshMs : DEFAULT_ERROR_RETRY_MS))
       }
@@ -152,6 +166,9 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
   }, [key])
 
   if (state.key !== key) {
+    // Cache własnego klucza wygrywa z danymi poprzedniego (`keepPreviousData`) i z `initialData`.
+    const cached = readCached<T>(options.cacheNamespace, key)
+    if (cached !== undefined) return { data: cached.data, error: null, lastSuccessAt: cached.lastSuccessAt }
     // Nowy klucz, efekt jeszcze nie zapisał wyniku: z keepPreviousData pokazujemy dane starego (o ile był).
     if (options.keepPreviousData === true && key !== null && state.key !== null) {
       return { data: state.data, error: null, lastSuccessAt: state.lastSuccessAt }
