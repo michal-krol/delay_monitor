@@ -219,7 +219,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const { data, error, lastSuccessAt } = usePolling<TrainDetailApiResponse>(
     JSON.stringify([scheduleId, orderId, operatingDate]),
     ({ background }) => fetchTrainDetail(scheduleId, orderId, operatingDate, background),
-    { refreshMs: BACKGROUND_REFRESH_MS, isDone: (json) => isJourneyOver(json.stops) }
+    { refreshMs: BACKGROUND_REFRESH_MS, isDone: (json) => isJourneyOver(json.stops), cacheNamespace: 'train' }
   )
   // Baner błędu tylko wtedy, gdy nie mamy jeszcze CZEGO pokazać. Nieudany
   // refetch (dowolny status, w tym 503 limitu) zostawia ostatni dobry stan,
@@ -392,12 +392,12 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
       )}
 
       {status === 'ready' && data !== null && data.stops.length > 0 && (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
           {/* Nagłówek + przebieg trasy w jednej kolumnie (`col-start-1`), prawy pasek
               w drugiej i przez oba wiersze — dzięki temu widżety zaczynają się od
               samej góry, a karta nagłówka ma szerokość listy przystanków. */}
           {/* ── Nagłówek ─────────────────────────────────────────────── */}
-          <header className="glass @container rounded-2xl p-5 sm:p-6 lg:col-start-1 lg:row-start-1">
+          <header className="glass @container rounded-2xl p-5 sm:p-6 xl:col-start-1 xl:row-start-1">
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -481,7 +481,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               trzeba by przesunąć wcięcie całej sekcji trasy o jeden poziom. */}
           <div className="contents">
             {/* ── Przebieg trasy ─────────────────────────────────────── */}
-            <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-2">
+            <div className="flex min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-2">
               {/* Tryb rozkładowy: PKP nie potwierdza nic na tej trasie, a wg
                   rozkładu pociąg jedzie. Pozycja i „w trasie" niżej są wtedy
                   projekcją z rozkładu — trzeba to powiedzieć wprost. */}
@@ -507,9 +507,10 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     to on informuje, jak wygląda dalsza podróż tym odcinkiem trasy). */}
                 {/* `@container`, nie breakpoint okna: szerokość tego wiersza zależy od
                     paska bocznego i prawej kolumny, nie od szerokości ekranu. Przy oknie
-                    1024 px lewa kolumna ma ~350 px, a przy 768 px — ~440 px, więc `lg:`
-                    włączałby gęsty układ dokładnie tam, gdzie jest CIAŚNIEJ. Zmierzone:
-                    przy 768 px nazwy stacji wychodziły poza wiersz. */}
+                    1280 px lewa kolumna ma ~620 px, a przy 1024 px — ~710 px (prawa
+                    kolumna schodzi pod treść poniżej `xl`), więc breakpoint okna włączałby
+                    gęsty układ tam, gdzie jest CIAŚNIEJ. Zmierzone: przy 768 px nazwy
+                    stacji wychodziły poza wiersz. */}
                 <ol className="@container mt-4" aria-label="Przebieg trasy">
                   {data.stops.map((stop, index) => {
                     // Oparte na fakcie przyjazdu/odjazdu (planowym LUB faktycznym), nie
@@ -745,9 +746,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             </div>
 
             {/* ── Prawa kolumna ──────────────────────────────────────── */}
-            {/* `tabIndex`/`aria-label`: od `lg` kolumna bywa przewijalna (`lg:overflow-y-auto`), a nie ma w niej
+            {/* `tabIndex`/`aria-label`: od `xl` kolumna bywa przewijalna (`xl:overflow-y-auto`), a nie ma w niej
                 fokusowalnej treści — axe `scrollable-region-focusable`; fokusowalna tylko, gdy faktycznie się przewija. */}
-            <aside ref={asideRef} tabIndex={asideTabIndex} aria-label="Podsumowanie połączenia" className="flex flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
+            <aside ref={asideRef} tabIndex={asideTabIndex} aria-label="Podsumowanie połączenia" className="flex flex-col gap-6 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">
               <AsideCard title={`Pogoda dziś — ${data.stops[0].stationName}`}>
                 <WeatherCard weather={originWeather} />
               </AsideCard>

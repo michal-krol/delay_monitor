@@ -37,7 +37,7 @@ enrichment).
 ## Colours on the map
 
 Every map colour (pins, vehicles, route and backbone lines) comes from `lineColor()` /
-`MODE_COLOR` (`adr/0004`, `gtfs.md`), never from the feed. Yellow metro: every outline,
+`MODE_COLOR` (`adr/0005`, `gtfs.md`), never from the feed. Yellow metro: every outline,
 casing, ring and arrow outline goes through `strokeFor()` / `casingFor()` in `mapData.ts`
 (one rule). On the dark basemap casings are translucent white — a dark-red casing tints the
 yellow orange there.

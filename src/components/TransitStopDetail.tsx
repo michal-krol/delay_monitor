@@ -193,7 +193,7 @@ export function TransitStopDetail({
   )
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass-strong glow-ring rounded-2xl p-5" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -451,7 +451,7 @@ export function TransitStopDetail({
         </section>
       </div>
 
-      <aside className="flex flex-col gap-4 lg:sticky lg:top-6">
+      <aside className="flex flex-col gap-4 xl:sticky xl:top-6">
         <CityWeatherCard city={city} />
 
         {mapPins.length > 0 && (

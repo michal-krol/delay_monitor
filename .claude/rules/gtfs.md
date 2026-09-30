@@ -68,7 +68,7 @@ paths:
   validated (Zod → `#RRGGBB` or `null`, `route_text_color` ignored) but the UI no longer reads
   it. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
   dark outline/casing on the map (`strokeFor()` in `mapData.ts`). Callers without a kind derive
-  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Why: `adr/0004`.
+  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Why: `adr/0005`.
   Kinds (`lineKindFrom`, ZTM convention): `N…` night, `Z…` replacement, `E…`/400–599 express,
   `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
   `LINE_KIND_LABEL` in `transitMode.tsx`.
@@ -131,7 +131,7 @@ paths:
 - **Transport map — zero new fetches.** `/api/gtfs/backbone` (metro and city-rail patterns
   from `routePatterns`) and `alertLines` in `/api/gtfs/city-vehicles` (line numbers with an
   active alert, `[]` while AlertPoller isn't ready = no badge) read only memory. Colour on the
-  map = line category (`lineColor(mode, kind)`, `adr/0004`), never delay; the vehicle card shows position freshness, not
+  map = line category (`lineColor(mode, kind)`, `adr/0005`), never delay; the vehicle card shows position freshness, not
   „LIVE +N min".
 - **Stops on the map (`/api/gtfs/stops`, `cityStops()`).** From `stops.txt` already in memory,
   computed once per schedule (`WeakMap`). Metro platforms collapsed to the parent station,

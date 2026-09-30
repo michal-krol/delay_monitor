@@ -79,7 +79,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   const panelId = `${idBase}-panel`
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
-  const { data, error } = useBoard([stationId])
+  const { data, error, lastSuccessAt } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
   const configError = data?.status === 'configError'
@@ -162,7 +162,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   }, [])
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass rounded-2xl p-5">
           {configError && <ConfigErrorBanner />}
@@ -178,7 +178,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     AGENTS.md #7. Ta sama zasada co ukrycie tabeli niżej. */}
                 {!configError && (
                   <div className="mt-1">
-                    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} data={data} error={error !== null} />
+                    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} />
                   </div>
                 )}
               </div>
@@ -244,7 +244,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
       </div>
 
       {!configError && (
-        <aside className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh_-_3rem)] lg:overflow-y-auto">
+        <aside className="xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">
           <StationAside
             insights={snapshot?.insights}
             disruptionMessages={snapshot?.disruptionMessages ?? []}

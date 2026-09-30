@@ -1,4 +1,4 @@
-# 0004. Kolor linii oznacza jej kategorię, nie kolor z feedu
+# 0005. Kolor linii oznacza jej kategorię, nie kolor z feedu
 
 - Status: przyjęte (2026-09-30)
 - Niezmiennik: AGENTS.md #13

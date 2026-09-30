@@ -30,6 +30,16 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Ekran „Linie” ma w prawej kolumnie pogodę i widżet komunikacji miejskiej, jak ekran
   „Odjazdy / Przyjazdy”. Godzina aktualizacji rozkładu jest w stopce. Ostrzeżenie o
   nieświeżym rozkładzie zostaje na górze.
+- Powrót z widoku połączenia na tablicę stacji pokazuje od razu ostatnio pobrane dane razem
+  z ich wiekiem, a odświeża je w tle, zamiast wyświetlać pusty ekran „Ładowanie". To samo
+  dotyczy ponownego otwarcia tego samego połączenia; zakończony przejazd nie jest już
+  odpytywany.
+- Rozkład PKP jest pobierany raz dla całego kraju i trzymany w pamięci przez 12 godzin
+  (2–3 zapytania na dobę), zamiast osobno dla zestawu stacji oglądanych przez użytkowników.
+  Dawniej każda zmiana tego zestawu, także czyjeś odejście, kosztowała nowe pobranie z limitu
+  PKP. Szczegóły połączenia biorą trasę z tej samej migawki, więc pierwsze otwarcie pociągu
+  kosztuje o jedno zapytanie mniej (patrz `adr/0004-rozklad-pkp-ogolnopolski-w-pamieci.md`).
+  Kosztem jest ok. 230 MB pamięci serwera.
 - Rozkład komunikacji miejskiej zaczyna się wczytywać zaraz po starcie serwera i zostaje
   w pamięci, więc pierwsze wejście na widok miasta nie czeka już na jego pobranie. Pozycje
   pojazdów i komunikaty nadal są pobierane tylko wtedy, gdy ktoś je ogląda.
@@ -119,6 +129,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Ostrzeżenie „dane sprzed …" na tablicy i pulpicie liczy wiek danych od chwili ich
+  pobrania w przeglądarce, a nie tylko od chwili ich zapisania na serwerze. Wcześniej stare
+  dane, które przy nieudanym odświeżeniu zostawały na ekranie, wciąż wyglądały na świeże;
+  teraz wiek rośnie razem z upływem czasu.
 - Pogoda „bezchmurnie" pokazuje słońce zamiast księżyca, a przełącznik motywu rysuje
   słońce i księżyc tam, gdzie powinien.
 - Czytniki ekranu odczytują ikony, które niosą znaczenie bez tekstu obok: niedostępność
@@ -166,6 +180,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   oknie 1280 px mieszczą się w dwóch kolumnach zamiast czterech ściśniętych (napis
   „Punktualność" był ucięty), a tablica odjazdów nie przewija się w poziomie. Nazwa
   przewoźnika w tablicy kończy się wielokropkiem zamiast nachodzić na kolumnę „Kierunek".
+- Na stronach stacji, połączenia i przystanku przy oknie węższym niż 1280 px prawa kolumna
+  (kierunki, pogoda, mapa, natężenie ruchu) schodzi pod treść. Przy 1024 px tablica odjazdów
+  nie przewija się już w poziomie, a treść ma dwa razy więcej miejsca.
 - Escape w wyszukiwarce na mapie transportu, gdy widać „Szukam…", „Brak …" albo błąd, czyści
   pole zamiast zamykać otwarty panel mapy.
 - Zakładki na stronie przystanku („Najbliższe odjazdy", „Wszystkie linie", …) i wybór słupka

@@ -71,7 +71,7 @@ describe('design tokens', () => {
     expect(modeColors.filter((color) => statusBg.includes(color))).toEqual([])
   })
 
-  it('GTFS views never use status-green Tailwind classes (#13); the category green of zone buses comes from LINE_PALETTE, see adr/0004', () => {
+  it('GTFS views never use status-green Tailwind classes (#13); the category green of zone buses comes from LINE_PALETTE, see adr/0005', () => {
     expect(offenders(/\b(text|bg)-(green|emerald)-\d/)).toEqual([])
   })
 })
