@@ -67,14 +67,14 @@ describe('useSectionOpen', () => {
     const { result } = renderHook(() => useSectionOpen())
     expect(result.current.isOpen('metro', 1)).toBe(true) // bad value dropped -> default
     expect(result.current.isOpen('bus', 1)).toBe(false) // good value kept
-    act(() => result.current.setOpen('tram', false))
+    act(() => result.current.setOpen('tram', false, 5))
     expect(stored()).toEqual({ bus: false, tram: false })
   })
 
   it('setOpen persists and updates state, one write per call', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem')
     const { result } = renderHook(() => useSectionOpen())
-    act(() => result.current.setOpen('bus:night', true))
+    act(() => result.current.setOpen('bus:night', true, 99))
     expect(result.current.isOpen('bus:night', 99)).toBe(true)
     expect(stored()).toEqual({ 'bus:night': true })
     expect(setItem).toHaveBeenCalledTimes(1)
@@ -82,15 +82,29 @@ describe('useSectionOpen', () => {
 
   it('setOpen to the value already stored does not write again', () => {
     const { result } = renderHook(() => useSectionOpen())
-    act(() => result.current.setOpen('metro', false))
+    act(() => result.current.setOpen('metro', false, 1))
     const setItem = vi.spyOn(Storage.prototype, 'setItem')
-    act(() => result.current.setOpen('metro', false))
+    act(() => result.current.setOpen('metro', false, 1))
     expect(setItem).not.toHaveBeenCalled()
+  })
+
+  it('setOpen to the current default (nothing stored) does not persist it', () => {
+    const { result } = renderHook(() => useSectionOpen())
+    // programmatyczne `open` na <details> też odpala `toggle` — nie wolno zamrozić domyślnej
+    act(() => result.current.setOpen('metro', true, 1))
+    act(() => result.current.setOpen('bus', false, 99))
+    expect(window.localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('setOpen against a default that later changes: only a real change is stored', () => {
+    const { result } = renderHook(() => useSectionOpen())
+    act(() => result.current.setOpen('tram', false, 10)) // domyślnie otwarta -> realna zmiana
+    expect(stored()).toEqual({ tram: false })
   })
 
   it('refuses a bad key instead of persisting it', () => {
     const { result } = renderHook(() => useSectionOpen())
-    act(() => result.current.setOpen('x'.repeat(41), true))
+    act(() => result.current.setOpen('x'.repeat(41), false, 1))
     expect(window.localStorage.getItem(KEY)).toBeNull()
   })
 
@@ -99,7 +113,7 @@ describe('useSectionOpen', () => {
       throw new DOMException('quota', 'QuotaExceededError')
     })
     const { result } = renderHook(() => useSectionOpen())
-    act(() => result.current.setOpen('metro', false))
+    act(() => result.current.setOpen('metro', false, 1))
     expect(result.current.isOpen('metro', 1)).toBe(false)
   })
 

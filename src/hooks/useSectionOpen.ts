@@ -52,13 +52,16 @@ export function useSectionOpen() {
   const [stored, setStored] = useState<OpenMap>({})
   const [narrow, setNarrow] = useState(false)
   const storedRef = useRef<OpenMap>({})
+  const narrowRef = useRef(false)
 
   useEffect(() => {
     const initial = readStorage()
+    const initialNarrow = isNarrow()
     storedRef.current = initial
+    narrowRef.current = initialNarrow
     /* eslint-disable react-hooks/set-state-in-effect */
     setStored(initial)
-    setNarrow(isNarrow())
+    setNarrow(initialNarrow)
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
 
@@ -68,9 +71,15 @@ export function useSectionOpen() {
     [stored, narrow],
   )
 
-  /** Jeden zapis na akcję użytkownika; ta sama wartość co zapisana — bez zapisu. */
-  const setOpen = useCallback((key: string, open: boolean): void => {
-    if (!validKey(key) || storedRef.current[key] === open) return
+  /**
+   * Zapis tylko realnej zmiany: `open` równe aktualnemu stanowi (zapisanemu albo domyślnemu dla
+   * `lineCount`) się pomija. React odpala `toggle` na `<details>` także przy programowej zmianie
+   * `open` — bez tej bramki zapisalibyśmy wartość domyślną i zamrozili ją na stałe.
+   */
+  const setOpen = useCallback((key: string, open: boolean, lineCount: number): void => {
+    if (!validKey(key)) return
+    const current = storedRef.current[key] ?? (!narrowRef.current && lineCount <= MAX_LINES_OPEN_BY_DEFAULT)
+    if (current === open) return
     const next = { ...storedRef.current, [key]: open }
     storedRef.current = next
     setStored(next)

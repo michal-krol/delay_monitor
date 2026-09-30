@@ -8,7 +8,8 @@ const STORAGE_KEY = 'monitor.recentLines.v1'
 const MAX_RECENT = 6
 
 // Kształt `{ [miasto]: [idTrasy, ...] }` — elementy sprawdzamy osobno (patrz `readAll`).
-const storeSchema = z.record(z.string(), z.array(z.unknown()))
+// Wartość miasta, która nie jest tablicą, odpada pojedynczo (`readAll`) — nie kasuje pozostałych miast.
+const storeSchema = z.record(z.string(), z.unknown())
 
 type Store = Record<string, string[]>
 
@@ -24,7 +25,7 @@ function readAll(): Store {
     if (!parsed.success) return {}
     const store: Store = {}
     for (const [city, ids] of Object.entries(parsed.data)) {
-      if (!CITY_ID_PATTERN.test(city)) continue
+      if (!CITY_ID_PATTERN.test(city) || !Array.isArray(ids)) continue
       const valid = ids.filter((id): id is string => typeof id === 'string' && GTFS_ROUTE_ID_PATTERN.test(id))
       store[city] = [...new Set(valid)].slice(0, MAX_RECENT)
     }

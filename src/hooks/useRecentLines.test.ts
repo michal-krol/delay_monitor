@@ -18,9 +18,18 @@ afterEach(() => {
 })
 
 describe('useRecentLines', () => {
-  it('starts empty when nothing is stored', () => {
+  it('starts empty when nothing is stored', async () => {
     const { result } = renderHook(() => useRecentLines('warszawa'))
-    expect(result.current.recent).toEqual([])
+    await waitFor(() => expect(result.current.recent).toEqual([]))
+    expect(window.localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('one city with a non-array value does not drop the other cities', async () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ krakow: 'oops', warszawa: ['131', 'M1'] }))
+    const { result } = renderHook(() => useRecentLines('warszawa'))
+    await waitFor(() => expect(result.current.recent).toEqual(['131', 'M1']))
+    act(() => result.current.record('4'))
+    expect(stored()).toEqual({ warszawa: ['4', '131', 'M1'] })
   })
 
   it('corrupt JSON gives an empty list, not a crash', async () => {
@@ -34,7 +43,9 @@ describe('useRecentLines', () => {
   it('a wrong-shaped payload (array, number) gives an empty list', async () => {
     window.localStorage.setItem(KEY, '[1,2]')
     const { result } = renderHook(() => useRecentLines('warszawa'))
-    expect(result.current.recent).toEqual([])
+    await waitFor(() => expect(result.current.recent).toEqual([]))
+    act(() => result.current.record('131'))
+    expect(stored()).toEqual({ warszawa: ['131'] })
   })
 
   it('drops a bad route id and keeps the good ones', async () => {
