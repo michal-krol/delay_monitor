@@ -13,6 +13,7 @@ import { useRailStationStatus } from '@/hooks/useRailStations'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { formatAgo, formatClockTime } from '@/lib/format'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
+import { lineKindFrom } from '@/lib/gtfs/schema'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { FADE_START_SEC } from './mapData'
 import { ModeChip } from './ModeChip'
@@ -221,7 +222,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
         <ul className="mb-3 flex flex-wrap gap-1.5" aria-label="Linie">
           {lines.map((line) => (
             <li key={line.routeId}>
-              <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" href={`/city/${city}/line/${line.routeId}`} />
+              <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" href={`/city/${city}/line/${line.routeId}`} />
             </li>
           ))}
         </ul>
@@ -261,7 +262,7 @@ function VehicleBody({
   return (
     <>
       {vehicle.shortName !== null && vehicle.mode !== null && (
-        <LineBadge line={vehicle.shortName} color={vehicle.color} mode={vehicle.mode} />
+        <LineBadge line={vehicle.shortName} mode={vehicle.mode} kind={lineKindFrom(vehicle.shortName, undefined)} />
       )}
       {disrupted && (
         <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">

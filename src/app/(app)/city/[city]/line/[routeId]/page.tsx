@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { notFound, useParams } from 'next/navigation'
@@ -16,16 +16,18 @@ import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon } from '@/components/icons'
-import { MODE_COLOR } from '@/components/map/mapData'
-import { MODE_LABEL } from '@/components/transitMode'
+import { LINE_KIND_LABEL, MODE_LABEL, darkRingClass, lineColor } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
 import { useCities } from '@/hooks/useCities'
 import { isLineLoading } from '@/hooks/useLineDetail'
 import { useLineVehicles } from '@/hooks/useLineVehicles'
+import { useRecentLines } from '@/hooks/useRecentLines'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
+import { hasCustomStroke, strokeFor } from '@/components/map/mapData'
 import type { LineDetail } from '@/lib/gtfs/query'
+import type { LineKind } from '@/lib/gtfs/types'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
 
 type LineResponse = {
@@ -39,7 +41,6 @@ type LineResponse = {
 
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
-const KIND_LABEL = { regular: '', night: 'linia nocna', express: 'linia przyspieszona', replacement: 'linia zastępcza' } as const
 
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
@@ -67,6 +68,19 @@ export default function LineDetailPage() {
   const cityName = entry?.name ?? city
 
   const line = data?.line ?? null
+
+  // „Ostatnio oglądane": zapis dopiero, gdy linia się wczytała (nigdy dla nieznanego id)
+  // i tylko raz na trasę — nie przy każdym odświeżeniu danych.
+  const { record: recordRecent } = useRecentLines(city)
+  const recordedRef = useRef<string | null>(null)
+  const lineKnown = line !== null
+  useEffect(() => {
+    const key = `${city}:${routeId}`
+    if (!lineKnown || recordedRef.current === key) return
+    recordedRef.current = key
+    recordRecent(routeId)
+  }, [lineKnown, city, routeId, recordRecent])
+
   const loading = data === null && !failed
   const directions = line?.directions ?? []
   const direction = directions[Math.min(dirIdx, Math.max(0, directions.length - 1))]
@@ -89,13 +103,19 @@ export default function LineDetailPage() {
         lon: stop.lon,
         label: stop.code !== null ? `${stop.name} ${stop.code}` : stop.name,
         mode: line?.mode,
+        kind: line?.kind,
         href: `/city/${city}/stop/${encodeStopIdForPathSegment(stop.stopId)}?name=${encodeURIComponent(stop.name)}`,
       })),
-    [stops, line?.mode, city]
+    [stops, line?.mode, line?.kind, city]
   )
+  // Rodzaj do koloru mapy; `'regular'` tylko na czas ładowania linii — sekcja mapy renderuje się dopiero, gdy `line` jest znane.
+  const mapKind: LineKind = line?.kind ?? 'regular'
+  // Paleta linii liczona raz (oś czasu: kropki pojazdów). Czerń/granat (nocna/lokalna) giną na ciemnej karcie — jasny pierścień zamiast pierścienia w kolorze tła (ta sama reguła co plakietki, `darkRingClass`).
+  const palette = lineColor(line?.mode ?? 'bus', mapKind)
+  const dotDarkRing = darkRingClass(mapKind) !== '' ? 'dark:ring-white/40' : 'dark:ring-slate-900'
   const mapRoute = useMemo(
-    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', color: line?.color ?? null }),
-    [direction?.shape, stops, line?.mode, line?.color]
+    () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', kind: mapKind }),
+    [direction?.shape, stops, line?.mode, mapKind]
   )
   const mapMovers = useMemo<MapMover[]>(() => {
     if (!showVehicles) return []
@@ -105,9 +125,10 @@ export default function LineDetailPage() {
       lon: v.lon,
       label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”`,
       mode: line?.mode ?? 'bus',
+      kind: mapKind,
       bearing: v.bearing,
     }))
-  }, [showVehicles, liveVehicles.vehicles, stops, line?.mode])
+  }, [showVehicles, liveVehicles.vehicles, stops, line?.mode, mapKind])
   const { resolvedTheme } = useTheme()
   const onMapPinClick = useCallback((id: string) => setStopSel(Number(id)), [])
 
@@ -180,10 +201,10 @@ export default function LineDetailPage() {
   return (
     <PageShell aside={asideContent}>
       <TopBar
-        backLabel="Wróć do tras"
+        backLabel="Wróć do linii"
         backHref={`/city/${city}/lines`}
         crumbs={[
-          { label: 'Trasy', href: `/city/${city}/lines` },
+          { label: 'Linie', href: `/city/${city}/lines` },
           { label: line?.longName ?? routeId },
         ]}
       />
@@ -191,12 +212,12 @@ export default function LineDetailPage() {
         {line !== null && (
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-3">
-              <LineBadge line={line.line} color={line.color} mode={line.mode} />
+              <LineBadge line={line.line} mode={line.mode} kind={line.kind} />
               <PageTitle>{line.longName}</PageTitle>
             </div>
             <p className="text-sm text-text-secondary">
               {MODE_LABEL[line.mode]}
-              {KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · {KIND_LABEL[line.kind]}</span>}
+              {LINE_KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · linia {LINE_KIND_LABEL[line.kind]}</span>}
             </p>
             {data?.alerts != null && data.alerts.length > 0 && <AlertBanner alerts={data.alerts} />}
             {data !== null && (
@@ -286,14 +307,17 @@ export default function LineDetailPage() {
                                       key={v.sideNumber + v.tripId}
                                       title={`Pojazd ${v.sideNumber}${v.ageSec > 60 ? ` · ${Math.round(v.ageSec / 60)} min temu` : ''}`}
                                       data-testid="timeline-vehicle"
-                                      className="absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full text-white shadow ring-2 ring-white dark:ring-slate-900"
+                                      className={`absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full text-white shadow ring-2 ring-white ${dotDarkRing}`}
                                       style={{
                                         top: `${v.fraction * 100}%`,
                                         // Kolor rodzaju jak na mapie; strzałka = kierunek jazdy NA OSI (w dół
                                         // listy), nie `v.bearing` — geograficzny azymut na pionowej,
                                         // schematycznej osi nie wskazuje niczego sensownego (ten idzie na mapę).
-                                        backgroundColor: MODE_COLOR[line.mode],
+                                        backgroundColor: palette.bg,
+                                        color: palette.fg,
                                         transform: 'translateY(-50%)',
+                                        // Żółte metro na białym pierścieniu jasnej karty znika — pierścień w kolorze obrysu z mapy.
+                                        ...(hasCustomStroke(palette.bg) ? ({ '--tw-ring-color': strokeFor(palette.bg) } as CSSProperties) : {}),
                                       }}
                                     >
                                       <ArrowRightIcon size={10} className="rotate-90" />

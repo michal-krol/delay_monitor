@@ -8,6 +8,15 @@ type Props = {
   title?: string
   /** Bieżący błąd sieci z hooka — dokłada się jako chip, nie zastępuje wieku. */
   error?: boolean
+  /** Bez ostrzeżeń (wiek danych, nieudane odświeżanie) — sama linijka „tytuł · Aktualizacja”, np. w stopce strony. */
+  quiet?: boolean
+}
+
+const STALE_MS = 60 * 60 * 1000
+
+/** Czy stan rozkładu wymaga uwagi: wczytywanie, nieudane odświeżanie, dane starsze niż godzina albo błąd sieci. */
+export function scheduleNeedsAttention(schedule: Props['schedule'], error: boolean): boolean {
+  return schedule.state === 'loading' || schedule.state === 'failed' || error || (schedule.ageMs !== null && schedule.ageMs >= STALE_MS)
 }
 
 /**
@@ -41,7 +50,7 @@ const PHASE_LABEL: Record<string, string> = {
  * FAZĄ (nazwa fazy niepokoi mniej niż licznik sekund). `droppedRows` nie ma
  * w tej odpowiedzi — trójstan jest w `/api/health`.
  */
-export function ScheduleStatus({ schedule, cityName, title, error = false }: Props) {
+export function ScheduleStatus({ schedule, cityName, title, error = false, quiet = false }: Props) {
   const heading = title ?? `Rozkład jazdy — ${cityName}`
 
   if (schedule.state === 'loading') {
@@ -56,7 +65,7 @@ export function ScheduleStatus({ schedule, cityName, title, error = false }: Pro
     )
   }
 
-  const stale = schedule.ageMs !== null && schedule.ageMs >= 60 * 60 * 1000
+  const stale = schedule.ageMs !== null && schedule.ageMs >= STALE_MS
 
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
@@ -64,15 +73,17 @@ export function ScheduleStatus({ schedule, cityName, title, error = false }: Pro
       {schedule.loadedAt !== null && (
         <span className="text-text-muted">· Aktualizacja: {formatUpdated(schedule.loadedAt)}</span>
       )}
-      <span className="contents" aria-live="polite">
-        {(schedule.state === 'failed' || stale) && schedule.ageMs !== null && (
-          <span className="text-warning-text">dane sprzed {formatAge(schedule.ageMs)}</span>
-        )}
-        {schedule.state === 'failed' && <span className="text-warning-text">odświeżanie nie powiodło się</span>}
-        {error && schedule.state !== 'failed' && (
-          <span className="text-warning-text">błąd ostatniego odświeżenia</span>
-        )}
-      </span>
+      {!quiet && (
+        <span className="contents" aria-live="polite">
+          {(schedule.state === 'failed' || stale) && schedule.ageMs !== null && (
+            <span className="text-warning-text">dane sprzed {formatAge(schedule.ageMs)}</span>
+          )}
+          {schedule.state === 'failed' && <span className="text-warning-text">odświeżanie nie powiodło się</span>}
+          {error && schedule.state !== 'failed' && (
+            <span className="text-warning-text">błąd ostatniego odświeżenia</span>
+          )}
+        </span>
+      )}
     </p>
   )
 }

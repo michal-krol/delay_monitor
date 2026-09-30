@@ -114,7 +114,7 @@ export function LineSearch({
                 choose(line)
               }}
             >
-              <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
+              <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
               <span className="truncate text-text-secondary">{line.longName}</span>
             </li>
           ))}

@@ -5,11 +5,11 @@ import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
 import { trapTab } from '@/lib/focusTrap'
-import type { GtfsMode } from '@/lib/gtfs/types'
-import { MODE_ICON } from './transitMode'
+import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
+import { MODE_ICON, lineColor } from './transitMode'
 import { ExpandIcon, CloseIcon, MapIcon } from './icons'
 import { IconButton } from './IconButton'
-import { MODE_COLOR, UNKNOWN_COLOR, routeColor } from './map/mapData'
+import { MODE_COLOR, UNKNOWN_COLOR, casingFor, outlineFilter, strokeFor } from './map/mapData'
 
 export type MapPin = {
   id: string
@@ -18,6 +18,8 @@ export type MapPin = {
   label: string
   /** Ikona pinu — klucz `MODE_ICON` (transitMode.tsx, już używane przez `LineBadge`). Brak = neutralny pin lokalizacji. */
   mode?: keyof typeof MODE_ICON
+  /** Rodzaj linii (kolor pinu jak trasy i plakietki); bez niego pin ma kolor środka. Nie wchodzi do `pinsKey` — stały dla jednej linii, jak `mode`. */
+  kind?: LineKind
   /** 2-3 gotowe, sformatowane linijki („18:12 → Kutno") — MapView niczego nie liczy, tylko wyświetla. Tylko w powiększonym popupie. */
   preview?: string[]
   /** Link w powiększonym popupie — używany przez mapę trasy linii (piny = różne przystanki); mapy jednego przystanku go nie podają (byłby linkiem do siebie samego). */
@@ -29,12 +31,12 @@ export type MapPin = {
  * Ta sama konwencja co na mapie miasta: kropka w kolorze rodzaju + strzałka kierunku
  * (`bearing`, azymut od północy); bez `bearing` sama kropka.
  */
-export type MapMover = { id: string; lat: number; lon: number; label: string; mode: GtfsMode; bearing?: number | null }
+export type MapMover = { id: string; lat: number; lon: number; label: string; mode: GtfsMode; /** Rodzaj linii (kolor); pociąg PKP przekazuje `'regular'` jawnie. */ kind: LineKind; bearing?: number | null }
 /**
  * Trasa rysowana po kolejnych punktach — kontur ulic z `shapes.txt` gdy wzorzec go ma, inaczej łamana po przystankach (`schedule.ts`/`query.ts` decydują, MapView tylko rysuje).
- * Kolor liczy `routeColor(mode, color)` — ta sama reguła co na mapie miasta; `color` = surowy `route_color` z feedu.
+ * Kolor liczy `lineColor(mode, kind)` — ta sama paleta co plakietki i mapa miasta; pociąg PKP przekazuje `'regular'` jawnie.
  */
-export type MapRoute = { points: { lat: number; lon: number }[]; mode: GtfsMode; color: string | null }
+export type MapRoute = { points: { lat: number; lon: number }[]; mode: GtfsMode; kind: LineKind }
 
 type MoverHandle = { sync: (movers: MapMover[]) => void }
 
@@ -66,7 +68,13 @@ export const WORKER_URL = '/maplibre-gl-worker.mjs'
 function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root } {
   const element = document.createElement('div')
   element.className = 'grid h-8 w-8 cursor-pointer place-items-center rounded-full text-white shadow-lg ring-2 ring-white'
-  element.style.backgroundColor = pin.mode !== undefined ? MODE_COLOR[pin.mode] : UNKNOWN_COLOR
+  // Pin z `kind` (mapa linii) ma kolor rodzaju linii jak trasa i plakietka; bez niego — kolor środka (mapy przystanków).
+  const palette = pin.mode !== undefined && pin.kind !== undefined ? lineColor(pin.mode, pin.kind) : null
+  const color = palette?.bg ?? (pin.mode !== undefined ? MODE_COLOR[pin.mode] : UNKNOWN_COLOR)
+  element.style.backgroundColor = color
+  // Żółte metro: biała ikona i biały pierścień znikałyby — tekst/pierścień z palety (`fg`).
+  if (pin.mode !== undefined) element.style.color = (palette ?? lineColor(pin.mode, 'regular')).fg
+  element.style.setProperty('--tw-ring-color', strokeFor(color))
   const root = createRoot(element)
   const Icon = pin.mode !== undefined ? MODE_ICON[pin.mode] : MapIcon
   root.render(<Icon size={16} />)
@@ -142,7 +150,7 @@ function createChevronElement(): SVGSVGElement {
  * „na górze" elementu; bez kierunku jest ukryta.
  */
 function createMoverElement(mover: MapMover): HTMLDivElement {
-  const color = MODE_COLOR[mover.mode]
+  const color = lineColor(mover.mode, mover.kind).bg
   const element = document.createElement('div')
   element.className = 'relative h-4 w-4 cursor-pointer'
   element.setAttribute('data-testid', 'map-mover')
@@ -150,11 +158,14 @@ function createMoverElement(mover: MapMover): HTMLDivElement {
   dot.dataset.part = 'dot'
   dot.className = 'h-4 w-4 rounded-full shadow ring-2 ring-white'
   dot.style.backgroundColor = color
+  dot.style.setProperty('--tw-ring-color', strokeFor(color))
   const arrow = document.createElement('div')
   arrow.dataset.part = 'arrow'
   // Trójkąt z obramowań (ostrzem do góry), 3 px nad kropką.
   arrow.className = 'absolute -top-[11px] left-[3px] h-0 w-0 border-x-[5px] border-b-[8px] border-x-transparent'
   arrow.style.borderBottomColor = color
+  // Trójkąt z obramowań nie ma własnego obrysu — `drop-shadow` w kolorze `strokeFor` (żółte metro ~1,3:1 na jasnym podkładzie).
+  arrow.style.filter = outlineFilter(color)
   arrow.hidden = mover.bearing === null || mover.bearing === undefined
   element.append(dot, arrow)
   return element
@@ -233,7 +244,7 @@ function mountMap(
     syncMovers(initialMovers)
 
     if (route !== undefined && route.points.length >= 2) {
-      const color = routeColor(route.mode, route.color)
+      const color = lineColor(route.mode, route.kind).bg
       const addRoute = (): void => {
         if (mapInstance.getSource('route') !== undefined) return
         mapInstance.addSource('route', {
@@ -251,9 +262,21 @@ function mountMap(
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': color, 'line-width': 4, 'line-opacity': 0.85 },
         })
+        // Obwódka pod trasą (jak `route-casing` na mapie miasta): żółte metro na jasnym podkładzie bez niej znika.
+        mapInstance.addLayer(
+          {
+            id: 'route-casing',
+            type: 'line',
+            source: 'route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': casingFor(color, dark), 'line-width': 7, 'line-opacity': 0.85 },
+          },
+          'route'
+        )
       }
       if (mapInstance.isStyleLoaded()) addRoute()
-      else mapInstance.once('load', addRoute)
+      // `style.load`, nie `load`: `load` czeka na wszystkie kafle i potrafi nie przyjść, a trasa musi się narysować (jak w `TransitMap`).
+      else mapInstance.once('style.load', addRoute)
     }
 
     const bounds = new lib.LngLatBounds()
@@ -337,7 +360,7 @@ export function MapView({
   // faktycznie się zmieni, więc treść w domknięciu jest wtedy aktualna.
   const pinsKey = pins.map((p) => `${p.id}:${p.lat}:${p.lon}:${p.label}`).join('|')
   // Trasa zmienia się razem z pinami (kierunek linii); kolor dopisany, bo zmienia rysunek.
-  const routeKey = route === undefined ? '' : `${route.points.length}:${routeColor(route.mode, route.color)}`
+  const routeKey = route === undefined ? '' : `${route.points.length}:${lineColor(route.mode, route.kind).bg}`
 
   useEffect(() => {
     moversRef.current = movers ?? []

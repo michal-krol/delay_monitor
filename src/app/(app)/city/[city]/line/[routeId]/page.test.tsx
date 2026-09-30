@@ -6,6 +6,7 @@ import LineDetailPage from './page'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 import { MODE_COLOR } from '@/components/map/mapData'
+import { LINE_PALETTE } from '@/components/transitMode'
 import { ON_REQUEST_TITLE } from '@/components/OnRequestBadge'
 
 // Prawdziwy MapLibre nie działa w jsdom (WebGL) -- stub sprawdza tylko, co strona mu przekazuje.
@@ -134,6 +135,34 @@ describe('LineDetailPage', () => {
     // Pozycja pojazdu na mapie to surowe lat/lon z feedu (nie interpolacja po przystankach).
     expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.015)
     expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.012)
+  })
+
+  it('metro timeline dot gets the dark-red ring (yellow on a white ring vanishes on the light card); a tram dot keeps the default ring', async () => {
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'metro', kind: 'regular' } })
+    const { unmount } = render(<LineDetailPage />)
+    const metroDot = await screen.findByTestId('timeline-vehicle')
+    expect(metroDot.style.getPropertyValue('--tw-ring-color')).toBe(LINE_PALETTE.metro.fg)
+    unmount()
+
+    stubFetch()
+    render(<LineDetailPage />)
+    const tramDot = await screen.findByTestId('timeline-vehicle')
+    expect(tramDot.style.getPropertyValue('--tw-ring-color')).toBe('')
+  })
+
+  it('a night-bus timeline dot gets the light dark-mode ring (black vanishes on the dark card); a regular bus dot keeps the page-coloured one', async () => {
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'bus', kind: 'night' } })
+    const { unmount } = render(<LineDetailPage />)
+    const nightDot = await screen.findByTestId('timeline-vehicle')
+    expect(nightDot).toHaveClass('dark:ring-white/40')
+    expect(nightDot).not.toHaveClass('dark:ring-slate-900')
+    unmount()
+
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'bus', kind: 'regular' } })
+    render(<LineDetailPage />)
+    const regularDot = await screen.findByTestId('timeline-vehicle')
+    expect(regularDot).toHaveClass('dark:ring-slate-900')
+    expect(regularDot).not.toHaveClass('dark:ring-white/40')
   })
 
   it('draws route and vehicles in the mode colour convention: mode + bearing go to the map, the timeline vehicle is a mode-coloured dot with a downward arrow', async () => {
@@ -355,13 +384,13 @@ describe('LineDetailPage', () => {
     expect(screen.getByText('Treść.')).toBeInTheDocument()
   })
 
-  it('jeden górny rząd: ← do tras i ścieżka; nazwa linii to jedyny h1', async () => {
+  it('jeden górny rząd: ← do linii i ścieżka; nazwa linii to jedyny h1', async () => {
     stubFetch()
     render(<LineDetailPage />)
     await screen.findByRole('heading', { level: 1, name: 'Piaski – Międzylesie' })
-    expect(screen.getByRole('link', { name: 'Wróć do tras' })).toHaveAttribute('href', '/city/warszawa/lines')
+    expect(screen.getByRole('link', { name: 'Wróć do linii' })).toHaveAttribute('href', '/city/warszawa/lines')
     const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
-    expect(within(nav).getByRole('link', { name: 'Trasy' })).toHaveAttribute('href', '/city/warszawa/lines')
+    expect(within(nav).getByRole('link', { name: 'Linie' })).toHaveAttribute('href', '/city/warszawa/lines')
     expect(within(nav).getByText('Piaski – Międzylesie')).toHaveAttribute('aria-current', 'page')
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })

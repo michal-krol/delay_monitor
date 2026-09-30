@@ -34,7 +34,7 @@ export type GtfsStop = {
 }
 
 /** Rodzaj linii — wyprowadzony z numeru/`route_desc` (patrz `lineKindFrom` w schema.ts). */
-export type LineKind = 'regular' | 'night' | 'express' | 'replacement'
+export type LineKind = 'regular' | 'night' | 'express' | 'replacement' | 'zone' | 'local'
 
 export type GtfsRoute = {
   id: string

@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { TransitMap, type MapHit } from './TransitMap'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
-import type { LayerKey } from './mapData'
+import { MODE_COLOR, type LayerKey } from './mapData'
+import { LINE_PALETTE } from '../transitMode'
 
 const sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>()
 const layers = new Set<string>()
@@ -178,6 +179,7 @@ describe('TransitMap', () => {
     expect(map.fitBounds).toHaveBeenCalledWith(overlay.bounds, expect.objectContaining({ maxZoom: 15 }))
     expect(map.setPaintProperty).toHaveBeenCalledWith('stops-busStops', 'circle-opacity', 0.25)
     expect(map.setPaintProperty).toHaveBeenCalledWith('route-line', 'line-color', '#dc2626')
+    expect(map.setPaintProperty).toHaveBeenCalledWith('route-casing', 'line-color', '#ffffff')
 
     rerender(<TransitMap {...base} route={null} />)
     expect(map.setPaintProperty).toHaveBeenLastCalledWith('stops-metroStops', 'circle-stroke-opacity', 1)
@@ -213,14 +215,37 @@ describe('TransitMap', () => {
     vi.unstubAllGlobals()
   })
 
+  it('casing under the backbone is dark red for yellow metro and white otherwise; the route casing follows the route colour', async () => {
+    const { map } = await mounted()
+    const layer = (id: string) => map.addLayer.mock.calls.find(([l]: [{ id: string }]) => l.id === id)![0]
+    expect(layer('backbone-casing').paint['line-color']).toEqual(['match', ['get', 'color'], MODE_COLOR.metro, LINE_PALETTE.metro.fg, '#ffffff'])
+    expect(layer('route-casing').paint['line-color']).toBe('#ffffff')
+  })
+
+  it('on the dark basemap the backbone casing is white for every line (yellow needs no dark casing there)', async () => {
+    const { map } = await mounted({ dark: true })
+    const casing = map.addLayer.mock.calls.find(([l]: [{ id: string }]) => l.id === 'backbone-casing')![0]
+    expect(casing.paint['line-color']).toBe('#ffffff')
+  })
+
+  it('route casing follows the same light/dark rule as the backbone casing, also when the route changes', async () => {
+    const overlay = { line: { type: 'FeatureCollection' as const, features: [] }, stops: { type: 'FeatureCollection' as const, features: [] }, bounds: null }
+    const dark = await mounted({ dark: true, route: { key: 'M1:0', overlay, color: MODE_COLOR.metro } })
+    const initial = dark.map.addLayer.mock.calls.find(([l]: [{ id: string }]) => l.id === 'route-casing')![0]
+    expect(initial.paint['line-color']).toBe('#ffffff')
+    dark.rerender(<TransitMap {...base} dark route={{ key: 'M2:0', overlay, color: MODE_COLOR.metro }} />)
+    expect(dark.map.setPaintProperty).toHaveBeenCalledWith('route-stops', 'circle-stroke-color', LINE_PALETTE.metro.fg)
+    expect(dark.map.setPaintProperty).toHaveBeenCalledWith('route-casing', 'line-color', '#ffffff')
+  })
+
   it('adds the direction arrow and the metro/rail backbone; follows a vehicle; reports a user drag', async () => {
     const onUserMove = vi.fn()
     const { map, rerender } = await mounted({ onUserMove })
     expect(map.addImage).toHaveBeenCalledWith('vehicle-arrow', expect.objectContaining({ width: 16 }), { sdf: true })
     const backbone = map.addSource.mock.calls.find(([id]: [string]) => id === 'backbone')[1]
     expect(backbone.data.features[0].geometry.coordinates).toEqual([[21.0, 52.1], [21.0, 52.2]])
-    // Kolor linii z feedu (spójny z plakietką M1), zapasowo kolor rodzaju.
-    expect(backbone.data.features.map((f: { properties: { color: string } }) => f.properties.color)).toEqual(['#0000BB', '#2563eb'])
+    // Kolor rodzaju z jednej palety — `route_color` z feedu (M1 `#0000BB`) jest ignorowany.
+    expect(backbone.data.features.map((f: { properties: { color: string } }) => f.properties.color)).toEqual([MODE_COLOR.metro, MODE_COLOR.rail])
     rerender(<TransitMap {...base} onUserMove={onUserMove} follow={{ lat: 52.3, lon: 21.3 }} />)
     expect(map.easeTo).toHaveBeenCalledWith({ center: [21.3, 52.3], duration: 1000 })
     handlers.get('dragstart')!({})

@@ -13,7 +13,7 @@ describe('activeItemFromPath', () => {
 
   it('still recognizes existing routes', () => {
     expect(activeItemFromPath('/')).toBe('pulpit')
-    expect(activeItemFromPath('/lines')).toBe('trasy')
+    expect(activeItemFromPath('/lines')).toBe('linie')
     expect(activeItemFromPath('/city/warszawa')).toBe('odjazdy')
   })
 

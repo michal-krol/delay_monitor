@@ -141,7 +141,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
               line: payload,
               mode: 'bus',
               lineKind: 'regular',
-              // route_color surowy z cudzego serwera — LineBadge dostaje go jako `color`.
+              // route_color surowy z cudzego serwera — UI go już nie czyta (kolor plakietki = kategoria), ładunek zostaje w polu.
               color: payload,
               headsign: payload,
               plannedAt: '2026-09-02T14:30:00+02:00',
@@ -180,7 +180,8 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
       const { container, unmount } = render(
         <LineGrid
           city="warszawa"
-          filter="all"
+          isOpen={() => true}
+          onToggle={() => {}}
           linesByMode={{
             metro: [],
             tram: [],

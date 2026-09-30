@@ -16,21 +16,18 @@ test('ekran miasta: deep-link ?stop= renderuje osadzoną tablicę, „wróć" j�
   await expect(page.getByText('przystanki miejskie')).toBeVisible()
 })
 
-test('przeglądarka linii: filtr rodzaju zawęża siatkę do metra', async ({ page }) => {
+test('strona Linie: sekcje per rodzaj środka, kafel metra prowadzi do linii', async ({ page }) => {
   await page.goto('/city/warszawa/lines')
-  await expect(page.getByRole('link', { name: /^Linia / }).first()).toBeVisible({ timeout: READY })
+  const sections = page.getByTestId('line-section')
+  await expect(sections.first()).toBeVisible({ timeout: READY })
 
-  const filter = page.getByRole('group', { name: 'Filtr rodzaju transportu' })
-  await expect(filter.getByRole('button', { name: /tramwaj/i })).toBeVisible()
+  // Kolejność metro → tramwaje → autobusy → kolej; puste rodzaje się nie pojawiają.
+  await expect(page.locator('[data-testid="line-section"] > summary')).toHaveText([/^Metro/, /^Tramwaje/, /^Autobusy/, /^Kolej/])
 
-  const metroChip = filter.getByRole('button', { name: /^metro/i })
-  await metroChip.click()
-  await expect(metroChip).toHaveAttribute('aria-pressed', 'true')
-
-  await expect(page.getByRole('heading', { name: /^metro ·/ })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /^tramwaj ·/ })).not.toBeVisible()
-
-  await page.getByRole('link', { name: /^Linia M/ }).first().click()
+  const metro = sections.first()
+  if (!(await metro.evaluate((node) => (node as HTMLDetailsElement).open))) await metro.locator('summary').click()
+  await expect(metro.getByRole('link', { name: /^Linia M/ }).first()).toBeVisible()
+  await metro.getByRole('link', { name: /^Linia M/ }).first().click()
   await expect(page).toHaveURL(/\/city\/warszawa\/line\/M/)
 })
 

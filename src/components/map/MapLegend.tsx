@@ -1,5 +1,5 @@
 import { ChevronRightIcon } from '../icons'
-import { MODE_COLOR } from './mapData'
+import { MODE_COLOR, outlineFilter, strokeFor } from './mapData'
 import type { GtfsMode } from '@/lib/gtfs/types'
 
 const POINTS: [GtfsMode, string][] = [
@@ -52,11 +52,11 @@ function Section({ title, items, shape }: { title: string; items: [GtfsMode, str
         {items.map(([mode, label]) => (
           <li key={label} className="flex items-center gap-2.5">
             {shape === 'dot' ? (
-              <span className="ml-1 mr-1 h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode] }} aria-hidden="true" />
+              <span className="ml-1 mr-1 h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode], borderColor: strokeFor(MODE_COLOR[mode]) }} aria-hidden="true" />
             ) : (
               <span className="relative ml-1 mr-1 mt-1.5 h-3 w-3" aria-hidden="true">
-                <span className="block h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode] }} />
-                <span className="absolute -top-[8px] left-[2px] h-0 w-0 border-x-[4px] border-b-[6px] border-x-transparent" style={{ borderBottomColor: MODE_COLOR[mode] }} />
+                <span className="block h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode], borderColor: strokeFor(MODE_COLOR[mode]) }} />
+                <span className="absolute -top-[8px] left-[2px] h-0 w-0 border-x-[4px] border-b-[6px] border-x-transparent" style={{ borderBottomColor: MODE_COLOR[mode], filter: outlineFilter(MODE_COLOR[mode]) }} />
               </span>
             )}
             {label}

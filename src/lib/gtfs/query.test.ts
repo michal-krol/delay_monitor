@@ -215,7 +215,7 @@ describe('groupLines / stopSummary', () => {
 describe('cityStats', () => {
   it('counts lines per mode, bus kinds, trips today and the network hourly histogram', async () => {
     const schedule = await make({
-      routes: [route('M1', 1, 'M1'), route('20', 0, '20'), route('128', 3, '128'), route('N16', 3, 'N16'), route('521', 3, '521')],
+      routes: [route('M1', 1, 'M1'), route('20', 0, '20'), route('128', 3, '128'), route('N16', 3, 'N16'), route('521', 3, '521'), route('727', 3, '727'), route('L-5', 3, 'L-5')],
       stops: [stop('1001', 'A')],
       trips: [
         { routeId: '20', serviceId: 'S', tripId: 't1', headsign: 'x', directionId: 0 },
@@ -230,8 +230,8 @@ describe('cityStats', () => {
       ],
     })
     const stats = cityStats(schedule, 1)
-    expect(stats.linesByMode).toEqual({ metro: 1, tram: 1, bus: 3, rail: 0, other: 0 })
-    expect(stats.busKinds).toEqual({ regular: 1, night: 1, express: 1, replacement: 0 })
+    expect(stats.linesByMode).toEqual({ metro: 1, tram: 1, bus: 5, rail: 0, other: 0 })
+    expect(stats.busKinds).toEqual({ regular: 1, night: 1, express: 1, replacement: 0, zone: 1, local: 1 })
     expect(stats.modeCount).toBe(3) // metro, tram, bus
     expect(stats.tripsToday).toBe(3)
     expect(stats.firstDepartureSec).toBe(6 * 3600)

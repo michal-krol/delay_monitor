@@ -1,6 +1,8 @@
 import type { CityStop, LineRouteDirection } from '@/lib/gtfs/query'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
+import { lineKindFrom } from '@/lib/gtfs/schema'
 import type { GtfsMode } from '@/lib/gtfs/types'
+import { LINE_PALETTE, lineColor } from '../transitMode'
 import type { MapRailStation } from '@/lib/weather/coordinates'
 
 /**
@@ -31,29 +33,59 @@ export const POLAND_BOUNDS: [[number, number], [number, number]] = [
 ]
 
 /**
- * Kolor = RODZAJ środka transportu, nic więcej (spec §9): nie operator, nie
- * opóźnienie. Te same wartości w legendzie. Ciemne odcienie + biały obrys na
- * mapie — kontrast ≥ 3:1 do jasnego i ciemnego podkładu.
+ * Kolor = KATEGORIA linii z jednej palety (`LINE_PALETTE` w `transitMode.tsx`), nie operator,
+ * nie opóźnienie i nie `route_color` z feedu (decyzja właściciela: ta sama paleta na plakietkach
+ * i na mapie, także dla tła metra/SKM i trasy linii). `MODE_COLOR` = kolor zwykłej linii danego
+ * rodzaju (przystanki, legenda, pinezki); pojazdy i trasa liczą `lineColor(mode, kind)`.
  */
 export const MODE_COLOR: Record<GtfsMode, string> = {
-  bus: '#a21caf',
-  tram: '#dc2626',
-  metro: '#7c3aed',
-  rail: '#2563eb',
-  other: '#6b7280',
+  bus: LINE_PALETTE.bus.bg,
+  tram: LINE_PALETTE.tram.bg,
+  metro: LINE_PALETTE.metro.bg,
+  rail: LINE_PALETTE.rail.bg,
+  other: LINE_PALETTE.other.bg,
 }
 export const UNKNOWN_COLOR = '#6b7280'
 
-const HEX = /^#[0-9a-fA-F]{6}$/
-
 /**
- * Kolor PRZEBIEGU linii (tło metra/SKM, trasa w trybie linii). Metro i kolej mają
- * w Warszawie utrwalone barwy linii (M1 granatowa, M2 czerwona) — te same co na
- * plakietkach `LineBadge`, więc bierzemy `route_color` z feedu. Autobusy i tramwaje
- * zostają przy kolorze rodzaju (spec §9) — ich barwy z feedu nic nie znaczą dla pasażera.
+ * Obrys kropki/obwódka linii pod kolorem na mapie: biały, ale żółte metro na jasnym podkładzie
+ * miałoby ~1,5:1 — ciemnoczerwony z palety daje ≥ 3:1 (jasny i ciemny podkład) i żółty ≥ 3:1 do obrysu.
  */
-export function routeColor(mode: GtfsMode, color: string | null): string {
-  return (mode === 'metro' || mode === 'rail') && color !== null && HEX.test(color) ? color : MODE_COLOR[mode]
+const STROKE_DEFAULT = '#ffffff'
+export function strokeFor(color: string): string {
+  return color === LINE_PALETTE.metro.bg ? LINE_PALETTE.metro.fg : STROKE_DEFAULT
+}
+
+/** Obwódka pod linią: na ciemnym podkładzie zawsze biała (żółć sama kontrastuje, ciemnoczerwona brudziłaby ją na pomarańcz), na jasnym `strokeFor`. */
+export function casingFor(color: string, dark: boolean): string {
+  return dark ? STROKE_DEFAULT : strokeFor(color)
+}
+
+/** Obwódka białej kropki przystanku trasy: kolor linii, a dla żółtego metra `strokeFor` (żółć na bieli znika). */
+export function outlineFor(color: string): string {
+  const stroke = strokeFor(color)
+  return stroke === STROKE_DEFAULT ? color : stroke
+}
+
+/** Ta sama reguła `strokeFor` jako wyrażenie MapLibre po `['get', 'color']` (kropki, pojazdy, obwódka tła). */
+export function strokeExpression(): unknown[] {
+  return ['match', ['get', 'color'], LINE_PALETTE.metro.bg, strokeFor(LINE_PALETTE.metro.bg), STROKE_DEFAULT]
+}
+
+/** `casingFor` per obiekt (`['get', 'color']`) — obwódka tła metra/SKM. */
+export function casingExpression(dark: boolean): unknown {
+  return dark ? STROKE_DEFAULT : strokeExpression()
+}
+
+/** Obrys trójkąta z obramowań CSS (strzałki w DOM i w legendzie) — `drop-shadow` w 4 kierunkach w kolorze `strokeFor`. */
+export function outlineFilter(color: string): string {
+  const stroke = strokeFor(color)
+  return ['1px 0', '-1px 0', '0 1px', '0 -1px'].map((offset) => `drop-shadow(${offset} 0 ${stroke})`).join(' ')
+}
+
+/** Czy kolor potrzebuje niebiałego obrysu (żółte metro) — dla elementów, które domyślnie mają biały pierścień. */
+export function hasCustomStroke(color: string): boolean {
+  return strokeFor(color) !== STROKE_DEFAULT
 }
 
 /** Warstwy przełączane w „Filtrach". Domyślnie wszystkie widoczne. */
@@ -165,7 +197,8 @@ export function vehiclesToGeoJSON(
     features.push(
       point(v.lon, v.lat, {
         id: v.id,
-        color: v.mode !== null ? MODE_COLOR[v.mode] : UNKNOWN_COLOR,
+        // Pojazd nie niesie rodzaju linii — wyprowadzamy z numeru, tą samą regułą co plakietka.
+        color: v.mode !== null ? lineColor(v.mode, lineKindFrom(v.shortName ?? '', undefined)).bg : UNKNOWN_COLOR,
         opacity: Math.round(opacity * 100) / 100,
         label: v.shortName ?? '',
         // Brak klucza = feed nie podał kierunku jazdy → bez strzałki (warstwa filtruje `has`).

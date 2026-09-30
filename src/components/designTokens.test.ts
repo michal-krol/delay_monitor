@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { MODE_COLOR } from './map/mapData'
 
 /**
  * Strażnik tokenów (PR 7): kolory statusu, błędu i obramowania powierzchni mają
@@ -63,13 +64,14 @@ describe('design tokens', () => {
   it('mode colours on the map never reuse a status colour (#13: a bus must not read as „na czas”)', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     const statusBg = [...css.matchAll(/--status-\w+-bg:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())
-    const modeColors = [...readFileSync(join(SRC, 'components/map/mapData.ts'), 'utf8').matchAll(/^\s+(?:bus|tram|metro|rail|other): '(#[0-9a-f]{6})'/gim)].map((m) => m[1].toLowerCase())
+    // Paleta ma jedno źródło (`transitMode.tsx`), `MODE_COLOR` jest z niej wyprowadzone — pełny test palety: `transitMode.test.ts`.
+    const modeColors = Object.values(MODE_COLOR).map((color) => color.toLowerCase())
     expect(statusBg.length).toBeGreaterThan(0)
     expect(modeColors).toHaveLength(5)
     expect(modeColors.filter((color) => statusBg.includes(color))).toEqual([])
   })
 
-  it('GTFS views never use green, which reads as „na czas” (#13)', () => {
+  it('GTFS views never use status-green Tailwind classes (#13); the category green of zone buses comes from LINE_PALETTE, see adr/0005', () => {
     expect(offenders(/\b(text|bg)-(green|emerald)-\d/)).toEqual([])
   })
 })

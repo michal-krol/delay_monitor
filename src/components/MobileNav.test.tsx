@@ -32,7 +32,7 @@ describe('MobileNav', () => {
     // szuflada niesie te same 3 działające pozycje co pasek desktop
     expect(screen.getByRole('link', { name: 'Pulpit' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Odjazdy / Przyjazdy' })).toHaveAttribute('href', '/city')
-    expect(screen.getByRole('link', { name: 'Trasy' })).toHaveAttribute('href', '/lines')
+    expect(screen.getByRole('link', { name: 'Linie' })).toHaveAttribute('href', '/lines')
     // blokada scrolla tła
     expect(document.body.style.overflow).toBe('hidden')
   })
@@ -60,7 +60,7 @@ describe('MobileNav', () => {
   it('closes when a nav link is tapped', async () => {
     render(<MobileNav />)
     await userEvent.click(screen.getByRole('button', { name: /otwórz menu/i }))
-    const link = screen.getByRole('link', { name: 'Trasy' })
+    const link = screen.getByRole('link', { name: 'Linie' })
     // Blokujemy realną nawigację jsdom (component's React onClick i tak odpali):
     // bez tego jsdom loguje „Not implemented: navigation to another Document".
     link.addEventListener('click', (event) => event.preventDefault())
@@ -84,6 +84,6 @@ describe('MobileNav', () => {
     pathname.mockReturnValue('/city/warszawa/line/20')
     render(<MobileNav />)
     await userEvent.click(screen.getByRole('button', { name: /otwórz menu/i }))
-    expect(screen.getByRole('link', { name: 'Trasy' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Linie' })).toHaveAttribute('aria-current', 'page')
   })
 })

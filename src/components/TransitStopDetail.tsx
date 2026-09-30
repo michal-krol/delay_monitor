@@ -22,13 +22,11 @@ import { MapView } from './MapView'
 import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
-import { MODE_LABEL, MODE_ORDER } from './transitMode'
+import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, StarIcon } from './icons'
 import { PageTitle } from './PageTitle'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
-
-const LINE_KIND_LABEL = { regular: '', night: 'nocna', express: 'przyspieszona', replacement: 'zastępcza' } as const
 
 type StopTab = 'departures' | 'lines' | 'schedule' | 'alerts'
 const STOP_TABS: { key: StopTab; label: string }[] = [
@@ -307,7 +305,7 @@ export function TransitStopDetail({
                     {member.street !== null && <span className="text-xs text-text-muted">{member.street}</span>}
                     <span className="mt-0.5 flex flex-wrap items-center gap-1">
                       {visibleLines.map((line) => (
-                        <LineBadge key={line.routeId} line={line.line} color={line.color} mode={line.mode} size="sm" />
+                        <LineBadge key={line.routeId} line={line.line} mode={line.mode} kind={line.kind} size="sm" />
                       ))}
                       {overflow > 0 && <span className="text-[11px] text-text-muted">+{overflow}</span>}
                     </span>
@@ -391,7 +389,7 @@ export function TransitStopDetail({
                         className="rounded-full"
                       >
                         <span style={{ opacity: lineFilter !== null && lineFilter !== line.routeId ? 0.4 : 1 }}>
-                          <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
+                          <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
                         </span>
                       </button>
                     ))}
@@ -425,8 +423,8 @@ export function TransitStopDetail({
                           <span key={line.routeId} className="inline-flex items-center gap-1.5">
                             <LineBadge
                               line={line.line}
-                              color={line.color}
                               mode={line.mode}
+                              kind={line.kind}
                               href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
                             />
                             {LINE_KIND_LABEL[line.kind] !== '' && (
@@ -485,8 +483,8 @@ export function TransitStopDetail({
                       <span key={line.routeId} className="inline-flex items-center gap-1">
                         <LineBadge
                           line={line.line}
-                          color={line.color}
                           mode={line.mode}
+                          kind={line.kind}
                           size="sm"
                           href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
                         />

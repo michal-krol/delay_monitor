@@ -48,7 +48,7 @@ export function LinePanel({
     <PanelFrame
       title={`Linia ${line.line}`}
       subtitle={<p className="mt-0.5 text-sm text-text-secondary first-letter:uppercase">{MODE_LABEL[line.mode]} · w trasie: {vehiclesOnLine}</p>}
-      leading={<LineBadge line={line.line} color={line.color} mode={line.mode} />}
+      leading={<LineBadge line={line.line} mode={line.mode} kind={line.kind} />}
       closeLabel="Zakończ tryb linii"
       onClose={onClose}
       bodyLabel="Przystanki linii"

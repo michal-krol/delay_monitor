@@ -6,7 +6,7 @@ import { LineSearch } from './LineSearch'
 import { MapFilters } from './MapFilters'
 import { MapLegend } from './MapLegend'
 import { PanelFrame } from './PanelFrame'
-import type { LayerKey } from './mapData'
+import { MODE_COLOR, outlineFilter, type LayerKey } from './mapData'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import { ON_REQUEST_TITLE } from '../OnRequestBadge'
 
@@ -98,6 +98,14 @@ describe('MapLegend', () => {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     expect(screen.queryByText(/na żywo/)).toBeNull()
+  })
+
+  it('draws vehicle arrows with the map outline (4-direction drop-shadow from the one stroke rule)', () => {
+    const { container } = render(<MapLegend />)
+    // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- dekoracyjne kształty legendy (aria-hidden), bez roli
+    const arrows = [...container.querySelectorAll<HTMLElement>('span[style*="drop-shadow"]')]
+    expect(arrows).toHaveLength(3) // autobus, tramwaj, pociąg
+    expect(arrows[0].style.filter).toBe(outlineFilter(MODE_COLOR.bus))
   })
 })
 

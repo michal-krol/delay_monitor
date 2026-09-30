@@ -1,42 +1,33 @@
-import type { CSSProperties } from 'react'
 import Link from 'next/link'
-import { contrastText } from '@/lib/gtfs/schema'
-import type { GtfsMode } from '@/lib/gtfs/types'
-import { MODE_ICON } from './transitMode'
+import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
+import { MODE_ICON, darkRingClass, lineColor } from './transitMode'
 
 type Props = {
   line: string
-  /** `#RRGGBB` zwalidowany w `schema.ts`, albo `null`. NIGDY surowy string z feedu. */
-  color: string | null
   mode: GtfsMode
+  /** Rodzaj linii (nocna, strefowa…) — razem z `mode` wybiera kolor. Brak danych = `lineKindFrom(shortName, undefined)`, nigdy cichy `'regular'`. */
+  kind: LineKind
   size?: 'sm' | 'md'
   /** Gdy podane — plakietka jest linkiem do szczegółów linii. */
   href?: string
 }
 
 /**
- * Plakietka linii w kolorze z feedu. Kolor tekstu liczymy sami (luminancja
- * WCAG) i IGNORUJEMY `route_text_color` — mniej kodu niż walidacja drugiego
- * niezaufanego koloru i naprawia wiersz `route_color === route_text_color`.
- * `style={{ background }}` z wartością zwalidowaną; nigdy nazwa klasy z koloru.
+ * Plakietka linii w kolorze KATEGORII (`lineColor` w `transitMode.tsx`), nie `route_color` z feedu —
+ * kolor z cudzego serwera nie trafia do CSS w ogóle. Czerń (nocna) i granat (lokalna) giną na ciemnym
+ * tle, więc dostają jasny pierścień w trybie ciemnym (`darkRingClass`).
  */
-/** `#rrggbb` po walidacji w `schema.ts`. Druga warstwa: cokolwiek innego → brak koloru. */
-const SAFE_HEX = /^#[0-9a-fA-F]{6}$/
-
-export function LineBadge({ line, color, mode, size = 'md', href }: Props) {
+export function LineBadge({ line, mode, kind, size = 'md', href }: Props) {
   const Icon = MODE_ICON[mode]
-  const safe = color !== null && SAFE_HEX.test(color) ? color : null
-  const styled: CSSProperties =
-    safe === null
-      ? { background: 'var(--surface-border)', color: 'var(--foreground)' }
-      : { background: safe, color: contrastText(safe) }
+  const { bg, fg } = lineColor(mode, kind)
+  const ring = darkRingClass(kind)
 
   const badge = (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-md font-semibold tabular-nums ${
+      className={`inline-flex shrink-0 items-center gap-1 rounded-md font-semibold tabular-nums ${ring} ${
         size === 'sm' ? 'px-1.5 py-0.5 text-xs' : 'px-2 py-1 text-sm'
       }`}
-      style={styled}
+      style={{ background: bg, color: fg }}
     >
       <Icon size={size === 'sm' ? 12 : 14} />
       {line}

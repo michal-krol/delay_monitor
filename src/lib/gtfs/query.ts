@@ -233,7 +233,7 @@ export function linesByMode(schedule: GtfsSchedule): Record<GtfsMode, GtfsRoute[
   return grouped
 }
 
-/** Wiersz przeglądarki „Trasy" — plakietka linii z nazwą kierunkową. */
+/** Wiersz strony „Linie" — plakietka linii z nazwą kierunkową. */
 export type LineListEntry = {
   routeId: string
   line: string
@@ -524,7 +524,7 @@ export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats
     other: byMode.other.length,
   }
 
-  const busKinds: Record<LineKind, number> = { regular: 0, night: 0, express: 0, replacement: 0 }
+  const busKinds: Record<LineKind, number> = { regular: 0, night: 0, express: 0, replacement: 0, zone: 0, local: 0 }
   for (const route of byMode.bus) busKinds[route.kind] += 1
 
   // Pierwszy odjazd każdego kursu „dziś" — jeden skan zdarzeń. Wcześniej `hourly`

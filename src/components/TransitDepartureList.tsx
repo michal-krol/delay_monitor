@@ -2,6 +2,7 @@ import type { GtfsDeparture } from '@/lib/gtfs/types'
 import { formatDuration } from '@/lib/format'
 import { LineBadge } from './LineBadge'
 import { OnRequestBadge } from './OnRequestBadge'
+import { LINE_KIND_LABEL } from './transitMode'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
 
@@ -53,8 +54,7 @@ function DepartureRow({
   const hasMeta =
     hasStopTag ||
     departure.vehicle != null ||
-    departure.lineKind === 'night' ||
-    departure.lineKind === 'express' ||
+    LINE_KIND_LABEL[departure.lineKind] !== '' ||
     departure.frequencyBased ||
     departure.onRequest ||
     departure.platformCode !== null
@@ -71,7 +71,7 @@ function DepartureRow({
       </time>
       <LineBadge
         line={departure.line}
-        color={departure.color}
+        kind={departure.lineKind}
         mode={departure.mode}
         size="sm"
         href={city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined}
@@ -106,8 +106,7 @@ function DepartureRow({
               </span>
             </span>
           )}
-          {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
-          {departure.lineKind === 'express' && <span className="shrink-0 text-xs text-text-muted">przyspieszona</span>}
+          {LINE_KIND_LABEL[departure.lineKind] !== '' && <span className="shrink-0 text-xs text-text-muted">{LINE_KIND_LABEL[departure.lineKind]}</span>}
           {departure.frequencyBased && (
             <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
           )}
@@ -161,7 +160,7 @@ export function TransitDepartureList({
         <div className="mt-3 glass-strong rounded-2xl p-4">
           <div className="text-xs font-medium uppercase tracking-wide text-text-muted">Najbliższy odjazd</div>
           <div className="mt-2 flex items-center gap-3">
-            <LineBadge line={first.line} color={first.color} mode={first.mode} size="md" />
+            <LineBadge line={first.line} mode={first.mode} kind={first.lineKind} size="md" />
             <span className="min-w-0 flex-1 truncate font-heading text-lg font-bold text-foreground">
               {first.headsign ?? '—'}
             </span>

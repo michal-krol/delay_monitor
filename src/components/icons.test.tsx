@@ -73,6 +73,12 @@ describe('icons — arkusz (PR 7b: jeden styl, jedno pojęcie = jedna ikona)', (
     }
   })
 
+  it('MetroIcon to własny piktogram: koło + „M” (bez oficjalnego logo metra)', () => {
+    const svg = render(<icons.MetroIcon />).container.querySelector('svg')
+    expect(svg?.querySelector('circle')).not.toBeNull()
+    expect(svg?.querySelectorAll('path')).toHaveLength(1)
+  })
+
   it('SunIcon rysuje słońce (tarcza + promienie), MoonIcon sierp (bez tarczy i promieni)', () => {
     const sun = render(<icons.SunIcon />).container.querySelector('svg')
     expect(sun?.querySelector('circle')).not.toBeNull()

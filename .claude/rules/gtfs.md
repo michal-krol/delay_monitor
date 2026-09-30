@@ -61,9 +61,23 @@ paths:
   not 400 — unknown-ID convention). Regexes `GTFS_STOP_ID_PATTERN` / `GTFS_ROUTE_ID_PATTERN` in
   `validation.ts` = cheap format guard. `city` **MUST** be checked against the registry — it
   selects the feed.
-- **`route_color` = untrusted string.** Zod (`schema.ts`) → `#RRGGBB` or `null`;
-  `route_text_color` ignored entirely, we compute contrast ourselves (`contrastText`).
-  `LineBadge` uses only `style={{ background }}` with the validated value.
+- **Colour = line category, never the feed.** One palette `LINE_PALETTE` / `lineColor(mode, kind)`
+  in `src/components/transitMode.tsx` (metro yellow, tram, rail, bus, express, zone, local,
+  night, replacement, other) drives `LineBadge` and the whole map (pins, vehicles, route and
+  backbone overlays; `MODE_COLOR` is derived from it). `route_color` is still parsed and
+  validated (Zod → `#RRGGBB` or `null`, `route_text_color` ignored) but the UI no longer reads
+  it. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
+  dark outline/casing on the map (`strokeFor()` in `mapData.ts`). Callers without a kind derive
+  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Why: `adr/0005`.
+  Kinds (`lineKindFrom`, ZTM convention): `N…` night, `Z…` replacement, `E…`/400–599 express,
+  `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
+  `LINE_KIND_LABEL` in `transitMode.tsx`.
+- **„Linie” page** (`/city/<city>/lines`, `LineGrid.tsx`): `<details>` sections per mode, bus
+  subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
+  (`useSectionOpen`), recent lines `monitor.recentLines.v1` (`useRecentLines`, recorded by the
+  line page only after its detail loaded) — both through Zod (#4). React fires `toggle` also
+  for a programmatic `open` change: `setOpen(key, open, count)` skips writes equal to the
+  current state, otherwise the first render would freeze the defaults.
 - **`schedule.routePatterns`** (stop sequence per direction + second `offsets` from the first
   stop) accumulated in the hot `stop_times` loop — don't scan millions of events per line-page
   request. `lineDetail()` reads the ready index; the page computes a time as
@@ -117,7 +131,7 @@ paths:
 - **Transport map — zero new fetches.** `/api/gtfs/backbone` (metro and city-rail patterns
   from `routePatterns`) and `alertLines` in `/api/gtfs/city-vehicles` (line numbers with an
   active alert, `[]` while AlertPoller isn't ready = no badge) read only memory. Colour on the
-  map = transport mode, never delay; the vehicle card shows position freshness, not
+  map = line category (`lineColor(mode, kind)`, `adr/0005`), never delay; the vehicle card shows position freshness, not
   „LIVE +N min".
 - **Stops on the map (`/api/gtfs/stops`, `cityStops()`).** From `stops.txt` already in memory,
   computed once per schedule (`WeakMap`). Metro platforms collapsed to the parent station,

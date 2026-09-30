@@ -66,6 +66,43 @@ describe('lineKindFrom', () => {
     expect(lineKindFrom('20', undefined)).toBe('regular')
     expect(lineKindFrom('M1', undefined)).toBe('regular') // M ≠ night
   })
+
+  it('maps L-5 to local', () => {
+    expect(lineKindFrom('L-5', undefined)).toBe('local')
+  })
+  it('maps L10 to local', () => {
+    expect(lineKindFrom('L10', undefined)).toBe('local')
+  })
+  it('does not treat a name that merely starts with L as local', () => {
+    expect(lineKindFrom('Lotnisko', undefined)).toBe('regular')
+  })
+  it('maps 727 to zone', () => {
+    expect(lineKindFrom('727', undefined)).toBe('zone')
+  })
+  it('maps 809 to zone', () => {
+    expect(lineKindFrom('809', undefined)).toBe('zone')
+  })
+  it('maps 900 to regular (above the zone range)', () => {
+    expect(lineKindFrom('900', undefined)).toBe('regular')
+  })
+  it('maps 128 to regular', () => {
+    expect(lineKindFrom('128', undefined)).toBe('regular')
+  })
+  it('maps 523 to express', () => {
+    expect(lineKindFrom('523', undefined)).toBe('express')
+  })
+  it('maps E-1 to express', () => {
+    expect(lineKindFrom('E-1', undefined)).toBe('express')
+  })
+  it('maps N37 to night', () => {
+    expect(lineKindFrom('N37', undefined)).toBe('night')
+  })
+  it('maps Z40 to replacement', () => {
+    expect(lineKindFrom('Z40', undefined)).toBe('replacement')
+  })
+  it('lets route_desc „linia nocna” win over the 727 zone number', () => {
+    expect(lineKindFrom('727', 'linia nocna')).toBe('night')
+  })
 })
 
 describe('routeSchema — rodzaj linii', () => {

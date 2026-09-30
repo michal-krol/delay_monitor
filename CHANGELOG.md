@@ -6,15 +6,30 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
-### Naprawione
+### Dodane
 
-- Ostrzeżenie „dane sprzed …" na tablicy i pulpicie liczy wiek danych od chwili ich
-  pobrania w przeglądarce, a nie tylko od chwili ich zapisania na serwerze. Wcześniej stare
-  dane, które przy nieudanym odświeżeniu zostawały na ekranie, wciąż wyglądały na świeże;
-  teraz wiek rośnie razem z upływem czasu.
+- Nowy ekran „Linie” (dawniej „Trasy”). Każdy środek transportu ma zwijaną sekcję, a
+  autobusy dzielą się dodatkowo na zwykłe, przyspieszone, podmiejskie, lokalne, nocne i
+  zastępcze. Nagłówki tych podsekcji objaśniają zarazem kolory. Kafel linii pokazuje jej
+  numer i końcówki „A → B”, więc kierunek widać także na telefonie, bez najeżdżania kursorem.
+  Stan zwinięcia sekcji zostaje zapamiętany. Na telefonie sekcje startują zwinięte.
+- Pasek „Ostatnio oglądane” z sześcioma ostatnio otwartymi liniami.
+- Wyszukiwarka linii przeszukuje wszystkie środki naraz. Wyniki mają oznaczenie rodzaju
+  linii („nocna”, „przyspieszona”…).
+- Rodzaje linii „podmiejska” (7xx, 8xx) i „lokalna” (L). Widżet komunikacji miejskiej
+  podaje ich liczbę.
 
 ### Zmienione
 
+- Jeden kolor oznacza w całej aplikacji jedną kategorię linii: na plakietkach, tablicach
+  przystanków i na mapie. Metro jest żółte, tramwaje morskie, a kolej niebieska. Autobusy
+  mają kolory ZTM: zwykłe fioletowe, przyspieszone czerwone, podmiejskie zielone, lokalne
+  granatowe, nocne czarne i zastępcze szare. Wcześniej tramwaje i autobusy przyspieszone
+  miały ten sam czerwony kolor, a M2 niemal ten sam.
+- Metro ma nowy piktogram: „M” w kole.
+- Ekran „Linie” ma w prawej kolumnie pogodę i widżet komunikacji miejskiej, jak ekran
+  „Odjazdy / Przyjazdy”. Godzina aktualizacji rozkładu jest w stopce. Ostrzeżenie o
+  nieświeżym rozkładzie zostaje na górze.
 - Powrót z widoku połączenia na tablicę stacji pokazuje od razu ostatnio pobrane dane razem
   z ich wiekiem, a odświeża je w tle, zamiast wyświetlać pusty ekran „Ładowanie". To samo
   dotyczy ponownego otwarcia tego samego połączenia; zakończony przejazd nie jest już
@@ -25,7 +40,6 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   PKP. Szczegóły połączenia biorą trasę z tej samej migawki, więc pierwsze otwarcie pociągu
   kosztuje o jedno zapytanie mniej (patrz `adr/0004-rozklad-pkp-ogolnopolski-w-pamieci.md`).
   Kosztem jest ok. 230 MB pamięci serwera.
-
 - Rozkład komunikacji miejskiej zaczyna się wczytywać zaraz po starcie serwera i zostaje
   w pamięci, więc pierwsze wejście na widok miasta nie czeka już na jego pobranie. Pozycje
   pojazdów i komunikaty nadal są pobierane tylko wtedy, gdy ktoś je ogląda.
@@ -109,11 +123,16 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Usunięte
 
+- Filtr środka transportu na ekranie „Linie”. Dublował podział na sekcje.
 - Wyłączone pozycje menu „Ulubione", „Powiadomienia" i „Ustawienia" („Wkrótce") — nie
   prowadziły nigdzie. Przypięte stacje i przystanki są na Pulpicie.
 
 ### Naprawione
 
+- Ostrzeżenie „dane sprzed …" na tablicy i pulpicie liczy wiek danych od chwili ich
+  pobrania w przeglądarce, a nie tylko od chwili ich zapisania na serwerze. Wcześniej stare
+  dane, które przy nieudanym odświeżeniu zostawały na ekranie, wciąż wyglądały na świeże;
+  teraz wiek rośnie razem z upływem czasu.
 - Pogoda „bezchmurnie" pokazuje słońce zamiast księżyca, a przełącznik motywu rysuje
   słońce i księżyc tam, gdzie powinien.
 - Czytniki ekranu odczytują ikony, które niosą znaczenie bez tekstu obok: niedostępność

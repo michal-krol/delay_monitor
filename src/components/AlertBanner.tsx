@@ -56,9 +56,9 @@ export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
     <div className="flex min-w-0 flex-col gap-2">
       {alerts.map((alert) => {
         // `alerts.ts` już ucina schemat do `https://` przy granicy Zod — ten
-        // sam sprawdzian tutaj to obrona w głębi (jak `LineBadge` z
-        // `route_color`), na wypadek gdyby `AlertRecord` trafił do banera
-        // z innej ścieżki niż `parseAlertFeed`.
+        // sam sprawdzian tutaj to obrona w głębi (podobnie jak w plakietkach kolor
+        // pochodzi z `lineColor()`, nigdy z feedu — `route_color` nie trafia do CSS),
+        // na wypadek gdyby `AlertRecord` trafił do banera z innej ścieżki niż `parseAlertFeed`.
         const safeLink = alert.link.startsWith('https://') ? alert.link : ''
         const dates = alertDateRange(alert.body)
         return (
