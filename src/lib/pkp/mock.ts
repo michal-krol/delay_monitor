@@ -101,6 +101,11 @@ export function createMockClient(): PkpClient {
       return cachedStationIds
     },
 
+    // Mock nie zużywa limitu PKP -- „nie wiadomo"; budżet niesie `getOperations`.
+    getLastBudget() {
+      return null
+    },
+
     async searchStations(query: string): Promise<Station[]> {
       const data = await stations()
       const normalized = normalizeForSearch(query)

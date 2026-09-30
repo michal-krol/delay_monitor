@@ -15,6 +15,15 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
 - A new data source is cached by default; no cache = a deliberate decision.
 - Missing `X-RateLimit-*` header = "unknown", never "zero" (treating it as zero once pushed the
   poller permanently onto the emergency interval).
+- **One budget for all keyed requests.** The live client records the `X-RateLimit-*` headers of
+  every response that carries the API key (`fetchJson` `onResponse`, before the status check —
+  a 429's headers count) and exposes the lowest `hourly`/`daily` seen this clock hour via
+  `PkpClient.getLastBudget()`; `null` = unknown, and a previous hour's value is dropped, not
+  reused. `apiKey: null` public endpoints (dictionaries) are another pool and never update it.
+  The poller takes `mergeBudgets(res.budget, client.getLastBudget())` (min remaining) for its
+  interval, `PAGINATION_MIN_HOURLY_BUDGET` and `getBudget()`, so `/api/train`, `/schedules` and
+  network-stats consumption is no longer invisible to it. The hour window is approximated by the
+  clock hour; if PKP's window is rolling, the min can stay pessimistic until the hour changes.
 - **Outside the poller cycle, count separately:**
   - `/api/train` — synchronous fetch when clicking a train not yet seen, plus a background
     refresh while the connection page stays open (`usePolling`, every 5 min on a visible tab

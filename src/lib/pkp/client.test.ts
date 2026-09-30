@@ -1090,4 +1090,127 @@ describe('createLiveClient', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
   })
+
+  // AGENTS.md #3: wszystkie zapytania z kluczem dzielą jedną pulę 100/h, ale do
+  // pollera docierał tylko budżet z `getOperations`. Klient zapamiętuje ostatni
+  // znany budżet z KAŻDEJ odpowiedzi z kluczem (`getLastBudget`).
+  describe('getLastBudget', () => {
+    const HOUR = 60 * 60 * 1000
+    const STATS_BODY = {
+      generatedAt: '2026-08-26T19:53:29Z',
+      totalTrains: 1,
+      notStarted: 0,
+      inProgress: 0,
+      completed: 1,
+      cancelled: 0,
+      partialCancelled: 0,
+    }
+    const rl = (hourly: number, daily: number) => ({
+      'X-RateLimit-Hourly-Remaining': String(hourly),
+      'X-RateLimit-Daily-Remaining': String(daily),
+      'X-RateLimit-Hourly-Limit': '100',
+      'X-RateLimit-Daily-Limit': '1000',
+    })
+
+    it('is null (unknown) before any keyed response has been seen', () => {
+      const client = createLiveClient('secret-key')
+
+      expect(client.getLastBudget()).toBeNull()
+    })
+
+    it('records the budget from requests made outside getOperations', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STATS_BODY, rl(61, 700))))
+      const client = createLiveClient('secret-key')
+
+      await client.getOperationsStatistics('2026-08-26')
+
+      expect(client.getLastBudget()).toEqual({ hourly: 61, daily: 700, hourlyLimit: 100, dailyLimit: 1000 })
+    })
+
+    it('keeps the lowest remaining count seen within the same hour', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(STATS_BODY, rl(60, 700)))
+        .mockImplementationOnce(() => jsonResponse(STATS_BODY, rl(55, 695)))
+        // Odpowiedź, która wróciła później, ale była wysłana wcześniej -- nie podnosi budżetu.
+        .mockImplementationOnce(() => jsonResponse(STATS_BODY, rl(58, 697)))
+      vi.stubGlobal('fetch', fetchMock)
+      const client = createLiveClient('secret-key')
+
+      await client.getOperationsStatistics('2026-08-26')
+      await client.getOperationsStatistics('2026-08-26')
+      await client.getOperationsStatistics('2026-08-26')
+
+      expect(client.getLastBudget()).toMatchObject({ hourly: 55, daily: 695 })
+    })
+
+    it('does not forget a known budget when a later response carries no rate-limit headers', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(STATS_BODY, rl(60, 700)))
+        .mockImplementationOnce(() => jsonResponse(STATS_BODY))
+      vi.stubGlobal('fetch', fetchMock)
+      const client = createLiveClient('secret-key')
+
+      await client.getOperationsStatistics('2026-08-26')
+      await client.getOperationsStatistics('2026-08-26')
+
+      expect(client.getLastBudget()).toMatchObject({ hourly: 60, daily: 700 })
+    })
+
+    it('stays unknown, never zero, when responses carry no rate-limit headers', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STATS_BODY)))
+      const client = createLiveClient('secret-key')
+
+      await client.getOperationsStatistics('2026-08-26')
+
+      expect(client.getLastBudget()).toBeNull()
+    })
+
+    it('ignores public endpoints sent without a key (separate anonymous pool)', async () => {
+      const fetchMock = vi.fn().mockImplementation((url: string) =>
+        String(url).includes('/carriers')
+          ? jsonResponse({ carriers: [] }, rl(1, 1))
+          : jsonResponse({ commercialCategories: [] }, rl(1, 1))
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      const client = createLiveClient('secret-key')
+
+      await client.getNameDictionaries()
+
+      expect(client.getLastBudget()).toBeNull()
+    })
+
+    it('records the headers of a 429 response, which is the most telling one', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(new Response('{}', { status: 429, headers: rl(0, 650) }))
+      )
+      const client = createLiveClient('secret-key')
+
+      await expect(client.getOperationsStatistics('2026-08-26')).rejects.toThrow(PkpApiError)
+
+      expect(client.getLastBudget()).toMatchObject({ hourly: 0, daily: 650 })
+    })
+
+    it('treats a budget from an earlier hour as unknown and lets a new hour start fresh', async () => {
+      let t = Date.parse('2026-08-26T10:20:00Z')
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => jsonResponse(STATS_BODY, rl(3, 700)))
+        .mockImplementationOnce(() => jsonResponse(STATS_BODY, rl(95, 690)))
+      vi.stubGlobal('fetch', fetchMock)
+      const client = createLiveClient('secret-key', () => new Date(t))
+
+      await client.getOperationsStatistics('2026-08-26')
+      expect(client.getLastBudget()).toMatchObject({ hourly: 3 })
+
+      t += HOUR
+      expect(client.getLastBudget()).toBeNull()
+
+      await client.getOperationsStatistics('2026-08-26')
+      // Nie „min(3, 95)": stare okno godzinowe już się skończyło.
+      expect(client.getLastBudget()).toMatchObject({ hourly: 95, daily: 690 })
+    })
+  })
 })

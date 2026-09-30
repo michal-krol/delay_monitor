@@ -77,6 +77,31 @@ export type RateLimitBudget = {
   dailyLimit: number | null
 }
 
+const HOUR_MS = 60 * 60 * 1000
+
+function minKnown(a: number | null | undefined, b: number | null | undefined): number | null {
+  if (a == null) return b ?? null
+  if (b == null) return a
+  return Math.min(a, b)
+}
+
+/**
+ * Łączy dwie obserwacje budżetu z TEGO SAMEGO okna godzinowego. Pozostałe
+ * zapytania w oknie tylko zmniejszają „ile zostało", więc wygrywa niższa
+ * wartość; `null` („nie wiadomo") nigdy nie wygrywa z liczbą i nigdy nie staje
+ * się zerem (AGENTS.md #3). Sufity bierzemy z `a` (świeższa obserwacja).
+ * `b === null` zwraca `a` bez zmian.
+ */
+export function mergeBudgets(a: RateLimitBudget, b: RateLimitBudget | null): RateLimitBudget {
+  if (b === null) return a
+  return {
+    hourly: minKnown(a.hourly, b.hourly),
+    daily: minKnown(a.daily, b.daily),
+    hourlyLimit: a.hourlyLimit ?? b.hourlyLimit ?? null,
+    dailyLimit: a.dailyLimit ?? b.dailyLimit ?? null,
+  }
+}
+
 export type GetOperationsResult = {
   trains: RawTrainOperation[]
   stationNames: Record<string, string>
@@ -198,6 +223,14 @@ export interface PkpClient {
    */
   getCachedStationIds(): ReadonlySet<string> | null
   /**
+   * Najniższy znany budżet z KAŻDEJ odpowiedzi z kluczem w bieżącej godzinie —
+   * także spoza `getOperations` (`/api/train`, `/schedules`, network-stats
+   * dzielą tę samą pulę 100/h). `null` = nie wiadomo (żadna odpowiedź z
+   * nagłówkami w tej godzinie), nigdy „zero". Endpointy publiczne (bez klucza)
+   * są z innej puli i tu nie wchodzą.
+   */
+  getLastBudget(): RateLimitBudget | null
+  /**
    * Zagregowane liczniki statusów pociągów w całym kraju, bez filtra po
    * stacji — API nie oferuje takiego filtra dla tego endpointu. Wywołujący (patrz
    * `board/networkStats.ts`) cache'uje wynik po swojej stronie — ta metoda
@@ -266,8 +299,15 @@ async function fetchWithTimeout(url: string, apiKey: string | null): Promise<Res
  * realizacja). Zwraca też surowy `response`, bo `getOperations` potrzebuje
  * z niego nagłówków budżetu po odczytaniu ciała.
  */
-async function fetchJson(url: string, apiKey: string | null, errorMessage: string): Promise<{ json: unknown; response: Response }> {
+async function fetchJson(
+  url: string,
+  apiKey: string | null,
+  errorMessage: string,
+  onResponse?: (response: Response) => void
+): Promise<{ json: unknown; response: Response }> {
   const response = await fetchWithTimeout(url, apiKey)
+  // Przed sprawdzeniem statusu: nagłówki 429 to najważniejsza obserwacja budżetu.
+  onResponse?.(response)
   if (!response.ok) {
     throw new PkpApiError(`${errorMessage}: ${response.status}`, response.status)
   }
@@ -333,6 +373,23 @@ export function createLiveClient(
   let nameDictionariesInFlight: Promise<NameDictionaries> | null = null
 
   /**
+   * Ostatni znany budżet z odpowiedzi z kluczem, z numerem godziny zegarowej,
+   * w której go zapamiętano. ponytail: okno godzinowe PKP przybliżone godziną
+   * zegarową; gdyby było kroczące, min zostanie zaniżony najwyżej do końca
+   * godziny (poller tylko zwolni), a po zmianie godziny stan sam się czyści.
+   */
+  let lastBudget: { budget: RateLimitBudget; hour: number } | null = null
+  const currentHour = () => Math.floor(now().getTime() / HOUR_MS)
+
+  function noteBudget(response: Response): void {
+    const next = parseBudget(response)
+    // Odpowiedź bez żadnych nagłówków nic nie mówi — nie nadpisuj, nie zeruj.
+    if (next.hourly === null && next.daily === null) return
+    const hour = currentHour()
+    lastBudget = { budget: mergeBudgets(next, lastBudget?.hour === hour ? lastBudget.budget : null), hour }
+  }
+
+  /**
    * Uchwyty na trwające pobrania.
    *
    * Cache sprawdzamy przed `await`, a zapisujemy po nim — bez tych uchwytów
@@ -369,12 +426,14 @@ export function createLiveClient(
    * do PKP, nie tylko temu, które akurat ktoś owinął ręcznie.
    */
   async function fetchJsonWithRetry(url: string, key: string | null, errorMessage: string): Promise<{ json: unknown; response: Response }> {
+    // Klucz `null` = endpoint publiczny, anonimowa pula -- nie liczy się do naszego budżetu.
+    const onResponse = key === null ? undefined : noteBudget
     try {
-      return await fetchJson(url, key, errorMessage)
+      return await fetchJson(url, key, errorMessage, onResponse)
     } catch (err) {
       if ((err instanceof PkpApiError && err.status >= 500) || isAbortError(err)) {
         await sleep(RETRY_BASE_DELAY_MS + random() * RETRY_JITTER_MS)
-        return fetchJson(url, key, errorMessage)
+        return fetchJson(url, key, errorMessage, onResponse)
       }
       throw err
     }
@@ -538,6 +597,10 @@ export function createLiveClient(
   }
 
   return {
+    getLastBudget(): RateLimitBudget | null {
+      return lastBudget !== null && lastBudget.hour === currentHour() ? lastBudget.budget : null
+    },
+
     getCachedStationIds(): ReadonlySet<string> | null {
       if (stationListCache === null || stationListCache.expiresAt <= Date.now()) return null
       return stationListCache.ids
