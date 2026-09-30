@@ -1,9 +1,12 @@
 import type { BoardApiResponse } from '@/hooks/useBoard'
-import { formatAge } from '@/lib/format'
+import { effectiveAgeMs, formatAge } from '@/lib/format'
+import { useNow } from '@/hooks/useNow'
 
 type Props = {
   fetchedAt: string | undefined
   ageMs: number | undefined
+  /** Kiedy klient dostał tę odpowiedź (ms epoch); `ageMs` zamarza w tym momencie, więc wiek rośnie od niego. */
+  lastSuccessAt?: number | null
   data: BoardApiResponse | null
   error: boolean
 }
@@ -46,7 +49,12 @@ function budgetHint(data: BoardApiResponse | null): string | undefined {
 /** Statyczny fakt o tempie odświeżania -- ma być widoczny zawsze, niezależnie od stanu ładowania/błędu. */
 const REFRESH_HINT = <span>Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
 
-export function BoardStatus({ fetchedAt, ageMs, data, error }: Props) {
+/** Wiek podajemy z dokładnością do minuty, więc tykanie co 30 s wystarcza. */
+const AGE_TICK_MS = 30_000
+
+export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, data, error }: Props) {
+  const now = useNow(AGE_TICK_MS)
+  const ageMs = effectiveAgeMs(responseAgeMs, lastSuccessAt, now)
   // Baner błędu zastępuje CAŁĄ linijkę statusu tylko, gdy nie ma jeszcze
   // żadnego znanego snapshotu do pokazania -- inaczej ukrywałby wiek danych,
   // które w tle nadal są widoczne w tabeli (patrz AGENTS.md #7: awaria ma być

@@ -25,6 +25,19 @@ describe('useBoard', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100')
   })
 
+  it('exposes the time of the last successful fetch, null before the first one', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' })))
+
+    const startedAt = Date.now()
+    const { result } = renderHook(() => useBoard(['5100']))
+    expect(result.current.lastSuccessAt).toBeNull()
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+
+    // `waitFor` przesuwa fałszywy zegar, więc okno, nie równość.
+    expect(result.current.lastSuccessAt).toBeGreaterThanOrEqual(startedAt)
+    expect(result.current.lastSuccessAt).toBeLessThanOrEqual(Date.now())
+  })
+
   it('refetches every 30 seconds while visible', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' }))
     vi.stubGlobal('fetch', fetchMock)

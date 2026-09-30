@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAge, formatAgo, formatClockTime, formatDuration, formatSecondsOfDay } from './format'
+import { effectiveAgeMs, formatAge, formatAgo, formatClockTime, formatDuration, formatSecondsOfDay } from './format'
 
 describe('formatClockTime', () => {
   it('formats an ISO timestamp in Warsaw time regardless of the runner timezone', () => {
@@ -73,5 +73,30 @@ describe('formatDuration', () => {
   it('renders whole hours as "N h"', () => {
     expect(formatDuration(60)).toBe('1 h')
     expect(formatDuration(125)).toBe('2 h 5 min')
+  })
+})
+
+describe('effectiveAgeMs', () => {
+  const NOW = 1_000_000_000_000
+
+  it('adds the time since the last successful fetch to the age frozen in the response', () => {
+    expect(effectiveAgeMs(30_000, NOW - 5 * 60_000, NOW)).toBe(30_000 + 5 * 60_000)
+  })
+
+  it('is the response age when the fetch just landed', () => {
+    expect(effectiveAgeMs(30_000, NOW, NOW)).toBe(30_000)
+  })
+
+  it('keeps unknown age unknown', () => {
+    expect(effectiveAgeMs(undefined, NOW - 60_000, NOW)).toBeUndefined()
+  })
+
+  it('falls back to the response age when the fetch time is unknown', () => {
+    expect(effectiveAgeMs(30_000, null, NOW)).toBe(30_000)
+    expect(effectiveAgeMs(30_000, undefined, NOW)).toBe(30_000)
+  })
+
+  it('never goes below the response age when the clock moved backwards', () => {
+    expect(effectiveAgeMs(30_000, NOW + 60_000, NOW)).toBe(30_000)
   })
 })
