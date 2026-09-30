@@ -18,6 +18,8 @@ export type MapPin = {
   label: string
   /** Ikona pinu — klucz `MODE_ICON` (transitMode.tsx, już używane przez `LineBadge`). Brak = neutralny pin lokalizacji. */
   mode?: keyof typeof MODE_ICON
+  /** Rodzaj linii (kolor pinu jak trasy i plakietki); bez niego pin ma kolor środka. Nie wchodzi do `pinsKey` — stały dla jednej linii, jak `mode`. */
+  kind?: LineKind
   /** 2-3 gotowe, sformatowane linijki („18:12 → Kutno") — MapView niczego nie liczy, tylko wyświetla. Tylko w powiększonym popupie. */
   preview?: string[]
   /** Link w powiększonym popupie — używany przez mapę trasy linii (piny = różne przystanki); mapy jednego przystanku go nie podają (byłby linkiem do siebie samego). */
@@ -66,10 +68,12 @@ export const WORKER_URL = '/maplibre-gl-worker.mjs'
 function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root } {
   const element = document.createElement('div')
   element.className = 'grid h-8 w-8 cursor-pointer place-items-center rounded-full text-white shadow-lg ring-2 ring-white'
-  const color = pin.mode !== undefined ? MODE_COLOR[pin.mode] : UNKNOWN_COLOR
+  // Pin z `kind` (mapa linii) ma kolor rodzaju linii jak trasa i plakietka; bez niego — kolor środka (mapy przystanków).
+  const palette = pin.mode !== undefined && pin.kind !== undefined ? lineColor(pin.mode, pin.kind) : null
+  const color = palette?.bg ?? (pin.mode !== undefined ? MODE_COLOR[pin.mode] : UNKNOWN_COLOR)
   element.style.backgroundColor = color
   // Żółte metro: biała ikona i biały pierścień znikałyby — tekst/pierścień z palety (`fg`).
-  if (pin.mode !== undefined) element.style.color = lineColor(pin.mode, 'regular').fg
+  if (pin.mode !== undefined) element.style.color = (palette ?? lineColor(pin.mode, 'regular')).fg
   element.style.setProperty('--tw-ring-color', strokeFor(color))
   const root = createRoot(element)
   const Icon = pin.mode !== undefined ? MODE_ICON[pin.mode] : MapIcon

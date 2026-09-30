@@ -5,7 +5,7 @@ import type { MapPin, MapRoute } from './MapView'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { MapView, STYLE_DARK, STYLE_LIGHT } from './MapView'
-import { MODE_COLOR, UNKNOWN_COLOR, outlineFilter } from './map/mapData'
+import { MODE_COLOR, UNKNOWN_COLOR, outlineFilter, strokeFor } from './map/mapData'
 import { LINE_PALETTE } from './transitMode'
 
 type PopupMock = { setDOMContent: (node: HTMLElement) => PopupMock; content: HTMLElement | null }
@@ -119,6 +119,21 @@ describe('MapView', () => {
     render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Tramwaj X', mode: 'tram' }]} ariaLabel="Mapa" />)
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
     expect(markerElementAt(0).style.backgroundColor).toBe(css(MODE_COLOR.tram))
+  })
+
+  it('pinezka z `kind` ma kolor rodzaju linii (autobus nocny = czerń, jak plakietka i trasa), a pierścień z tej samej palety', async () => {
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek', mode: 'bus', kind: 'night' }]} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
+    const element = markerElementAt(0)
+    expect(element.style.backgroundColor).toBe(css(LINE_PALETTE.night.bg))
+    expect(element.style.color).toBe(css(LINE_PALETTE.night.fg))
+    expect(element.style.getPropertyValue('--tw-ring-color')).toBe(strokeFor(LINE_PALETTE.night.bg))
+  })
+
+  it('pinezka bez `kind` zostaje w kolorze rodzaju środka (mapy przystanków)', async () => {
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek', mode: 'bus' }]} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
+    expect(markerElementAt(0).style.backgroundColor).toBe(css(MODE_COLOR.bus))
   })
 
   it('pinezka bez `mode` ma neutralny kolor', async () => {

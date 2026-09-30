@@ -16,7 +16,7 @@ import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon } from '@/components/icons'
-import { LINE_KIND_LABEL, MODE_LABEL, lineColor } from '@/components/transitMode'
+import { LINE_KIND_LABEL, MODE_LABEL, darkRingClass, lineColor } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
 import { useCities } from '@/hooks/useCities'
@@ -103,12 +103,16 @@ export default function LineDetailPage() {
         lon: stop.lon,
         label: stop.code !== null ? `${stop.name} ${stop.code}` : stop.name,
         mode: line?.mode,
+        kind: line?.kind,
         href: `/city/${city}/stop/${encodeStopIdForPathSegment(stop.stopId)}?name=${encodeURIComponent(stop.name)}`,
       })),
-    [stops, line?.mode, city]
+    [stops, line?.mode, line?.kind, city]
   )
   // Rodzaj do koloru mapy; `'regular'` tylko na czas ładowania linii — sekcja mapy renderuje się dopiero, gdy `line` jest znane.
   const mapKind: LineKind = line?.kind ?? 'regular'
+  // Paleta linii liczona raz (oś czasu: kropki pojazdów). Czerń/granat (nocna/lokalna) giną na ciemnej karcie — jasny pierścień zamiast pierścienia w kolorze tła (ta sama reguła co plakietki, `darkRingClass`).
+  const palette = lineColor(line?.mode ?? 'bus', mapKind)
+  const dotDarkRing = darkRingClass(mapKind) !== '' ? 'dark:ring-white/40' : 'dark:ring-slate-900'
   const mapRoute = useMemo(
     () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', kind: mapKind }),
     [direction?.shape, stops, line?.mode, mapKind]
@@ -303,16 +307,17 @@ export default function LineDetailPage() {
                                       key={v.sideNumber + v.tripId}
                                       title={`Pojazd ${v.sideNumber}${v.ageSec > 60 ? ` · ${Math.round(v.ageSec / 60)} min temu` : ''}`}
                                       data-testid="timeline-vehicle"
-                                      className="absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full text-white shadow ring-2 ring-white dark:ring-slate-900"
+                                      className={`absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full text-white shadow ring-2 ring-white ${dotDarkRing}`}
                                       style={{
                                         top: `${v.fraction * 100}%`,
                                         // Kolor rodzaju jak na mapie; strzałka = kierunek jazdy NA OSI (w dół
                                         // listy), nie `v.bearing` — geograficzny azymut na pionowej,
                                         // schematycznej osi nie wskazuje niczego sensownego (ten idzie na mapę).
-                                        backgroundColor: lineColor(line.mode, line.kind).bg, color: lineColor(line.mode, line.kind).fg,
+                                        backgroundColor: palette.bg,
+                                        color: palette.fg,
                                         transform: 'translateY(-50%)',
                                         // Żółte metro na białym pierścieniu jasnej karty znika — pierścień w kolorze obrysu z mapy.
-                                        ...(hasCustomStroke(lineColor(line.mode, line.kind).bg) ? ({ '--tw-ring-color': strokeFor(lineColor(line.mode, line.kind).bg) } as CSSProperties) : {}),
+                                        ...(hasCustomStroke(palette.bg) ? ({ '--tw-ring-color': strokeFor(palette.bg) } as CSSProperties) : {}),
                                       }}
                                     >
                                       <ArrowRightIcon size={10} className="rotate-90" />

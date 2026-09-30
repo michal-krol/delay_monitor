@@ -150,6 +150,21 @@ describe('LineDetailPage', () => {
     expect(tramDot.style.getPropertyValue('--tw-ring-color')).toBe('')
   })
 
+  it('a night-bus timeline dot gets the light dark-mode ring (black vanishes on the dark card); a regular bus dot keeps the page-coloured one', async () => {
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'bus', kind: 'night' } })
+    const { unmount } = render(<LineDetailPage />)
+    const nightDot = await screen.findByTestId('timeline-vehicle')
+    expect(nightDot).toHaveClass('dark:ring-white/40')
+    expect(nightDot).not.toHaveClass('dark:ring-slate-900')
+    unmount()
+
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'bus', kind: 'regular' } })
+    render(<LineDetailPage />)
+    const regularDot = await screen.findByTestId('timeline-vehicle')
+    expect(regularDot).toHaveClass('dark:ring-slate-900')
+    expect(regularDot).not.toHaveClass('dark:ring-white/40')
+  })
+
   it('draws route and vehicles in the mode colour convention: mode + bearing go to the map, the timeline vehicle is a mode-coloured dot with a downward arrow', async () => {
     stubFetch()
     render(<LineDetailPage />)
