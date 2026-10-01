@@ -68,10 +68,13 @@ paths:
   not parsed at all (dropped 2026-10-01: no reader left) — no colour field in any `/api/gtfs/*`
   response. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
   dark outline/casing on the map (`strokeFor()` in `mapData.ts`). Callers without a kind derive
-  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Why: `adr/0005`.
+  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Map vehicles get
+  the served `CityVehicle.kind` (from `route_desc` at load); `vehicleKind()` in `mapData.ts` is
+  the one reader for pin and card badge, number fallback only when `kind` is null. Why: `adr/0005`.
   Kinds (`lineKindFrom`, ZTM convention): `N…` night, `Z…` replacement, `E…`/400–599 express,
   `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
-  `LINE_KIND_LABEL` in `transitMode.tsx`.
+  `LINE_KIND_LABEL` (singular chip) and ONE `BUS_KIND_LABEL`/`BUS_KIND_ORDER` (plural colour
+  legend: „Linie” bus subsections + map legend) in `transitMode.tsx`.
 - **„Linie” page** (`/city/<city>/lines`, `LineGrid.tsx`): `<details>` sections per mode, bus
   subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
   (`useSectionOpen`), recent lines `monitor.recentLines.v1` (`useRecentLines`, recorded by the

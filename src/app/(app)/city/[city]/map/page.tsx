@@ -578,7 +578,7 @@ export default function CityMapPage() {
           )}
 
           {(isWide || selection === null) && (
-            <div className="absolute bottom-8 right-3 z-10 sm:right-4">
+            <div className="pointer-events-none absolute bottom-8 right-3 top-3 z-10 flex flex-col justify-end sm:right-4">
               <MapLegend />
             </div>
           )}

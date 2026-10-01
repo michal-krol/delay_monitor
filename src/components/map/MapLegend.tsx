@@ -1,4 +1,6 @@
+import { useId } from 'react'
 import { ChevronRightIcon } from '../icons'
+import { BUS_KIND_LABEL, BUS_KIND_ORDER, darkRingClass, lineColor } from '../transitMode'
 import { MODE_COLOR, outlineFilter, strokeFor } from './mapData'
 import type { GtfsMode } from '@/lib/gtfs/types'
 
@@ -17,17 +19,20 @@ const VEHICLES: [GtfsMode, string][] = [
 /**
  * Legenda RODZAJÓW obiektów (spec §8) — bez „na żywo" jako kategorii. Natywne
  * `<details>`: zwijanie i stan rozwinięcia dla czytników ekranu za darmo.
- * Domyślnie zwinięta (kompaktowa).
+ * Domyślnie zwinięta (kompaktowa). Rozwinięta nie wyjdzie poza mapę: rodzic na mapie ma wysokość
+ * (`top`…`bottom`), legenda `max-h-full` + własne przewijanie — inaczej na niskim telefonie jej
+ * nagłówek (jedyne zwinięcie) chował się pod nagłówkiem strony.
  */
 export function MapLegend() {
   return (
-    <details className="glass-strong group w-56 rounded-2xl text-sm shadow-lg">
+    <details className="glass-strong group pointer-events-auto max-h-full w-56 overflow-y-auto rounded-2xl text-sm shadow-lg">
       <summary className="flex min-h-11 cursor-pointer select-none list-none items-center justify-between rounded-2xl px-4 font-semibold [&::-webkit-details-marker]:hidden">
         Legenda <ChevronRightIcon size={14} className="rotate-90 text-text-muted group-open:-rotate-90" />
       </summary>
       <div className="space-y-3 px-4 pb-4">
         <Section title="Punkty" items={POINTS} shape="dot" />
         <Section title="Pojazdy" items={VEHICLES} shape="vehicle" />
+        <BusKinds />
         <ul className="space-y-1 text-xs text-text-muted">
           <li>Linie metra i kolei miejskiej — w kolorze linii (M1, M2 jak na plakietkach).</li>
           <li>Strzałka przy pojeździe — kierunek jazdy.</li>
@@ -60,6 +65,29 @@ function Section({ title, items, shape }: { title: string; items: [GtfsMode, str
               </span>
             )}
             {label}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * Pojazd autobusu ma kolor RODZAJU linii (`lineColor('bus', kind)`), nie jeden fiolet — objaśnienie
+ * tymi samymi etykietami i próbkami co podsekcje strony „Linie” (`LineGrid`).
+ */
+function BusKinds() {
+  const titleId = useId()
+  return (
+    <div>
+      <p id={titleId} className="mb-1 text-xs text-text-muted">
+        Autobusy według rodzaju linii
+      </p>
+      <ul aria-labelledby={titleId} className="space-y-0.5 text-xs text-text-secondary">
+        {BUS_KIND_ORDER.map((kind) => (
+          <li key={kind} className="flex items-center gap-2">
+            <span className={`ml-1 h-2.5 w-2.5 flex-none rounded-[3px] ${darkRingClass(kind)}`} style={{ background: lineColor('bus', kind).bg }} aria-hidden="true" />
+            {BUS_KIND_LABEL[kind]}
           </li>
         ))}
       </ul>

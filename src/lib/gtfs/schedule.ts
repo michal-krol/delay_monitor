@@ -16,6 +16,7 @@
  * (losowy dostęp przy rozwijaniu `frequencies`), sprowadzane do typowanych na
  * końcu — 100k intów jako `number[]` to ~0,8 MB, nie warto komplikować.
  */
+import { logEvent } from '@/lib/log'
 import { serviceDayNoonEpoch } from '@/lib/pkp/time'
 import { headerIndex, parseCsvLine } from './csv'
 import { parseGtfsSeconds, serviceCategory, type ServiceCategory } from './schema'
@@ -157,9 +158,25 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   const { serviceDates, timezone } = input
 
   // ── linie ─────────────────────────────────────────────────────────────────
-  const routes = input.routes
+  // Zdublowany `route_id` (żywy feed 2026-09-30: linia `10` dwa razy) — pierwszy
+  // wiersz wygrywa; inaczej `allLines()` pokazuje kafelek dwa razy, a liczniki linii +1.
+  const routes: GtfsRoute[] = []
   const routeIndexById = new Map<string, number>()
-  routes.forEach((route, index) => routeIndexById.set(route.id, index))
+  const duplicateRouteIds: string[] = []
+  for (const route of input.routes) {
+    if (routeIndexById.has(route.id)) {
+      duplicateRouteIds.push(route.id)
+      continue
+    }
+    routeIndexById.set(route.id, routes.length)
+    routes.push(route)
+  }
+  if (duplicateRouteIds.length > 0) {
+    logEvent('warn', 'gtfs.duplicate_route_id', {
+      count: duplicateRouteIds.length,
+      routeIds: duplicateRouteIds.slice(0, 10),
+    })
+  }
 
   // ── przystanki ────────────────────────────────────────────────────────────
   const n = input.stops.length

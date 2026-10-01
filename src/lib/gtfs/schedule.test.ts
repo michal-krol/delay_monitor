@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { isoInZone } from '@/lib/pkp/time'
+import { allLines } from './query'
 import { buildSchedule, cleanGroupName, groupStopId, type BuildScheduleInput } from './schedule'
 import { lineKindFrom, modeFromRouteType } from './schema'
 import type { GtfsRoute } from './types'
@@ -105,6 +106,29 @@ describe('buildSchedule — grouping', () => {
     )
     const routeIndices = [...(schedule.groupRoutes.get('7014M') ?? [])].map((i) => schedule.routes[i].id).sort()
     expect(routeIndices).toEqual(['20', 'M1'])
+  })
+})
+
+describe('buildSchedule — zdublowany route_id', () => {
+  // Żywy routes.txt (mkuran, 2026-09-30) miał linię `10` w dwóch identycznych wierszach:
+  // kafelek na stronie Linie dwa razy (kolizja `key={routeId}`), licznik linii +1.
+  it('keeps the first row, maps trips to it and logs gtfs.duplicate_route_id', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const first = route('10', 0)
+    const schedule = await buildSchedule(
+      makeInput({
+        routes: [first, route('20', 0), { ...route('10', 0), longName: 'duplikat' }],
+        trips: [{ routeId: '10', serviceId: 'S', tripId: 't', headsign: null, directionId: 0 }],
+        stopTimeLines: ['trip_id,stop_id,arrival_time,departure_time,stop_sequence', 't,1001,12:00:00,12:00:00,1'],
+      })
+    )
+    expect(schedule.routes.map((r) => r.id)).toEqual(['10', '20'])
+    expect(schedule.routes[schedule.routeIndexById.get('10')!]).toEqual(first)
+    expect(allLines(schedule).tram.map((l) => l.routeId)).toEqual(['10', '20'])
+    expect(schedule.routes[schedule.tripRoute[0]].id).toBe('10')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(warn.mock.calls[0][0] as string)).toMatchObject({ event: 'gtfs.duplicate_route_id', count: 1, routeIds: ['10'] })
+    warn.mockRestore()
   })
 })
 

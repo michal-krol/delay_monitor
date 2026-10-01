@@ -1,4 +1,4 @@
-import type { GtfsMode, GtfsSchedule } from './types'
+import type { GtfsMode, GtfsSchedule, LineKind } from './types'
 import { projectVehicle } from './vehicleProject'
 import type { VehiclePosition } from './vehicles'
 
@@ -13,6 +13,12 @@ export type CityVehicle = {
   routeId: string | null
   shortName: string | null
   mode: GtfsMode | null
+  /**
+   * Rodzaj linii z rozkładu (`lineKindFrom(numer, route_desc)` przy wczytaniu) — kolor pinezki
+   * i plakietki. Klient nie wyprowadza go ponownie z numeru: nie zna `route_desc`. `null` razem
+   * z `mode`/`shortName` = nieznany kurs.
+   */
+  kind: LineKind | null
   /** Kierunek przebiegu (`direction_id`) — tryb linii na mapie wybiera nim stronę trasy. */
   directionId: number | null
   /**
@@ -27,7 +33,7 @@ export type CityVehicle = {
  * Czysta funkcja: WSZYSTKIE pozycje pojazdów miasta (surowe lat/lon, bez rzutu
  * na trasę — w odróżnieniu od `projectVehicle`) + rozkład → lista do mapy
  * miasta live. Pojazd z `trip_id` nieznanym rozkładowi zostaje w liście
- * (routeId/shortName/mode/headsign: null) — prawdziwa pozycja z feedu,
+ * (routeId/shortName/mode/kind/headsign: null) — prawdziwa pozycja z feedu,
  * nie odrzucamy jej (AGENTS #13: zero pola opóźnienia, ale pozycja to nie
  * opóźnienie).
  */
@@ -56,6 +62,7 @@ export function mapCityVehicles(schedule: GtfsSchedule, positions: VehiclePositi
       routeId: route?.id ?? null,
       shortName: route?.shortName ?? null,
       mode: route?.mode ?? null,
+      kind: route?.kind ?? null,
       directionId: ref?.direction ?? null,
       nextStop:
         nextStopIdx !== undefined

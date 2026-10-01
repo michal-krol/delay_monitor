@@ -18,6 +18,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   linii („nocna”, „przyspieszona”…).
 - Rodzaje linii „podmiejska” (7xx, 8xx) i „lokalna” (L). Widżet komunikacji miejskiej
   podaje ich liczbę.
+- Legenda mapy objaśnia kolory autobusów według rodzaju linii (zwykłe, przyspieszone,
+  podmiejskie, lokalne, nocne, zastępcze), tymi samymi nazwami i kolorami co ekran „Linie”.
 
 ### Zmienione
 
@@ -129,6 +131,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Linia zapisana w rozkładzie GTFS dwa razy pod tym samym identyfikatorem pokazuje się na
+  ekranie „Linie” raz, a liczniki linii w widżecie komunikacji miejskiej liczą ją raz.
+  Wcześniej taka linia (w Warszawie 30.09 była to „10”) miała dwa kafle.
 - Ostrzeżenie „dane sprzed …" na tablicy i pulpicie liczy wiek danych od chwili ich
   pobrania w przeglądarce, a nie tylko od chwili ich zapisania na serwerze. Wcześniej stare
   dane, które przy nieudanym odświeżeniu zostawały na ekranie, wciąż wyglądały na świeże;
@@ -194,6 +199,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Przycisk usuwania filtra („Linia …") na mapie transportu reaguje na dotyk w polu 44 × 44 px.
 - Pełna albo zablokowana pamięć przeglądarki nie wywraca już strony przy przypinaniu stacji
   ani przy zwijaniu paska bocznego — przypięcie działa do końca wizyty, tylko się nie zapisze.
+- Pojazd na mapie transportu i jego plakietka w karcie mają kolor tej samej kategorii linii
+  co na ekranie „Linie”. Wcześniej mapa zgadywała kategorię tylko z numeru linii i pomijała
+  opis linii z rozkładu (np. „nocna”, „zastępcza”).
 
 ## [1.0.2] — 2026-09-28
 

@@ -13,9 +13,8 @@ import { useRailStationStatus } from '@/hooks/useRailStations'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { formatAgo, formatClockTime } from '@/lib/format'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
-import { lineKindFrom } from '@/lib/gtfs/schema'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import { FADE_START_SEC } from './mapData'
+import { FADE_START_SEC, vehicleKind } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
 
@@ -262,7 +261,7 @@ function VehicleBody({
   return (
     <>
       {vehicle.shortName !== null && vehicle.mode !== null && (
-        <LineBadge line={vehicle.shortName} mode={vehicle.mode} kind={lineKindFrom(vehicle.shortName, undefined)} />
+        <LineBadge line={vehicle.shortName} mode={vehicle.mode} kind={vehicleKind(vehicle)} />
       )}
       {disrupted && (
         <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">

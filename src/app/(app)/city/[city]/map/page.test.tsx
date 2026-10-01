@@ -49,7 +49,7 @@ vi.mock('@/components/map/TransitMap', () => ({
 
 const VEHICLE = {
   id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '3801', ageSec: 10, headsign: 'Centrum',
-  routeId: '20', shortName: '20', mode: 'tram', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' },
+  routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' },
 }
 const STOP = { id: '100101', groupId: '1001', name: 'Centrum', code: '01', lat: 52.23, lon: 21.01, mode: 'bus' }
 const routeStop = (stopId: string, name: string, lat: number) => ({
