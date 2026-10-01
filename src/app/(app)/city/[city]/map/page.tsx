@@ -468,9 +468,8 @@ export default function CityMapPage() {
                   <div className="w-52">{lineSearch}</div>
                 </>
               ) : (
-                // `min-w-40`: gdy pole i przyciski nie mieszczą się w rzędzie (telefon), przyciski
-                // schodzą pod spód zamiast ścisnąć pole do „Sz…" (QA 2026-09-30); `ml-auto` niżej
-                // trzyma je przy prawej krawędzi — panele Filtrów/Przypiętych otwierają się w lewo.
+                // `min-w-40`: na telefonie przyciski schodzą pod pole zamiast ścisnąć je do „Sz…";
+                // `ml-auto` niżej trzyma je z prawej, bo ich panele otwierają się w lewo.
                 <div className="flex min-w-40 flex-1 flex-col gap-1.5">
                   <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
                     {(['place', 'line'] as const).map((tab) => (
