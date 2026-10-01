@@ -126,3 +126,20 @@ describe('icons — jedno źródło (Lucide, PR1)', () => {
     expect(icons.VEHICLE_HEADING_POLYGON).toEqual([[12, 2], [19, 21], [12, 17], [5, 21], [12, 2]])
   })
 })
+
+describe('AppLogo — jedno źródło dla UI, favicony i ikon PWA', () => {
+  it('w UI bierze gradient akcentu z tokenu CSS i zaokrąglenie 30%', () => {
+    const logo = render(<icons.AppLogo size={40} />).container.firstElementChild as HTMLElement
+    expect(logo.style.background).toBe('var(--accent-gradient)')
+    expect(logo.style.borderRadius).toBe('12px')
+  })
+
+  it('trasa ikony podaje gradient wprost (brak CSS w ImageResponse) i może wyłączyć zaokrąglenie (iOS maskuje sam)', () => {
+    const logo = render(<icons.AppLogo size={180} background={icons.ACCENT_GRADIENT} rounded={false} />).container.firstElementChild as HTMLElement
+    expect(icons.ACCENT_GRADIENT).toBe('linear-gradient(135deg, #38bdf8, #6366f1)')
+    expect(logo.style.background).toContain('linear-gradient')
+    expect(logo.style.borderRadius).toBe('0px')
+    // Satori (ImageResponse) układa tylko flexem — bez klas Tailwinda.
+    expect(logo.style.display).toBe('flex')
+  })
+})

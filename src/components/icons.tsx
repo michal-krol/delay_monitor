@@ -196,15 +196,37 @@ export const VehiclePositionIcon = lucideIcon(CircleDot)
 /** Kierunek jazdy pojazdu (strzałka przy kropce) — wypełniona, w kolorze rodzaju. */
 export const VehicleHeadingIcon = lucideIcon(Navigation2, true)
 
+/** Gradient akcentu wprost — lustro `--accent-gradient` z `globals.css` dla tras ikon (`app/icon.tsx`), gdzie nie ma CSS. */
+export const ACCENT_GRADIENT = 'linear-gradient(135deg, #38bdf8, #6366f1)'
+
 /**
- * Logo aplikacji — ten sam rysunek co `app/icon.svg` (czoło pociągu z dwiema szybami),
- * biały na gradiencie akcentu. `TrainIcon` zostaje wyłącznie dla kolei.
+ * Logo aplikacji (czoło pociągu z dwiema szybami), biały na gradiencie akcentu. To samo źródło
+ * rysuje faviconę i ikony PWA (`app/icon.tsx`, `app/apple-icon.tsx`), dlatego układ w stylach
+ * inline i flexem — `ImageResponse` (Satori) nie zna klas Tailwinda. `TrainIcon` zostaje dla kolei.
  */
-export function AppLogo({ size = 36 }: { size?: number }) {
+export function AppLogo({
+  size = 36,
+  background = 'var(--accent-gradient)',
+  rounded = true,
+}: {
+  size?: number
+  background?: string
+  /** `false` dla ikony iOS — system sam nakłada maskę z zaokrągleniem. */
+  rounded?: boolean
+}) {
   return (
     <span
-      className="grid shrink-0 place-items-center text-white shadow-lg"
-      style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), background: 'var(--accent-gradient)' }}
+      className="shrink-0 shadow-lg"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        width: size,
+        height: size,
+        borderRadius: rounded ? Math.round(size * 0.3) : 0,
+        background,
+      }}
       aria-hidden="true"
     >
       <svg width={Math.round(size * 0.6)} height={Math.round(size * 0.6)} viewBox="0 0 24 24" fill="currentColor">
