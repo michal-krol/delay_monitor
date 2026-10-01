@@ -112,7 +112,9 @@ test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten s
   await page.goto(STATION_BOARD)
 
   // Karta pogody istnieje od razu (nagłówek statyczny) — na pin czekamy dopiero
-  // po realnym zwrocie /api/weather (available:true + location), nie po samym mount.
+  // po zwrocie /api/weather (available:true + location), nie po samym mount. Pogodę serwuje
+  // `WEATHER_DATA_SOURCE=mock` (playwright.config.ts) — zero ruchu do Open-Meteo; jedyny
+  // zewnętrzny ruch to kafelki OpenFreeMap (świadomy wyjątek, AGENTS.md #6).
   await expect(page.getByText(/°C/)).toBeVisible({ timeout: 20_000 })
 
   const map = page.getByRole('region', { name: 'Mapa stacji Warszawa Centralna' })

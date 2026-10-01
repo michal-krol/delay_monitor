@@ -29,7 +29,9 @@ export async function fetchVehicleFeed(
 
 const DEFAULT_ROOT = path.join(process.cwd(), 'fixtures', 'gtfs')
 
-/** Mock: fixture `.json` z dysku, `{{NOW}}` podstawiany aktualnym ISO (świeży wiek w testach). */
+const STALE_AGE_MS = 20 * 60_000
+
+/** Mock: fixture `.json` z dysku, `{{NOW}}` podstawiany aktualnym ISO (świeży wiek w testach), `{{STALE}}` = sprzed 20 min. */
 export function mockVehicleFeed(
   city: CityFeed,
   root: string = DEFAULT_ROOT,
@@ -38,8 +40,10 @@ export function mockVehicleFeed(
   return async () => {
     try {
       const raw = await readFile(file, 'utf8')
-      const now = new Date().toISOString()
-      return parseVehicleFeed(JSON.parse(raw.replaceAll('{{NOW}}', now)))
+      const now = Date.now()
+      // `{{STALE}}`: pozycja sprzed 20 min — pokazuje w UI wiek „nieświeżej" pozycji.
+      const stale = new Date(now - STALE_AGE_MS).toISOString()
+      return parseVehicleFeed(JSON.parse(raw.replaceAll('{{NOW}}', new Date(now).toISOString()).replaceAll('{{STALE}}', stale)))
     } catch {
       // Brak pliku LUB uszkodzony JSON — poller degraduje do ostatnich znanych.
       return { positions: [], droppedPositions: 0, feedTime: null }

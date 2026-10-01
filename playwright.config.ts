@@ -55,6 +55,7 @@ export default defineConfig({
       GTFS_ENABLED: 'true',
       GTFS_CITIES: 'warszawa',
       GTFS_DATA_SOURCE: 'mock',
+      WEATHER_DATA_SOURCE: 'mock',
     },
   },
 })

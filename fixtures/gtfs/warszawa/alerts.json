@@ -20,6 +20,42 @@
       "htmlbody": "<p>Nie powinno się dopasować do żadnej linii w mocku.</p>"
     },
     {
+      "id": "A/TEST/4",
+      "routes": ["M1", "128"],
+      "effect": "MODIFIED_SERVICE",
+      "link": "https://www.wtp.waw.pl/utrudnienia/test-4/",
+      "title": "Zmiany na M1 i 128 — prace remontowe",
+      "body": "Zmiany obowiązują od 5 października 2026 do 12 października 2026. Metro M1 kursuje rzadziej, a linia 128 jest skrócona.",
+      "htmlbody": ""
+    },
+    {
+      "id": "A/TEST/5",
+      "routes": ["N16"],
+      "effect": "DETOUR",
+      "link": "https://www.wtp.waw.pl/utrudnienia/test-5/",
+      "title": "Objazd linii nocnej N16",
+      "body": "Z powodu remontu torowiska i przebudowy skrzyżowania nocna linia N16 kursuje zmienionym przebiegiem. Autobusy nie obsługują przystanków położonych na odcinku objętym robotami; najbliższe przystanki zastępcze zostały wyznaczone w odległości około 300 metrów, a czasy przejazdu zostały odpowiednio wydłużone. Prosimy o sprawdzanie komunikatów na przystankach oraz uwzględnienie dłuższego czasu podróży. Dziękujemy za wyrozumiałość.",
+      "htmlbody": ""
+    },
+    {
+      "id": "A/TEST/6",
+      "routes": ["20"],
+      "effect": "STOP_MOVED",
+      "link": "",
+      "title": "Przeniesiony przystanek na linii 20",
+      "body": "Przystanek Rondo ONZ jest tymczasowo przeniesiony o kilkadziesiąt metrów.",
+      "htmlbody": ""
+    },
+    {
+      "id": "A/TEST/7",
+      "routes": ["712"],
+      "effect": "SOMETHING_NEW",
+      "link": "",
+      "title": "Komunikat o nieznanym rodzaju skutku",
+      "body": "Alert z wartością effect spoza znanej listy — UI ma go pokazać, nie ukryć.",
+      "htmlbody": ""
+    },
+    {
       "id": "A/TEST/3",
       "routes": [],
       "effect": "DETOUR",

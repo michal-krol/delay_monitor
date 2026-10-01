@@ -29,6 +29,18 @@ describe('loadConfig', () => {
     expect(config.interestTtlMs).toBe(60000)
   })
 
+  it('mock budget defaults to "default" and accepts low/unknown', () => {
+    expect(loadConfig({}).mockBudget).toBe('default')
+    expect(loadConfig({ MOCK_BUDGET: 'low' }).mockBudget).toBe('low')
+    expect(loadConfig({ MOCK_BUDGET: 'unknown' }).mockBudget).toBe('unknown')
+    expect(() => loadConfig({ MOCK_BUDGET: 'zero' })).toThrow()
+  })
+
+  it('weather source defaults to live and accepts mock', () => {
+    expect(loadConfig({}).weatherDataSource).toBe('live')
+    expect(loadConfig({ WEATHER_DATA_SOURCE: 'mock' }).weatherDataSource).toBe('mock')
+  })
+
   describe('GTFS', () => {
     it('defaults: enabled, mock, single city warszawa, 1h idle TTL, 15s vehicle poll, 5min alert poll', () => {
       const { gtfs } = loadConfig({})

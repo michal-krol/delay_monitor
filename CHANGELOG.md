@@ -6,6 +6,21 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Dodane
+
+- Tryb mock pokazuje więcej funkcji z wersji 1.0.x–1.1.0: autobusy każdego rodzaju (zwykłe,
+  podmiejskie, lokalne, zastępcze), przystanek „na żądanie”, kilka komunikatów o utrudnieniach
+  (z zakresem dat, bardzo długi, z nieznanym skutkiem), pojazd z nieświeżą pozycją, więcej
+  stacji Warszawy i licznik utrudnień PKP zgodny z danymi.
+- Zmienna `MOCK_BUDGET` (`low` lub `unknown`) pokazuje w trybie mock panel diagnostyczny przy
+  niskim lub nieznanym limicie zapytań PKP. Zmienna `WEATHER_DATA_SOURCE=mock` podaje stałą
+  pogodę bez zapytań do Open-Meteo (testy e2e).
+
+### Zmienione
+
+- Usunięto nieczytane kolumny kolorów z przykładowego pliku `routes.txt` oraz nieaktualne
+  komentarze o liczbie pociągów w mocku.
+
 ## [1.1.0] — 2026-10-01
 
 ### Dodane
