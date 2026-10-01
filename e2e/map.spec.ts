@@ -277,6 +277,24 @@ test('mapa transportu: renderuje kafelki, pasek wyszukiwania, filtry i legendę'
   await expect(page.getByText(/pozycje pojazdów:/)).toBeVisible({ timeout: READY })
 })
 
+test.describe('niski telefon (375×667)', () => {
+  test.use({ viewport: { width: 375, height: 667 } })
+
+  // Legenda rośnie w górę od dołu mapy; bez limitu wysokości jej nagłówek („Legenda” = jedyne
+  // zwinięcie) chował się pod przyklejonym nagłówkiem strony (podlegenda rodzajów autobusów, +110 px).
+  test('mapa transportu: rozwinięta legenda mieści się w mapie i daje się zwinąć', async ({ page }) => {
+    const map = await openMap(page)
+    const legend = page.locator('details', { has: page.getByText('Legenda', { exact: true }) })
+    await legend.getByText('Legenda', { exact: true }).click()
+    await expect(legend).toHaveAttribute('open', '')
+    const [mapBox, legendBox] = [await map.boundingBox(), await legend.boundingBox()]
+    expect(legendBox!.y).toBeGreaterThanOrEqual(mapBox!.y)
+    expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(mapBox!.y + mapBox!.height)
+    await legend.getByText('Legenda', { exact: true }).click()
+    await expect(legend).not.toHaveAttribute('open', '')
+  })
+})
+
 test('mapa transportu: wyszukanie stacji otwiera kartę z linkiem do pełnej tablicy, Escape ją zamyka', async ({ page }) => {
   await openMap(page)
   await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Centralna')

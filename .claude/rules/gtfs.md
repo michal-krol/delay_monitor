@@ -71,7 +71,8 @@ paths:
   it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Why: `adr/0005`.
   Kinds (`lineKindFrom`, ZTM convention): `N…` night, `Z…` replacement, `E…`/400–599 express,
   `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
-  `LINE_KIND_LABEL` in `transitMode.tsx`.
+  `LINE_KIND_LABEL` (singular chip) and ONE `BUS_KIND_LABEL`/`BUS_KIND_ORDER` (plural colour
+  legend: „Linie” bus subsections + map legend) in `transitMode.tsx`.
 - **„Linie” page** (`/city/<city>/lines`, `LineGrid.tsx`): `<details>` sections per mode, bus
   subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
   (`useSectionOpen`), recent lines `monitor.recentLines.v1` (`useRecentLines`, recorded by the

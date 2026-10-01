@@ -20,6 +20,20 @@ export const LINE_KIND_LABEL: Record<LineKind, string> = {
   local: 'lokalna',
 }
 
+/**
+ * Rodzaje autobusów = legenda kolorów ZTM (podsekcje strony „Linie”, legenda mapy). Liczba mnoga;
+ * zakresy numerów to objaśnienie dla pasażera — reguła przydziału żyje w `lineKindFrom` (`lib/gtfs/schema.ts`).
+ */
+export const BUS_KIND_ORDER: LineKind[] = ['regular', 'express', 'zone', 'local', 'night', 'replacement']
+export const BUS_KIND_LABEL: Record<LineKind, string> = {
+  regular: 'zwykłe',
+  express: 'przyspieszone',
+  zone: 'podmiejskie (7xx, 8xx)',
+  local: 'lokalne (L)',
+  night: 'nocne (N)',
+  replacement: 'zastępcze (Z)',
+}
+
 export const MODE_ICON = { metro: MetroIcon, tram: TramIcon, bus: BusIcon, rail: TrainIcon, other: OtherModeIcon } as const
 
 export type LineColor = { bg: string; fg: string }

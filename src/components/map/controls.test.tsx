@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { LinePanel } from './LinePanel'
 import { LineSearch } from './LineSearch'
@@ -9,6 +9,7 @@ import { PanelFrame } from './PanelFrame'
 import { MODE_COLOR, outlineFilter, type LayerKey } from './mapData'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import { ON_REQUEST_TITLE } from '../OnRequestBadge'
+import { BUS_KIND_LABEL, BUS_KIND_ORDER, lineColor } from '../transitMode'
 
 const line = (routeId: string, name = routeId, longName = ''): LineListEntry => ({
   routeId, line: name, longName, color: null, textColor: '#ffffff', mode: 'bus', kind: 'regular',
@@ -107,7 +108,27 @@ describe('MapLegend', () => {
     expect(arrows).toHaveLength(3) // autobus, tramwaj, pociąg
     expect(arrows[0].style.filter).toBe(outlineFilter(MODE_COLOR.bus))
   })
+
+  it('explains bus colours by line kind with the Linie page labels and LINE_PALETTE swatches', () => {
+    render(<MapLegend />)
+    const list = screen.getByRole('list', { name: 'Autobusy według rodzaju linii' })
+    const items = within(list).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual(BUS_KIND_ORDER.map((kind) => BUS_KIND_LABEL[kind]))
+    BUS_KIND_ORDER.forEach((kind, i) => {
+      // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna próbka (aria-hidden), bez roli
+      const swatch = items[i].querySelector<HTMLElement>('[aria-hidden="true"]')!
+      expect(swatch.style.background).toBe(css(lineColor('bus', kind).bg))
+      expect(swatch.className.includes('dark:ring-1')).toBe(kind === 'night' || kind === 'local')
+    })
+  })
 })
+
+/** Kolor tak, jak go normalizuje jsdom (`#rrggbb` → `rgb(...)`). */
+const css = (hex: string) => {
+  const el = document.createElement('span')
+  el.style.background = hex
+  return el.style.background
+}
 
 describe('LinePanel', () => {
   const entry = line('20', '20')
