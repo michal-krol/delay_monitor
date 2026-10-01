@@ -21,7 +21,8 @@ const VEHICLES: [GtfsMode, string][] = [
  * `<details>`: zwijanie i stan rozwinięcia dla czytników ekranu za darmo.
  * Domyślnie zwinięta (kompaktowa). Rozwinięta nie wyjdzie poza mapę: rodzic na mapie ma wysokość
  * (`top`…`bottom`), legenda `max-h-full` + własne przewijanie — inaczej na niskim telefonie jej
- * nagłówek (jedyne zwinięcie) chował się pod nagłówkiem strony.
+ * nagłówek (jedyne zwinięcie) chował się pod nagłówkiem strony. Rodzic zaczyna się pod kontrolkami
+ * prawego rogu (zoom, „Pokaż całe miasto”), żeby rozwinięta legenda ich nie przykrywała.
  */
 export function MapLegend() {
   return (
