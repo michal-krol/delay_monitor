@@ -320,6 +320,32 @@ test.describe('niski desktop (800×600)', () => {
   })
 })
 
+// Regresja (QA staging 2026-10-01): na 375 px przyciski Lista/Filtry/Udostępnij zeszły do drugiego
+// rzędu (114–158 px od góry mapy), a rozwinięta legenda zaczynała się na 144 px i zakrywała ich dół.
+test.describe('mapa transportu: rozwinięta legenda pod przyciskami w drugim rzędzie', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
+  })
+
+  test('375×812: dolny środek każdego przycisku trafia w przycisk, nie w legendę', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openMap(page)
+    const legend = page.locator('details', { has: page.getByText('Legenda', { exact: true }) })
+    await legend.getByText('Legenda', { exact: true }).click()
+    await expect(legend).toHaveAttribute('open', '')
+    for (const button of [
+      page.getByRole('button', { name: 'Lista', exact: true }),
+      page.getByRole('button', { name: /Filtry/ }),
+      page.getByRole('button', { name: 'Udostępnij ten widok mapy' }),
+    ]) {
+      const box = (await button.boundingBox())!
+      // 1 px nad krawędzią: sam brzeg (`y + height`) należy już do elementu pod spodem.
+      const hit = await button.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [box.x + box.width / 2, box.y + box.height - 1])
+      expect(hit, `legenda zasłania dół przycisku ${await button.textContent() || await button.getAttribute('aria-label')}`).toBe(true)
+    }
+  })
+})
+
 test('mapa transportu: wyszukanie stacji otwiera kartę z linkiem do pełnej tablicy, Escape ją zamyka', async ({ page }) => {
   await openMap(page)
   await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Centralna')
