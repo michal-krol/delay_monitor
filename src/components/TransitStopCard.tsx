@@ -44,7 +44,7 @@ export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
       {failed ? (
         <p className="mt-3 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
       ) : (
-        <TransitDepartureList departures={board?.departures ?? []} loading={loading} />
+        <TransitDepartureList departures={board?.departures ?? []} loading={loading} showStopCode />
       )}
 
       <Link

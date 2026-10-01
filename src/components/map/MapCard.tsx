@@ -235,7 +235,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
         {error !== null && data === null ? (
           <p className="mt-2 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
         ) : (
-          <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} />
+          <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} showStopCode={member === null} />
         )}
       </div>
       <Action href={`/city/${city}/stop/${selection.id}`}>Rozkład przystanku</Action>

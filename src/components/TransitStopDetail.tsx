@@ -401,7 +401,7 @@ export function TransitStopDetail({
                   loading={loading}
                   emptyMessage={failed ? 'Nie udało się pobrać rozkładu.' : undefined}
                   city={city}
-                  showSlupek={activeMember === null && members.length > 1}
+                  showStopCode={activeMember === null && members.length > 1}
                   now={now}
                   highlightFirst={activeTab === 'departures'}
                 />

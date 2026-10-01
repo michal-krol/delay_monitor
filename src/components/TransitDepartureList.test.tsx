@@ -63,8 +63,8 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('lokalna')).toBeInTheDocument()
   })
 
-  it('tags the słupek with the bare code, never the word "słupek"', () => {
-    render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showSlupek />)
+  it('tags the stop with its bare number in a group view', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showStopCode />)
     expect(screen.getByText('06')).toBeInTheDocument()
     expect(screen.queryByText(/słup\./i)).not.toBeInTheDocument()
   })
@@ -75,8 +75,8 @@ describe('TransitDepartureList', () => {
   })
 
   it('gives the stop-code and vehicle chips readable (not title-only) text', () => {
-    render(<TransitDepartureList departures={[dep({ stopCode: '06', vehicle: { stopsAway: 2, ageSec: 15 } })]} showSlupek />)
-    expect(screen.getByText('Odjazd z:')).toHaveClass('sr-only')
+    render(<TransitDepartureList departures={[dep({ stopCode: '06', vehicle: { stopsAway: 2, ageSec: 15 } })]} showStopCode />)
+    expect(screen.getByText('Odjazd z przystanku')).toHaveClass('sr-only')
     expect(screen.getByText(/pozycja na żywo/)).toHaveClass('sr-only')
   })
 
@@ -105,5 +105,23 @@ describe('TransitDepartureList', () => {
     const now = new Date('2026-09-02T14:20:00+02:00').getTime()
     render(<TransitDepartureList departures={[dep()]} now={now} highlightFirst />)
     expect(screen.getByText('za 10 min')).toHaveClass('text-indigo-600')
+  })
+
+  it('shows the stop number on the next departure in a group view', () => {
+    const now = new Date('2026-09-02T14:20:00+02:00').getTime()
+    render(<TransitDepartureList departures={[dep({ stopCode: '02' })]} now={now} highlightFirst showStopCode />)
+    expect(screen.getByText('Najbliższy odjazd').parentElement).toHaveTextContent('Odjazd z przystanku 02')
+  })
+
+  it('has no stop number on the next departure in a single-stop view', () => {
+    const now = new Date('2026-09-02T14:20:00+02:00').getTime()
+    render(<TransitDepartureList departures={[dep({ stopCode: '02' })]} now={now} highlightFirst />)
+    expect(screen.queryByText('02')).not.toBeInTheDocument()
+  })
+
+  it('shows a platform only once when the stop number is missing', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: null, platformCode: 'P1' })]} showStopCode />)
+    expect(screen.getAllByText(/P1/)).toHaveLength(1)
+    expect(screen.getByText('peron P1')).toBeInTheDocument()
   })
 })
