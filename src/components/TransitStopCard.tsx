@@ -12,6 +12,8 @@ type Props = {
   city: string
   stopId: string
   stopName: string
+  /** Przypięty jeden przystanek zespołu (`stopName` ma już numer, „Centrum 02"); brak = cały zespół. */
+  member?: boolean
   onRemove: () => void
 }
 
@@ -21,14 +23,20 @@ type Props = {
  * ma opóźnień. Każda karta odpytuje swój przystanek osobno (GTFS nie ma limitu
  * zapytań; Pulpit trzyma kilka przypięć, nie kilkadziesiąt).
  */
-export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
-  const { data, loading, failed } = useTransitBoard(city, [stopId], 3)
+export function TransitStopCard({ city, stopId, stopName, member = false, onRemove }: Props) {
+  const { data, loading, failed } = useTransitBoard(city, [stopId], 3, member ? stopId : null)
   // Ten sam wspólny hook `/api/cities` co `CityWeatherCard`/`TransitStopDetail`/
   // strona miasta (Task 9).
   const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const board = data?.stops[0] ?? null
-  const name = board?.name ?? stopName
+  // Zespół: nazwa z rozkładu (aktualna). Jeden przystanek: zapisana nazwa z numerem —
+  // `board.name` to goła nazwa zespołu, która znaczyłaby „cały zespół".
+  const name = member ? stopName : (board?.name ?? stopName)
+  // Link zawsze na stronę zespołu; wybrany przystanek przez `?przystanek=`. Stary wpis
+  // z `id` przystanku bez flagi nie otwiera już zawężonego widoku zamiast zespołu.
+  const groupPath = `/city/${city}/stop/${encodeStopIdForPathSegment(board?.groupId ?? stopId)}`
+  const href = member ? `${groupPath}?przystanek=${encodeURIComponent(stopId)}` : groupPath
 
   return (
     <article className="glass group relative isolate w-full overflow-hidden rounded-2xl border border-surface-border p-5">
@@ -44,11 +52,11 @@ export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
       {failed ? (
         <p className="mt-3 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
       ) : (
-        <TransitDepartureList departures={board?.departures ?? []} loading={loading} showStopCode />
+        <TransitDepartureList departures={board?.departures ?? []} loading={loading} showStopCode={!member} />
       )}
 
       <Link
-        href={`/city/${city}/stop/${encodeStopIdForPathSegment(stopId)}`}
+        href={href}
         aria-label={`Pokaż przystanek: ${name}`}
         className="absolute inset-0 rounded-2xl focus:outline-none"
       />

@@ -11,6 +11,7 @@ import { CityIcon, CloseIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
+import { stopDisplayName } from '@/components/stopName'
 import { MapFilters } from '@/components/map/MapFilters'
 import { MapLegend } from '@/components/map/MapLegend'
 import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
@@ -310,7 +311,11 @@ export default function CityMapPage() {
   /** Klucz przypiętego dla karty stacji/przystanku; `null` dla pojazdu. */
   function pinnedItemFor(sel: MapSelection): PinnedItem | null {
     if (sel.kind === 'rail') return { kind: 'pkp', id: sel.id, name: sel.name }
-    if (sel.kind === 'stop') return { kind: 'gtfs', city, id: sel.id, name: sel.name }
+    // Jeden przystanek zespołu (pin na mapie) → przypięty z numerem; wybór z wyszukiwarki = cały zespół.
+    if (sel.kind === 'stop')
+      return sel.id !== sel.groupId
+        ? { kind: 'gtfs', city, id: sel.id, name: stopDisplayName(sel.name, sel.code), member: true }
+        : { kind: 'gtfs', city, id: sel.id, name: sel.name }
     return null
   }
 

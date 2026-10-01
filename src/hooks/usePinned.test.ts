@@ -165,4 +165,21 @@ describe('usePinned — wrogie wejście z localStorage', () => {
 
     expect(result.current.pinnedItems).toEqual([METRO])
   })
+
+  it('loads a gtfs pin saved before the member flag as the whole group', async () => {
+    window.localStorage.setItem(V2_KEY, JSON.stringify([{ kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum' }]))
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    expect(result.current.pinnedItems).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum' }])
+  })
+
+  it('round-trips a pinned single stop with its member flag', async () => {
+    const STOP: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum 02', member: true }
+    const first = renderHook(() => usePinned())
+    await waitFor(() => expect(first.result.current.loaded).toBe(true))
+    act(() => first.result.current.addPinned(STOP))
+    const second = renderHook(() => usePinned())
+    await waitFor(() => expect(second.result.current.loaded).toBe(true))
+    expect(second.result.current.pinnedItems).toEqual([STOP])
+  })
 })

@@ -96,4 +96,30 @@ describe('TransitStopCard', () => {
     render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
     expect(await screen.findByText('Rozkład — Warszawa')).toBeInTheDocument()
   })
+
+  const departure = {
+    vehicle: null, tripId: 't', routeId: '20', line: '20', mode: 'tram', lineKind: 'regular', headsign: 'Piaski',
+    plannedAt: '2026-09-02T14:30:00+02:00', departureSec: 52200, serviceDate: '2026-09-02', stopId: '100102',
+    platformCode: null, stopCode: '02', wheelchair: 0, frequencyBased: false, onRequest: false,
+  }
+  const centrum = { stopId: '100102', groupId: '1001', name: 'Centrum', modes: ['tram'], departures: [departure] }
+
+  it('a pinned single stop fetches only that stop and is named with its number', () => {
+    useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
+    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member onRemove={vi.fn()} />)
+    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, '100102')
+    expect(screen.getByRole('heading', { name: 'Centrum 02' })).toBeInTheDocument()
+    expect(screen.queryByText('Odjazd z przystanku')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Pokaż przystanek/ })).toHaveAttribute('href', '/city/warszawa/stop/1001?przystanek=100102')
+  })
+
+  it('a pinned group shows all its stops with numbers and links to the group', () => {
+    useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
+    // Wpis sprzed flagi `member`: `id` to przystanek ze starego deep-linku, ale znaczy cały zespół.
+    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" onRemove={vi.fn()} />)
+    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, null)
+    expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
+    expect(screen.getByText('Odjazd z przystanku')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Pokaż przystanek/ })).toHaveAttribute('href', '/city/warszawa/stop/1001')
+  })
 })

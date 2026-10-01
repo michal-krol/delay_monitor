@@ -12,7 +12,12 @@ import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN, STATION_ID_PATTERN } from '@/lib
  */
 export type PinnedItem =
   | { kind: 'pkp'; id: string; name: string }
-  | { kind: 'gtfs'; city: string; id: string; name: string }
+  /**
+   * `member: true` = przypięty JEDEN przystanek zespołu (`id` to on, `name` ma już numer:
+   * „Centrum 02"); brak = cały zespół. Przypinamy to, co user widzi. Wpisy sprzed tej
+   * flagi czytamy jako zespół, nawet gdy `id` wskazuje przystanek (stary deep-link).
+   */
+  | { kind: 'gtfs'; city: string; id: string; name: string; member?: true }
 
 /** Klucz tożsamości wpisu — jedyne miejsce, które zna kształt sklejenia. */
 export function pinnedKey(pinnedItem: PinnedItem): string {
@@ -41,6 +46,7 @@ const pinnedV2Schema = z.discriminatedUnion('kind', [
     city: z.string().regex(CITY_ID_PATTERN),
     id: z.string().regex(GTFS_STOP_ID_PATTERN),
     name: z.string(),
+    member: z.literal(true).optional(),
   }),
 ])
 

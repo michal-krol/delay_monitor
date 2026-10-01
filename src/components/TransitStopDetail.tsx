@@ -145,7 +145,12 @@ export function TransitStopDetail({
   const slupekIndex = Math.max(0, slupekIds.indexOf(effSlupek))
   const activeMember = effSlupek !== null ? members.find((m) => m.id === effSlupek) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
-  const pinnedItem: PinnedItem = { kind: 'gtfs', city, id: stopId, name: stopName }
+  // Przypinamy to, co user widzi: wybrany przystanek (z numerem) albo cały zespół — po id
+  // zespołu, nie po `stopId` ze ścieżki, który bywa przystankiem z deep-linku.
+  const pinnedItem: PinnedItem =
+    activeMember !== null
+      ? { kind: 'gtfs', city, id: activeMember.id, name: stopDisplayName(stopName, activeMember.code ?? activeMember.platformCode), member: true }
+      : { kind: 'gtfs', city, id: board?.groupId ?? stopId, name: stopName }
   const key = pinnedKey(pinnedItem)
   const pinned = isPinned(key)
 

@@ -64,6 +64,7 @@ export function Dashboard({ pinnedItems, onExpand, onRemove }: Props) {
                 city={pinnedItem.city}
                 stopId={pinnedItem.id}
                 stopName={pinnedItem.name}
+                member={pinnedItem.member === true}
                 onRemove={() => onRemove(pinnedKey(pinnedItem))}
               />
             )

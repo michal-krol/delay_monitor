@@ -291,6 +291,10 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     const stopCard = await screen.findByRole('dialog', { name: 'Centrum 01' })
     fireEvent.click(within(stopCard).getByRole('button', { name: 'Przypnij do Pulpitu' }))
     await waitFor(() => expect(map().pinnedItems).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
+    // Pin z mapy = jeden przystanek zespołu → przypięty z numerem (Pulpit pokaże „Centrum 01").
+    expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
+      { kind: 'gtfs', city: 'warszawa', id: '100101', name: 'Centrum 01', member: true },
+    ])
   })
 
   it('right-click opens "nearby" with the closest places; a row opens its card', async () => {

@@ -341,6 +341,25 @@ describe('TransitStopDetail', () => {
     ])
   })
 
+  it('pins the selected stop of a group with its number', async () => {
+    useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [groupBoard], attribution: [] }, error: null, loading: false, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    await userEvent.click(screen.getByRole('tab', { name: /^Centrum 02/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
+    expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
+      { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum 02', member: true },
+    ])
+  })
+
+  it('pins the whole group, not the stop from the link, when the group is shown', async () => {
+    useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [{ ...groupBoard, stopId: '100102' }], attribution: [] }, error: null, loading: false, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="100102" />)
+    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
+    expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
+      { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' },
+    ])
+  })
+
   it('shows a failed message, not the empty schedule message, when the first fetch fails', () => {
     useTransitBoard.mockReturnValue({ data: null, error: 'network', loading: false, failed: true })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
