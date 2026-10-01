@@ -45,6 +45,12 @@ test('odwiedzona linia pojawia się w „Ostatnio oglądane”', async ({ page }
   await page.getByRole('link', { name: /^Linia M1: / }).click()
   await expect(page).toHaveURL(/\/city\/warszawa\/line\/M1/)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: READY })
+  // h1 i zapis „Ostatnio oglądane” nie są atomowe: zapis idzie w efekcie (`useEffect`) po
+  // commicie, w osobnym zadaniu. Pełna nawigacja tuż po h1 potrafiła zgubić ten efekt
+  // (wolny WebKit; odtworzone na Chromium z dławieniem CPU) — czekamy na sam zapis.
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem('monitor.recentLines.v1')))
+    .toBe(JSON.stringify({ warszawa: ['M1'] }))
 
   await gotoLines(page)
   const recent = page.getByRole('group', { name: 'Ostatnio oglądane' })
