@@ -15,7 +15,10 @@ General rules: `~/.claude/rules/deployment.md`, `versioning.md`. Public summary:
 „Wdrożenie” (keep internal details — keys, costs, URLs, platform settings — out of it).
 
 - One Railway project, two environments: `main` → production (`live`, real key), `dev` →
-  staging (`live`, a **separate second PKP key** — independent 100/h + 1000/day budget, #3).
+  staging (`live`). **As of 2026-10-01 both use ONE shared PKP key** — one 100/h + 1000/day
+  budget (#3): measured 2026-10-01 16:02–16:10 UTC, both `/api/health` `budget` values moved on
+  one counter. A separate staging key is planned; until then every staging request (poller
+  included) spends the production budget, so keep staging click-QA short.
   Railway deploys automatically on push from the `Dockerfile` (`output: 'standalone'`).
 - `main` is protected by the GitHub ruleset `branch-protection`: PR only, required checks
   `quality` and `e2e`, no force-push or deletion. Renaming a CI job = update the ruleset.
