@@ -15,7 +15,6 @@ function dep(over: Partial<Dep> = {}): Dep {
     line: '20',
     mode: 'tram',
     lineKind: 'regular',
-    color: null,
     headsign: 'Piaski',
     plannedAt: '2026-09-02T14:30:00+02:00',
     departureSec: 52200,

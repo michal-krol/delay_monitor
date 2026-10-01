@@ -14,7 +14,7 @@ import { headerIndex } from './csv'
  * Pobiera wyłącznie `feed_info.txt`, `routes.txt`, `frequencies.txt` i początek
  * `stops.txt` żądaniami zakresowymi (kilkaset KB), poza CI, bez kosztu.
  * Sprawdza OBECNOŚĆ kolumn — bo to ich zniknięcie robi ciche awarie
- * (metro w `frequencies`, `parent_station` w `stops`, `route_color` w `routes`).
+ * (metro w `frequencies`, `parent_station` w `stops`).
  */
 
 const client = createLiveClient(getCity('warszawa')!)
@@ -38,9 +38,9 @@ describe.skipIf(process.env.GTFS_CONTRACT !== '1')('kontrakt: feed mkuran ↔ wa
     expect(await client.getFeedVersion()).toMatch(/\S/)
   })
 
-  it('routes.txt niesie route_id, route_short_name, route_type, route_color', async () => {
+  it('routes.txt niesie route_id, route_short_name, route_type', async () => {
     const cols = await columns('routes.txt')
-    for (const required of ['route_id', 'route_short_name', 'route_type', 'route_color']) {
+    for (const required of ['route_id', 'route_short_name', 'route_type']) {
       expect(cols, `routes.${required} zniknęło z feedu`).toContain(required)
     }
   })

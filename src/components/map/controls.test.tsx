@@ -11,7 +11,7 @@ import type { LineListEntry } from '@/lib/gtfs/query'
 import { ON_REQUEST_TITLE } from '../OnRequestBadge'
 
 const line = (routeId: string, name = routeId, longName = ''): LineListEntry => ({
-  routeId, line: name, longName, color: null, textColor: '#ffffff', mode: 'bus', kind: 'regular',
+  routeId, line: name, longName, mode: 'bus', kind: 'regular',
 })
 
 describe('LineSearch', () => {

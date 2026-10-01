@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
-import { contrastText, modeFromRouteType } from '@/lib/gtfs/schema'
+import { modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
 import { serviceDateWindow } from '@/lib/pkp/time'
 
@@ -50,7 +50,7 @@ beforeAll(async () => {
     timezone: 'Europe/Warsaw',
     attribution: ['ZTM', 'Mikołaj Kuranowski'],
     routes: [
-      { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular', color: null, textColor: contrastText(null) },
+      { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular' },
     ],
     stops: [
       { id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 },
@@ -158,7 +158,7 @@ describe('GET /api/gtfs/board', () => {
       timezone: 'Europe/Warsaw',
       attribution: ['ZTM', 'Mikołaj Kuranowski'],
       routes: [
-        { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular', color: null, textColor: contrastText(null) },
+        { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular' },
       ],
       stops: [
         { id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 },

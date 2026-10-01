@@ -1,42 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   calendarDateSchema,
-  contrastText,
   frequencySchema,
   lineKindFrom,
   modeFromRouteType,
-  normalizeRouteColor,
   parseGtfsSeconds,
   routeSchema,
   serviceCategory,
   stopSchema,
   tripSchema,
 } from './schema'
-
-describe('normalizeRouteColor', () => {
-  it('accepts 6-hex and lowercases to #rrggbb', () => {
-    expect(normalizeRouteColor('0000BB')).toBe('#0000bb')
-  })
-
-  it('rejects anything else to null — raw string never escapes', () => {
-    for (const bad of [undefined, '', 'red', '#0000BB', '0000B', 'javascript:x', '0000bb;']) {
-      expect(normalizeRouteColor(bad), String(bad)).toBeNull()
-    }
-  })
-})
-
-describe('contrastText', () => {
-  it('picks black on light fills, white on dark', () => {
-    expect(contrastText('#ffffff')).toBe('#000000')
-    expect(contrastText('#f2c811')).toBe('#000000') // żółty — czarny tekst
-    expect(contrastText('#0000bb')).toBe('#ffffff') // granat — biały tekst
-    expect(contrastText('#bb0000')).toBe('#ffffff')
-  })
-
-  it('defaults to black when there is no colour', () => {
-    expect(contrastText(null)).toBe('#000000')
-  })
-})
 
 describe('modeFromRouteType', () => {
   it('maps the Warsaw types and a few HVT ranges', () => {
@@ -126,16 +99,17 @@ describe('parseGtfsSeconds', () => {
 })
 
 describe('routeSchema', () => {
-  it('drops an invalid colour to null and computes text colour', () => {
+  it('ignores route_color — line colour is the category (adr/0005), never the feed', () => {
     const route = routeSchema.parse({
       route_id: 'M1',
       route_short_name: 'M1',
       route_type: '1',
-      route_color: 'nonsense',
+      route_color: '0000BB',
+      route_text_color: 'FFFFFF',
     })
-    expect(route.color).toBeNull()
     expect(route.mode).toBe('metro')
-    expect(route.textColor).toBe('#000000')
+    expect(route).not.toHaveProperty('color')
+    expect(route).not.toHaveProperty('textColor')
   })
 })
 

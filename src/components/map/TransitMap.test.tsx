@@ -48,7 +48,7 @@ vi.mock('maplibre-gl', () => {
 function vehicle(over: Partial<CityVehicle> = {}): CityVehicle {
   return {
     id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '1', ageSec: 5, headsign: 'Centrum',
-    routeId: '20', shortName: '20', mode: 'tram', color: null, directionId: 0, nextStop: null, ...over,
+    routeId: '20', shortName: '20', mode: 'tram', directionId: 0, nextStop: null, ...over,
   }
 }
 
@@ -57,8 +57,8 @@ const base: Props = {
   ariaLabel: 'Mapa transportu',
   initialCamera: { lat: 52.23, lon: 21.01, zoom: 12 },
   backbone: [
-    { routeId: 'M1', line: 'M1', mode: 'metro', color: '#0000BB', points: [[52.1, 21.0], [52.2, 21.0]] },
-    { routeId: 'S9', line: 'S9', mode: 'rail', color: null, points: [[52.3, 21.0], [52.4, 21.0]] },
+    { routeId: 'M1', line: 'M1', mode: 'metro', points: [[52.1, 21.0], [52.2, 21.0]] },
+    { routeId: 'S9', line: 'S9', mode: 'rail', points: [[52.3, 21.0], [52.4, 21.0]] },
   ],
   follow: null,
   vehicles: [vehicle()],

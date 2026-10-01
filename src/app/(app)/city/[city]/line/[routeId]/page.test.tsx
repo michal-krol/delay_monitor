@@ -51,8 +51,6 @@ const LINE = {
     routeId: '20',
     line: '20',
     longName: 'Piaski – Międzylesie',
-    color: null,
-    textColor: '#000000',
     mode: 'tram',
     kind: 'regular',
     directions: [

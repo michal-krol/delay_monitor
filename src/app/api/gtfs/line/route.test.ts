@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
-import { contrastText, lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
+import { lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
 
 let schedule: GtfsSchedule | null = null
@@ -22,7 +22,7 @@ beforeAll(async () => {
     timezone: 'Europe/Warsaw',
     attribution: [],
     routes: [
-      { id: '20', shortName: '20', longName: 'Piaski – Międzylesie', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined), color: null, textColor: contrastText(null) },
+      { id: '20', shortName: '20', longName: 'Piaski – Międzylesie', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined) },
     ],
     stops: [
       { id: '100101', name: 'Centrum 01', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 0 },

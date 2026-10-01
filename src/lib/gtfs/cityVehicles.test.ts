@@ -10,7 +10,7 @@ describe('mapCityVehicles', () => {
       timezone: 'Europe/Warsaw',
       attribution: [],
       routes: [
-        { id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular', color: '#009944', textColor: '#ffffff' },
+        { id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular' },
       ],
       stops: [
         { id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
@@ -38,7 +38,6 @@ describe('mapCityVehicles', () => {
     expect(v.routeId).toBe('20')
     expect(v.shortName).toBe('20')
     expect(v.mode).toBe('tram')
-    expect(v.color).toBe('#009944')
     expect(v.headsign).toBe('Centrum')
     expect(v.sideNumber).toBe('3801')
     expect(v.bearing).toBe(-110)
@@ -66,7 +65,6 @@ describe('mapCityVehicles', () => {
     expect(v.routeId).toBeNull()
     expect(v.shortName).toBeNull()
     expect(v.mode).toBeNull()
-    expect(v.color).toBeNull()
     expect(v.headsign).toBeNull()
   })
 

@@ -13,7 +13,6 @@ export type CityVehicle = {
   routeId: string | null
   shortName: string | null
   mode: GtfsMode | null
-  color: string | null
   /** Kierunek przebiegu (`direction_id`) — tryb linii na mapie wybiera nim stronę trasy. */
   directionId: number | null
   /**
@@ -28,7 +27,7 @@ export type CityVehicle = {
  * Czysta funkcja: WSZYSTKIE pozycje pojazdów miasta (surowe lat/lon, bez rzutu
  * na trasę — w odróżnieniu od `projectVehicle`) + rozkład → lista do mapy
  * miasta live. Pojazd z `trip_id` nieznanym rozkładowi zostaje w liście
- * (routeId/shortName/mode/color/headsign: null) — prawdziwa pozycja z feedu,
+ * (routeId/shortName/mode/headsign: null) — prawdziwa pozycja z feedu,
  * nie odrzucamy jej (AGENTS #13: zero pola opóźnienia, ale pozycja to nie
  * opóźnienie).
  */
@@ -57,7 +56,6 @@ export function mapCityVehicles(schedule: GtfsSchedule, positions: VehiclePositi
       routeId: route?.id ?? null,
       shortName: route?.shortName ?? null,
       mode: route?.mode ?? null,
-      color: route?.color ?? null,
       directionId: ref?.direction ?? null,
       nextStop:
         nextStopIdx !== undefined

@@ -12,36 +12,6 @@ export type GtfsRecord = Record<string, string>
 
 const optional = (value: string | undefined) => (value === undefined || value === '' ? undefined : value)
 
-// --- route_color: niezaufany string z cudzego serwera lecący do wartości CSS ---
-
-const HEX6 = /^[0-9A-Fa-f]{6}$/
-
-/**
- * Walidacja na granicy: `#RRGGBB` albo `null`. Surowy string NIE opuszcza tego
- * modułu. Nigdy nie budujemy z tego nazwy klasy ani `dangerouslySetInnerHTML`.
- */
-export function normalizeRouteColor(raw: string | undefined): string | null {
-  if (raw === undefined || !HEX6.test(raw)) return null
-  return `#${raw.toLowerCase()}`
-}
-
-/**
- * Kolor tekstu na plakietce liczony samodzielnie (luminancja WCAG), a
- * `route_text_color` z feedu ignorowany w całości — mniej kodu niż walidacja
- * drugiego niezaufanego koloru i naprawia wiersz `route_color === route_text_color`,
- * który renderował niewidoczny numer linii.
- */
-export function contrastText(hex: string | null): '#000000' | '#ffffff' {
-  if (hex === null) return '#000000'
-  const channel = (h: string) => {
-    const c = parseInt(h, 16) / 255
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  }
-  const luminance =
-    0.2126 * channel(hex.slice(1, 3)) + 0.7152 * channel(hex.slice(3, 5)) + 0.0722 * channel(hex.slice(5, 7))
-  return luminance > 0.179 ? '#000000' : '#ffffff'
-}
-
 /**
  * Rodzaj linii — GTFS nie ma takiego pola, wyprowadzamy z numeru linii wg
  * konwencji ZTM: `N…` nocna, `Z…` zastępcza, `E…`/400–599 przyspieszona,
@@ -128,10 +98,8 @@ export const routeSchema = z
     route_long_name: z.string().optional(),
     route_desc: z.string().optional(),
     route_type: z.coerce.number().int(),
-    route_color: z.string().optional(),
   })
   .transform((row) => {
-    const color = normalizeRouteColor(optional(row.route_color))
     const shortName = optional(row.route_short_name) ?? ''
     return {
       id: row.route_id,
@@ -139,8 +107,6 @@ export const routeSchema = z
       longName: optional(row.route_long_name) ?? '',
       mode: modeFromRouteType(row.route_type),
       kind: lineKindFrom(shortName, optional(row.route_desc)),
-      color,
-      textColor: contrastText(color),
     }
   })
 

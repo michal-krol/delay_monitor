@@ -1,6 +1,6 @@
 # 0005. Kolor linii oznacza jej kategorię, nie kolor z feedu
 
-- Status: przyjęte (2026-09-30)
+- Status: przyjęte (2026-09-30), zmienione 2026-10-01 (`route_color` nie jest już parsowany)
 - Niezmiennik: AGENTS.md #13
 
 ## Kontekst
@@ -15,7 +15,8 @@ jedną kategorię w całej aplikacji.
 Jedna paleta `LINE_PALETTE` / `lineColor(mode, kind)` w `src/components/transitMode.tsx`.
 Z niej korzystają `LineBadge`, mapa (piny, pojazdy, przebiegi, szkielet metra i kolei)
 i `MODE_COLOR`. Autobusy mają kolory ZTM według rodzaju, tramwaj morski, metro żółte, kolej
-jeden niebieski. `route_color` nadal jest walidowany, ale interfejs go nie czyta. Metro ma
+jeden niebieski. `route_color` i `route_text_color` nie są parsowane. Pola koloru usunięto
+2026-10-01 z typów GTFS i odpowiedzi `/api/gtfs/*`, bo nic ich nie czytało. Metro ma
 własny piktogram („M” w kole), a nie oficjalne logo Metra Warszawskiego: logo ma status
 PD-textlogo, ale może być chronionym znakiem towarowym.
 

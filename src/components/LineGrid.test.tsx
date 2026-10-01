@@ -9,8 +9,6 @@ const entry = (routeId: string, mode: GtfsMode, over: Partial<LineListEntry> = {
   routeId,
   line: routeId,
   longName: `${routeId} start – ${routeId} koniec`,
-  color: null,
-  textColor: '#000000',
   mode,
   kind: 'regular',
   ...over,

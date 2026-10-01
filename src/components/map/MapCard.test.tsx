@@ -16,7 +16,7 @@ const rail = { kind: 'rail' as const, id: '33605', name: 'Warszawa Centralna', l
 function vehicle(over: Partial<CityVehicle> = {}): CityVehicle {
   return {
     id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '3801', ageSec: 12, headsign: 'Dworzec Centralny',
-    routeId: '20', shortName: '20', mode: 'tram', color: '#009944', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' }, ...over,
+    routeId: '20', shortName: '20', mode: 'tram', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' }, ...over,
   }
 }
 

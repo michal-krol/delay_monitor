@@ -70,8 +70,8 @@ describe('StationSearch', () => {
             mode: 'metro',
             modes: ['metro', 'tram'],
             lines: [
-              { routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro', kind: 'regular' },
-              { routeId: '20', line: '20', color: null, mode: 'tram', kind: 'regular' },
+              { routeId: 'M1', line: 'M1', mode: 'metro', kind: 'regular' },
+              { routeId: '20', line: '20', mode: 'tram', kind: 'regular' },
             ],
           },
           { id: '33605', name: 'Warszawa Centralna', kind: 'rail', mode: 'rail' },

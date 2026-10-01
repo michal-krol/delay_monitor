@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
-import { contrastText, lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
+import { lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
 
 let schedule: GtfsSchedule | null = null
@@ -12,7 +12,7 @@ vi.mock('@/lib/gtfs/instance', () => ({ getGtfsPoller: (...a: [string]) => getGt
 
 const route = (id: string, type: number) => ({
   id, shortName: id, longName: `${id} długa`, mode: modeFromRouteType(type),
-  kind: lineKindFrom(id, undefined), color: null, textColor: contrastText(null),
+  kind: lineKindFrom(id, undefined),
 })
 
 beforeAll(async () => {
