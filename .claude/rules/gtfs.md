@@ -115,7 +115,9 @@ paths:
   already end with the number) — don't hand-build `${name} ${code}`. Selected stop in the URL:
   `?przystanek=<id>` (the old `?slupek=` is not read: such links show the whole group). A pinned
   single stop is `PinnedItem` with `member: true` and a name that already has the number; no
-  flag = the whole group (also every entry saved before the flag).
+  flag = the whole group (also every entry saved before the flag). `pinnedKey()`
+  (`src/hooks/usePinned.ts`) suffixes single-stop pins with `:przystanek`, so they never
+  collide with older group pins saved under a stop id.
 - **`wheelchair_boarding` — the signal is `2`, not `1`.** WTP gives `1` (DEFAULT) on ~89% of
   posts, `2` (NOT accessible) on ~11%. `StopGroup.wheelchairNote` = `'inaccessible'` /
   `'partial'` / `null`; icon ONLY for `2`. **Don't flag `1`.**
