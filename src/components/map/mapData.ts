@@ -176,11 +176,6 @@ export const FADE_START_SEC = 90
 export const HIDE_AFTER_SEC = 180
 
 /**
- * Pojazdy → GeoJSON. Filtry (ukryte rodzaje, wybrana linia) stosowane TU, na
- * danych — warstwa pojazdów i tak dostaje `setData` co 15 s. Pozycje starsze
- * niż `HIDE_AFTER_SEC` znikają (martwa pozycja, nie „brak danych").
- */
-/**
  * Rodzaj linii pojazdu dla pinezki i plakietki — JEDNO miejsce. Serwer podaje `kind` z rozkładu
  * (uwzględnia `route_desc`). Fallback z numeru tylko gdy `kind` brak: serwer zeruje go razem z
  * `mode`/`shortName` (nieznany kurs), ale typ tego nie wiąże, a odpowiedź nie przechodzi przez
@@ -190,6 +185,11 @@ export function vehicleKind(v: CityVehicle): LineKind {
   return v.kind ?? lineKindFrom(v.shortName ?? '', undefined)
 }
 
+/**
+ * Pojazdy → GeoJSON. Filtry (ukryte rodzaje, wybrana linia) stosowane TU, na
+ * danych — warstwa pojazdów i tak dostaje `setData` co 15 s. Pozycje starsze
+ * niż `HIDE_AFTER_SEC` znikają (martwa pozycja, nie „brak danych").
+ */
 export function vehiclesToGeoJSON(
   vehicles: CityVehicle[],
   hidden: ReadonlySet<LayerKey>,
