@@ -61,6 +61,10 @@ describe('design tokens', () => {
     expect(counts).toEqual(allowed)
   })
 
+  it('lucide is imported only by icons.tsx (single icon source, .claude/rules/ui-icons.md)', () => {
+    expect(offenders(/from ['"]lucide/, (file) => file === 'components/icons.tsx')).toEqual([])
+  })
+
   it('mode colours on the map never reuse a status colour (#13: a bus must not read as „na czas”)', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     const statusBg = [...css.matchAll(/--status-\w+-bg:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())

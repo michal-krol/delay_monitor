@@ -44,10 +44,10 @@ describe('icons — komplet z makiety szczegółów połączenia', () => {
 describe('icons — arkusz (PR 7b: jeden styl, jedno pojęcie = jedna ikona)', () => {
   const all = Object.entries(icons).filter(([name]) => name.endsWith('Icon')) as [string, (props: icons.IconProps) => React.ReactNode][]
 
-  it('każda ikona rysuje na viewBox 20×20', () => {
+  it('każda ikona rysuje na siatce Lucide 24×24', () => {
     for (const [name, Icon] of all) {
       const { container, unmount } = render(<Icon />)
-      expect(container.querySelector('svg'), name).toHaveAttribute('viewBox', '0 0 20 20')
+      expect(container.querySelector('svg'), name).toHaveAttribute('viewBox', '0 0 24 24')
       unmount()
     }
   })
@@ -86,5 +86,43 @@ describe('icons — arkusz (PR 7b: jeden styl, jedno pojęcie = jedna ikona)', (
     const moon = render(<icons.MoonIcon />).container.querySelector('svg')
     expect(moon?.querySelector('circle')).toBeNull()
     expect(moon?.querySelectorAll('path')).toHaveLength(1)
+  })
+})
+
+describe('icons — jedno źródło (Lucide, PR1)', () => {
+  it('przypięte = wypełniona gwiazdka, nieprzypięte = kontur', () => {
+    const filled = render(<icons.StarIcon filled />).container.querySelector('svg > :not(title)')
+    expect(filled).toHaveAttribute('fill', 'currentColor')
+    const outline = render(<icons.StarIcon />).container.querySelector('svg > :not(title)')
+    expect(outline).not.toHaveAttribute('fill', 'currentColor')
+  })
+
+  it('kierunek jazdy pojazdu to wypełniona strzałka', () => {
+    const shape = render(<icons.VehicleHeadingIcon />).container.querySelector('svg polygon')
+    expect(shape).toHaveAttribute('fill', 'currentColor')
+  })
+
+  it('nowe pojęcia mają własne ikony', () => {
+    for (const Icon of [icons.DeparturesBoardIcon, icons.SearchIcon, icons.VehiclePositionIcon, icons.ChevronDownIcon]) {
+      const { container, unmount } = render(<Icon />)
+      expect(container.querySelector('svg')?.children.length).toBeGreaterThan(0)
+      unmount()
+    }
+  })
+
+  it('skala rozmiarów według roli', () => {
+    expect(icons.ICON_SIZE).toEqual({ chip: 13, inline: 14, button: 16, tile: 18 })
+  })
+
+  it('iconElement buduje dekoracyjny <svg> poza Reactem (mapa)', () => {
+    const svg = icons.iconElement('chevronRight', { width: '14', height: '14' })
+    expect(svg.tagName).toBe('svg')
+    expect(svg).toHaveAttribute('aria-hidden', 'true')
+    expect(svg).toHaveAttribute('width', '14')
+    expect(svg.childElementCount).toBeGreaterThan(0)
+  })
+
+  it('wielokąt strzałki kierunku pochodzi z węzła Lucide navigation-2', () => {
+    expect(icons.VEHICLE_HEADING_POLYGON).toEqual([[12, 2], [19, 21], [12, 17], [5, 21], [12, 2]])
   })
 })
