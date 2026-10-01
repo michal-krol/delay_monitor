@@ -18,6 +18,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   linii („nocna”, „przyspieszona”…).
 - Rodzaje linii „podmiejska” (7xx, 8xx) i „lokalna” (L). Widżet komunikacji miejskiej
   podaje ich liczbę.
+- Legenda mapy objaśnia kolory autobusów według rodzaju linii (zwykłe, przyspieszone,
+  podmiejskie, lokalne, nocne, zastępcze), tymi samymi nazwami i kolorami co ekran „Linie”.
 
 ### Zmienione
 

@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import type { LineListEntry } from '@/lib/gtfs/query'
-import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
+import type { GtfsMode } from '@/lib/gtfs/types'
 import { pluralPl } from '@/lib/plural'
 import { ChevronRightIcon } from './icons'
 import { LineBadge } from './LineBadge'
-import { LINE_KIND_LABEL, MODE_ICON, MODE_ORDER, darkRingClass, lineColor } from './transitMode'
+import { BUS_KIND_LABEL, BUS_KIND_ORDER, LINE_KIND_LABEL, MODE_ICON, MODE_ORDER, darkRingClass, lineColor } from './transitMode'
 
 /** Nagłówki sekcji (liczba mnoga) — `MODE_LABEL` to liczba pojedyncza („tramwaj”) i służy gdzie indziej. */
 const SECTION_LABEL: Record<GtfsMode, string> = {
@@ -13,20 +13,6 @@ const SECTION_LABEL: Record<GtfsMode, string> = {
   bus: 'Autobusy',
   rail: 'Kolej',
   other: 'Inne',
-}
-
-/**
- * Podsekcje autobusów = legenda kolorów ZTM. Zakresy numerów w etykietach to objaśnienie dla
- * pasażera; reguła przydziału do rodzaju żyje w `lineKindFrom` (`lib/gtfs/schema.ts`).
- */
-const BUS_KIND_ORDER: LineKind[] = ['regular', 'express', 'zone', 'local', 'night', 'replacement']
-const BUS_KIND_LABEL: Record<LineKind, string> = {
-  regular: 'zwykłe',
-  express: 'przyspieszone',
-  zone: 'podmiejskie (7xx, 8xx)',
-  local: 'lokalne (L)',
-  night: 'nocne (N)',
-  replacement: 'zastępcze (Z)',
 }
 
 const linesCount = (n: number) => `${n} ${pluralPl(n, 'linia', 'linie', 'linii')}`
