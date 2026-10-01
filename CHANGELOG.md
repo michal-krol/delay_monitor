@@ -197,6 +197,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Przycisk usuwania filtra („Linia …") na mapie transportu reaguje na dotyk w polu 44 × 44 px.
 - Pełna albo zablokowana pamięć przeglądarki nie wywraca już strony przy przypinaniu stacji
   ani przy zwijaniu paska bocznego — przypięcie działa do końca wizyty, tylko się nie zapisze.
+- Pojazd na mapie transportu i jego plakietka w karcie mają kolor tej samej kategorii linii
+  co na ekranie „Linie”. Wcześniej mapa zgadywała kategorię tylko z numeru linii i pomijała
+  opis linii z rozkładu (np. „nocna”, „zastępcza”).
 
 ## [1.0.2] — 2026-09-28
 

@@ -68,7 +68,9 @@ paths:
   validated (Zod → `#RRGGBB` or `null`, `route_text_color` ignored) but the UI no longer reads
   it. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
   dark outline/casing on the map (`strokeFor()` in `mapData.ts`). Callers without a kind derive
-  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Why: `adr/0005`.
+  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Map vehicles get
+  the served `CityVehicle.kind` (from `route_desc` at load); `vehicleKind()` in `mapData.ts` is
+  the one reader for pin and card badge, number fallback only when `kind` is null. Why: `adr/0005`.
   Kinds (`lineKindFrom`, ZTM convention): `N…` night, `Z…` replacement, `E…`/400–599 express,
   `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
   `LINE_KIND_LABEL` in `transitMode.tsx`.
