@@ -182,4 +182,15 @@ describe('usePinned — wrogie wejście z localStorage', () => {
     await waitFor(() => expect(reader.current.loaded).toBe(true))
     expect(reader.current.pinnedItems).toEqual([STOP])
   })
+
+  it('keeps a pinned single stop apart from an older group pin saved under the same id', async () => {
+    const LEGACY_GROUP: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum' }
+    const STOP: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum 02', member: true }
+    expect(pinnedKey(STOP)).not.toBe(pinnedKey(LEGACY_GROUP))
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => result.current.addPinned(LEGACY_GROUP))
+    act(() => result.current.addPinned(STOP))
+    expect(result.current.pinnedItems).toEqual([LEGACY_GROUP, STOP])
+  })
 })

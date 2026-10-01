@@ -248,7 +248,13 @@ export function TransitStopDetail({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={() => (pinned ? removePinned(key) : addPinned(pinnedItem))}>
+              <IconButton
+                label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}
+                onClick={() => (pinned ? removePinned(key) : addPinned(pinnedItem))}
+                // Do pierwszej odpowiedzi nie wiadomo, czy widać zespół, czy jeden przystanek
+                // (deep-link z linii zaznacza przystanek dopiero po niej) — przypięcie zapisałoby zły zakres.
+                disabled={board === null}
+              >
                 <StarIcon size={15} filled={pinned} className={pinned ? PIN_COLOR : ''} />
               </IconButton>
             </div>

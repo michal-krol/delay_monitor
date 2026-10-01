@@ -21,9 +21,10 @@ export type PinnedItem =
 
 /** Klucz tożsamości wpisu — jedyne miejsce, które zna kształt sklejenia. */
 export function pinnedKey(pinnedItem: PinnedItem): string {
-  return pinnedItem.kind === 'pkp'
-    ? `pkp:${pinnedItem.id}`
-    : `gtfs:${pinnedItem.city}:${pinnedItem.id}`
+  // Jeden przystanek ma osobny klucz od zespołu: starsze wpisy zespołu bywają zapisane pod
+  // id przystanku (deep-link, pin z mapy) — bez sufiksu „Centrum 02" kolidowałby z nimi.
+  if (pinnedItem.kind === 'pkp') return `pkp:${pinnedItem.id}`
+  return `gtfs:${pinnedItem.city}:${pinnedItem.id}${pinnedItem.member === true ? ':przystanek' : ''}`
 }
 
 const V2_KEY = 'monitor.favourites.v2' // prefiks `pkp.` przestał być prawdziwy

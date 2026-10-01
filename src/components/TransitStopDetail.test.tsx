@@ -349,6 +349,12 @@ describe('TransitStopDetail', () => {
     ])
   })
 
+  it('cannot pin before the board says whether a group or one stop is shown', () => {
+    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="100102" initialName="Centrum" />)
+    expect(screen.getByRole('button', { name: /Przypnij do Pulpitu/ })).toBeDisabled()
+  })
+
   it('pins the selected stop of a group with its number', async () => {
     useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [groupBoard], attribution: [] }, error: null, loading: false, failed: false })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
