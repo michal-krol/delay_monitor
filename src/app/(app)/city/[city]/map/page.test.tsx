@@ -148,7 +148,7 @@ describe('CityMapPage', () => {
     expect(map().selected).toMatchObject({ lat: 52.2, lon: 21.0 })
 
     map().onSelect({ kind: 'stop', id: '100101' })
-    expect(await screen.findByRole('dialog', { name: 'Centrum' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Centrum 01' })).toBeInTheDocument()
 
     map().onSelect({ kind: 'rail', id: '33605' })
     expect(await screen.findByRole('dialog', { name: 'Warszawa Centralna' })).toBeInTheDocument()
@@ -288,7 +288,7 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     await waitFor(() => expect(map().pinnedItems).toEqual([]))
 
     map().onSelect({ kind: 'stop', id: '100101' })
-    const stopCard = await screen.findByRole('dialog', { name: 'Centrum' })
+    const stopCard = await screen.findByRole('dialog', { name: 'Centrum 01' })
     fireEvent.click(within(stopCard).getByRole('button', { name: 'Przypnij do Pulpitu' }))
     await waitFor(() => expect(map().pinnedItems).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
   })
@@ -300,7 +300,7 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     const panel = await screen.findByRole('dialog', { name: 'W pobliżu' })
     expect(map().selected).toEqual({ lat: 52.2301, lon: 21.0101 })
     fireEvent.click(within(panel).getByRole('button', { name: /Centrum/ }))
-    expect(await screen.findByRole('dialog', { name: 'Centrum' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Centrum 01' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Zamknij kartę' }))
     expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
   })

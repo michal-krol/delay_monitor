@@ -43,6 +43,12 @@ type LineResponse = {
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
 
+/** Przystanek, za którym jest pojazd — jeden konkretny, więc z numerem („za „Centrum 02”"). */
+function afterStopName(stops: typeof NO_STOPS, index: number): string {
+  const stop = stops[index]
+  return stop !== undefined ? stopDisplayName(stop.name, stop.code) : '—'
+}
+
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
   const city = typeof params.city === 'string' ? params.city : ''
@@ -124,7 +130,7 @@ export default function LineDetailPage() {
       id: v.sideNumber + v.tripId,
       lat: v.lat,
       lon: v.lon,
-      label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”`,
+      label: `#${v.sideNumber} · za „${afterStopName(stops, v.afterStopOrder)}”`,
       mode: line?.mode ?? 'bus',
       kind: mapKind,
       bearing: v.bearing,
@@ -187,7 +193,7 @@ export default function LineDetailPage() {
                   <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
                     <span className="text-foreground">#{v.sideNumber}</span>
                     <span className="text-text-muted">
-                      za „{stops[v.afterStopOrder]?.name ?? '—'}”
+                      za „{afterStopName(stops, v.afterStopOrder)}”
                       {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
                     </span>
                   </li>
@@ -381,7 +387,7 @@ export default function LineDetailPage() {
 
               <section className="glass rounded-2xl p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop?.name}</h2>
+                  <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop !== undefined ? stopDisplayName(selectedStop.name, selectedStop.code) : ''}</h2>
                   {selectedStop !== undefined && (
                     <Link
                       href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}

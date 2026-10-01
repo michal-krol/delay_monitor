@@ -17,11 +17,13 @@ import type { GtfsMode } from '@/lib/gtfs/types'
 import { FADE_START_SEC, vehicleKind } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
+import { stopDisplayName } from '../stopName'
 
 /** Co jest wybrane na mapie. Pojazd niesie tylko `id` — pozycja/linia żyją w odczytach co 15 s. */
 export type MapSelection =
   | { kind: 'rail'; id: string; name: string; lat: number | null; lon: number | null }
-  | { kind: 'stop'; id: string; groupId: string; name: string; mode: GtfsMode; lat: number | null; lon: number | null }
+  /** `code` = numer przystanku w zespole („02"); `null` = cały zespół (wybór z wyszukiwarki) albo brak numeru. */
+  | { kind: 'stop'; id: string; groupId: string; name: string; code: string | null; mode: GtfsMode; lat: number | null; lon: number | null }
   | { kind: 'vehicle'; id: string }
 
 /**
@@ -68,7 +70,9 @@ export function MapCard({
       ? vehicle?.shortName !== null && vehicle?.shortName !== undefined
         ? `${MODE_LABEL[vehicle.mode ?? 'bus']} ${vehicle.shortName}`
         : 'Pojazd'
-      : selection.name
+      : selection.kind === 'stop'
+        ? stopDisplayName(selection.name, selection.code)
+        : selection.name
 
   return (
     <PanelFrame
@@ -272,7 +276,7 @@ function VehicleBody({
       <dl className="mt-3 space-y-3 text-sm">
         <div>
           <dt className="text-xs text-text-muted">Następny przystanek</dt>
-          <dd className="font-semibold">{vehicle.nextStop?.name ?? 'nie wiadomo'}</dd>
+          <dd className="font-semibold">{vehicle.nextStop !== null ? stopDisplayName(vehicle.nextStop.name, vehicle.nextStop.code) : 'nie wiadomo'}</dd>
         </div>
         <div>
           <dt className="text-xs text-text-muted">Pozycja</dt>

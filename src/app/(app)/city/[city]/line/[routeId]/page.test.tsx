@@ -129,7 +129,7 @@ describe('LineDetailPage', () => {
     expect(map).toHaveAccessibleName('Mapa trasy linii 20')
     expect(map).toHaveTextContent('3 pins, 3 route points')
     const mover = await screen.findByTestId('mover')
-    expect(mover).toHaveTextContent('#3801 · za „Centrum”')
+    expect(mover).toHaveTextContent('#3801 · za „Centrum 01”')
     // Pozycja pojazdu na mapie to surowe lat/lon z feedu (nie interpolacja po przystankach).
     expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.015)
     expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.012)
@@ -251,7 +251,7 @@ describe('LineDetailPage', () => {
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Rozkład — Centrum' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Rozkład — Centrum 01' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
     expect(screen.getByRole('heading', { name: 'Rozkład — Dworzec Centralny' })).toBeInTheDocument()
   })
