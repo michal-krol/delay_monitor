@@ -247,13 +247,13 @@ export default function LineDetailPage() {
               type="button"
               onClick={switchDirection}
               disabled={directions.length < 2}
-              aria-label="Zmień kierunek"
               className="inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
             >
-              <span>{direction.origin ?? stops[0]?.name}</span>
-              <ArrowRightIcon size={13} className="text-text-muted" />
-              <span>{direction.headsign ?? stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`}</span>
-              {directions.length >= 2 && <SwapIcon size={15} className="ml-1 text-indigo-600 dark:text-indigo-400" />}
+              {/* Spacje tekstowe: w flexie nie zmieniają układu, a nazwa dostępna nie skleja się w „CentrumdoDworzec”. */}
+              <span>{direction.origin ?? stops[0]?.name}</span>{' '}
+              <ArrowRightIcon size={13} label="do" className="text-text-muted" />{' '}
+              <span>{direction.headsign ?? stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`}</span>{' '}
+              {directions.length >= 2 && <SwapIcon size={15} label="zmień kierunek" className="ml-1 text-indigo-600 dark:text-indigo-400" />}
             </button>
 
             {/* W treści głównej, nie w aside: aside schodzi pod treść poniżej `xl`, a mapa ma być tuż pod nagłówkiem trasy, także na telefonie. */}

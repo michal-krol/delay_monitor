@@ -37,7 +37,7 @@ test('linia: przełącznik kierunku odwraca początek i koniec trasy', async ({ 
   // renderuje się na każdym viewporcie.
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
 
-  const directionButton = page.getByRole('button', { name: 'Zmień kierunek' })
+  const directionButton = page.getByRole('button', { name: /zmień kierunek/i })
   const before = await directionButton.textContent()
 
   await directionButton.click()
