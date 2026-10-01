@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BoardStatus } from './BoardStatus'
 import type { BoardApiResponse } from '@/hooks/useBoard'
 
@@ -16,10 +16,44 @@ function makeData(overrides: Partial<BoardApiResponse> = {}): BoardApiResponse {
 
 const FETCHED_AT = '2026-08-01T20:24:11.827Z'
 
+const NOW = Date.parse('2026-08-01T20:30:00.000Z')
+
 describe('BoardStatus', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('warns about stale data when the last fetch is old although the response age is small (board remounted from cache)', () => {
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} lastSuccessAt={NOW - 10 * 60_000} data={makeData()} error={false} />)
+    expect(screen.getByText('dane sprzed 10 min')).toBeInTheDocument()
+  })
+
+  it('stays quiet when the last fetch is fresh', () => {
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} lastSuccessAt={NOW - 30_000} data={makeData()} error={false} />)
+    expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the age growing while a refresh keeps failing', () => {
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} lastSuccessAt={NOW} data={makeData()} error={true} />)
+    expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(4 * 60_000)
+    })
+    expect(screen.getByText('dane sprzed 4 min')).toBeInTheDocument()
+  })
+
+  it('keeps an unknown response age unknown, however old the last fetch is', () => {
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={undefined} lastSuccessAt={NOW - 60 * 60_000} data={makeData()} error={false} />)
+    expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
+  })
   it('reports the loading state before the first snapshot arrives', () => {
     render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={false} />)
-    expect(screen.getByText('Ładowanie…')).toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
   })
 
   it('reports a fetch error', () => {
@@ -84,6 +118,7 @@ describe('BoardStatus', () => {
     const chip = screen.getByText('odświeżanie ograniczone')
     expect(chip).toBeInTheDocument()
     expect(chip).toHaveAttribute('title', 'Pozostało 41 zapytań do API na dobę')
+    expect(screen.getByText('Pozostało 41 zapytań do API na dobę')).toHaveClass('sr-only')
   })
 
   it('keeps showing the last-updated timestamp and data age when a later refresh fails, instead of blanking out to the error banner', () => {
@@ -173,4 +208,15 @@ describe('BoardStatus', () => {
 
     expect(screen.getByText(/API nie odpowiada/)).toBeInTheDocument()
   })
+
+  it('uses the same tokens as ScheduleStatus: error colour only without data, a failed refresh over data is a warning', () => {
+    const { container, rerender } = render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={true} />)
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(container.firstElementChild).toHaveClass('text-text-secondary')
+    expect(screen.getByText('Błąd pobierania danych')).toHaveClass('text-error-text')
+    rerender(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} data={makeData()} error={true} />)
+    // Ostatni dobry snapshot wciąż jest na ekranie (#7) — jak „błąd ostatniego odświeżenia" w ScheduleStatus.
+    expect(screen.getByText('Błąd ostatniego odświeżenia')).toHaveClass('text-warning-text')
+  })
 })
+

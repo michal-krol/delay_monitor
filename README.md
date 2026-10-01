@@ -17,14 +17,14 @@ i [dokumentacji technicznej](#część-ii--dokumentacja-techniczna).
 Monitor opóźnień odpowiada na pytanie „czy i kiedy dojadę”. Łączy oficjalne dane
 o ruchu pociągów PKP Polskich Linii Kolejowych z rozkładami i pozycjami pojazdów
 komunikacji miejskiej oraz uzupełnia je o kontekst: utrudnienia, pogodę na stacji
-i położenie na mapie. Nie wymaga zakładania konta — ulubione stacje zapamiętuje
+i położenie na mapie. Nie wymaga zakładania konta — przypięte do Pulpitu stacje zapamiętuje
 przeglądarka.
 
 ## Główne możliwości
 
 ### Pulpit
 
-Strona startowa zbiera ulubione stacje. Każda karta pokazuje najbliższe odjazdy
+Strona startowa zbiera przypięte stacje. Każda karta pokazuje najbliższe odjazdy
 (godzina, przewoźnik, relacja, status) oraz liczbę opóźnionych pociągów. Obok
 znajduje się widżet stanu sieci kolejowej w całym kraju: liczba pociągów w danym
 dniu według statusu, punktualność, najczęstsi przewoźnicy i liczba zgłoszonych
@@ -165,7 +165,7 @@ src/
 │   └── api/              endpointy: board, train, stations, search, weather,
 │                         network-stats, rail-stations, cities, health, gtfs/*
 ├── components/           komponenty UI (mapa transportu w components/map/)
-├── hooks/                hooki klienta (tablica, ulubione, pogoda, kontekst miasta)
+├── hooks/                hooki klienta (tablica, przypięte, pogoda, kontekst miasta)
 └── lib/
     ├── pkp/              klient PKP PLK, schematy Zod, normalizacja czasu, tryb mock
     ├── board/            poller, budowa tablicy, realizacja i opóźnienia, statystyki
@@ -188,7 +188,7 @@ npm run dev
 
 Bez klucza API aplikacja uruchamia się w trybie mock: dane pochodzą z katalogu
 `fixtures/`, a czasy są przesuwane względem bieżącej chwili. Tryb mock używa
-prawdziwych identyfikatorów stacji, dzięki czemu ulubione działają również po
+prawdziwych identyfikatorów stacji, dzięki czemu przypięte stacje działają również po
 przełączeniu na dane na żywo.
 
 Aby pracować na danych na żywo, skopiuj `.env.example` do `.env.local` i ustaw
@@ -206,7 +206,7 @@ aplikacja jest dostosowana do poziomu Basic (100 zapytań na godzinę i 1000 na 
 | `GTFS_ENABLED` | `true` | Włącza komunikację miejską |
 | `GTFS_CITIES` | `warszawa` | Lista miast rozdzielona przecinkami |
 | `GTFS_DATA_SOURCE` | `mock` | `mock` \| `live` |
-| `GTFS_IDLE_TTL_MS` | `3600000` | Czas bezczynności, po którym rozkład miasta jest zwalniany z pamięci |
+| `GTFS_IDLE_TTL_MS` | `3600000` | Czas bezczynności, po którym przestają być odpytywane pozycje pojazdów i alerty miasta (rozkład zostaje w pamięci) |
 | `GTFS_VEHICLE_POLL_MS` | `15000` | Interwał odczytu pozycji pojazdów |
 | `GTFS_ALERT_POLL_MS` | `300000` | Interwał odczytu komunikatów |
 | `PORT` | `3000` | Port serwera |

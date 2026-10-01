@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { LinePanel } from './LinePanel'
 import { LineSearch } from './LineSearch'
 import { MapFilters } from './MapFilters'
 import { MapLegend } from './MapLegend'
-import type { LayerKey } from './mapData'
+import { PanelFrame } from './PanelFrame'
+import { MODE_COLOR, outlineFilter, type LayerKey } from './mapData'
 import type { LineListEntry } from '@/lib/gtfs/query'
+import { ON_REQUEST_TITLE } from '../OnRequestBadge'
+import { BUS_KIND_LABEL, BUS_KIND_ORDER, lineColor } from '../transitMode'
 
 const line = (routeId: string, name = routeId, longName = ''): LineListEntry => ({
-  routeId, line: name, longName, color: null, textColor: '#ffffff', mode: 'bus', kind: 'regular',
+  routeId, line: name, longName, mode: 'bus', kind: 'regular',
 })
 
 describe('LineSearch', () => {
@@ -39,7 +42,7 @@ describe('LineSearch', () => {
   it('tells loading apart from "no such line"', () => {
     const { rerender } = render(<LineSearch lines={null} onSelect={() => {}} />)
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '999' } })
-    expect(screen.getByRole('status')).toHaveTextContent('Wczytuję linie…')
+    expect(screen.getByRole('status')).toHaveTextContent('Wczytywanie linii…')
     rerender(<LineSearch lines={lines} onSelect={() => {}} />)
     expect(screen.getByRole('status')).toHaveTextContent('Nie znaleziono linii')
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' })
@@ -97,7 +100,35 @@ describe('MapLegend', () => {
     }
     expect(screen.queryByText(/na żywo/)).toBeNull()
   })
+
+  it('draws vehicle arrows with the map outline (4-direction drop-shadow from the one stroke rule)', () => {
+    const { container } = render(<MapLegend />)
+    // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- dekoracyjne kształty legendy (aria-hidden), bez roli
+    const arrows = [...container.querySelectorAll<HTMLElement>('span[style*="drop-shadow"]')]
+    expect(arrows).toHaveLength(3) // autobus, tramwaj, pociąg
+    expect(arrows[0].style.filter).toBe(outlineFilter(MODE_COLOR.bus))
+  })
+
+  it('explains bus colours by line kind with the Linie page labels and LINE_PALETTE swatches', () => {
+    render(<MapLegend />)
+    const list = screen.getByRole('list', { name: 'Autobusy według rodzaju linii' })
+    const items = within(list).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual(BUS_KIND_ORDER.map((kind) => BUS_KIND_LABEL[kind]))
+    BUS_KIND_ORDER.forEach((kind, i) => {
+      // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna próbka (aria-hidden), bez roli
+      const swatch = items[i].querySelector<HTMLElement>('[aria-hidden="true"]')!
+      expect(swatch.style.background).toBe(css(lineColor('bus', kind).bg))
+      expect(swatch.className.includes('dark:ring-1')).toBe(kind === 'night' || kind === 'local')
+    })
+  })
 })
+
+/** Kolor tak, jak go normalizuje jsdom (`#rrggbb` → `rgb(...)`). */
+const css = (hex: string) => {
+  const el = document.createElement('span')
+  el.style.background = hex
+  return el.style.background
+}
 
 describe('LinePanel', () => {
   const entry = line('20', '20')
@@ -118,7 +149,56 @@ describe('LinePanel', () => {
     const detail = { ...entry, directions: [{ directionId: 0, headsign: null, origin: null, departures: [], shape: null, stops: [stop] }] }
     render(<LinePanel {...props} detail={detail} error={false} />)
     expect(screen.queryByRole('button', { name: 'Zmień kierunek' })).toBeNull()
-    expect(screen.getByText('— → —')).toBeInTheDocument()
-    expect(screen.getByText('na żądanie')).toBeInTheDocument()
+    // Strzałka kierunku to ikona z nazwą „do”, nie tekstowe „→”.
+    expect(screen.getByText('— —')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
+    expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
+  })
+
+  it('closes on Escape', () => {
+    const onClose = vi.fn()
+    render(<LinePanel {...props} onClose={onClose} detail={undefined} error={false} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+})
+
+describe('Escape inside a panel page — the innermost open thing closes first', () => {
+  it('MapFilters open dropdown consumes Escape, the panel stays; a second Escape closes the panel', () => {
+    const onClose = vi.fn()
+    render(
+      <>
+        <MapFilters hidden={new Set<LayerKey>()} vehicleLayers={[]} onChange={() => {}} />
+        <PanelFrame title="A" closeLabel="Zamknij" onClose={onClose}>
+          x
+        </PanelFrame>
+      </>,
+    )
+    const button = screen.getByRole('button', { name: /Filtry/ })
+    fireEvent.click(button)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('LineSearch with a query consumes Escape; with an empty query the panel closes', () => {
+    const onClose = vi.fn()
+    render(
+      <>
+        <LineSearch lines={[line('20')]} onSelect={() => {}} />
+        <PanelFrame title="A" closeLabel="Zamknij" onClose={onClose}>
+          x
+        </PanelFrame>
+      </>,
+    )
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: '20' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input).toHaveValue('')
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
   })
 })

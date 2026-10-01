@@ -1,5 +1,5 @@
 import type { GetDisruptionsResult, PkpClient, RateLimitBudget } from '../pkp/client'
-import { PkpApiError } from '../pkp/client'
+import { mergeBudgets, PkpApiError } from '../pkp/client'
 import type { RawRoute, RawTrainOperation } from '../pkp/types'
 import { transformOperations, type BoardSnapshot } from './transform'
 import { indexRoutesByTrain } from './routeKey'
@@ -62,7 +62,7 @@ export const MAX_OPERATIONS_PAGES = 6
 
 /**
  * Stacja bez danych wymusza przebieg poza harmonogramem, żeby pokazać rozkład
- * od razu po dodaniu do ulubionych. Bez limitu jest to jednak dźwignia: każde
+ * od razu po dodaniu do przypiętych. Bez limitu jest to jednak dźwignia: każde
  * nieznane ID omija dławik 45 s i zamienia się w zapytanie do PKP, więc seria
  * żądań wyczerpuje limit 100/h i degraduje aplikację dla wszystkich.
  *
@@ -191,7 +191,8 @@ async function fetchAllOperations(client: PkpClient, stationIds: string[]): Prom
 
     trains.push(...res.trains)
     stationNames = { ...stationNames, ...res.stationNames }
-    budget = res.budget
+    // Niższy z: tej odpowiedzi i budżetu widzianego przez klienta (też poza /operations).
+    budget = mergeBudgets(res.budget, client.getLastBudget())
 
     if (!res.truncated) return { trains, stationNames, budget, incomplete: false }
 
@@ -496,7 +497,8 @@ export function createPoller(deps: PollerDeps): Poller {
         fetchRoutesByTrainId(client, realActive),
         fetchDisruptions(client, realActive),
       ])
-      budget = operationsResult.budget
+      // Ponownie po `Promise.all`: /schedules i /disruptions mogły skończyć się po ostatniej stronie /operations.
+      budget = mergeBudgets(operationsResult.budget, client.getLastBudget())
       const budgetLow = isBudgetLow(budget)
       currentIntervalMs = budgetLow ? LOW_BUDGET_INTERVAL_MS : config.pollIntervalMs
 

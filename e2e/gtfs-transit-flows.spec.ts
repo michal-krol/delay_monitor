@@ -16,28 +16,25 @@ test('ekran miasta: deep-link ?stop= renderuje osadzoną tablicę, „wróć" j�
   await expect(page.getByText('przystanki miejskie')).toBeVisible()
 })
 
-test('przeglądarka linii: filtr rodzaju zawęża siatkę do metra', async ({ page }) => {
+test('strona Linie: sekcje per rodzaj środka, kafel metra prowadzi do linii', async ({ page }) => {
   await page.goto('/city/warszawa/lines')
-  await expect(page.getByRole('link', { name: /^Linia / }).first()).toBeVisible({ timeout: READY })
+  const sections = page.getByTestId('line-section')
+  await expect(sections.first()).toBeVisible({ timeout: READY })
 
-  const filter = page.getByRole('group', { name: 'Filtr rodzaju transportu' })
-  await expect(filter.getByRole('button', { name: /tramwaj/i })).toBeVisible()
+  // Kolejność metro → tramwaje → autobusy → kolej; puste rodzaje się nie pojawiają.
+  await expect(page.locator('[data-testid="line-section"] > summary')).toHaveText([/^Metro/, /^Tramwaje/, /^Autobusy/, /^Kolej/])
 
-  const metroChip = filter.getByRole('button', { name: /^metro/i })
-  await metroChip.click()
-  await expect(metroChip).toHaveAttribute('aria-pressed', 'true')
-
-  await expect(page.getByRole('heading', { name: /^metro ·/ })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /^tramwaj ·/ })).not.toBeVisible()
-
-  await page.getByRole('link', { name: /^Linia M/ }).first().click()
+  const metro = sections.first()
+  if (!(await metro.evaluate((node) => (node as HTMLDetailsElement).open))) await metro.locator('summary').click()
+  await expect(metro.getByRole('link', { name: /^Linia M/ }).first()).toBeVisible()
+  await metro.getByRole('link', { name: /^Linia M/ }).first().click()
   await expect(page).toHaveURL(/\/city\/warszawa\/line\/M/)
 })
 
 test('linia: przełącznik kierunku odwraca początek i koniec trasy', async ({ page }) => {
   await page.goto('/city/warszawa/line/20')
-  // Nagłówek „Trasa linii" (nie „Linia 20" — to osobny tytuł karty w PageAside,
-  // schowanej na mobile) renderuje się na każdym viewporcie.
+  // Nagłówek „Trasa linii" (nie „Linia 20" — to osobny tytuł karty w PageAside)
+  // renderuje się na każdym viewporcie.
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
 
   const directionButton = page.getByRole('button', { name: 'Zmień kierunek' })
@@ -49,22 +46,17 @@ test('linia: przełącznik kierunku odwraca początek i koniec trasy', async ({ 
   }).toPass({ timeout: 5_000 })
 })
 
-// „ekran miasta"/„przeglądarka linii"/„szczegóły linii" trzymają kartę pogody
-// w PageAside — `hidden ... xl:flex`, wyłącznie desktop. „szczegóły przystanku"
-// (TransitStopDetail) osadza swój aside wprost w gridzie — widoczny na każdym
-// viewporcie, więc jedyny bez desktop-gate.
+// Karta pogody żyje w PageAside (od `xl` po prawej, niżej pod treścią) albo
+// w asideie osadzonym w gridzie (przystanek) — widoczna na każdym viewporcie.
 const WEATHER_VIEWS = [
-  { name: 'ekran miasta', path: '/city/warszawa', desktopOnly: true },
-  { name: 'przeglądarka linii', path: '/city/warszawa/lines', desktopOnly: true },
-  { name: 'szczegóły linii', path: '/city/warszawa/line/20', desktopOnly: true },
-  { name: 'szczegóły przystanku', path: '/city/warszawa/stop/1001', desktopOnly: false },
+  { name: 'ekran miasta', path: '/city/warszawa' },
+  { name: 'przeglądarka linii', path: '/city/warszawa/lines' },
+  { name: 'szczegóły linii', path: '/city/warszawa/line/20' },
+  { name: 'szczegóły przystanku', path: '/city/warszawa/stop/1001' },
 ]
 
 for (const view of WEATHER_VIEWS) {
-  test(`pogoda w kontekście miasta obecna na każdym ekranie GTFS: ${view.name}`, async ({ page }, testInfo) => {
-    if (view.desktopOnly && testInfo.project.name !== 'desktop-chromium') {
-      test.skip()
-    }
+  test(`pogoda w kontekście miasta obecna na każdym ekranie GTFS: ${view.name}`, async ({ page }) => {
     await page.goto(view.path)
     await expect(page.getByRole('heading', { name: /Pogoda dziś/ })).toBeVisible({ timeout: READY })
   })

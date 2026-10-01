@@ -225,6 +225,18 @@ describe('StationAside', () => {
       expect(screen.getByText('2.3 mm · 2%')).toBeInTheDocument()
       expect(screen.getByText('Open-Meteo')).toBeInTheDocument()
     })
+
+    it('pogoda „bezchmurnie” pokazuje słońce (tarcza + promienie), nie sierp księżyca', () => {
+      if (READY_WEATHER.status !== 'ready') throw new Error('fixture')
+      const clear = { ...READY_WEATHER.weather, current: { ...READY_WEATHER.weather.current, weatherCode: 0 } }
+      renderAside({ weather: { ...READY_WEATHER, weather: clear } })
+      // eslint-disable-next-line testing-library/no-node-access -- ikona pogody jest dekoracyjna (aria-hidden), bez roli do zapytania
+      const icon = document.querySelector('svg[width="32"]')
+      // eslint-disable-next-line testing-library/no-node-access -- j.w.: sprawdzamy sam rysunek (tarcza + promienie)
+      expect(icon?.querySelector('circle')).not.toBeNull()
+      // eslint-disable-next-line testing-library/no-node-access -- j.w.
+      expect(icon?.querySelectorAll('path').length).toBeGreaterThan(0)
+    })
   })
 
   describe('mapa stacji', () => {

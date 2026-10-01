@@ -25,6 +25,33 @@ describe('useBoard', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100')
   })
 
+  it('exposes the time of the last successful fetch, null before the first one', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' })))
+
+    const startedAt = Date.now()
+    const { result } = renderHook(() => useBoard(['5100']))
+    expect(result.current.lastSuccessAt).toBeNull()
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+
+    // `waitFor` przesuwa fałszywy zegar, więc okno, nie równość.
+    expect(result.current.lastSuccessAt).toBeGreaterThanOrEqual(startedAt)
+    expect(result.current.lastSuccessAt).toBeLessThanOrEqual(Date.now())
+  })
+
+  it('returns the last snapshot immediately when the board is remounted (back from a connection view)', async () => {
+    const body = { snapshots: [{ stationId: '5100' }], budget: undefined, status: 'ok' }
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse(body))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, unmount } = renderHook(() => useBoard(['5100']))
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+    unmount()
+
+    fetchMock.mockImplementation(() => new Promise(() => {})) // odświeżenie w tle jeszcze nie odpowiedziało
+    const { result: remounted } = renderHook(() => useBoard(['5100']))
+    expect(remounted.current.data?.snapshots).toHaveLength(1)
+  })
+
   it('refetches every 30 seconds while visible', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' }))
     vi.stubGlobal('fetch', fetchMock)
@@ -150,6 +177,21 @@ describe('useBoard', () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
 
     expect(fetchMock).toHaveBeenCalledWith('/api/board?stations=5100%2C5136')
+  })
+
+  it('switching stations shows the loading state, not the previous station rows (keyed reset)', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) =>
+      url.includes('5100') && !url.includes('5136')
+        ? jsonResponse({ snapshots: [{ stationId: '5100' }], budget: undefined, status: 'ok' })
+        : new Promise(() => {}) // druga stacja: odpowiedź jeszcze nie przyszła
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(({ stationIds }) => useBoard(stationIds), { initialProps: { stationIds: ['5100'] } })
+    await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+
+    rerender({ stationIds: ['5136'] })
+    expect(result.current.data).toBeNull() // nie wiersze poprzedniej stacji
   })
 
   it('clears stale data and does not fetch when watching zero stations', async () => {

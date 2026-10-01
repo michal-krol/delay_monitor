@@ -2,15 +2,16 @@
 
 import { useState } from 'react'
 import { useNetworkStats } from '@/hooks/useNetworkStats'
-import { AlertCircleIcon } from './icons'
+import { AlertCircleIcon, ChevronRightIcon } from './icons'
 import { formatClockTime } from '@/lib/format'
 import type { NetworkStats, NetworkStatsStatistics } from '@/lib/board/networkStats'
 
+/** Te same tokeny co plakietki statusu na tablicy (`DelayBadge`) — jedno źródło palety. */
 const STATUS_COLORS = {
-  completed: '#15803d',
-  inProgress: '#4f46e5',
-  notStarted: '#94a3b8',
-  cancelled: '#e11d48',
+  completed: 'var(--status-onTime-bg)',
+  inProgress: 'var(--status-enRoute-bg)',
+  notStarted: 'var(--status-notStarted-bg)',
+  cancelled: 'var(--status-cancelled-bg)',
 }
 
 const RING_RADIUS = 15.5
@@ -57,7 +58,7 @@ function Sparkline({ history }: { history: NetworkStats['history'] }) {
     .join(' ')
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none" aria-hidden="true">
-      <polyline points={points} fill="none" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={points} fill="none" style={{ stroke: STATUS_COLORS.completed }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -107,15 +108,7 @@ export function NetworkStatsCard() {
             {error !== null ? `nieaktualne · ${formatClockTime(statistics.generatedAt)}` : formatClockTime(statistics.generatedAt)}
           </span>
         )}
-        <svg
-          width={16}
-          height={16}
-          viewBox="0 0 16 16"
-          aria-hidden="true"
-          className={`shrink-0 text-text-muted transition-transform ${expanded ? 'rotate-180' : ''}`}
-        >
-          <path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <ChevronRightIcon size={16} className={`shrink-0 text-text-muted transition-transform ${expanded ? '-rotate-90' : 'rotate-90'}`} />
       </button>
 
       {expanded && data !== null && (
@@ -131,7 +124,7 @@ export function NetworkStatsCard() {
                     cy={18}
                     r={RING_RADIUS}
                     fill="none"
-                    stroke={segment.color}
+                    style={{ stroke: segment.color }}
                     strokeWidth={5}
                     strokeDasharray={`${segment.length} ${RING_CIRCUMFERENCE - segment.length}`}
                     strokeDashoffset={segment.offset}
@@ -141,19 +134,19 @@ export function NetworkStatsCard() {
               </svg>
               <dl className="grid grid-cols-1 gap-1 text-xs text-text-secondary">
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.completed }} />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.completed }} aria-hidden="true" />
                   Zakończone · {formatNumber(statistics.completed)}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.inProgress }} />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.inProgress }} aria-hidden="true" />
                   W trasie · {formatNumber(statistics.inProgress)}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.notStarted }} />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.notStarted }} aria-hidden="true" />
                   Jeszcze nie wyruszyły · {formatNumber(statistics.notStarted)}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.cancelled }} />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.cancelled }} aria-hidden="true" />
                   Odwołane · {formatNumber(statistics.cancelled)}
                   {statistics.partialCancelled > 0 && (
                     <span className="text-text-muted"> (+{formatNumber(statistics.partialCancelled)} częściowo)</span>
@@ -172,13 +165,13 @@ export function NetworkStatsCard() {
 
           {data.history.length >= 2 && (
             <div>
-              <p className="mb-1 text-xs text-text-muted">Trend &bdquo;zgodnie z planem&rdquo; dziś</p>
+              <p className="mb-1 text-xs text-text-muted">Trend &bdquo;bez odwołań&rdquo; dziś</p>
               <Sparkline history={data.history} />
             </div>
           )}
 
           <p className="flex items-center gap-1.5 text-xs text-text-secondary">
-            <AlertCircleIcon size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
+            <AlertCircleIcon size={14} className="shrink-0 text-warning-text" />
             {data.disruptionCount === null ? '—' : formatNumber(data.disruptionCount)} zgłoszonych utrudnień na sieci
           </p>
         </div>

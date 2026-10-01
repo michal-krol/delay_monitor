@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { formatSecondsOfDay } from '@/lib/format'
 import type { LineDepartureBlock } from '@/lib/gtfs/query'
 
 /** Stałe kolumny tygodniowe — zawsze widoczne, nawet puste (spec 0b). */
@@ -57,7 +58,7 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect }: 
     <div className="mt-3 overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="border-b" style={{ borderColor: 'var(--surface-border)' }}>
+          <tr className="border-b border-surface-border">
             {columns.map((c) => (
               <Fragment key={c.label}>
                 <th className="w-10 px-2 py-2 text-right text-xs font-semibold text-text-muted">godz.</th>
@@ -75,7 +76,7 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect }: 
             </tr>
           ) : (
             hours.map((hour) => (
-              <tr key={hour} className="border-b align-baseline" style={{ borderColor: 'var(--surface-border)' }}>
+              <tr key={hour} className="border-b border-surface-border align-baseline">
                 {columns.map((c) => {
                   const cells = c.times
                     .map((base) => ({ base, disp: base + offsetSec }))
@@ -96,9 +97,9 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect }: 
                                 key={cell.base}
                                 type="button"
                                 aria-pressed={on}
-                                aria-label={`${twoDigit(hour % 24)}:${minute}`}
+                                aria-label={formatSecondsOfDay(cell.disp)}
                                 onClick={() => onSelect(on ? null : cell.base)}
-                                className={`rounded px-1 tabular-nums transition ${
+                                className={`inline-flex min-h-6 min-w-6 items-center justify-center rounded px-1 tabular-nums transition ${
                                   on ? 'font-bold text-white' : 'text-text-secondary hover:text-foreground'
                                 }`}
                                 style={on ? { background: 'var(--accent-gradient)' } : undefined}

@@ -182,6 +182,36 @@
           "isCancelled": true
         },
         {
+          "stationId": "34348",
+          "plannedArrival": "2026-08-01T12:46:00+02:00",
+          "plannedDeparture": "2026-08-01T12:47:00+02:00",
+          "isCancelled": true
+        },
+        {
+          "stationId": "34363",
+          "plannedArrival": "2026-08-01T12:56:00+02:00",
+          "plannedDeparture": "2026-08-01T12:57:00+02:00",
+          "isCancelled": true
+        },
+        {
+          "stationId": "34447",
+          "plannedArrival": "2026-08-01T13:04:00+02:00",
+          "plannedDeparture": "2026-08-01T13:05:00+02:00",
+          "isCancelled": true
+        },
+        {
+          "stationId": "34603",
+          "plannedArrival": "2026-08-01T13:11:00+02:00",
+          "plannedDeparture": "2026-08-01T13:12:00+02:00",
+          "isCancelled": true
+        },
+        {
+          "stationId": "32904",
+          "plannedArrival": "2026-08-01T13:23:00+02:00",
+          "plannedDeparture": "2026-08-01T13:24:00+02:00",
+          "isCancelled": true
+        },
+        {
           "stationId": "32201",
           "plannedArrival": "2026-08-01T13:30:00+02:00",
           "isCancelled": true
@@ -450,8 +480,13 @@
     "22442": "Działdowo",
     "30601": "Poznań Główny",
     "32201": "Kutno",
+    "32904": "Łowicz Główny",
     "33506": "Warszawa Zachodnia",
     "33605": "Warszawa Centralna",
+    "34348": "Ożarów Mazowiecki",
+    "34363": "Błonie",
+    "34447": "Teresin Niepokalanów",
+    "34603": "Sochaczew",
     "38653": "Warszawa Wschodnia",
     "46458": "Łódź Fabryczna",
     "60103": "Wrocław Główny",

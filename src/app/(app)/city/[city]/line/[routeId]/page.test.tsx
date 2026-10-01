@@ -1,17 +1,31 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
+import { MODE_COLOR } from '@/components/map/mapData'
+import { LINE_PALETTE } from '@/components/transitMode'
+import { ON_REQUEST_TITLE } from '@/components/OnRequestBadge'
 
 // Prawdziwy MapLibre nie działa w jsdom (WebGL) -- stub sprawdza tylko, co strona mu przekazuje.
 vi.mock('@/components/MapView', () => ({
-  MapView: ({ pins, movers, route, ariaLabel }: { pins: unknown[]; movers?: { label: string; lat: number; lon: number }[]; route?: { points: unknown[] }; ariaLabel: string }) => (
-    <div data-testid="map" aria-label={ariaLabel}>
+  MapView: ({
+    pins,
+    movers,
+    route,
+    ariaLabel,
+  }: {
+    pins: unknown[]
+    movers?: { label: string; lat: number; lon: number; mode: string; bearing?: number | null }[]
+    route?: { points: unknown[]; mode: string }
+    ariaLabel: string
+  }) => (
+    <div data-testid="map" aria-label={ariaLabel} data-route-mode={route?.mode}>
       {pins.length} pins, {route?.points.length ?? 0} route points
       {(movers ?? []).map((m) => (
-        <span key={m.label} data-testid="mover" data-lat={m.lat} data-lon={m.lon}>
+        <span key={m.label} data-testid="mover" data-lat={m.lat} data-lon={m.lon} data-mode={m.mode} data-bearing={m.bearing ?? ''}>
           {m.label}
         </span>
       ))}
@@ -37,8 +51,6 @@ const LINE = {
     routeId: '20',
     line: '20',
     longName: 'Piaski – Międzylesie',
-    color: null,
-    textColor: '#000000',
     mode: 'tram',
     kind: 'regular',
     directions: [
@@ -90,7 +102,7 @@ function stubFetch(lineBody: unknown = LINE) {
               lon: 21.012,
               ageSec: 10,
               headsign: 'x',
-              bearing: null,
+              bearing: 135,
             },
           ],
           feed: { state: 'ready', ageMs: 5000 },
@@ -102,6 +114,7 @@ function stubFetch(lineBody: unknown = LINE) {
 }
 
 beforeEach(() => {
+  resetCitiesCacheForTests()
   push.mockClear()
   params.city = 'warszawa'
   params.routeId = '20'
@@ -120,6 +133,57 @@ describe('LineDetailPage', () => {
     // Pozycja pojazdu na mapie to surowe lat/lon z feedu (nie interpolacja po przystankach).
     expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.015)
     expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.012)
+  })
+
+  it('metro timeline dot gets the dark-red ring (yellow on a white ring vanishes on the light card); a tram dot keeps the default ring', async () => {
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'metro', kind: 'regular' } })
+    const { unmount } = render(<LineDetailPage />)
+    const metroDot = await screen.findByTestId('timeline-vehicle')
+    expect(metroDot.style.getPropertyValue('--tw-ring-color')).toBe(LINE_PALETTE.metro.fg)
+    unmount()
+
+    stubFetch()
+    render(<LineDetailPage />)
+    const tramDot = await screen.findByTestId('timeline-vehicle')
+    expect(tramDot.style.getPropertyValue('--tw-ring-color')).toBe('')
+  })
+
+  it('a night-bus timeline dot gets the light dark-mode ring (black vanishes on the dark card); a regular bus dot keeps the page-coloured one', async () => {
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'bus', kind: 'night' } })
+    const { unmount } = render(<LineDetailPage />)
+    const nightDot = await screen.findByTestId('timeline-vehicle')
+    expect(nightDot).toHaveClass('dark:ring-white/40')
+    expect(nightDot).not.toHaveClass('dark:ring-slate-900')
+    unmount()
+
+    stubFetch({ ...LINE, line: { ...LINE.line, mode: 'bus', kind: 'regular' } })
+    render(<LineDetailPage />)
+    const regularDot = await screen.findByTestId('timeline-vehicle')
+    expect(regularDot).toHaveClass('dark:ring-slate-900')
+    expect(regularDot).not.toHaveClass('dark:ring-white/40')
+  })
+
+  it('draws route and vehicles in the mode colour convention: mode + bearing go to the map, the timeline vehicle is a mode-coloured dot with a downward arrow', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    const map = await screen.findByTestId('map')
+    expect(map).toHaveAttribute('data-route-mode', 'tram')
+    const mover = await screen.findByTestId('mover')
+    expect(mover).toHaveAttribute('data-mode', 'tram')
+    expect(mover).toHaveAttribute('data-bearing', '135')
+
+    const onTimeline = await screen.findByTestId('timeline-vehicle')
+    const probe = document.createElement('div')
+    probe.style.backgroundColor = MODE_COLOR.tram
+    expect(onTimeline.style.backgroundColor).toBe(probe.style.backgroundColor)
+    expect(onTimeline).not.toHaveTextContent('▲')
+    // Marker jest czytelny dla technologii asystujących (rail nie siedzi pod aria-hidden).
+    expect(onTimeline).toHaveTextContent('Pojazd 3801')
+    expect(onTimeline).toBeVisible()
+    // eslint-disable-next-line testing-library/no-node-access -- żaden przodek markera nie jest aria-hidden
+    expect(onTimeline.closest('[aria-hidden="true"]')).toBeNull()
+    // eslint-disable-next-line testing-library/no-node-access -- ikona dekoracyjna (aria-hidden), bez roli do zapytania
+    expect(onTimeline.querySelector('svg')).not.toBeNull()
   })
 
   it('draws the shape polyline instead of the stop-to-stop chord when the direction has one', async () => {
@@ -207,12 +271,12 @@ describe('LineDetailPage', () => {
     stubFetch() // LINE fixture already has a request stop + streets after this task's edit
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
-    // request stop badge
-    expect(screen.getByText('NŻ')).toBeInTheDocument()
+    // request stop badge — the same marker as on the departure board and the map panel
+    expect(screen.getByTitle(ON_REQUEST_TITLE)).toHaveTextContent('na żądanie')
     // street name shown somewhere on the route
     expect(screen.getByText('Marszałkowska')).toBeInTheDocument()
     // mini-legend
-    expect(screen.getByText(/na żądanie/i)).toBeInTheDocument()
+    expect(screen.getByText('przystanek krańcowy')).toBeInTheDocument()
   })
 
   it('explains an unknown line instead of rendering an empty page', async () => {
@@ -224,7 +288,7 @@ describe('LineDetailPage', () => {
   it('says the schedule is still loading when the feed is not ready', async () => {
     stubFetch({ ...LINE, line: null, schedule: { ...LINE.schedule, state: 'loading' } })
     render(<LineDetailPage />)
-    expect(await screen.findByText('Rozkład jeszcze się wczytuje.')).toBeInTheDocument()
+    expect(await screen.findByText('Wczytywanie rozkładu…')).toBeInTheDocument()
   })
 
   it('keeps the weather card in the right column even before the line loads', async () => {
@@ -241,6 +305,72 @@ describe('LineDetailPage', () => {
     expect(await screen.findByText('Nie udało się pobrać przebiegu linii.')).toBeInTheDocument()
   })
 
+  it('keeps retrying past the first ladder while the schedule is still loading (never gives up)', async () => {
+    vi.useFakeTimers()
+    try {
+      const loadingBody = { ...LINE, line: null, schedule: { ...LINE.schedule, state: 'loading' } }
+      const fetchMock = vi.fn((url: string) =>
+        url.startsWith('/api/gtfs/line?') ? jsonResponse(loadingBody) : url.startsWith('/api/gtfs/vehicles') ? jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } }) : jsonResponse({ cities: [] })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      render(<LineDetailPage />)
+      const lineCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/gtfs/line?')).length
+      await vi.advanceTimersByTimeAsync(34_000) // cała drabinka 1+2+3+5+8+15 s = 7 zapytań
+      expect(lineCalls()).toBe(7)
+      await vi.advanceTimersByTimeAsync(30_000) // po drabince ponawia dalej co 15 s
+      expect(lineCalls()).toBe(9)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('refetches while alerts are unknown (null) and then shows the banner', async () => {
+    vi.useFakeTimers()
+    try {
+      const alert = { id: 'a', routes: ['20'], effect: 'DETOUR', link: 'https://www.wtp.waw.pl/x/', title: 'Utrudnienia na linii 20', body: 'Treść.' }
+      let calls = 0
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ ...LINE, alerts: ++calls === 1 ? null : [alert] })
+          if (url.startsWith('/api/gtfs/vehicles')) return jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } })
+          return jsonResponse({ cities: [] })
+        })
+      )
+      render(<LineDetailPage />)
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(screen.getByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
+      expect(screen.queryByText('Utrudnienia na linii 20')).not.toBeInTheDocument() // nieznane != brak, ale i baner się nie pokazuje
+      await act(() => vi.advanceTimersByTimeAsync(1_000)) // pierwszy stopień drabinki
+      expect(calls).toBe(2)
+      expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retries after a failed fetch instead of staying failed', async () => {
+    vi.useFakeTimers()
+    try {
+      let calls = 0
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.startsWith('/api/gtfs/line?')) return ++calls === 1 ? Promise.reject(new Error('x')) : jsonResponse(LINE)
+          if (url.startsWith('/api/gtfs/vehicles')) return jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } })
+          return jsonResponse({ cities: [] })
+        })
+      )
+      render(<LineDetailPage />)
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(screen.getByText('Nie udało się pobrać przebiegu linii.')).toBeInTheDocument()
+      await act(() => vi.advanceTimersByTimeAsync(30_000))
+      expect(screen.getByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows an alert banner when the line has an active disruption', async () => {
     stubFetch({
       ...LINE,
@@ -250,5 +380,16 @@ describe('LineDetailPage', () => {
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
     expect(screen.getByText('Treść.')).toBeInTheDocument()
+  })
+
+  it('jeden górny rząd: ← do linii i ścieżka; nazwa linii to jedyny h1', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { level: 1, name: 'Piaski – Międzylesie' })
+    expect(screen.getByRole('link', { name: 'Wróć do linii' })).toHaveAttribute('href', '/city/warszawa/lines')
+    const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
+    expect(within(nav).getByRole('link', { name: 'Linie' })).toHaveAttribute('href', '/city/warszawa/lines')
+    expect(within(nav).getByText('Piaski – Międzylesie')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })

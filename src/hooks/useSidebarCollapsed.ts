@@ -23,7 +23,7 @@ export function useSidebarCollapsed() {
 
   useEffect(() => {
     // Odłożone do efektu: odczyt localStorage podczas renderu dałby rozjazd
-    // znacznika serwer/klient przy pierwszym malowaniu (ten sam powód co w useFavourites).
+    // znacznika serwer/klient przy pierwszym malowaniu (ten sam powód co w usePinned).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(readStorage())
   }, [])
@@ -31,7 +31,11 @@ export function useSidebarCollapsed() {
   const toggle = useCallback(() => {
     setCollapsed((current) => {
       const next = !current
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      } catch {
+        // Pełny/zablokowany storage — zwinięcie działa, tylko się nie zapamięta.
+      }
       return next
     })
   }, [])

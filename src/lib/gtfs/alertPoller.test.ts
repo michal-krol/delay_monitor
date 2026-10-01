@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createAlertPoller } from './alertPoller'
+import { createAlertPoller, knownAlerts, type AlertPoller, type AlertPollerView } from './alertPoller'
 
 const alert = (id: string) => ({ id, routes: ['20'], effect: 'DETOUR', link: '', title: 't', body: 'b' })
 
@@ -74,5 +74,42 @@ describe('createAlertPoller', () => {
     poller.ensureRunning()
     poller.ensureRunning()
     expect(starts).toBe(1)
+  })
+})
+
+describe('knownAlerts', () => {
+  const stub = (state: AlertPollerView['state'], ageMs: number | null, alerts = [alert('A')]): AlertPoller => ({
+    ensureRunning: () => {},
+    stop: () => {},
+    dispose: () => {},
+    getAlerts: () => alerts,
+    getView: () => ({ state, ageMs, fetchedAt: null, count: alerts.length, droppedAlerts: null }),
+  })
+
+  it('absent poller is unknown', () => {
+    expect(knownAlerts(null)).toBeNull()
+    expect(knownAlerts(null, { requireFetch: true })).toBeNull()
+  })
+
+  it('idle and loading are unknown', () => {
+    for (const state of ['idle', 'loading'] as const) {
+      expect(knownAlerts(stub(state, null, []))).toBeNull()
+      expect(knownAlerts(stub(state, null, []), { requireFetch: true })).toBeNull()
+    }
+  })
+
+  it('ready returns the alerts', () => {
+    expect(knownAlerts(stub('ready', 0))).toEqual([alert('A')])
+    expect(knownAlerts(stub('ready', 0), { requireFetch: true })).toEqual([alert('A')])
+  })
+
+  it('failed with age returns the last good alerts', () => {
+    expect(knownAlerts(stub('failed', 60_000))).toEqual([alert('A')])
+    expect(knownAlerts(stub('failed', 60_000), { requireFetch: true })).toEqual([alert('A')])
+  })
+
+  it('failed without age is an empty list by default, unknown with requireFetch', () => {
+    expect(knownAlerts(stub('failed', null, []))).toEqual([])
+    expect(knownAlerts(stub('failed', null, []), { requireFetch: true })).toBeNull()
   })
 })

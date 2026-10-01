@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
-import { contrastText, lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
+import { lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
 import type { VehiclePosition } from '@/lib/gtfs/vehicles'
 import { serviceDateWindow } from '@/lib/pkp/time'
@@ -40,7 +40,7 @@ beforeAll(async () => {
     timezone: 'Europe/Warsaw',
     attribution: [],
     routes: [
-      { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined), color: null, textColor: contrastText(null) },
+      { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined) },
     ],
     stops: [{ id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 }],
     trips: [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'Piaski', directionId: 0 }],
@@ -89,7 +89,7 @@ describe('GET /api/gtfs/city-stats', () => {
       timezone: 'Europe/Warsaw',
       attribution: [],
       routes: [
-        { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined), color: null, textColor: contrastText(null) },
+        { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined) },
       ],
       stops: [{ id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 }],
       trips: [{ routeId: '20', serviceId: 'S', tripId: 't', headsign: 'Piaski', directionId: 0 }],
@@ -134,6 +134,42 @@ describe('GET /api/gtfs/city-stats', () => {
     const { body } = await call('city=warszawa')
     expect(body.alerts).toBeNull()
     expect(body.alertFeed.state).toBe('loading')
+  })
+
+  it.each(['idle', 'loading'] as const)('alerts is null while an existing alert poller is %s', async (state) => {
+    alertPoller = { getView: () => ({ state, ageMs: null }), getAlerts: () => [] }
+    try {
+      const { body } = await call('city=warszawa')
+      expect(body.alerts).toBeNull()
+      expect(body.alertFeed).toEqual({ state, ageMs: null })
+    } finally {
+      alertPoller = null
+    }
+  })
+
+  it('alerts stays null (unknown, never []) for a failed alert feed that never fetched anything', async () => {
+    alertPoller = { getView: () => ({ state: 'failed', ageMs: null }), getAlerts: () => [] }
+    try {
+      const { body } = await call('city=warszawa')
+      expect(body.alerts).toBeNull()
+      expect(body.alertFeed).toEqual({ state: 'failed', ageMs: null })
+    } finally {
+      alertPoller = null
+    }
+  })
+
+  it('serves the last good alerts (with their age) when a later alert fetch failed', async () => {
+    alertPoller = {
+      getView: () => ({ state: 'failed', ageMs: 600_000 }),
+      getAlerts: () => [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 't', body: 'b' }],
+    }
+    try {
+      const { body } = await call('city=warszawa')
+      expect(body.alerts).toHaveLength(1)
+      expect(body.alertFeed).toEqual({ state: 'failed', ageMs: 600_000 })
+    } finally {
+      alertPoller = null
+    }
   })
 
   it('returns the alert list once the poller is ready', async () => {

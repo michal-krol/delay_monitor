@@ -5,8 +5,11 @@ import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
 import { trapTab } from '@/lib/focusTrap'
-import { MODE_ICON } from './transitMode'
+import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
+import { MODE_ICON, lineColor } from './transitMode'
 import { ExpandIcon, CloseIcon, MapIcon } from './icons'
+import { IconButton } from './IconButton'
+import { MODE_COLOR, UNKNOWN_COLOR, casingFor, outlineFilter, strokeFor } from './map/mapData'
 
 export type MapPin = {
   id: string
@@ -15,23 +18,31 @@ export type MapPin = {
   label: string
   /** Ikona pinu — klucz `MODE_ICON` (transitMode.tsx, już używane przez `LineBadge`). Brak = neutralny pin lokalizacji. */
   mode?: keyof typeof MODE_ICON
+  /** Rodzaj linii (kolor pinu jak trasy i plakietki); bez niego pin ma kolor środka. Nie wchodzi do `pinsKey` — stały dla jednej linii, jak `mode`. */
+  kind?: LineKind
   /** 2-3 gotowe, sformatowane linijki („18:12 → Kutno") — MapView niczego nie liczy, tylko wyświetla. Tylko w powiększonym popupie. */
   preview?: string[]
   /** Link w powiększonym popupie — używany przez mapę trasy linii (piny = różne przystanki); mapy jednego przystanku go nie podają (byłby linkiem do siebie samego). */
   href?: string
 }
 
-/** Ruchomy punkt (pojazd) — markery aktualizowane w miejscu, bez przebudowy mapy. */
-export type MapMover = { id: string; lat: number; lon: number; label: string }
-/** Trasa rysowana po kolejnych punktach — kontur ulic z `shapes.txt` gdy wzorzec go ma, inaczej łamana po przystankach (`schedule.ts`/`query.ts` decydują, MapView tylko rysuje). */
-export type MapRoute = { points: { lat: number; lon: number }[]; color: string | null }
+/**
+ * Ruchomy punkt (pojazd) — markery aktualizowane w miejscu, bez przebudowy mapy.
+ * Ta sama konwencja co na mapie miasta: kropka w kolorze rodzaju + strzałka kierunku
+ * (`bearing`, azymut od północy); bez `bearing` sama kropka.
+ */
+export type MapMover = { id: string; lat: number; lon: number; label: string; mode: GtfsMode; /** Rodzaj linii (kolor); pociąg PKP przekazuje `'regular'` jawnie. */ kind: LineKind; bearing?: number | null }
+/**
+ * Trasa rysowana po kolejnych punktach — kontur ulic z `shapes.txt` gdy wzorzec go ma, inaczej łamana po przystankach (`schedule.ts`/`query.ts` decydują, MapView tylko rysuje).
+ * Kolor liczy `lineColor(mode, kind)` — ta sama paleta co plakietki i mapa miasta; pociąg PKP przekazuje `'regular'` jawnie.
+ */
+export type MapRoute = { points: { lat: number; lon: number }[]; mode: GtfsMode; kind: LineKind }
 
 type MoverHandle = { sync: (movers: MapMover[]) => void }
 
-const ROUTE_FALLBACK_COLOR = '#4f46e5'
-export const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
-
-export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
+/** Podkłady OpenFreeMap — wspólne dla `MapView` i mapy miasta (`map/TransitMap.tsx`). */
+export const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty'
+export const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
 
 /**
  * `setWorkerUrl` PRZED pierwszym `new Map()` -- MapLibre w wersji ESM tworzy
@@ -53,11 +64,17 @@ export const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
  */
 export const WORKER_URL = '/maplibre-gl-worker.mjs'
 
-/** Kółko z ikoną trybu zamiast domyślnej łezki MapLibre — `createRoot` do oderwanego diva, zero duplikacji SVG z `icons.tsx`. Kotwica na środku (poprawniejsze niż łezka: punkt = dokładna lokalizacja). */
-export function createMarkerElement(pin: MapPin, background = 'var(--accent-gradient)'): { element: HTMLDivElement; root: Root } {
+/** Kółko w kolorze rodzaju (`MODE_COLOR`, jak kropki i legenda mapy miasta) z ikoną trybu zamiast domyślnej łezki MapLibre — `createRoot` do oderwanego diva, zero duplikacji SVG z `icons.tsx`. Kotwica na środku (poprawniejsze niż łezka: punkt = dokładna lokalizacja). */
+function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root } {
   const element = document.createElement('div')
   element.className = 'grid h-8 w-8 cursor-pointer place-items-center rounded-full text-white shadow-lg ring-2 ring-white'
-  element.style.background = background
+  // Pin z `kind` (mapa linii) ma kolor rodzaju linii jak trasa i plakietka; bez niego — kolor środka (mapy przystanków).
+  const palette = pin.mode !== undefined && pin.kind !== undefined ? lineColor(pin.mode, pin.kind) : null
+  const color = palette?.bg ?? (pin.mode !== undefined ? MODE_COLOR[pin.mode] : UNKNOWN_COLOR)
+  element.style.backgroundColor = color
+  // Żółte metro: biała ikona i biały pierścień znikałyby — tekst/pierścień z palety (`fg`).
+  if (pin.mode !== undefined) element.style.color = (palette ?? lineColor(pin.mode, 'regular')).fg
+  element.style.setProperty('--tw-ring-color', strokeFor(color))
   const root = createRoot(element)
   const Icon = pin.mode !== undefined ? MODE_ICON[pin.mode] : MapIcon
   root.render(<Icon size={16} />)
@@ -70,7 +87,7 @@ export function createMarkerElement(pin: MapPin, background = 'var(--accent-grad
  * wrogie), `textContent` nie interpretuje znaczników. Mini popup = sam label;
  * powiększony dokłada `preview` i `href`, gdy podane.
  */
-export function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
+function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
   const wrap = document.createElement('div')
   wrap.className = 'text-sm'
 
@@ -93,12 +110,65 @@ export function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
   if (rich && pin.href !== undefined) {
     const link = document.createElement('a')
     link.href = pin.href
-    link.textContent = 'Zobacz pełną tablicę →'
-    link.className = 'mt-1.5 block text-xs font-medium text-indigo-600 dark:text-indigo-400'
+    link.textContent = 'Zobacz pełną tablicę'
+    link.className = 'mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400'
+    link.appendChild(createChevronElement())
     wrap.appendChild(link)
   }
 
   return wrap
+}
+
+/**
+ * Chevron „dalej” do popupu (DOM poza Reactem) — ta sama geometria co `ChevronRightIcon`
+ * z `icons.tsx` (viewBox 20×20, obrys 1.7). `createElementNS`, nie innerHTML (#4).
+ */
+function createChevronElement(): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(ns, 'svg')
+  const attrs: Record<string, string> = {
+    viewBox: '0 0 20 20',
+    width: '14',
+    height: '14',
+    fill: 'none',
+    stroke: 'currentColor',
+    'stroke-width': '1.7',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'aria-hidden': 'true',
+  }
+  for (const [name, value] of Object.entries(attrs)) svg.setAttribute(name, value)
+  const path = document.createElementNS(ns, 'path')
+  path.setAttribute('d', 'm8 5 5 5-5 5')
+  svg.appendChild(path)
+  return svg
+}
+
+/**
+ * Pojazd jak na mapie miasta (`vehicles` + `vehicles-arrows` w `TransitMap`): kropka w kolorze
+ * rodzaju, strzałka przed nią. Cały marker obraca MapLibre (`rotation`), więc strzałka stoi
+ * „na górze" elementu; bez kierunku jest ukryta.
+ */
+function createMoverElement(mover: MapMover): HTMLDivElement {
+  const color = lineColor(mover.mode, mover.kind).bg
+  const element = document.createElement('div')
+  element.className = 'relative h-4 w-4 cursor-pointer'
+  element.setAttribute('data-testid', 'map-mover')
+  const dot = document.createElement('div')
+  dot.dataset.part = 'dot'
+  dot.className = 'h-4 w-4 rounded-full shadow ring-2 ring-white'
+  dot.style.backgroundColor = color
+  dot.style.setProperty('--tw-ring-color', strokeFor(color))
+  const arrow = document.createElement('div')
+  arrow.dataset.part = 'arrow'
+  // Trójkąt z obramowań (ostrzem do góry), 3 px nad kropką.
+  arrow.className = 'absolute -top-[11px] left-[3px] h-0 w-0 border-x-[5px] border-b-[8px] border-x-transparent'
+  arrow.style.borderBottomColor = color
+  // Trójkąt z obramowań nie ma własnego obrysu — `drop-shadow` w kolorze `strokeFor` (żółte metro ~1,3:1 na jasnym podkładzie).
+  arrow.style.filter = outlineFilter(color)
+  arrow.hidden = mover.bearing === null || mover.bearing === undefined
+  element.append(dot, arrow)
+  return element
 }
 
 function moverPopup(label: string): HTMLElement {
@@ -120,12 +190,14 @@ function mountMap(
   rich: boolean,
   route: MapRoute | undefined,
   moverHandle: { current: MoverHandle | null },
-  initialMovers: MapMover[]
+  initialMovers: MapMover[],
+  dark: boolean
 ): () => void {
   let cancelled = false
   let map: MapLibreMap | null = null
   const markers: { marker: MapLibreMarker; root: Root }[] = []
   const moverMarkers = new Map<string, MapLibreMarker>()
+  const moverArrows = new Map<string, HTMLElement>()
 
   import('maplibre-gl').then((lib) => {
     if (cancelled) return
@@ -133,7 +205,7 @@ function mountMap(
     lib.setWorkerUrl(WORKER_URL)
     map = new lib.Map({
       container,
-      style: STYLE_URL,
+      style: dark ? STYLE_DARK : STYLE_LIGHT,
       center: [pins[0].lon, pins[0].lat],
       zoom: pins.length === 1 ? 15 : 13,
     })
@@ -146,14 +218,16 @@ function mountMap(
         const existing = moverMarkers.get(mover.id)
         if (existing !== undefined) {
           existing.setLngLat([mover.lon, mover.lat])
+          existing.setRotation(mover.bearing ?? 0)
+          const arrow = moverArrows.get(mover.id)
+          if (arrow !== undefined) arrow.hidden = mover.bearing === null || mover.bearing === undefined
           existing.getPopup()?.setDOMContent(moverPopup(mover.label))
           continue
         }
-        const dot = document.createElement('div')
-        dot.className = 'h-4 w-4 rounded-full shadow ring-2 ring-white'
-        dot.style.background = route !== undefined && route.color !== null && HEX_COLOR.test(route.color) ? route.color : ROUTE_FALLBACK_COLOR
-        dot.setAttribute('data-testid', 'map-mover')
-        const marker = new lib.Marker({ element: dot })
+        const element = createMoverElement(mover)
+        const arrow = element.querySelector<HTMLElement>('[data-part="arrow"]')
+        if (arrow !== null) moverArrows.set(mover.id, arrow)
+        const marker = new lib.Marker({ element, rotation: mover.bearing ?? 0, rotationAlignment: 'map' })
           .setLngLat([mover.lon, mover.lat])
           .setPopup(new lib.Popup({ offset: 10 }).setDOMContent(moverPopup(mover.label)))
           .addTo(mapInstance)
@@ -163,13 +237,14 @@ function mountMap(
         if (seen.has(id)) continue
         marker.remove()
         moverMarkers.delete(id)
+        moverArrows.delete(id)
       }
     }
     moverHandle.current = { sync: syncMovers }
     syncMovers(initialMovers)
 
     if (route !== undefined && route.points.length >= 2) {
-      const color = route.color !== null && HEX_COLOR.test(route.color) ? route.color : ROUTE_FALLBACK_COLOR
+      const color = lineColor(route.mode, route.kind).bg
       const addRoute = (): void => {
         if (mapInstance.getSource('route') !== undefined) return
         mapInstance.addSource('route', {
@@ -187,9 +262,21 @@ function mountMap(
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': color, 'line-width': 4, 'line-opacity': 0.85 },
         })
+        // Obwódka pod trasą (jak `route-casing` na mapie miasta): żółte metro na jasnym podkładzie bez niej znika.
+        mapInstance.addLayer(
+          {
+            id: 'route-casing',
+            type: 'line',
+            source: 'route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': casingFor(color, dark), 'line-width': 7, 'line-opacity': 0.85 },
+          },
+          'route'
+        )
       }
       if (mapInstance.isStyleLoaded()) addRoute()
-      else mapInstance.once('load', addRoute)
+      // `style.load`, nie `load`: `load` czeka na wszystkie kafle i potrafi nie przyjść, a trasa musi się narysować (jak w `TransitMap`).
+      else mapInstance.once('style.load', addRoute)
     }
 
     const bounds = new lib.LngLatBounds()
@@ -221,7 +308,9 @@ function mountMap(
     moverHandle.current = null
     for (const { marker, root } of markers) {
       marker.remove()
-      root.unmount()
+      // Sprzątanie efektu biegnie w trakcie commitu Reacta (np. przemontowanie po zmianie
+      // motywu) — synchroniczne `unmount()` osobnego korzenia daje tam ostrzeżenie o wyścigu.
+      queueMicrotask(() => root.unmount())
     }
     for (const marker of moverMarkers.values()) marker.remove()
     map?.remove()
@@ -234,7 +323,10 @@ export function MapView({
   ariaLabel,
   route,
   movers,
+  dark,
 }: {
+  /** Motyw z `resolvedTheme` wołającego — podkład jak na mapie miasta. Zmiana = mapa montowana od nowa (rzadkie: klik w przełącznik motywu). */
+  dark: boolean
   pins: MapPin[]
   onPinClick?: (id: string) => void
   ariaLabel: string
@@ -245,6 +337,7 @@ export function MapView({
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const expandButtonRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   // Ruchome punkty aktualizowane w miejscu (dwie mapy: miniatura i pełny ekran) -- `movers`
   // celowo NIE wchodzi do zależności montowania, inaczej każdy poll pojazdów resetowałby mapę.
@@ -267,7 +360,7 @@ export function MapView({
   // faktycznie się zmieni, więc treść w domknięciu jest wtedy aktualna.
   const pinsKey = pins.map((p) => `${p.id}:${p.lat}:${p.lon}:${p.label}`).join('|')
   // Trasa zmienia się razem z pinami (kierunek linii); kolor dopisany, bo zmienia rysunek.
-  const routeKey = route === undefined ? '' : `${route.points.length}:${route.color ?? ''}`
+  const routeKey = route === undefined ? '' : `${route.points.length}:${lineColor(route.mode, route.kind).bg}`
 
   useEffect(() => {
     moversRef.current = movers ?? []
@@ -277,23 +370,24 @@ export function MapView({
 
   useEffect(() => {
     if (containerRef.current === null || pins.length === 0) return
-    return mountMap(containerRef.current, pins, onPinClick, false, route, miniHandle, moversRef.current)
+    return mountMap(containerRef.current, pins, onPinClick, false, route, miniHandle, moversRef.current, dark)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `pinsKey`/`routeKey` to celowe sygnatury treści `pins`/`route`, patrz komentarz wyżej.
-  }, [pinsKey, routeKey, onPinClick])
+  }, [pinsKey, routeKey, onPinClick, dark])
 
   // Powiększona mapa montowana dopiero gdy `expanded` -- kontener istnieje w
   // DOM wyłącznie wtedy (portal niżej), więc efekt musi mieć `expanded` w
   // zależnościach: sama zmiana refa nie wywołuje ponownego uruchomienia.
   useEffect(() => {
     if (!expanded || fullscreenContainerRef.current === null || pins.length === 0) return
-    return mountMap(fullscreenContainerRef.current, pins, onPinClick, true, route, fullHandle, moversRef.current)
+    return mountMap(fullscreenContainerRef.current, pins, onPinClick, true, route, fullHandle, moversRef.current, dark)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- jak wyżej + `expanded` steruje montowaniem.
-  }, [expanded, pinsKey, routeKey, onPinClick])
+  }, [expanded, pinsKey, routeKey, onPinClick, dark])
 
   // Escape zamyka powiększenie -- ten sam wzorzec co `MobileNav.tsx`.
   useEffect(() => {
     if (!expanded) return
     closeButtonRef.current?.focus()
+    const opener = expandButtonRef.current
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     function onKeyDown(event: KeyboardEvent): void {
@@ -304,6 +398,8 @@ export function MapView({
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
+      // Zamknięcie (Escape, tło, ✕) oddaje fokus przyciskowi, który otworzył powiększenie.
+      opener?.focus({ preventScroll: true })
     }
   }, [expanded])
 
@@ -314,10 +410,11 @@ export function MapView({
       <div className="relative">
         <div ref={containerRef} role="region" aria-label={ariaLabel} className="h-64 w-full overflow-hidden rounded-2xl" />
         <button
+          ref={expandButtonRef}
           type="button"
           onClick={() => setExpanded(true)}
           aria-label="Powiększ mapę"
-          className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg bg-white/90 text-gray-700 shadow transition hover:bg-white"
+          className="touch-44 glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
         >
           <ExpandIcon size={16} />
         </button>
@@ -338,15 +435,13 @@ export function MapView({
             />
             <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={ariaLabel} className="absolute inset-4 overflow-hidden rounded-2xl shadow-2xl sm:inset-10">
               <div ref={fullscreenContainerRef} className="h-full w-full" />
-              <button
-                ref={closeButtonRef}
-                type="button"
-                onClick={() => setExpanded(false)}
-                aria-label="Zamknij powiększoną mapę"
-                className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white"
-              >
-                <CloseIcon size={16} />
-              </button>
+              {/* Tło na opakowaniu, nie na przycisku: tło i hover `IconButton` to ta sama
+                  właściwość, więc na przycisku jedno kasowałoby drugie. */}
+              <div className="absolute right-3 top-3 rounded-full bg-surface-strong shadow-md backdrop-blur-xl">
+                <IconButton ref={closeButtonRef} label="Zamknij powiększoną mapę" onClick={() => setExpanded(false)}>
+                  <CloseIcon size={16} />
+                </IconButton>
+              </div>
             </div>
           </div>,
           document.body

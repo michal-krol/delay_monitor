@@ -5,6 +5,8 @@ import { useCities } from '@/hooks/useCities'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { TransitDepartureList } from './TransitDepartureList'
+import { IconButton } from './IconButton'
+import { PIN_COLOR, StarIcon } from './icons'
 
 type Props = {
   city: string
@@ -29,25 +31,18 @@ export function TransitStopCard({ city, stopId, stopName, onRemove }: Props) {
   const name = board?.name ?? stopName
 
   return (
-    <article className="glass group relative isolate w-full overflow-hidden rounded-2xl border p-5" style={{ borderColor: 'var(--surface-border)' }}>
+    <article className="glass group relative isolate w-full overflow-hidden rounded-2xl border border-surface-border p-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">{name}</h2>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Odepnij z Pulpitu: ${name}`}
-          className="relative z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full text-text-muted opacity-0 transition hover:bg-black/5 hover:text-foreground focus:opacity-100 group-hover:opacity-100 dark:hover:bg-white/10"
-        >
-          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M3 3l10 10M13 3L3 13" />
-          </svg>
-        </button>
+        <IconButton label={`Odepnij z Pulpitu: ${name}`} onClick={onRemove} className="z-10">
+          <StarIcon size={16} filled className={PIN_COLOR} />
+        </IconButton>
       </div>
 
       <p className="mt-0.5 text-xs text-text-muted">Rozkład — {cityName}</p>
 
       {failed ? (
-        <p className="mt-3 text-sm text-red-600 dark:text-red-400">Nie udało się pobrać rozkładu.</p>
+        <p className="mt-3 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
       ) : (
         <TransitDepartureList departures={board?.departures ?? []} loading={loading} />
       )}

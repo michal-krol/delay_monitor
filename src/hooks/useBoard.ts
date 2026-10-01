@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { fetchJson, usePolling } from './usePolling'
 import type { RealizationStatus } from '@/lib/board/realization'
 import type { StationInsights, StationStats } from '@/lib/board/stationStats'
 
@@ -89,7 +89,7 @@ const REFRESH_INTERVAL_MS = 30000
  * budzi się async, `/api/board` nigdy na niego nie czeka -- patrz
  * `route.ts`), dopytujemy szybciej, dopóki snapshot jest jeszcze `null`.
  * Realny fetch z PKP zwykle kończy się w 1-3s, więc te kilka prób zwykle
- * wystarczy; potem wracamy do normalnego tempa.
+ * wystarczy; potem wracamy do normalnego tempa (`usePolling` nigdy się nie poddaje).
  */
 const FAST_RETRY_DELAYS_MS = [1000, 2000, 4000]
 
@@ -98,60 +98,22 @@ function stillLoading(json: BoardApiResponse): boolean {
 }
 
 export function useBoard(stationIds: string[]) {
-  const [data, setData] = useState<BoardApiResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const key = stationIds.join(',')
-
-  useEffect(() => {
-    if (stationIds.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets stale data when the caller stops watching any station
-      setData(null)
-      return
-    }
-
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    let fastRetryIndex = 0
-
-    // `respectHidden`: pierwsze wywołanie zawsze pobiera dane, nawet gdy
-    // karta jest akurat ukryta (tak zachowywał się poprzedni kod: `fetchBoard()`
-    // na starcie było bezwarunkowe) -- tylko KOLEJNE, zaplanowane odpytania
-    // pomijają fetch, gdy karta jest schowana.
-    async function tick(respectHidden: boolean): Promise<void> {
-      if (cancelled) return
-
-      if (respectHidden && document.hidden) {
-        timer = setTimeout(() => void tick(true), REFRESH_INTERVAL_MS)
-        return
-      }
-
-      let loading = false
-      try {
-        const response = await fetch(`/api/board?stations=${encodeURIComponent(key)}`)
-        if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
-        const json = (await response.json()) as BoardApiResponse
-        if (!cancelled) {
-          setData(json)
-          setError(null)
-        }
-        loading = stillLoading(json)
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Nieznany błąd')
-      }
-      if (cancelled) return
-
-      const delay = loading && fastRetryIndex < FAST_RETRY_DELAYS_MS.length ? FAST_RETRY_DELAYS_MS[fastRetryIndex++] : REFRESH_INTERVAL_MS
-      timer = setTimeout(() => void tick(true), delay)
-    }
-
-    void tick(false)
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
-
-  return { data, error }
+  // Klucz = lista stacji. `keepPreviousData`: dodanie/usunięcie przypiętej nie zeruje kart
+  // pulpitu do czasu nowej odpowiedzi (Dashboard łączy snapshoty po id stacji).
+  const key = stationIds.length === 0 ? null : stationIds.join(',')
+  const { data: polled, error, lastSuccessAt } = usePolling<BoardApiResponse>(key, () => fetchJson(`/api/board?stations=${encodeURIComponent(key ?? '')}`), {
+    refreshMs: REFRESH_INTERVAL_MS,
+    ladderMs: FAST_RETRY_DELAYS_MS,
+    isLoading: stillLoading,
+    keepPreviousData: true,
+    // Powrót z widoku połączenia na tablicę: ostatni snapshot od razu (z wiekiem), odświeżenie w tle.
+    cacheNamespace: 'board',
+  })
+  // Poprzednie snapshoty mają sens tylko dla pokrywającego się zestawu; rozłączny (np. `FullBoard`
+  // po zmianie stacji) wraca do „ładowania", nie do wierszy innej stacji. Odpowiedź bez snapshotów
+  // (`configError`, zimny start) niesie tylko status -- ten zostaje.
+  const received = polled?.snapshots.filter((s) => s !== null) ?? []
+  const stale = received.length > 0 && !received.some((s) => stationIds.includes(s.stationId))
+  const data = stale ? null : polled
+  return { data, error, lastSuccessAt }
 }

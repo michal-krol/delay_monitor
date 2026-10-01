@@ -1,5 +1,7 @@
-import { MODE_ICON } from '../transitMode'
-import { MODE_COLOR } from './mapData'
+import { useId } from 'react'
+import { ChevronRightIcon } from '../icons'
+import { BUS_KIND_LABEL, BUS_KIND_ORDER, darkRingClass, lineColor } from '../transitMode'
+import { MODE_COLOR, outlineFilter, strokeFor } from './mapData'
 import type { GtfsMode } from '@/lib/gtfs/types'
 
 const POINTS: [GtfsMode, string][] = [
@@ -17,22 +19,26 @@ const VEHICLES: [GtfsMode, string][] = [
 /**
  * Legenda RODZAJÓW obiektów (spec §8) — bez „na żywo" jako kategorii. Natywne
  * `<details>`: zwijanie i stan rozwinięcia dla czytników ekranu za darmo.
- * Domyślnie zwinięta (kompaktowa).
+ * Domyślnie zwinięta (kompaktowa). Rozwinięta nie wyjdzie poza mapę: rodzic na mapie ma wysokość
+ * (`top`…`bottom`), legenda `max-h-full` + własne przewijanie — inaczej na niskim telefonie jej
+ * nagłówek (jedyne zwinięcie) chował się pod nagłówkiem strony. Rodzic zaczyna się pod kontrolkami
+ * prawego rogu (zoom, „Pokaż całe miasto”), żeby rozwinięta legenda ich nie przykrywała.
  */
 export function MapLegend() {
   return (
-    <details className="glass-strong group w-56 rounded-2xl text-sm shadow-lg">
+    <details className="glass-strong group pointer-events-auto max-h-full w-56 overflow-y-auto rounded-2xl text-sm shadow-lg">
       <summary className="flex min-h-11 cursor-pointer select-none list-none items-center justify-between rounded-2xl px-4 font-semibold [&::-webkit-details-marker]:hidden">
-        Legenda <span className="text-text-muted group-open:rotate-180" aria-hidden="true">▾</span>
+        Legenda <ChevronRightIcon size={14} className="rotate-90 text-text-muted group-open:-rotate-90" />
       </summary>
       <div className="space-y-3 px-4 pb-4">
         <Section title="Punkty" items={POINTS} shape="dot" />
-        <Section title="Pojazdy" items={VEHICLES} shape="icon" />
+        <Section title="Pojazdy" items={VEHICLES} shape="vehicle" />
+        <BusKinds />
         <ul className="space-y-1 text-xs text-text-muted">
           <li>Linie metra i kolei miejskiej — w kolorze linii (M1, M2 jak na plakietkach).</li>
           <li>Strzałka przy pojeździe — kierunek jazdy.</li>
           <li>Wyblakły pojazd — pozycja sprzed ponad 1,5 min.</li>
-          <li>Złota obwódka — Twoje ulubione.</li>
+          <li>Złota obwódka — przypięte do Pulpitu.</li>
           <li>Prawy klik lub przytrzymanie — co jest w pobliżu.</li>
         </ul>
       </div>
@@ -40,26 +46,51 @@ export function MapLegend() {
   )
 }
 
-function Section({ title, items, shape }: { title: string; items: [GtfsMode, string][]; shape: 'dot' | 'icon' }) {
+/**
+ * Punkt = kropka; pojazd = to, co rysuje mapa (`vehicles` + `vehicles-arrows` w `TransitMap`,
+ * `createMoverElement` w `MapView`): kółko w kolorze rodzaju ze strzałką kierunku przed nim.
+ */
+function Section({ title, items, shape }: { title: string; items: [GtfsMode, string][]; shape: 'dot' | 'vehicle' }) {
   return (
     <div>
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</p>
       <ul className="space-y-1">
-        {items.map(([mode, label]) => {
-          const Icon = MODE_ICON[mode]
-          return (
-            <li key={label} className="flex items-center gap-2.5">
-              {shape === 'dot' ? (
-                <span className="ml-1 mr-1 h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode] }} aria-hidden="true" />
-              ) : (
-                <span className="grid h-5 w-5 place-items-center rounded-md text-white" style={{ background: MODE_COLOR[mode] }} aria-hidden="true">
-                  <Icon size={13} />
-                </span>
-              )}
-              {label}
-            </li>
-          )
-        })}
+        {items.map(([mode, label]) => (
+          <li key={label} className="flex items-center gap-2.5">
+            {shape === 'dot' ? (
+              <span className="ml-1 mr-1 h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode], borderColor: strokeFor(MODE_COLOR[mode]) }} aria-hidden="true" />
+            ) : (
+              <span className="relative ml-1 mr-1 mt-1.5 h-3 w-3" aria-hidden="true">
+                <span className="block h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode], borderColor: strokeFor(MODE_COLOR[mode]) }} />
+                <span className="absolute -top-[8px] left-[2px] h-0 w-0 border-x-[4px] border-b-[6px] border-x-transparent" style={{ borderBottomColor: MODE_COLOR[mode], filter: outlineFilter(MODE_COLOR[mode]) }} />
+              </span>
+            )}
+            {label}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * Pojazd autobusu ma kolor RODZAJU linii (`lineColor('bus', kind)`), nie jeden fiolet — objaśnienie
+ * tymi samymi etykietami i próbkami co podsekcje strony „Linie” (`LineGrid`).
+ */
+function BusKinds() {
+  const titleId = useId()
+  return (
+    <div>
+      <p id={titleId} className="mb-1 text-xs text-text-muted">
+        Autobusy według rodzaju linii
+      </p>
+      <ul aria-labelledby={titleId} className="space-y-0.5 text-xs text-text-secondary">
+        {BUS_KIND_ORDER.map((kind) => (
+          <li key={kind} className="flex items-center gap-2">
+            <span className={`ml-1 h-2.5 w-2.5 flex-none rounded-[3px] ${darkRingClass(kind)}`} style={{ background: lineColor('bus', kind).bg }} aria-hidden="true" />
+            {BUS_KIND_LABEL[kind]}
+          </li>
+        ))}
       </ul>
     </div>
   )

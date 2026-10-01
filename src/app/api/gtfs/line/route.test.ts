@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
-import { contrastText, lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
+import { lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
 
 let schedule: GtfsSchedule | null = null
@@ -8,7 +8,8 @@ const getView = vi.fn(() => ({ state: schedule === null ? 'loading' : 'ready', l
 const getGtfsPoller = vi.fn((city: string) =>
   city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView } : null
 )
-let alertPoller: { getAlerts: () => { id: string; routes: string[]; effect: string; link: string; title: string; body: string }[] } | null = null
+type TestAlert = { id: string; routes: string[]; effect: string; link: string; title: string; body: string }
+let alertPoller: { getAlerts: () => TestAlert[]; getView: () => { state: 'idle' | 'loading' | 'ready' | 'failed' } } | null = null
 vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (...a: [string]) => getGtfsPoller(...a),
   peekAlertPoller: () => alertPoller,
@@ -21,7 +22,7 @@ beforeAll(async () => {
     timezone: 'Europe/Warsaw',
     attribution: [],
     routes: [
-      { id: '20', shortName: '20', longName: 'Piaski – Międzylesie', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined), color: null, textColor: contrastText(null) },
+      { id: '20', shortName: '20', longName: 'Piaski – Międzylesie', mode: modeFromRouteType(0), kind: lineKindFrom('20', undefined) },
     ],
     stops: [
       { id: '100101', name: 'Centrum 01', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 0 },
@@ -89,13 +90,34 @@ describe('GET /api/gtfs/line', () => {
     schedule = kept
   })
 
-  it('alerts is [] when no alert poller exists yet', async () => {
+  it('alerts is null (unknown, not "none") when no alert poller exists yet', async () => {
     const { body } = await call('city=warszawa&route=20')
-    expect(body.alerts).toEqual([])
+    expect(body.alerts).toBeNull()
+  })
+
+  it.each(['idle', 'loading'] as const)('alerts is null while the alert feed is %s (klient ponawia do skutku)', async (state) => {
+    alertPoller = { getView: () => ({ state }), getAlerts: () => [] }
+    try {
+      const { body } = await call('city=warszawa&route=20')
+      expect(body.alerts).toBeNull()
+    } finally {
+      alertPoller = null
+    }
+  })
+
+  it('alerts is [] for a failed alert feed with nothing fetched (no polling forever for a dead feed)', async () => {
+    alertPoller = { getView: () => ({ state: 'failed' }), getAlerts: () => [] }
+    try {
+      const { body } = await call('city=warszawa&route=20')
+      expect(body.alerts).toEqual([])
+    } finally {
+      alertPoller = null
+    }
   })
 
   it('returns alerts matching this line\'s short name', async () => {
     alertPoller = {
+      getView: () => ({ state: 'ready' }),
       getAlerts: () => [
         { id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' },
         { id: 'b', routes: ['999'], effect: 'DETOUR', link: '', title: 'Inna linia', body: 'b' },

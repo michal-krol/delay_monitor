@@ -8,8 +8,7 @@ import { activeItemFromPath } from './navItems'
  * `Sidebar` renderowany raz w `(app)/layout.tsx`, a nie osobno w każdej stronie
  * — wcześniej montował się od nowa przy każdej nawigacji i migał zwijaniem/
  * rozwijaniem (stan z `useSidebarCollapsed` odczytywany od zera przy każdym
- * montowaniu). `activeItem` wyliczane z adresu, bo tylko Pulpit ma odpowiednik
- * w menu (reszta pozycji to wyłączone „Wkrótce").
+ * montowaniu). `activeItem` wyliczane z adresu.
  */
 export function AppSidebar() {
   return <Sidebar activeItem={activeItemFromPath(usePathname())} />

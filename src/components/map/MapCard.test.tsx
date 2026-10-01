@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MapCard } from './MapCard'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
+import { LINE_PALETTE } from '../transitMode'
 
 const railStatus = vi.fn()
 vi.mock('@/hooks/useRailStations', () => ({ useRailStationStatus: (id: string | null) => railStatus(id) }))
@@ -16,7 +17,7 @@ const rail = { kind: 'rail' as const, id: '33605', name: 'Warszawa Centralna', l
 function vehicle(over: Partial<CityVehicle> = {}): CityVehicle {
   return {
     id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '3801', ageSec: 12, headsign: 'Dworzec Centralny',
-    routeId: '20', shortName: '20', mode: 'tram', color: '#009944', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' }, ...over,
+    routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' }, ...over,
   }
 }
 
@@ -88,7 +89,8 @@ describe('MapCard — vehicle', () => {
   it('shows line, direction, next stop and freshness — no delay', () => {
     render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} />)
     expect(screen.getByRole('heading', { name: 'tramwaj 20' })).toBeInTheDocument()
-    expect(screen.getByText('→ Dworzec Centralny')).toBeInTheDocument()
+    expect(screen.getByText('Dworzec Centralny')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
     expect(screen.getByText('Rondo ONZ')).toBeInTheDocument()
     expect(screen.getByText('aktualna')).toBeInTheDocument()
     expect(screen.queryByText(/opóźnieni[ae] \+/)).toBeNull()
@@ -103,8 +105,13 @@ describe('MapCard — vehicle', () => {
     expect(screen.getByText(/Pojazd zniknął z mapy/)).toBeInTheDocument()
   })
 
+  it('colours the line badge by the served kind, not one re-derived from the number', () => {
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ mode: 'bus', shortName: '131', kind: 'night' })} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText('131', { selector: 'span' })).toHaveStyle({ background: LINE_PALETTE.night.bg })
+  })
+
   it('handles a vehicle without a line', () => {
-    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ routeId: null, shortName: null, mode: null, headsign: null })} city="warszawa" onClose={() => {}} />)
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ routeId: null, shortName: null, mode: null, kind: null, headsign: null })} city="warszawa" onClose={() => {}} />)
     expect(screen.getByRole('heading', { name: 'Pojazd' })).toBeInTheDocument()
     expect(screen.getByText('Brak przypisania do linii.')).toBeInTheDocument()
   })
@@ -122,22 +129,36 @@ describe('MapCard — focus and closing', () => {
   })
 })
 
-describe('MapCard — favourites, nearby, disruptions', () => {
-  it('toggles the favourite star and offers "what is nearby" for places', () => {
+describe('MapCard — focus return', () => {
+  it('gives focus back to the element that opened the card when it closes', () => {
     railStatus.mockReturnValue({ status: null, error: false })
-    const onToggleFavourite = vi.fn()
+    const trigger = document.createElement('button')
+    document.body.append(trigger)
+    trigger.focus()
+    const { unmount } = render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(trigger).not.toHaveFocus()
+    unmount()
+    expect(trigger).toHaveFocus()
+    trigger.remove()
+  })
+})
+
+describe('MapCard — pinned items, nearby, disruptions', () => {
+  it('toggles the pin star and offers "what is nearby" for places', () => {
+    railStatus.mockReturnValue({ status: null, error: false })
+    const onTogglePin = vi.fn()
     const onNearby = vi.fn()
-    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} favourite={false} onToggleFavourite={onToggleFavourite} onNearby={onNearby} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Dodaj do ulubionych' }))
-    expect(onToggleFavourite).toHaveBeenCalled()
+    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} pinned={false} onTogglePin={onTogglePin} onNearby={onNearby} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Przypnij do Pulpitu' }))
+    expect(onTogglePin).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Co jest w pobliżu?' }))
     expect(onNearby).toHaveBeenCalled()
   })
 
-  it('shows the pressed star for a favourite', () => {
+  it('shows the pressed star for a pinned item', () => {
     railStatus.mockReturnValue({ status: null, error: false })
-    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} favourite onToggleFavourite={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Usuń z ulubionych' })).toHaveAttribute('aria-pressed', 'true')
+    render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} pinned onTogglePin={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Odepnij z Pulpitu' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('flags a vehicle whose line has an active disruption', () => {

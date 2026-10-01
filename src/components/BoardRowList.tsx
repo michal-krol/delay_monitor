@@ -1,5 +1,6 @@
 import { DelayBadge } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
+import { ArrowRightIcon } from './icons'
 import { formatClockTime } from '@/lib/format'
 import type { BoardApiRow } from '@/hooks/useBoard'
 
@@ -15,7 +16,7 @@ type Props = {
 export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) {
   return (
     <ul className="mt-4 divide-y divide-black/5 dark:divide-white/5">
-      {loading && <li className="py-2 text-sm text-text-muted">Ładowanie…</li>}
+      {loading && <li className="py-2 text-sm text-text-muted">Wczytywanie…</li>}
       {showEmpty && <li className="py-2 text-sm text-text-muted">{emptyMessage}</li>}
       {rows.map((row) => (
         <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">
@@ -31,7 +32,8 @@ export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) 
           </div>
           <div className="mt-0.5 text-text-muted">
             <span className="tabular-nums">{formatClockTime(row.plannedAt)}</span>{' '}
-            · {row.trainLabel} → {row.headsign ?? '—'} · <span>Peron/Tor: {row.platform ?? '—'}</span>
+            · {row.trainLabel} <ArrowRightIcon size={12} label="do" className="inline align-[-2px]" /> {row.headsign ?? '—'} ·{' '}
+            <span>Peron/Tor: {row.platform ?? '—'}</span>
           </div>
         </li>
       ))}

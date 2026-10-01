@@ -95,7 +95,7 @@ export type BoardSnapshot = {
  * „Pokaż więcej połączeń" w `BoardTable.tsx`) — `/operations` i tak zwraca
  * CAŁY dzień, więc poszerzenie kosztuje wyłącznie rozmiar snapshotu, ani
  * jednego dodatkowego zapytania do PKP. Widoki pokazujące mniej (kafelki
- * ulubionych) tną listę po swojej stronie.
+ * przypiętych) tną listę po swojej stronie.
  */
 const VISIBLE_WINDOW_MS = 3 * 60 * 60 * 1000
 const LOOKBACK_WINDOW_MS = 5 * 60 * 1000

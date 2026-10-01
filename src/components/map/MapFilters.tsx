@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { MODE_ICON } from '../transitMode'
-import { LAYER_LABEL, LAYER_MODE, MODE_COLOR, POINT_LAYERS, type LayerKey } from './mapData'
+import { FilterIcon } from '../icons'
+import { LAYER_LABEL, LAYER_MODE, POINT_LAYERS, type LayerKey } from './mapData'
+import { ModeChip } from './ModeChip'
 
 /**
  * Przycisk „Filtry" + panel warstw (spec §7). Domyślnie wszystko widoczne, więc
@@ -35,6 +36,7 @@ export function MapFilters({
     if (!open) return
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
+      event.preventDefault() // zjadamy Escape — ramka panelu (PanelFrame) się wtedy nie zamyka
       setOpen(false)
       buttonRef.current?.focus()
     }
@@ -59,18 +61,13 @@ export function MapFilters({
   const group = (title: string, keys: LayerKey[]) => (
     <fieldset className="space-y-1">
       <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</legend>
-      {keys.map((key) => {
-        const Icon = MODE_ICON[LAYER_MODE[key]]
-        return (
-          <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
-            <input type="checkbox" checked={!hidden.has(key)} onChange={() => toggle(key)} className="h-4 w-4 accent-indigo-600" />
-            <span className="grid h-5 w-5 place-items-center rounded-md text-white" style={{ background: MODE_COLOR[LAYER_MODE[key]] }} aria-hidden="true">
-              <Icon size={13} />
-            </span>
-            {LAYER_LABEL[key]}
-          </label>
-        )
-      })}
+      {keys.map((key) => (
+        <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+          <input type="checkbox" checked={!hidden.has(key)} onChange={() => toggle(key)} className="h-4 w-4 accent-indigo-600" />
+          <ModeChip mode={LAYER_MODE[key]} />
+          {LAYER_LABEL[key]}
+        </label>
+      ))}
     </fieldset>
   )
 
@@ -84,7 +81,7 @@ export function MapFilters({
         onClick={() => setOpen((o) => !o)}
         className="glass inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
       >
-        <FilterGlyph />
+        <FilterIcon size={16} />
         Filtry
         {restrictions > 0 && (
           <span className="grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white" style={{ background: 'var(--accent-solid)' }}>
@@ -110,21 +107,12 @@ export function MapFilters({
               onChange(new Set())
               onAlertsOnly?.(false)
             }}
-            className="w-full rounded-lg border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
-            style={{ borderColor: 'var(--surface-border)' }}
+            className="w-full rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
           >
             Pokaż wszystko
           </button>
         </div>
       )}
     </div>
-  )
-}
-
-function FilterGlyph() {
-  return (
-    <svg width={16} height={16} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 5h14M6 10h8M9 15h2" />
-    </svg>
   )
 }

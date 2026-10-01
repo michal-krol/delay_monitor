@@ -10,15 +10,15 @@ import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN, STATION_ID_PATTERN } from '@/lib
  * sklejonym prefiksem w stringu — dzięki temu nic nie trzeba parsować przy
  * odczycie, a przypięcia z różnych miast żyją obok siebie na jednym Pulpicie.
  */
-export type Favourite =
+export type PinnedItem =
   | { kind: 'pkp'; id: string; name: string }
   | { kind: 'gtfs'; city: string; id: string; name: string }
 
 /** Klucz tożsamości wpisu — jedyne miejsce, które zna kształt sklejenia. */
-export function favouriteKey(favourite: Favourite): string {
-  return favourite.kind === 'pkp'
-    ? `pkp:${favourite.id}`
-    : `gtfs:${favourite.city}:${favourite.id}`
+export function pinnedKey(pinnedItem: PinnedItem): string {
+  return pinnedItem.kind === 'pkp'
+    ? `pkp:${pinnedItem.id}`
+    : `gtfs:${pinnedItem.city}:${pinnedItem.id}`
 }
 
 const V2_KEY = 'monitor.favourites.v2' // prefiks `pkp.` przestał być prawdziwy
@@ -26,15 +26,15 @@ const V2_KEY = 'monitor.favourites.v2' // prefiks `pkp.` przestał być prawdziw
 /**
  * `localStorage` to wejście spoza aplikacji: treść mogła zostać zapisana przez
  * starszą wersję, ręcznie zmieniona albo uszkodzona. `JSON.parse(...) as
- * Favourite[]` niczego nie sprawdzał — asercja typu znika przy kompilacji, więc
- * `{"a":1}` przechodził dalej jako „lista ulubionych" i wywracał render na
- * `favourites.map`. Efektem była biała strona, której użytkownik nie ma jak
+ * PinnedItem[]` niczego nie sprawdzał — asercja typu znika przy kompilacji, więc
+ * `{"a":1}` przechodził dalej jako „lista przypiętych" i wywracał render na
+ * `pinnedItems.map`. Efektem była biała strona, której użytkownik nie ma jak
  * naprawić bez narzędzi deweloperskich.
  *
  * Odsiewamy pojedyncze uszkodzone wpisy zamiast odrzucać całą listę: jeden zły
- * rekord nie powinien kasować pozostałych ulubionych.
+ * rekord nie powinien kasować pozostałych przypiętych.
  */
-const favouriteV2Schema = z.discriminatedUnion('kind', [
+const pinnedV2Schema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('pkp'), id: z.string().regex(STATION_ID_PATTERN), name: z.string() }),
   z.object({
     kind: z.literal('gtfs'),
@@ -44,21 +44,21 @@ const favouriteV2Schema = z.discriminatedUnion('kind', [
   }),
 ])
 
-function parseList(raw: string, parseEntry: (entry: unknown) => Favourite | null): Favourite[] {
+function parseList(raw: string, parseEntry: (entry: unknown) => PinnedItem | null): PinnedItem[] {
   const parsed: unknown = JSON.parse(raw)
   if (!Array.isArray(parsed)) return []
   return parsed.flatMap((entry) => {
-    const favourite = parseEntry(entry)
-    return favourite ? [favourite] : []
+    const pinnedItem = parseEntry(entry)
+    return pinnedItem ? [pinnedItem] : []
   })
 }
 
-function readStorage(): Favourite[] {
+function readStorage(): PinnedItem[] {
   try {
     const raw = window.localStorage.getItem(V2_KEY)
     if (raw === null) return []
     return parseList(raw, (entry) => {
-      const result = favouriteV2Schema.safeParse(entry)
+      const result = pinnedV2Schema.safeParse(entry)
       return result.success ? result.data : null
     })
   } catch {
@@ -66,12 +66,17 @@ function readStorage(): Favourite[] {
   }
 }
 
-function writeStorage(favourites: Favourite[]): void {
-  window.localStorage.setItem(V2_KEY, JSON.stringify(favourites))
+function writeStorage(pinnedItems: PinnedItem[]): void {
+  try {
+    window.localStorage.setItem(V2_KEY, JSON.stringify(pinnedItems))
+  } catch {
+    // Pełny albo zablokowany storage — przypięcie działa do końca sesji, tylko bez zapisu.
+    // Wyjątek z updatera `setState` wywróciłby cały render (#7).
+  }
 }
 
-export function useFavourites() {
-  const [favourites, setFavourites] = useState<Favourite[]>([])
+export function usePinned() {
+  const [pinnedItems, setPinnedItems] = useState<PinnedItem[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -79,31 +84,31 @@ export function useFavourites() {
     // would produce a client/server markup mismatch on the first paint.
     const initial = readStorage()
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFavourites(initial)
+    setPinnedItems(initial)
     setLoaded(true)
   }, [])
 
-  function addFavourite(favourite: Favourite): void {
-    const key = favouriteKey(favourite)
-    setFavourites((current) => {
-      if (current.some((item) => favouriteKey(item) === key)) return current
-      const next = [...current, favourite]
+  function addPinned(pinnedItem: PinnedItem): void {
+    const key = pinnedKey(pinnedItem)
+    setPinnedItems((current) => {
+      if (current.some((item) => pinnedKey(item) === key)) return current
+      const next = [...current, pinnedItem]
       writeStorage(next)
       return next
     })
   }
 
-  function removeFavourite(key: string): void {
-    setFavourites((current) => {
-      const next = current.filter((item) => favouriteKey(item) !== key)
+  function removePinned(key: string): void {
+    setPinnedItems((current) => {
+      const next = current.filter((item) => pinnedKey(item) !== key)
       writeStorage(next)
       return next
     })
   }
 
-  function isFavourite(key: string): boolean {
-    return favourites.some((item) => favouriteKey(item) === key)
+  function isPinned(key: string): boolean {
+    return pinnedItems.some((item) => pinnedKey(item) === key)
   }
 
-  return { favourites, loaded, addFavourite, removeFavourite, isFavourite }
+  return { pinnedItems, loaded, addPinned, removePinned, isPinned }
 }

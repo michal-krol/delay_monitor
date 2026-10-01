@@ -7,10 +7,9 @@ import { SunIcon, MoonIcon } from './icons'
 /**
  * Przełącznik jasny/ciemny jako ikona bez podpisu — przeniesiony z dolnej
  * części Sidebara (gdzie miał etykietę "Tryb ciemny" + osobny suwak) do
- * prawego górnego rogu, obok innych przycisków-ikon (np. `BellIcon` w
- * `TopBar`), na wyraźną prośbę użytkownika. Wydzielony z `Sidebar`, żeby ten
- * sam przycisk dało się osadzić też w `FullBoard` (strona `/station/[stationId]`
- * nie renderuje `TopBar` i inaczej straciłaby możliwość przełączania motywu).
+ * prawego górnego rogu, obok innych przycisków-ikon w
+ * `TopBar`, na wyraźną prośbę użytkownika. Wydzielony z `Sidebar` jako
+ * samodzielny komponent.
  */
 export function ThemeToggle() {
   // next-themes rozwiązuje prawdziwy motyw synchronicznie już przy
@@ -34,10 +33,9 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Przełącz na tryb jasny' : 'Przełącz na tryb ciemny'}
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-      style={{ borderColor: 'var(--surface-border)' }}
+      className="touch-44 relative grid h-9 w-9 shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
     >
-      {isDark ? <MoonIcon size={15} /> : <SunIcon size={15} />}
+      {isDark ? <SunIcon size={15} /> : <MoonIcon size={15} />}
     </button>
   )
 }

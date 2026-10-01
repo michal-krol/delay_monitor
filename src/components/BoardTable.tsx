@@ -6,6 +6,7 @@ import { DelayBadge, LABELS, STATUS_TEXT, TOKENS } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
 import { CategoryBadge } from './CategoryBadge'
 import { InfoTooltip } from './InfoTooltip'
+import { statusTint } from './realizationColors'
 import { AlertCircleIcon, ChevronRightIcon } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
@@ -31,7 +32,7 @@ function StatusLegend() {
       <ul className="flex flex-col gap-2">
         {STATUS_ORDER.map((status) => (
           <li key={status} className="flex gap-2">
-            <span className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: TOKENS[status].bg }} />
+            <span className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: TOKENS[status].bg }} aria-hidden="true" />
             <span>
               {/* text-foreground, nie text-text-primary -- ten drugi nie
                   odpowiada żadnemu zdefiniowanemu tokenowi w globals.css
@@ -52,12 +53,10 @@ function StatusLegend() {
 }
 
 // Delikatne podbarwienie wiersza dla statusów wymagających uwagi — z makiety
-// (`FullBoard.dc.html`). Niezależne od `--status-*-bg` (te są zastrzeżone
-// wyłącznie dla `DelayBadge`, patrz decyzja #8 w globals.css) — to osobna,
-// dużo bardziej przezroczysta warstwa czysto dekoracyjna.
+// (`FullBoard.dc.html`): ten sam token co plakietka, rozcieńczony do 5 %.
 const ROW_TINT: Partial<Record<RealizationStatus, string>> = {
-  delayed: 'rgba(234,88,12,0.05)',
-  cancelled: 'rgba(225,29,72,0.05)',
+  delayed: statusTint('delayed', 5),
+  cancelled: statusTint('cancelled', 5),
 }
 
 /**
@@ -135,14 +134,14 @@ type Props = {
   direction: Direction
   rows: BoardApiRow[]
   now: number
-  /** Brak snapshotu jeszcze, nie brak połączeń -- bez tego "Brak odjazdów..." i "Ładowanie…" nad tabelą (BoardStatus) potrafiły się pokazać jednocześnie. */
+  /** Brak snapshotu jeszcze, nie brak połączeń -- bez tego "Brak odjazdów..." i "Wczytywanie…" nad tabelą (BoardStatus) potrafiły się pokazać jednocześnie. */
   loading: boolean
 }
 
 /**
  * Tabela wycięta z `FullBoard` — czysto prezentacyjna, nic nie fetchuje.
  * Dzięki temu bezpieczna do zasilenia snapshotem, który wywołujący już ma
- * (np. `Dashboard`'s wspólny `useBoard` dla wszystkich ulubionych), bez
+ * (np. `Dashboard`'s wspólny `useBoard` dla wszystkich przypiętych), bez
  * ryzyka drugiego, niezależnego zapytania do pollera.
  */
 export function BoardTable({ stationName, direction, rows, now, loading }: Props) {
@@ -160,13 +159,13 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   }
 
   const emptyMessage = loading
-    ? 'Ładowanie…'
+    ? 'Wczytywanie…'
     : direction === 'departures'
       ? 'Brak odjazdów w najbliższych godzinach'
       : 'Brak przyjazdów w najbliższych godzinach'
 
   return (
-    <div className="mt-3">
+    <div className="mt-3 @container">
       <div className="overflow-x-auto">
         <table className="board-table w-full text-left text-sm">
           <caption className="sr-only">
@@ -225,8 +224,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium text-text-secondary transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-            style={{ borderColor: 'var(--surface-border)' }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             Pokaż więcej połączeń
             <span className="text-text-muted">({hiddenCount})</span>
@@ -276,9 +274,9 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
       <CategoryBadge category={row.category} categoryName={row.categoryName} />
       <span className="min-w-0">
         <span className="block truncate font-semibold text-foreground">{row.trainLabel}</span>
-        <span className="flex items-center gap-1 text-xs text-text-muted">
+        <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
           <CarrierLogo carrierCode={row.carrier} size={12} />
-          <span className="truncate">{row.carrierName ?? (row.carrier || '—')}</span>
+          <span className="min-w-0 truncate">{row.carrierName ?? (row.carrier || '—')}</span>
         </span>
       </span>
     </span>
@@ -338,7 +336,10 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
       <td data-cell="time" className="py-2.5 pr-3 pl-3 whitespace-nowrap" style={{ boxShadow: `inset 3px 0 0 0 ${accentColor(row.status)}` }}>
         <TimePair row={row} />
       </td>
-      <td data-cell="train" className="max-w-[13rem] py-2.5 pr-3">
+      {/* `truncate` nie kurczy komórki (min-content = pełna nazwa przewoźnika), więc w wąskiej tabeli
+          (kontener < 42rem, np. FullBoard przy oknie 1280 px) limit jest niższy — inaczej tabela 600 px
+          przewijała się w karcie 565 px. Tylko w trybie tabeli (`sm:`): karta na telefonie ma własną siatkę. */}
+      <td data-cell="train" className="max-w-[13rem] py-2.5 pr-3 sm:@max-2xl:max-w-[10rem]">
         {canOpenDetails ? (
           <button
             type="button"
@@ -350,7 +351,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
             // (plakietka kategorii, numer, przewoźnik) -- bez tego czytnik
             // ekranu odczytałby „EIC EIC 1 PKP Intercity" zamiast nazwy pociągu.
             aria-label={row.trainLabel}
-            className="rounded text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="block max-w-full rounded text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             <TrainIdentity row={row} />
           </button>
@@ -358,14 +359,20 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
           <TrainIdentity row={row} />
         )}
       </td>
-      <td data-cell="direction" className="max-w-[18rem] py-2.5 pr-3">
+      {/* Ta sama pułapka co wyżej, ale bez stałego limitu: „przez Warszawa Wschodnia, Wołomin, Tłuszcz
+          · +15 przystanków" rozpychało kolumnę do pełnych 18rem i tabela przewijała się przy 1280 px
+          (QA 2026-10-01). `w-full max-w-0` (tylko tryb tabeli): komórka nie wnosi min-content, a
+          kolumna bierze miejsce, które zostaje po pozostałych — `truncate` skraca do niego tekst.
+          Pozostałe kolumny dostają przez to tylko min-content, stąd `@2xl:whitespace-nowrap` na
+          peronie i statusie: w szerokiej tabeli bez łamania („jeszcze nie wyjechał"), w wąskiej jak dawniej. */}
+      <td data-cell="direction" className="py-2.5 pr-3 sm:w-full sm:max-w-0">
         <span className="block truncate font-medium text-foreground">{row.headsign ?? '—'}</span>
         {via !== null && <span className="block truncate text-xs text-text-muted">{via}</span>}
       </td>
-      <td data-cell="platform" className="py-2.5 pr-3">
+      <td data-cell="platform" className="py-2.5 pr-3 @2xl:whitespace-nowrap">
         <PlatformTrack row={row} />
       </td>
-      <td data-cell="status" className="py-2.5 pr-3">
+      <td data-cell="status" className="py-2.5 pr-3 @2xl:whitespace-nowrap">
         <DelayBadge
           status={row.status}
           delayMinutes={row.delayMinutes}
@@ -377,8 +384,8 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
         <span className="inline-flex items-center gap-1">
           {row.hasDisruption === true && (
-            <span title="Utrudnienie na trasie" className="text-amber-600 dark:text-amber-400">
-              <AlertCircleIcon size={14} />
+            <span className="text-warning-text">
+              <AlertCircleIcon size={14} label="Utrudnienie na trasie" />
             </span>
           )}
           {canOpenDetails && (

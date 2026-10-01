@@ -1,6 +1,8 @@
 'use client'
 
 import { ConfigErrorBanner } from './ConfigErrorBanner'
+import { IconButton } from './IconButton'
+import { PIN_COLOR, StarIcon } from './icons'
 import { BoardRowList } from './BoardRowList'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
@@ -8,8 +10,7 @@ import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { formatClockTime } from '@/lib/format'
 import type { CSSProperties } from 'react'
-import type { RealizationStatus } from '@/lib/board/realization'
-import { GLOW_COLOR, BORDER_COLOR } from './realizationColors'
+import { GLOW_COLOR, BORDER_COLOR, statusTint } from './realizationColors'
 
 type Props = {
   stationId: string
@@ -19,19 +20,6 @@ type Props = {
   configError: boolean
   onExpand: (station: StationOption) => void
   onRemove: () => void
-}
-
-// Tryplet "r,g,b" tej samej barwy co GLOW_COLOR/BORDER_COLOR (bez alfy) —
-// zasila dekorację w tle karty (tor + wyblakły pociąg), żeby obwódka,
-// poświata i dekoracja trzymały spójny odcień, zamiast czterech niezależnie
-// dobranych kolorów dla tego samego statusu.
-const DECOR_RGB: Record<RealizationStatus, string> = {
-  onTime: '22,163,74',
-  delayed: '234,88,12',
-  cancelled: '225,29,72',
-  enRoute: '79,70,229',
-  notStarted: '2,132,199',
-  unknown: '51,65,85',
 }
 
 export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand, onRemove }: Props) {
@@ -78,17 +66,17 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
       >
         <div
           className="absolute -right-8 -bottom-8 h-40 w-40 rounded-full blur-[32px]"
-          style={{ background: `rgba(${DECOR_RGB[leadStatus]},0.3)` }}
+          style={{ background: statusTint(leadStatus, 30) }}
         />
         <svg width="200" height="150" viewBox="0 0 200 150" className="absolute -right-4 -bottom-3">
-          <line x1="4" y1="120" x2="112" y2="72" stroke={`rgba(${DECOR_RGB[leadStatus]},0.26)`} strokeWidth="3" strokeLinecap="round" />
-          <line x1="20" y1="130" x2="122" y2="86" stroke={`rgba(${DECOR_RGB[leadStatus]},0.16)`} strokeWidth="3" strokeLinecap="round" />
-          <line x1="38" y1="139" x2="132" y2="100" stroke={`rgba(${DECOR_RGB[leadStatus]},0.09)`} strokeWidth="3" strokeLinecap="round" />
-          <g transform="translate(80,4) scale(4.4)" fill="none" stroke={`rgba(${DECOR_RGB[leadStatus]},0.65)`} strokeWidth="0.35" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="4" y1="120" x2="112" y2="72" style={{ stroke: statusTint(leadStatus, 26) }} strokeWidth="3" strokeLinecap="round" />
+          <line x1="20" y1="130" x2="122" y2="86" style={{ stroke: statusTint(leadStatus, 16) }} strokeWidth="3" strokeLinecap="round" />
+          <line x1="38" y1="139" x2="132" y2="100" style={{ stroke: statusTint(leadStatus, 9) }} strokeWidth="3" strokeLinecap="round" />
+          <g transform="translate(80,4) scale(4.4)" fill="none" style={{ stroke: statusTint(leadStatus, 65) }} strokeWidth="0.35" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12.5V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6.5" />
             <rect x="4.3" y="12.5" width="11.4" height="2.4" rx="1.2" />
-            <circle cx="7.3" cy="9" r="1" fill={`rgba(${DECOR_RGB[leadStatus]},0.65)`} stroke="none" />
-            <circle cx="12.7" cy="9" r="1" fill={`rgba(${DECOR_RGB[leadStatus]},0.65)`} stroke="none" />
+            <circle cx="7.3" cy="9" r="1" style={{ fill: statusTint(leadStatus, 65) }} stroke="none" />
+            <circle cx="12.7" cy="9" r="1" style={{ fill: statusTint(leadStatus, 65) }} stroke="none" />
             <path d="M6.3 15.8 4.6 18M13.7 15.8l1.7 2.2" />
           </g>
         </svg>
@@ -105,31 +93,17 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
               {delayedCount} {pluralPl(delayedCount, 'opóźniony', 'opóźnione', 'opóźnionych')}
             </span>
           )}
-          {/* Gwiazdka ulubionej stacji z makiety — dekoracyjna (karta na Pulpicie
-              to z definicji ulubiona stacja), więc aria-hidden zamiast dublować
-              informację, którą czytnik ekranu już ma z samego umieszczenia karty. */}
-          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 20 20" fill="#facc15" stroke="#facc15" strokeWidth="1" strokeLinejoin="round" className="shrink-0">
-            <path d="m10 3 2.2 4.5 4.9.7-3.6 3.5.9 4.9L10 14.2l-4.4 2.4.9-4.9L2.9 8.2l4.9-.7z" />
-          </svg>
-          {/* z-10 stawia przycisk nad nakładką rozwijającą tablicę, która
-              w drzewie stoi później i domyślnie przykryłaby go w całości.
-              Domyślnie niewidoczny (mockup nie eksponuje usuwania na karcie) —
-              pojawia się na hover/focus karty, żeby nie konkurował z gwiazdką. */}
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label={`Usuń z ulubionych: ${stationName}`}
-            className="relative z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full text-text-muted opacity-0 transition hover:bg-black/5 hover:text-foreground focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 group-hover:opacity-100 dark:hover:bg-white/10"
-          >
-            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
-          </button>
+          {/* Odpięcie tą samą pełną gwiazdką co na stronie stacji (PR 7b): przypięte =
+              pełna, klik odpina. z-10 stawia przycisk nad nakładką rozwijającą tablicę,
+              która w drzewie stoi później i domyślnie przykryłaby go w całości. */}
+          <IconButton label={`Odepnij z Pulpitu: ${stationName}`} onClick={onRemove} className="z-10">
+            <StarIcon size={16} filled className={PIN_COLOR} />
+          </IconButton>
         </div>
       </div>
 
       {error && !snapshot && (
-        <p aria-live="polite" className="mt-1 text-xs text-red-600 dark:text-red-400">
+        <p aria-live="polite" className="mt-1 text-xs text-error-text">
           Błąd pobierania danych
         </p>
       )}

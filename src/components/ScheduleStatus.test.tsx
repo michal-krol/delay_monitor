@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ScheduleStatus } from './ScheduleStatus'
+import { ScheduleStatus, scheduleNeedsAttention } from './ScheduleStatus'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 
 type Block = TransitBoardResponse['schedule']
@@ -18,7 +18,7 @@ const block = (over: Partial<Block>): Block => ({
 describe('ScheduleStatus', () => {
   it('shows the loading phase by name, not a second counter', () => {
     render(<ScheduleStatus schedule={block({ state: 'loading', phase: 'stop_times', ageMs: null, loadedAt: null })} cityName="Warszawa" />)
-    expect(screen.getByText(/Wczytuję rozkład — Warszawa/)).toBeInTheDocument()
+    expect(screen.getByText(/Wczytywanie rozkładu — Warszawa/)).toBeInTheDocument()
     expect(screen.getByText(/rozkład przejazdów/)).toBeInTheDocument()
   })
 
@@ -44,5 +44,27 @@ describe('ScheduleStatus', () => {
     render(<ScheduleStatus schedule={block({ state: 'failed', ageMs: 2 * 60 * 60 * 1000 })} cityName="Warszawa" />)
     expect(screen.getByText(/dane sprzed 2 h/)).toBeInTheDocument()
     expect(screen.getByText(/odświeżanie nie powiodło się/)).toBeInTheDocument()
+  })
+
+  it('quiet: only the title and the update time, no warnings (they live on top of the page)', () => {
+    render(<ScheduleStatus quiet schedule={block({ state: 'failed', ageMs: 2 * 60 * 60 * 1000 })} cityName="Warszawa" error />)
+    expect(screen.getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()
+    expect(screen.getByText(/Aktualizacja: /)).toBeInTheDocument()
+    expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/odświeżanie nie powiodło się/)).not.toBeInTheDocument()
+  })
+})
+
+describe('scheduleNeedsAttention', () => {
+  it('is false for a fresh, ready schedule', () => {
+    expect(scheduleNeedsAttention(block({}), false)).toBe(false)
+  })
+
+  it('is true while loading, when failed, when stale (>= 1 h) and on a fetch error', () => {
+    expect(scheduleNeedsAttention(block({ state: 'loading', ageMs: null, loadedAt: null }), false)).toBe(true)
+    expect(scheduleNeedsAttention(block({ state: 'failed' }), false)).toBe(true)
+    expect(scheduleNeedsAttention(block({ ageMs: 60 * 60 * 1000 }), false)).toBe(true)
+    expect(scheduleNeedsAttention(block({ ageMs: 60 * 60 * 1000 - 1 }), false)).toBe(false)
+    expect(scheduleNeedsAttention(block({}), true)).toBe(true)
   })
 })

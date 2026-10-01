@@ -1,5 +1,9 @@
-import { vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
+import { clearPollingCache } from './src/hooks/pollingCache'
+
+// Cache `usePolling` to stan modułu -- każdy test zaczyna od pustego.
+afterEach(() => clearPollingCache())
 
 /**
  * Auto-mock globalny -- `maplibre-gl` dotyka `window`/WebGL przy inicjalizacji

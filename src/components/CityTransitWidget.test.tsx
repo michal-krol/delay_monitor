@@ -10,7 +10,7 @@ vi.mock('@/hooks/useCityStats', () => ({ useCityStats: () => hookState.current }
 
 const stats: CityStats = {
   linesByMode: { metro: 2, tram: 25, bus: 140, rail: 0, other: 0 },
-  busKinds: { regular: 120, night: 15, express: 5, replacement: 0 },
+  busKinds: { regular: 88, night: 15, express: 5, replacement: 0, zone: 30, local: 2 },
   stopGroupCount: 1200,
   modeCount: 3,
   tripsToday: 5000,
@@ -27,7 +27,8 @@ describe('CityTransitWidget', () => {
   it('shows a loading note before data arrives', () => {
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('Komunikacja miejska — Warszawa')).toBeInTheDocument()
-    expect(screen.getByText('Wczytuję rozkład…')).toBeInTheDocument()
+    // Ten sam komunikat pokazują też inne karty widżetu (aside), więc bywa ich kilka.
+    expect(screen.getAllByText('Wczytywanie rozkładu…').length).toBeGreaterThan(0)
   })
 
   it('lists line counts per mode with the bus-kind breakdown', () => {
@@ -36,6 +37,10 @@ describe('CityTransitWidget', () => {
     expect(screen.getByText('metro')).toBeInTheDocument()
     expect(screen.getByText(/15 nocnych/)).toBeInTheDocument()
     expect(screen.getByText(/5 przyspieszonych/)).toBeInTheDocument()
+    expect(screen.getByText(/30 podmiejskich/)).toBeInTheDocument()
+    expect(screen.getByText(/2 lokalne/)).toBeInTheDocument()
+    // Kolejność rodzajów jak w legendzie ekranu „Linie”: przyspieszone, podmiejskie, lokalne, nocne.
+    expect(screen.getByText(/5 przyspieszonych/).textContent).toMatch(/przyspieszonych.*podmiejskich.*lokalne.*nocnych/)
     // kolej strefowa ma 0 linii — wiersz odsiany
     expect(screen.queryByText('kolej strefowa')).not.toBeInTheDocument()
     expect(screen.getByText(/Pierwszy kurs 04:00, ostatni 02:00/)).toBeInTheDocument()
@@ -81,12 +86,12 @@ describe('CityTransitWidget', () => {
   // transit widget: failed → error text -- state: 'failed' bez błędu sieciowego
   // (`error` z hooka to null: fetch się udał, to poller rozkładu zawiódł po
   // stronie serwera). Bug: dawna gałąź warunku patrzyła tylko na `error`
-  // z hooka, więc ten przypadek renderował „Wczytuję rozkład…" na zawsze.
+  // z hooka, więc ten przypadek renderował „Wczytywanie rozkładu…" na zawsze.
   it('transit widget: failed → error text (nawet bez błędu sieciowego hooka)', () => {
     hookState.current = { data: { city: 'warszawa', state: 'failed', stats: null }, error: null }
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('Nie udało się wczytać statystyk.')).toBeInTheDocument()
-    expect(screen.queryByText('Wczytuję rozkład…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Wczytywanie rozkładu…')).not.toBeInTheDocument()
   })
 
   // Task 2: `stats === null` ze `state: 'ready'` = dzisiejsza data kursowania
@@ -95,15 +100,15 @@ describe('CityTransitWidget', () => {
     hookState.current = { data: { city: 'warszawa', state: 'ready', stats: null }, error: null }
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('Brak rozkładu na dziś.')).toBeInTheDocument()
-    expect(screen.queryByText('Wczytuję rozkład…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Wczytywanie rozkładu…')).not.toBeInTheDocument()
     expect(screen.queryByText('Nie udało się wczytać statystyk.')).not.toBeInTheDocument()
   })
 
-  it('shows "Wczytuję…" for the alert card before the feed is ready', () => {
+  it('shows "Wczytywanie…" for the alert card before the feed is ready', () => {
     hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: null, alertFeed: { state: 'loading', ageMs: null } }, error: null }
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('Utrudnienia')).toBeInTheDocument()
-    expect(screen.getByText('Wczytuję…')).toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
   })
 
   it('shows "Brak aktywnych utrudnień." when the feed is ready with zero alerts', () => {
@@ -112,17 +117,40 @@ describe('CityTransitWidget', () => {
     expect(screen.getByText('Brak aktywnych utrudnień.')).toBeInTheDocument()
   })
 
-  it('shows a distinct error note (not "Wczytuję…") when the alert feed failed', () => {
+  it('shows a distinct error note (not "Wczytywanie…") when the alert feed failed', () => {
     hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: null, alertFeed: { state: 'failed', ageMs: null } }, error: null }
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
     expect(screen.getByText('Nie udało się pobrać utrudnień.')).toBeInTheDocument()
-    expect(screen.queryByText('Wczytuję…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Wczytywanie…')).not.toBeInTheDocument()
   })
 
-  it('still shows "Wczytuję…" (not the error note) while the alert feed is merely loading, not failed', () => {
+  it('keeps the last good alerts with their age when a later alert fetch failed', () => {
+    hookState.current = {
+      data: {
+        city: 'warszawa',
+        state: 'ready',
+        stats,
+        alerts: [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }],
+        alertFeed: { state: 'failed', ageMs: 12 * 60_000 },
+      },
+      error: null,
+    }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText('Utrudnienia na linii 20')).toBeInTheDocument()
+    expect(screen.getByText('Nie udało się odświeżyć — dane sprzed 12 min')).toBeInTheDocument()
+  })
+
+  it('shows the age next to a last good empty alert list when a later alert fetch failed', () => {
+    hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: [], alertFeed: { state: 'failed', ageMs: 7 * 60_000 } }, error: null }
+    render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
+    expect(screen.getByText('Brak aktywnych utrudnień.')).toBeInTheDocument()
+    expect(screen.getByText('Nie udało się odświeżyć — dane sprzed 7 min')).toBeInTheDocument()
+  })
+
+  it('still shows "Wczytywanie…" (not the error note) while the alert feed is merely loading, not failed', () => {
     hookState.current = { data: { city: 'warszawa', state: 'ready', stats, alerts: null, alertFeed: { state: 'loading', ageMs: null } }, error: null }
     render(<CityTransitWidget city="warszawa" cityName="Warszawa" />)
-    expect(screen.getByText('Wczytuję…')).toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
     expect(screen.queryByText('Nie udało się pobrać utrudnień.')).not.toBeInTheDocument()
   })
 

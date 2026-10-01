@@ -5,7 +5,7 @@ import { allLines } from '@/lib/gtfs/query'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
 /**
- * Wszystkie linie miasta, pogrupowane po rodzaju — przeglądarka „Trasy".
+ * Wszystkie linie miasta, pogrupowane po rodzaju — strona „Linie".
  * `city` MUSI być sprawdzone wobec rejestru (wybiera feed). `lines: null`
  * dopóki rozkład się wczytuje — klient ponawia.
  */

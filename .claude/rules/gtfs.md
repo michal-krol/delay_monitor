@@ -24,7 +24,29 @@ paths:
 - **Three independent rhythms:** PKP poller 90 s ↔ browser `/api/board` 30 s ↔ GTFS poller
   (once/day + idle TTL). GTFS loads **once** (~107 MB, ~3 s parse), then only from memory.
   `/api/gtfs/*` never wait — `ensureLoaded()` fire-and-forget, `getSchedule()` returns `null`
-  until ready, the client retries.
+  until ready, the client retries. A failed load backs off server-side (30 s doubling to 1 h, reset on
+  success or idle release, gate in `startLoad()`): client retries during the window don't refetch.
+- **Warm-up at process start (`src/instrumentation.ts`).** `register()` (Node runtime only —
+  `process.env.NEXT_RUNTIME === 'nodejs'`, dynamic import) calls `warmUpGtfsPollers()`
+  (`gtfs/instance.ts`) fire-and-forget for every `enabledGtfsCities()`; it calls the poller's
+  `preload()`, NOT `ensureLoaded()`: only the schedule load starts — no `onWake`, no
+  `lastInterestAt`, no idle timer, so the vehicle/alert feeds are not polled with zero
+  viewers (`ensureLoaded()` there polled the vehicle feed ~240×/boot) — owner decision: a
+  configured city's schedule is resident from boot (~0.5 GB RSS accepted) instead of waiting
+  for the first viewer. `register()` never awaits the load itself, only the (near-instant)
+  dynamic import — Next.js requires `register()` to complete before the server serves.
+  `createGtfsPoller`'s `keepSchedule` dep (set `true` for every poller created in
+  `instance.ts`, since every poller there is for an enabled — i.e. warmed — city) keeps the
+  schedule, `status` and the hourly `maybeRollDay` reload timer alive past `idleTtlMs`; only
+  `onIdle()` still fires, so the vehicle/alert pollers stop without a viewer (no 24/7 upstream
+  polling for those). `onWake` is fired ONLY from `ensureLoaded()` (a real viewer), never from
+  the internal `startLoad()` that `maybeRollDay()` also calls — an unattended day-rollover
+  reload of a kept schedule must NOT resurrect the vehicle/alert pollers (caught in review:
+  wiring `onWake` into `startLoad()` made every idle-stopped warmed city's pollers restart
+  forever at the next day boundary, with zero viewers). Module state (`pollers` Map) is
+  shared between the instrumentation bundle and route handlers — verified empirically
+  (`next build --webpack` + `next start`, `/api/health` before any GTFS request shows the
+  warmed city loading/ready).
 - **Feed fetch timeouts differ by feed.** Vehicles/alerts: 10 s for the whole request. Static
   feed range reads (`client.ts`): the timeout covers only time to response headers, not the
   streamed body — a 107 MB body can legitimately take longer than 30 s; a body stalling
@@ -39,9 +61,26 @@ paths:
   not 400 — unknown-ID convention). Regexes `GTFS_STOP_ID_PATTERN` / `GTFS_ROUTE_ID_PATTERN` in
   `validation.ts` = cheap format guard. `city` **MUST** be checked against the registry — it
   selects the feed.
-- **`route_color` = untrusted string.** Zod (`schema.ts`) → `#RRGGBB` or `null`;
-  `route_text_color` ignored entirely, we compute contrast ourselves (`contrastText`).
-  `LineBadge` uses only `style={{ background }}` with the validated value.
+- **Colour = line category, never the feed.** One palette `LINE_PALETTE` / `lineColor(mode, kind)`
+  in `src/components/transitMode.tsx` (metro yellow, tram, rail, bus, express, zone, local,
+  night, replacement, other) drives `LineBadge` and the whole map (pins, vehicles, route and
+  backbone overlays; `MODE_COLOR` is derived from it). `route_color`/`route_text_color` are
+  not parsed at all (dropped 2026-10-01: no reader left) — no colour field in any `/api/gtfs/*`
+  response. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
+  dark outline/casing on the map (`strokeFor()` in `mapData.ts`). Callers without a kind derive
+  it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Map vehicles get
+  the served `CityVehicle.kind` (from `route_desc` at load); `vehicleKind()` in `mapData.ts` is
+  the one reader for pin and card badge, number fallback only when `kind` is null. Why: `adr/0005`.
+  Kinds (`lineKindFrom`, ZTM convention): `N…` night, `Z…` replacement, `E…`/400–599 express,
+  `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
+  `LINE_KIND_LABEL` (singular chip) and ONE `BUS_KIND_LABEL`/`BUS_KIND_ORDER` (plural colour
+  legend: „Linie” bus subsections + map legend) in `transitMode.tsx`.
+- **„Linie” page** (`/city/<city>/lines`, `LineGrid.tsx`): `<details>` sections per mode, bus
+  subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
+  (`useSectionOpen`), recent lines `monitor.recentLines.v1` (`useRecentLines`, recorded by the
+  line page only after its detail loaded) — both through Zod (#4). React fires `toggle` also
+  for a programmatic `open` change: `setOpen(key, open, count)` skips writes equal to the
+  current state, otherwise the first render would freeze the defaults.
 - **`schedule.routePatterns`** (stop sequence per direction + second `offsets` from the first
   stop) accumulated in the hot `stop_times` loop — don't scan millions of events per line-page
   request. `lineDetail()` reads the ready index; the page computes a time as
@@ -95,7 +134,7 @@ paths:
 - **Transport map — zero new fetches.** `/api/gtfs/backbone` (metro and city-rail patterns
   from `routePatterns`) and `alertLines` in `/api/gtfs/city-vehicles` (line numbers with an
   active alert, `[]` while AlertPoller isn't ready = no badge) read only memory. Colour on the
-  map = transport mode, never delay; the vehicle card shows position freshness, not
+  map = line category (`lineColor(mode, kind)`, `adr/0005`), never delay; the vehicle card shows position freshness, not
   „LIVE +N min".
 - **Stops on the map (`/api/gtfs/stops`, `cityStops()`).** From `stops.txt` already in memory,
   computed once per schedule (`WeakMap`). Metro platforms collapsed to the parent station,
@@ -108,11 +147,27 @@ paths:
   ZERO delay field: `AlertRecord` carries only announcement text. `htmlbody` (foreign HTML)
   deliberately never parsed, rejected at the Zod boundary (`alerts.ts`); `link` passes only as
   `https://` (otherwise `''` — it goes into `<a href>` in `AlertBanner`, not a trusted feed).
-  Two "no data yet" conventions: `/api/gtfs/city-stats` returns `alerts: null` until the poller
-  is `ready` — the only place in this subsystem where null≠[] matters (numeric tile, #7);
-  `/api/gtfs/line` and `/api/gtfs/board` always return `alerts: []` (never `null`) — those are
-  fields attached to a list, not a separate counter, so an empty list just doesn't render a
-  banner.
+  "Alerts known?" has ONE definition: `knownAlerts(poller, { requireFetch? })` in
+  `alertPoller.ts` — never re-derive it from `getView().state` in a route. `null` = unknown
+  (poller absent/`idle`/`loading`); `ready` → alerts; `failed` → last good alerts. The only
+  variation is `failed` with no successful fetch yet (`ageMs === null`):
+  - default (`/api/gtfs/line`, `/api/gtfs/board` per stop) → `[]`. Their clients retry while
+    `alerts === null` and never see the feed state, so `null` there would poll a dead feed
+    forever. The line page fetches once, so without `null` a warm schedule answered `[]` before
+    the first alert fetch and the banner never appeared; `isLineLoading` retries while
+    `alerts === null`, `useTransitBoard` on the ladder while any stop has `alerts === null`.
+  - `requireFetch: true` (`/api/gtfs/city-stats` only) → `null`: numeric tile, #7, „0" must
+    differ from „unknown". It also returns `alertFeed.{state,ageMs}`; `useCityStats` retries
+    while `alerts == null` unless `alertFeed.state === 'failed'` (no polling a dead feed every
+    15 s). Any `failed` feed (with or without last good data) re-polls slowly instead, every
+    5 min (the `AlertPoller` retry rhythm, visible tab only; a still-`loading` schedule keeps the
+    15 s ladder tail), via a result-driven `refreshMs` in `usePolling`, so a later recovery shows
+    up and the stale age keeps growing. Deliberately not in `useLineDetail`/the line page: the
+    line response is a list with no feed state (`failed` is indistinguishable from "no alerts"),
+    and switching lines refetches anyway.
+  `/api/gtfs/board` used to answer `[]` and wait for the 30 s refresh — the stop page's
+  „Komunikaty" tab then claimed „Aktualnie brak komunikatów" for the first viewer after a wake
+  (flaky e2e 2026-09-29).
 
 Contract: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (network, no cost).
 `GTFS_DATA_SOURCE=mock` (default) keeps dev/test/CI zero-network. Fixtures in

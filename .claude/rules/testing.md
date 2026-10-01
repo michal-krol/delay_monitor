@@ -57,7 +57,9 @@ cancelled (`105`), partially (`106`), not yet departed (`107`, `trainStatus S`),
 confirmed departure (`108`), disruptions (`109` dictionary code, `110` PKP text), after
 midnight (`112`, `arrivalDay: 1`), no matched route (`113`), no realization with timetable
 mid-route (`115`, `isScheduleProjection` in `board/trainDetail.ts`). Map `orderId`→case:
-comments in `src/lib/pkp/mock.test.ts`.
+comments in `src/lib/pkp/mock.test.ts`. `105` (upcoming departure from `33605`) also carries the
+only live-length „przez …" list (67 chars) — the board-width e2e (`aside-layout.spec.ts`) needs
+it; the other via lists are short, unlike live data.
 
 Check response shape in the public schema, don't guess from fixtures (no key, no cost):
 `curl -s https://pdp-api.plk-sa.pl/swagger/v1/swagger.json`
@@ -72,6 +74,9 @@ CI (separate `e2e` job, outside the fast `quality` job).
   (`iPhone 15`). New viewport = entry in `playwright.config.ts`.
 - Outside CI `playwright.config.ts` builds with `--webpack` (Turbopack fails when
   `node_modules` is above `turbopack.root`). Don't junction `node_modules` into the worktree.
+- Locally `reuseExistingServer` attaches to ANY server on port 3123 — also another worktree's or
+  session's build (seen 2026-09-29: a different branch's old UI, 14 false failures). Run
+  `E2E_PORT=<free port> npm run e2e` in a worktree; `CI=1` does not help there (Turbopack build fails).
 - Locally `retries: 1` (as in CI): under full load 2 tests failed per run and passed on retry;
   now they show as "flaky". Missing browsers after a Playwright bump → the config prints
   `npx playwright install chromium webkit` and exits.

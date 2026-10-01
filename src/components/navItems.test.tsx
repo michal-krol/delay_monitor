@@ -13,7 +13,7 @@ describe('activeItemFromPath', () => {
 
   it('still recognizes existing routes', () => {
     expect(activeItemFromPath('/')).toBe('pulpit')
-    expect(activeItemFromPath('/lines')).toBe('trasy')
+    expect(activeItemFromPath('/lines')).toBe('linie')
     expect(activeItemFromPath('/city/warszawa')).toBe('odjazdy')
   })
 
@@ -25,6 +25,10 @@ describe('activeItemFromPath', () => {
 describe('NAV_ITEMS', () => {
   it('has an active Mapa entry pointing at /map', () => {
     const item = NAV_ITEMS.find((i) => i.label === 'Mapa')
-    expect(item).toEqual({ kind: 'active', key: 'mapa', href: '/map', label: 'Mapa', icon: expect.any(Function) })
+    expect(item).toEqual({ key: 'mapa', href: '/map', label: 'Mapa', icon: expect.any(Function) })
+  })
+
+  it('has exactly 4 entries (no disabled placeholders)', () => {
+    expect(NAV_ITEMS).toHaveLength(4)
   })
 })

@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type KeyboardEvent } from 'react'
 import { LineBadge } from '../LineBadge'
+import { SEARCH_INPUT_CLASS } from '../StationSearch'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import { normalizeForSearch } from '@/lib/search'
 
@@ -18,7 +19,7 @@ export function LineSearch({
   onSelect,
   className = '',
 }: {
-  /** `null` = lista jeszcze się wczytuje (pole działa, pokazuje „Wczytuję…"). */
+  /** `null` = lista jeszcze się wczytuje (pole działa, pokazuje „Wczytywanie…"). */
   lines: LineListEntry[] | null
   onSelect: (line: LineListEntry) => void
   className?: string
@@ -43,7 +44,7 @@ export function LineSearch({
   }, [needle, lines])
 
   const isOpen = options.length > 0
-  const message = needle === '' ? null : lines === null ? 'Wczytuję linie…' : options.length === 0 ? 'Nie znaleziono linii' : null
+  const message = needle === '' ? null : lines === null ? 'Wczytywanie linii…' : options.length === 0 ? 'Nie znaleziono linii' : null
 
   function choose(line: LineListEntry): void {
     onSelect(line)
@@ -53,6 +54,7 @@ export function LineSearch({
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === 'Escape') {
+      if (query !== '') event.preventDefault() // jest co wyczyścić — Escape nie zamyka panelu
       setQuery('')
       setActiveIndex(-1)
       return
@@ -88,7 +90,7 @@ export function LineSearch({
           setActiveIndex(-1)
         }}
         onKeyDown={onKeyDown}
-        className="glass w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500"
+        className={SEARCH_INPUT_CLASS}
       />
       {message !== null && (
         <p role="status" className="glass-strong absolute z-20 mt-2 w-full rounded-xl px-3.5 py-2 text-sm text-text-secondary">
@@ -112,7 +114,7 @@ export function LineSearch({
                 choose(line)
               }}
             >
-              <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" />
+              <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
               <span className="truncate text-text-secondary">{line.longName}</span>
             </li>
           ))}

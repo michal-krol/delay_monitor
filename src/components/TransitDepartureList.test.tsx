@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { TransitDepartureList } from './TransitDepartureList'
+import { ON_REQUEST_TITLE } from './OnRequestBadge'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 
 type Dep = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
@@ -14,7 +15,6 @@ function dep(over: Partial<Dep> = {}): Dep {
     line: '20',
     mode: 'tram',
     lineKind: 'regular',
-    color: null,
     headsign: 'Piaski',
     plannedAt: '2026-09-02T14:30:00+02:00',
     departureSec: 52200,
@@ -57,6 +57,12 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('nocna')).toBeInTheDocument()
   })
 
+  it('labels zone and local lines with the shared kind label', () => {
+    render(<TransitDepartureList departures={[dep({ lineKind: 'zone' }), dep({ lineKind: 'local' })]} />)
+    expect(screen.getByText('podmiejska')).toBeInTheDocument()
+    expect(screen.getByText('lokalna')).toBeInTheDocument()
+  })
+
   it('tags the słupek with the bare code, never the word "słupek"', () => {
     render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showSlupek />)
     expect(screen.getByText('06')).toBeInTheDocument()
@@ -68,6 +74,17 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('2 przyst.')).toBeInTheDocument()
   })
 
+  it('gives the stop-code and vehicle chips readable (not title-only) text', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: '06', vehicle: { stopsAway: 2, ageSec: 15 } })]} showSlupek />)
+    expect(screen.getByText('Odjazd z:')).toHaveClass('sr-only')
+    expect(screen.getByText(/pozycja na żywo/)).toHaveClass('sr-only')
+  })
+
+  it('says how old a stale vehicle position is', () => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 150 } })]} />)
+    expect(screen.getByText(/pozycja sprzed 3 min/)).toHaveClass('sr-only')
+  })
+
   it('shows "zaraz będzie" (approaching, not departed) at stopsAway 0', () => {
     render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 0, ageSec: 15 } })]} />)
     expect(screen.getByText('zaraz będzie')).toBeInTheDocument()
@@ -77,5 +94,16 @@ describe('TransitDepartureList', () => {
     const { container } = render(<TransitDepartureList departures={[]} loading />)
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
+  })
+
+  it('marks an on-request stop with the shared „na żądanie” badge', () => {
+    render(<TransitDepartureList departures={[dep({ onRequest: true })]} />)
+    expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
+  })
+
+  it('highlights the next departure in the accent colour, never green (#13)', () => {
+    const now = new Date('2026-09-02T14:20:00+02:00').getTime()
+    render(<TransitDepartureList departures={[dep()]} now={now} highlightFirst />)
+    expect(screen.getByText('za 10 min')).toHaveClass('text-indigo-600')
   })
 })

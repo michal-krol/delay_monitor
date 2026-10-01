@@ -35,6 +35,7 @@ export function makePkpClient(overrides: Partial<PkpClient> = {}): PkpClient {
     getTrainDetail: vi.fn(),
     getNameDictionaries: vi.fn().mockResolvedValue({ carrierNames: {}, categoryNames: {} }),
     getCachedStationIds: vi.fn(() => null),
+    getLastBudget: vi.fn(() => null),
     getOperationsStatistics: vi.fn(),
     getDailyCarrierCounts: vi.fn(),
     getDisruptionCount: vi.fn(),

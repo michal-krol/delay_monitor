@@ -81,9 +81,12 @@ test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', a
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
   const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
   await expect(dialog).toBeVisible()
-  // MapLibre przebudowuje atrybucję (linki) po załadowaniu stylu -- Tab przed tym gubi fokus na body.
+  // MapLibre przebudowuje atrybucję (`replaceChildren`, nowe linki) za każdym razem, gdy używane
+  // źródło stylu dołoży swoją -- fokusowany link znika i fokus spada na body. Sam „MapLibre" to
+  // PIERWSZA wersja (flaky 2026-09-29: przebudowa ~250 ms po tej bramce, 3/30 porażek);
+  // „OpenStreetMap" przychodzi w ostatniej, a identyczny HTML MapLibre pomija (`_updateAttributions`).
   await expectTilesRendered(dialog.locator('canvas'))
-  await expect(dialog.getByRole('link', { name: 'MapLibre' })).toBeVisible()
+  await expect(dialog.getByRole('link', { name: /OpenStreetMap/ })).toBeVisible()
 
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press('Tab')
@@ -218,6 +221,26 @@ test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', a
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
 
+// Każda mapa `MapView` w obu motywach (PR 6: ciemny podkład, piny w kolorze rodzaju, kontrolki `glass`).
+// Mapa stacji siedzi w bocznym panelu, na telefonie ukrytym — stąd `toBeAttached`, nie `toBeVisible`.
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const [name, path, ready] of [
+    ['linii', LINE_20, 'Mapa trasy linii 20'],
+    ['połączenia', TRAIN_104, 'Mapa trasy pociągu'],
+    ['stacji', STATION_BOARD, 'Mapa stacji'],
+  ] as const) {
+    if (colorScheme === 'light' && name !== 'stacji') continue // jasne skany linii i połączenia są wyżej
+    test(`a11y: mapa ${name} w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} bez naruszeń serious/critical`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme })
+      await page.goto(path)
+      await expect(page.getByRole('region', { name: new RegExp(`^${ready}`) }).locator('.maplibregl-marker').first()).toBeAttached({ timeout: READY })
+      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+      const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+      expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+    })
+  }
+}
+
 // Mapa transportu (refaktor 2026-09-26): kolej z całej Polski + przystanki
 // i pojazdy miasta jako warstwy WebGL. Obiekty na canvasie nie są fokusowalne —
 // ścieżką klawiatury i testów jest wyszukiwarka → karta (MapCard).
@@ -252,6 +275,75 @@ test('mapa transportu: renderuje kafelki, pasek wyszukiwania, filtry i legendę'
   await expect(page.getByRole('button', { name: 'Przybliż' })).toBeVisible()
   await expect(page.getByText('Legenda')).toBeVisible()
   await expect(page.getByText(/pozycje pojazdów:/)).toBeVisible({ timeout: READY })
+})
+
+function intersects(a: { x: number; y: number; width: number; height: number }, b: typeof a): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/**
+ * Rozwinięta legenda zostaje w mapie, nie zasłania kontrolek w prawym górnym rogu (zoom MapLibre,
+ * „Pokaż całe miasto”) i daje się zwinąć. Legenda rośnie w górę od dołu mapy: bez limitu wysokości
+ * jej nagłówek („Legenda” = jedyne zwinięcie) chował się pod przyklejonym nagłówkiem strony
+ * (podlegenda rodzajów autobusów, +110 px), a z limitem od `top-3` przykrywała kontrolki rogu.
+ */
+async function expectExpandedLegendFits(page: Page): Promise<void> {
+  const map = await openMap(page)
+  const legend = page.locator('details', { has: page.getByText('Legenda', { exact: true }) })
+  await legend.getByText('Legenda', { exact: true }).click()
+  await expect(legend).toHaveAttribute('open', '')
+  const [mapBox, legendBox] = [await map.boundingBox(), await legend.boundingBox()]
+  expect(legendBox!.y).toBeGreaterThanOrEqual(mapBox!.y)
+  expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(mapBox!.y + mapBox!.height)
+  for (const control of [page.getByRole('button', { name: 'Przybliż' }), page.getByRole('button', { name: /^Pokaż całe miasto/ })]) {
+    await expect(control).toBeVisible()
+    const controlBox = await control.boundingBox()
+    expect(intersects(legendBox!, controlBox!), `legenda zasłania ${await control.getAttribute('aria-label')}`).toBe(false)
+  }
+  await legend.getByText('Legenda', { exact: true }).click()
+  await expect(legend).not.toHaveAttribute('open', '')
+}
+
+test.describe('niski telefon (375×667)', () => {
+  test.use({ viewport: { width: 375, height: 667 } })
+
+  test('mapa transportu: rozwinięta legenda mieści się w mapie i daje się zwinąć', async ({ page }) => {
+    await expectExpandedLegendFits(page)
+  })
+})
+
+test.describe('niski desktop (800×600)', () => {
+  test.use({ viewport: { width: 800, height: 600 } })
+
+  test('mapa transportu: rozwinięta legenda nie zasłania przybliżania ani „Pokaż całe miasto”', async ({ page }) => {
+    await expectExpandedLegendFits(page)
+  })
+})
+
+// Regresja (QA staging 2026-10-01): na 375 px przyciski Lista/Filtry/Udostępnij zeszły do drugiego
+// rzędu (114–158 px od góry mapy), a rozwinięta legenda zaczynała się na 144 px i zakrywała ich dół.
+test.describe('mapa transportu: rozwinięta legenda pod przyciskami w drugim rzędzie', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
+  })
+
+  test('375×812: dolny środek każdego przycisku trafia w przycisk, nie w legendę', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openMap(page)
+    const legend = page.locator('details', { has: page.getByText('Legenda', { exact: true }) })
+    await legend.getByText('Legenda', { exact: true }).click()
+    await expect(legend).toHaveAttribute('open', '')
+    for (const button of [
+      page.getByRole('button', { name: 'Lista', exact: true }),
+      page.getByRole('button', { name: /Filtry/ }),
+      page.getByRole('button', { name: 'Udostępnij ten widok mapy' }),
+    ]) {
+      const box = (await button.boundingBox())!
+      // 1 px nad krawędzią: sam brzeg (`y + height`) należy już do elementu pod spodem.
+      const hit = await button.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [box.x + box.width / 2, box.y + box.height - 1])
+      expect(hit, `legenda zasłania dół przycisku ${await button.textContent() || await button.getAttribute('aria-label')}`).toBe(true)
+    }
+  })
 })
 
 test('mapa transportu: wyszukanie stacji otwiera kartę z linkiem do pełnej tablicy, Escape ją zamyka', async ({ page }) => {
@@ -343,14 +435,14 @@ test('mapa transportu: „Lista" pokazuje obiekty w kadrze, „Co jest w pobliż
   await expect(nearby.getByRole('button', { name: /Warszawa Śródmieście/ }).first()).toBeVisible()
 })
 
-test('mapa transportu: gwiazdka w karcie zapisuje ulubione, które widać potem w menu', async ({ page }) => {
+test('mapa transportu: gwiazdka w karcie przypina do Pulpitu, co widać potem w menu', async ({ page }) => {
   await openMap(page)
   await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Centralna')
   await page.getByRole('option', { name: 'Warszawa Centralna' }).click()
-  await page.getByRole('dialog', { name: 'Warszawa Centralna' }).getByRole('button', { name: 'Dodaj do ulubionych' }).click()
+  await page.getByRole('dialog', { name: 'Warszawa Centralna' }).getByRole('button', { name: 'Przypnij do Pulpitu' }).click()
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Ulubione' }).click()
-  await expect(page.getByRole('list', { name: 'Ulubione' }).getByRole('button', { name: 'Warszawa Centralna' })).toBeVisible()
+  await page.getByRole('button', { name: 'Przypięte' }).click()
+  await expect(page.getByRole('list', { name: 'Przypięte' }).getByRole('button', { name: 'Warszawa Centralna' })).toBeVisible()
 })
 
 test('a11y: mapa transportu bez naruszeń serious/critical', async ({ page }) => {
@@ -365,4 +457,50 @@ test('a11y: mapa transportu w trybie ciemnym i z otwartą kartą bez naruszeń s
   await page.getByRole('option', { name: 'Warszawa Centralna' }).click()
   await expect(page.getByRole('dialog', { name: 'Warszawa Centralna' })).toBeVisible()
   await expectNoBlockingA11y(page)
+})
+
+// Regresja (QA 2026-09-30): na 375 px pole wyszukiwania dzieliło rząd z przyciskami
+// (Lista, Filtry, Udostępnij ≈ 224 px) i kurczyło się do ~75 px („Sz…").
+test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
+  })
+
+  test('375 px: pola miejsca i linii mają co najmniej 160 px, strona nie przewija się w poziomie', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openMap(page)
+    const place = await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).boundingBox()
+    expect(place!.width).toBeGreaterThanOrEqual(160)
+    const line = await (await lineSearch(page)).boundingBox()
+    expect(line!.width).toBeGreaterThanOrEqual(160)
+    // Przyciski zostają przy prawej krawędzi: panel „Filtry" (`right-0`) otwiera się w lewo,
+    // przy przyciskach z lewej wyjeżdżał ~100 px poza ekran.
+    const share = await page.getByRole('button', { name: 'Udostępnij ten widok mapy' }).boundingBox()
+    expect(share!.x + share!.width).toBeCloseTo(line!.x + line!.width, 0)
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  })
+
+  // CI 2026-10-01 (mobile-safari, iPhone 15): przyciski w drugim rzędzie zepchnęły chip linii
+  // pod kartę na dole (max 62% mapy), „×" w chipie przestało dać się kliknąć.
+  test('393×659: karta linii nie zakrywa chipów filtrów', async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 659 })
+    await openMap(page)
+    await (await lineSearch(page)).fill('20')
+    await page.getByRole('option', { name: /^Linia 20/ }).click()
+    const chips = await page.getByRole('list', { name: 'Aktywne filtry' }).boundingBox()
+    const card = await page.getByRole('dialog').boundingBox()
+    expect(card!.y).toBeGreaterThanOrEqual(chips!.y + chips!.height)
+  })
+
+  test('1280 px: oba pola i przyciski zostają w jednym rzędzie', async ({ page }) => {
+    await openMap(page)
+    const top = async (locator: Locator) => (await locator.boundingBox())!.y
+    const row = await top(page.getByRole('button', { name: 'Lista' }))
+    expect(await top(page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }))).toBeCloseTo(row, 0)
+    expect(await top(page.getByRole('combobox', { name: 'Szukaj linii' }))).toBeCloseTo(row, 0)
+  })
 })

@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
-import { contrastText, modeFromRouteType } from '@/lib/gtfs/schema'
+import { modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
 import { serviceDateWindow } from '@/lib/pkp/time'
 
@@ -28,7 +28,10 @@ let vehiclePoller: {
 } | null = null
 
 /** Podmieniany per-test: `null` = brak feedu alertów, obiekt = udawany poller. */
-let alertPoller: { getAlerts: () => { id: string; routes: string[]; effect: string; link: string; title: string; body: string }[] } | null = null
+let alertPoller: {
+  getView: () => { state: string }
+  getAlerts: () => { id: string; routes: string[]; effect: string; link: string; title: string; body: string }[]
+} | null = null
 
 vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (...args: [string]) => getGtfsPoller(...args),
@@ -47,7 +50,7 @@ beforeAll(async () => {
     timezone: 'Europe/Warsaw',
     attribution: ['ZTM', 'Mikołaj Kuranowski'],
     routes: [
-      { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular', color: null, textColor: contrastText(null) },
+      { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular' },
     ],
     stops: [
       { id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 },
@@ -155,7 +158,7 @@ describe('GET /api/gtfs/board', () => {
       timezone: 'Europe/Warsaw',
       attribution: ['ZTM', 'Mikołaj Kuranowski'],
       routes: [
-        { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular', color: null, textColor: contrastText(null) },
+        { id: '20', shortName: '20', longName: '20', mode: modeFromRouteType(0), kind: 'regular' },
       ],
       stops: [
         { id: '100101', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: '01', wheelchair: 1 },
@@ -187,13 +190,40 @@ describe('GET /api/gtfs/board', () => {
     schedule = kept
   })
 
-  it('stop.alerts is [] when no alert poller exists yet', async () => {
+  it('stop.alerts is null (unknown, not "none") when no alert poller exists yet', async () => {
     const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
-    expect(body.stops[0].alerts).toEqual([])
+    expect(body.stops[0].alerts).toBeNull()
+  })
+
+  it.each(['idle', 'loading'])('stop.alerts is null while the alert poller is %s (first viewer woke it)', async (state) => {
+    // Regresja (e2e flaky 2026-09-29): pierwsza odpowiedź po obudzeniu pollera
+    // alertów niosła `alerts: []`, a klient pokazywał „brak komunikatów" do
+    // następnego odświeżenia za 30 s.
+    alertPoller = {
+      getView: () => ({ state }),
+      getAlerts: () => [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }],
+    }
+    try {
+      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
+      expect(body.stops[0].alerts).toBeNull()
+    } finally {
+      alertPoller = null
+    }
+  })
+
+  it('stop.alerts is a list once the alert feed failed, so the client stops retrying a dead feed', async () => {
+    alertPoller = { getView: () => ({ state: 'failed' }), getAlerts: () => [] }
+    try {
+      const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
+      expect(body.stops[0].alerts).toEqual([])
+    } finally {
+      alertPoller = null
+    }
   })
 
   it('stop.alerts matches by the group\'s lines (route short name "20" from the fixture)', async () => {
     alertPoller = {
+      getView: () => ({ state: 'ready' }),
       getAlerts: () => [
         { id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' },
         { id: 'b', routes: ['999'], effect: 'DETOUR', link: '', title: 'Inna linia', body: 'b' },
@@ -213,6 +243,7 @@ describe('GET /api/gtfs/board', () => {
     // po zespole, inaczej `?member=` cichnie baner (patrz komentarz przy
     // `groupRouteIdxs` w route.ts).
     alertPoller = {
+      getView: () => ({ state: 'ready' }),
       getAlerts: () => [{ id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }],
     }
     try {

@@ -32,7 +32,7 @@ const { mockBoard, mockTransit } = vi.hoisted(() => ({
           stopId: '7014M',
           name: 'Świętokrzyska',
           modes: ['metro'],
-          lines: [{ routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro' }],
+          lines: [{ routeId: 'M1', line: 'M1', mode: 'metro' }],
           summary: { lineCount: 1, departuresToday: 40, firstDepartureSec: 18000, lastDepartureSec: 90000, hourly: new Array(24).fill(1) },
           alerts: [],
           departures: [],
@@ -90,7 +90,7 @@ describe('CityPage', () => {
           ? jsonResponse({
               stations: [
                 { id: '33605', name: 'Warszawa Centralna', kind: 'rail', mode: 'rail' },
-                { id: '7014M', name: 'Świętokrzyska', kind: 'transit', mode: 'metro', modes: ['metro'], lines: [{ routeId: 'M1', line: 'M1', color: null, mode: 'metro' }] },
+                { id: '7014M', name: 'Świętokrzyska', kind: 'transit', mode: 'metro', modes: ['metro'], lines: [{ routeId: 'M1', line: 'M1', mode: 'metro' }] },
               ],
             })
           : citiesResponse()
@@ -163,5 +163,19 @@ describe('CityPage', () => {
     const label = await screen.findByText('stacje kolejowe')
     expect(label.parentElement?.textContent).toBe('—stacje kolejowe')
     expect(screen.queryByText('0')).not.toBeInTheDocument()
+  })
+
+  it('with a selection: one h1 (the TopBar\'s) and Udostępnij in the TopBar; without: no share', () => {
+    search = 'stop=7014M&name=%C5%9Awi%C4%99tokrzyska'
+    const { unmount } = render(<CityPage />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Udostępnij' })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 2, name: 'Świętokrzyska' })).toBeInTheDocument()
+    unmount()
+
+    search = ''
+    render(<CityPage />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
   })
 })

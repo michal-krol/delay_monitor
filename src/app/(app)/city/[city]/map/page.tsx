@@ -5,28 +5,26 @@ import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
 import { TopBar } from '@/components/TopBar'
-import { CityPicker, type CityOption } from '@/components/CityPicker'
+import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { CloseIcon, MapIcon, ShareIcon } from '@/components/icons'
+import { CityIcon, CloseIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { MapFilters } from '@/components/map/MapFilters'
 import { MapLegend } from '@/components/map/MapLegend'
-import { FavouritesMenu, NearbyPanel, VisibleListPanel, type FavouritePoint } from '@/components/map/MapPanels'
+import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
 import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
 import {
   HIDE_AFTER_SEC,
   LAYER_LABEL,
   MAP_ZOOM,
   VEHICLE_LAYERS,
-  ageLabel,
   boundsContain,
   formatAt,
   nearbyPoints,
   parseAt,
   parseHidden,
-  routeColor,
   routeOverlay,
   serializeHidden,
   stopsBounds,
@@ -36,17 +34,21 @@ import {
   type NearbyPoint,
   type VisibleItem,
 } from '@/components/map/mapData'
+import { useCities } from '@/hooks/useCities'
 import { useCityStops } from '@/hooks/useCityStops'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
-import { favouriteKey, useFavourites, type Favourite } from '@/hooks/useFavourites'
+import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useLineDetail } from '@/hooks/useLineDetail'
+import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { formatAgo } from '@/lib/format'
 import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
+import { lineColor } from '@/components/transitMode'
 
 const WIDE_QUERY = '(min-width: 40rem)'
 const LAST_VIEW_KEY = 'monitor.map.view.v1'
@@ -71,32 +73,14 @@ function saveLastView(city: string, at: string): void {
   }
 }
 
-/** Jedno pobranie listy z `url` (pole `field`), ponawiane, dopóki rozkład się wczytuje (`null`). */
+/** Jedno pobranie listy z `url` (wybór pola przez `pick`), ponawiane drabinką `usePolling`, dopóki rozkład się wczytuje (`null`). */
 function useCityList<T>(url: string, pick: (json: Record<string, unknown>) => T[] | null): T[] | null {
-  const [items, setItems] = useState<T[] | null>(null)
-  const pickRef = useRef(pick)
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    async function load(): Promise<void> {
-      try {
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(String(response.status))
-        const next = pickRef.current((await response.json()) as Record<string, unknown>)
-        if (cancelled) return
-        if (next === null) timer = setTimeout(() => void load(), 2_000)
-        else setItems(next)
-      } catch {
-        if (!cancelled) timer = setTimeout(() => void load(), 30_000)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [url])
-  return items
+  // Opakowanie `{ items }`, bo `null` z `pick` („rozkład się wczytuje") ma napędzać ponawianie, a nie znaczyć „brak odpowiedzi".
+  const { data } = usePolling<{ items: T[] | null }>(url, async () => ({ items: pick(await fetchJson<Record<string, unknown>>(url)) }), {
+    refreshMs: null,
+    isLoading: (result) => result.items === null,
+  })
+  return data?.items ?? null
 }
 
 /** Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon. */
@@ -118,7 +102,7 @@ export default function CityMapPage() {
   const feed = CITY_ID_PATTERN.test(city) ? getCity(city) : null
   if (feed === null) notFound()
 
-  const [cities, setCities] = useState<CityOption[]>([])
+  const { cities } = useCities()
   const [hidden, setHidden] = useState<Set<LayerKey>>(() => new Set())
   const [routeParam, setRouteParam] = useState<string | null>(null)
   const [directionId, setDirectionId] = useState(0)
@@ -140,7 +124,7 @@ export default function CityMapPage() {
   const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
   const { share, status: shareStatus } = useShareUrl()
-  const { favourites, addFavourite, removeFavourite, isFavourite } = useFavourites()
+  const { pinnedItems, addPinned, removePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
@@ -170,19 +154,6 @@ export default function CityMapPage() {
     [city]
   )
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/cities')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { cities: CityOption[] }) => {
-        if (!cancelled) setCities(body.cities)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   // `?line=` to `routeId`; stare linki niosły numer linii („20") — dopasowujemy go dokładnie.
   const line = useMemo(() => {
     if (routeParam === null || lines === null) return null
@@ -194,7 +165,7 @@ export default function CityMapPage() {
     const directions = lineDetail.detail?.directions ?? []
     const direction = directions.find((d) => d.directionId === directionId) ?? directions[0]
     if (line === null || direction === undefined) return null
-    return { key: `${line.routeId}:${direction.directionId}`, overlay: routeOverlay(direction), color: routeColor(line.mode, line.color) }
+    return { key: `${line.routeId}:${direction.directionId}`, overlay: routeOverlay(direction), color: lineColor(line.mode, line.kind).bg }
   }, [line, lineDetail.detail, directionId])
 
   const vehiclesById = useMemo(() => new Map(vehiclesState.vehicles.map((v) => [v.id, v])), [vehiclesState.vehicles])
@@ -235,20 +206,20 @@ export default function CityMapPage() {
 
   const onlyLines = useMemo(() => (alertsOnly ? new Set(vehiclesState.alertLines) : null), [alertsOnly, vehiclesState.alertLines])
 
-  // Ulubione (Pulpit) z pozycją na mapie: stacje z listy kolei, przystanki tego miasta z listy przystanków.
-  const favouritePoints = useMemo<FavouritePoint[]>(() => {
-    const points: FavouritePoint[] = []
-    for (const fav of favourites) {
+  // Przypięte (Pulpit) z pozycją na mapie: stacje z listy kolei, przystanki tego miasta z listy przystanków.
+  const pinnedPoints = useMemo<PinnedPoint[]>(() => {
+    const points: PinnedPoint[] = []
+    for (const fav of pinnedItems) {
       const hit =
         fav.kind === 'pkp'
           ? railState.stations?.find((s) => s.id === fav.id)
           : fav.city === city
             ? stopsState.stops?.find((s) => s.id === fav.id || s.groupId === fav.id)
             : undefined
-      if (hit !== undefined) points.push({ key: favouriteKey(fav), name: fav.name, lat: hit.lat, lon: hit.lon })
+      if (hit !== undefined) points.push({ key: pinnedKey(fav), name: fav.name, lat: hit.lat, lon: hit.lon })
     }
     return points
-  }, [favourites, railState.stations, stopsState.stops, city])
+  }, [pinnedItems, railState.stations, stopsState.stops, city])
 
   // Pojazdy w liście z kierunkiem — dwa „20" obok siebie muszą się dać odróżnić.
   const visibleItems = useMemo<VisibleItem[] | null>(
@@ -326,18 +297,18 @@ export default function CityMapPage() {
     if (at !== undefined) focusOn(at.lat, at.lon)
   }
 
-  function openFavourite(favourite: FavouritePoint): void {
-    const fav = favourites.find((f) => favouriteKey(f) === favourite.key)
+  function openPinned(pinnedItem: PinnedPoint): void {
+    const fav = pinnedItems.find((f) => pinnedKey(f) === pinnedItem.key)
     if (fav?.kind === 'pkp') onMapSelect({ kind: 'rail', id: fav.id })
     else {
       const stop = stopsState.stops?.find((s) => s.id === fav?.id || s.groupId === fav?.id)
       if (stop !== undefined) onMapSelect({ kind: 'stop', id: stop.id })
     }
-    focusOn(favourite.lat, favourite.lon)
+    focusOn(pinnedItem.lat, pinnedItem.lon)
   }
 
-  /** Klucz ulubionego dla karty stacji/przystanku; `null` dla pojazdu. */
-  function favouriteFor(sel: MapSelection): Favourite | null {
+  /** Klucz przypiętego dla karty stacji/przystanku; `null` dla pojazdu. */
+  function pinnedItemFor(sel: MapSelection): PinnedItem | null {
     if (sel.kind === 'rail') return { kind: 'pkp', id: sel.id, name: sel.name }
     if (sel.kind === 'stop') return { kind: 'gtfs', city, id: sel.id, name: sel.name }
     return null
@@ -371,13 +342,13 @@ export default function CityMapPage() {
   const vehiclesFailed = vehiclesState.error !== null || vehiclesState.feed.state === 'failed'
   const freshness =
     neverLoaded && !vehiclesFailed
-      ? 'wczytuję pozycje pojazdów…'
+      ? 'wczytywanie pozycji pojazdów…'
       : neverLoaded
         ? 'nie udało się pobrać pozycji pojazdów'
         : vehiclesFailed
           ? 'pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne'
           : vehiclesState.feed.ageMs !== null
-            ? `pozycje pojazdów: ${ageLabel(Math.round(vehiclesState.feed.ageMs / 1000))}`
+            ? `pozycje pojazdów: ${formatAgo(Math.round(vehiclesState.feed.ageMs / 1000))}`
             : 'pozycje pojazdów na żywo'
 
   const problems = [
@@ -387,7 +358,7 @@ export default function CityMapPage() {
 
   const vehiclesOnLine = line === null ? 0 : vehiclesState.vehicles.filter((v) => v.routeId === line.routeId && v.ageSec <= HIDE_AFTER_SEC).length
   // Karta wybranego obiektu ma pierwszeństwo; po jej zamknięciu wraca panel linii.
-  const selectionFavourite = selection !== null ? favouriteFor(selection) : null
+  const selectionPinned = selection !== null ? pinnedItemFor(selection) : null
   const following = followId !== null && selection?.kind === 'vehicle' && selection.id === followId && liveVehicle !== null
   const card =
     selection !== null ? (
@@ -403,14 +374,14 @@ export default function CityMapPage() {
         onShowRoute={showRoute}
         following={following}
         onToggleFollow={() => setFollowId(following ? null : selection.id)}
-        favourite={selectionFavourite !== null ? isFavourite(favouriteKey(selectionFavourite)) : undefined}
-        onToggleFavourite={
-          selectionFavourite === null
+        pinned={selectionPinned !== null ? isPinned(pinnedKey(selectionPinned)) : undefined}
+        onTogglePin={
+          selectionPinned === null
             ? undefined
             : () => {
-                const key = favouriteKey(selectionFavourite)
-                if (isFavourite(key)) removeFavourite(key)
-                else addFavourite(selectionFavourite)
+                const key = pinnedKey(selectionPinned)
+                if (isPinned(key)) removePinned(key)
+                else addPinned(selectionPinned)
               }
         }
         onNearby={
@@ -474,7 +445,7 @@ export default function CityMapPage() {
               focus={focus}
               route={route}
               follow={following ? liveVehicle : null}
-              favourites={favouritePoints}
+              pinnedItems={pinnedPoints}
               onlyLines={onlyLines}
               listOpen={listOpen}
               onContextPoint={(point) => {
@@ -489,107 +460,117 @@ export default function CityMapPage() {
             />
           )}
 
-          <div className="pointer-events-none absolute left-3 right-14 top-3 z-10 flex flex-col gap-2 sm:left-4 sm:top-4">
-            <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
-              {isWide ? (
-                <>
-                  <div className="w-72">{placeSearch}</div>
-                  <div className="w-52">{lineSearch}</div>
-                </>
-              ) : (
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
-                    {(['place', 'line'] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        aria-pressed={searchTab === tab}
-                        onClick={() => setSearchTab(tab)}
-                        className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
-                        style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
-                      >
-                        {tab === 'place' ? 'Przystanek' : 'Linia'}
-                      </button>
-                    ))}
+          {/* Kontrolki i karta telefonu w jednej kolumnie: karta (max 62%) dostaje tylko miejsce pod
+              kontrolkami, więc ich nie zakryje, nawet gdy przyciski zeszły do drugiego rzędu. */}
+          <div className="pointer-events-none absolute inset-0 flex flex-col">
+            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 sm:ml-4 sm:mt-4">
+              <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
+                {isWide ? (
+                  <>
+                    <div className="w-72">{placeSearch}</div>
+                    <div className="w-52">{lineSearch}</div>
+                  </>
+                ) : (
+                  // `min-w-40`: na telefonie przyciski schodzą pod pole zamiast ścisnąć je do „Sz…";
+                  // `ml-auto` niżej trzyma je z prawej, bo ich panele otwierają się w lewo.
+                  <div className="flex min-w-40 flex-1 flex-col gap-1.5">
+                    <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
+                      {(['place', 'line'] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          aria-pressed={searchTab === tab}
+                          onClick={() => setSearchTab(tab)}
+                          className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
+                          style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
+                        >
+                          {tab === 'place' ? 'Przystanek' : 'Linia'}
+                        </button>
+                      ))}
+                    </div>
+                    {searchTab === 'place' ? placeSearch : lineSearch}
                   </div>
-                  {searchTab === 'place' ? placeSearch : lineSearch}
-                </div>
-              )}
-              <div className={`flex gap-2 ${isWide ? '' : 'self-end'}`}>
-
-                <button
-                  type="button"
-                  aria-pressed={listOpen}
-                  onClick={() => {
-                    setListOpen((open) => !open)
-                    setSelection(null)
-                    setNearby(null)
-                  }}
-                  className={`glass min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${
-                    listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
-                  }`}
-                  style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
-                >
-                  Lista
-                </button>
-                <FavouritesMenu favourites={favouritePoints} onOpen={openFavourite} />
-                <MapFilters
-                  hidden={hidden}
-                  vehicleLayers={vehicleLayers}
-                  onChange={changeHidden}
-                  alertsOnly={alertsOnly}
-                  onAlertsOnly={changeAlertsOnly}
-                />
-                <button
-                  type="button"
-                  onClick={() => void share()}
-                  aria-label="Udostępnij ten widok mapy"
-                  className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  <ShareIcon size={16} />
-                </button>
-              </div>
-            </div>
-
-            {(hidden.size > 0 || line !== null || alertsOnly) && (
-              <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
-                {line !== null && (
-                  <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
                 )}
-                {alertsOnly && (
-                  <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
-                )}
-                {[...hidden].map((key) => (
-                  <Chip
-                    key={key}
-                    label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
-                    removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
-                    onRemove={() => {
-                      const next = new Set(hidden)
-                      next.delete(key)
-                      changeHidden(next)
+                <div className={`flex gap-2 ${isWide ? '' : 'ml-auto self-end'}`}>
+
+                  <button
+                    type="button"
+                    aria-pressed={listOpen}
+                    onClick={() => {
+                      setListOpen((open) => !open)
+                      setSelection(null)
+                      setNearby(null)
                     }}
+                    className={`glass min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${
+                      listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
+                    style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
+                  >
+                    Lista
+                  </button>
+                  <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                  <MapFilters
+                    hidden={hidden}
+                    vehicleLayers={vehicleLayers}
+                    onChange={changeHidden}
+                    alertsOnly={alertsOnly}
+                    onAlertsOnly={changeAlertsOnly}
                   />
-                ))}
-              </ul>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => void share()}
+                    aria-label="Udostępnij ten widok mapy"
+                    className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    <ShareIcon size={16} />
+                  </button>
+                </div>
+              </div>
 
-            {shareStatus !== 'idle' && (
-              <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
-                {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
-              </p>
+              {(hidden.size > 0 || line !== null || alertsOnly) && (
+                <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
+                  {line !== null && (
+                    <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
+                  )}
+                  {alertsOnly && (
+                    <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
+                  )}
+                  {[...hidden].map((key) => (
+                    <Chip
+                      key={key}
+                      label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
+                      removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
+                      onRemove={() => {
+                        const next = new Set(hidden)
+                        next.delete(key)
+                        changeHidden(next)
+                      }}
+                    />
+                  ))}
+                </ul>
+              )}
+
+              {shareStatus !== 'idle' && (
+                <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
+                  {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
+                </p>
+              )}
+              {problems.map((problem) => (
+                <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
+                  {problem}
+                </p>
+              ))}
+            </div>
+            {!isWide && card !== null && (
+              <div className="pointer-events-auto relative z-20 mt-auto flex min-h-0 max-h-[62%] flex-col p-2">{card}</div>
             )}
-            {problems.map((problem) => (
-              <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-red-700 dark:text-red-300">
-                {problem}
-              </p>
-            ))}
           </div>
 
           <p className="sr-only" aria-live="polite">
             {vehicleCountAnnouncement}
           </p>
 
+          {/* Pozycja związana z `top-44`/`sm:top-36` wrappera legendy niżej — przesuwasz przycisk, przesuń legendę. */}
           <button
             type="button"
             onClick={() => setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })}
@@ -597,7 +578,7 @@ export default function CityMapPage() {
             title="Pokaż całe miasto"
             className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
           >
-            <MapIcon size={18} />
+            <CityIcon size={18} />
           </button>
 
           {outsideFeed && (
@@ -607,15 +588,19 @@ export default function CityMapPage() {
           )}
 
           {(isWide || selection === null) && (
-            <div className="absolute bottom-8 right-3 z-10 sm:right-4">
+            // `sm:top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
+            // miasto” (`top-[88px]` + `h-11` = 132 px) + 12 px odstępu. Od `top-3` rozwinięta legenda
+            // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `WIDE_QUERY`)
+            // przyciski Lista/Filtry/Udostępnij schodzą do drugiego rzędu (114–158 px przy 375 px),
+            // stąd `top-44` (176 px) — przy 144 px legenda zakrywała ich dolne 14 px.
+            <div className="pointer-events-none absolute bottom-8 right-3 top-44 z-10 flex flex-col justify-end sm:right-4 sm:top-36">
               <MapLegend />
             </div>
           )}
 
-          {!isWide && card !== null && <div className="absolute inset-x-0 bottom-0 z-20 flex max-h-[62%] flex-col p-2">{card}</div>}
         </div>
 
-        {isWide && card !== null && <aside className="flex w-[380px] shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
+        {isWide && card !== null && <aside className="flex w-aside shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
       </div>
     </div>
   )
@@ -625,7 +610,7 @@ function Chip({ label, removeLabel, onRemove }: { label: string; removeLabel: st
   return (
     <li className="glass-strong inline-flex items-center gap-1 rounded-full py-1 pl-3 pr-1 text-xs font-medium">
       {label}
-      <button type="button" onClick={onRemove} aria-label={removeLabel} className="-my-1 grid h-9 w-9 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+      <button type="button" onClick={onRemove} aria-label={removeLabel} className="touch-44 relative -my-1 grid h-9 w-9 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
         <CloseIcon size={12} />
       </button>
     </li>

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLineDetail } from './useLineDetail'
 import { jsonResponse } from '@/test-utils/http'
 
-const LINE = { routeId: '20', line: '20', longName: '', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular', directions: [] }
+const LINE = { routeId: '20', line: '20', longName: '', mode: 'tram', kind: 'regular', directions: [] }
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
@@ -39,6 +39,44 @@ describe('useLineDetail', () => {
     rerender({ id: 'X9' })
     expect(result.current.detail).toBeUndefined()
     await vi.waitFor(() => expect(result.current.detail).toBeNull())
+  })
+
+  it('polls on the ladder while alerts are unknown (null) and exposes them once known', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ line: LINE, schedule: { state: 'ready' }, alerts: null }))
+      .mockImplementation(() => jsonResponse({ line: LINE, schedule: { state: 'ready' }, alerts: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useLineDetail('warszawa', '20'))
+    await vi.waitFor(() => expect(result.current.detail).toEqual(LINE)) // przebieg już jest, alerty jeszcze nie
+    expect(result.current.alerts).toEqual([])
+    await vi.advanceTimersByTimeAsync(1_000)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // alerty znane -> koniec ponawiania
+  })
+
+  it('a failed schedule is not "loading": no retry ladder (same predicate as the line page)', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ line: null, schedule: { state: 'failed' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useLineDetail('warszawa', '20'))
+    await vi.waitFor(() => expect(result.current.error).toBe(true))
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.current).toEqual({ detail: undefined, alerts: [], error: true }) // błąd, nie wieczny szkielet
+  })
+
+  it('keeps the last good detail and alerts when a later fetch errors (AGENTS.md #7)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ line: LINE, schedule: { state: 'ready' }, alerts: null }))
+      .mockImplementation(() => Promise.reject(new Error('net')))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useLineDetail('warszawa', '20'))
+    await vi.waitFor(() => expect(result.current.detail).toEqual(LINE))
+    await vi.advanceTimersByTimeAsync(1_000) // krok drabinki (alerty nieznane) -> błąd sieci
+    await vi.waitFor(() => expect(result.current.error).toBe(true))
+    expect(result.current).toEqual({ detail: LINE, alerts: [], error: true }) // przebieg zostaje, nie znika w szkielet
   })
 
   it('flags an error and retries after 30 s', async () => {

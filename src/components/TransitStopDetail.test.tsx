@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
@@ -25,8 +25,8 @@ const board = {
   name: 'Świętokrzyska',
   modes: ['metro', 'tram'],
   lines: [
-    { routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro' },
-    { routeId: '20', line: '20', color: null, mode: 'tram' },
+    { routeId: 'M1', line: 'M1', mode: 'metro', kind: 'regular' },
+    { routeId: '20', line: '20', mode: 'tram', kind: 'regular' },
   ],
   wheelchairNote: null,
   members: [],
@@ -34,8 +34,8 @@ const board = {
   summary: { lineCount: 2, departuresToday: 44, firstDepartureSec: 18000, lastDepartureSec: 90600, hourly: new Array(24).fill(2) },
   alerts: [],
   departures: [
-    { tripId: 'a', routeId: 'M1', line: 'M1', mode: 'metro', color: '#0000bb', headsign: 'Kabaty', plannedAt: '2026-09-02T14:30:00+02:00', departureSec: 52200, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: true, onRequest: false, vehicle: null },
-    { tripId: 'b', routeId: '20', line: '20', mode: 'tram', color: null, headsign: 'Piaski', plannedAt: '2026-09-02T14:35:00+02:00', departureSec: 52500, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: false, onRequest: false, vehicle: null },
+    { tripId: 'a', routeId: 'M1', line: 'M1', mode: 'metro', lineKind: 'regular', headsign: 'Kabaty', plannedAt: '2026-09-02T14:30:00+02:00', departureSec: 52200, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: true, onRequest: false, vehicle: null },
+    { tripId: 'b', routeId: '20', line: '20', mode: 'tram', lineKind: 'regular', headsign: 'Piaski', plannedAt: '2026-09-02T14:35:00+02:00', departureSec: 52500, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: false, onRequest: false, vehicle: null },
   ],
 }
 
@@ -46,8 +46,8 @@ const groupBoard = {
   groupId: '1001',
   name: 'Centrum',
   members: [
-    { id: '100101', name: 'Centrum', lat: 52, lon: 21, platformCode: '01', code: '01', street: 'Marszałkowska', wheelchair: 1, lines: [{ routeId: '20', line: '20', color: null, mode: 'tram' }] },
-    { id: '100102', name: 'Centrum', lat: 52, lon: 21, platformCode: '02', code: '02', street: 'Al. Jerozolimskie', wheelchair: 1, lines: [{ routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro' }] },
+    { id: '100101', name: 'Centrum', lat: 52, lon: 21, platformCode: '01', code: '01', street: 'Marszałkowska', wheelchair: 1, lines: [{ routeId: '20', line: '20', mode: 'tram', kind: 'regular' }] },
+    { id: '100102', name: 'Centrum', lat: 52, lon: 21, platformCode: '02', code: '02', street: 'Al. Jerozolimskie', wheelchair: 1, lines: [{ routeId: 'M1', line: 'M1', mode: 'metro', kind: 'regular' }] },
   ],
 }
 
@@ -122,10 +122,15 @@ describe('TransitStopDetail', () => {
     expect(link).toHaveAttribute('href', '/city/warszawa/line/M1')
   })
 
-  it('hides the internal share button when embedded', () => {
-    render(<TransitStopDetail city="warszawa" stopId="7014M" embedded />)
+  it('has no share button of its own (TopBar owns it); title is h1 standalone, h2 embedded', () => {
+    const { rerender } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Przypnij do Pulpitu/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Świętokrzyska' })).toBeInTheDocument()
+
+    rerender(<TransitStopDetail city="warszawa" stopId="7014M" embedded />)
+    expect(screen.getByRole('heading', { level: 2, name: 'Świętokrzyska' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
   it('shows the słupek switcher only when the group has more than one member', () => {
@@ -168,6 +173,47 @@ describe('TransitStopDetail', () => {
     expect(slupek02).toHaveAttribute('aria-selected', 'false')
   })
 
+  it('view tabs follow the WAI-ARIA tabs pattern: one tab stop, arrows/Home/End move selection and focus, a labelled tabpanel', async () => {
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    const tabs = within(screen.getByRole('tablist', { name: 'Widok przystanku' })).getAllByRole('tab')
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Najbliższe odjazdy')
+
+    tabs[0].focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[1]).toHaveFocus()
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Wszystkie linie')
+
+    await userEvent.keyboard('{End}')
+    expect(tabs[3]).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(tabs[0]).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(tabs[3]).toHaveAttribute('aria-selected', 'true')
+    await userEvent.keyboard('{Home}')
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
+  })
+
+  it('słupek tabs: one tab stop and arrow keys select the next słupek', async () => {
+    useTransitBoard.mockReturnValue({
+      data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    const tabs = within(screen.getByRole('tablist', { name: 'Słupek przystanku' })).getAllByRole('tab')
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1'])
+
+    tabs[0].focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[1]).toHaveFocus()
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['-1', '0', '-1'])
+  })
+
   it('flags the Komunikaty tab and shows the alert once opened, when the board carries an active alert', async () => {
     useTransitBoard.mockReturnValue({
       data: {
@@ -193,6 +239,24 @@ describe('TransitStopDetail', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
     expect(screen.getByText('Aktualnie brak komunikatów dla tego przystanku.')).toBeInTheDocument()
+  })
+
+  it('shows a loading hint, not "no alerts", on the Komunikaty tab while alerts are still unknown (alerts: null)', async () => {
+    useTransitBoard.mockReturnValue({
+      data: {
+        city: 'warszawa',
+        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
+        stops: [{ ...board, alerts: null }],
+        attribution: [],
+      },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
+    expect(screen.getByText('Wczytywanie komunikatów…')).toBeInTheDocument()
+    expect(screen.queryByText('Aktualnie brak komunikatów dla tego przystanku.')).not.toBeInTheDocument()
   })
 
   it('shows all lines grouped by mode on the Wszystkie linie tab', async () => {
@@ -269,7 +333,7 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByText('Najbliższy odjazd')).not.toBeInTheDocument()
   })
 
-  it('pins as a gtfs favourite carrying the city', async () => {
+  it('pins as a gtfs pinned item carrying the city', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
@@ -346,7 +410,7 @@ describe('TransitStopDetail', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) =>
-        url.startsWith('/api/cities') ? jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa' }] }) : Promise.reject(new Error('not stubbed'))
+        url.startsWith('/api/cities') ? jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [] }] }) : Promise.reject(new Error('not stubbed'))
       )
     )
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)

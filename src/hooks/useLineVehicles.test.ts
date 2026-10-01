@@ -68,10 +68,10 @@ describe('useLineVehicles', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500 })
     vi.stubGlobal('fetch', fetchMock)
     const { result } = renderHook(() => useLineVehicles('warszawa', '20', 0))
-    await vi.waitFor(() => expect(result.current.error).toBe('500'))
+    await vi.waitFor(() => expect(result.current.error).toBe('Błąd odpowiedzi: 500'))
   })
 
-  it('skips a tick while the tab is hidden, reschedules instead of fetching', async () => {
+  it('pauses while the tab is hidden and resumes on visibilitychange', async () => {
     const fetchMock = vi
       .fn()
       .mockImplementation(() => jsonResponse({ vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 5000 } }))
@@ -82,11 +82,12 @@ describe('useLineVehicles', () => {
 
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
     await vi.advanceTimersByTimeAsync(20_000)
-    expect(fetchMock).toHaveBeenCalledTimes(1) // hidden -> nie odpytał
+    expect(fetchMock).toHaveBeenCalledTimes(1) // hidden -> pauza, żadnego fetcha ani timera
 
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
-    await vi.advanceTimersByTimeAsync(20_000)
-    expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // widoczny znów -> wznowił od razu (bez czekania na kolejny tick)
   })
 
   it('does not update state or reschedule after unmount while a fetch is in flight', async () => {
@@ -129,7 +130,7 @@ describe('useLineVehicles', () => {
     const fetchMock = vi.fn().mockImplementationOnce(() => Promise.reject('boom'))
     vi.stubGlobal('fetch', fetchMock)
     const { result } = renderHook(() => useLineVehicles('warszawa', '20', 0))
-    await vi.waitFor(() => expect(result.current.error).toBe('błąd'))
+    await vi.waitFor(() => expect(result.current.error).toBe('Nieznany błąd'))
   })
 
   it('does not fetch for an unknown direction (2)', async () => {

@@ -26,7 +26,7 @@ describe('DelayForecast', () => {
     render(<DelayForecast series={SERIES} arrivalTime="10:58" arrivalStatus="delayed" />)
 
     const label = chart().getAttribute('aria-label') ?? ''
-    expect(label).toContain('Gdańsk Główny: na czas')
+    expect(label).toContain('Gdańsk Główny: punktualnie')
     expect(label).toContain('Iława: +4 min')
     expect(label).toContain('Warszawa Centralna: +4 min (prognoza)')
   })

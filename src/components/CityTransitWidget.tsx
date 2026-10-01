@@ -1,22 +1,19 @@
 'use client'
 
 import { useCityStats } from '@/hooks/useCityStats'
+import { formatAge, formatSecondsOfDay } from '@/lib/format'
+import { getCity } from '@/lib/gtfs/cities'
 import type { GtfsMode } from '@/lib/gtfs/types'
+import { zonedHour } from '@/lib/pkp/time'
 import { pluralPl } from '@/lib/plural'
 import { AsideCard, HourlyTraffic } from './aside'
-import { BusIcon, MetroIcon, TrainIcon, TramIcon } from './icons'
+import { MODE_ICON, MODE_LABEL, MODE_ORDER } from './transitMode'
 
-const MODE_ROWS: { mode: GtfsMode; label: string; icon: typeof BusIcon }[] = [
-  { mode: 'metro', label: 'metro', icon: MetroIcon },
-  { mode: 'tram', label: 'tramwaj', icon: TramIcon },
-  { mode: 'bus', label: 'autobus', icon: BusIcon },
-  { mode: 'rail', label: 'kolej', icon: TrainIcon },
-]
-
-/** `sec` może przekroczyć 86400 (kurs po północy) — zwijamy do zegara doby. */
-function clock(sec: number): string {
-  return `${String(Math.floor(sec / 3600) % 24).padStart(2, '0')}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}`
-}
+const MODE_ROWS = MODE_ORDER.filter((mode): mode is Exclude<GtfsMode, 'other'> => mode !== 'other').map((mode) => ({
+  mode,
+  label: MODE_LABEL[mode],
+  icon: MODE_ICON[mode],
+}))
 
 /**
  * Widżet sieci komunikacji miejskiej wybranego miasta — odpowiednik
@@ -43,12 +40,12 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
     <div className="flex flex-col gap-4">
       <AsideCard title={`Komunikacja miejska — ${cityName}`}>
         {failed ? (
-          <p className="text-xs text-red-600 dark:text-red-400">Nie udało się wczytać statystyk.</p>
+          <p className="text-xs text-error-text">Nie udało się wczytać statystyk.</p>
         ) : loading || stats === null ? (
           dayUnknown ? (
             <p className="text-xs text-text-muted">Brak rozkładu na dziś.</p>
           ) : (
-            <p className="text-xs text-text-muted">Wczytuję rozkład…</p>
+            <p className="text-xs text-text-muted">Wczytywanie rozkładu…</p>
           )
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -57,10 +54,15 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
               const extras =
                 row.mode === 'bus'
                   ? [
-                      stats.busKinds.night > 0 &&
-                        `${stats.busKinds.night} ${pluralPl(stats.busKinds.night, 'nocna', 'nocne', 'nocnych')}`,
+                      // Kolejność jak w legendzie ekranu „Linie” (`BUS_KIND_ORDER` w LineGrid.tsx; zwykłych tu nie wymieniamy).
                       stats.busKinds.express > 0 &&
                         `${stats.busKinds.express} ${pluralPl(stats.busKinds.express, 'przyspieszona', 'przyspieszone', 'przyspieszonych')}`,
+                      stats.busKinds.zone > 0 &&
+                        `${stats.busKinds.zone} ${pluralPl(stats.busKinds.zone, 'podmiejska', 'podmiejskie', 'podmiejskich')}`,
+                      stats.busKinds.local > 0 &&
+                        `${stats.busKinds.local} ${pluralPl(stats.busKinds.local, 'lokalna', 'lokalne', 'lokalnych')}`,
+                      stats.busKinds.night > 0 &&
+                        `${stats.busKinds.night} ${pluralPl(stats.busKinds.night, 'nocna', 'nocne', 'nocnych')}`,
                       stats.busKinds.replacement > 0 &&
                         `${stats.busKinds.replacement} ${pluralPl(stats.busKinds.replacement, 'zastępcza', 'zastępcze', 'zastępczych')}`,
                     ].filter(Boolean)
@@ -86,12 +88,12 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
         <HourlyTraffic
           hourly={stats?.hourly ?? null}
           loading={loading}
-          currentHour={new Date().getHours()}
+          currentHour={zonedHour(new Date().getTime(), getCity(city)?.timezone ?? 'Europe/Warsaw')}
           emptyLabel="Rozkład na dziś nie zawiera odjazdów."
         />
         {stats !== null && stats.firstDepartureSec !== null && stats.lastDepartureSec !== null && (
           <p className="mt-2 text-xs text-text-muted">
-            Pierwszy kurs {clock(stats.firstDepartureSec)}, ostatni {clock(stats.lastDepartureSec)} ·{' '}
+            Pierwszy kurs {formatSecondsOfDay(stats.firstDepartureSec)}, ostatni {formatSecondsOfDay(stats.lastDepartureSec)} ·{' '}
             {stats.tripsToday.toLocaleString('pl-PL')} {pluralPl(stats.tripsToday, 'kurs', 'kursy', 'kursów')} dziś
           </p>
         )}
@@ -127,16 +129,29 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
           const alerts = data?.state === 'ready' ? (data.alerts ?? null) : null
           if (alerts === null) {
             if (data?.alertFeed?.state === 'failed') {
-              return <p className="text-xs text-red-600 dark:text-red-400">Nie udało się pobrać utrudnień.</p>
+              return <p className="text-xs text-error-text">Nie udało się pobrać utrudnień.</p>
             }
-            return <p className="text-xs text-text-muted">Wczytuję…</p>
+            return <p className="text-xs text-text-muted">Wczytywanie…</p>
           }
-          if (alerts.length === 0) return <p className="text-xs text-text-muted">Brak aktywnych utrudnień.</p>
+          // Feed `failed` po udanym pobraniu: ostatnie dobre alerty + ich wiek (#7).
+          const feed = data?.alertFeed
+          const staleNote = feed?.state === 'failed' && feed.ageMs !== null && (
+            <p className="text-xs text-text-muted">Nie udało się odświeżyć — dane sprzed {formatAge(feed.ageMs)}</p>
+          )
+          if (alerts.length === 0) {
+            return (
+              <>
+                <p className="text-xs text-text-muted">Brak aktywnych utrudnień.</p>
+                {staleNote}
+              </>
+            )
+          }
           return (
             <div className="flex flex-col gap-1.5">
               <p className="text-xs font-semibold text-foreground">
                 {alerts.length} {pluralPl(alerts.length, 'aktywne utrudnienie', 'aktywne utrudnienia', 'aktywnych utrudnień')}
               </p>
+              {staleNote}
               <ul className="flex flex-col gap-1 text-xs text-text-secondary">
                 {alerts.map((a) => (
                   <li key={a.id}>{a.title}</li>

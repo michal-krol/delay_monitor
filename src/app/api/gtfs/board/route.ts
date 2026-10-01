@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCity } from '@/lib/gtfs/cities'
 import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
+import { knownAlerts } from '@/lib/gtfs/alertPoller'
 import { scheduleResponseBlock } from '@/lib/gtfs/poller'
 import { alertsForRoutes, nextDepartures, stopGroup, stopSummary, vehicleForStop } from '@/lib/gtfs/query'
 import { todayServiceIndex } from '@/lib/gtfs/serviceDay'
@@ -82,8 +83,9 @@ export async function GET(request: Request) {
   const vehiclePoller = peekVehiclePoller(city)
   const positions = vehiclePoller?.getPositions() ?? []
 
-  const alertPoller = peekAlertPoller(city)
-  const allAlerts = alertPoller?.getAlerts() ?? []
+  // `alerts: null` = jeszcze nie wiadomo — klient ponawia drabinką zamiast pokazać „brak komunikatów"
+  // na 30 s (#7). Definicja „znane" wspólna z `/api/gtfs/line`: `knownAlerts()`.
+  const allAlerts = knownAlerts(peekAlertPoller(city))
 
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
@@ -98,7 +100,7 @@ export async function GET(request: Request) {
     // zawsze podzbiorem linii całego zespołu, więc dopasowanie zawsze idzie
     // po zespole, niezależnie od zawężenia `?member=`.
     const groupRouteIdxs = schedule.groupRoutes.get(group.id) ?? new Set<number>()
-    const alerts = alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
+    const alerts = allAlerts === null ? null : alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
     // Indeks obserwowanego przystanku w przebiegu — do policzenia „ile przystanków
     // stąd" jest pojazd. `undefined` (pytano o cały zespół, nie o słupek) → brak tagu.
     const scopeStopIdx = schedule.stopIndexById.get(scopeId ?? group.id)

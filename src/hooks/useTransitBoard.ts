@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { fetchJson, usePolling } from './usePolling'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { GtfsDeparture, GtfsMode, ScheduleState } from '@/lib/gtfs/types'
 import type { GtfsLine, StopGroupMember, StopSummary } from '@/lib/gtfs/query'
@@ -28,7 +28,8 @@ export type TransitStopBoard = {
    */
   summary: StopSummary | null
   /** Alerty tej linii/przystanku (przez linie zespołu) — nigdy pole opóźnienia (#13). */
-  alerts: AlertRecord[]
+  /** `null` = feed alertów jeszcze nie odpowiedział (nieznane, nie „brak") -- patrz `/api/gtfs/board`. */
+  alerts: AlertRecord[] | null
   /**
    * `vehicle` = pozycja pojazdu realizującego ten kurs, wyrażona jako dystans
    * w przystankach od obserwowanego słupka (`stopsAway`, 0 = „zaraz będzie" —
@@ -54,68 +55,36 @@ export type TransitBoardResponse = {
 }
 
 /**
- * Ten sam ręczny wzorzec `setTimeout` + `document.hidden` co `useBoard`, ale
- * inny backoff: `stop_times` mierzone lokalnie na 3,0 s, całe ładowanie to rząd
- * kilkunastu sekund (PKP odpowiada w 1–3 s, stąd tam `[1,2,4]`).
+ * Odświeżanie co 30 s; dopóki rozkład się wczytuje (`schedule.state === 'loading'`)
+ * albo alerty są jeszcze nieznane (`alerts: null`), ponawiamy domyślną drabinką
+ * `usePolling` (`stop_times` mierzone lokalnie na 3,0 s, całe ładowanie to rząd
+ * kilkunastu sekund).
  */
 const REFRESH_INTERVAL_MS = 30000
-const LOADING_RETRY_DELAYS_MS = [1000, 2000, 3000, 5000, 8000, 15000]
+
+const isBoardLoading = (json: TransitBoardResponse) =>
+  json.schedule.state === 'loading' || json.stops.some((stop) => stop !== null && stop.alerts === null)
 
 export function useTransitBoard(city: string | null, stopIds: string[], limit = 20, member: string | null = null) {
-  const [data, setData] = useState<TransitBoardResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const key = stopIds.join(',')
+  const stopsKey = stopIds.join(',')
+  // Klucz obejmuje wszystko, co wchodzi do URL-a; `keepPreviousData` -- przełączenie słupka nie
+  // zdejmuje pinów mapy ani podglądu w popupie (budowane z `data.stops[].members`) przed nową odpowiedzią.
+  const key = city === null || stopIds.length === 0 ? null : JSON.stringify([city, stopsKey, limit, member])
+  const { data: polled, error } = usePolling<TransitBoardResponse>(
+    key,
+    () =>
+      fetchJson(
+        `/api/gtfs/board?city=${encodeURIComponent(city as string)}&stops=${stopsKey}&limit=${limit}` +
+          (member !== null ? `&member=${encodeURIComponent(member)}` : '')
+      ),
+    { refreshMs: REFRESH_INTERVAL_MS, isLoading: isBoardLoading, keepPreviousData: true }
+  )
 
-  useEffect(() => {
-    if (city === null || stopIds.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- czyści nieaktualne dane, gdy nikt nie obserwuje
-      setData(null)
-      return
-    }
-
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    let loadingRetry = 0
-
-    async function tick(respectHidden: boolean): Promise<void> {
-      if (cancelled) return
-      if (respectHidden && document.hidden) {
-        timer = setTimeout(() => void tick(true), REFRESH_INTERVAL_MS)
-        return
-      }
-
-      let loading = false
-      try {
-        const response = await fetch(
-          `/api/gtfs/board?city=${encodeURIComponent(city as string)}&stops=${key}&limit=${limit}` +
-            (member !== null ? `&member=${encodeURIComponent(member)}` : '')
-        )
-        if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
-        const json = (await response.json()) as TransitBoardResponse
-        if (!cancelled) {
-          setData(json)
-          setError(null)
-        }
-        loading = json.schedule.state === 'loading'
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Nieznany błąd')
-      }
-      if (cancelled) return
-
-      const delay =
-        loading && loadingRetry < LOADING_RETRY_DELAYS_MS.length
-          ? LOADING_RETRY_DELAYS_MS[loadingRetry++]
-          : REFRESH_INTERVAL_MS
-      timer = setTimeout(() => void tick(true), delay)
-    }
-
-    void tick(false)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [city, key, limit, member])
+  // `keepPreviousData` ma chronić tylko przełączenie słupka/limitu tego samego zestawu
+  // przystanków; odpowiedź o INNYCH przystankach (albo mieście) nigdy nie może udawać
+  // odpowiedzi na nowe pytanie -- wtedy wracamy do „ładowania".
+  const data =
+    polled !== null && polled.city === city && polled.stops.every((stop) => stop === null || stopIds.includes(stop.stopId)) ? polled : null
 
   // Trójstan wspólny dla każdego widoku tablicy miejskiej (TransitStopDetail,
   // TransitStopCard — AGENTS.md #2, jedna implementacja per regułę domenową).

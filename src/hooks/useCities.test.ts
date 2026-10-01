@@ -28,6 +28,48 @@ describe('useCities', () => {
     await vi.waitFor(() => expect(result.current.state).toBe('failed'))
   })
 
+  it('malformed elements are dropped, valid ones kept', async () => {
+    const malformed = [
+      null,
+      'warszawa',
+      { id: 'x' },
+      { id: 1, name: 'Bad id', railStations: [] },
+      { id: 'krakow', name: 'Kraków', railStations: 'none' },
+      { id: 'gdansk', name: 'Gdańsk', railStations: [{ id: 5, name: 'Gdańsk Główny' }] },
+      { id: 'lodz', name: 'Łódź', railStations: [], railStationsUnknown: 'yes' },
+    ]
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [malformed[0], CITY, ...malformed.slice(1)] })))
+
+    const { result } = renderHook(() => useCities())
+
+    await vi.waitFor(() => expect(result.current.state).toBe('ready'))
+    expect(result.current.cities).toEqual([CITY])
+  })
+
+  it('extra response fields are not required and do not break the entry', async () => {
+    const withExtras = { ...CITY, timezone: 'Europe/Warsaw', mapCenter: { lat: 52, lon: 21 } }
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [withExtras] })))
+
+    const { result } = renderHook(() => useCities())
+
+    await vi.waitFor(() => expect(result.current.state).toBe('ready'))
+    expect(result.current.cities).toEqual([CITY]) // dodatkowe pola (timezone, mapCenter) odcięte
+  })
+
+  it.each([
+    ['null body', null],
+    ['array body', [CITY]],
+    ['string body', 'cities'],
+    ['object without cities', {}],
+  ])('%s → failed', async (_name, body) => {
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse(body)))
+
+    const { result } = renderHook(() => useCities())
+
+    await vi.waitFor(() => expect(result.current.state).toBe('failed'))
+    expect(result.current.cities).toEqual([])
+  })
+
   it('two components share one request', async () => {
     const fetchMock = vi.fn(() => jsonResponse({ cities: [CITY] }))
     vi.stubGlobal('fetch', fetchMock)

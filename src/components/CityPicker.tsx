@@ -18,7 +18,7 @@ export function CityPicker({
 }: {
   cities: CityOption[]
   current: string
-  /** Dokąd nawigować po zmianie miasta — domyślnie ekran odjazdów, `Trasy` podaje własny. */
+  /** Dokąd nawigować po zmianie miasta — domyślnie ekran odjazdów, `Linie` podają własny. */
   hrefFor?: (id: string) => string
 }) {
   const router = useRouter()

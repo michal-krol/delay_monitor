@@ -112,9 +112,8 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
         <FullBoard
           stationId="5100"
           stationName={payload}
-          isFavourite={false}
-          onToggleFavourite={vi.fn()}
-          onClose={vi.fn()}
+          isPinned={false}
+          onTogglePin={vi.fn()}
         />
       )
 
@@ -131,7 +130,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
     }
   })
 
-  it('ładunki w danych GTFS (route_color, route_long_name, trip_headsign, stop_name) renderują się jako tekst', () => {
+  it('ładunki w danych GTFS (route_long_name, trip_headsign, stop_name) renderują się jako tekst', () => {
     for (const payload of PAYLOADS) {
       const { container, unmount } = render(
         <TransitDepartureList
@@ -142,8 +141,6 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
               line: payload,
               mode: 'bus',
               lineKind: 'regular',
-              // route_color surowy z cudzego serwera — LineBadge dostaje go jako `color`.
-              color: payload,
               headsign: payload,
               plannedAt: '2026-09-02T14:30:00+02:00',
               departureSec: 52200,
@@ -165,8 +162,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
       expect(container.querySelector('iframe'), `payload: ${payload}`).toBeNull()
       // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
       expect(container.querySelector('svg[onload]'), `payload: ${payload}`).toBeNull()
-      // Niezaufany route_color nie może wejść do wartości CSS jako cokolwiek poza
-      // zwalidowanym #RRGGBB — LineBadge pada wtedy na neutralny token.
+      // Kolor plakietki = kategoria linii (adr/0005) — żaden string z feedu nie trafia do CSS.
       // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
       const badge = container.querySelector('[style]')
       expect(badge?.getAttribute('style') ?? '', `payload: ${payload}`).not.toContain(payload)
@@ -181,11 +177,12 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
       const { container, unmount } = render(
         <LineGrid
           city="warszawa"
-          filter="all"
+          isOpen={() => true}
+          onToggle={() => {}}
           linesByMode={{
             metro: [],
             tram: [],
-            bus: [{ routeId: payload, line: payload, longName: payload, color: payload, textColor: '#000000', mode: 'bus', kind: 'regular' }],
+            bus: [{ routeId: payload, line: payload, longName: payload, mode: 'bus', kind: 'regular' }],
             rail: [],
             other: [],
           }}

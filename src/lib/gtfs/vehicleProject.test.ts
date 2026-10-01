@@ -13,7 +13,7 @@ describe('projectVehicle', () => {
       serviceDates: ['2026-09-03', '2026-09-04', '2026-09-05'] as [string, string, string],
       timezone: 'Europe/Warsaw',
       attribution: [],
-      routes: [{ id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular', color: null, textColor: '#000000' }],
+      routes: [{ id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular' }],
       stops: [
         { id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
         { id: 'B', name: 'B', lat: 52.22, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
@@ -67,7 +67,7 @@ describe('projectVehicle', () => {
       serviceDates: ['2026-09-03', '2026-09-04', '2026-09-05'] as [string, string, string],
       timezone: 'Europe/Warsaw',
       attribution: [],
-      routes: [{ id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular', color: null, textColor: '#000000' }],
+      routes: [{ id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular' }],
       stops: [{ id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 }],
       trips: [{ routeId: '20', serviceId: 'S', tripId: 'T', headsign: null, directionId: 0 }],
       frequencies: [],
@@ -108,7 +108,7 @@ describe('projectVehicle', () => {
       serviceDates: ['2026-09-03', '2026-09-04', '2026-09-05'] as [string, string, string],
       timezone: 'Europe/Warsaw',
       attribution: [],
-      routes: [{ id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular', color: null, textColor: '#000000' }],
+      routes: [{ id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular' }],
       stops: [
         { id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
         { id: 'B', name: 'B', lat: 52.22, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },

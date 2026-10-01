@@ -6,7 +6,7 @@ import type { CityStats } from '@/lib/gtfs/query'
 
 const stats: CityStats = {
   linesByMode: { metro: 2, tram: 20, bus: 100, rail: 3, other: 0 },
-  busKinds: { regular: 90, night: 8, express: 2, replacement: 0 },
+  busKinds: { regular: 90, night: 8, express: 2, replacement: 0, zone: 0, local: 0 },
   stopGroupCount: 1200,
   modeCount: 4,
   tripsToday: 4567,

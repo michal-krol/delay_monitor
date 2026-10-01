@@ -1,5 +1,8 @@
 import type { GtfsDeparture } from '@/lib/gtfs/types'
+import { formatDuration } from '@/lib/format'
 import { LineBadge } from './LineBadge'
+import { OnRequestBadge } from './OnRequestBadge'
+import { LINE_KIND_LABEL } from './transitMode'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
 
@@ -20,14 +23,6 @@ type Props = {
 
 /** `plannedAt` niesie już offset strefy miasta — HH:MM wycinamy wprost z ISO. */
 const clock = (iso: string) => iso.slice(11, 16)
-
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  if (hours === 0) return `${rest} min`
-  if (rest === 0) return `${hours} h`
-  return `${hours} h ${rest} min`
-}
 
 /** `null` = odjazd już minął. Świadomie nie pokazujemy ujemnych „za −5 min" (wzorem `ConnectionDetails.tsx`). */
 function relativeLabel(plannedAt: string, now: number): string | null {
@@ -55,10 +50,18 @@ function DepartureRow({
   now?: number
 }) {
   const relative = now !== undefined ? relativeLabel(departure.plannedAt, now) : null
+  const hasStopTag = showSlupek && (departure.stopCode ?? departure.platformCode) !== null
+  const hasMeta =
+    hasStopTag ||
+    departure.vehicle != null ||
+    LINE_KIND_LABEL[departure.lineKind] !== '' ||
+    departure.frequencyBased ||
+    departure.onRequest ||
+    departure.platformCode !== null
   return (
     <li
       key={`${departure.tripId}-${departure.stopId}-${index}`}
-      className="flex items-center gap-3 py-2.5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5"
     >
       <time
         dateTime={departure.plannedAt}
@@ -68,46 +71,50 @@ function DepartureRow({
       </time>
       <LineBadge
         line={departure.line}
-        color={departure.color}
+        kind={departure.lineKind}
         mode={departure.mode}
         size="sm"
         href={city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined}
       />
-      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+      <span data-testid="departure-headsign" className="min-w-0 flex-1 truncate text-sm text-foreground">
         {departure.headsign ?? '—'}
       </span>
-      {showSlupek && (departure.stopCode ?? departure.platformCode) !== null && (
-        <span
-          title={`Odjazd z: ${departure.stopCode ?? departure.platformCode}`}
-          className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
-        >
-          {departure.stopCode ?? departure.platformCode}
-        </span>
-      )}
-      {departure.vehicle != null && (
-        <span
-          title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
-          className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300"
-        >
-          {departure.vehicle.stopsAway === 0 ? 'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
-        </span>
-      )}
-      {departure.lineKind === 'night' && <span className="shrink-0 text-xs text-text-muted">nocna</span>}
-      {departure.lineKind === 'express' && <span className="shrink-0 text-xs text-text-muted">przyspieszona</span>}
-      {departure.frequencyBased && (
-        <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
-      )}
-      {departure.onRequest && (
-        <span
-          title="Przystanek na żądanie — zasygnalizuj kierowcy chęć wsiadania / wysiadania"
-          className="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
-          style={{ borderColor: 'var(--surface-border)' }}
-        >
-          na żądanie
-        </span>
-      )}
-      {departure.platformCode !== null && (
-        <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
+      {/* Oznaczenia dodatkowe: na wąskiej liście (kontener < `@xl`) schodzą do
+          drugiego wiersza (`order-last basis-full`), wcięte `pl-15` pod plakietkę
+          linii (nie pod nazwę kierunku), na
+          szerokiej zostają w jednym rzędzie z resztą. Do sześciu `shrink-0` w
+          jednym wierszu ściskało kierunek do 0 px na 375 px. */}
+      {hasMeta && (
+        <div className="order-last flex basis-full flex-wrap items-center gap-x-2 gap-y-1 pl-15 @xl:order-none @xl:basis-auto @xl:flex-nowrap @xl:pl-0">
+          {hasStopTag && (
+            <span
+              title={`Odjazd z: ${departure.stopCode ?? departure.platformCode}`}
+              className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
+            >
+              <span className="sr-only">Odjazd z: </span>
+              {departure.stopCode ?? departure.platformCode}
+            </span>
+          )}
+          {departure.vehicle != null && (
+            <span
+              title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
+              className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300"
+            >
+              {departure.vehicle.stopsAway === 0 ? 'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
+              <span className="sr-only">
+                , {departure.vehicle.ageSec > 60 ? `pozycja sprzed ${Math.round(departure.vehicle.ageSec / 60)} min` : 'pozycja na żywo'}
+              </span>
+            </span>
+          )}
+          {LINE_KIND_LABEL[departure.lineKind] !== '' && <span className="shrink-0 text-xs text-text-muted">{LINE_KIND_LABEL[departure.lineKind]}</span>}
+          {departure.frequencyBased && (
+            <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
+          )}
+          {departure.onRequest && <OnRequestBadge />}
+          {departure.platformCode !== null && (
+            <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
+          )}
+        </div>
       )}
       {relative !== null && (
         <span className="shrink-0 text-xs font-semibold tabular-nums text-text-secondary">{relative}</span>
@@ -153,12 +160,12 @@ export function TransitDepartureList({
         <div className="mt-3 glass-strong rounded-2xl p-4">
           <div className="text-xs font-medium uppercase tracking-wide text-text-muted">Najbliższy odjazd</div>
           <div className="mt-2 flex items-center gap-3">
-            <LineBadge line={first.line} color={first.color} mode={first.mode} size="md" />
+            <LineBadge line={first.line} mode={first.mode} kind={first.lineKind} size="md" />
             <span className="min-w-0 flex-1 truncate font-heading text-lg font-bold text-foreground">
               {first.headsign ?? '—'}
             </span>
             <div className="shrink-0 text-right">
-              <div className="font-heading text-2xl font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400">
+              <div className="font-heading text-2xl font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">
                 {highlightRelative}
               </div>
               <div className="text-xs text-text-secondary">Planowo: {clock(first.plannedAt)}</div>
@@ -168,7 +175,7 @@ export function TransitDepartureList({
       )}
 
       {listed.length > 0 && (
-        <ul className="mt-3 divide-y" style={{ borderColor: 'var(--surface-border)' }}>
+        <ul data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
           {listed.map((departure, index) => (
             <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showSlupek={showSlupek} now={now} />
           ))}

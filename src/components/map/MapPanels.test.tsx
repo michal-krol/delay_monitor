@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { FavouritesMenu, NearbyPanel, VisibleListPanel } from './MapPanels'
+import { PinnedMenu, NearbyPanel, VisibleListPanel } from './MapPanels'
 import type { NearbyPoint } from './mapData'
 
 const transitBoard = vi.fn()
@@ -29,7 +29,7 @@ describe('NearbyPanel', () => {
     expect(screen.getByText('Centrum 01')).toBeInTheDocument()
     expect(screen.getByText('80 m')).toBeInTheDocument()
     expect(screen.getByText('1,3 km')).toBeInTheDocument()
-    expect(screen.getByText('rozkład: 128 → Dworzec o 20:31')).toBeInTheDocument()
+    expect(screen.getByText(/rozkład: 128/)).toHaveTextContent('rozkład: 128 do Dworzec o 20:31')
     fireEvent.click(screen.getByRole('button', { name: /Warszawa Centralna/ }))
     expect(onOpen).toHaveBeenCalledWith(railPoint)
   })
@@ -78,14 +78,14 @@ describe('VisibleListPanel', () => {
   })
 })
 
-describe('FavouritesMenu', () => {
-  it('is absent without favourites, otherwise jumps to the chosen one', () => {
-    const { rerender } = render(<FavouritesMenu favourites={[]} onOpen={() => {}} />)
-    expect(screen.queryByRole('button', { name: 'Ulubione' })).toBeNull()
+describe('PinnedMenu', () => {
+  it('is absent without pinnedItems, otherwise jumps to the chosen one', () => {
+    const { rerender } = render(<PinnedMenu pinnedItems={[]} onOpen={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Przypięte' })).toBeNull()
     const onOpen = vi.fn()
     const fav = { key: 'pkp:33605', name: 'Warszawa Centralna', lat: 52.23, lon: 21.0 }
-    rerender(<FavouritesMenu favourites={[fav]} onOpen={onOpen} />)
-    const button = screen.getByRole('button', { name: 'Ulubione' })
+    rerender(<PinnedMenu pinnedItems={[fav]} onOpen={onOpen} />)
+    const button = screen.getByRole('button', { name: 'Przypięte' })
     fireEvent.click(button)
     expect(button).toHaveAttribute('aria-expanded', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Warszawa Centralna' }))

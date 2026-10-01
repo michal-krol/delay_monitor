@@ -1,15 +1,15 @@
+import { PageTitle } from './PageTitle'
+
 /**
  * Tytuł aplikacji w pustym stanie Pulpitu (`EmptyState`) — wydzielony, żeby
  * przyszła zmiana nazwy albo stylu miała jedno miejsce.
+ *
+ * `h2`: h1 strony to „Pulpit” z `TopBar` — jeden h1 na stronę.
  *
  * BEZ linijki wersji/gałęzi: tę pokazuje pasek boczny (`Sidebar`), który jest
  * na ekranie zawsze. Wcześniej oba renderowały „v0.9.9 · dev" jednocześnie na
  * pustym Pulpicie.
  */
 export function AppTitle() {
-  return (
-    <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-      Monitor opóźnień
-    </h1>
-  )
+  return <PageTitle as="h2">Monitor opóźnień</PageTitle>
 }

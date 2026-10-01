@@ -319,6 +319,74 @@ describe('createPoller', () => {
     expect(getOperations).toHaveBeenCalledTimes(2)
   })
 
+  // AGENTS.md #3: /api/train, /schedules i network-stats zjadają tę samą pulę
+  // 100/h, ale nie przechodzą przez `getOperations`. Poller bierze niższy z
+  // budżetów: własnej odpowiedzi i ostatniego znanego budżetu klienta.
+  describe('budget seen by the client outside getOperations', () => {
+    const healthy = { trains: [], stationNames: {}, budget: { hourly: 99, daily: 999, hourlyLimit: 100, dailyLimit: 1000 } }
+
+    it('slows down when the client saw a low hourly budget that getOperations did not', async () => {
+      const getOperations = vi.fn().mockResolvedValue(healthy)
+      const getLastBudget = vi.fn(() => ({ hourly: 4, daily: 900, hourlyLimit: 100, dailyLimit: 1000 }))
+      const client = makePkpClient({ getOperations, getLastBudget })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(90000)
+      expect(getOperations).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(210000)
+      expect(getOperations).toHaveBeenCalledTimes(2)
+      expect(poller.getBudget()).toMatchObject({ hourly: 4, daily: 900 })
+      expect(poller.isThrottled()).toBe(true)
+    })
+
+    it('stops paginating when the client-wide hourly budget is below the pagination floor', async () => {
+      const getOperations = vi
+        .fn()
+        .mockResolvedValue({ ...healthy, trains: [makeEnRouteTrain('25', '1', '5100')], truncated: true })
+      const getLastBudget = vi.fn(() => ({ hourly: 15, daily: 900, hourlyLimit: 100, dailyLimit: 1000 }))
+      const client = makePkpClient({ getOperations, getLastBudget })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(getOperations).toHaveBeenCalledTimes(1)
+      expect(poller.getDiagnostics().operations.incomplete).toBe(true)
+      warn.mockRestore()
+    })
+
+    it('keeps the getOperations budget and the normal interval when the client budget is unknown', async () => {
+      const getOperations = vi.fn().mockResolvedValue(healthy)
+      const client = makePkpClient({ getOperations, getLastBudget: vi.fn(() => null) })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(90000)
+
+      expect(getOperations).toHaveBeenCalledTimes(2)
+      expect(poller.getBudget()).toEqual(healthy.budget)
+    })
+
+    it('does not treat an all-unknown client budget as zero', async () => {
+      const getOperations = vi.fn().mockResolvedValue(healthy)
+      const getLastBudget = vi.fn(() => ({ hourly: null, daily: null, hourlyLimit: null, dailyLimit: null }))
+      const client = makePkpClient({ getOperations, getLastBudget })
+      const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 300000 }, stationNames: new Map() })
+
+      poller.registerInterest(['5100'])
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(90000)
+
+      expect(getOperations).toHaveBeenCalledTimes(2)
+      expect(poller.getBudget()).toMatchObject({ hourly: 99, daily: 999 })
+    })
+  })
+
   it('trusts the client for retry resilience instead of retrying getOperations itself', async () => {
     // Ponowienie po 5xx żyje teraz w `client.ts` (`fetchJsonWithRetry`),
     // wspólne dla wszystkich zapytań do PKP -- nie tylko `getOperations`, jak
@@ -377,7 +445,7 @@ describe('createPoller', () => {
   })
 
   it('still fetches immediately for the first few new stations', async () => {
-    // Limit nie moze psuc normalnego uzycia: dodanie kilku ulubionych stacji
+    // Limit nie moze psuc normalnego uzycia: dodanie kilku przypiętych stacji
     // ma nadal dawac dane od razu, bez czekania na kolejny przebieg.
     const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
     const client = makePkpClient({ getOperations })

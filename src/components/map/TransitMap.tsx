@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap, MapGeoJSONFeature } from 'maplibre-gl'
-import { WORKER_URL } from '../MapView'
+import { STYLE_DARK, STYLE_LIGHT, WORKER_URL } from '../MapView'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { BackboneLine, CityStop } from '@/lib/gtfs/query'
 import type { MapRailStation } from '@/lib/weather/coordinates'
@@ -10,7 +10,10 @@ import {
   MAP_ZOOM,
   arrowImage,
   interpolatePoints,
-  routeColor,
+  casingExpression,
+  casingFor,
+  outlineFor,
+  strokeExpression,
   MODE_COLOR,
   POLAND_BOUNDS,
   railToGeoJSON,
@@ -24,8 +27,6 @@ import {
   VISIBLE_LIMIT,
 } from './mapData'
 
-const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty'
-const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
 const FONT = ['Noto Sans Regular']
 
 export type MapHit = { kind: 'vehicle' | 'stop' | 'rail'; id: string }
@@ -60,7 +61,7 @@ type Data = {
   stops: PointCollection
   rail: PointCollection
   selected: PointCollection
-  favourites: PointCollection
+  pinnedItems: PointCollection
   route: RouteOverlay
   routeColor: string
 }
@@ -83,8 +84,8 @@ function backboneCollection(lines: BackboneLine[] | null): Data['backbone'] {
     features: (lines ?? []).map((l) => ({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: l.points.map(([lat, lon]) => [lon, lat]) },
-      // Kolor linii z feedu (M1 granatowa, M2 czerwona — jak plakietki `LineBadge`); rodzaj tylko jako zapas.
-      properties: { color: routeColor(l.mode, l.color) },
+      // Kolor rodzaju z jednej palety (metro żółte, SKM niebieskie — jak plakietki `LineBadge`), nie `route_color` z feedu.
+      properties: { color: MODE_COLOR[l.mode] },
     })),
   }
 }
@@ -106,26 +107,29 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     'text-halo-color': dark ? '#0f172a' : '#ffffff',
     'text-halo-width': 1.5,
   }
-  const stroke = { 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 }
+  // Obrys kropek i strzałek: reguła `strokeFor` (biały, pod żółtym metrem ciemnoczerwony) jako wyrażenie MapLibre.
+  const strokeColor = strokeExpression() as never
+  const stroke = { 'circle-stroke-color': strokeColor, 'circle-stroke-width': 1.5 }
 
   map.addSource('backbone', { type: 'geojson', data: data.backbone as never })
   map.addSource('rail', { type: 'geojson', data: data.rail })
   map.addSource('stops', { type: 'geojson', data: data.stops })
   map.addSource('vehicles', { type: 'geojson', data: data.vehicles })
   map.addSource('selected', { type: 'geojson', data: data.selected })
-  map.addSource('favourites', { type: 'geojson', data: data.favourites })
+  map.addSource('pinnedItems', { type: 'geojson', data: data.pinnedItems })
   map.addSource('route-line', { type: 'geojson', data: data.route.line })
   map.addSource('route-stops', { type: 'geojson', data: data.route.stops })
 
   // Metro i kolej miejska jako cienkie tło — orientacja w mieście, zanim pokażą się przystanki.
-  // Jasna obwódka pod przebiegiem — granat M1 ginąłby na ciemnym podkładzie.
+  // Obwódka pod przebiegiem. Jasny podkład: biała (niebieska kolej), ale pod żółtym metrem ciemnoczerwona — żółć na bieli
+  // jest niewidoczna. Ciemny podkład: zawsze biała półprzezroczysta (żółć sama kontrastuje; czerwona obwódka brudziła ją na pomarańcz).
   map.addLayer({
     id: 'backbone-casing',
     type: 'line',
     source: 'backbone',
     minzoom: 9,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 15, 6.5], 'line-opacity': dark ? 0.55 : 0.9 },
+    paint: { 'line-color': casingExpression(dark) as never, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4.5, 15, 8.5], 'line-opacity': dark ? 0.55 : 0.9 },
   })
   map.addLayer({
     id: 'backbone',
@@ -133,7 +137,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     source: 'backbone',
     minzoom: 9,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 15, 3.5], 'line-opacity': 0.9 },
+    paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.5, 15, 5], 'line-opacity': 0.9 },
   })
 
   // Kolej: ranga ruchu decyduje, od jakiego zoomu stacja jest widoczna — mapa
@@ -168,7 +172,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
           key === 'metroStops'
             ? ['interpolate', ['linear'], ['zoom'], 11, 3.5, 16, 7]
             : ['interpolate', ['linear'], ['zoom'], 14, 2.5, 17, 5],
-        'circle-stroke-color': '#ffffff',
+        'circle-stroke-color': strokeColor,
         'circle-stroke-width': 1,
       },
     })
@@ -202,6 +206,13 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
 
   // Trasa wybranej linii — nad przystankami i koleją, pod pojazdami.
   map.addLayer({
+    id: 'route-casing',
+    type: 'line',
+    source: 'route-line',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': casingFor(data.routeColor, dark), 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 10], 'line-opacity': dark ? 0.55 : 0.9 },
+  })
+  map.addLayer({
     id: 'route-line',
     type: 'line',
     source: 'route-line',
@@ -215,7 +226,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     paint: {
       'circle-color': '#ffffff',
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 16, 5],
-      'circle-stroke-color': data.routeColor,
+      'circle-stroke-color': outlineFor(data.routeColor),
       'circle-stroke-width': 2,
     },
   })
@@ -256,7 +267,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
       // Przesunięcie „do przodu" obraca się razem z ikoną — strzałka stoi przed kropką.
       'icon-offset': [0, -22],
     },
-    paint: { 'icon-color': ['get', 'color'], 'icon-opacity': ['get', 'opacity'] },
+    paint: { 'icon-color': ['get', 'color'], 'icon-opacity': ['get', 'opacity'], 'icon-halo-color': strokeColor, 'icon-halo-width': 1 },
   })
   map.addLayer({
     id: 'vehicles-labels',
@@ -267,11 +278,11 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     paint: labelPaint,
   })
 
-  // Ulubione (Pulpit) — złota obwódka, widoczna przy każdym zoomie.
+  // Przypięte (Pulpit) — złota obwódka, widoczna przy każdym zoomie.
   map.addLayer({
-    id: 'favourites',
+    id: 'pinnedItems',
     type: 'circle',
-    source: 'favourites',
+    source: 'pinnedItems',
     paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#f59e0b', 'circle-stroke-width': 2.5 },
   })
 
@@ -345,7 +356,7 @@ export function TransitMap({
   focus,
   route,
   follow,
-  favourites = [],
+  pinnedItems = [],
   onlyLines = null,
   listOpen = false,
   dark,
@@ -374,8 +385,8 @@ export function TransitMap({
   route: { key: string; overlay: RouteOverlay; color: string } | null
   /** Śledzony pojazd — kamera przesuwa się za nim z każdym odczytem. */
   follow: { lat: number; lon: number } | null
-  /** Pozycje ulubionych stacji/przystanków. */
-  favourites?: { lat: number; lon: number }[]
+  /** Pozycje przypiętych stacji/przystanków. */
+  pinnedItems?: { lat: number; lon: number }[]
   /** „Tylko linie z utrudnieniami" — `null` = wszystkie. */
   onlyLines?: ReadonlySet<string> | null
   /** Lista „w widoku" otwarta — dopiero wtedy liczymy widoczne obiekty. */
@@ -392,7 +403,7 @@ export function TransitMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
-  const dataRef = useRef<Data>({ backbone: backboneCollection(null), vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, favourites: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
+  const dataRef = useRef<Data>({ backbone: backboneCollection(null), vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, pinnedItems: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
   const dimmedRef = useRef(false)
   /** Kadr trasy wybranej, zanim styl mapy się wczytał — dopasujemy go po `style.load`. */
   const pendingFitRef = useRef<RouteOverlay['bounds']>(null)
@@ -547,15 +558,15 @@ export function TransitMap({
     return () => cancelAnimationFrame(raf)
   }, [vehicles, hidden, routeId, onlyLines])
 
-  const favouritesKey = favourites.map((f) => `${f.lat},${f.lon}`).join('|')
+  const pinnedItemsKey = pinnedItems.map((f) => `${f.lat},${f.lon}`).join('|')
   useEffect(() => {
-    dataRef.current.favourites = {
+    dataRef.current.pinnedItems = {
       type: 'FeatureCollection',
-      features: favourites.map((f) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.lon, f.lat] }, properties: {} })),
+      features: pinnedItems.map((f) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.lon, f.lat] }, properties: {} })),
     }
-    ;(mapRef.current?.getSource('favourites') as GeoJSONSource | undefined)?.setData(dataRef.current.favourites)
+    ;(mapRef.current?.getSource('pinnedItems') as GeoJSONSource | undefined)?.setData(dataRef.current.pinnedItems)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnatura pozycji, nie tożsamość tablicy z każdego renderu
-  }, [favouritesKey])
+  }, [pinnedItemsKey])
 
   useEffect(() => {
     // Otwarcie listy: przerysowanie wywoła `idle` → pierwsza lista od razu.
@@ -604,7 +615,8 @@ export function TransitMap({
     ;(map.getSource('route-line') as GeoJSONSource).setData(dataRef.current.route.line)
     ;(map.getSource('route-stops') as GeoJSONSource).setData(dataRef.current.route.stops)
     map.setPaintProperty('route-line', 'line-color', dataRef.current.routeColor)
-    map.setPaintProperty('route-stops', 'circle-stroke-color', dataRef.current.routeColor)
+    map.setPaintProperty('route-casing', 'line-color', casingFor(dataRef.current.routeColor, darkRef.current))
+    map.setPaintProperty('route-stops', 'circle-stroke-color', outlineFor(dataRef.current.routeColor))
     applyDim(map, route !== null)
     const bounds = route?.overlay.bounds
     if (bounds !== null && bounds !== undefined) fitRoute(map, bounds)

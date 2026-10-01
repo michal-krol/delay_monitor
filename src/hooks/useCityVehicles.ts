@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
+import { fetchJson, usePolling } from './usePolling'
 
 export type CityVehiclesState = {
   vehicles: CityVehicle[]
@@ -13,47 +13,20 @@ export type CityVehiclesState = {
 
 const REFRESH_MS = 15_000
 
+type CityVehiclesResponse = { vehicles: CityVehicle[]; feed: { state: string; ageMs: number | null }; alertLines?: string[] }
+
+const LOADING_STATE: Omit<CityVehiclesState, 'error'> = { vehicles: [], feed: { state: 'loading', ageMs: null }, alertLines: [] }
+
 /**
  * Poll WSZYSTKICH pozycji pojazdów miasta (`/api/gtfs/city-vehicles`) co 15 s —
- * mapa miasta live. Ten sam ręczny wzorzec `setTimeout` + `document.hidden` co
- * `useLineVehicles`. Błąd ustawia `error`, ale zachowuje ostatnią listę
- * `vehicles` (AGENTS #7 — nie czyścić mapy przy chwilowej awarii).
+ * mapa miasta live (pauza na ukrytej karcie w `usePolling`). Błąd ustawia
+ * `error`, ale zachowuje ostatnią listę `vehicles` (AGENTS #7 — nie czyścić mapy
+ * przy chwilowej awarii).
  */
 export function useCityVehicles(city: string): CityVehiclesState {
-  const [state, setState] = useState<CityVehiclesState>({
-    vehicles: [],
-    feed: { state: 'loading', ageMs: null },
-    alertLines: [],
-    error: null,
+  const { data, error } = usePolling<CityVehiclesResponse>(city, () => fetchJson(`/api/gtfs/city-vehicles?city=${encodeURIComponent(city)}`), {
+    refreshMs: REFRESH_MS,
   })
-
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-
-    async function tick(): Promise<void> {
-      if (cancelled) return
-      if (document.hidden) {
-        timer = setTimeout(() => void tick(), REFRESH_MS)
-        return
-      }
-      try {
-        const response = await fetch(`/api/gtfs/city-vehicles?city=${encodeURIComponent(city)}`)
-        if (!response.ok) throw new Error(String(response.status))
-        const json = (await response.json()) as { vehicles: CityVehicle[]; feed: { state: string; ageMs: number | null }; alertLines?: string[] }
-        if (!cancelled) setState({ vehicles: json.vehicles, feed: json.feed, alertLines: json.alertLines ?? [], error: null })
-      } catch (err) {
-        if (!cancelled) setState((s) => ({ ...s, error: err instanceof Error ? err.message : 'błąd' }))
-      }
-      if (!cancelled) timer = setTimeout(() => void tick(), REFRESH_MS)
-    }
-
-    void tick()
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [city])
-
-  return state
+  if (data === null) return { ...LOADING_STATE, error }
+  return { vehicles: data.vehicles, feed: data.feed, alertLines: data.alertLines ?? [], error }
 }

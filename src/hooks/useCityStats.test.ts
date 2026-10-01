@@ -4,13 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCityStats } from './useCityStats'
 import { jsonResponse } from '@/test-utils/http'
 
-const body = (state: 'ready' | 'loading' | 'failed', alerts: unknown[] | null = []) =>
+const body = (state: 'ready' | 'loading' | 'failed', alerts: unknown[] | null = [], alertState = alerts === null ? 'loading' : 'ready') =>
   jsonResponse({
     city: 'warszawa',
     state,
     stats: state === 'ready' ? { tripsToday: 10 } : null,
     alerts,
-    alertFeed: { state: alerts === null ? 'loading' : 'ready', ageMs: alerts === null ? null : 1000 },
+    alertFeed: { state: alertState, ageMs: alerts === null ? null : 1000 },
   })
 
 beforeEach(() => vi.useFakeTimers())
@@ -69,6 +69,74 @@ describe('useCityStats', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('a failed alert feed with no data is not "loading": no fast ladder, re-polls only every 5 min', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('ready', null, 'failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('failed'))
+    await vi.advanceTimersByTimeAsync(299_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('a loading schedule keeps the 15 s ladder tail even when the alert feed already failed', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('loading', null, 'failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    renderHook(() => useCityStats('warszawa'))
+    await vi.advanceTimersByTimeAsync(34_000) // drabinka 1+2+3+5+8+15 s = 7 zapytań
+    expect(fetchMock).toHaveBeenCalledTimes(7)
+    await vi.advanceTimersByTimeAsync(30_000) // dalej co 15 s, nie co 5 min
+    expect(fetchMock).toHaveBeenCalledTimes(9)
+  })
+
+  it('a failed alert feed with last good alerts also re-polls every 5 min, so the shown age stays current', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('ready', [], 'failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('failed'))
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('picks up a recovered alert feed on the next slow re-poll, then stops polling', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => body('ready', null, 'failed'))
+      .mockImplementation(() => body('ready', [{ id: 'a1' }]))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('failed'))
+    await vi.advanceTimersByTimeAsync(300_000)
+    await vi.waitFor(() => expect(result.current.data?.alertFeed?.state).toBe('ready'))
+    expect(result.current.data?.alerts).toEqual([{ id: 'a1' }])
+    await vi.advanceTimersByTimeAsync(600_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps retrying past the first ladder while the schedule is loading (never gives up)', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => body('loading'))
+    vi.stubGlobal('fetch', fetchMock)
+    renderHook(() => useCityStats('warszawa'))
+    await vi.advanceTimersByTimeAsync(34_000) // drabinka 1+2+3+5+8+15 s = 7 zapytań
+    expect(fetchMock).toHaveBeenCalledTimes(7)
+    await vi.advanceTimersByTimeAsync(30_000) // dalej co 15 s
+    expect(fetchMock).toHaveBeenCalledTimes(9)
+  })
+
+  it('retries after an error and recovers, keeping no stale error', async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error('network')).mockImplementation(() => body('ready'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useCityStats('warszawa'))
+    await vi.waitFor(() => expect(result.current.error).toBe('network'))
+    await vi.advanceTimersByTimeAsync(30_000)
+    await vi.waitFor(() => expect(result.current.data?.state).toBe('ready'))
+    expect(result.current.error).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('surfaces a fetch error', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('network'))
     vi.stubGlobal('fetch', fetchMock)
@@ -80,6 +148,6 @@ describe('useCityStats', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500 })
     vi.stubGlobal('fetch', fetchMock)
     const { result } = renderHook(() => useCityStats('warszawa'))
-    await vi.waitFor(() => expect(result.current.error).toBe('500'))
+    await vi.waitFor(() => expect(result.current.error).toBe('Błąd odpowiedzi: 500'))
   })
 })

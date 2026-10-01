@@ -4,7 +4,7 @@
  * Aplikacja to jeden długo żyjący proces, więc zwykła `Map` używana jako cache
  * nigdy nie oddaje pamięci: wygasłe wpisy zostają, dopóki ktoś nie zapyta
  * o dokładnie ten sam klucz. Przy kluczach pochodnych od zestawu obserwowanych
- * stacji taki cache rośnie z każdą zmianą ulubionych.
+ * stacji taki cache rośnie z każdą zmianą przypiętych.
  *
  * Eksmisja jest FIFO po kolejności wstawienia (Map zachowuje ją z definicji),
  * nie LRU — przy tej skali nie warto liczyć trafień.

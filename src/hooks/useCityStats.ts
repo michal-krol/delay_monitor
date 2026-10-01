@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { fetchJson, usePolling } from './usePolling'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { CityStats } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -18,56 +18,25 @@ export type CityStatsResponse = {
   alertFeed?: { state: string; ageMs: number | null }
 }
 
+/** Rytm serwerowego pollera alertów (`GTFS_ALERT_POLL_MS`, domyślnie 5 min) — częściej nic nowego nie przyjdzie. */
+const ALERT_RETRY_MS = 5 * 60_000
+
 /**
- * Statystyki komunikacji miejskiej miasta — jeden fetch z ponawianiem, dopóki
- * rozkład się wczytuje (jak `useTransitBoard`, ale bez cyklu odświeżania:
- * rozkład zmienia się raz na dobę).
+ * Statystyki komunikacji miejskiej miasta — jeden fetch z ponawianiem (drabinka
+ * `usePolling`), dopóki rozkład się wczytuje (jak `useTransitBoard`, ale bez cyklu
+ * odświeżania: rozkład zmienia się raz na dobę).
+ *
+ * Ponawiamy też, gdy sam rozkład jest już `ready`, ale poller alertów (rytm 5 min,
+ * niezależny od rozkładu) jeszcze nie skończył pierwszego pobrania (`alerts == null`)
+ * — inaczej widżet utyka na „Wczytywanie…" na czas życia komponentu. Feed alertów
+ * `failed` to stan znany („nie udało się pobrać", #7), nie ładowanie: zamiast drabinki co
+ * 15 s widżet ponawia co `ALERT_RETRY_MS`, żeby zauważyć, gdy serwerowy poller alertów
+ * (ponawia co `GTFS_ALERT_POLL_MS`) znów pobierze feed. Tylko na widocznej karcie (`usePolling`).
  */
-const LOADING_RETRY_DELAYS_MS = [1000, 2000, 3000, 5000, 8000, 15000]
-
 export function useCityStats(city: string | null) {
-  const [data, setData] = useState<CityStatsResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (city === null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData(null)
-      return
-    }
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    let retry = 0
-
-    function tick(): void {
-      fetch(`/api/gtfs/city-stats?city=${encodeURIComponent(city as string)}`)
-        .then((response) => {
-          if (!response.ok) throw new Error(String(response.status))
-          return response.json() as Promise<CityStatsResponse>
-        })
-        .then((json) => {
-          if (cancelled) return
-          setData(json)
-          setError(null)
-          // Ponawiamy też, gdy sam rozkład jest już `ready`, ale poller alertów
-          // (rytm 5 min, niezależny od rozkładu) jeszcze nie skończył pierwszego
-          // pobrania (`alerts == null`) — inaczej widżet utyka na „Wczytuję…"
-          // na czas życia komponentu. Ta sama, ograniczona drabinka ponowień.
-          if ((json.state === 'loading' || json.alerts == null) && retry < LOADING_RETRY_DELAYS_MS.length) {
-            timer = setTimeout(tick, LOADING_RETRY_DELAYS_MS[retry++])
-          }
-        })
-        .catch((err) => {
-          if (!cancelled) setError(err instanceof Error ? err.message : 'Nieznany błąd')
-        })
-    }
-
-    tick()
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [city])
-
+  const { data, error } = usePolling<CityStatsResponse>(city, () => fetchJson(`/api/gtfs/city-stats?city=${encodeURIComponent(city as string)}`), {
+    refreshMs: (json) => (json.alertFeed?.state === 'failed' ? ALERT_RETRY_MS : null),
+    isLoading: (json) => json.state === 'loading' || (json.alerts == null && json.alertFeed?.state !== 'failed'),
+  })
   return { data, error }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { fetchJson, usePolling } from './usePolling'
 import type { NetworkStats } from '@/lib/board/networkStats'
 
 // Agregat ogólnopolski odświeżany po stronie serwera co ~15 min (patrz
@@ -40,42 +40,15 @@ export function resetNetworkStatsHookForTests(): void {
 }
 
 export function useNetworkStats() {
-  const [data, setData] = useState<NetworkStats | null>(lastKnownStats)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-
-    async function tick(respectHidden: boolean): Promise<void> {
-      if (cancelled) return
-      if (respectHidden && document.hidden) {
-        timer = setTimeout(() => void tick(true), REFRESH_INTERVAL_MS)
-        return
-      }
-      try {
-        const response = await fetch('/api/network-stats')
-        if (!response.ok) throw new Error(`Błąd odpowiedzi: ${response.status}`)
-        const json: unknown = await response.json()
-        if (!isNetworkStats(json)) throw new Error('Nieoczekiwany kształt odpowiedzi')
-        if (!cancelled) {
-          setData(json)
-          setError(null)
-        }
-        lastKnownStats = json
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Nieznany błąd')
-      }
-      if (cancelled) return
-      timer = setTimeout(() => void tick(true), REFRESH_INTERVAL_MS)
-    }
-
-    void tick(false)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [])
-
+  const { data, error } = usePolling<NetworkStats>(
+    'network-stats',
+    async () => {
+      const json = await fetchJson<unknown>('/api/network-stats')
+      if (!isNetworkStats(json)) throw new Error('Nieoczekiwany kształt odpowiedzi')
+      lastKnownStats = json
+      return json
+    },
+    { refreshMs: REFRESH_INTERVAL_MS, initialData: lastKnownStats ?? undefined }
+  )
   return { data, error }
 }

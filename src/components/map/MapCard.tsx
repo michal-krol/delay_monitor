@@ -1,19 +1,22 @@
 'use client'
 
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertBanner } from '../AlertBanner'
-import { AlertCircleIcon, CloseIcon, ArrowRightIcon, StarIcon } from '../icons'
+import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, PIN_COLOR, StarIcon } from '../icons'
+import { IconButton } from '../IconButton'
 import { DelayBadge } from '../DelayBadge'
 import { LineBadge } from '../LineBadge'
-import { MODE_ICON, MODE_LABEL } from '../transitMode'
+import { MODE_LABEL } from '../transitMode'
 import { TransitDepartureList } from '../TransitDepartureList'
 import { useRailStationStatus } from '@/hooks/useRailStations'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
-import { formatClockTime } from '@/lib/format'
+import { formatAgo, formatClockTime } from '@/lib/format'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import { FADE_START_SEC, MODE_COLOR, ageLabel } from './mapData'
+import { FADE_START_SEC, vehicleKind } from './mapData'
+import { ModeChip } from './ModeChip'
+import { PanelFrame } from './PanelFrame'
 
 /** Co jest wybrane na mapie. Pojazd niesie tylko `id` — pozycja/linia żyją w odczytach co 15 s. */
 export type MapSelection =
@@ -37,8 +40,8 @@ export function MapCard({
   onShowRoute,
   following = false,
   onToggleFollow,
-  favourite,
-  onToggleFavourite,
+  pinned,
+  onTogglePin,
   onNearby,
   alertLines = [],
 }: {
@@ -52,39 +55,14 @@ export function MapCard({
   /** Kamera jedzie za tym pojazdem. */
   following?: boolean
   onToggleFollow?: () => void
-  /** Stacja/przystanek jest w ulubionych (Pulpit). `undefined` = brak przełącznika. */
-  favourite?: boolean
-  onToggleFavourite?: () => void
+  /** Stacja/przystanek jest w przypiętych (Pulpit). `undefined` = brak przełącznika. */
+  pinned?: boolean
+  onTogglePin?: () => void
   /** „Co jest w pobliżu?" — dostępna z klawiatury alternatywa dla prawego kliku. */
   onNearby?: () => void
   /** Numery linii z aktywnym alertem. */
   alertLines?: string[]
 }) {
-  const headingId = useId()
-  const headingRef = useRef<HTMLHeadingElement>(null)
-  const returnFocusRef = useRef<HTMLElement | null>(null)
-  const onCloseRef = useRef(onClose)
-  useEffect(() => {
-    onCloseRef.current = onClose
-  })
-
-  useEffect(() => {
-    returnFocusRef.current ??= document.activeElement instanceof HTMLElement ? document.activeElement : null
-    headingRef.current?.focus({ preventScroll: true })
-  }, [selection.kind, selection.id])
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onCloseRef.current()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      const target = returnFocusRef.current
-      if (target !== null && target.isConnected) target.focus({ preventScroll: true })
-    }
-  }, [])
-
   const heading =
     selection.kind === 'vehicle'
       ? vehicle?.shortName !== null && vehicle?.shortName !== undefined
@@ -93,88 +71,67 @@ export function MapCard({
       : selection.name
 
   return (
-    <section
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby={headingId}
-      className="glass-strong flex max-h-full flex-col overflow-hidden rounded-2xl shadow-xl"
+    <PanelFrame
+      title={heading}
+      subtitle={<Subtitle selection={selection} vehicle={vehicle} />}
+      actions={
+        pinned !== undefined &&
+        onTogglePin !== undefined && (
+          <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onTogglePin} pressed={pinned} size="lg">
+            <StarIcon size={16} filled={pinned} className={pinned ? PIN_COLOR : ''} />
+          </IconButton>
+        )
+      }
+      closeLabel="Zamknij kartę"
+      onClose={onClose}
+      bodyLabel="Szczegóły"
+      focusKey={`${selection.kind}:${selection.id}`}
     >
-      <header className="flex items-start gap-3 border-b p-4" style={{ borderColor: 'var(--surface-border)' }}>
-        <div className="min-w-0 flex-1">
-          <h2 ref={headingRef} id={headingId} tabIndex={-1} className="font-heading text-lg font-bold leading-tight outline-none first-letter:uppercase">
-            {heading}
-          </h2>
-          <Subtitle selection={selection} vehicle={vehicle} />
-        </div>
-        {favourite !== undefined && onToggleFavourite !== undefined && (
-          <button
-            type="button"
-            onClick={onToggleFavourite}
-            aria-pressed={favourite}
-            aria-label={favourite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10 ${
-              favourite ? 'text-amber-500' : 'text-text-secondary'
-            }`}
-          >
-            <StarIcon size={16} />
-          </button>
-        )}
+      {selection.kind === 'rail' && <RailBody id={selection.id} />}
+      {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
+      {selection.kind !== 'vehicle' && onNearby !== undefined && (
         <button
           type="button"
-          onClick={onClose}
-          aria-label="Zamknij kartę"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+          onClick={onNearby}
+          className="mt-2 w-full rounded-xl border border-surface-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
         >
-          <CloseIcon size={16} />
+          Co jest w pobliżu?
         </button>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={0} aria-label="Szczegóły">
-        {selection.kind === 'rail' && <RailBody id={selection.id} />}
-        {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
-        {selection.kind !== 'vehicle' && onNearby !== undefined && (
-          <button
-            type="button"
-            onClick={onNearby}
-            className="mt-2 w-full rounded-xl border px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-            style={{ borderColor: 'var(--surface-border)' }}
-          >
-            Co jest w pobliżu?
-          </button>
-        )}
-        {selection.kind === 'vehicle' && (
-          <VehicleBody
-            vehicle={vehicle}
-            city={city}
-            onShowRoute={onShowRoute}
-            following={following}
-            onToggleFollow={onToggleFollow}
-            disrupted={vehicle?.shortName !== null && vehicle?.shortName !== undefined && alertLines.includes(vehicle.shortName)}
-          />
-        )}
-      </div>
-    </section>
-  )
-}
-
-function ModeDot({ mode }: { mode: GtfsMode }) {
-  const Icon = MODE_ICON[mode]
-  return (
-    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-white" style={{ background: MODE_COLOR[mode] }} aria-hidden="true">
-      <Icon size={13} />
-    </span>
+      )}
+      {selection.kind === 'vehicle' && (
+        <VehicleBody
+          vehicle={vehicle}
+          city={city}
+          onShowRoute={onShowRoute}
+          following={following}
+          onToggleFollow={onToggleFollow}
+          disrupted={vehicle?.shortName !== null && vehicle?.shortName !== undefined && alertLines.includes(vehicle.shortName)}
+        />
+      )}
+    </PanelFrame>
   )
 }
 
 function Subtitle({ selection, vehicle }: { selection: MapSelection; vehicle: CityVehicle | null }) {
-  const [mode, text] =
+  const [mode, text]: [GtfsMode, ReactNode] =
     selection.kind === 'rail'
-      ? (['rail', 'Stacja kolejowa'] as const)
+      ? ['rail', 'Stacja kolejowa']
       : selection.kind === 'stop'
-        ? ([selection.mode, selection.mode === 'metro' ? 'Stacja metra' : `Przystanek ${selection.mode === 'tram' ? 'tramwajowy' : 'autobusowy'}`] as const)
-        : ([vehicle?.mode ?? 'bus', vehicle?.headsign !== null && vehicle?.headsign !== undefined ? `→ ${vehicle.headsign}` : 'kierunek nieznany'] as const)
+        ? [selection.mode, selection.mode === 'metro' ? 'Stacja metra' : `Przystanek ${selection.mode === 'tram' ? 'tramwajowy' : 'autobusowy'}`]
+        : [
+            vehicle?.mode ?? 'bus',
+            vehicle?.headsign !== null && vehicle?.headsign !== undefined ? (
+              <span className="inline-flex items-center gap-1">
+                <ArrowRightIcon size={14} label="do" />
+                {vehicle.headsign}
+              </span>
+            ) : (
+              'kierunek nieznany'
+            ),
+          ]
   return (
     <p className="mt-1 flex items-center gap-2 text-sm text-text-secondary">
-      <ModeDot mode={mode} />
+      <ModeChip mode={mode} />
       {text}
     </p>
   )
@@ -188,7 +145,7 @@ function Action({ href, children }: { href: string; children: ReactNode }) {
       style={{ background: 'var(--accent-gradient)' }}
     >
       {children}
-      <ArrowRightIcon size={14} />
+      <ChevronRightIcon size={14} />
     </Link>
   )
 }
@@ -210,7 +167,7 @@ function RailBody({ id }: { id: string }) {
       <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">Najbliższe odjazdy</h3>
       <div className="mt-2" aria-live="polite">
         {status === undefined && !error && <Skeleton />}
-        {status === undefined && error && <p className="text-sm text-red-700 dark:text-red-300">Nie udało się sprawdzić odjazdów.</p>}
+        {status === undefined && error && <p className="text-sm text-error-text">Nie udało się sprawdzić odjazdów.</p>}
         {status === null && (
           <p className="text-sm text-text-secondary">Nie śledzimy teraz tej stacji. Otwórz tablicę — pobierzemy jej odjazdy.</p>
         )}
@@ -219,7 +176,7 @@ function RailBody({ id }: { id: string }) {
             {status.nextDepartures.length === 0 ? (
               <p className="text-sm text-text-secondary">Brak odjazdów w najbliższym czasie.</p>
             ) : (
-              <ul className="divide-y" style={{ borderColor: 'var(--surface-border)' }}>
+              <ul className="divide-y divide-surface-border">
                 {status.nextDepartures.map((d) => (
                   <li key={`${d.plannedAt}-${d.trainLabel}`} className="flex items-center gap-3 py-2 text-sm">
                     <span className="w-11 shrink-0 font-semibold tabular-nums">{formatClockTime(d.plannedAt)}</span>
@@ -235,7 +192,7 @@ function RailBody({ id }: { id: string }) {
                 ))}
               </ul>
             )}
-            <p className="mt-2 text-xs text-text-muted">Aktualizacja {ageLabel(Math.round(status.ageMs / 1000))}</p>
+            <p className="mt-2 text-xs text-text-muted">Aktualizacja {formatAgo(Math.round(status.ageMs / 1000))}</p>
           </>
         )}
       </div>
@@ -255,7 +212,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
 
   return (
     <>
-      {board !== null && board.alerts.length > 0 && (
+      {board?.alerts != null && board.alerts.length > 0 && (
         <div className="mb-3">
           <AlertBanner alerts={board.alerts} />
         </div>
@@ -264,7 +221,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
         <ul className="mb-3 flex flex-wrap gap-1.5" aria-label="Linie">
           {lines.map((line) => (
             <li key={line.routeId}>
-              <LineBadge line={line.line} color={line.color} mode={line.mode} size="sm" href={`/city/${city}/line/${line.routeId}`} />
+              <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" href={`/city/${city}/line/${line.routeId}`} />
             </li>
           ))}
         </ul>
@@ -272,7 +229,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
       <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">Najbliższe odjazdy · rozkład</h3>
       <div aria-live="polite">
         {error !== null && data === null ? (
-          <p className="mt-2 text-sm text-red-700 dark:text-red-300">Nie udało się pobrać rozkładu.</p>
+          <p className="mt-2 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
         ) : (
           <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} />
         )}
@@ -304,7 +261,7 @@ function VehicleBody({
   return (
     <>
       {vehicle.shortName !== null && vehicle.mode !== null && (
-        <LineBadge line={vehicle.shortName} color={vehicle.color} mode={vehicle.mode} />
+        <LineBadge line={vehicle.shortName} mode={vehicle.mode} kind={vehicleKind(vehicle)} />
       )}
       {disrupted && (
         <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
@@ -320,8 +277,8 @@ function VehicleBody({
         <div>
           <dt className="text-xs text-text-muted">Pozycja</dt>
           <dd>
-            {ageLabel(vehicle.ageSec)} ·{' '}
-            <span className={fresh ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}>
+            {formatAgo(vehicle.ageSec)} ·{' '}
+            <span className={fresh ? 'text-indigo-600 dark:text-indigo-400' : 'text-warning-text'}>
               {fresh ? 'aktualna' : 'nieaktualna'}
             </span>
           </dd>
@@ -337,9 +294,9 @@ function VehicleBody({
           aria-pressed={following}
           onClick={onToggleFollow}
           className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-            following ? 'text-white' : 'text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
+            following ? 'border-transparent text-white' : 'border-surface-border text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
           }`}
-          style={following ? { background: 'var(--accent-gradient)', borderColor: 'transparent' } : { borderColor: 'var(--surface-border)' }}
+          style={following ? { background: 'var(--accent-gradient)' } : undefined}
         >
           {following ? 'Śledzę pojazd' : 'Śledź pojazd'}
         </button>
@@ -351,8 +308,7 @@ function VehicleBody({
             <button
               type="button"
               onClick={() => onShowRoute(vehicle.routeId!, vehicle.directionId)}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:hover:bg-white/10"
-              style={{ borderColor: 'var(--surface-border)' }}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-surface-border px-4 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:hover:bg-white/10"
             >
               Pokaż trasę na mapie
             </button>

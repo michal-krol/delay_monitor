@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
-import { contrastText, lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
+import { lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
 
 const searchStations = vi.fn(async () => [
@@ -25,8 +25,6 @@ beforeAll(async () => {
     longName: id,
     mode: modeFromRouteType(type),
     kind: lineKindFrom(id, undefined),
-    color: null,
-    textColor: contrastText(null),
   })
   schedule = await buildSchedule({
     feedVersion: 'v1',
@@ -80,7 +78,7 @@ describe('GET /api/search', () => {
     const { body: transit } = await call('city=warszawa&q=swi')
     const hit = transit.stations.find((s: { kind: string }) => s.kind === 'transit')
     expect(hit.name).toBe('Świętokrzyska')
-    expect(hit.lines).toEqual([{ routeId: 'M1', line: 'M1', color: null, mode: 'metro', kind: 'regular' }])
+    expect(hit.lines).toEqual([{ routeId: 'M1', line: 'M1', mode: 'metro', kind: 'regular' }])
   })
 
   it('searches rail stations country-wide with rail=all (the map)', async () => {

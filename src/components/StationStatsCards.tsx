@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { StationStats } from '@/lib/board/stationStats'
-import { ArrowRightIcon, ClockIcon, CheckIcon, TrainIcon } from './icons'
+import { ArrivalIcon, DepartureIcon, HourglassIcon, TargetIcon } from './icons'
 import { pluralPl } from '@/lib/plural'
 
 /**
@@ -91,34 +91,39 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
   const arrivals = countValue(safe.arrivalsToday, loading)
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard
-        icon={<TrainIcon size={18} />}
-        accent="var(--status-notStarted-bg)"
-        label="Odjazdy dzisiaj"
-        {...departures}
-      />
-      <StatCard
-        icon={<ArrowRightIcon size={18} />}
-        accent="var(--status-onTime-bg)"
-        label="Przyjazdy dzisiaj"
-        {...arrivals}
-      />
-      <StatCard
-        icon={<ClockIcon size={18} />}
-        accent="var(--status-delayed-bg)"
-        label="Średnie opóźnienie"
-        value={loading ? LOADING : safe.averageDelayMinutes === null ? NO_DATA : `+${safe.averageDelayMinutes}`}
-        unit={loading || safe.averageDelayMinutes === null ? undefined : 'min'}
-        hint={realizationHint(loading, safe.averageDelaySample, `z ${safe.averageDelaySample} potwierdzonych dziś przejazdów`)}
-      />
-      <StatCard
-        icon={<CheckIcon size={18} />}
-        accent="var(--status-enRoute-bg)"
-        label="Punktualność"
-        value={loading ? LOADING : safe.punctualityPct === null ? NO_DATA : `${safe.punctualityPct}%`}
-        hint={realizationHint(loading, safe.punctualitySample, `dziś, opóźnienie do ${safe.punctualityThresholdMinutes} min`)}
-      />
+    // Kolumny od szerokości KONTENERA, nie okna: w FullBoard przy oknie 1280 px kafelki mają
+    // ~565 px, a `xl:grid-cols-4` ściskało je do 143 px („Punktualność” ucięta). 1 → 2 → 4,
+    // nigdy 3 (auto-fill dałby sierotę 3+1).
+    <div className="@container">
+      <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @5xl:grid-cols-4">
+        <StatCard
+          icon={<DepartureIcon size={18} />}
+          accent="var(--status-notStarted-bg)"
+          label="Odjazdy dzisiaj"
+          {...departures}
+        />
+        <StatCard
+          icon={<ArrivalIcon size={18} />}
+          accent="var(--status-onTime-bg)"
+          label="Przyjazdy dzisiaj"
+          {...arrivals}
+        />
+        <StatCard
+          icon={<HourglassIcon size={18} />}
+          accent="var(--status-delayed-bg)"
+          label="Średnie opóźnienie"
+          value={loading ? LOADING : safe.averageDelayMinutes === null ? NO_DATA : `+${safe.averageDelayMinutes}`}
+          unit={loading || safe.averageDelayMinutes === null ? undefined : 'min'}
+          hint={realizationHint(loading, safe.averageDelaySample, `z ${safe.averageDelaySample} potwierdzonych dziś przejazdów`)}
+        />
+        <StatCard
+          icon={<TargetIcon size={18} />}
+          accent="var(--status-enRoute-bg)"
+          label="Punktualność"
+          value={loading ? LOADING : safe.punctualityPct === null ? NO_DATA : `${safe.punctualityPct}%`}
+          hint={realizationHint(loading, safe.punctualitySample, `dziś, opóźnienie do ${safe.punctualityThresholdMinutes} min`)}
+        />
+      </div>
     </div>
   )
 }

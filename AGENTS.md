@@ -60,6 +60,7 @@ stop. All realization logic lives in `src/lib/board/realization.ts` — never du
 100/h and 1000/day; poller ≈ 40/h. Compute cost/h before adding any call (also outside the
 poller: `/api/train`, `/api/network-stats`; the map's `/api/rail-stations/*` costs 0). Missing `X-RateLimit-*` =
 "unknown", never "zero". New indicators: derive from data the poller already has.
+Staging shares production's key as of 2026-10-01 (`deployment.md`) — keep staging QA short.
 
 ### 4. Input from outside the app is always hostile → `security.md`
 Validate format at entry **and** encode before calling PKP; patterns only in

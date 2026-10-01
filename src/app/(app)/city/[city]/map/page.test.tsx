@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityMapPage from './page'
 import type { MapHit, MapView } from '@/components/map/TransitMap'
+import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 const notFound = vi.fn(() => {
@@ -26,7 +27,7 @@ const state = vi.hoisted(() => ({
     onUserMove: () => void
     onContextPoint: (point: { lat: number; lon: number }) => void
     onVisibleChange: (items: { kind: 'vehicle' | 'stop' | 'rail'; id: string; label: string }[], overflow: boolean) => void
-    favourites: { lat: number; lon: number }[]
+    pinnedItems: { lat: number; lon: number }[]
     onlyLines: Set<string> | null
     listOpen: boolean
     route: { key: string } | null
@@ -48,14 +49,14 @@ vi.mock('@/components/map/TransitMap', () => ({
 
 const VEHICLE = {
   id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '3801', ageSec: 10, headsign: 'Centrum',
-  routeId: '20', shortName: '20', mode: 'tram', color: null, directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' },
+  routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' },
 }
 const STOP = { id: '100101', groupId: '1001', name: 'Centrum', code: '01', lat: 52.23, lon: 21.01, mode: 'bus' }
 const routeStop = (stopId: string, name: string, lat: number) => ({
   stopId, groupId: stopId.slice(0, 4), name, code: null, street: null, wheelchair: 0, lat, lon: 21.0, offsetSec: 0, onRequest: false,
 })
 const LINE_DETAIL = {
-  routeId: '20', line: '20', longName: 'Boernerowo — Żerań', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular',
+  routeId: '20', line: '20', longName: 'Boernerowo — Żerań', mode: 'tram', kind: 'regular',
   directions: [
     { directionId: 0, headsign: 'Żerań', origin: 'Boernerowo', departures: [], shape: null, stops: [routeStop('500101', 'Boernerowo', 52.26), routeStop('100101', 'Centrum', 52.23)] },
     { directionId: 1, headsign: 'Boernerowo', origin: 'Żerań', departures: [], shape: null, stops: [routeStop('900101', 'Żerań', 52.3)] },
@@ -70,6 +71,7 @@ function setWide(wide: boolean): void {
 }
 
 beforeEach(() => {
+  resetCitiesCacheForTests()
   window.localStorage.clear()
   cityParam = 'warszawa'
   window.history.replaceState(null, '', '/city/warszawa/map')
@@ -85,7 +87,7 @@ beforeEach(() => {
       if (url.startsWith('/api/gtfs/backbone')) return jsonResponse({ lines: [] })
       if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ schedule: { state: 'ready' }, line: LINE_DETAIL })
       if (url.startsWith('/api/gtfs/lines')) {
-        return jsonResponse({ lines: { tram: [{ routeId: '20', line: '20', longName: 'Boernerowo — Żerań', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular' }] } })
+        return jsonResponse({ lines: { tram: [{ routeId: '20', line: '20', longName: 'Boernerowo — Żerań', mode: 'tram', kind: 'regular' }] } })
       }
       return jsonResponse({ stations: [] })
     })
@@ -106,7 +108,7 @@ describe('CityMapPage', () => {
     expect(screen.getByText('Warszawa · pozycje pojazdów: 13 s temu')).toBeInTheDocument()
     state.vehicles = { vehicles: [], feed: { state: 'loading', ageMs: null }, alertLines: [], error: null }
     rerender(<CityMapPage />)
-    expect(screen.getByText(/wczytuję pozycje pojazdów/)).toBeInTheDocument()
+    expect(screen.getByText(/wczytywanie pozycji pojazdów/)).toBeInTheDocument()
     state.vehicles = { vehicles: [], feed: { state: 'failed', ageMs: null }, alertLines: [], error: 'x' }
     rerender(<CityMapPage />)
     expect(screen.getByText(/nie udało się pobrać pozycji pojazdów/)).toBeInTheDocument()
@@ -201,7 +203,8 @@ describe('CityMapPage — line mode', () => {
     window.history.replaceState(null, '', '/city/warszawa/map?line=20')
     render(<CityMapPage />)
     const panel = await screen.findByRole('dialog', { name: 'Linia 20' })
-    expect(await within(panel).findByText('Boernerowo → Żerań')).toBeInTheDocument()
+    expect(await within(panel).findByText('Boernerowo Żerań')).toBeInTheDocument()
+    expect(within(panel).getByRole('img', { name: 'do' })).toBeInTheDocument()
     expect(within(panel).getByText(/w trasie: 1/)).toBeInTheDocument()
     await waitFor(() => expect(map().route?.key).toBe('20:0'))
 
@@ -272,22 +275,22 @@ describe('CityMapPage — view, sharing, following', () => {
   })
 })
 
-describe('CityMapPage — favourites, nearby, list, disruptions', () => {
-  it('rings Pulpit favourites on the map, toggles the star and jumps from the menu', async () => {
+describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
+  it('rings Pulpit pinnedItems on the map, toggles the star and jumps from the menu', async () => {
     window.localStorage.setItem('monitor.favourites.v2', JSON.stringify([{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]))
     render(<CityMapPage />)
-    await waitFor(() => expect(map().favourites).toMatchObject([{ lat: 52.2288, lon: 21.0033 }]))
+    await waitFor(() => expect(map().pinnedItems).toMatchObject([{ lat: 52.2288, lon: 21.0033 }]))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ulubione' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Przypięte' }))
     fireEvent.click(screen.getByRole('button', { name: 'Warszawa Centralna' }))
     const card = await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
-    fireEvent.click(within(card).getByRole('button', { name: 'Usuń z ulubionych' }))
-    await waitFor(() => expect(map().favourites).toEqual([]))
+    fireEvent.click(within(card).getByRole('button', { name: 'Odepnij z Pulpitu' }))
+    await waitFor(() => expect(map().pinnedItems).toEqual([]))
 
     map().onSelect({ kind: 'stop', id: '100101' })
     const stopCard = await screen.findByRole('dialog', { name: 'Centrum' })
-    fireEvent.click(within(stopCard).getByRole('button', { name: 'Dodaj do ulubionych' }))
-    await waitFor(() => expect(map().favourites).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
+    fireEvent.click(within(stopCard).getByRole('button', { name: 'Przypnij do Pulpitu' }))
+    await waitFor(() => expect(map().pinnedItems).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
   })
 
   it('right-click opens "nearby" with the closest places; a row opens its card', async () => {

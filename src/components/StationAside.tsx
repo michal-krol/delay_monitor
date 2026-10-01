@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useTheme } from 'next-themes'
 import type { StationInsights } from '@/lib/board/stationStats'
 import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
 import { MapView } from './MapView'
@@ -99,7 +100,7 @@ function StationDisruptions({ messages }: { messages: string[] }) {
     <ul className="flex flex-col gap-2">
       {messages.map((message) => (
         <li key={message} className="flex gap-2 text-xs text-text-secondary">
-          <span className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true">
+          <span className="mt-0.5 shrink-0 text-warning-text" aria-hidden="true">
             <AlertCircleIcon size={14} />
           </span>
           <span>{message}</span>
@@ -182,7 +183,7 @@ export function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
         <WeatherStat icon={<GaugeIcon size={14} />} label="Ciśnienie" value={`${Math.round(current.pressureHpa)} hPa`} />
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-t pt-3 text-xs" style={{ borderColor: 'var(--surface-border)' }}>
+      <div className="grid grid-cols-3 gap-2 border-t border-surface-border pt-3 text-xs">
         <div>
           <span className="block text-text-muted">Min / max dziś</span>
           <span className="tabular-nums text-foreground">
@@ -250,6 +251,7 @@ export function StationAside({
   stationId,
   mapPreview,
 }: Props) {
+  const { resolvedTheme } = useTheme()
   const mapPins = useMemo(
     () =>
       weather.status === 'ready'
@@ -279,7 +281,7 @@ export function StationAside({
       </AsideCard>
       {mapPins.length > 0 && (
         <AsideCard title="Mapa">
-          <MapView pins={mapPins} ariaLabel={`Mapa stacji ${stationName}`} />
+          <MapView pins={mapPins} ariaLabel={`Mapa stacji ${stationName}`} dark={resolvedTheme === 'dark'} />
         </AsideCard>
       )}
     </div>

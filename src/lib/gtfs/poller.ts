@@ -4,11 +4,27 @@
  * ograniczeniem jest czas parsowania. Błąd konfiguracji PKP nie może wygaszać
  * miast, więc wspólny poller odpada.
  *
- * Budzony LENIWIE (`ensureLoaded()` ≙ `registerInterest()`), nigdy awaitowany
- * w route handlerze. Bez `instrumentation.ts` — hak startowy kazałby każdemu
- * wdrożeniu ładować rozkłady miast, których nikt nie ogląda.
+ * Budzony przez widza (`ensureLoaded()` ≙ `registerInterest()`) z tras API,
+ * nigdy awaitowany w route handlerze — ale też RAZ, z góry, przez
+ * `instrumentation.ts` (`register()`, fire-and-forget) dla każdego miasta
+ * z `enabledGtfsCities()`: decyzja właściciela, rozkład skonfigurowanego
+ * miasta ma być ciepły od startu procesu (~0.5 GB RSS akceptowane), zamiast
+ * czekać na pierwszego widza. Rozgrzewka woła `preload()`, NIE `ensureLoaded()`:
+ * rusza samo ładowanie rozkładu, bez `onWake` i bez śladu zainteresowania --
+ * pollery pozycji/alertów nie odpytują feedów, dopóki nie ma widza.
+ * `keepSchedule` w `GtfsPollerDeps` (ustawiane
+ * w `instance.ts` dla każdego pollera — każdy tworzony tam jest dla miasta
+ * z `enabledGtfsCities()`) sprawia, że wygaśnięcie zainteresowania
+ * (`idleTtlMs`) NIE zwalnia rozkładu ani nie zatrzymuje godzinnego timera
+ * przeładowania (`maybeRollDay` dalej działa, może przeładować rozkład BEZ
+ * widza) — tylko `onIdle()` i tak odpala, więc poller pozycji pojazdów
+ * i alertów przestaje pytać feed bez widzów. `onWake` jest CELOWO wołane
+ * WYŁĄCZNIE z `ensureLoaded()`, nigdy z `startLoad()` — inaczej godzinowe
+ * przeładowanie doby (bez widza) wskrzeszałoby poller pozycji/alertów na
+ * zawsze po każdym idle-stopie (żadnego pollingu 24/7 bez potrzeby, patrz
+ * komentarz przy `GtfsPollerDeps.onWake`).
  */
-import { zonedDateString } from '@/lib/pkp/time'
+import { zonedDateString, zonedHour } from '@/lib/pkp/time'
 import type { CityFeed } from './cities'
 import type { GtfsSchedule, ScheduleState } from './types'
 
@@ -46,6 +62,12 @@ export function scheduleResponseBlock(view: GtfsScheduleView) {
 export type GtfsPoller = {
   /** fire-and-forget; NIGDY nie awaitowane w route handlerze. */
   ensureLoaded(): void
+  /**
+   * Rozgrzewka przy starcie procesu (bez widza): rusza pierwsze ładowanie rozkładu, o ile poller
+   * jeszcze `idle`. NIE zapisuje zainteresowania, nie uzbraja timera bezczynności i nie woła
+   * `onWake` -- pollery pozycji/alertów budzi dopiero realny widz (`ensureLoaded()`).
+   */
+  preload(): void
   getSchedule(): GtfsSchedule | null
   getView(): GtfsScheduleView
   /** Zatrzymuje timery i zwalnia rozkład — do testów i zamknięcia procesu. */
@@ -60,10 +82,25 @@ export type GtfsPollerDeps = {
   now?: () => number
   setTimer?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>
   clearTimer?: (handle: ReturnType<typeof setTimeout>) => void
-  /** Wołane gdy rusza ładowanie rozkładu — `instance.ts` startuje wtedy poller pozycji. */
+  /**
+   * Wołane WYŁĄCZNIE z `ensureLoaded()`, czyli tylko gdy jest realny widz —
+   * `instance.ts` wtedy (re)startuje poller pozycji/alertów. CELOWO nie z
+   * `startLoad()`: `maybeRollDay()` (godzinowy timer) też woła `startLoad()`
+   * bez żadnego widza — gdyby to budziło pollery pozycji/alertów, rozkład
+   * trzymany w pamięci (`keepSchedule`) wskrzeszałby je na zawsze przy
+   * każdym przeładowaniu doby, mimo idle-stopu (regresja złapana w
+   * code review, fix round 1).
+   */
   onWake?: () => void
-  /** Wołane gdy timer bezczynności zwalnia rozkład — `instance.ts` zatrzymuje poller pozycji. */
+  /** Wołane gdy wygasa zainteresowanie widzów — `instance.ts` zatrzymuje pollery pozycji i alertów (rozkład zostaje przy `keepSchedule`). */
   onIdle?: () => void
+  /**
+   * Rozgrzane przy starcie miasto (`instance.ts`, zawsze `true` — patrz
+   * komentarz nagłówkowy). Wygaśnięcie zainteresowania nadal odpala
+   * `onIdle()`, ale NIE czyści `schedule`/`status`/`reloadTimer` — rozkład
+   * zostaje rezydentny w pamięci na stałe.
+   */
+  keepSchedule?: boolean
 }
 
 /**
@@ -74,6 +111,18 @@ export type GtfsPollerDeps = {
 const RELOAD_HOUR = 3
 const HOURLY_MS = 60 * 60 * 1000
 const IDLE_CHECK_MS = 5 * 60 * 1000
+/**
+ * Backoff po nieudanym ładowaniu: 30 s, 60 s, … do 1 h, zerowany po sukcesie.
+ * Klienci ponawiają co ~15 s (`usePolling`), każdy otwarty widok woła
+ * `ensureLoaded()` — bez okna każda próba po błędzie od razu odpalałaby kolejne
+ * ~107 MB. Bramka w `startLoad()`, więc obejmuje też `preload()` i godzinowe
+ * przeładowanie doby. Bez timera: ponowienie dalej wyzwala widz albo godzinowy tick.
+ * ponytail: bez widza przy oknie 1 h godzinowy tick trafia tuż przed `retryAtMs`,
+ * więc samoczynne ponowienie wypada co ~2 h — stary rozkład jest w tym czasie
+ * serwowany; skróć `RETRY_MAX_MS` poniżej godziny, jeśli to zacznie przeszkadzać.
+ */
+const RETRY_BASE_MS = 30 * 1000
+const RETRY_MAX_MS = HOURLY_MS
 
 export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   const now = deps.now ?? (() => Date.now())
@@ -85,6 +134,8 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
   let phase: string | null = null
   let loadedAtMs: number | null = null
   let loadInFlight = false
+  let failedLoads = 0
+  let retryAtMs = 0
   let lastInterestAt = now()
   let disposed = false
 
@@ -113,11 +164,14 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
         // inaczej przy `status === 'failed'` poller pozycji zostawał na zawsze.
         idleTimer = null
         deps.onIdle?.()
-        if (schedule !== null) {
+        if (schedule !== null && !deps.keepSchedule) {
           schedule = null
           status = 'idle'
           phase = null
           loadedAtMs = null
+          // `idle` = start od zera; zostawione okno blokowałoby ładowanie przy `state: 'loading'`.
+          failedLoads = 0
+          retryAtMs = 0
           if (reloadTimer !== null) {
             clearTimer(reloadTimer)
             reloadTimer = null
@@ -129,24 +183,14 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
     }, IDLE_CHECK_MS)
   }
 
-  function cityHour(): number {
-    const parts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: deps.city.timezone,
-      hour: '2-digit',
-      hour12: false,
-    }).formatToParts(new Date(now()))
-    return Number(parts.find((part) => part.type === 'hour')?.value ?? '0')
-  }
-
   function maybeRollDay(): void {
     if (schedule === null) return
-    if (schedule.serviceDates[1] !== todayInCity() && cityHour() >= RELOAD_HOUR) startLoad()
+    if (schedule.serviceDates[1] !== todayInCity() && zonedHour(now(), deps.city.timezone) >= RELOAD_HOUR) startLoad()
   }
 
   function startLoad(): void {
-    if (loadInFlight || disposed) return
+    if (loadInFlight || disposed || now() < retryAtMs) return
     loadInFlight = true
-    deps.onWake?.()
     if (schedule === null) status = 'loading'
     phase = 'start'
 
@@ -160,12 +204,16 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
         status = 'ready'
         phase = null
         loadedAtMs = now()
+        failedLoads = 0
+        retryAtMs = 0
         scheduleReloadTimer()
       })
       .catch(() => {
         if (disposed) return
         // current !== null: dalej serwujemy poprzedni rozkład (UI pokaże wiek).
         status = 'failed'
+        failedLoads += 1
+        retryAtMs = now() + Math.min(RETRY_BASE_MS * 2 ** (failedLoads - 1), RETRY_MAX_MS)
         phase = null
       })
       .finally(() => {
@@ -179,6 +227,12 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
       lastInterestAt = now()
       if (idleTimer === null) scheduleIdleTimer()
 
+      // `onWake` jest WYŁĄCZNIE od widza — tylko tutaj, nigdy z `startLoad()`
+      // (patrz komentarz przy `GtfsPollerDeps.onWake`). `ensureRunning()` po
+      // stronie pollera pozycji/alertów jest idempotentne, więc wywołanie na
+      // każdy `ensureLoaded()` (nawet gdy rozkład już `ready`) jest tanie.
+      deps.onWake?.()
+
       if (status === 'idle' || status === 'failed') {
         startLoad()
         return
@@ -186,6 +240,10 @@ export function createGtfsPoller(deps: GtfsPollerDeps): GtfsPoller {
       if (status === 'ready' && schedule !== null && schedule.serviceDates[1] !== todayInCity()) {
         startLoad()
       }
+    },
+
+    preload() {
+      if (!disposed && status === 'idle') startLoad()
     },
 
     getSchedule() {

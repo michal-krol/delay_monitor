@@ -25,7 +25,11 @@ function fakeSchedule(serviceDates: [string, string, string], dropped = 0): Gtfs
 
 type Deferred = { resolve: (s: GtfsSchedule) => void; reject: (e: unknown) => void }
 
-function setup(startIso = '2026-09-02T09:00:00Z', idleTtlMs = 30 * 24 * 60 * 60 * 1000) {
+function setup(
+  startIso = '2026-09-02T09:00:00Z',
+  idleTtlMs = 30 * 24 * 60 * 60 * 1000,
+  extraDeps: Partial<Parameters<typeof createGtfsPoller>[0]> = {}
+) {
   vi.setSystemTime(new Date(startIso))
   const deferreds: Deferred[] = []
   const load = vi.fn(
@@ -34,7 +38,7 @@ function setup(startIso = '2026-09-02T09:00:00Z', idleTtlMs = 30 * 24 * 60 * 60 
         deferreds.push({ resolve, reject })
       })
   )
-  const poller = createGtfsPoller({ city: CITY, load, idleTtlMs })
+  const poller = createGtfsPoller({ city: CITY, load, idleTtlMs, ...extraDeps })
   return { poller, load, deferreds }
 }
 
@@ -58,6 +62,30 @@ describe('createGtfsPoller', () => {
     expect(poller.getView().status).toBe('ready')
     expect(poller.getView().droppedRows).toBe(4)
     expect(poller.getSchedule()).not.toBeNull()
+    poller.dispose()
+  })
+
+  it('preload() starts the load without onWake or an idle timer; a later viewer still wakes it', async () => {
+    const onWake = vi.fn()
+    const onIdle = vi.fn()
+    const { poller, load, deferreds } = setup('2026-09-02T09:00:00Z', 60 * 60 * 1000, { onWake, onIdle, keepSchedule: true })
+
+    poller.preload()
+    poller.preload() // idempotentne: jedno ładowanie
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(onWake).not.toHaveBeenCalled()
+
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getView().status).toBe('ready')
+    poller.preload() // już ready -- nic
+    expect(load).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000) // brak widza: żadnego idle-stopu do odpalenia
+    expect(onIdle).not.toHaveBeenCalled()
+
+    poller.ensureLoaded() // realny widz
+    expect(onWake).toHaveBeenCalledTimes(1)
     poller.dispose()
   })
 
@@ -214,6 +242,199 @@ describe('createGtfsPoller', () => {
     vi.setSystemTime(new Date('2026-09-02T11:30:00Z'))
     await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
     expect(onIdle).toHaveBeenCalledTimes(1)
+    poller.dispose()
+  })
+
+  // Task 1 — warm-up: `keepSchedule` (miasto rozgrzane przez instrumentation.ts).
+  it('keeps the schedule, status and reload timer resident past idle expiry when keepSchedule is true, but still fires onIdle', async () => {
+    const onIdle = vi.fn()
+    const { poller, deferreds } = setup('2026-09-02T09:00:00Z', 60 * 60 * 1000, { onIdle, keepSchedule: true })
+    poller.ensureLoaded()
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getSchedule()).not.toBeNull()
+
+    // Brak zainteresowania przez > idleTtlMs.
+    vi.setSystemTime(new Date('2026-09-02T11:30:00Z'))
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
+
+    expect(onIdle).toHaveBeenCalledTimes(1) // poller pozycji/alertów i tak się zatrzymuje
+    expect(poller.getSchedule()).not.toBeNull() // ale rozkład NIE jest zwalniany
+    expect(poller.getView().status).toBe('ready')
+    poller.dispose()
+  })
+
+  it('keeps the hourly reload timer armed for a kept schedule past idle expiry (day rollover still reloads)', async () => {
+    const { poller, load, deferreds } = setup('2026-09-02T20:00:00Z', 60 * 60 * 1000, { keepSchedule: true })
+    poller.ensureLoaded()
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(load).toHaveBeenCalledTimes(1)
+
+    // 20:00Z 02.09 → +9 h = 05:00Z 03.09 (07:00 czasu warszawskiego): doba się
+    // zmieniła i minął próg idleTtlMs (1h) po drodze — rozkład mimo to musi
+    // się przeładować, bo `reloadTimer` nie został wyczyszczony.
+    await vi.advanceTimersByTimeAsync(9 * 60 * 60 * 1000)
+
+    expect(load).toHaveBeenCalledTimes(2)
+    poller.dispose()
+  })
+
+  it('re-fires onWake for renewed interest after a keepSchedule idle-stop, without refetching the kept schedule', async () => {
+    const onWake = vi.fn()
+    const onIdle = vi.fn()
+    const { poller, load, deferreds } = setup('2026-09-02T09:00:00Z', 60 * 60 * 1000, {
+      onWake,
+      onIdle,
+      keepSchedule: true,
+    })
+    poller.ensureLoaded()
+    expect(onWake).toHaveBeenCalledTimes(1)
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+
+    vi.setSystemTime(new Date('2026-09-02T11:30:00Z'))
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    expect(poller.getSchedule()).not.toBeNull()
+
+    // Widz wraca: poller pozycji/alertów musi się obudzić od nowa, ale
+    // rozkład jest ciepły — bez ponownego ładowania.
+    poller.ensureLoaded()
+    expect(onWake).toHaveBeenCalledTimes(2)
+    expect(load).toHaveBeenCalledTimes(1)
+    poller.dispose()
+  })
+
+  // Fix round 1 (code review CRITICAL 1): godzinowy timer przeładowania nie
+  // ma prawa budzić pollerów pozycji/alertów sam z siebie — tylko widz
+  // (`ensureLoaded()`) budzi. Inaczej przeładowanie doby dla rozkładu
+  // trzymanego w pamięci (`keepSchedule`) po idle-stopie wskrzeszałoby
+  // poller pozycji na zawsze (idle timer jest wyczyszczony po idle-stopie,
+  // re-uzbraja go tylko `ensureLoaded()`) — bez widza, złamanie decyzji
+  // właściciela o zerowym pollingu 24/7.
+  it('does not wake vehicle/alert pollers for a day-rollover reload while idle-stopped — only a returning viewer wakes them', async () => {
+    const onWake = vi.fn()
+    const onIdle = vi.fn()
+    const { poller, load, deferreds } = setup('2026-09-02T20:00:00Z', 60 * 60 * 1000, {
+      onWake,
+      onIdle,
+      keepSchedule: true,
+    })
+
+    poller.ensureLoaded()
+    expect(onWake).toHaveBeenCalledTimes(1) // pierwszy widz budzi normalnie
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Brak zainteresowania > idleTtlMs (1h) -> idle-stop w tle.
+    await vi.advanceTimersByTimeAsync(70 * 60 * 1000) // 20:00Z + 70min = 21:10Z
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    expect(onWake).toHaveBeenCalledTimes(1) // idle-stop NIE budzi
+
+    // Doba się zmienia i mija próg RELOAD_HOUR (03:00 czasu warszawskiego) —
+    // godzinowy timer przeładowuje rozkład SAM Z SIEBIE, bez widza.
+    await vi.advanceTimersByTimeAsync(8 * 60 * 60 * 1000) // do ~05:10Z (07:10 Warszawa)
+    expect(load).toHaveBeenCalledTimes(2) // przeładowanie doby faktycznie ruszyło
+    expect(onWake).toHaveBeenCalledTimes(1) // ale BEZ budzenia pollerów — kluczowa asercja
+
+    // Widz wraca: teraz onWake się odpala, a timer bezczynności wraca do życia.
+    poller.ensureLoaded()
+    expect(onWake).toHaveBeenCalledTimes(2)
+
+    // Drugi okres bezczynności musi znów odpalić onIdle — idle timer faktycznie działa.
+    await vi.advanceTimersByTimeAsync(65 * 60 * 1000)
+    expect(onIdle).toHaveBeenCalledTimes(2)
+
+    poller.dispose()
+  })
+
+  // Backoff po nieudanym ładowaniu: klienci ponawiają co ~15 s, każdy widok
+  // woła ensureLoaded() — bez okna każdy z nich odpalałby ~107 MB od nowa.
+  it('does not restart a failed load before the backoff window elapses', async () => {
+    const { poller, load, deferreds } = setup()
+    poller.ensureLoaded()
+    deferreds[0].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    await vi.advanceTimersByTimeAsync(29_000)
+    poller.ensureLoaded()
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(poller.getView().state).toBe('failed')
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(2)
+    poller.dispose()
+  })
+
+  it('doubles the backoff per consecutive failure up to a 1 h cap', async () => {
+    const { poller, load, deferreds } = setup()
+    const windowsSec = [30, 60, 120, 240, 480, 960, 1920, 3600, 3600]
+
+    poller.ensureLoaded()
+    for (const [i, windowSec] of windowsSec.entries()) {
+      deferreds[i].reject(new Error('feed down'))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(windowSec * 1000 - 1)
+      poller.ensureLoaded()
+      expect(load).toHaveBeenCalledTimes(i + 1)
+
+      await vi.advanceTimersByTimeAsync(1)
+      poller.ensureLoaded()
+      expect(load).toHaveBeenCalledTimes(i + 2)
+    }
+    poller.dispose()
+  })
+
+  it('resets the backoff after a successful load', async () => {
+    const { poller, load, deferreds } = setup('2026-09-02T09:00:00Z')
+    poller.ensureLoaded()
+    deferreds[0].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(30_000)
+    poller.ensureLoaded()
+    deferreds[1].reject(new Error('feed down')) // okno rośnie do 60 s
+    await vi.advanceTimersByTimeAsync(60_000)
+    poller.ensureLoaded()
+    deferreds[2].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poller.getView().status).toBe('ready')
+
+    // Zmiana doby → przeładowanie pada; okno liczone od nowa (30 s, nie 120 s).
+    vi.setSystemTime(new Date('2026-09-03T04:00:00Z'))
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(4)
+    deferreds[3].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(30_000)
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(5)
+    expect(poller.getSchedule()).not.toBeNull() // stary rozkład serwowany w trakcie
+    poller.dispose()
+  })
+
+  it('clears the backoff when the idle timer releases the schedule, so a returning viewer loads at once', async () => {
+    // Zegar pollera sterowany ręcznie, niezależnie od fałszywych timerów:
+    // idle-stop (TTL 10 s) musi zajść WEWNĄTRZ 30-sekundowego okna backoffu.
+    let t = Date.parse('2026-09-02T20:00:00Z')
+    const { poller, load, deferreds } = setup('2026-09-02T20:00:00Z', 10_000, { now: () => t })
+    poller.ensureLoaded()
+    deferreds[0].resolve(fakeSchedule(['2026-09-01', '2026-09-02', '2026-09-03']))
+    await vi.advanceTimersByTimeAsync(0)
+
+    t = Date.parse('2026-09-03T04:00:00Z') // zmiana doby → przeładowanie pada
+    poller.ensureLoaded()
+    deferreds[1].reject(new Error('feed down'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    t += 20_000 // > idleTtlMs, < 30 s okna
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000) // tick sprawdzania bezczynności
+    expect(poller.getView().status).toBe('idle')
+
+    poller.ensureLoaded()
+    expect(load).toHaveBeenCalledTimes(3)
+    expect(poller.getView().state).toBe('loading')
     poller.dispose()
   })
 })
