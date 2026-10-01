@@ -7,6 +7,7 @@ import * as maplibregl from 'maplibre-gl'
 import { MapView, STYLE_DARK, STYLE_LIGHT } from './MapView'
 import { MODE_COLOR, UNKNOWN_COLOR, outlineFilter, strokeFor } from './map/mapData'
 import { LINE_PALETTE } from './transitMode'
+import { ChevronRightIcon } from './icons'
 
 type PopupMock = { setDOMContent: (node: HTMLElement) => PopupMock; content: HTMLElement | null }
 
@@ -290,6 +291,9 @@ describe('MapView', () => {
       const [dot, arrow] = [element.querySelector<HTMLElement>('[data-part="dot"]'), element.querySelector<HTMLElement>('[data-part="arrow"]')]
       expect(dot?.style.backgroundColor).toBe(css(MODE_COLOR.tram))
       expect(arrow?.hidden).toBe(false)
+      // Ta sama strzałka co `VehicleHeadingIcon` i warstwa `vehicles-arrows` (Lucide navigation-2), nie trójkąt z obramowań.
+      // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+      expect(arrow?.querySelector('svg')).toHaveAttribute('fill', MODE_COLOR.tram)
 
       const marker = vi.mocked(maplibregl.Marker).mock.results[0].value
       rerender(<MapView dark={false} pins={[PIN]} movers={[{ ...mover, bearing: 180 }]} ariaLabel="Mapa" />)
@@ -367,8 +371,10 @@ describe('MapView', () => {
       const svg = link.querySelector('svg[aria-hidden="true"]')
       expect(svg).not.toBeNull()
       expect(svg?.namespaceURI).toBe('http://www.w3.org/2000/svg')
-      // eslint-disable-next-line testing-library/no-node-access
-      expect(svg?.querySelector('path')).toHaveAttribute('d', 'm8 5 5 5-5 5')
+      // Ten sam glif co `ChevronRightIcon` (jedno źródło ikon), nie kopia ścieżki.
+      const { container } = render(<ChevronRightIcon />)
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(svg?.querySelector('path')?.getAttribute('d')).toBe(container.querySelector('path')?.getAttribute('d'))
     })
 
     it.each([

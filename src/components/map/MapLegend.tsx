@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { ChevronRightIcon } from '../icons'
+import { ChevronRightIcon, VehicleHeadingIcon } from '../icons'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, darkRingClass, lineColor } from '../transitMode'
 import { MODE_COLOR, outlineFilter, strokeFor } from './mapData'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -62,7 +62,9 @@ function Section({ title, items, shape }: { title: string; items: [GtfsMode, str
             ) : (
               <span className="relative ml-1 mr-1 mt-1.5 h-3 w-3" aria-hidden="true">
                 <span className="block h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode], borderColor: strokeFor(MODE_COLOR[mode]) }} />
-                <span className="absolute -top-[8px] left-[2px] h-0 w-0 border-x-[4px] border-b-[6px] border-x-transparent" style={{ borderBottomColor: MODE_COLOR[mode], filter: outlineFilter(MODE_COLOR[mode]) }} />
+                <span className="absolute -top-[10px] left-[1.5px] h-[9px] w-[9px]" style={{ color: MODE_COLOR[mode], filter: outlineFilter(MODE_COLOR[mode]) }}>
+                  <VehicleHeadingIcon className="block h-full w-full" />
+                </span>
               </span>
             )}
             {label}
