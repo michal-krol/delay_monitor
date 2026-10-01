@@ -458,6 +458,18 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
   })
 
+  // CI 2026-10-01 (mobile-safari, iPhone 15): przyciski w drugim rzędzie zepchnęły chip linii
+  // pod kartę na dole (max 62% mapy), „×" w chipie przestało dać się kliknąć.
+  test('393×659: karta linii nie zakrywa chipów filtrów', async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 659 })
+    await openMap(page)
+    await (await lineSearch(page)).fill('20')
+    await page.getByRole('option', { name: /^Linia 20/ }).click()
+    const chips = await page.getByRole('list', { name: 'Aktywne filtry' }).boundingBox()
+    const card = await page.getByRole('dialog').boundingBox()
+    expect(card!.y).toBeGreaterThanOrEqual(chips!.y + chips!.height)
+  })
+
   test('1280 px: oba pola i przyciski zostają w jednym rzędzie', async ({ page }) => {
     await openMap(page)
     const top = async (locator: Locator) => (await locator.boundingBox())!.y

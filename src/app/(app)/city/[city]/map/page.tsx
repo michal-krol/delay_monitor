@@ -460,103 +460,110 @@ export default function CityMapPage() {
             />
           )}
 
-          <div className="pointer-events-none absolute left-3 right-14 top-3 z-10 flex flex-col gap-2 sm:left-4 sm:top-4">
-            <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
-              {isWide ? (
-                <>
-                  <div className="w-72">{placeSearch}</div>
-                  <div className="w-52">{lineSearch}</div>
-                </>
-              ) : (
-                // `min-w-40`: na telefonie przyciski schodzą pod pole zamiast ścisnąć je do „Sz…";
-                // `ml-auto` niżej trzyma je z prawej, bo ich panele otwierają się w lewo.
-                <div className="flex min-w-40 flex-1 flex-col gap-1.5">
-                  <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
-                    {(['place', 'line'] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        aria-pressed={searchTab === tab}
-                        onClick={() => setSearchTab(tab)}
-                        className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
-                        style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
-                      >
-                        {tab === 'place' ? 'Przystanek' : 'Linia'}
-                      </button>
-                    ))}
+          {/* Kontrolki i karta telefonu w jednej kolumnie: karta (max 62%) dostaje tylko miejsce pod
+              kontrolkami, więc ich nie zakryje, nawet gdy przyciski zeszły do drugiego rzędu. */}
+          <div className="pointer-events-none absolute inset-0 flex flex-col">
+            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 sm:ml-4 sm:mt-4">
+              <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
+                {isWide ? (
+                  <>
+                    <div className="w-72">{placeSearch}</div>
+                    <div className="w-52">{lineSearch}</div>
+                  </>
+                ) : (
+                  // `min-w-40`: na telefonie przyciski schodzą pod pole zamiast ścisnąć je do „Sz…";
+                  // `ml-auto` niżej trzyma je z prawej, bo ich panele otwierają się w lewo.
+                  <div className="flex min-w-40 flex-1 flex-col gap-1.5">
+                    <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
+                      {(['place', 'line'] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          aria-pressed={searchTab === tab}
+                          onClick={() => setSearchTab(tab)}
+                          className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
+                          style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
+                        >
+                          {tab === 'place' ? 'Przystanek' : 'Linia'}
+                        </button>
+                      ))}
+                    </div>
+                    {searchTab === 'place' ? placeSearch : lineSearch}
                   </div>
-                  {searchTab === 'place' ? placeSearch : lineSearch}
-                </div>
-              )}
-              <div className={`flex gap-2 ${isWide ? '' : 'ml-auto self-end'}`}>
-
-                <button
-                  type="button"
-                  aria-pressed={listOpen}
-                  onClick={() => {
-                    setListOpen((open) => !open)
-                    setSelection(null)
-                    setNearby(null)
-                  }}
-                  className={`glass min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${
-                    listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
-                  }`}
-                  style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
-                >
-                  Lista
-                </button>
-                <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                <MapFilters
-                  hidden={hidden}
-                  vehicleLayers={vehicleLayers}
-                  onChange={changeHidden}
-                  alertsOnly={alertsOnly}
-                  onAlertsOnly={changeAlertsOnly}
-                />
-                <button
-                  type="button"
-                  onClick={() => void share()}
-                  aria-label="Udostępnij ten widok mapy"
-                  className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  <ShareIcon size={16} />
-                </button>
-              </div>
-            </div>
-
-            {(hidden.size > 0 || line !== null || alertsOnly) && (
-              <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
-                {line !== null && (
-                  <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
                 )}
-                {alertsOnly && (
-                  <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
-                )}
-                {[...hidden].map((key) => (
-                  <Chip
-                    key={key}
-                    label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
-                    removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
-                    onRemove={() => {
-                      const next = new Set(hidden)
-                      next.delete(key)
-                      changeHidden(next)
+                <div className={`flex gap-2 ${isWide ? '' : 'ml-auto self-end'}`}>
+
+                  <button
+                    type="button"
+                    aria-pressed={listOpen}
+                    onClick={() => {
+                      setListOpen((open) => !open)
+                      setSelection(null)
+                      setNearby(null)
                     }}
+                    className={`glass min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${
+                      listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
+                    style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
+                  >
+                    Lista
+                  </button>
+                  <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                  <MapFilters
+                    hidden={hidden}
+                    vehicleLayers={vehicleLayers}
+                    onChange={changeHidden}
+                    alertsOnly={alertsOnly}
+                    onAlertsOnly={changeAlertsOnly}
                   />
-                ))}
-              </ul>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => void share()}
+                    aria-label="Udostępnij ten widok mapy"
+                    className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    <ShareIcon size={16} />
+                  </button>
+                </div>
+              </div>
 
-            {shareStatus !== 'idle' && (
-              <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
-                {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
-              </p>
+              {(hidden.size > 0 || line !== null || alertsOnly) && (
+                <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
+                  {line !== null && (
+                    <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
+                  )}
+                  {alertsOnly && (
+                    <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
+                  )}
+                  {[...hidden].map((key) => (
+                    <Chip
+                      key={key}
+                      label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
+                      removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
+                      onRemove={() => {
+                        const next = new Set(hidden)
+                        next.delete(key)
+                        changeHidden(next)
+                      }}
+                    />
+                  ))}
+                </ul>
+              )}
+
+              {shareStatus !== 'idle' && (
+                <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
+                  {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
+                </p>
+              )}
+              {problems.map((problem) => (
+                <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
+                  {problem}
+                </p>
+              ))}
+            </div>
+            {!isWide && card !== null && (
+              <div className="pointer-events-auto relative z-20 mt-auto flex min-h-0 max-h-[62%] flex-col p-2">{card}</div>
             )}
-            {problems.map((problem) => (
-              <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
-                {problem}
-              </p>
-            ))}
           </div>
 
           <p className="sr-only" aria-live="polite">
@@ -589,7 +596,6 @@ export default function CityMapPage() {
             </div>
           )}
 
-          {!isWide && card !== null && <div className="absolute inset-x-0 bottom-0 z-20 flex max-h-[62%] flex-col p-2">{card}</div>}
         </div>
 
         {isWide && card !== null && <aside className="flex w-aside shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
