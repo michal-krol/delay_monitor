@@ -122,7 +122,7 @@ export function groupStopId(stop: { id: string; parentId: string | null }): stri
 }
 
 /**
- * Nazwy słupków ZTM niosą numer słupka na końcu („Centrum 01", „Centrum 02").
+ * Nazwy przystanków ZTM niosą numer przystanku na końcu („Centrum 01", „Centrum 02").
  * To ten sam zespół — obcinamy numer, żeby wyszukiwarka pokazywała jeden wpis.
  * Konwencja ZTM, nie gwarancja GTFS-a — kolejne miasto może wymagać innej reguły.
  */
@@ -360,7 +360,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   /** Wzorzec kursu częstotliwościowego: przystanki z offsetami względnymi. */
   const freqPattern = new Map<string, { stopIdx: number; arrSec: number; depSec: number; seq: number }[]>()
 
-  // Reprezentatywny przebieg linii: akumulujemy słupki bieżącego kursu (plik
+  // Reprezentatywny przebieg linii: akumulujemy przystanki bieżącego kursu (plik
   // jest pogrupowany po `trip_id`), a na zmianie kursu rejestrujemy wzorzec.
   // Wybieramy NAJCZĘSTSZY przebieg dla pary (linia, kierunek), nie najdłuższy —
   // „najdłuższy" łapał kursy nietypowe (zjazdy do zajezdni z `exceptional=0`,
@@ -370,7 +370,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     string,
     { stops: number[]; offsets: number[]; headsignIdx: number; onRequest: number[]; shape: Float32Array | null }
   >()
-  /** `${routeKey}#${sygnatura słupków}` → ile kursów miało dokładnie ten przebieg. */
+  /** `${routeKey}#${sygnatura przystanków}` → ile kursów miało dokładnie ten przebieg. */
   const patternSeen = new Map<string, number>()
   /** `${routeKey}` → aktualnie wybrany wzorzec + jego licznik. */
   const patternPick = new Map<
@@ -680,7 +680,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
 
   // ── linie per zespół przystankowy — dla wyszukiwarki i podsumowania stopu ──
   // Iterujemy po grupach (kilka tysięcy), a nie po zdarzeniach (miliony): dla
-  // każdego słupka grupy czytamy jego wycinek CSR i zbieramy indeksy linii.
+  // każdego przystanku grupy czytamy jego wycinek CSR i zbieramy indeksy linii.
   const groupRoutes = new Map<string, Set<number>>()
   for (const [groupId, members] of groupMembers) {
     const set = new Set<number>()

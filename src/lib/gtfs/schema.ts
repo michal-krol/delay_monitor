@@ -131,7 +131,7 @@ export const stopSchema = z
     return {
       id: row.stop_id,
       name: optional(row.stop_name) ?? '',
-      /** Numer słupka w zespole (`stop_code`, np. „01", „06") — do rozróżniania słupków. */
+      /** Numer przystanku w zespole (`stop_code`, np. „01", „06") — do rozróżniania przystanków. */
       code: optional(row.stop_code) ?? null,
       lat: row.stop_lat ?? 0,
       lon: row.stop_lon ?? 0,
@@ -139,7 +139,7 @@ export const stopSchema = z
       parentId: optional(row.parent_station) ?? null,
       platformCode: optional(row.platform_code) ?? null,
       wheelchair: wheelchair as 0 | 1 | 2,
-      /** Ulica, przy której stoi słupek (`street_name`) — dwie krawędzie zespołu się tak rozróżniają. */
+      /** Ulica, przy której stoi przystanek (`street_name`) — dwie krawędzie zespołu się tak rozróżniają. */
       street: optional(row.street_name) ?? null,
     }
   })

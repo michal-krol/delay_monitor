@@ -25,8 +25,10 @@ export type CityVehicle = {
    * Najbliższy przystanek przed pojazdem, z rzutu pozycji na przebieg linii
    * (`projectVehicle`). BEZ czasu dojazdu — ten byłby rozkładowy, a udawałby
    * prognozę (#13). `null` = rzut niemożliwy (nieznany kurs, > 2 km od trasy).
+   * `code` = numer przystanku w zespole (`stop_code`, fallback `platform_code`) —
+   * to JEDEN przystanek, więc UI pokazuje „Centrum 02", nie gołą nazwę zespołu.
    */
-  nextStop: { name: string; groupId: string } | null
+  nextStop: { name: string; code: string | null; groupId: string } | null
 }
 
 /**
@@ -66,7 +68,11 @@ export function mapCityVehicles(schedule: GtfsSchedule, positions: VehiclePositi
       directionId: ref?.direction ?? null,
       nextStop:
         nextStopIdx !== undefined
-          ? { name: schedule.stopNames[nextStopIdx], groupId: schedule.stopGroupIds[nextStopIdx] }
+          ? {
+              name: schedule.stopNames[nextStopIdx],
+              code: schedule.stopCodes[nextStopIdx] ?? schedule.stopPlatforms[nextStopIdx] ?? null,
+              groupId: schedule.stopGroupIds[nextStopIdx],
+            }
           : null,
     }
   })

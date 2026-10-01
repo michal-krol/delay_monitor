@@ -63,8 +63,8 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('lokalna')).toBeInTheDocument()
   })
 
-  it('tags the słupek with the bare code, never the word "słupek"', () => {
-    render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showSlupek />)
+  it('tags the stop with its bare number in a group view', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showStopCode />)
     expect(screen.getByText('06')).toBeInTheDocument()
     expect(screen.queryByText(/słup\./i)).not.toBeInTheDocument()
   })
@@ -75,8 +75,8 @@ describe('TransitDepartureList', () => {
   })
 
   it('gives the stop-code and vehicle chips readable (not title-only) text', () => {
-    render(<TransitDepartureList departures={[dep({ stopCode: '06', vehicle: { stopsAway: 2, ageSec: 15 } })]} showSlupek />)
-    expect(screen.getByText('Odjazd z:')).toHaveClass('sr-only')
+    render(<TransitDepartureList departures={[dep({ stopCode: '06', vehicle: { stopsAway: 2, ageSec: 15 } })]} showStopCode />)
+    expect(screen.getByText('Odjazd z przystanku')).toHaveClass('sr-only')
     expect(screen.getByText(/pozycja na żywo/)).toHaveClass('sr-only')
   })
 
@@ -105,5 +105,31 @@ describe('TransitDepartureList', () => {
     const now = new Date('2026-09-02T14:20:00+02:00').getTime()
     render(<TransitDepartureList departures={[dep()]} now={now} highlightFirst />)
     expect(screen.getByText('za 10 min')).toHaveClass('text-indigo-600')
+  })
+
+  it('shows the stop number on the next departure in a group view', () => {
+    const now = new Date('2026-09-02T14:20:00+02:00').getTime()
+    render(<TransitDepartureList departures={[dep({ stopCode: '02' })]} now={now} highlightFirst showStopCode />)
+    // Jeden odjazd = tylko blok „Najbliższy odjazd", lista pod nim pusta — tag jest w bloku.
+    expect(screen.getByTitle('Odjazd z przystanku 02')).toBeInTheDocument()
+  })
+
+  it('has no stop number on the next departure in a single-stop view', () => {
+    const now = new Date('2026-09-02T14:20:00+02:00').getTime()
+    render(<TransitDepartureList departures={[dep({ stopCode: '02' })]} now={now} highlightFirst />)
+    expect(screen.queryByText('02')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the platform code as the stop number, shown once', () => {
+    // Feed bez `stop_code` (mock, metro) niesie numer w `platform_code` (gtfs.md) — tag go pokazuje,
+    // a „peron …" z tą samą wartością byłby duplikatem.
+    render(<TransitDepartureList departures={[dep({ stopCode: null, platformCode: '01' })]} showStopCode />)
+    expect(screen.getByTitle('Odjazd z przystanku 01')).toBeInTheDocument()
+    expect(screen.queryByText('peron 01')).not.toBeInTheDocument()
+  })
+
+  it('keeps the platform in a single-stop view', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: null, platformCode: 'P1' })]} />)
+    expect(screen.getByText('peron P1')).toBeInTheDocument()
   })
 })

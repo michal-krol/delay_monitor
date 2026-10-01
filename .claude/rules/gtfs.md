@@ -104,10 +104,18 @@ paths:
   one post (`groupIdOf()`); then `requestedMemberId` carries that post (deep link from a line
   route → the switcher highlights it). `members` with `code` (`stop_code`), `street`
   (`street_name`), per-post `lines`. Narrowing only via explicit `/api/gtfs/board?member=<id>`
-  — no auto-scope from `stopId`, otherwise „Cały przystanek" doesn't work on a deep link.
+  — no auto-scope from `stopId`, otherwise „Cały zespół" doesn't work on a deep link.
   `GtfsDeparture.stopCode` / `LineRouteStop.code` (fallback to `platform_code`) — the user sees
   which post it leaves from („Centrum" = 9 physically distant posts). `cleanGroupName()` is a
   NO-OP on the live feed, the mock uses it („Centrum 01").
+  **UI naming (user decision 2026-10-01):** the bare name („Centrum") ONLY ever means the whole
+  „zespół przystanków"; any reference to ONE stop shows its number („Centrum 02"). Never
+  „słupek" (a calque) in UI, URL or code. The single „name + number" builder is
+  `stopDisplayName()` (`src/components/stopName.ts`, word-boundary guard for mock names that
+  already end with the number) — don't hand-build `${name} ${code}`. Selected stop in the URL:
+  `?przystanek=<id>` (the old `?slupek=` is not read: such links show the whole group). A pinned
+  single stop is `PinnedItem` with `member: true` and a name that already has the number; no
+  flag = the whole group (also every entry saved before the flag).
 - **`wheelchair_boarding` — the signal is `2`, not `1`.** WTP gives `1` (DEFAULT) on ~89% of
   posts, `2` (NOT accessible) on ~11%. `StopGroup.wheelchairNote` = `'inaccessible'` /
   `'partial'` / `null`; icon ONLY for `2`. **Don't flag `1`.**

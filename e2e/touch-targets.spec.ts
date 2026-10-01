@@ -32,7 +32,7 @@ test('hamburger (mobile) ma obszar trafienia >= 44×44', async ({ page }, testIn
 
 test('„Powiększ mapę" zostaje w rogu mapy i ma obszar trafienia >= 44×44', async ({ page }) => {
   await page.goto('/city/warszawa/stop/1001')
-  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   const btn = page.getByRole('button', { name: 'Powiększ mapę' })
   const { w, h } = await afterSize(btn)
   expect(w).toBeGreaterThanOrEqual(44)

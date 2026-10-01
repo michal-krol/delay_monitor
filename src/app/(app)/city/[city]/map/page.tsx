@@ -11,6 +11,7 @@ import { CityIcon, CloseIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
+import { stopDisplayName } from '@/components/stopName'
 import { MapFilters } from '@/components/map/MapFilters'
 import { MapLegend } from '@/components/map/MapLegend'
 import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
@@ -262,7 +263,7 @@ export default function CityMapPage() {
   function openLineStop(stop: LineRouteStop): void {
     const known = stopsState.stops?.find((s) => s.id === stop.stopId)
     const mode = known?.mode ?? (line?.mode === 'tram' || line?.mode === 'metro' ? line.mode : 'bus')
-    setSelection({ kind: 'stop', id: stop.stopId, groupId: stop.groupId, name: stop.name, mode, lat: stop.lat, lon: stop.lon })
+    setSelection({ kind: 'stop', id: stop.stopId, groupId: stop.groupId, name: stop.name, code: stop.code, mode, lat: stop.lat, lon: stop.lon })
     setFocus({ lat: stop.lat, lon: stop.lon, nonce: Date.now() })
   }
 
@@ -281,7 +282,7 @@ export default function CityMapPage() {
       focusOn(point.lat, point.lon)
     } else {
       const { stop } = point
-      setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon })
       focusOn(stop.lat, stop.lon)
     }
   }
@@ -310,7 +311,11 @@ export default function CityMapPage() {
   /** Klucz przypiętego dla karty stacji/przystanku; `null` dla pojazdu. */
   function pinnedItemFor(sel: MapSelection): PinnedItem | null {
     if (sel.kind === 'rail') return { kind: 'pkp', id: sel.id, name: sel.name }
-    if (sel.kind === 'stop') return { kind: 'gtfs', city, id: sel.id, name: sel.name }
+    // Jeden przystanek zespołu (pin na mapie) → przypięty z numerem; wybór z wyszukiwarki = cały zespół.
+    if (sel.kind === 'stop')
+      return sel.id !== sel.groupId
+        ? { kind: 'gtfs', city, id: sel.id, name: stopDisplayName(sel.name, sel.code), member: true }
+        : { kind: 'gtfs', city, id: sel.id, name: sel.name }
     return null
   }
 
@@ -319,7 +324,7 @@ export default function CityMapPage() {
     if (hit.kind === 'vehicle') return setSelection({ kind: 'vehicle', id: hit.id })
     if (hit.kind === 'stop') {
       const stop = stopsState.stops?.find((s) => s.id === hit.id)
-      if (stop !== undefined) setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      if (stop !== undefined) setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon })
       return
     }
     const station = railState.stations?.find((s) => s.id === hit.id)
@@ -333,7 +338,7 @@ export default function CityMapPage() {
       setSelection({ kind: 'rail', id: option.id, name: option.name, lat, lon })
     } else {
       // Zespół przystankowy: odjazdy całego zespołu; stacja metra (rodzic) ma w warstwie swój punkt.
-      setSelection({ kind: 'stop', id: option.id, groupId: option.id, name: option.name, mode: option.mode ?? 'bus', lat, lon })
+      setSelection({ kind: 'stop', id: option.id, groupId: option.id, name: option.name, code: null, mode: option.mode ?? 'bus', lat, lon })
     }
     if (lat !== null && lon !== null) setFocus({ lat, lon, nonce: Date.now() })
   }

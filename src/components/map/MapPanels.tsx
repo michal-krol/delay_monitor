@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { ArrowRightIcon, PIN_COLOR, StarIcon } from '../icons'
+import { stopDisplayName } from '../stopName'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { type NearbyPoint, type VisibleItem } from './mapData'
 import { ModeChip } from './ModeChip'
@@ -38,7 +39,7 @@ export function NearbyPanel({
         <ul>
           {points.map((point) => {
             const [key, name, mode] =
-              point.kind === 'rail' ? [`rail:${point.id}`, point.name, 'rail' as const] : [`stop:${point.stop.id}`, point.stop.code !== null && !point.stop.name.endsWith(point.stop.code) ? `${point.stop.name} ${point.stop.code}` : point.stop.name, point.stop.mode]
+              point.kind === 'rail' ? [`rail:${point.id}`, point.name, 'rail' as const] : [`stop:${point.stop.id}`, stopDisplayName(point.stop.name, point.stop.code), point.stop.mode]
             const departure = point.kind === 'stop' ? nextDeparture.get(point.stop.id) : undefined
             return (
               <li key={key}>
