@@ -129,6 +129,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Linia zapisana w rozkładzie GTFS dwa razy pod tym samym identyfikatorem pokazuje się na
+  ekranie „Linie” raz, a liczniki linii w widżecie komunikacji miejskiej liczą ją raz.
+  Wcześniej taka linia (w Warszawie 30.09 była to „10”) miała dwa kafle.
 - Ostrzeżenie „dane sprzed …" na tablicy i pulpicie liczy wiek danych od chwili ich
   pobrania w przeglądarce, a nie tylko od chwili ich zapisania na serwerze. Wcześniej stare
   dane, które przy nieudanym odświeżeniu zostawały na ekranie, wciąż wyglądały na świeże;
