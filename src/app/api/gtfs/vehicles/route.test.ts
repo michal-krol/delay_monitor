@@ -37,7 +37,7 @@ beforeAll(async () => {
     timezone: 'Europe/Warsaw',
     attribution: [],
     routes: [
-      { id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular', color: null, textColor: '#000000' },
+      { id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular' },
     ],
     stops: [
       { id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },

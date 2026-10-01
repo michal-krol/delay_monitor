@@ -35,8 +35,6 @@ const line = (routeId: string, mode: string, longName: string, kind = 'regular')
   routeId,
   line: routeId,
   longName,
-  color: null,
-  textColor: '#000000',
   mode,
   kind,
 })

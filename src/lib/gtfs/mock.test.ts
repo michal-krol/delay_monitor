@@ -60,18 +60,6 @@ describe('createMockClient', () => {
 })
 
 describe('loadSchedule on the warszawa fixtures (end to end, no network)', () => {
-  it('parses routes, dropping an invalid colour to null and computing text colour', async () => {
-    const schedule = await loadSchedule(createMockClient(WAW), WAW)
-    const s2 = schedule.routes.find((route) => route.id === 'S2')
-    expect(s2?.color).toBeNull() // route_color "ZZ12GG" — odrzucony przez strażnik
-    const m1 = schedule.routes.find((route) => route.id === 'M1')
-    expect(m1?.color).toBe('#0000bb')
-    expect(m1?.textColor).toBe('#ffffff')
-    // M2 ma route_color === route_text_color w feedzie — my liczymy kontrast sami.
-    const m2 = schedule.routes.find((route) => route.id === 'M2')
-    expect(m2?.textColor).toBe('#ffffff')
-  })
-
   it('groups the 4-platform 1001xx set and the metro platforms under 7014M', async () => {
     const schedule = await loadSchedule(createMockClient(WAW), WAW)
     expect(schedule.groupMembers.get('1001')?.length).toBe(4)

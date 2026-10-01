@@ -31,7 +31,6 @@ function eventDeparture(schedule: GtfsSchedule, eventIndex: number): GtfsDepartu
     line: route?.shortName || route?.longName || route?.id || '',
     mode: route?.mode ?? 'other',
     lineKind: route?.kind ?? 'regular',
-    color: route?.color ?? null,
     headsign: headsignIdx >= 0 ? schedule.headsigns[headsignIdx] : null,
     plannedAt: isoInZone(schedule.evAbsSec[eventIndex] * 1000, schedule.timezone),
     departureSec,
@@ -119,7 +118,7 @@ export type StopGroupMember = {
 }
 
 /** Jedna linia obsługująca zespół — plakietka w wyszukiwarce i w szczegółach. */
-export type GtfsLine = { routeId: string; line: string; color: string | null; mode: GtfsMode; kind: LineKind }
+export type GtfsLine = { routeId: string; line: string; mode: GtfsMode; kind: LineKind }
 
 export type StopGroup = {
   id: string
@@ -153,7 +152,6 @@ function lineOf(route: GtfsRoute): GtfsLine {
   return {
     routeId: route.id,
     line: route.shortName || route.longName || route.id,
-    color: route.color,
     mode: route.mode,
     kind: route.kind,
   }
@@ -238,8 +236,6 @@ export type LineListEntry = {
   routeId: string
   line: string
   longName: string
-  color: string | null
-  textColor: '#000000' | '#ffffff'
   mode: GtfsMode
   kind: LineKind
 }
@@ -249,8 +245,6 @@ function toLineListEntry(route: GtfsRoute): LineListEntry {
     routeId: route.id,
     line: route.shortName || route.longName || route.id,
     longName: route.longName,
-    color: route.color,
-    textColor: route.textColor,
     mode: route.mode,
     kind: route.kind,
   }
@@ -782,8 +776,6 @@ export type BackboneLine = {
   routeId: string
   line: string
   mode: 'metro' | 'rail'
-  /** `route_color` zwalidowany w `schema.ts` (`#RRGGBB`) — M1 granatowa, M2 czerwona, jak na plakietkach. `null` = feed nie podał. */
-  color: string | null
   points: [number, number][]
 }
 
@@ -804,7 +796,7 @@ export function backboneLines(schedule: GtfsSchedule): BackboneLine[] {
         ? shapeToPoints(pattern.shape)
         : pattern.stops.map((s): [number, number] => [round5(schedule.stopLat[s]), round5(schedule.stopLon[s])])
     if (points.length < 2) return
-    lines.push({ routeId: route.id, line: route.shortName || route.id, mode: route.mode, color: route.color, points })
+    lines.push({ routeId: route.id, line: route.shortName || route.id, mode: route.mode, points })
   })
   return lines
 }

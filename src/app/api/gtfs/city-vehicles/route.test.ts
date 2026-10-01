@@ -39,7 +39,7 @@ beforeAll(async () => {
     timezone: 'Europe/Warsaw',
     attribution: [],
     routes: [
-      { id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular', color: '#009944', textColor: '#ffffff' },
+      { id: '20', shortName: '20', longName: '20', mode: 'tram', kind: 'regular' },
     ],
     stops: [
       { id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
@@ -100,7 +100,6 @@ describe('GET /api/gtfs/city-vehicles', () => {
     expect(body.city).toBe('warszawa')
     expect(body.vehicles).toHaveLength(2)
     expect(body.vehicles[0].routeId).toBe('20')
-    expect(body.vehicles[0].color).toBe('#009944')
     expect(body.vehicles[1].routeId).toBeNull()
     expect(body.feed.state).toBe('ready')
     expect(JSON.stringify(body)).not.toMatch(/delayMinutes|actualAt|predictedAt/)

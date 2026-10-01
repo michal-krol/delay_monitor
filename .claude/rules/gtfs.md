@@ -64,9 +64,9 @@ paths:
 - **Colour = line category, never the feed.** One palette `LINE_PALETTE` / `lineColor(mode, kind)`
   in `src/components/transitMode.tsx` (metro yellow, tram, rail, bus, express, zone, local,
   night, replacement, other) drives `LineBadge` and the whole map (pins, vehicles, route and
-  backbone overlays; `MODE_COLOR` is derived from it). `route_color` is still parsed and
-  validated (Zod → `#RRGGBB` or `null`, `route_text_color` ignored) but the UI no longer reads
-  it. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
+  backbone overlays; `MODE_COLOR` is derived from it). `route_color`/`route_text_color` are
+  not parsed at all (dropped 2026-10-01: no reader left) — no colour field in any `/api/gtfs/*`
+  response. No category colour may equal a status colour (`transitMode.test.ts`). Yellow metro needs a
   dark outline/casing on the map (`strokeFor()` in `mapData.ts`). Callers without a kind derive
   it with `lineKindFrom(shortName, undefined)` — never a silent `'regular'`. Map vehicles get
   the served `CityVehicle.kind` (from `route_desc` at load); `vehicleKind()` in `mapData.ts` is

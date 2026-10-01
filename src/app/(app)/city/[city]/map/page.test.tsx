@@ -49,14 +49,14 @@ vi.mock('@/components/map/TransitMap', () => ({
 
 const VEHICLE = {
   id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '3801', ageSec: 10, headsign: 'Centrum',
-  routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', color: null, directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' },
+  routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' },
 }
 const STOP = { id: '100101', groupId: '1001', name: 'Centrum', code: '01', lat: 52.23, lon: 21.01, mode: 'bus' }
 const routeStop = (stopId: string, name: string, lat: number) => ({
   stopId, groupId: stopId.slice(0, 4), name, code: null, street: null, wheelchair: 0, lat, lon: 21.0, offsetSec: 0, onRequest: false,
 })
 const LINE_DETAIL = {
-  routeId: '20', line: '20', longName: 'Boernerowo — Żerań', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular',
+  routeId: '20', line: '20', longName: 'Boernerowo — Żerań', mode: 'tram', kind: 'regular',
   directions: [
     { directionId: 0, headsign: 'Żerań', origin: 'Boernerowo', departures: [], shape: null, stops: [routeStop('500101', 'Boernerowo', 52.26), routeStop('100101', 'Centrum', 52.23)] },
     { directionId: 1, headsign: 'Boernerowo', origin: 'Żerań', departures: [], shape: null, stops: [routeStop('900101', 'Żerań', 52.3)] },
@@ -87,7 +87,7 @@ beforeEach(() => {
       if (url.startsWith('/api/gtfs/backbone')) return jsonResponse({ lines: [] })
       if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ schedule: { state: 'ready' }, line: LINE_DETAIL })
       if (url.startsWith('/api/gtfs/lines')) {
-        return jsonResponse({ lines: { tram: [{ routeId: '20', line: '20', longName: 'Boernerowo — Żerań', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular' }] } })
+        return jsonResponse({ lines: { tram: [{ routeId: '20', line: '20', longName: 'Boernerowo — Żerań', mode: 'tram', kind: 'regular' }] } })
       }
       return jsonResponse({ stations: [] })
     })

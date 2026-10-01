@@ -12,7 +12,7 @@ import { ON_REQUEST_TITLE } from '../OnRequestBadge'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, lineColor } from '../transitMode'
 
 const line = (routeId: string, name = routeId, longName = ''): LineListEntry => ({
-  routeId, line: name, longName, color: null, textColor: '#ffffff', mode: 'bus', kind: 'regular',
+  routeId, line: name, longName, mode: 'bus', kind: 'regular',
 })
 
 describe('LineSearch', () => {

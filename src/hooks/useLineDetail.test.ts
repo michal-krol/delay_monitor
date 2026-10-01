@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLineDetail } from './useLineDetail'
 import { jsonResponse } from '@/test-utils/http'
 
-const LINE = { routeId: '20', line: '20', longName: '', color: null, textColor: '#ffffff', mode: 'tram', kind: 'regular', directions: [] }
+const LINE = { routeId: '20', line: '20', longName: '', mode: 'tram', kind: 'regular', directions: [] }
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => {

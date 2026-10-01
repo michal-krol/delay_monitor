@@ -32,7 +32,7 @@ const reader = (params: Record<string, string>) => (name: string) => params[name
 function vehicle(over: Partial<CityVehicle> = {}): CityVehicle {
   return {
     id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '1', ageSec: 5, headsign: 'Centrum',
-    routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', color: '#009944', directionId: 0, nextStop: null, ...over,
+    routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', directionId: 0, nextStop: null, ...over,
   }
 }
 

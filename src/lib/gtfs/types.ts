@@ -44,16 +44,6 @@ export type GtfsRoute = {
   longName: string
   mode: GtfsMode
   kind: LineKind
-  /** `#RRGGBB` po walidacji na granicy Zod, albo `null`. Nigdy surowy string z feedu. */
-  color: string | null
-  /**
-   * Kolor tekstu na plakietce — liczony samodzielnie z luminancji WCAG
-   * zwalidowanego `color` (`#000000` / `#ffffff`). `route_text_color` z feedu
-   * jest ignorowany w całości: to mniej kodu niż walidacja drugiego
-   * niezaufanego koloru i naprawia realny błąd (wiersz `route_color ===
-   * route_text_color` renderował niewidoczny numer).
-   */
-  textColor: '#000000' | '#ffffff'
 }
 
 /** Jedno konkretne odjechanie linii z przystanku — wynik `nextDepartures()`. */
@@ -65,7 +55,6 @@ export type GtfsDeparture = {
   mode: GtfsMode
   /** Rodzaj linii (nocna/przyspieszona/…) — patrz `LineKind`. */
   lineKind: LineKind
-  color: string | null
   headsign: string | null
   /** ISO z offsetem strefy miasta. */
   plannedAt: string

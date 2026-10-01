@@ -15,7 +15,6 @@ const VEHICLE = {
   routeId: '20',
   shortName: '20',
   mode: 'tram' as const,
-  color: null,
 }
 
 beforeEach(() => vi.useFakeTimers())

@@ -25,8 +25,8 @@ const board = {
   name: 'Świętokrzyska',
   modes: ['metro', 'tram'],
   lines: [
-    { routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro', kind: 'regular' },
-    { routeId: '20', line: '20', color: null, mode: 'tram', kind: 'regular' },
+    { routeId: 'M1', line: 'M1', mode: 'metro', kind: 'regular' },
+    { routeId: '20', line: '20', mode: 'tram', kind: 'regular' },
   ],
   wheelchairNote: null,
   members: [],
@@ -34,8 +34,8 @@ const board = {
   summary: { lineCount: 2, departuresToday: 44, firstDepartureSec: 18000, lastDepartureSec: 90600, hourly: new Array(24).fill(2) },
   alerts: [],
   departures: [
-    { tripId: 'a', routeId: 'M1', line: 'M1', mode: 'metro', lineKind: 'regular', color: '#0000bb', headsign: 'Kabaty', plannedAt: '2026-09-02T14:30:00+02:00', departureSec: 52200, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: true, onRequest: false, vehicle: null },
-    { tripId: 'b', routeId: '20', line: '20', mode: 'tram', lineKind: 'regular', color: null, headsign: 'Piaski', plannedAt: '2026-09-02T14:35:00+02:00', departureSec: 52500, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: false, onRequest: false, vehicle: null },
+    { tripId: 'a', routeId: 'M1', line: 'M1', mode: 'metro', lineKind: 'regular', headsign: 'Kabaty', plannedAt: '2026-09-02T14:30:00+02:00', departureSec: 52200, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: true, onRequest: false, vehicle: null },
+    { tripId: 'b', routeId: '20', line: '20', mode: 'tram', lineKind: 'regular', headsign: 'Piaski', plannedAt: '2026-09-02T14:35:00+02:00', departureSec: 52500, serviceDate: '2026-09-02', stopId: '7014M', platformCode: null, stopCode: null, wheelchair: 0, frequencyBased: false, onRequest: false, vehicle: null },
   ],
 }
 
@@ -46,8 +46,8 @@ const groupBoard = {
   groupId: '1001',
   name: 'Centrum',
   members: [
-    { id: '100101', name: 'Centrum', lat: 52, lon: 21, platformCode: '01', code: '01', street: 'Marszałkowska', wheelchair: 1, lines: [{ routeId: '20', line: '20', color: null, mode: 'tram', kind: 'regular' }] },
-    { id: '100102', name: 'Centrum', lat: 52, lon: 21, platformCode: '02', code: '02', street: 'Al. Jerozolimskie', wheelchair: 1, lines: [{ routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro', kind: 'regular' }] },
+    { id: '100101', name: 'Centrum', lat: 52, lon: 21, platformCode: '01', code: '01', street: 'Marszałkowska', wheelchair: 1, lines: [{ routeId: '20', line: '20', mode: 'tram', kind: 'regular' }] },
+    { id: '100102', name: 'Centrum', lat: 52, lon: 21, platformCode: '02', code: '02', street: 'Al. Jerozolimskie', wheelchair: 1, lines: [{ routeId: 'M1', line: 'M1', mode: 'metro', kind: 'regular' }] },
   ],
 }
 

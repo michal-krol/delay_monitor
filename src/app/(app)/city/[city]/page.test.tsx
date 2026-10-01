@@ -32,7 +32,7 @@ const { mockBoard, mockTransit } = vi.hoisted(() => ({
           stopId: '7014M',
           name: 'Świętokrzyska',
           modes: ['metro'],
-          lines: [{ routeId: 'M1', line: 'M1', color: '#0000bb', mode: 'metro' }],
+          lines: [{ routeId: 'M1', line: 'M1', mode: 'metro' }],
           summary: { lineCount: 1, departuresToday: 40, firstDepartureSec: 18000, lastDepartureSec: 90000, hourly: new Array(24).fill(1) },
           alerts: [],
           departures: [],
@@ -90,7 +90,7 @@ describe('CityPage', () => {
           ? jsonResponse({
               stations: [
                 { id: '33605', name: 'Warszawa Centralna', kind: 'rail', mode: 'rail' },
-                { id: '7014M', name: 'Świętokrzyska', kind: 'transit', mode: 'metro', modes: ['metro'], lines: [{ routeId: 'M1', line: 'M1', color: null, mode: 'metro' }] },
+                { id: '7014M', name: 'Świętokrzyska', kind: 'transit', mode: 'metro', modes: ['metro'], lines: [{ routeId: 'M1', line: 'M1', mode: 'metro' }] },
               ],
             })
           : citiesResponse()

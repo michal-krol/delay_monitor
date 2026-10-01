@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { isoInZone } from '@/lib/pkp/time'
 import { allLines } from './query'
 import { buildSchedule, cleanGroupName, groupStopId, type BuildScheduleInput } from './schedule'
-import { contrastText, lineKindFrom, modeFromRouteType } from './schema'
+import { lineKindFrom, modeFromRouteType } from './schema'
 import type { GtfsRoute } from './types'
 
 const at = (schedule: { evAbsSec: Float64Array; timezone: string }, eventIndex: number) =>
@@ -18,8 +18,6 @@ function route(id: string, type: number, shortName = id): GtfsRoute {
     longName: shortName,
     mode: modeFromRouteType(type),
     kind: lineKindFrom(shortName, undefined),
-    color: null,
-    textColor: contrastText(null),
   }
 }
 
