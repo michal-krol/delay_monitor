@@ -175,11 +175,11 @@ describe('usePinned — wrogie wejście z localStorage', () => {
 
   it('round-trips a pinned single stop with its member flag', async () => {
     const STOP: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum 02', member: true }
-    const first = renderHook(() => usePinned())
-    await waitFor(() => expect(first.result.current.loaded).toBe(true))
-    act(() => first.result.current.addPinned(STOP))
-    const second = renderHook(() => usePinned())
-    await waitFor(() => expect(second.result.current.loaded).toBe(true))
-    expect(second.result.current.pinnedItems).toEqual([STOP])
+    const { result: writer } = renderHook(() => usePinned())
+    await waitFor(() => expect(writer.current.loaded).toBe(true))
+    act(() => writer.current.addPinned(STOP))
+    const { result: reader } = renderHook(() => usePinned())
+    await waitFor(() => expect(reader.current.loaded).toBe(true))
+    expect(reader.current.pinnedItems).toEqual([STOP])
   })
 })

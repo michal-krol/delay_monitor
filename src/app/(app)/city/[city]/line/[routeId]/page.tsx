@@ -100,7 +100,7 @@ export default function LineDetailPage() {
   const showVehicles = direction !== undefined && (direction.directionId === 0 || direction.directionId === 1)
   const liveVehicles = useLineVehicles(city, routeId, showVehicles ? vehicleDir : 2)
 
-  // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam słupek może wystąpić
+  // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam przystanek może wystąpić
   // dwa razy), pojazdy z tego samego pollingu co karta „Pojazdy w trasie" -- zero nowych zapytań.
   const mapPins = useMemo<MapPin[]>(
     () =>
@@ -393,7 +393,7 @@ export default function LineDetailPage() {
                       href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
                       className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                     >
-                      pełna tablica słupka
+                      pełna tablica przystanku
                       <ChevronRightIcon size={12} className="ml-0.5 inline align-[-2px]" />
                     </Link>
                   )}

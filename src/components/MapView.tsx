@@ -347,10 +347,10 @@ export function MapView({
 
   // Sygnatura TOŻSAMOŚCI/POZYCJI pinów, celowo BEZ `mode`/`preview`/`href`.
   // Dwa powody: (1) wołający (np. `TransitStopDetail`) przelicza `pins` na
-  // nowo przy każdym pollu tablicy (~30 s) nawet gdy słupki się nie zmieniły
+  // nowo przy każdym pollu tablicy (~30 s) nawet gdy przystanki się nie zmieniły
   // -- pełna tablica w dep array przeinicjalizowywałaby mapę (reset
   // zoomu/pana) co poll. (2) klik pinu woła `onPinClick`, co w GTFS wybiera
-  // słupek i odświeża `board` -> `mapPins.preview` się zmienia -- gdyby
+  // przystanek i odświeża `board` -> `mapPins.preview` się zmienia -- gdyby
   // `preview` był w tej sygnaturze, KAŻDY klik pinu przeinicjalizowywałby
   // mapę i niszczył popup, który sam ten klik otworzył (zaobserwowane
   // ręcznie: popup migał i znikał). `mode` per pin faktycznie nie zmienia

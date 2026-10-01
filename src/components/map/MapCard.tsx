@@ -206,7 +206,7 @@ function RailBody({ id }: { id: string }) {
 }
 
 function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind: 'stop' }>; city: string }) {
-  // Słupek (np. „Centrum 01") → odjazdy tylko z niego; stacja metra = cały zespół.
+  // Przystanek (np. „Centrum 01") → odjazdy tylko z niego; stacja metra = cały zespół.
   const member = selection.id !== selection.groupId ? selection.id : null
   const { data, error } = useTransitBoard(city, [selection.id], 3, member)
   const board = data?.stops[0] ?? null

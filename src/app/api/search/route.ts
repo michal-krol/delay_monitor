@@ -18,7 +18,7 @@ type SearchOption = {
   mode: GtfsMode
   modes?: GtfsMode[]
   lines?: GtfsLine[]
-  /** Cel `flyTo` na mapie: kolej z `station-coordinates.json`, zespół = środek słupków. Brak = nieznana pozycja. */
+  /** Cel `flyTo` na mapie: kolej z `station-coordinates.json`, zespół = środek przystanków. Brak = nieznana pozycja. */
   lat?: number
   lon?: number
 }

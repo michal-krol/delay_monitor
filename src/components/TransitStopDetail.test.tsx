@@ -39,7 +39,7 @@ const board = {
   ],
 }
 
-/** Zespół „Centrum" z 3 słupkami — do testów przełącznika (linie 187-247). */
+/** Zespół „Centrum" z 3 przystankami — do testów przełącznika (linie 187-247). */
 const groupBoard = {
   ...board,
   stopId: '1001',
@@ -95,7 +95,7 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByRole('region', { name: /^Mapa przystanku/ })).not.toBeInTheDocument()
   })
 
-  it('shows a map card with one pin per słupek when the group has members', () => {
+  it('shows a map card with one pin per przystanek when the group has members', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
@@ -103,7 +103,7 @@ describe('TransitStopDetail', () => {
       failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
-    expect(screen.getByRole('region', { name: 'Mapa przystanku Centrum' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Mapa zespołu przystanków Centrum' })).toBeInTheDocument()
   })
 
   it('filters the board by line when a line chip is clicked', async () => {
@@ -133,9 +133,9 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
-  it('shows the słupek switcher only when the group has more than one member', () => {
+  it('shows the przystanek switcher only when the group has more than one member', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    expect(screen.queryByText('Słupki tego przystanku', { exact: false })).not.toBeInTheDocument()
+    expect(screen.queryByText('Przystanki w zespole', { exact: false })).not.toBeInTheDocument()
 
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
@@ -144,12 +144,13 @@ describe('TransitStopDetail', () => {
       failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
-    expect(screen.getByText('Słupki tego przystanku · 2')).toBeInTheDocument()
+    expect(screen.getByText('Przystanki w zespole · 2')).toBeInTheDocument()
+    expect(screen.getByText('Zespół przystanków · 2 przystanki')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /^Centrum 01/ })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /^Centrum 02/ })).toBeInTheDocument()
   })
 
-  it('clicking a słupek scopes the header subtitle and selects that tab only', async () => {
+  it('clicking a przystanek scopes the header subtitle and selects that tab only', async () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
@@ -158,19 +159,19 @@ describe('TransitStopDetail', () => {
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
 
-    const wholeGroup = screen.getByRole('tab', { name: /Cały przystanek/ })
-    const slupek02 = screen.getByRole('tab', { name: /^Centrum 02/ })
+    const wholeGroup = screen.getByRole('tab', { name: /Cały zespół/ })
+    const stop02 = screen.getByRole('tab', { name: /^Centrum 02/ })
     expect(wholeGroup).toHaveAttribute('aria-selected', 'true')
 
-    await userEvent.click(slupek02)
-    expect(slupek02).toHaveAttribute('aria-selected', 'true')
+    await userEvent.click(stop02)
+    expect(stop02).toHaveAttribute('aria-selected', 'true')
     expect(wholeGroup).toHaveAttribute('aria-selected', 'false')
     // podtytuł nagłówka + przycisk przełącznika oba noszą „Centrum 02"
     expect(screen.getAllByText(/^Centrum 02/)).toHaveLength(2)
 
     await userEvent.click(wholeGroup)
     expect(wholeGroup).toHaveAttribute('aria-selected', 'true')
-    expect(slupek02).toHaveAttribute('aria-selected', 'false')
+    expect(stop02).toHaveAttribute('aria-selected', 'false')
   })
 
   it('view tabs follow the WAI-ARIA tabs pattern: one tab stop, arrows/Home/End move selection and focus, a labelled tabpanel', async () => {
@@ -196,7 +197,7 @@ describe('TransitStopDetail', () => {
     expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
   })
 
-  it('słupek tabs: one tab stop and arrow keys select the next słupek', async () => {
+  it('przystanek tabs: one tab stop and arrow keys select the next przystanek', async () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
@@ -204,7 +205,7 @@ describe('TransitStopDetail', () => {
       failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
-    const tabs = within(screen.getByRole('tablist', { name: 'Słupek przystanku' })).getAllByRole('tab')
+    const tabs = within(screen.getByRole('tablist', { name: 'Przystanek w zespole' })).getAllByRole('tab')
     expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1'])
 
     tabs[0].focus()
@@ -276,31 +277,38 @@ describe('TransitStopDetail', () => {
     expect(screen.getByText('Piaski')).toBeInTheDocument()
   })
 
-  it('preselects the słupek named in `?slupek=` when nothing has been clicked yet', () => {
+  it('preselects the przystanek named in `?przystanek=` when nothing has been clicked yet', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
       loading: false,
       failed: false,
     })
-    search = 'slupek=100102'
+    search = 'przystanek=100102'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     expect(screen.getByRole('tab', { name: /^Centrum 02/ })).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('ignores a malformed `?slupek=` and falls back to the whole group', () => {
+  it('ignores an old `?slupek=` link and shows the whole group', () => {
+    useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [groupBoard], attribution: [] }, error: null, loading: false, failed: false })
+    search = 'slupek=100102'
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    expect(screen.getByRole('tab', { name: /Cały zespół/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('ignores a malformed `?przystanek=` and falls back to the whole group', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
       loading: false,
       failed: false,
     })
-    search = 'slupek=..%2F..'
+    search = 'przystanek=..%2F..'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
-    expect(screen.getByRole('tab', { name: /Cały przystanek/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /Cały zespół/ })).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('writes the clicked słupek to the URL via router.replace, keeping other params', async () => {
+  it('writes the clicked przystanek to the URL via router.replace, keeping other params', async () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
@@ -310,7 +318,7 @@ describe('TransitStopDetail', () => {
     search = 'name=Centrum'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     await userEvent.click(screen.getByRole('tab', { name: /^Centrum 02/ }))
-    expect(replace).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum&slupek=100102', { scroll: false })
+    expect(replace).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum&przystanek=100102', { scroll: false })
   })
 
   it('highlights the nearest upcoming departure on the Najbliższe odjazdy tab, not on Pełny rozkład', async () => {

@@ -220,7 +220,7 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('columnheader', { name: 'Dni robocze' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Soboty' })).toBeInTheDocument()
     // pełna trasa widoczna od razu (bez rozwijania), z linkiem do tablicy przystanku
-    expect(screen.getByRole('link', { name: /pełna tablica słupka/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /pełna tablica przystanku/ })).toHaveAttribute(
       'href',
       '/city/warszawa/stop/100101?name=Centrum'
     )

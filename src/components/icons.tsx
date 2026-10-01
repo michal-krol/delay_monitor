@@ -250,7 +250,7 @@ export function OtherModeIcon(props: IconProps) {
   )
 }
 
-/** Przystanek (słupek z tablicą) — liczba przystanków, nie tryb. */
+/** Przystanek (znak z tablicą) — liczba przystanków, nie tryb. */
 export function StopIcon(props: IconProps) {
   return base(
     <>

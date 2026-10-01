@@ -22,8 +22,8 @@ type Props = {
 }
 
 /**
- * Numer przystanku zespołu, z którego rusza kurs („02"). Tylko `stop_code` — peron
- * (`platform_code`) ma własne „peron X" w wierszu, fallback dublowałby go („P1" dwa razy).
+ * Numer przystanku zespołu, z którego rusza kurs („02"): `stop_code`, a gdy feed go nie
+ * podaje — `platform_code` (gtfs.md). Wiersz chowa wtedy „peron X" z tą samą wartością.
  */
 function StopTag({ code }: { code: string }) {
   return (
@@ -65,15 +65,17 @@ function DepartureRow({
   now?: number
 }) {
   const relative = now !== undefined ? relativeLabel(departure.plannedAt, now) : null
-  const stopCode = showStopCode ? departure.stopCode : null
+  const stopCode = showStopCode ? (departure.stopCode ?? departure.platformCode) : null
   const hasStopTag = stopCode !== null
+  // Numer przystanku z `platform_code` już jest w tagu — „peron 01" obok byłby duplikatem.
+  const platform = departure.platformCode !== stopCode ? departure.platformCode : null
   const hasMeta =
     hasStopTag ||
     departure.vehicle != null ||
     LINE_KIND_LABEL[departure.lineKind] !== '' ||
     departure.frequencyBased ||
     departure.onRequest ||
-    departure.platformCode !== null
+    platform !== null
   return (
     <li
       key={`${departure.tripId}-${departure.stopId}-${index}`}
@@ -119,9 +121,7 @@ function DepartureRow({
             <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
           )}
           {departure.onRequest && <OnRequestBadge />}
-          {departure.platformCode !== null && (
-            <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
-          )}
+          {platform !== null && <span className="shrink-0 text-xs text-text-secondary">peron {platform}</span>}
         </div>
       )}
       {relative !== null && (
@@ -160,6 +160,7 @@ export function TransitDepartureList({
   const [first, ...rest] = departures
   const highlightRelative = highlightFirst && now !== undefined ? relativeLabel(first.plannedAt, now) : null
   const showHighlight = highlightRelative !== null
+  const firstStopCode = showStopCode ? (first.stopCode ?? first.platformCode) : null
   const listed = showHighlight ? rest : departures
 
   return (
@@ -172,7 +173,7 @@ export function TransitDepartureList({
             <span className="min-w-0 flex-1 truncate font-heading text-lg font-bold text-foreground">
               {first.headsign ?? '—'}
             </span>
-            {showStopCode && first.stopCode !== null && <StopTag code={first.stopCode} />}
+            {firstStopCode !== null && <StopTag code={firstStopCode} />}
             <div className="shrink-0 text-right">
               <div className="font-heading text-2xl font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">
                 {highlightRelative}

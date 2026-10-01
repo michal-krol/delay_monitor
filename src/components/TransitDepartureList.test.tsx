@@ -110,7 +110,8 @@ describe('TransitDepartureList', () => {
   it('shows the stop number on the next departure in a group view', () => {
     const now = new Date('2026-09-02T14:20:00+02:00').getTime()
     render(<TransitDepartureList departures={[dep({ stopCode: '02' })]} now={now} highlightFirst showStopCode />)
-    expect(screen.getByText('Najbliższy odjazd').parentElement).toHaveTextContent('Odjazd z przystanku 02')
+    // Jeden odjazd = tylko blok „Najbliższy odjazd", lista pod nim pusta — tag jest w bloku.
+    expect(screen.getByTitle('Odjazd z przystanku 02')).toBeInTheDocument()
   })
 
   it('has no stop number on the next departure in a single-stop view', () => {
@@ -119,9 +120,16 @@ describe('TransitDepartureList', () => {
     expect(screen.queryByText('02')).not.toBeInTheDocument()
   })
 
-  it('shows a platform only once when the stop number is missing', () => {
-    render(<TransitDepartureList departures={[dep({ stopCode: null, platformCode: 'P1' })]} showStopCode />)
-    expect(screen.getAllByText(/P1/)).toHaveLength(1)
+  it('falls back to the platform code as the stop number, shown once', () => {
+    // Feed bez `stop_code` (mock, metro) niesie numer w `platform_code` (gtfs.md) — tag go pokazuje,
+    // a „peron …" z tą samą wartością byłby duplikatem.
+    render(<TransitDepartureList departures={[dep({ stopCode: null, platformCode: '01' })]} showStopCode />)
+    expect(screen.getByTitle('Odjazd z przystanku 01')).toBeInTheDocument()
+    expect(screen.queryByText('peron 01')).not.toBeInTheDocument()
+  })
+
+  it('keeps the platform in a single-stop view', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: null, platformCode: 'P1' })]} />)
     expect(screen.getByText('peron P1')).toBeInTheDocument()
   })
 })

@@ -73,7 +73,7 @@ describe('MapView', () => {
   })
 
   it('wystawia dostępny region dla czytnika ekranu, gdy są piny', () => {
-    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa przystanku Foo" />)
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]} ariaLabel="Mapa przystanku Foo" />)
     expect(screen.getByRole('region', { name: 'Mapa przystanku Foo' })).toBeInTheDocument()
   })
 
@@ -82,8 +82,8 @@ describe('MapView', () => {
       <MapView
         dark={false}
         pins={[
-          { id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' },
-          { id: 'b', lat: 52.2, lon: 21.1, label: 'Słupek B' },
+          { id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' },
+          { id: 'b', lat: 52.2, lon: 21.1, label: 'Przystanek B' },
         ]}
         ariaLabel="Mapa"
       />
@@ -167,21 +167,21 @@ describe('MapView', () => {
 
   it('klik na pin woła onPinClick z jego id', async () => {
     const onPinClick = vi.fn()
-    render(<MapView dark={false} pins={[{ id: 'slupek-1', lat: 52.1, lon: 21.0, label: 'Słupek 1' }]} onPinClick={onPinClick} ariaLabel="Mapa" />)
+    render(<MapView dark={false} pins={[{ id: 'stop-1', lat: 52.1, lon: 21.0, label: 'Przystanek 1' }]} onPinClick={onPinClick} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
     markerElementAt(0).dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
-    expect(onPinClick).toHaveBeenCalledWith('slupek-1')
+    expect(onPinClick).toHaveBeenCalledWith('stop-1')
   })
 
   it('nie przeinicjalizowuje mapy, gdy `pins` to nowa referencja o tej samej treści (poller tablicy odświeża co ~30s)', async () => {
-    const pinsA: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]
+    const pinsA: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]
     const { rerender } = render(<MapView dark={false} pins={pinsA} ariaLabel="Mapa" />)
     await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
 
     // Nowa tablica, identyczna treść -- tak jak po kolejnym pollu w TransitStopDetail/StationAside.
-    const pinsB: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]
+    const pinsB: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]
     rerender(<MapView dark={false} pins={pinsB} ariaLabel="Mapa" />)
 
     expect(maplibregl.Map).toHaveBeenCalledTimes(1)
@@ -302,7 +302,7 @@ describe('MapView', () => {
   })
 
   it('ustawia workerUrl na własny statyczny asset przed konstrukcją mapy', async () => {
-    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa" />)
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
     // Bez tego `new Worker("", {type:"module"})` w buildzie produkcyjnym --
