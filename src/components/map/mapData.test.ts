@@ -32,7 +32,7 @@ const reader = (params: Record<string, string>) => (name: string) => params[name
 function vehicle(over: Partial<CityVehicle> = {}): CityVehicle {
   return {
     id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '1', ageSec: 5, headsign: 'Centrum',
-    routeId: '20', shortName: '20', mode: 'tram', color: '#009944', directionId: 0, nextStop: null, ...over,
+    routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', color: '#009944', directionId: 0, nextStop: null, ...over,
   }
 }
 
@@ -61,17 +61,22 @@ describe('vehiclesToGeoJSON', () => {
     expect(feature.geometry.coordinates).toEqual([21.0, 52.2])
   })
 
-  it('a bus takes the colour of its line kind (derived from the line number), like its badge', () => {
-    const night = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: 'N32' })], new Set(), null).features[0]
-    const zone = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: '727' })], new Set(), null).features[0]
-    const regular = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: '131' })], new Set(), null).features[0]
+  it('a bus takes the colour of its served line kind, not one re-derived from the number', () => {
+    const night = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: '131', kind: 'night' })], new Set(), null).features[0]
+    const zone = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: '727', kind: 'zone' })], new Set(), null).features[0]
+    const regular = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: '131', kind: 'regular' })], new Set(), null).features[0]
     expect(night.properties.color).toBe(LINE_PALETTE.night.bg)
     expect(zone.properties.color).toBe(LINE_PALETTE.zone.bg)
     expect(regular.properties.color).toBe(MODE_COLOR.bus)
   })
 
+  it('falls back to the line number when the kind is missing — never a silent regular', () => {
+    const night = vehiclesToGeoJSON([vehicle({ mode: 'bus', shortName: 'N32', kind: null })], new Set(), null).features[0]
+    expect(night.properties.color).toBe(LINE_PALETTE.night.bg)
+  })
+
   it('greys out a vehicle of an unknown trip but keeps it on the map', () => {
-    const [feature] = vehiclesToGeoJSON([vehicle({ mode: null, shortName: null, routeId: null })], new Set(), null).features
+    const [feature] = vehiclesToGeoJSON([vehicle({ mode: null, kind: null, shortName: null, routeId: null })], new Set(), null).features
     expect(feature.properties.color).toBe(UNKNOWN_COLOR)
     expect(feature.properties.label).toBe('')
   })

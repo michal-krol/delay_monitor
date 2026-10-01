@@ -1,7 +1,7 @@
 import type { CityStop, LineRouteDirection } from '@/lib/gtfs/query'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import { lineKindFrom } from '@/lib/gtfs/schema'
-import type { GtfsMode } from '@/lib/gtfs/types'
+import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
 import { LINE_PALETTE, lineColor } from '../transitMode'
 import type { MapRailStation } from '@/lib/weather/coordinates'
 
@@ -180,6 +180,16 @@ export const HIDE_AFTER_SEC = 180
  * danych — warstwa pojazdów i tak dostaje `setData` co 15 s. Pozycje starsze
  * niż `HIDE_AFTER_SEC` znikają (martwa pozycja, nie „brak danych").
  */
+/**
+ * Rodzaj linii pojazdu dla pinezki i plakietki — JEDNO miejsce. Serwer podaje `kind` z rozkładu
+ * (uwzględnia `route_desc`). Fallback z numeru tylko gdy `kind` brak: serwer zeruje go razem z
+ * `mode`/`shortName` (nieznany kurs), ale typ tego nie wiąże, a odpowiedź nie przechodzi przez
+ * schemat — brak pola nigdy nie może dać cichego `'regular'` (AGENTS #13, `gtfs.md`).
+ */
+export function vehicleKind(v: CityVehicle): LineKind {
+  return v.kind ?? lineKindFrom(v.shortName ?? '', undefined)
+}
+
 export function vehiclesToGeoJSON(
   vehicles: CityVehicle[],
   hidden: ReadonlySet<LayerKey>,
@@ -197,8 +207,7 @@ export function vehiclesToGeoJSON(
     features.push(
       point(v.lon, v.lat, {
         id: v.id,
-        // Pojazd nie niesie rodzaju linii — wyprowadzamy z numeru, tą samą regułą co plakietka.
-        color: v.mode !== null ? lineColor(v.mode, lineKindFrom(v.shortName ?? '', undefined)).bg : UNKNOWN_COLOR,
+        color: v.mode !== null ? lineColor(v.mode, vehicleKind(v)).bg : UNKNOWN_COLOR,
         opacity: Math.round(opacity * 100) / 100,
         label: v.shortName ?? '',
         // Brak klucza = feed nie podał kierunku jazdy → bez strzałki (warstwa filtruje `has`).

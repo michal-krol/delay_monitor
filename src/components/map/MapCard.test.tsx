@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MapCard } from './MapCard'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
+import { LINE_PALETTE } from '../transitMode'
 
 const railStatus = vi.fn()
 vi.mock('@/hooks/useRailStations', () => ({ useRailStationStatus: (id: string | null) => railStatus(id) }))
@@ -16,7 +17,7 @@ const rail = { kind: 'rail' as const, id: '33605', name: 'Warszawa Centralna', l
 function vehicle(over: Partial<CityVehicle> = {}): CityVehicle {
   return {
     id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '3801', ageSec: 12, headsign: 'Dworzec Centralny',
-    routeId: '20', shortName: '20', mode: 'tram', color: '#009944', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' }, ...over,
+    routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', color: '#009944', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' }, ...over,
   }
 }
 
@@ -104,8 +105,13 @@ describe('MapCard — vehicle', () => {
     expect(screen.getByText(/Pojazd zniknął z mapy/)).toBeInTheDocument()
   })
 
+  it('colours the line badge by the served kind, not one re-derived from the number', () => {
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ mode: 'bus', shortName: '131', kind: 'night' })} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText('131', { selector: 'span' })).toHaveStyle({ background: LINE_PALETTE.night.bg })
+  })
+
   it('handles a vehicle without a line', () => {
-    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ routeId: null, shortName: null, mode: null, headsign: null })} city="warszawa" onClose={() => {}} />)
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ routeId: null, shortName: null, mode: null, kind: null, headsign: null })} city="warszawa" onClose={() => {}} />)
     expect(screen.getByRole('heading', { name: 'Pojazd' })).toBeInTheDocument()
     expect(screen.getByText('Brak przypisania do linii.')).toBeInTheDocument()
   })
