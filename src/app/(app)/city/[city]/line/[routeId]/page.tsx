@@ -16,7 +16,7 @@ import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
-import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon } from '@/components/icons'
+import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon, VehicleHeadingIcon } from '@/components/icons'
 import { LINE_KIND_LABEL, MODE_LABEL, darkRingClass, lineColor } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
@@ -327,7 +327,7 @@ export default function LineDetailPage() {
                                         ...(hasCustomStroke(palette.bg) ? ({ '--tw-ring-color': strokeFor(palette.bg) } as CSSProperties) : {}),
                                       }}
                                     >
-                                      <ArrowRightIcon size={10} className="rotate-90" />
+                                      <VehicleHeadingIcon className="h-2.5 w-2.5 rotate-180" />
                                       <span className="sr-only">
                                         Pojazd {v.sideNumber}
                                         {v.ageSec > 60 ? `, ${Math.round(v.ageSec / 60)} min temu` : ''}

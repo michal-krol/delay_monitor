@@ -131,6 +131,8 @@ describe('ConnectionDetails', () => {
     expect(routeList().getByText('Gdańsk Główny')).toBeInTheDocument()
     expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'EIC Grunwald' })).toBeInTheDocument()
+    // Strzałka „skąd → dokąd” w nagłówku niesie znaczenie — czytnik słyszy „Gdańsk Główny do …”.
+    expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
     expect(screen.getByText('+7 min')).toBeInTheDocument()
     // Peron i tor jako dwie osobne wartości, nie sklejone „3/1" -- jedna
     // bywa znana bez drugiej (makieta §10).

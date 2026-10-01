@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircleIcon } from './icons'
+import { AlertCircleIcon, ChevronDownIcon } from './icons'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 
@@ -73,9 +73,10 @@ export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
                   <span className="block font-medium text-foreground [overflow-wrap:anywhere]">{alert.title || 'Utrudnienie'}</span>
                   {dates !== null && <span className="mt-0.5 block text-xs text-text-muted">Daty w komunikacie: {dates}</span>}
                 </span>
-                <span className="shrink-0 text-xs font-medium text-warning-text">
+                <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-warning-text">
                   <span className="group-open:hidden">Rozwiń</span>
                   <span className="hidden group-open:inline">Zwiń</span>
+                  <ChevronDownIcon size={13} className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
                 </span>
               </summary>
               {alert.body !== '' && <AlertBody body={alert.body} />}

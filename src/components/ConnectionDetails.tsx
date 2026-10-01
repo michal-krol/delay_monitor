@@ -6,7 +6,7 @@ import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { PageTitle } from './PageTitle'
-import { AlertCircleIcon, ArrowRightIcon, CalendarIcon, ClockIcon, InfoIcon, PauseIcon, TimerIcon, TrainIcon } from './icons'
+import { AlertCircleIcon, ArrivalIcon, ArrowRightIcon, CalendarIcon, ChevronDownIcon, DepartureIcon, InfoIcon, PauseIcon, TimerIcon, VehiclePositionIcon } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import { resolvePositionAnchor } from '@/lib/board/trainDetail'
 import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
@@ -418,7 +418,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 {summary.origin !== null && summary.destination !== null && (
                   <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-lg font-semibold text-foreground sm:text-xl">
                     <span>{summary.origin.stationName}</span>
-                    <ArrowRightIcon size={18} className="text-text-muted" />
+                    <ArrowRightIcon size={18} label="do" className="text-text-muted" />
                     <span>{summary.destination.stationName}</span>
                   </p>
                 )}
@@ -456,13 +456,13 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 value={formatOperatingDate(data.operatingDate) ?? data.operatingDate}
               />
               <MetaItem
-                icon={<ClockIcon size={16} />}
+                icon={<DepartureIcon size={16} />}
                 label="Odjazd"
                 value={formatTime(summary.origin?.displayAt ?? null) ?? '—'}
                 hint={summary.origin?.stationName ?? null}
               />
               <MetaItem
-                icon={<ClockIcon size={16} />}
+                icon={<ArrivalIcon size={16} />}
                 label="Przyjazd (plan)"
                 value={formatTime(summary.destination?.plannedAt ?? null) ?? '—'}
                 hint={summary.destination?.stationName ?? null}
@@ -652,7 +652,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                       color: 'var(--status-enRoute-fg)',
                                     }}
                                   >
-                                    <TrainIcon size={14} />
+                                    <VehiclePositionIcon size={14} />
                                     {scheduleMode
                                       ? 'Pociąg jest tutaj — wg rozkładu'
                                       : staleProjection
@@ -677,10 +677,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                   </span>
                                 )}
                                 {messages.length > 0 && (
-                                  <details className="w-full">
-                                    <summary className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                  <details className="group w-full">
+                                    <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                                       <AlertCircleIcon size={14} />
                                       Utrudnienie
+                                      <ChevronDownIcon size={13} className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
                                     </summary>
                                     <p className="mt-1.5 text-xs text-text-secondary">{messages.join(' ')}</p>
                                   </details>

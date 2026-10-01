@@ -149,7 +149,7 @@ export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]
         onClick={() => setOpen((o) => !o)}
         className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl ${PIN_COLOR} transition hover:bg-black/5 dark:hover:bg-white/10`}
       >
-        <StarIcon size={16} />
+        <StarIcon size={16} filled />
       </button>
       {open && (
         <ul id={panelId} aria-label="Przypięte" className="glass-strong absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">

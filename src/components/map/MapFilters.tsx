@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { FilterIcon } from '../icons'
+import { AlertCircleIcon, FilterIcon } from '../icons'
 import { LAYER_LABEL, LAYER_MODE, POINT_LAYERS, type LayerKey } from './mapData'
 import { ModeChip } from './ModeChip'
 
@@ -97,6 +97,7 @@ export function MapFilters({
           {onAlertsOnly !== undefined && (
             <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
               <input type="checkbox" checked={alertsOnly} onChange={() => onAlertsOnly(!alertsOnly)} className="h-4 w-4 accent-indigo-600" />
+              <AlertCircleIcon size={16} className="shrink-0 text-warning-text" />
               Tylko linie z utrudnieniami
             </label>
           )}

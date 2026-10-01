@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { activeItemFromPath, NAV_ITEMS } from './navItems'
+import { DeparturesBoardIcon } from './icons'
 
 describe('activeItemFromPath', () => {
   it('recognizes /map and /city/[city]/map as the map item', () => {
@@ -23,6 +24,10 @@ describe('activeItemFromPath', () => {
 })
 
 describe('NAV_ITEMS', () => {
+  it('uses the departures-board icon for Odjazdy, not the generic list icon (one icon per concept)', () => {
+    expect(NAV_ITEMS.find((i) => i.key === 'odjazdy')?.icon).toBe(DeparturesBoardIcon)
+  })
+
   it('has an active Mapa entry pointing at /map', () => {
     const item = NAV_ITEMS.find((i) => i.label === 'Mapa')
     expect(item).toEqual({ key: 'mapa', href: '/map', label: 'Mapa', icon: expect.any(Function) })

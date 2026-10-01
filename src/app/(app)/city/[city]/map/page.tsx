@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { CityIcon, CloseIcon, ShareIcon } from '@/components/icons'
+import { CityIcon, CloseIcon, ListIcon, ShareIcon } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
@@ -506,11 +506,12 @@ export default function CityMapPage() {
                       setSelection(null)
                       setNearby(null)
                     }}
-                    className={`glass min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${
+                    className={`glass inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${
                       listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
                     }`}
                     style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
                   >
+                    <ListIcon size={16} />
                     Lista
                   </button>
                   <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
