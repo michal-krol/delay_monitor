@@ -16,10 +16,17 @@ test('wiersz odjazdu na 375 px: bez poziomego przewijania, nagłówek kursu wido
     await route.fulfill({ response, json: body })
   })
 
-  await page.goto('/city/warszawa/stop/100101')
+  // Cały zespół (`1001`), nie słupek (`100101`): deep-link na słupek pobiera najpierw
+  // listę zespołu, a potem drugi raz zawężoną do słupka (`requestedMember` → `?member=`).
+  // Gdy pierwszy odjazd obu list się różni (zależy od godziny), React podmienia `<li>`
+  // w trakcie pomiaru i `boundingBox()` dostaje odpięty węzeł → `null` → szerokość 0
+  // (flaky 2026-10-01). Zespół = jedno źródło listy, bez podmiany, a do tego najpełniejszy
+  // zestaw oznaczeń: numer słupka („Odjazd z: 01") + peron + plakietka + „za …".
+  await page.goto('/city/warszawa/stop/1001')
   const row = page.getByTestId('departure-list').locator('li').first()
   await expect(row).toBeVisible({ timeout: 45_000 })
   await expect(row).toContainText('na żądanie')
+  await expect(row).toContainText('Odjazd z:')
 
   const { scrollWidth, clientWidth } = await row.evaluate((el) => ({
     scrollWidth: el.scrollWidth,
@@ -28,6 +35,7 @@ test('wiersz odjazdu na 375 px: bez poziomego przewijania, nagłówek kursu wido
   expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
 
   const headsign = row.getByTestId('departure-headsign')
+  await expect(headsign).toBeVisible()
   const box = await headsign.boundingBox()
   expect(box?.width ?? 0).toBeGreaterThan(40)
 })
