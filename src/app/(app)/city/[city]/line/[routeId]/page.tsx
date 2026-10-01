@@ -12,6 +12,7 @@ import { OnRequestBadge } from '@/components/OnRequestBadge'
 import { LineTimetable } from '@/components/LineTimetable'
 import { MapView, type MapMover, type MapPin } from '@/components/MapView'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
+import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
@@ -101,7 +102,7 @@ export default function LineDetailPage() {
         id: String(index),
         lat: stop.lat,
         lon: stop.lon,
-        label: stop.code !== null ? `${stop.name} ${stop.code}` : stop.name,
+        label: stopDisplayName(stop.name, stop.code),
         mode: line?.mode,
         kind: line?.kind,
         href: `/city/${city}/stop/${encodeStopIdForPathSegment(stop.stopId)}?name=${encodeURIComponent(stop.name)}`,
@@ -339,10 +340,7 @@ export default function LineDetailPage() {
                           }`}
                         >
                           <span className={`min-w-0 flex-1 ${first || last ? 'font-semibold text-foreground' : ''}`}>
-                            {stop.name}
-                            {stop.code !== null && (
-                              <span className="ml-1 text-[11px] font-semibold tabular-nums text-text-muted">{stop.code}</span>
-                            )}
+                            {stopDisplayName(stop.name, stop.code)}
                             {stop.onRequest && (
                               <span className="ml-1.5 inline-block align-middle">
                                 <OnRequestBadge />
