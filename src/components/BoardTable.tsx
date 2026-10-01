@@ -359,14 +359,20 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
           <TrainIdentity row={row} />
         )}
       </td>
-      <td data-cell="direction" className="max-w-[18rem] py-2.5 pr-3">
+      {/* Ta sama pułapka co wyżej, ale bez stałego limitu: „przez Warszawa Wschodnia, Wołomin, Tłuszcz
+          · +15 przystanków" rozpychało kolumnę do pełnych 18rem i tabela przewijała się przy 1280 px
+          (QA 2026-10-01). `w-full max-w-0` (tylko tryb tabeli): komórka nie wnosi min-content, a
+          kolumna bierze miejsce, które zostaje po pozostałych — `truncate` skraca do niego tekst.
+          Pozostałe kolumny dostają przez to tylko min-content, stąd `@2xl:whitespace-nowrap` na
+          peronie i statusie: w szerokiej tabeli bez łamania („jeszcze nie wyjechał"), w wąskiej jak dawniej. */}
+      <td data-cell="direction" className="py-2.5 pr-3 sm:w-full sm:max-w-0">
         <span className="block truncate font-medium text-foreground">{row.headsign ?? '—'}</span>
         {via !== null && <span className="block truncate text-xs text-text-muted">{via}</span>}
       </td>
-      <td data-cell="platform" className="py-2.5 pr-3">
+      <td data-cell="platform" className="py-2.5 pr-3 @2xl:whitespace-nowrap">
         <PlatformTrack row={row} />
       </td>
-      <td data-cell="status" className="py-2.5 pr-3">
+      <td data-cell="status" className="py-2.5 pr-3 @2xl:whitespace-nowrap">
         <DelayBadge
           status={row.status}
           delayMinutes={row.delayMinutes}
