@@ -432,3 +432,49 @@ test('a11y: mapa transportu w trybie ciemnym i z otwartą kartą bez naruszeń s
   await expect(page.getByRole('dialog', { name: 'Warszawa Centralna' })).toBeVisible()
   await expectNoBlockingA11y(page)
 })
+
+// Regresja (QA 2026-09-30): na 375 px pole wyszukiwania dzieliło rząd z przyciskami
+// (Lista, Filtry, Udostępnij ≈ 224 px) i kurczyło się do ~75 px („Sz…").
+test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
+  })
+
+  test('375 px: pola miejsca i linii mają co najmniej 160 px, strona nie przewija się w poziomie', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openMap(page)
+    const place = await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).boundingBox()
+    expect(place!.width).toBeGreaterThanOrEqual(160)
+    const line = await (await lineSearch(page)).boundingBox()
+    expect(line!.width).toBeGreaterThanOrEqual(160)
+    // Przyciski zostają przy prawej krawędzi: panel „Filtry" (`right-0`) otwiera się w lewo,
+    // przy przyciskach z lewej wyjeżdżał ~100 px poza ekran.
+    const share = await page.getByRole('button', { name: 'Udostępnij ten widok mapy' }).boundingBox()
+    expect(share!.x + share!.width).toBeCloseTo(line!.x + line!.width, 0)
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  })
+
+  // CI 2026-10-01 (mobile-safari, iPhone 15): przyciski w drugim rzędzie zepchnęły chip linii
+  // pod kartę na dole (max 62% mapy), „×" w chipie przestało dać się kliknąć.
+  test('393×659: karta linii nie zakrywa chipów filtrów', async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 659 })
+    await openMap(page)
+    await (await lineSearch(page)).fill('20')
+    await page.getByRole('option', { name: /^Linia 20/ }).click()
+    const chips = await page.getByRole('list', { name: 'Aktywne filtry' }).boundingBox()
+    const card = await page.getByRole('dialog').boundingBox()
+    expect(card!.y).toBeGreaterThanOrEqual(chips!.y + chips!.height)
+  })
+
+  test('1280 px: oba pola i przyciski zostają w jednym rzędzie', async ({ page }) => {
+    await openMap(page)
+    const top = async (locator: Locator) => (await locator.boundingBox())!.y
+    const row = await top(page.getByRole('button', { name: 'Lista' }))
+    expect(await top(page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }))).toBeCloseTo(row, 0)
+    expect(await top(page.getByRole('combobox', { name: 'Szukaj linii' }))).toBeCloseTo(row, 0)
+  })
+})
