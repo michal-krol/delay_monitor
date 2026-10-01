@@ -7,9 +7,9 @@ import type { GtfsLine, StopGroupMember, StopSummary } from '@/lib/gtfs/query'
 
 export type TransitStopBoard = {
   stopId: string
-  /** Id zespołu (`stopId` bywa słupkiem przy deep-linku z trasy linii). */
+  /** Id zespołu (`stopId` bywa przystankiem przy deep-linku z trasy linii). */
   groupId: string
-  /** Słupek, o który pytano wprost; `null` = cały zespół. Klient inicjuje z tego przełącznik. */
+  /** Przystanek, o który pytano wprost; `null` = cały zespół. Klient inicjuje z tego przełącznik. */
   requestedMember: string | null
   name: string
   modes: GtfsMode[]
@@ -17,9 +17,9 @@ export type TransitStopBoard = {
   lines: GtfsLine[]
   /** Sygnał dostępności: `'inaccessible'` / `'partial'` / `null` (patrz `StopGroup.wheelchairNote`). */
   wheelchairNote: 'inaccessible' | 'partial' | null
-  /** Słupki zespołu (Centrum 01, Centrum 02…) — do przełącznika. */
+  /** Przystanki zespołu (Centrum 01, Centrum 02…) — do przełącznika. */
   members: StopGroupMember[]
-  /** Aktywny słupek, gdy zawężono odjazdy do jednego; inaczej `null` (cały zespół). */
+  /** Aktywny przystanek, gdy zawężono odjazdy do jednego; inaczej `null` (cały zespół). */
   activeMember: string | null
   /**
    * Fakty rozkładowe (liczba linii, odjazdy dziś, pierwszy/ostatni, wykres godzinowy).
@@ -32,7 +32,7 @@ export type TransitStopBoard = {
   alerts: AlertRecord[] | null
   /**
    * `vehicle` = pozycja pojazdu realizującego ten kurs, wyrażona jako dystans
-   * w przystankach od obserwowanego słupka (`stopsAway`, 0 = „zaraz będzie" —
+   * w przystankach od obserwowanego przystanku (`stopsAway`, 0 = „zaraz będzie" —
    * pojazd jest na odcinku tuż przed tym przystankiem, zbliża się) plus wiek
    * danych. `null` gdy brak feedu pozycji, pytano o cały zespół albo pojazd
    * ten przystanek już minął. Zero pola opóźnienia (#13).
@@ -67,7 +67,7 @@ const isBoardLoading = (json: TransitBoardResponse) =>
 
 export function useTransitBoard(city: string | null, stopIds: string[], limit = 20, member: string | null = null) {
   const stopsKey = stopIds.join(',')
-  // Klucz obejmuje wszystko, co wchodzi do URL-a; `keepPreviousData` -- przełączenie słupka nie
+  // Klucz obejmuje wszystko, co wchodzi do URL-a; `keepPreviousData` -- przełączenie przystanku nie
   // zdejmuje pinów mapy ani podglądu w popupie (budowane z `data.stops[].members`) przed nową odpowiedzią.
   const key = city === null || stopIds.length === 0 ? null : JSON.stringify([city, stopsKey, limit, member])
   const { data: polled, error } = usePolling<TransitBoardResponse>(
@@ -80,7 +80,7 @@ export function useTransitBoard(city: string | null, stopIds: string[], limit = 
     { refreshMs: REFRESH_INTERVAL_MS, isLoading: isBoardLoading, keepPreviousData: true }
   )
 
-  // `keepPreviousData` ma chronić tylko przełączenie słupka/limitu tego samego zestawu
+  // `keepPreviousData` ma chronić tylko przełączenie przystanku/limitu tego samego zestawu
   // przystanków; odpowiedź o INNYCH przystankach (albo mieście) nigdy nie może udawać
   // odpowiedzi na nowe pytanie -- wtedy wracamy do „ładowania".
   const data =

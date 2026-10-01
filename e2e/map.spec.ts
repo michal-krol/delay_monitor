@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-// Mock „Centrum" (zespół 1001) = 4 słupki (AGENTS.md #13, patrz gtfs-slupek.spec.ts).
+// Mock „Centrum" (zespół 1001) = 4 przystanki (AGENTS.md #13, patrz gtfs-stop-member.spec.ts).
 const CENTRUM = '/city/warszawa/stop/1001'
 // Mock ma prawdziwe ID: Warszawa Centralna 33605 (AGENTS.md #8).
 const STATION_BOARD = '/station/33605?name=Warszawa%20Centralna'
@@ -29,31 +29,31 @@ async function expectTilesRendered(canvas: Locator): Promise<void> {
   }).toPass({ timeout: 15_000 })
 }
 
-test('przystanek miejski: mapa pokazuje jeden pin na słupek i steruje przełącznikiem', async ({ page }) => {
+test('przystanek miejski: mapa pokazuje jeden pin na przystanek i steruje przełącznikiem', async ({ page }) => {
   await page.goto(CENTRUM)
   await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
 
-  const map = page.getByRole('region', { name: /^Mapa przystanku/ })
+  const map = page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })
   await expect(map).toBeVisible({ timeout: READY })
   await expect(page.locator('.maplibregl-marker')).toHaveCount(4)
   await expectTilesRendered(map.locator('canvas'))
 
-  // Klik na pin steruje TYM SAMYM przełącznikiem słupka co karty poniżej (MapView.tsx: onPinClick).
+  // Klik na pin steruje TYM SAMYM przełącznikiem przystanku co karty poniżej (MapView.tsx: onPinClick).
   await page.locator('.maplibregl-marker').first().click()
   await expect(page.getByRole('tab', { name: /^Centrum 0\d/, selected: true })).toBeVisible()
 })
 
 test('przystanek miejski: „Powiększ mapę" otwiera pełnoekranowy widok z podglądem odjazdów w popupie', async ({ page }) => {
   await page.goto(CENTRUM)
-  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
 
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
-  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  const dialog = page.getByRole('dialog', { name: /^Mapa (zespołu przystanków|przystanku)/ })
   await expect(dialog).toBeVisible()
   await expect(dialog.locator('.maplibregl-marker')).toHaveCount(4)
   await expectTilesRendered(dialog.locator('canvas'))
 
-  // Powiększony popup ma podgląd odjazdów tego słupka -- mini nie (za mało miejsca).
+  // Powiększony popup ma podgląd odjazdów tego przystanku -- mini nie (za mało miejsca).
   await dialog.locator('.maplibregl-marker').first().click()
   await expect(page.locator('.maplibregl-popup-content').getByText(/^\d{2}:\d{2} →/).first()).toBeVisible()
 
@@ -63,9 +63,9 @@ test('przystanek miejski: „Powiększ mapę" otwiera pełnoekranowy widok z pod
 
 test('przystanek miejski: kliknięcie tła zamyka pełnoekranową mapę', async ({ page }) => {
   await page.goto(CENTRUM)
-  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
-  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  const dialog = page.getByRole('dialog', { name: /^Mapa (zespołu przystanków|przystanku)/ })
   await expect(dialog).toBeVisible()
 
   // Dialog ma margines (inset-4 / sm:inset-10) -- róg viewportu to samo tło.
@@ -77,9 +77,9 @@ test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', a
   // WebKit domyślnie pomija przyciski w kolejności Tab (Full Keyboard Access).
   test.skip(browserName === 'webkit', 'Tab w Safari zależy od ustawień systemu')
   await page.goto(CENTRUM)
-  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
-  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  const dialog = page.getByRole('dialog', { name: /^Mapa (zespołu przystanków|przystanku)/ })
   await expect(dialog).toBeVisible()
   // MapLibre przebudowuje atrybucję (`replaceChildren`, nowe linki) za każdym razem, gdy używane
   // źródło stylu dołoży swoją -- fokusowany link znika i fokus spada na body. Sam „MapLibre" to

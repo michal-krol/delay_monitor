@@ -165,4 +165,32 @@ describe('usePinned — wrogie wejście z localStorage', () => {
 
     expect(result.current.pinnedItems).toEqual([METRO])
   })
+
+  it('loads a gtfs pin saved before the member flag as the whole group', async () => {
+    window.localStorage.setItem(V2_KEY, JSON.stringify([{ kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum' }]))
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    expect(result.current.pinnedItems).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum' }])
+  })
+
+  it('round-trips a pinned single stop with its member flag', async () => {
+    const STOP: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum 02', member: true }
+    const { result: writer } = renderHook(() => usePinned())
+    await waitFor(() => expect(writer.current.loaded).toBe(true))
+    act(() => writer.current.addPinned(STOP))
+    const { result: reader } = renderHook(() => usePinned())
+    await waitFor(() => expect(reader.current.loaded).toBe(true))
+    expect(reader.current.pinnedItems).toEqual([STOP])
+  })
+
+  it('keeps a pinned single stop apart from an older group pin saved under the same id', async () => {
+    const LEGACY_GROUP: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum' }
+    const STOP: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum 02', member: true }
+    expect(pinnedKey(STOP)).not.toBe(pinnedKey(LEGACY_GROUP))
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => result.current.addPinned(LEGACY_GROUP))
+    act(() => result.current.addPinned(STOP))
+    expect(result.current.pinnedItems).toEqual([LEGACY_GROUP, STOP])
+  })
 })

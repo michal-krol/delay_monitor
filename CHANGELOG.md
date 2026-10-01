@@ -18,8 +18,21 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Precyzyjne nazwy przystanków komunikacji miejskiej. Sama nazwa („Centrum”) oznacza
+  teraz zawsze cały zespół przystanków, a konkretny przystanek ma numer („Centrum 02”):
+  w „Najbliższym odjeździe”, na kartach Pulpitu i mapy, przy następnym przystanku
+  pojazdu, w panelu linii i na stronie linii. Z aplikacji zniknęło słowo „słupek”.
+- Przypinasz to, co widzisz: przypięty „Centrum 02” pokazuje na Pulpicie odjazdy tylko
+  z tego przystanku, a przypięty zespół — wszystkie, z numerami przystanków. Wcześniej
+  przypięte przystanki działają dalej jako cały zespół.
+- Wybrany przystanek zespołu zapisuje się w linku jako `?przystanek=`. Starsze linki
+  z `?slupek=` otwierają cały zespół.
 - Usunięto nieczytane kolumny kolorów z przykładowego pliku `routes.txt` oraz nieaktualne
   komentarze o liczbie pociągów w mocku.
+
+### Naprawione
+
+- Metro: numer peronu nie wyświetla się już dwa razy przy odjeździe.
 
 ## [1.1.0] — 2026-10-01
 

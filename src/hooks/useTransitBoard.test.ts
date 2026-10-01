@@ -108,7 +108,7 @@ describe('useTransitBoard', () => {
     await vi.waitFor(() => expect(result.current.data).not.toBeNull())
     const before = result.current.data
 
-    fetchMock.mockImplementation(() => new Promise<Response>(() => {})) // odpowiedź dla nowego słupka jeszcze nie wróciła
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {})) // odpowiedź dla nowego przystanku jeszcze nie wróciła
     rerender({ member: '01' })
     expect(result.current.data).toBe(before)
     expect(result.current.loading).toBe(false)

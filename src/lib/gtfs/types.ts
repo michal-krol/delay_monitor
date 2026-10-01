@@ -13,7 +13,7 @@ export type GtfsMode = 'metro' | 'tram' | 'bus' | 'rail' | 'other'
 export type GtfsStop = {
   id: string
   name: string
-  /** `stop_code` — numer słupka w zespole („01", „06"). `null` gdy feed nie podaje. */
+  /** `stop_code` — numer przystanku w zespole („01", „06"). `null` gdy feed nie podaje. */
   code: string | null
   lat: number
   lon: number
@@ -23,11 +23,11 @@ export type GtfsStop = {
   parentId: string | null
   /** `platform_code`, gdy podane. */
   platformCode: string | null
-  /** `street_name` — ulica, przy której stoi słupek. Rozróżnia krawędzie zespołu. */
+  /** `street_name` — ulica, przy której stoi przystanek. Rozróżnia krawędzie zespołu. */
   street: string | null
   /**
    * `wheelchair_boarding` — TRÓJSTANOWE. GTFS `1` = dostępny (w feedzie WTP
-   * DOMYŚLNY, ~89% słupków → nie oznaczaj), `2` = NIEdostępny (~11% → warto
+   * DOMYŚLNY, ~89% przystanków → nie oznaczaj), `2` = NIEdostępny (~11% → warto
    * ostrzec), `0` = brak informacji.
    */
   wheelchair: 0 | 1 | 2
@@ -64,7 +64,7 @@ export type GtfsDeparture = {
   serviceDate: string
   stopId: string
   platformCode: string | null
-  /** `stop_code` — numer słupka w zespole („07"), z którego rusza ten kurs. `null` gdy feed nie podaje. */
+  /** `stop_code` — numer przystanku w zespole („07"), z którego rusza ten kurs. `null` gdy feed nie podaje. */
   stopCode: string | null
   wheelchair: 0 | 1 | 2
   /** Zdarzenie pochodzi z rozwinięcia `frequencies.txt` (metro, częste linie). */
@@ -102,15 +102,15 @@ export type GtfsSchedule = {
   /** Id zespołu per przystanek (równoległe do `stopIds`). */
   stopGroupIds: string[]
   stopPlatforms: (string | null)[]
-  /** `stop_code` per słupek — numer słupka w zespole. */
+  /** `stop_code` per przystanek — numer przystanku w zespole. */
   stopCodes: (string | null)[]
-  /** `street_name` per słupek. */
+  /** `street_name` per przystanek. */
   stopStreets: (string | null)[]
   stopWheelchair: Uint8Array
   stopIndexById: Map<string, number>
-  /** Id zespołu → indeksy przystanków (słupków) w nim. */
+  /** Id zespołu → indeksy przystanków w nim. */
   groupMembers: Map<string, number[]>
-  /** Nazwa zespołu (nazwa dowolnego z jego słupków) → id zespołu, do wyszukiwarki. */
+  /** Nazwa zespołu (nazwa dowolnego z jego przystanków) → id zespołu, do wyszukiwarki. */
   groupName: Map<string, string>
   /** Id zespołu → indeksy linii (`routes`), które go obsługują. Do kafelków wyszukiwarki i podsumowania stopu. */
   groupRoutes: Map<string, Set<number>>
@@ -120,10 +120,10 @@ export type GtfsSchedule = {
   routeIndexById: Map<string, number>
   /**
    * Klucz `${routeIdx}:${directionId}` → reprezentatywny przebieg linii:
-   * indeksy słupków w kolejności przystanków, `offsets` (sekundy względem
+   * indeksy przystanków w kolejności przystanków, `offsets` (sekundy względem
    * przystanku startowego — do przeliczenia godziny na kolejnych przystankach)
    * i internowany headsign. Najczęstszy napotkany wzorzec dla pary
-   * (linia, kierunek). `onRequest` — per słupek 0/1: przystanek na żądanie
+   * (linia, kierunek). `onRequest` — per przystanek 0/1: przystanek na żądanie
    * (`pickup_type`/`drop_off_type` = 3). Do strony linii, liczony raz przy ładowaniu.
    */
   routePatterns: Map<
@@ -149,9 +149,9 @@ export type GtfsSchedule = {
   runDir: Uint8Array
   /** Kategoria dnia — patrz `tripCategory`. */
   runCat: Uint8Array
-  /** Indeks pierwszego słupka kursu. */
+  /** Indeks pierwszego przystanku kursu. */
   runFirstStop: Uint32Array
-  /** Sekunda odjazdu z pierwszego słupka (0…~100000, może przekroczyć 86400). */
+  /** Sekunda odjazdu z pierwszego przystanku (0…~100000, może przekroczyć 86400). */
   runDepSec: Int32Array
   runCount: number
 
@@ -171,7 +171,7 @@ export type GtfsSchedule = {
   tripFrequencyBased: Uint8Array
   headsigns: string[]
 
-  // --- zdarzenia (przyjazd/odjazd na słupku) ---
+  // --- zdarzenia (przyjazd/odjazd na przystanku) ---
   evTrip: Uint32Array
   evStop: Uint32Array
   evArrSec: Int32Array

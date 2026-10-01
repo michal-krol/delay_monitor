@@ -15,7 +15,7 @@ describe('mapCityVehicles', () => {
       ],
       stops: [
         { id: 'A', name: 'A', lat: 52.2, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
-        { id: 'B', name: 'B', lat: 52.22, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
+        { id: 'B', name: 'B', code: '02', lat: 52.22, lon: 21.0, locationType: '0', parentId: null, platformCode: null, wheelchair: 0 },
       ],
       trips: [{ routeId: '20', serviceId: 'S', tripId: 'T', headsign: 'Centrum', directionId: 0 }],
       frequencies: [],
@@ -45,8 +45,8 @@ describe('mapCityVehicles', () => {
     expect(v.bearing).toBe(-110)
     expect(v.ageSec).toBeLessThan(5)
     expect(v.directionId).toBe(0)
-    // Pozycja między A i B → następny przystanek to B; bez czasu dojazdu (#13).
-    expect(v.nextStop).toEqual({ name: 'B', groupId: 'B' })
+    // Pozycja między A i B → następny przystanek to B (z numerem w zespole); bez czasu dojazdu (#13).
+    expect(v.nextStop).toEqual({ name: 'B', code: '02', groupId: 'B' })
     expect(v).not.toHaveProperty('delayMinutes')
   })
 

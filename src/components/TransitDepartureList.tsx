@@ -13,12 +13,27 @@ type Props = {
   emptyMessage?: string
   /** Gdy podane — plakietka linii linkuje do jej szczegółów (`/city/[city]/line/[routeId]`). */
   city?: string
-  /** Pokaż numer słupka przy każdym odjeździe (widok całego zespołu Centrum 01/02…). */
-  showSlupek?: boolean
+  /** Pokaż numer przystanku przy każdym odjeździe (widok całego zespołu: Centrum 01/02…). */
+  showStopCode?: boolean
   /** Znacznik czasu (`Date.now()`-owy) do liczenia kolumny „Za" — brak = kolumna schowana. */
   now?: number
   /** Wyróżnij pierwszy odjazd osobnym blokiem nad listą (tylko zakładka „Najbliższe odjazdy"). */
   highlightFirst?: boolean
+}
+
+/**
+ * Numer przystanku zespołu, z którego rusza kurs („02"): `stop_code`, a gdy feed go nie
+ * podaje — `platform_code` (gtfs.md). Wiersz chowa wtedy „peron X" z tą samą wartością.
+ */
+function StopTag({ code }: { code: string }) {
+  return (
+    <span
+      title={`Odjazd z przystanku ${code}`}
+      className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
+    >
+      <span className="sr-only">Odjazd z przystanku</span> {code}
+    </span>
+  )
 }
 
 /** `plannedAt` niesie już offset strefy miasta — HH:MM wycinamy wprost z ISO. */
@@ -40,24 +55,27 @@ function DepartureRow({
   departure,
   index,
   city,
-  showSlupek,
+  showStopCode,
   now,
 }: {
   departure: DepartureWithVehicle
   index: number
   city?: string
-  showSlupek: boolean
+  showStopCode: boolean
   now?: number
 }) {
   const relative = now !== undefined ? relativeLabel(departure.plannedAt, now) : null
-  const hasStopTag = showSlupek && (departure.stopCode ?? departure.platformCode) !== null
+  const stopCode = showStopCode ? (departure.stopCode ?? departure.platformCode) : null
+  const hasStopTag = stopCode !== null
+  // Numer przystanku z `platform_code` już jest w tagu — „peron 01" obok byłby duplikatem.
+  const platform = departure.platformCode !== stopCode ? departure.platformCode : null
   const hasMeta =
     hasStopTag ||
     departure.vehicle != null ||
     LINE_KIND_LABEL[departure.lineKind] !== '' ||
     departure.frequencyBased ||
     departure.onRequest ||
-    departure.platformCode !== null
+    platform !== null
   return (
     <li
       key={`${departure.tripId}-${departure.stopId}-${index}`}
@@ -86,15 +104,7 @@ function DepartureRow({
           jednym wierszu ściskało kierunek do 0 px na 375 px. */}
       {hasMeta && (
         <div className="order-last flex basis-full flex-wrap items-center gap-x-2 gap-y-1 pl-15 @xl:order-none @xl:basis-auto @xl:flex-nowrap @xl:pl-0">
-          {hasStopTag && (
-            <span
-              title={`Odjazd z: ${departure.stopCode ?? departure.platformCode}`}
-              className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary dark:bg-white/10"
-            >
-              <span className="sr-only">Odjazd z: </span>
-              {departure.stopCode ?? departure.platformCode}
-            </span>
-          )}
+          {stopCode !== null && <StopTag code={stopCode} />}
           {departure.vehicle != null && (
             <span
               title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
@@ -111,9 +121,7 @@ function DepartureRow({
             <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
           )}
           {departure.onRequest && <OnRequestBadge />}
-          {departure.platformCode !== null && (
-            <span className="shrink-0 text-xs text-text-secondary">peron {departure.platformCode}</span>
-          )}
+          {platform !== null && <span className="shrink-0 text-xs text-text-secondary">peron {platform}</span>}
         </div>
       )}
       {relative !== null && (
@@ -128,7 +136,7 @@ export function TransitDepartureList({
   loading = false,
   emptyMessage = 'Brak odjazdów w rozkładzie',
   city,
-  showSlupek = false,
+  showStopCode = false,
   now,
   highlightFirst = false,
 }: Props) {
@@ -152,6 +160,7 @@ export function TransitDepartureList({
   const [first, ...rest] = departures
   const highlightRelative = highlightFirst && now !== undefined ? relativeLabel(first.plannedAt, now) : null
   const showHighlight = highlightRelative !== null
+  const firstStopCode = showStopCode ? (first.stopCode ?? first.platformCode) : null
   const listed = showHighlight ? rest : departures
 
   return (
@@ -164,6 +173,7 @@ export function TransitDepartureList({
             <span className="min-w-0 flex-1 truncate font-heading text-lg font-bold text-foreground">
               {first.headsign ?? '—'}
             </span>
+            {firstStopCode !== null && <StopTag code={firstStopCode} />}
             <div className="shrink-0 text-right">
               <div className="font-heading text-2xl font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">
                 {highlightRelative}
@@ -177,7 +187,7 @@ export function TransitDepartureList({
       {listed.length > 0 && (
         <ul data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
           {listed.map((departure, index) => (
-            <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showSlupek={showSlupek} now={now} />
+            <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showStopCode={showStopCode} now={now} />
           ))}
         </ul>
       )}

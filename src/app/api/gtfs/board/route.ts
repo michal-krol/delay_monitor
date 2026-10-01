@@ -69,7 +69,7 @@ export async function GET(request: Request) {
   const timezone = getCity(city)?.timezone ?? 'Europe/Warsaw'
   const todayIndex = todayServiceIndex(schedule.serviceDates, timezone, new Date(now))
 
-  // Opcjonalne zawężenie do jednego słupka zespołu (Centrum 01 vs Centrum 02).
+  // Opcjonalne zawężenie do jednego przystanku zespołu (Centrum 01 vs Centrum 02).
   const rawMember = searchParams.get('member')
   const member = rawMember !== null && GTFS_STOP_ID_PATTERN.test(rawMember) ? rawMember : null
 
@@ -90,19 +90,19 @@ export async function GET(request: Request) {
   const stops = stopIds.map((id) => {
     const group = stopGroup(schedule, id)
     if (group === null) return null
-    // Zawężenie do jednego słupka WYŁĄCZNIE przez jawny `?member=`. Klient
+    // Zawężenie do jednego przystanku WYŁĄCZNIE przez jawny `?member=`. Klient
     // (TransitStopDetail) inicjuje go z `requestedMember`, ale sam steruje
-    // przełącznikiem — inaczej „Cały przystanek" nie działałby na deep-linku.
+    // przełącznikiem — inaczej „Cały zespół" nie działałby na deep-linku.
     const scopeId = member !== null && group.members.some((m) => m.id === member) ? member : null
     const summary = todayIndex === null ? null : stopSummary(schedule, scopeId ?? group.id, todayIndex)
-    // `groupRoutes` jest kluczowany WYŁĄCZNIE id zespołu (nigdy słupka, patrz
-    // `query.ts` przy `lineCount`) — alerty dotyczą linii, a linie słupka są
+    // `groupRoutes` jest kluczowany WYŁĄCZNIE id zespołu (nigdy przystanku, patrz
+    // `query.ts` przy `lineCount`) — alerty dotyczą linii, a linie przystanku są
     // zawsze podzbiorem linii całego zespołu, więc dopasowanie zawsze idzie
     // po zespole, niezależnie od zawężenia `?member=`.
     const groupRouteIdxs = schedule.groupRoutes.get(group.id) ?? new Set<number>()
     const alerts = allAlerts === null ? null : alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
     // Indeks obserwowanego przystanku w przebiegu — do policzenia „ile przystanków
-    // stąd" jest pojazd. `undefined` (pytano o cały zespół, nie o słupek) → brak tagu.
+    // stąd" jest pojazd. `undefined` (pytano o cały zespół, nie o przystanek) → brak tagu.
     const scopeStopIdx = schedule.stopIndexById.get(scopeId ?? group.id)
     const departures = nextDepartures(schedule, [scopeId ?? group.id], now, limit).map((d) => ({
       ...d,
@@ -113,16 +113,16 @@ export async function GET(request: Request) {
     }))
     return {
       stopId: id,
-      /** Id zespołu (gdy pytano o słupek, `stopId` bywa słupkiem). */
+      /** Id zespołu (gdy pytano o przystanek, `stopId` bywa przystankiem). */
       groupId: group.id,
-      /** Słupek, o który pytano wprost (deep-link z trasy linii); `null` = cały zespół. */
+      /** Przystanek, o który pytano wprost (deep-link z trasy linii); `null` = cały zespół. */
       requestedMember: group.requestedMemberId,
       name: group.name,
       modes: group.modes,
       lines: group.lines,
       wheelchairNote: group.wheelchairNote,
       members: group.members,
-      /** Aktywny słupek, gdy zawężono jawnym `?member=`; inaczej `null`. */
+      /** Aktywny przystanek, gdy zawężono jawnym `?member=`; inaczej `null`. */
       activeMember: scopeId,
       summary,
       alerts,

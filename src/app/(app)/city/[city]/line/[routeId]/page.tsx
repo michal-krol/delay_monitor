@@ -12,6 +12,7 @@ import { OnRequestBadge } from '@/components/OnRequestBadge'
 import { LineTimetable } from '@/components/LineTimetable'
 import { MapView, type MapMover, type MapPin } from '@/components/MapView'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
+import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
@@ -41,6 +42,12 @@ type LineResponse = {
 
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
+
+/** Przystanek, za którym jest pojazd — jeden konkretny, więc z numerem („za „Centrum 02”"). */
+function afterStopName(stops: typeof NO_STOPS, index: number): string {
+  const stop = stops[index]
+  return stop !== undefined ? stopDisplayName(stop.name, stop.code) : '—'
+}
 
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
@@ -93,7 +100,7 @@ export default function LineDetailPage() {
   const showVehicles = direction !== undefined && (direction.directionId === 0 || direction.directionId === 1)
   const liveVehicles = useLineVehicles(city, routeId, showVehicles ? vehicleDir : 2)
 
-  // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam słupek może wystąpić
+  // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam przystanek może wystąpić
   // dwa razy), pojazdy z tego samego pollingu co karta „Pojazdy w trasie" -- zero nowych zapytań.
   const mapPins = useMemo<MapPin[]>(
     () =>
@@ -101,7 +108,7 @@ export default function LineDetailPage() {
         id: String(index),
         lat: stop.lat,
         lon: stop.lon,
-        label: stop.code !== null ? `${stop.name} ${stop.code}` : stop.name,
+        label: stopDisplayName(stop.name, stop.code),
         mode: line?.mode,
         kind: line?.kind,
         href: `/city/${city}/stop/${encodeStopIdForPathSegment(stop.stopId)}?name=${encodeURIComponent(stop.name)}`,
@@ -123,7 +130,7 @@ export default function LineDetailPage() {
       id: v.sideNumber + v.tripId,
       lat: v.lat,
       lon: v.lon,
-      label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”`,
+      label: `#${v.sideNumber} · za „${afterStopName(stops, v.afterStopOrder)}”`,
       mode: line?.mode ?? 'bus',
       kind: mapKind,
       bearing: v.bearing,
@@ -186,7 +193,7 @@ export default function LineDetailPage() {
                   <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
                     <span className="text-foreground">#{v.sideNumber}</span>
                     <span className="text-text-muted">
-                      za „{stops[v.afterStopOrder]?.name ?? '—'}”
+                      za „{afterStopName(stops, v.afterStopOrder)}”
                       {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
                     </span>
                   </li>
@@ -339,10 +346,7 @@ export default function LineDetailPage() {
                           }`}
                         >
                           <span className={`min-w-0 flex-1 ${first || last ? 'font-semibold text-foreground' : ''}`}>
-                            {stop.name}
-                            {stop.code !== null && (
-                              <span className="ml-1 text-[11px] font-semibold tabular-nums text-text-muted">{stop.code}</span>
-                            )}
+                            {stopDisplayName(stop.name, stop.code)}
                             {stop.onRequest && (
                               <span className="ml-1.5 inline-block align-middle">
                                 <OnRequestBadge />
@@ -383,13 +387,13 @@ export default function LineDetailPage() {
 
               <section className="glass rounded-2xl p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop?.name}</h2>
+                  <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop !== undefined ? stopDisplayName(selectedStop.name, selectedStop.code) : ''}</h2>
                   {selectedStop !== undefined && (
                     <Link
                       href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
                       className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                     >
-                      pełna tablica słupka
+                      pełna tablica przystanku
                       <ChevronRightIcon size={12} className="ml-0.5 inline align-[-2px]" />
                     </Link>
                   )}

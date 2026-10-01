@@ -3,6 +3,7 @@ import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import { lineKindFrom } from '@/lib/gtfs/schema'
 import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
 import { LINE_PALETTE, lineColor } from '../transitMode'
+import { stopDisplayName } from '../stopName'
 import type { MapRailStation } from '@/lib/weather/coordinates'
 
 /**
@@ -222,7 +223,7 @@ export function stopsToGeoJSON(stops: CityStop[]): PointCollection {
   return {
     type: 'FeatureCollection',
     features: stops.map((s) =>
-      point(s.lon, s.lat, { id: s.id, layer: stopLayerKey(s.mode), color: MODE_COLOR[s.mode], label: s.code !== null && !s.name.endsWith(s.code) ? `${s.name} ${s.code}` : s.name })
+      point(s.lon, s.lat, { id: s.id, layer: stopLayerKey(s.mode), color: MODE_COLOR[s.mode], label: stopDisplayName(s.name, s.code) })
     ),
   }
 }
@@ -292,7 +293,7 @@ export function routeOverlay(direction: LineRouteDirection): RouteOverlay {
     line: { type: 'FeatureCollection', features: path.length >= 2 ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: path }, properties: {} }] : [] },
     stops: {
       type: 'FeatureCollection',
-      features: direction.stops.map((s) => point(s.lon, s.lat, { id: s.stopId, label: s.code !== null && !s.name.endsWith(s.code) ? `${s.name} ${s.code}` : s.name })),
+      features: direction.stops.map((s) => point(s.lon, s.lat, { id: s.stopId, label: stopDisplayName(s.name, s.code) })),
     },
     bounds,
   }
