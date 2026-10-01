@@ -432,3 +432,36 @@ test('a11y: mapa transportu w trybie ciemnym i z otwartą kartą bez naruszeń s
   await expect(page.getByRole('dialog', { name: 'Warszawa Centralna' })).toBeVisible()
   await expectNoBlockingA11y(page)
 })
+
+// Regresja (QA 2026-09-30): na 375 px pole wyszukiwania dzieliło rząd z przyciskami
+// (Lista, Filtry, Udostępnij ≈ 224 px) i kurczyło się do ~75 px („Sz…").
+test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar clientWidth na desktop-chromium; mobile ma własny viewport')
+  })
+
+  test('375 px: pola miejsca i linii mają co najmniej 160 px, strona nie przewija się w poziomie', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openMap(page)
+    const width = (field: Locator) => field.evaluate((el) => el.getBoundingClientRect().width)
+    expect(await width(page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }))).toBeGreaterThanOrEqual(160)
+    expect(await width(await lineSearch(page))).toBeGreaterThanOrEqual(160)
+    // Przyciski zostają przy prawej krawędzi: panel „Filtry" (`right-0`) otwiera się w lewo,
+    // przy przyciskach z lewej wyjeżdżał ~100 px poza ekran.
+    const right = (locator: Locator) => locator.evaluate((el) => Math.round(el.getBoundingClientRect().right))
+    expect(await right(page.getByRole('button', { name: 'Udostępnij ten widok mapy' }))).toBe(await right(await lineSearch(page)))
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  })
+
+  test('1280 px: oba pola i przyciski zostają w jednym rzędzie', async ({ page }) => {
+    await openMap(page)
+    const top = (locator: Locator) => locator.evaluate((el) => Math.round(el.getBoundingClientRect().top))
+    const row = await top(page.getByRole('button', { name: 'Lista' }))
+    expect(await top(page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }))).toBe(row)
+    expect(await top(page.getByRole('combobox', { name: 'Szukaj linii' }))).toBe(row)
+  })
+})

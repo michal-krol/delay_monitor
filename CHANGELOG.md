@@ -131,6 +131,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Pole wyszukiwania na mapie transportu ma na telefonie pełną szerokość. Przyciski „Lista”,
+  „Filtry” i „Udostępnij” są teraz w osobnym rzędzie pod polem, przy prawej krawędzi.
+  Wcześniej na ekranie o szerokości 375 px pole kurczyło się do kilkudziesięciu pikseli i
+  widać było tylko „Sz…”. Dotyczyło to obu zakładek: „Przystanek” i „Linia”.
 - Rozwinięta legenda mapy transportu nie zasłania już przycisków przybliżania i oddalania ani
   przycisku „Pokaż całe miasto” w prawym górnym rogu. Zaczyna się pod nimi, a na niskim
   ekranie (np. laptop 800 × 600 albo telefon 375 × 667) przewija się w pozostałym miejscu.

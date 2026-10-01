@@ -468,7 +468,10 @@ export default function CityMapPage() {
                   <div className="w-52">{lineSearch}</div>
                 </>
               ) : (
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                // `min-w-40`: gdy pole i przyciski nie mieszczą się w rzędzie (telefon), przyciski
+                // schodzą pod spód zamiast ścisnąć pole do „Sz…" (QA 2026-09-30); `ml-auto` niżej
+                // trzyma je przy prawej krawędzi — panele Filtrów/Przypiętych otwierają się w lewo.
+                <div className="flex min-w-40 flex-1 flex-col gap-1.5">
                   <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
                     {(['place', 'line'] as const).map((tab) => (
                       <button
@@ -486,7 +489,7 @@ export default function CityMapPage() {
                   {searchTab === 'place' ? placeSearch : lineSearch}
                 </div>
               )}
-              <div className={`flex gap-2 ${isWide ? '' : 'self-end'}`}>
+              <div className={`flex gap-2 ${isWide ? '' : 'ml-auto self-end'}`}>
 
                 <button
                   type="button"
