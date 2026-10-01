@@ -62,7 +62,7 @@ function Section({ title, items, shape }: { title: string; items: [GtfsMode, str
             ) : (
               <span className="relative ml-1 mr-1 mt-1.5 h-3 w-3" aria-hidden="true">
                 <span className="block h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode], borderColor: strokeFor(MODE_COLOR[mode]) }} />
-                <span className="absolute -top-[10px] left-[1.5px] h-[9px] w-[9px]" style={{ color: MODE_COLOR[mode], filter: outlineFilter(MODE_COLOR[mode]) }}>
+                <span className="absolute -top-3 left-0 h-3 w-3" style={{ color: MODE_COLOR[mode], filter: outlineFilter(MODE_COLOR[mode]) }}>
                   <VehicleHeadingIcon className="block h-full w-full" />
                 </span>
               </span>

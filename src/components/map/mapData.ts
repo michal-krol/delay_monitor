@@ -320,9 +320,16 @@ export function interpolatePoints(from: ReadonlyMap<string, [number, number]>, t
  * Strzałka kierunku jazdy jako obraz SDF (kolor nadaje warstwa `icon-color`) — wielokąt Lucide
  * `navigation-2`, ten sam glif co `VehicleHeadingIcon` i marker w `MapView`. Piksele liczone wprost
  * (test parzysto-nieparzysty dla środka piksela) — bez canvasu, działa także w testach.
+ * Glif wypełnia wysokość obrazu (wyśrodkowany w poziomie), jak dawny trójkąt — pod niego
+ * dobrano `icon-size` i `icon-offset` warstwy `vehicles-arrows`.
  */
 export function arrowImage(size = 16): { width: number; height: number; data: Uint8Array } {
-  const polygon = VEHICLE_HEADING_POLYGON.map(([x, y]) => [(x * size) / 24, (y * size) / 24] as const)
+  const xs = VEHICLE_HEADING_POLYGON.map(([x]) => x)
+  const ys = VEHICLE_HEADING_POLYGON.map(([, y]) => y)
+  const [minX, minY] = [Math.min(...xs), Math.min(...ys)]
+  const scale = size / (Math.max(...ys) - minY)
+  const offsetX = (size - (Math.max(...xs) - minX) * scale) / 2
+  const polygon = VEHICLE_HEADING_POLYGON.map(([x, y]) => [(x - minX) * scale + offsetX, (y - minY) * scale] as const)
   const data = new Uint8Array(size * size * 4)
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {

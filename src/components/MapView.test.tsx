@@ -294,6 +294,9 @@ describe('MapView', () => {
       // Ta sama strzałka co `VehicleHeadingIcon` i warstwa `vehicles-arrows` (Lucide navigation-2), nie trójkąt z obramowań.
       // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
       expect(arrow?.querySelector('svg')).toHaveAttribute('fill', MODE_COLOR.tram)
+      // Glif zajmuje ~58% szerokości siatki — pudełko 16 px daje grot ~9×13 px, jak dawny trójkąt 10×8, nie zmniejszony do ~7 px.
+      // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+      expect(arrow?.querySelector('svg')).toHaveAttribute('width', '16')
 
       const marker = vi.mocked(maplibregl.Marker).mock.results[0].value
       rerender(<MapView dark={false} pins={[PIN]} movers={[{ ...mover, bearing: 180 }]} ariaLabel="Mapa" />)

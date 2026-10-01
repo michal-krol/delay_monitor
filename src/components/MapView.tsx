@@ -134,11 +134,12 @@ function createMoverElement(mover: MapMover): HTMLDivElement {
   dot.className = 'h-4 w-4 rounded-full shadow ring-2 ring-white'
   dot.style.backgroundColor = color
   dot.style.setProperty('--tw-ring-color', strokeFor(color))
-  // Ostrzem do góry, wyśrodkowana nad kropką (12 px, glif ~2 px nad nią). Opakowanie w `div`, bo `hidden` działa na HTMLElement, nie na SVGElement.
+  // Ostrzem do góry, wyśrodkowana nad kropką: pudełko 16 px (glif ~9×13 px, podstawa ~2 px nad kropką).
+  // Opakowanie w `div`, bo `hidden` działa na HTMLElement, nie na SVGElement.
   const arrow = document.createElement('div')
   arrow.dataset.part = 'arrow'
-  arrow.className = 'absolute -top-[13px] left-[2px] h-3 w-3'
-  arrow.appendChild(iconElement('vehicleHeading', { width: '12', height: '12', fill: color, stroke: color }))
+  arrow.className = 'absolute -top-4 left-0 h-4 w-4'
+  arrow.appendChild(iconElement('vehicleHeading', { width: '16', height: '16', fill: color, stroke: color }))
   // Obrys w kolorze `strokeFor` przez `drop-shadow` (żółte metro ~1,3:1 na jasnym podkładzie), jak przy kropce.
   arrow.style.filter = outlineFilter(color)
   arrow.hidden = mover.bearing === null || mover.bearing === undefined

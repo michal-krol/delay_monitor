@@ -394,7 +394,7 @@ export default function LineDetailPage() {
                       className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                     >
                       pełna tablica przystanku
-                      <ChevronRightIcon size={ICON_SIZE.chip} className="ml-0.5 inline align-[-2px]" />
+                      <ChevronRightIcon size={ICON_SIZE.inline} className="ml-0.5 inline align-[-2px]" />
                     </Link>
                   )}
                 </div>

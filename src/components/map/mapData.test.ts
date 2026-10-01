@@ -181,6 +181,13 @@ describe('arrowImage', () => {
     expect(alpha(12, 19)).toBe(0) // wcięcie podstawy — trójkąt by go nie miał
   })
 
+  it('fills the image height like the old triangle (tip at the top edge, wing tips in the last row), so icon-size/offset still fit', () => {
+    const { width, data } = arrowImage(24)
+    const alpha = (x: number, y: number) => data[(y * width + x) * 4 + 3]
+    expect(alpha(12, 1)).toBe(255)
+    expect(alpha(3, 23)).toBe(255)
+  })
+
   it('keeps the 16×16 default the vehicles-arrows layer is tuned for', () => {
     expect(arrowImage()).toMatchObject({ width: 16, height: 16 })
   })

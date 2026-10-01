@@ -37,7 +37,7 @@ function Direction({ entry }: { entry: LineListEntry }) {
   if (ends === null) return entry.longName
   return (
     <>
-      {ends[0]} <ArrowRightIcon size={ICON_SIZE.chip} className="inline align-[-2px]" /> {ends[1]}
+      {ends[0]} <ArrowRightIcon size={ICON_SIZE.inline} className="inline align-[-2px]" /> {ends[1]}
     </>
   )
 }

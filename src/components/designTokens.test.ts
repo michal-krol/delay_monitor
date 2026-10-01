@@ -70,6 +70,10 @@ describe('design tokens', () => {
     expect(offenders(/size=\{1\d\}/)).toEqual([])
   })
 
+  it('an icon set inline in a line of text uses ICON_SIZE.inline (.claude/rules/ui-icons.md), not the chip size', () => {
+    expect(offenders(/size=\{ICON_SIZE\.chip\}[^>]*className="[^"]*\binline align-/)).toEqual([])
+  })
+
   it('mode colours on the map never reuse a status colour (#13: a bus must not read as „na czas”)', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     const statusBg = [...css.matchAll(/--status-\w+-bg:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())

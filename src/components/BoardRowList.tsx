@@ -35,10 +35,10 @@ export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) 
             · {row.trainLabel}{' '}
             {row.hasDisruption === true && (
               <span className="text-warning-text">
-                <AlertCircleIcon size={ICON_SIZE.chip} label="Utrudnienie na trasie" className="inline align-[-2px]" />
+                <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" className="inline align-[-2px]" />
               </span>
             )}{' '}
-            <ArrowRightIcon size={ICON_SIZE.chip} label="do" className="inline align-[-2px]" /> {row.headsign ?? '—'} ·{' '}
+            <ArrowRightIcon size={ICON_SIZE.inline} label="do" className="inline align-[-2px]" /> {row.headsign ?? '—'} ·{' '}
             <span>Peron/Tor: {row.platform ?? '—'}</span>
           </div>
         </li>

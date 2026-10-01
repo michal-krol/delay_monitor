@@ -37,7 +37,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 - Metro: numer peronu nie wyświetla się już dwa razy przy odjeździe.
 - Przycisk zmiany kierunku na stronie linii podaje czytnikowi ekranu wybrany kierunek
-  („Centrum do Dworzec Centralny, zmień kierunek”), a nie tylko „Zmień kierunek”.
+  („Centrum do Dworzec Centralny zmień kierunek”), a nie tylko „Zmień kierunek”.
   Strzałka „skąd → dokąd” w nagłówku połączenia jest odczytywana jako „do”.
 
 ## [1.1.0] — 2026-10-01

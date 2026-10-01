@@ -49,7 +49,7 @@ export function NearbyPanel({
                     <span className="block truncate font-medium">{name}</span>
                     {departure !== undefined && (
                       <span className="block truncate text-xs text-text-muted">
-                        rozkład: {departure.line} <ArrowRightIcon size={ICON_SIZE.chip} label="do" className="inline align-[-2px]" /> {departure.headsign ?? '—'} o {departure.plannedAt.slice(11, 16)}
+                        rozkład: {departure.line} <ArrowRightIcon size={ICON_SIZE.inline} label="do" className="inline align-[-2px]" /> {departure.headsign ?? '—'} o {departure.plannedAt.slice(11, 16)}
                       </span>
                     )}
                   </span>
