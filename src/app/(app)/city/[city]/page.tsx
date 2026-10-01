@@ -11,7 +11,7 @@ import { FullBoard } from '@/components/FullBoard'
 import { TransitStopDetail } from '@/components/TransitStopDetail'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { PageShell } from '@/components/aside'
-import { ArrowLeftIcon } from '@/components/icons'
+import { ArrowLeftIcon, ICON_SIZE } from '@/components/icons'
 import { ShareButton } from '@/components/ShareButton'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useCities } from '@/hooks/useCities'
@@ -108,7 +108,7 @@ export default function CityPage() {
             onClick={clearSelection}
             className="inline-flex items-center gap-2 self-start text-sm font-semibold text-text-secondary hover:text-foreground"
           >
-            <ArrowLeftIcon size={16} />
+            <ArrowLeftIcon size={ICON_SIZE.button} />
             Wróć do wyszukiwania
           </button>
 

@@ -23,7 +23,7 @@ import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, StarIcon } from './icons'
+import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, StarIcon, ICON_SIZE } from './icons'
 import { PageTitle } from './PageTitle'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
@@ -213,7 +213,7 @@ export function TransitStopDetail({
                 {board?.wheelchairNote != null && (
                   <span className="text-warning-text">
                     <AccessibleIcon
-                      size={18}
+                      size={ICON_SIZE.tile}
                       label={
                         board.wheelchairNote === 'inaccessible'
                           ? 'Żaden przystanek zespołu nie jest dostępny dla osób na wózku'
@@ -255,7 +255,7 @@ export function TransitStopDetail({
                 // (deep-link z linii zaznacza przystanek dopiero po niej) — przypięcie zapisałoby zły zakres.
                 disabled={board === null}
               >
-                <StarIcon size={15} filled={pinned} className={pinned ? PIN_COLOR : ''} />
+                <StarIcon size={ICON_SIZE.button} filled={pinned} className={pinned ? PIN_COLOR : ''} />
               </IconButton>
             </div>
           </div>
@@ -287,7 +287,7 @@ export function TransitStopDetail({
               >
                 {effMember === null && (
                   <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
-                    <CheckIcon size={10} />
+                    <CheckIcon size={ICON_SIZE.chip} />
                   </span>
                 )}
                 <span className="font-semibold">Cały zespół</span>
@@ -310,7 +310,7 @@ export function TransitStopDetail({
                   >
                     {on && (
                       <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
-                        <CheckIcon size={10} />
+                        <CheckIcon size={ICON_SIZE.chip} />
                       </span>
                     )}
                     {/* Jeden węzeł tekstowy jak dawniej — nazwa dostępna przycisku musi
@@ -373,7 +373,7 @@ export function TransitStopDetail({
                 {tab.label}
                 {tab.key === 'alerts' && (board?.alerts?.length ?? 0) > 0 && (
                   <AlertCircleIcon
-                    size={14}
+                    size={ICON_SIZE.inline}
                     label="aktywne utrudnienia"
                     className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-warning-text'}`}
                   />

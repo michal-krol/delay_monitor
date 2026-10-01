@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
-import { CloseIcon } from '../icons'
+import { CloseIcon, ICON_SIZE } from '../icons'
 import { IconButton } from '../IconButton'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 
@@ -76,7 +76,7 @@ export function PanelFrame({
         </div>
         {actions}
         <IconButton label={closeLabel} onClick={onClose} size="lg">
-          <CloseIcon size={16} />
+          <CloseIcon size={ICON_SIZE.button} />
         </IconButton>
       </header>
       <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>

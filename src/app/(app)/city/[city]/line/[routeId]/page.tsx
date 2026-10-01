@@ -16,7 +16,7 @@ import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
-import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon, VehicleHeadingIcon } from '@/components/icons'
+import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon, VehicleHeadingIcon, ICON_SIZE } from '@/components/icons'
 import { LINE_KIND_LABEL, MODE_LABEL, darkRingClass, lineColor } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
@@ -251,9 +251,9 @@ export default function LineDetailPage() {
             >
               {/* Spacje tekstowe: w flexie nie zmieniają układu, a nazwa dostępna nie skleja się w „CentrumdoDworzec”. */}
               <span>{direction.origin ?? stops[0]?.name}</span>{' '}
-              <ArrowRightIcon size={13} label="do" className="text-text-muted" />{' '}
+              <ArrowRightIcon size={ICON_SIZE.chip} label="do" className="text-text-muted" />{' '}
               <span>{direction.headsign ?? stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`}</span>{' '}
-              {directions.length >= 2 && <SwapIcon size={15} label="zmień kierunek" className="ml-1 text-indigo-600 dark:text-indigo-400" />}
+              {directions.length >= 2 && <SwapIcon size={ICON_SIZE.button} label="zmień kierunek" className="ml-1 text-indigo-600 dark:text-indigo-400" />}
             </button>
 
             {/* W treści głównej, nie w aside: aside schodzi pod treść poniżej `xl`, a mapa ma być tuż pod nagłówkiem trasy, także na telefonie. */}
@@ -363,7 +363,7 @@ export default function LineDetailPage() {
                           </span>
                           {stop.wheelchair === 2 && (
                             <AccessibleIcon
-                              size={13}
+                              size={ICON_SIZE.chip}
                               className="shrink-0 self-center text-warning-text"
                               label="Przystanek niedostępny dla osób na wózku"
                             />
@@ -394,7 +394,7 @@ export default function LineDetailPage() {
                       className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                     >
                       pełna tablica przystanku
-                      <ChevronRightIcon size={12} className="ml-0.5 inline align-[-2px]" />
+                      <ChevronRightIcon size={ICON_SIZE.chip} className="ml-0.5 inline align-[-2px]" />
                     </Link>
                   )}
                 </div>

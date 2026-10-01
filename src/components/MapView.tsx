@@ -7,7 +7,7 @@ import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
 import { trapTab } from '@/lib/focusTrap'
 import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
 import { MODE_ICON, lineColor } from './transitMode'
-import { ExpandIcon, CloseIcon, MapIcon, iconElement } from './icons'
+import { ExpandIcon, CloseIcon, MapIcon, iconElement, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { MODE_COLOR, UNKNOWN_COLOR, casingFor, outlineFilter, strokeFor } from './map/mapData'
 
@@ -77,7 +77,7 @@ function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root
   element.style.setProperty('--tw-ring-color', strokeFor(color))
   const root = createRoot(element)
   const Icon = pin.mode !== undefined ? MODE_ICON[pin.mode] : MapIcon
-  root.render(<Icon size={16} />)
+  root.render(<Icon size={ICON_SIZE.button} />)
   return { element, root }
 }
 
@@ -391,7 +391,7 @@ export function MapView({
           aria-label="Powiększ mapę"
           className="touch-44 glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
         >
-          <ExpandIcon size={16} />
+          <ExpandIcon size={ICON_SIZE.button} />
         </button>
       </div>
 
@@ -414,7 +414,7 @@ export function MapView({
                   właściwość, więc na przycisku jedno kasowałoby drugie. */}
               <div className="absolute right-3 top-3 rounded-full bg-surface-strong shadow-md backdrop-blur-xl">
                 <IconButton ref={closeButtonRef} label="Zamknij powiększoną mapę" onClick={() => setExpanded(false)}>
-                  <CloseIcon size={16} />
+                  <CloseIcon size={ICON_SIZE.button} />
                 </IconButton>
               </div>
             </div>

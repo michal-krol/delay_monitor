@@ -1,7 +1,7 @@
 'use client'
 
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
-import { AppLogo, ChevronRightIcon } from './icons'
+import { AppLogo, ChevronRightIcon, ICON_SIZE } from './icons'
 import { NavList, type ActiveItem } from './navItems'
 import { PollerDiagnostics } from './PollerDiagnostics'
 
@@ -61,7 +61,7 @@ export function Sidebar({ activeItem }: Props) {
           aria-label={collapsed ? 'Rozwiń pasek boczny' : 'Zwiń pasek boczny'}
           className="touch-44 relative grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
         >
-          <ChevronRightIcon size={14} className={collapsed ? '' : 'rotate-180'} />
+          <ChevronRightIcon size={ICON_SIZE.inline} className={collapsed ? '' : 'rotate-180'} />
         </button>
       </div>
 

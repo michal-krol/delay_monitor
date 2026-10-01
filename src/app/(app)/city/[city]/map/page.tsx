@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { CityIcon, CloseIcon, ListIcon, ShareIcon } from '@/components/icons'
+import { CityIcon, CloseIcon, ListIcon, ShareIcon, ICON_SIZE } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
@@ -511,7 +511,7 @@ export default function CityMapPage() {
                     }`}
                     style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
                   >
-                    <ListIcon size={16} />
+                    <ListIcon size={ICON_SIZE.button} />
                     Lista
                   </button>
                   <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
@@ -528,7 +528,7 @@ export default function CityMapPage() {
                     aria-label="Udostępnij ten widok mapy"
                     className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
                   >
-                    <ShareIcon size={16} />
+                    <ShareIcon size={ICON_SIZE.button} />
                   </button>
                 </div>
               </div>
@@ -584,7 +584,7 @@ export default function CityMapPage() {
             title="Pokaż całe miasto"
             className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
           >
-            <CityIcon size={18} />
+            <CityIcon size={ICON_SIZE.tile} />
           </button>
 
           {outsideFeed && (
@@ -617,7 +617,7 @@ function Chip({ label, removeLabel, onRemove }: { label: string; removeLabel: st
     <li className="glass-strong inline-flex items-center gap-1 rounded-full py-1 pl-3 pr-1 text-xs font-medium">
       {label}
       <button type="button" onClick={onRemove} aria-label={removeLabel} className="touch-44 relative -my-1 grid h-9 w-9 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
-        <CloseIcon size={12} />
+        <CloseIcon size={ICON_SIZE.chip} />
       </button>
     </li>
   )

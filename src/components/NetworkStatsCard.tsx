@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useNetworkStats } from '@/hooks/useNetworkStats'
-import { AlertCircleIcon, ChevronDownIcon } from './icons'
+import { AlertCircleIcon, ChevronDownIcon, ICON_SIZE } from './icons'
 import { formatClockTime } from '@/lib/format'
 import type { NetworkStats, NetworkStatsStatistics } from '@/lib/board/networkStats'
 
@@ -108,7 +108,7 @@ export function NetworkStatsCard() {
             {error !== null ? `nieaktualne · ${formatClockTime(statistics.generatedAt)}` : formatClockTime(statistics.generatedAt)}
           </span>
         )}
-        <ChevronDownIcon size={16} className={`shrink-0 text-text-muted transition-transform motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon size={ICON_SIZE.button} className={`shrink-0 text-text-muted transition-transform motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`} />
       </button>
 
       {expanded && data !== null && (
@@ -171,7 +171,7 @@ export function NetworkStatsCard() {
           )}
 
           <p className="flex items-center gap-1.5 text-xs text-text-secondary">
-            <AlertCircleIcon size={14} className="shrink-0 text-warning-text" />
+            <AlertCircleIcon size={ICON_SIZE.inline} className="shrink-0 text-warning-text" />
             {data.disruptionCount === null ? '—' : formatNumber(data.disruptionCount)} zgłoszonych utrudnień na sieci
           </p>
         </div>

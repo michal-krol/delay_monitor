@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { pluralPl } from '@/lib/plural'
-import { ArrowRightIcon, ChevronDownIcon } from './icons'
+import { ArrowRightIcon, ChevronDownIcon, ICON_SIZE } from './icons'
 import { LineBadge } from './LineBadge'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, LINE_KIND_LABEL, MODE_ICON, MODE_ORDER, darkRingClass, lineColor } from './transitMode'
 
@@ -37,7 +37,7 @@ function Direction({ entry }: { entry: LineListEntry }) {
   if (ends === null) return entry.longName
   return (
     <>
-      {ends[0]} <ArrowRightIcon size={12} className="inline align-[-2px]" /> {ends[1]}
+      {ends[0]} <ArrowRightIcon size={ICON_SIZE.chip} className="inline align-[-2px]" /> {ends[1]}
     </>
   )
 }
@@ -78,7 +78,7 @@ function Pictogram({ mode }: { mode: GtfsMode }) {
   const { bg, fg } = lineColor(mode, 'regular')
   return (
     <span className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-lg" style={{ background: bg, color: fg }}>
-      <Icon size={18} />
+      <Icon size={ICON_SIZE.tile} />
     </span>
   )
 }
@@ -117,7 +117,7 @@ export function LineGrid({ linesByMode, city, isOpen, onToggle }: Props) {
               <Pictogram mode={mode} />
               <span className="text-[15px] font-semibold text-foreground">{SECTION_LABEL[mode]}</span>
               <span className="text-xs text-text-muted">{linesCount(lines.length)}</span>
-              <ChevronDownIcon size={16} className="ml-auto text-text-muted transition-transform group-open/sec:rotate-180 motion-reduce:transition-none" />
+              <ChevronDownIcon size={ICON_SIZE.button} className="ml-auto text-text-muted transition-transform group-open/sec:rotate-180 motion-reduce:transition-none" />
             </summary>
             <div className="px-3.5 pb-3.5 pt-0.5">
               {mode === 'bus' ? <BusSubsections lines={lines} city={city} isOpen={isOpen} onToggle={onToggle} /> : <TileGrid lines={lines} city={city} />}
@@ -149,7 +149,7 @@ function BusSubsections({ lines, city, isOpen, onToggle }: { lines: LineListEntr
               <span>
                 {BUS_KIND_LABEL[kind]} · {ofKind.length}
               </span>
-              <ChevronDownIcon size={16} className="ml-auto text-text-muted transition-transform group-open/sub:rotate-180 motion-reduce:transition-none" />
+              <ChevronDownIcon size={ICON_SIZE.button} className="ml-auto text-text-muted transition-transform group-open/sub:rotate-180 motion-reduce:transition-none" />
             </summary>
             <TileGrid lines={ofKind} city={city} />
           </details>

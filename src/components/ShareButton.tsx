@@ -1,7 +1,7 @@
 'use client'
 
 import { useShareUrl } from '@/hooks/useShareUrl'
-import { ShareIcon } from './icons'
+import { ShareIcon, ICON_SIZE } from './icons'
 
 /**
  * Jeden przycisk „Udostępnij” w całej appce (pasek górny stron szczegółowych
@@ -24,7 +24,7 @@ export function ShareButton() {
         onClick={() => void share()}
         className="touch-44 relative inline-flex h-9 items-center gap-2 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10"
       >
-        <ShareIcon size={15} />
+        <ShareIcon size={ICON_SIZE.button} />
         Udostępnij
       </button>
     </>

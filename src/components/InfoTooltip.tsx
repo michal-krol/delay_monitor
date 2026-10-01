@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { HelpCircleIcon } from './icons'
+import { HelpCircleIcon, ICON_SIZE } from './icons'
 
 /**
  * Ikonka „?" z pływającą legendą — wzorzec wspólny dla legendy statusów na
@@ -73,7 +73,7 @@ export function InfoTooltip({
         aria-describedby={open ? tooltipId : undefined}
         className="cursor-help text-text-muted"
       >
-        <HelpCircleIcon size={13} />
+        <HelpCircleIcon size={ICON_SIZE.chip} />
       </button>
       {open &&
         position !== null &&

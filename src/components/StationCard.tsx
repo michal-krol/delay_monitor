@@ -2,7 +2,7 @@
 
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { IconButton } from './IconButton'
-import { PIN_COLOR, StarIcon, TrainIcon } from './icons'
+import { PIN_COLOR, StarIcon, TrainIcon, ICON_SIZE } from './icons'
 import { BoardRowList } from './BoardRowList'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
@@ -94,7 +94,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
               pełna, klik odpina. z-10 stawia przycisk nad nakładką rozwijającą tablicę,
               która w drzewie stoi później i domyślnie przykryłaby go w całości. */}
           <IconButton label={`Odepnij z Pulpitu: ${stationName}`} onClick={onRemove} className="z-10">
-            <StarIcon size={16} filled className={PIN_COLOR} />
+            <StarIcon size={ICON_SIZE.button} filled className={PIN_COLOR} />
           </IconButton>
         </div>
       </div>

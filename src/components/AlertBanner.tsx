@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircleIcon, ChevronDownIcon } from './icons'
+import { AlertCircleIcon, ChevronDownIcon, ICON_SIZE } from './icons'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 
@@ -68,7 +68,7 @@ export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
           >
             <details className="group">
               <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2 p-3 [&::-webkit-details-marker]:hidden">
-                <AlertCircleIcon size={16} className="mt-0.5 shrink-0 text-warning-text" />
+                <AlertCircleIcon size={ICON_SIZE.button} className="mt-0.5 shrink-0 text-warning-text" />
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-foreground [overflow-wrap:anywhere]">{alert.title || 'Utrudnienie'}</span>
                   {dates !== null && <span className="mt-0.5 block text-xs text-text-muted">Daty w komunikacie: {dates}</span>}
@@ -76,7 +76,7 @@ export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
                 <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-warning-text">
                   <span className="group-open:hidden">Rozwiń</span>
                   <span className="hidden group-open:inline">Zwiń</span>
-                  <ChevronDownIcon size={13} className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                  <ChevronDownIcon size={ICON_SIZE.chip} className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
                 </span>
               </summary>
               {alert.body !== '' && <AlertBody body={alert.body} />}

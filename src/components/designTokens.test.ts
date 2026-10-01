@@ -65,6 +65,11 @@ describe('design tokens', () => {
     expect(offenders(/from ['"]lucide/, (file) => file === 'components/icons.tsx')).toEqual([])
   })
 
+  it('icon sizes 10–19 px come from the ICON_SIZE role scale, not ad-hoc literals', () => {
+    // Rozmiary ≥ 20 to ilustracje (logo, kafelek pogody, miniatura stacji), nie role ikon.
+    expect(offenders(/size=\{1\d\}/)).toEqual([])
+  })
+
   it('mode colours on the map never reuse a status colour (#13: a bus must not read as „na czas”)', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     const statusBg = [...css.matchAll(/--status-\w+-bg:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())

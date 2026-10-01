@@ -10,7 +10,7 @@ import { StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
 import { PageTitle } from './PageTitle'
-import { CloseIcon, PIN_COLOR, StarIcon } from './icons'
+import { CloseIcon, PIN_COLOR, StarIcon, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
@@ -186,7 +186,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
 
             <div className="flex flex-wrap items-center gap-2">
               <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
-                <StarIcon size={15} filled={isPinned} className={isPinned ? PIN_COLOR : ''} />
+                <StarIcon size={ICON_SIZE.button} filled={isPinned} className={isPinned ? PIN_COLOR : ''} />
               </IconButton>
             </div>
           </div>
@@ -224,7 +224,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground"
                   >
                     Kierunek: {destinationFilter}
-                    <CloseIcon size={12} />
+                    <CloseIcon size={ICON_SIZE.chip} />
                   </button>
                 )}
               </div>
