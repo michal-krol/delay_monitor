@@ -277,21 +277,46 @@ test('mapa transportu: renderuje kafelki, pasek wyszukiwania, filtry i legendę'
   await expect(page.getByText(/pozycje pojazdów:/)).toBeVisible({ timeout: READY })
 })
 
+function intersects(a: { x: number; y: number; width: number; height: number }, b: typeof a): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/**
+ * Rozwinięta legenda zostaje w mapie, nie zasłania kontrolek w prawym górnym rogu (zoom MapLibre,
+ * „Pokaż całe miasto”) i daje się zwinąć. Legenda rośnie w górę od dołu mapy: bez limitu wysokości
+ * jej nagłówek („Legenda” = jedyne zwinięcie) chował się pod przyklejonym nagłówkiem strony
+ * (podlegenda rodzajów autobusów, +110 px), a z limitem od `top-3` przykrywała kontrolki rogu.
+ */
+async function expectExpandedLegendFits(page: Page): Promise<void> {
+  const map = await openMap(page)
+  const legend = page.locator('details', { has: page.getByText('Legenda', { exact: true }) })
+  await legend.getByText('Legenda', { exact: true }).click()
+  await expect(legend).toHaveAttribute('open', '')
+  const [mapBox, legendBox] = [await map.boundingBox(), await legend.boundingBox()]
+  expect(legendBox!.y).toBeGreaterThanOrEqual(mapBox!.y)
+  expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(mapBox!.y + mapBox!.height)
+  for (const control of [page.getByRole('button', { name: 'Przybliż' }), page.getByRole('button', { name: /^Pokaż całe miasto/ })]) {
+    await expect(control).toBeVisible()
+    const controlBox = await control.boundingBox()
+    expect(intersects(legendBox!, controlBox!), `legenda zasłania ${await control.getAttribute('aria-label')}`).toBe(false)
+  }
+  await legend.getByText('Legenda', { exact: true }).click()
+  await expect(legend).not.toHaveAttribute('open', '')
+}
+
 test.describe('niski telefon (375×667)', () => {
   test.use({ viewport: { width: 375, height: 667 } })
 
-  // Legenda rośnie w górę od dołu mapy; bez limitu wysokości jej nagłówek („Legenda” = jedyne
-  // zwinięcie) chował się pod przyklejonym nagłówkiem strony (podlegenda rodzajów autobusów, +110 px).
   test('mapa transportu: rozwinięta legenda mieści się w mapie i daje się zwinąć', async ({ page }) => {
-    const map = await openMap(page)
-    const legend = page.locator('details', { has: page.getByText('Legenda', { exact: true }) })
-    await legend.getByText('Legenda', { exact: true }).click()
-    await expect(legend).toHaveAttribute('open', '')
-    const [mapBox, legendBox] = [await map.boundingBox(), await legend.boundingBox()]
-    expect(legendBox!.y).toBeGreaterThanOrEqual(mapBox!.y)
-    expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(mapBox!.y + mapBox!.height)
-    await legend.getByText('Legenda', { exact: true }).click()
-    await expect(legend).not.toHaveAttribute('open', '')
+    await expectExpandedLegendFits(page)
+  })
+})
+
+test.describe('niski desktop (800×600)', () => {
+  test.use({ viewport: { width: 800, height: 600 } })
+
+  test('mapa transportu: rozwinięta legenda nie zasłania przybliżania ani „Pokaż całe miasto”', async ({ page }) => {
+    await expectExpandedLegendFits(page)
   })
 })
 

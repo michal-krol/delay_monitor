@@ -131,6 +131,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Rozwinięta legenda mapy transportu nie zasłania już przycisków przybliżania i oddalania ani
+  przycisku „Pokaż całe miasto” w prawym górnym rogu. Zaczyna się pod nimi, a na niskim
+  ekranie (np. laptop 800 × 600 albo telefon 375 × 667) przewija się w pozostałym miejscu.
 - Linia zapisana w rozkładzie GTFS dwa razy pod tym samym identyfikatorem pokazuje się na
   ekranie „Linie” raz, a liczniki linii w widżecie komunikacji miejskiej liczą ją raz.
   Wcześniej taka linia (w Warszawie 30.09 była to „10”) miała dwa kafle.
