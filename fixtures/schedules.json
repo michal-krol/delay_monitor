@@ -77,6 +77,11 @@
       "stations": [
         { "stationId": "33605", "departureTime": "12:30:00" },
         { "stationId": "33506", "arrivalTime": "12:35:00", "departureTime": "12:37:00" },
+        { "stationId": "34348", "arrivalTime": "12:46:00", "departureTime": "12:47:00" },
+        { "stationId": "34363", "arrivalTime": "12:56:00", "departureTime": "12:57:00" },
+        { "stationId": "34447", "arrivalTime": "13:04:00", "departureTime": "13:05:00" },
+        { "stationId": "34603", "arrivalTime": "13:11:00", "departureTime": "13:12:00" },
+        { "stationId": "32904", "arrivalTime": "13:23:00", "departureTime": "13:24:00" },
         { "stationId": "32201", "arrivalTime": "13:30:00" }
       ]
     },
@@ -238,8 +243,13 @@
       "22442": { "id": 22442, "name": "Działdowo" },
       "30601": { "id": 30601, "name": "Poznań Główny" },
       "32201": { "id": 32201, "name": "Kutno" },
+      "32904": { "id": 32904, "name": "Łowicz Główny" },
       "33506": { "id": 33506, "name": "Warszawa Zachodnia" },
       "33605": { "id": 33605, "name": "Warszawa Centralna" },
+      "34348": { "id": 34348, "name": "Ożarów Mazowiecki" },
+      "34363": { "id": 34363, "name": "Błonie" },
+      "34447": { "id": 34447, "name": "Teresin Niepokalanów" },
+      "34603": { "id": 34603, "name": "Sochaczew" },
       "38653": { "id": 38653, "name": "Warszawa Wschodnia" },
       "46458": { "id": 46458, "name": "Łódź Fabryczna" },
       "60103": { "id": 60103, "name": "Wrocław Główny" },

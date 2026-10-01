@@ -140,6 +140,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Rozwinięta legenda mapy transportu nie zasłania już przycisków przybliżania i oddalania ani
   przycisku „Pokaż całe miasto” w prawym górnym rogu. Zaczyna się pod nimi, a na niskim
   ekranie (np. laptop 800 × 600 albo telefon 375 × 667) przewija się w pozostałym miejscu.
+  Na telefonie zaczyna się także pod przyciskami „Lista”, „Filtry” i „Udostępnij”, które
+  schodzą tam do drugiego rzędu (wcześniej zasłaniała ich dolną część).
 - Linia zapisana w rozkładzie GTFS dwa razy pod tym samym identyfikatorem pokazuje się na
   ekranie „Linie” raz, a liczniki linii w widżecie komunikacji miejskiej liczą ją raz.
   Wcześniej taka linia (w Warszawie 30.09 była to „10”) miała dwa kafle.
@@ -194,6 +196,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   oknie 1280 px mieszczą się w dwóch kolumnach zamiast czterech ściśniętych (napis
   „Punktualność" był ucięty), a tablica odjazdów nie przewija się w poziomie. Nazwa
   przewoźnika w tablicy kończy się wielokropkiem zamiast nachodzić na kolumnę „Kierunek".
+  Długa lista stacji pośrednich („przez Warszawa Wschodnia, Wołomin, Tłuszcz · +15
+  przystanków”) też kończy się wielokropkiem, zamiast poszerzać tablicę.
 - Na stronach stacji, połączenia i przystanku przy oknie węższym niż 1280 px prawa kolumna
   (kierunki, pogoda, mapa, natężenie ruchu) schodzi pod treść. Przy 1024 px tablica odjazdów
   nie przewija się już w poziomie, a treść ma dwa razy więcej miejsca.

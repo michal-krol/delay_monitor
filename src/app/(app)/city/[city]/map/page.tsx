@@ -570,7 +570,7 @@ export default function CityMapPage() {
             {vehicleCountAnnouncement}
           </p>
 
-          {/* Pozycja związana z `top-36` wrappera legendy niżej — przesuwasz przycisk, przesuń legendę. */}
+          {/* Pozycja związana z `top-44`/`sm:top-36` wrappera legendy niżej — przesuwasz przycisk, przesuń legendę. */}
           <button
             type="button"
             onClick={() => setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })}
@@ -588,10 +588,12 @@ export default function CityMapPage() {
           )}
 
           {(isWide || selection === null) && (
-            // `top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
+            // `sm:top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
             // miasto” (`top-[88px]` + `h-11` = 132 px) + 12 px odstępu. Od `top-3` rozwinięta legenda
-            // przykrywała je na niskich ekranach (800×600, 375×667).
-            <div className="pointer-events-none absolute bottom-8 right-3 top-36 z-10 flex flex-col justify-end sm:right-4">
+            // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `WIDE_QUERY`)
+            // przyciski Lista/Filtry/Udostępnij schodzą do drugiego rzędu (114–158 px przy 375 px),
+            // stąd `top-44` (176 px) — przy 144 px legenda zakrywała ich dolne 14 px.
+            <div className="pointer-events-none absolute bottom-8 right-3 top-44 z-10 flex flex-col justify-end sm:right-4 sm:top-36">
               <MapLegend />
             </div>
           )}
