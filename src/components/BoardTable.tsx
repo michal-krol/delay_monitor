@@ -12,7 +12,8 @@ import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { formatClockTime } from '@/lib/format'
-import { realizedTime } from './boardTime'
+import { expectedAt, realizedTime } from './boardTime'
+import { countdownLabel } from '@/lib/countdown'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -270,8 +271,10 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
   )
 }
 
-function TimePair({ row }: { row: BoardApiRow }) {
+function TimePair({ row, now }: { row: BoardApiRow; now: number }) {
   const realized = realizedTime(row)
+  // Do godziny z realizacji (fakt/prognoza), nie do planu; odwołanego nie odliczamy.
+  const countdown = row.status === 'cancelled' ? null : countdownLabel(now, expectedAt(row))
 
   return (
     <span className="block tabular-nums">
@@ -286,6 +289,7 @@ function TimePair({ row }: { row: BoardApiRow }) {
           {formatClockTime(realized.at)}
         </span>
       )}
+      {countdown !== null && <span className="block text-xs font-semibold text-text-secondary">{countdown}</span>}
     </span>
   )
 }
@@ -321,7 +325,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
       onClick={canOpenDetails ? () => onOpen(row) : undefined}
     >
       <td data-cell="time" className="py-2.5 pr-3 pl-3 whitespace-nowrap" style={{ boxShadow: `inset 3px 0 0 0 ${accentColor(row.status)}` }}>
-        <TimePair row={row} />
+        <TimePair row={row} now={now} />
       </td>
       {/* `truncate` nie kurczy komórki (min-content = pełna nazwa przewoźnika), więc w wąskiej tabeli
           (kontener < 42rem, np. FullBoard przy oknie 1280 px) limit jest niższy — inaczej tabela 600 px
@@ -367,20 +371,19 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
           estimatedDelayMinutes={row.estimatedDelayMinutes}
           predictedDelayMinutes={row.predictedDelayMinutes ?? null}
         />
+        {/* W komórce statusu, nie przy strzałce: karta na telefonie chowa komórkę strzałki. */}
+        {row.hasDisruption === true && (
+          <span className="ml-1.5 inline-block align-middle text-warning-text">
+            <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" />
+          </span>
+        )}
       </td>
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
-        <span className="inline-flex items-center gap-1">
-          {row.hasDisruption === true && (
-            <span className="text-warning-text">
-              <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" />
-            </span>
-          )}
-          {canOpenDetails && (
-            <span className="transition group-hover:translate-x-0.5 group-hover:text-foreground">
-              <ChevronRightIcon size={ICON_SIZE.inline} />
-            </span>
-          )}
-        </span>
+        {canOpenDetails && (
+          <span className="inline-flex transition group-hover:translate-x-0.5 group-hover:text-foreground">
+            <ChevronRightIcon size={ICON_SIZE.inline} />
+          </span>
+        )}
       </td>
     </tr>
   )

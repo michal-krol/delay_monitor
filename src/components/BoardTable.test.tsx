@@ -201,3 +201,37 @@ describe('BoardTable — sygnalizacja zmiany opóźnienia', () => {
     expect(within(flashing[0]).getByText('IC 1')).toBeInTheDocument()
   })
 })
+
+describe('BoardTable — odliczanie „za N min”', () => {
+  // NOW = 12:00, PLANNED = 12:30.
+  it('counts down to a departure within the hour, next to the clock', () => {
+    renderTable([row()])
+    const time = document.querySelector('td[data-cell="time"]')!
+    expect(within(time as HTMLElement).getByText('za 30 min')).toBeInTheDocument()
+  })
+
+  it('counts to the forecast, not the plan, when the train is late (no new delay logic, AGENTS #2)', () => {
+    renderTable([row({ predictedAt: PREDICTED, predictedDelayMinutes: 4, status: 'enRoute' })])
+    expect(screen.getByText('za 34 min')).toBeInTheDocument()
+  })
+
+  it('never counts down to a cancelled train', () => {
+    renderTable([row({ status: 'cancelled' })])
+    expect(screen.queryByText(/^za \d+ min$/)).not.toBeInTheDocument()
+  })
+
+  it('stays silent beyond the hour', () => {
+    renderTable([row({ plannedAt: '2026-08-01T13:30:00+02:00' })])
+    expect(screen.queryByText(/^za /)).not.toBeInTheDocument()
+  })
+})
+
+describe('BoardTable — utrudnienie', () => {
+  it('puts the disruption icon in the status cell, which the phone card shows (the chevron cell is hidden there)', () => {
+    renderTable([row({ hasDisruption: true })])
+    const status = document.querySelector('td[data-cell="status"]') as HTMLElement
+    expect(within(status).getByRole('img', { name: 'Utrudnienie na trasie' })).toBeInTheDocument()
+    const chevron = document.querySelector('td[data-cell="chevron"]') as HTMLElement
+    expect(within(chevron).queryByRole('img', { name: 'Utrudnienie na trasie' })).toBeNull()
+  })
+})
