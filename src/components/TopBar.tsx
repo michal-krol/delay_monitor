@@ -76,7 +76,10 @@ export function TopBar(props: Props) {
           wiersz i wystawała poza stronę (e2e headings.spec, WebKit na Linuksie). Z „wstecz” skraca się breadcrumb. */}
       <div className={`flex items-center gap-2 ${back === null ? 'ml-auto min-w-0 flex-wrap justify-end' : 'shrink-0'}`}>
         {back === null ? props.actions : back.share === true && <ShareButton />}
-        <ThemeToggle />
+        {/* Poniżej `sm` przełącznik motywu jest w `MobileHeader` — jeden na ekran. */}
+        <span className="hidden sm:contents">
+          <ThemeToggle />
+        </span>
       </div>
     </div>
   )

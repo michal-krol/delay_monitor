@@ -104,4 +104,13 @@ describe('design tokens', () => {
   it('GTFS views never use status-green Tailwind classes (#13); the category green of zone buses comes from LINE_PALETTE, see adr/0005', () => {
     expect(offenders(/\b(text|bg)-(green|emerald)-\d/)).toEqual([])
   })
+
+  it('globals.css defines the shell layout tokens and the motion tokens (PR 2 / PR 6)', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    for (const token of ['--header-h', '--bottom-nav-h', '--ease-spring', '--ease-out', '--duration-fast', '--duration-base', '--duration-slow']) {
+      expect(css).toContain(`${token}:`)
+    }
+    expect(css).toContain('scroll-padding-bottom: var(--bottom-nav-h)')
+    expect(css).toContain('scroll-padding-top: var(--header-h)')
+  })
 })

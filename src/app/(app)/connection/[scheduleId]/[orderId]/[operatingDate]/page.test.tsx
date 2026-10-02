@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import Page from './page'
 
 /**
@@ -17,9 +18,12 @@ const notFound = vi.fn(() => {
 const useParamsMock = vi.fn<() => { scheduleId: string; orderId: string; operatingDate: string }>()
 let searchParamsValue = new URLSearchParams()
 
+const routerBack = vi.fn()
+const routerPush = vi.fn()
+
 vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
-  useRouter: () => ({ back: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({ back: routerBack, push: routerPush }),
   useParams: () => useParamsMock(),
   useSearchParams: () => searchParamsValue,
 }))
@@ -27,9 +31,39 @@ vi.mock('next/navigation', () => ({
 global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch // never resolves — testujemy tylko walidację wejścia, nie stan po fetchu
 
 describe('Page (/connection/...)', () => {
+  let historyLengthSpy: { mockRestore: () => void } | undefined
+  afterEach(() => historyLengthSpy?.mockRestore())
   beforeEach(() => {
     notFound.mockClear()
+    routerBack.mockClear()
+    routerPush.mockClear()
     searchParamsValue = new URLSearchParams()
+  })
+
+  function stubHistoryLength(length: number): void {
+    historyLengthSpy = vi.spyOn(window.history, 'length', 'get').mockReturnValue(length)
+  }
+
+  it('← bez Navigation API i bez historii (length 1) idzie na /', async () => {
+    useParamsMock.mockReturnValue({ scheduleId: '123', orderId: '456', operatingDate: '2026-08-23' })
+    stubHistoryLength(1)
+    render(<Page />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Wróć do tablicy' }))
+
+    expect(routerPush).toHaveBeenCalledWith('/')
+    expect(routerBack).not.toHaveBeenCalled()
+  })
+
+  it('← bez Navigation API z historią (length > 1) woła router.back()', async () => {
+    useParamsMock.mockReturnValue({ scheduleId: '123', orderId: '456', operatingDate: '2026-08-23' })
+    stubHistoryLength(3)
+    render(<Page />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Wróć do tablicy' }))
+
+    expect(routerBack).toHaveBeenCalledTimes(1)
+    expect(routerPush).not.toHaveBeenCalled()
   })
 
   it('nieprawidłowy operatingDate wywołuje notFound()', () => {

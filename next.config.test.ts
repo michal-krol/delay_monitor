@@ -49,6 +49,16 @@ describe('nagłówki bezpieczeństwa', () => {
     expect(csp).not.toContain('*')
   })
 
+  it('allows the web app manifest from our own origin', async () => {
+    // Manifest PWA (/manifest.webmanifest) pokrywa default-src; gdyby ktoś dopisał
+    // manifest-src, musi zostać na własnym origin.
+    const csp = (await headersFor('/')).get('Content-Security-Policy') ?? ''
+    const manifestSrc = csp.split('; ').find((d) => d.startsWith('manifest-src'))
+
+    expect(csp).toContain("default-src 'self'")
+    if (manifestSrc) expect(manifestSrc).toBe("manifest-src 'self'")
+  })
+
   it('nie dopuszcza eval w wariancie produkcyjnym', async () => {
     // 'unsafe-eval' jest potrzebny wyłącznie hot reloadowi w trybie dev.
     const csp = (await headersFor('/')).get('Content-Security-Policy') ?? ''

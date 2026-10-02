@@ -49,6 +49,19 @@ export type UsePollingResult<T> = {
 const DEFAULT_LADDER_MS = [1000, 2000, 3000, 5000, 8000, 15000]
 const DEFAULT_ERROR_RETRY_MS = 30_000
 
+// Moment ostatniego udanego pobrania przez jakikolwiek `usePolling` (do banera offline).
+let lastSuccessAtMs: number | null = null
+
+/** Czas (ms epoch) ostatniego udanego pobrania w tej karcie; `null` = jeszcze żadnego. */
+export function lastPollingSuccessAt(): number | null {
+  return lastSuccessAtMs
+}
+
+/** Do testów: kasuje stan modułu współdzielony między przypadkami. */
+export function __resetPollingSuccess(): void {
+  lastSuccessAtMs = null
+}
+
 /** Mały helper: `fetch` + rzut na JSON, rzuca na nie-2xx (ten sam kształt błędu co w istniejących hookach). */
 export async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url)
@@ -119,6 +132,7 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
         const result = await fetcherRef.current({ background: scheduled })
         if (cancelled) return
         const successAt = Date.now()
+        lastSuccessAtMs = successAt
         writeCached(opts.cacheNamespace, key, { data: result, lastSuccessAt: successAt })
         setState({ key, data: result, error: null, lastSuccessAt: successAt })
 

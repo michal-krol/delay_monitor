@@ -168,13 +168,15 @@ export function TransitDepartureList({
       {showHighlight && (
         <div className="mt-3 glass-strong rounded-2xl p-4">
           <div className="text-xs font-medium uppercase tracking-wide text-text-muted">Najbliższy odjazd</div>
-          <div className="mt-2 flex items-center gap-3">
+          {/* `flex-wrap` + `ml-auto`: na 320 px długie „za 2 h 42 min" schodzi do drugiego wiersza
+              zamiast wypychać stronę w bok (kierunek ma `min-w-0`, więc zawija się dopiero, gdy nie mieści się reszta). */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             <LineBadge line={first.line} mode={first.mode} kind={first.lineKind} size="md" />
             <span className="min-w-0 flex-1 truncate font-heading text-lg font-bold text-foreground">
               {first.headsign ?? '—'}
             </span>
             {firstStopCode !== null && <StopTag code={firstStopCode} />}
-            <div className="shrink-0 text-right">
+            <div className="ml-auto shrink-0 text-right">
               <div className="font-heading text-2xl font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">
                 {highlightRelative}
               </div>

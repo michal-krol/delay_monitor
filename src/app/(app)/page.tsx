@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { usePinned } from '@/hooks/usePinned'
 import { Dashboard } from '@/components/Dashboard'
 import { EmptyState } from '@/components/EmptyState'
+import { RecentPlaces } from '@/components/RecentPlaces'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { TopBar } from '@/components/TopBar'
 import { NetworkStatsCard } from '@/components/NetworkStatsCard'
@@ -64,6 +65,7 @@ function PulpitPage() {
     <PageShell aside={<NetworkStatsCard />}>
       <TopBar title="Pulpit" subtitle="Przypięte stacje i przystanki z najbliższymi odjazdami" />
       <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />
+      <RecentPlaces limit={4} />
 
       {pinnedItems.length === 0 ? (
         <EmptyState />
