@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { readCached, writeCached } from './pollingCache'
 
 export type PollingContext = { background: boolean }
@@ -44,6 +44,8 @@ export type UsePollingResult<T> = {
   data: T | null
   error: string | null
   lastSuccessAt: number | null
+  /** Pobierz teraz (np. dotknięcie wieku danych), zegar odświeżania liczy się od nowa. Bez efektu w trakcie pobierania. */
+  refresh: () => void
 }
 
 const DEFAULT_LADDER_MS = [1000, 2000, 3000, 5000, 8000, 15000]
@@ -97,6 +99,9 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
     fetcherRef.current = fetcher
     optionsRef.current = options
   })
+  // Ustawiane przez efekt odpytywania bieżącego klucza; stabilny `refresh` woła to, co tam jest.
+  const refreshRef = useRef<() => void>(() => {})
+  const refresh = useCallback(() => refreshRef.current(), [])
 
   useEffect(() => {
     if (key === null) {
@@ -112,6 +117,7 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
     let timer: ReturnType<typeof setTimeout> | undefined
     let paused = false
     let ladderIndex = 0
+    let inFlight = false
 
     function schedule(delayMs: number): void {
       timer = setTimeout(() => void tick(true), delayMs)
@@ -129,7 +135,10 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
 
       const opts = optionsRef.current
       try {
-        const result = await fetcherRef.current({ background: scheduled })
+        inFlight = true
+        const result = await fetcherRef.current({ background: scheduled }).finally(() => {
+          inFlight = false
+        })
         if (cancelled) return
         const successAt = Date.now()
         lastSuccessAtMs = successAt
@@ -170,10 +179,17 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
     }
 
     document.addEventListener('visibilitychange', onVisibilityChange)
+    refreshRef.current = () => {
+      // Trwające pobranie samo zaplanuje następne — drugi tik dałby dwa równoległe timery.
+      if (inFlight) return
+      clearTimeout(timer)
+      void tick(false)
+    }
     void tick(false)
 
     return () => {
       cancelled = true
+      refreshRef.current = () => {}
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
@@ -182,12 +198,12 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
   if (state.key !== key) {
     // Cache własnego klucza wygrywa z danymi poprzedniego (`keepPreviousData`) i z `initialData`.
     const cached = readCached<T>(options.cacheNamespace, key)
-    if (cached !== undefined) return { data: cached.data, error: null, lastSuccessAt: cached.lastSuccessAt }
+    if (cached !== undefined) return { data: cached.data, error: null, lastSuccessAt: cached.lastSuccessAt, refresh }
     // Nowy klucz, efekt jeszcze nie zapisał wyniku: z keepPreviousData pokazujemy dane starego (o ile był).
     if (options.keepPreviousData === true && key !== null && state.key !== null) {
-      return { data: state.data, error: null, lastSuccessAt: state.lastSuccessAt }
+      return { data: state.data, error: null, lastSuccessAt: state.lastSuccessAt, refresh }
     }
-    return { data: options.initialData ?? null, error: null, lastSuccessAt: null }
+    return { data: options.initialData ?? null, error: null, lastSuccessAt: null, refresh }
   }
-  return { data: state.data, error: state.error, lastSuccessAt: state.lastSuccessAt }
+  return { data: state.data, error: state.error, lastSuccessAt: state.lastSuccessAt, refresh }
 }

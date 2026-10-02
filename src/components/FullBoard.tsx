@@ -80,7 +80,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   const panelId = `${idBase}-panel`
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
-  const { data, error, lastSuccessAt } = useBoard([stationId])
+  const { data, error, lastSuccessAt, refresh } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
   const configError = data?.status === 'configError'
@@ -189,7 +189,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     AGENTS.md #7. Ta sama zasada co ukrycie tabeli niżej. */}
                 {!configError && (
                   <div className="mt-1">
-                    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} />
+                    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
                   </div>
                 )}
               </div>

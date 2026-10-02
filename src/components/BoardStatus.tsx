@@ -1,5 +1,5 @@
 import type { BoardApiResponse } from '@/hooks/useBoard'
-import { effectiveAgeMs, formatAge } from '@/lib/format'
+import { effectiveAgeMs, formatAge, formatAgo } from '@/lib/format'
 import { useNow } from '@/hooks/useNow'
 
 type Props = {
@@ -9,6 +9,11 @@ type Props = {
   lastSuccessAt?: number | null
   data: BoardApiResponse | null
   error: boolean
+  /**
+   * Podany = wiek danych jest przyciskiem „odśwież teraz” (ten sam hook, `/api/board` czyta
+   * snapshot pollera — zero zapytań do PKP, AGENTS.md #3).
+   */
+  onRefresh?: () => void
 }
 
 /**
@@ -47,12 +52,13 @@ function budgetHint(data: BoardApiResponse | null): string | undefined {
  * i wtedy są warte ogłoszenia: błąd, wiek danych, `degraded`, throttling.
  */
 /** Statyczny fakt o tempie odświeżania -- ma być widoczny zawsze, niezależnie od stanu ładowania/błędu. */
-const REFRESH_HINT = <span>Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
+// Na telefonie schowany: kompaktowy nagłówek tablicy ma zostawić miejsce na pierwszy odjazd.
+const REFRESH_HINT = <span className="max-sm:hidden">Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
 
 /** Wiek podajemy z dokładnością do minuty, więc tykanie co 30 s wystarcza. */
 const AGE_TICK_MS = 30_000
 
-export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, data, error }: Props) {
+export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, data, error, onRefresh }: Props) {
   const now = useNow(AGE_TICK_MS)
   const ageMs = effectiveAgeMs(responseAgeMs, lastSuccessAt, now)
   // Baner błędu zastępuje CAŁĄ linijkę statusu tylko, gdy nie ma jeszcze
@@ -83,7 +89,20 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
 
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-      <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
+      {onRefresh !== undefined && ageMs !== undefined ? (
+        <button
+          type="button"
+          onClick={onRefresh}
+          title={`Ostatnia aktualizacja: ${formatLastUpdated(fetchedAt)}`}
+          className="inline-flex items-center rounded-full underline decoration-dotted underline-offset-2 transition hover:text-foreground max-sm:min-h-11"
+        >
+          Aktualizacja {formatAgo(ageMs / 1000)}
+          {' '}
+          <span className="sr-only">— odśwież teraz</span>
+        </button>
+      ) : (
+        <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
+      )}
       {REFRESH_HINT}
 
       {/* `display: contents` -- węzeł istnieje dla `aria-live`, ale nie wchodzi

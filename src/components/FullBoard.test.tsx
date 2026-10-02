@@ -355,14 +355,15 @@ describe('FullBoard', () => {
     expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
   })
 
-  it('shows the absolute last-updated date and time instead of a relative age', async () => {
+  // PR4: wiek danych jest przyciskiem „odśwież teraz”; pełna data i godzina zostają w `title`.
+  it('shows the data age as a refresh button with the absolute last-updated time in its title', async () => {
     const snapshot = { ...SNAPSHOT, fetchedAt: '2026-08-01T20:24:11.827Z' }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshot], budget: undefined, status: 'ok' })))
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
-    expect(await screen.findByText(/Ostatnia aktualizacja:/)).toBeInTheDocument()
-    expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
+    const button = await screen.findByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })
+    expect(button).toHaveAttribute('title', 'Ostatnia aktualizacja: 01.08.2026, 22:24:11')
   })
 
   it('navigates to the connection-details route for the clicked train, carrying its scheduleId/orderId/operatingDate and label', async () => {
