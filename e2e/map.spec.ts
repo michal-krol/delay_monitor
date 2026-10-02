@@ -506,3 +506,110 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     expect(await top(page.getByRole('combobox', { name: 'Szukaj linii' }))).toBeCloseTo(row, 0)
   })
 })
+
+/**
+ * Przeciągnięcie jednym palcem przez CDP (`Input.dispatchTouchEvent`) — prawdziwe wejście
+ * dotykowe w Chromium, z przewijaniem i dociąganiem do punktów scroll-snap. Tylko Chromium:
+ * WebKit w Playwright nie ma API dotyku (gest na iOS = click-QA na urządzeniu).
+ */
+async function touchDrag(page: Page, from: { x: number; y: number }, dx: number, dy: number): Promise<void> {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] })
+  for (let i = 1; i <= 10; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (dx * i) / 10, y: from.y + (dy * i) / 10 }] })
+    await page.waitForTimeout(8)
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+}
+
+// PR3: na telefonie karty mapy leżą w arkuszu od dołu z trzema punktami (BottomSheet.tsx).
+test.describe('mapa transportu: arkusz na telefonie', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name === 'desktop-chromium', 'arkusz tylko poniżej sm; desktop ma panel obok mapy')
+  })
+
+  const sheet = (page: Page): Locator => page.locator('.bottom-sheet')
+
+  async function openStopCard(page: Page, name: string, option: string | RegExp = name): Promise<Locator> {
+    await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill(name)
+    await page.getByRole('option', { name: option }).first().click()
+    const card = page.getByRole('dialog', { name })
+    await expect(card).toBeVisible()
+    return card
+  }
+
+  for (const height of [812, 667]) {
+    test(`375×${height}: strona mapy się nie przewija, mapa wypełnia ekran`, async ({ page }) => {
+      await page.setViewportSize({ width: 375, height })
+      const map = await openMap(page)
+      const { scrollHeight, innerHeight } = await page.evaluate(() => ({
+        scrollHeight: document.documentElement.scrollHeight,
+        innerHeight: window.innerHeight,
+      }))
+      expect(scrollHeight).toBeLessThanOrEqual(innerHeight)
+      // Przed PR3 przy 812 px: 70% (pełny TopBar ok. 135 px nad mapą).
+      if (height === 812) expect((await map.boundingBox())!.height).toBeGreaterThanOrEqual(0.75 * height)
+    })
+  }
+
+  test('karta przystanku otwiera się nisko (peek), uchwyt przełącza peek → połowa → pełny → peek', async ({ page }) => {
+    const map = await openMap(page)
+    const card = await openStopCard(page, 'Centrum')
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    const mapBox = (await map.boundingBox())!
+    expect((await card.boundingBox())!.y - mapBox.y).toBeGreaterThanOrEqual(0.7 * mapBox.height)
+    for (const snap of ['half', 'full', 'peek']) {
+      await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+      await expect(sheet(page)).toHaveAttribute('data-snap', snap)
+    }
+  })
+
+  test('„×" w karcie zamyka arkusz', async ({ page }) => {
+    await openMap(page)
+    const card = await openStopCard(page, 'Centrum')
+    await expect(sheet(page)).toHaveCount(1)
+    await card.getByRole('button', { name: 'Zamknij kartę' }).click()
+    await expect(sheet(page)).toHaveCount(0)
+  })
+
+  test('nowy panel przy pełnym arkuszu startuje znów nisko (peek)', async ({ page }) => {
+    await openMap(page)
+    const card = await openStopCard(page, 'Warszawa Centralna', 'Warszawa Centralna')
+    for (const snap of ['half', 'full']) {
+      await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+      await expect(sheet(page)).toHaveAttribute('data-snap', snap)
+    }
+    await card.getByRole('button', { name: 'Co jest w pobliżu?' }).click()
+    await expect(page.getByRole('dialog', { name: 'W pobliżu' })).toBeVisible()
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+  })
+
+  test('pełny arkusz: treść panelu przewija się w środku, niższy — nie', async ({ page }) => {
+    await openMap(page)
+    await openStopCard(page, 'Centrum')
+    const body = page.locator('.bottom-sheet [data-sheet-scroll]')
+    await expect(body).toHaveCSS('overflow-y', 'hidden')
+    for (const snap of ['half', 'full']) {
+      await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+      await expect(sheet(page)).toHaveAttribute('data-snap', snap)
+    }
+    await expect(body).toHaveCSS('overflow-y', 'auto')
+  })
+
+  test('dotyk: mapa nad arkuszem przesuwa się, przeciągnięcie arkusza zmienia punkt', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'dotyk przez CDP tylko w Chromium')
+    const map = await openMap(page)
+    await openStopCard(page, 'Centrum')
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    // Kamera po wyborze przystanku dojeżdża animacją — czekamy, aż `?at=` się ustali.
+    await page.waitForTimeout(1500)
+    const box = (await map.boundingBox())!
+    const at = new URL(page.url()).searchParams.get('at')
+    await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.45 }, 60, 120)
+    await expect.poll(() => new URL(page.url()).searchParams.get('at')).not.toBe(at)
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+
+    await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
+    await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek')
+  })
+})

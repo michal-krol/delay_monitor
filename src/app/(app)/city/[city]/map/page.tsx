@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
+import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
@@ -417,6 +418,9 @@ export default function CityMapPage() {
         onClose={() => chooseLine(null)}
       />
     ) : null
+  // Nowy obiekt w arkuszu = nowy `key` → arkusz startuje znów w `peek`.
+  const cardKey =
+    selection !== null ? `${selection.kind}:${selection.id}` : nearby !== null ? 'nearby' : listOpen ? 'list' : `line:${line?.routeId}`
 
   const placeSearch = (
     <StationSearch endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`} placeholder="Szukaj stacji lub przystanku…" onSelect={onSearchSelect} wide />
@@ -424,16 +428,18 @@ export default function CityMapPage() {
   const lineSearch = <LineSearch lines={lines} onSelect={chooseLine} />
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <div className="px-4 py-4 sm:px-8 sm:py-5">
+    // Wysokość = ekran bez nagłówka i dolnego paska (od `sm` obie zmienne to 0): strona się nie przewija.
+    <div className="flex h-[calc(100dvh-var(--header-h)-var(--bottom-nav-h))] min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="px-4 py-2 sm:px-8 sm:py-5">
         <TopBar
+          compact
           title="Mapa transportu"
           subtitle={`${feed.name} · ${freshness}`}
-          actions={<CityPicker cities={cities} current={city} hrefFor={(id) => `/city/${id}/map`} />}
+          actions={<CityPicker compact cities={cities} current={city} hrefFor={(id) => `/city/${id}/map`} />}
         />
       </div>
 
-      <div className="relative flex min-h-[60vh] flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
           {mounted && initialCamera !== null && (
             <TransitMap
@@ -465,8 +471,6 @@ export default function CityMapPage() {
             />
           )}
 
-          {/* Kontrolki i karta telefonu w jednej kolumnie: karta (max 62%) dostaje tylko miejsce pod
-              kontrolkami, więc ich nie zakryje, nawet gdy przyciski zeszły do drugiego rzędu. */}
           <div className="pointer-events-none absolute inset-0 flex flex-col">
             <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 sm:ml-4 sm:mt-4">
               <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
@@ -567,10 +571,9 @@ export default function CityMapPage() {
                 </p>
               ))}
             </div>
-            {!isWide && card !== null && (
-              <div className="pointer-events-auto relative z-20 mt-auto flex min-h-0 max-h-[62%] flex-col p-2">{card}</div>
-            )}
           </div>
+
+          {!isWide && card !== null && <BottomSheet key={cardKey}>{card}</BottomSheet>}
 
           <p className="sr-only" aria-live="polite">
             {vehicleCountAnnouncement}
@@ -593,7 +596,7 @@ export default function CityMapPage() {
             </p>
           )}
 
-          {(isWide || selection === null) && (
+          {(isWide || card === null) && (
             // `sm:top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
             // miasto” (`top-[88px]` + `h-11` = 132 px) + 12 px odstępu. Od `top-3` rozwinięta legenda
             // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `WIDE_QUERY`)
