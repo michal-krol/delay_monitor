@@ -169,10 +169,28 @@ describe('Page (Pulpit)', () => {
     expect(recentHeading).toBeInTheDocument()
     expect(pinnedHeading).toBeInTheDocument()
 
-    // Both headings are h2, and RecentPlaces appears before Dashboard based on source order
-    // (between StationSearch and the conditional dashboard/empty-state)
-    expect(recentHeading.tagName).toBe('H2')
-    expect(pinnedHeading.tagName).toBe('H2')
+    // Recent heading comes before pinned heading in DOM
+    const positionBits = recentHeading.compareDocumentPosition(pinnedHeading)
+    expect(positionBits & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('pokazuje „Ostatnio oglądane" nad stanem pustym, gdy brak przypiętych, ale są ostatnio oglądane', () => {
+    window.localStorage.setItem(
+      'monitor.recentPlaces.v1',
+      JSON.stringify([{ kind: 'pkp', id: '100', name: 'Ostatnia stacja' }])
+    )
+    initialPinned = []
+    render(<Page />)
+
+    const recentHeading = screen.getByRole('heading', { name: 'Ostatnio oglądane' })
+    const emptyStateText = screen.getByText(/Wyszukaj stację/)
+
+    expect(recentHeading).toBeInTheDocument()
+    expect(emptyStateText).toBeInTheDocument()
+
+    // Recent heading comes before empty state text in DOM
+    const positionBits = recentHeading.compareDocumentPosition(emptyStateText)
+    expect(positionBits & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('ukrywa sekcję „Ostatnio oglądane", gdy jej brak', () => {
