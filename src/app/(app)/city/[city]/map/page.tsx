@@ -15,6 +15,7 @@ import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { stopDisplayName } from '@/components/stopName'
 import { MapFilters } from '@/components/map/MapFilters'
 import { MapLegend } from '@/components/map/MapLegend'
+import { MapMoreMenu } from '@/components/map/MapMoreMenu'
 import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
 import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
 import {
@@ -426,6 +427,15 @@ export default function CityMapPage() {
     <StationSearch endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`} placeholder="Szukaj stacji lub przystanku…" onSelect={onSearchSelect} wide />
   )
   const lineSearch = <LineSearch lines={lines} onSelect={chooseLine} />
+  const filters = (
+    <MapFilters compact={!isWide} hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} alertsOnly={alertsOnly} onAlertsOnly={changeAlertsOnly} />
+  )
+
+  function toggleList(): void {
+    setListOpen((open) => !open)
+    setSelection(null)
+    setNearby(null)
+  }
 
   return (
     // Wysokość = ekran bez nagłówka i dolnego paska (od `sm` obie zmienne to 0): strona się nie przewija.
@@ -478,63 +488,59 @@ export default function CityMapPage() {
                   <>
                     <div className="w-72">{placeSearch}</div>
                     <div className="w-52">{lineSearch}</div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        aria-pressed={listOpen}
+                        onClick={toggleList}
+                        className={`glass inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${
+                          listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
+                        }`}
+                        style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
+                      >
+                        <ListIcon size={ICON_SIZE.button} />
+                        Lista
+                      </button>
+                      <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                      {filters}
+                      <button
+                        type="button"
+                        onClick={() => void share()}
+                        aria-label="Udostępnij ten widok mapy"
+                        className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        <ShareIcon size={ICON_SIZE.button} />
+                      </button>
+                    </div>
                   </>
                 ) : (
-                  // `min-w-40`: na telefonie przyciski schodzą pod pole zamiast ścisnąć je do „Sz…";
-                  // `ml-auto` niżej trzyma je z prawej, bo ich panele otwierają się w lewo.
-                  <div className="flex min-w-40 flex-1 flex-col gap-1.5">
-                    <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
-                      {(['place', 'line'] as const).map((tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          aria-pressed={searchTab === tab}
-                          onClick={() => setSearchTab(tab)}
-                          className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
-                          style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
-                        >
-                          {tab === 'place' ? 'Przystanek' : 'Linia'}
-                        </button>
-                      ))}
+                  // Telefon: dwa rzędy — zakładki i przyciski (ich panele otwierają się w lewo od prawej
+                  // krawędzi), pod nimi pole na całą szerokość. „Lista” i „Udostępnij” są w „Więcej”.
+                  <div className="flex w-full flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
+                        {(['place', 'line'] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            aria-pressed={searchTab === tab}
+                            onClick={() => setSearchTab(tab)}
+                            className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
+                            style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
+                          >
+                            {tab === 'place' ? 'Przystanek' : 'Linia'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="ml-auto flex gap-2">
+                        {filters}
+                        <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                        <MapMoreMenu listOpen={listOpen} onToggleList={toggleList} onShare={() => void share()} />
+                      </div>
                     </div>
                     {searchTab === 'place' ? placeSearch : lineSearch}
                   </div>
                 )}
-                <div className={`flex gap-2 ${isWide ? '' : 'ml-auto self-end'}`}>
-
-                  <button
-                    type="button"
-                    aria-pressed={listOpen}
-                    onClick={() => {
-                      setListOpen((open) => !open)
-                      setSelection(null)
-                      setNearby(null)
-                    }}
-                    className={`glass inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${
-                      listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
-                    }`}
-                    style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
-                  >
-                    <ListIcon size={ICON_SIZE.button} />
-                    Lista
-                  </button>
-                  <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                  <MapFilters
-                    hidden={hidden}
-                    vehicleLayers={vehicleLayers}
-                    onChange={changeHidden}
-                    alertsOnly={alertsOnly}
-                    onAlertsOnly={changeAlertsOnly}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void share()}
-                    aria-label="Udostępnij ten widok mapy"
-                    className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                  >
-                    <ShareIcon size={ICON_SIZE.button} />
-                  </button>
-                </div>
               </div>
 
               {(hidden.size > 0 || line !== null || alertsOnly) && (

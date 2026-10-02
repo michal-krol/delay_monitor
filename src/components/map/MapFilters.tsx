@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { AlertCircleIcon, FilterIcon, ICON_SIZE } from '../icons'
 import { LAYER_LABEL, LAYER_MODE, POINT_LAYERS, type LayerKey } from './mapData'
 import { ModeChip } from './ModeChip'
+import { useDismiss } from '@/hooks/useDismiss'
 
 /**
  * Przycisk „Filtry" + panel warstw (spec §7). Domyślnie wszystko widoczne, więc
@@ -17,6 +18,7 @@ export function MapFilters({
   onChange,
   alertsOnly = false,
   onAlertsOnly,
+  compact = false,
 }: {
   hidden: ReadonlySet<LayerKey>
   /** Rodzaje pojazdów obecne w danych miasta — nie pokazujemy przełącznika do pustej warstwy. */
@@ -25,6 +27,8 @@ export function MapFilters({
   /** „Tylko linie z utrudnieniami" — pomijane, gdy brak `onAlertsOnly`. */
   alertsOnly?: boolean
   onAlertsOnly?: (next: boolean) => void
+  /** Telefon: sama ikona (44×44), napis „Filtry” tylko dla czytnika; licznik zostaje. */
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const restrictions = hidden.size + (alertsOnly ? 1 : 0)
@@ -32,24 +36,10 @@ export function MapFilters({
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      event.preventDefault() // zjadamy Escape — ramka panelu (PanelFrame) się wtedy nie zamyka
-      setOpen(false)
-      buttonRef.current?.focus()
-    }
-    const onPointer = (event: PointerEvent): void => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onPointer)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onPointer)
-    }
-  }, [open])
+  useDismiss(open, rootRef, (byEscape) => {
+    setOpen(false)
+    if (byEscape) buttonRef.current?.focus()
+  })
 
   function toggle(key: LayerKey): void {
     const next = new Set(hidden)
@@ -79,12 +69,17 @@ export function MapFilters({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className="glass inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
+        className={`glass relative inline-flex h-full min-h-11 items-center rounded-xl text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10 ${
+          compact ? 'w-11 justify-center' : 'gap-2 px-3.5 py-2.5'
+        }`}
       >
         <FilterIcon size={ICON_SIZE.button} />
-        Filtry
+        <span className={compact ? 'sr-only' : undefined}>Filtry</span>
         {restrictions > 0 && (
-          <span className="grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white" style={{ background: 'var(--accent-solid)' }}>
+          <span
+            className={`grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white ${compact ? 'absolute -right-1.5 -top-1.5' : ''}`}
+            style={{ background: 'var(--accent-solid)' }}
+          >
             {restrictions}
             <span className="sr-only"> aktywnych ograniczeń</span>
           </span>

@@ -25,6 +25,7 @@ Why: `adr/0006-ikony-lucide.md`.
 - **Concept → icon** (the dictionary lives in the `icons.tsx` header; change both together):
   - nav: Pulpit `HomeIcon`, Odjazdy `DeparturesBoardIcon`, Linie `RouteIcon`, Mapa `MapIcon`;
     `ListIcon` only for list views („Lista" on the map, trip counts)
+  - overflow menu „Więcej" (actions hidden on phones) `MoreIcon`
   - departure `DepartureIcon`, arrival `ArrivalIcon` (not a clock)
   - travel direction „A → B" `ArrowRightIcon` (with `label="do"` when it is the only link
     between two names read aloud); open/next `ChevronRightIcon`; back `ArrowLeftIcon`

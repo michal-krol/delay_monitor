@@ -5,6 +5,7 @@ import { LinePanel } from './LinePanel'
 import { LineSearch } from './LineSearch'
 import { MapFilters } from './MapFilters'
 import { MapLegend } from './MapLegend'
+import { MapMoreMenu } from './MapMoreMenu'
 import { PanelFrame } from './PanelFrame'
 import { MODE_COLOR, outlineFilter, type LayerKey } from './mapData'
 import type { LineListEntry } from '@/lib/gtfs/query'
@@ -89,6 +90,53 @@ describe('MapFilters', () => {
     expect(screen.queryByText('Pojazdy')).toBeNull()
     fireEvent.pointerDown(document.body)
     expect(screen.getByRole('button', { name: /Filtry/ })).toHaveAttribute('aria-expanded', 'false')
+  })
+})
+
+describe('MapFilters compact', () => {
+  it('icon-only button is still named „Filtry" and shows the restriction count', () => {
+    render(<MapFilters compact hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={[]} onChange={() => {}} />)
+    const button = screen.getByRole('button', { name: /^Filtry/ })
+    expect(button).toHaveTextContent('1 aktywnych ograniczeń')
+    expect(within(button).getByText('Filtry')).toHaveClass('sr-only')
+  })
+})
+
+describe('MapMoreMenu', () => {
+  function setup(listOpen = false) {
+    const onToggleList = vi.fn()
+    const onShare = vi.fn()
+    render(<MapMoreMenu listOpen={listOpen} onToggleList={onToggleList} onShare={onShare} />)
+    return { onToggleList, onShare, button: screen.getByRole('button', { name: 'Więcej' }) }
+  }
+
+  it('opens, toggles the list and closes after the choice', () => {
+    const { onToggleList, button } = setup(true)
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(button)
+    const menu = screen.getByRole('list', { name: 'Więcej' })
+    const list = within(menu).getByRole('button', { name: 'Lista' })
+    expect(list).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(list)
+    expect(onToggleList).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('list', { name: 'Więcej' })).toBeNull()
+  })
+
+  it('shares the view and closes', () => {
+    const { onShare, button } = setup()
+    fireEvent.click(button)
+    fireEvent.click(screen.getByRole('button', { name: 'Udostępnij widok' }))
+    expect(onShare).toHaveBeenCalledOnce()
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('Escape closes the menu, is consumed (the panel stays) and returns focus to the button', () => {
+    const { button } = setup()
+    fireEvent.click(button)
+    // `fireEvent` zwraca `false`, gdy listener wywołał `preventDefault()`.
+    expect(fireEvent.keyDown(document, { key: 'Escape' })).toBe(false)
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+    expect(button).toHaveFocus()
   })
 })
 

@@ -7,7 +7,7 @@
  *
  * Słownik — jedno pojęcie = jedna ikona:
  * - Pulpit `HomeIcon` · Odjazdy/Przyjazdy (nawigacja) `DeparturesBoardIcon` · Linie `RouteIcon` · Mapa `MapIcon`
- * - widok listy (np. „Lista” na mapie, liczba połączeń) `ListIcon`
+ * - widok listy (np. „Lista” na mapie, liczba połączeń) `ListIcon` · menu „Więcej” (akcje schowane na telefonie) `MoreIcon`
  * - odjazd `DepartureIcon` · przyjazd `ArrivalIcon` · data `CalendarIcon`
  * - kierunek jazdy („skąd → dokąd”) `ArrowRightIcon` · otwórz/dalej `ChevronRightIcon` · wstecz `ArrowLeftIcon`
  * - rozwiń/zwiń `DisclosureIcon` (otwarte = obrót 180°, klasa `disclosure-chevron`)
@@ -41,6 +41,7 @@ import {
   CloudSnow,
   createElement as createLucideElement,
   Droplet,
+  Ellipsis,
   Gauge,
   Hourglass,
   House,
@@ -118,6 +119,7 @@ function lucideIcon(node: IconNode, filled = false) {
 export const HomeIcon = /* @__PURE__ */ lucideIcon(House)
 /** Widok listy — nie nawigacja „Odjazdy” (to `DeparturesBoardIcon`). */
 export const ListIcon = /* @__PURE__ */ lucideIcon(List)
+export const MoreIcon = /* @__PURE__ */ lucideIcon(Ellipsis)
 /** Nawigacja „Odjazdy / Przyjazdy” — tablica z godzinami. */
 export const DeparturesBoardIcon = /* @__PURE__ */ lucideIcon(ListClock)
 

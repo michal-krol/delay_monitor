@@ -263,6 +263,16 @@ async function lineSearch(page: Page): Promise<Locator> {
   return page.getByRole('combobox', { name: 'Szukaj linii' })
 }
 
+/** Na telefonie „Lista” i „Udostępnij” są w menu „Więcej” (PR3); na desktopie to zwykłe przyciski. */
+async function moreItem(page: Page, name: string): Promise<Locator> {
+  const more = page.getByRole('button', { name: 'Więcej' })
+  if (await more.isVisible()) {
+    await more.click()
+    return page.getByRole('list', { name: 'Więcej' }).getByRole('button', { name })
+  }
+  return page.getByRole('button', { name, exact: true })
+}
+
 async function expectNoBlockingA11y(page: Page): Promise<void> {
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
@@ -322,8 +332,8 @@ test.describe('niski desktop (800×600)', () => {
   })
 })
 
-// Regresja (QA staging 2026-10-01): na 375 px przyciski Lista/Filtry/Udostępnij zeszły do drugiego
-// rzędu (114–158 px od góry mapy), a rozwinięta legenda zaczynała się na 144 px i zakrywała ich dół.
+// Regresja (QA staging 2026-10-01): na 375 px przyciski zeszły do drugiego rzędu, a rozwinięta
+// legenda zaczynała się na 144 px i zakrywała ich dół. Od PR3 w rzędzie są Filtry i „Więcej”.
 test.describe('mapa transportu: rozwinięta legenda pod przyciskami w drugim rzędzie', () => {
   test.beforeEach(({}, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
@@ -335,11 +345,7 @@ test.describe('mapa transportu: rozwinięta legenda pod przyciskami w drugim rz�
     const legend = page.locator('details', { has: page.getByText('Legenda', { exact: true }) })
     await legend.getByText('Legenda', { exact: true }).click()
     await expect(legend).toHaveAttribute('open', '')
-    for (const button of [
-      page.getByRole('button', { name: 'Lista', exact: true }),
-      page.getByRole('button', { name: /Filtry/ }),
-      page.getByRole('button', { name: 'Udostępnij ten widok mapy' }),
-    ]) {
+    for (const button of [page.getByRole('button', { name: /Filtry/ }), page.getByRole('button', { name: 'Więcej' })]) {
       const box = (await button.boundingBox())!
       // 1 px nad krawędzią: sam brzeg (`y + height`) należy już do elementu pod spodem.
       const hit = await button.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [box.x + box.width / 2, box.y + box.height - 1])
@@ -424,7 +430,7 @@ test('mapa transportu: awaria pozycji pojazdów to komunikat, a mapa kolei i prz
 
 test('mapa transportu: „Lista" pokazuje obiekty w kadrze, „Co jest w pobliżu?" działa z klawiatury', async ({ page }) => {
   await openMap(page, `${CITY_MAP}?at=52.23000,21.00800,15.0`)
-  await page.getByRole('button', { name: 'Lista' }).click()
+  await (await moreItem(page, 'Lista')).click()
   const list = page.getByRole('dialog', { name: 'W widoku' })
   // Śródmieście mieści się w kadrze także na telefonie (Centralna już nie).
   const station = list.getByRole('button', { name: 'Warszawa Śródmieście', exact: true })
@@ -468,22 +474,37 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
   })
 
-  test('375 px: pola miejsca i linii mają co najmniej 160 px, strona nie przewija się w poziomie', async ({ page }) => {
+  test('375 px: pola miejsca i linii mają co najmniej 280 px, strona nie przewija się w poziomie', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await openMap(page)
     const place = await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).boundingBox()
-    expect(place!.width).toBeGreaterThanOrEqual(160)
+    expect(place!.width).toBeGreaterThanOrEqual(280)
     const line = await (await lineSearch(page)).boundingBox()
-    expect(line!.width).toBeGreaterThanOrEqual(160)
-    // Przyciski zostają przy prawej krawędzi: panel „Filtry" (`right-0`) otwiera się w lewo,
-    // przy przyciskach z lewej wyjeżdżał ~100 px poza ekran.
-    const share = await page.getByRole('button', { name: 'Udostępnij ten widok mapy' }).boundingBox()
-    expect(share!.x + share!.width).toBeCloseTo(line!.x + line!.width, 0)
+    expect(line!.width).toBeGreaterThanOrEqual(280)
+    // Przyciski zostają przy prawej krawędzi: panele „Filtry"/„Więcej" (`right-0`) otwierają się w lewo,
+    // przy przyciskach z lewej wyjeżdżały ~100 px poza ekran.
+    const more = await page.getByRole('button', { name: 'Więcej' }).boundingBox()
+    expect(more!.x + more!.width).toBeCloseTo(line!.x + line!.width, 0)
     const { scrollWidth, clientWidth } = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
     }))
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  })
+
+  test('375×812: kontrolki zajmują dwa rzędy — zakładki z przyciskami, pod nimi pole', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openMap(page)
+    const top = async (locator: Locator) => (await locator.boundingBox())!.y
+    const center = async (locator: Locator) => {
+      const box = (await locator.boundingBox())!
+      return box.y + box.height / 2
+    }
+    const tabs = page.getByRole('group', { name: 'Czego szukasz' })
+    const tabsCenter = await center(tabs)
+    expect(await center(page.getByRole('button', { name: /Filtry/ }))).toBeCloseTo(tabsCenter, 0)
+    expect(await center(page.getByRole('button', { name: 'Więcej' }))).toBeCloseTo(tabsCenter, 0)
+    expect(await top(page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' })) - (await top(tabs))).toBeLessThan(60)
   })
 
   // CI 2026-10-01 (mobile-safari, iPhone 15): przyciski w drugim rzędzie zepchnęły chip linii
