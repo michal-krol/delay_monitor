@@ -287,7 +287,7 @@ export function TransitStopDetail({
               >
                 {effMember === null && (
                   <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
-                    <CheckIcon size={ICON_SIZE.chip} />
+                    <CheckIcon className="h-2.5 w-2.5" />
                   </span>
                 )}
                 <span className="font-semibold">Cały zespół</span>
@@ -310,7 +310,7 @@ export function TransitStopDetail({
                   >
                     {on && (
                       <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
-                        <CheckIcon size={ICON_SIZE.chip} />
+                        <CheckIcon className="h-2.5 w-2.5" />
                       </span>
                     )}
                     {/* Jeden węzeł tekstowy jak dawniej — nazwa dostępna przycisku musi

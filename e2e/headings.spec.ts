@@ -98,3 +98,12 @@ for (const { name, path } of SHARE_PAGES) {
     }
   })
 }
+
+// Grupa akcji w nagłówku (Udostępnij + wybór miasta + motyw) ma się zawinąć, a nie wystawać:
+// w CI (WebKit na Linuksie, szerszy font) przy 375 px wystawała o 1 px; przy 320 px widać to wszędzie.
+test('akcje nagłówka zawijają się zamiast przepełniać stronę (320 px)', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 812 })
+  await page.goto('/city/warszawa?stop=1001&name=Centrum')
+  await expect(page.getByRole('button', { name: 'Udostępnij', exact: true })).toBeVisible({ timeout: 45_000 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+})
