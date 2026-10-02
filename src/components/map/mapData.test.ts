@@ -172,12 +172,24 @@ describe('interpolatePoints', () => {
 })
 
 describe('arrowImage', () => {
-  it('is an opaque upward triangle: narrow tip, full-width base', () => {
-    const { width, data } = arrowImage(8)
+  it('rasterises the Lucide navigation-2 arrow (tip up, notched base), the same glyph as VehicleHeadingIcon', () => {
+    const { width, data } = arrowImage(24)
     const alpha = (x: number, y: number) => data[(y * width + x) * 4 + 3]
     expect(alpha(0, 0)).toBe(0)
-    expect(alpha(4, 0)).toBe(255)
-    expect(alpha(0, 7)).toBe(255)
+    expect(alpha(12, 4)).toBe(255) // ostrze
+    expect(alpha(6, 19)).toBe(255) // lewe skrzydło
+    expect(alpha(12, 19)).toBe(0) // wcięcie podstawy — trójkąt by go nie miał
+  })
+
+  it('fills the image height like the old triangle (tip at the top edge, wing tips in the last row), so icon-size/offset still fit', () => {
+    const { width, data } = arrowImage(24)
+    const alpha = (x: number, y: number) => data[(y * width + x) * 4 + 3]
+    expect(alpha(12, 1)).toBe(255)
+    expect(alpha(3, 23)).toBe(255)
+  })
+
+  it('keeps the 16×16 default the vehicles-arrows layer is tuned for', () => {
+    expect(arrowImage()).toMatchObject({ width: 16, height: 16 })
   })
 })
 

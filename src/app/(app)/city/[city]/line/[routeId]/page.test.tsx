@@ -213,9 +213,9 @@ describe('LineDetailPage', () => {
     stubFetch()
     render(<LineDetailPage />)
     expect(await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
-    // kierunek jako „skąd → dokąd" na przycisku przełącznika
-    expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveTextContent('Centrum')
-    expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveTextContent('Dworzec Centralny')
+    // Nazwa dostępna przycisku kierunku niesie trasę („Centrum do Dworzec Centralny”) i akcję —
+    // samo „Zmień kierunek” ukrywało przed czytnikiem, który kierunek jest wybrany.
+    expect(screen.getByRole('button', { name: 'Centrum do Dworzec Centralny zmień kierunek' })).toBeInTheDocument()
     // kolumny rozkładu obok siebie — sobota nie pod dniami roboczymi
     expect(screen.getByRole('columnheader', { name: 'Dni robocze' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Soboty' })).toBeInTheDocument()
@@ -252,7 +252,7 @@ describe('LineDetailPage', () => {
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Rozkład — Centrum 01' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
+    await user.click(screen.getByRole('button', { name: /zmień kierunek/i }))
     expect(screen.getByRole('heading', { name: 'Rozkład — Dworzec Centralny' })).toBeInTheDocument()
   })
 

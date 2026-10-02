@@ -7,7 +7,7 @@ import { CarrierLogo } from './CarrierLogo'
 import { CategoryBadge } from './CategoryBadge'
 import { InfoTooltip } from './InfoTooltip'
 import { statusTint } from './realizationColors'
-import { AlertCircleIcon, ChevronRightIcon } from './icons'
+import { AlertCircleIcon, ChevronRightIcon, ICON_SIZE } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
@@ -275,7 +275,7 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
       <span className="min-w-0">
         <span className="block truncate font-semibold text-foreground">{row.trainLabel}</span>
         <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
-          <CarrierLogo carrierCode={row.carrier} size={12} />
+          <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
           <span className="min-w-0 truncate">{row.carrierName ?? (row.carrier || '—')}</span>
         </span>
       </span>
@@ -385,12 +385,12 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
         <span className="inline-flex items-center gap-1">
           {row.hasDisruption === true && (
             <span className="text-warning-text">
-              <AlertCircleIcon size={14} label="Utrudnienie na trasie" />
+              <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" />
             </span>
           )}
           {canOpenDetails && (
             <span className="transition group-hover:translate-x-0.5 group-hover:text-foreground">
-              <ChevronRightIcon size={14} />
+              <ChevronRightIcon size={ICON_SIZE.inline} />
             </span>
           )}
         </span>

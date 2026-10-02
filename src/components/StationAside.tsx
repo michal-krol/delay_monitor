@@ -17,6 +17,7 @@ import {
   SunIcon,
   ThunderIcon,
   WindIcon,
+  ICON_SIZE,
 } from './icons'
 import { compassDirection, describeWeatherCode, type WeatherIconKey } from '@/lib/weather/format'
 import { pluralPl } from '@/lib/plural'
@@ -82,7 +83,7 @@ function PopularDestinations({
               <span className="shrink-0 text-xs text-text-muted tabular-nums">
                 {destination.count} {pluralPl(destination.count, 'połączenie', 'połączenia', 'połączeń')}
               </span>
-              <ChevronRightIcon size={13} />
+              <ChevronRightIcon size={ICON_SIZE.chip} />
             </button>
           </li>
         )
@@ -101,7 +102,7 @@ function StationDisruptions({ messages }: { messages: string[] }) {
       {messages.map((message) => (
         <li key={message} className="flex gap-2 text-xs text-text-secondary">
           <span className="mt-0.5 shrink-0 text-warning-text" aria-hidden="true">
-            <AlertCircleIcon size={14} />
+            <AlertCircleIcon size={ICON_SIZE.inline} />
           </span>
           <span>{message}</span>
         </li>
@@ -175,12 +176,12 @@ export function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
 
       <div className="grid grid-cols-3 gap-2 text-xs">
         <WeatherStat
-          icon={<WindIcon size={14} />}
+          icon={<WindIcon size={ICON_SIZE.inline} />}
           label="Wiatr"
           value={`${Math.round(current.windSpeedKmh)} km/h ${compassDirection(current.windDirectionDeg)}`}
         />
-        <WeatherStat icon={<DropletIcon size={14} />} label="Wilgotność" value={`${Math.round(current.humidityPercent)}%`} />
-        <WeatherStat icon={<GaugeIcon size={14} />} label="Ciśnienie" value={`${Math.round(current.pressureHpa)} hPa`} />
+        <WeatherStat icon={<DropletIcon size={ICON_SIZE.inline} />} label="Wilgotność" value={`${Math.round(current.humidityPercent)}%`} />
+        <WeatherStat icon={<GaugeIcon size={ICON_SIZE.inline} />} label="Ciśnienie" value={`${Math.round(current.pressureHpa)} hPa`} />
       </div>
 
       <div className="grid grid-cols-3 gap-2 border-t border-surface-border pt-3 text-xs">

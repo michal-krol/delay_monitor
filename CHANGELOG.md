@@ -8,6 +8,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Dodane
 
+- Karty na Pulpicie oznaczają pociągi z utrudnieniem tą samą ikoną co pełna tablica.
+- Filtr mapy „Tylko linie z utrudnieniami” ma ikonę utrudnienia, a przycisk „Lista” —
+  ikonę listy.
 - Tryb mock pokazuje więcej funkcji z wersji 1.0.x–1.1.0: autobusy każdego rodzaju (zwykłe,
   podmiejskie, lokalne, zastępcze), przystanek „na żądanie”, kilka komunikatów o utrudnieniach
   (z zakresem dat, bardzo długi, z nieznanym skutkiem), pojazd z nieświeżą pozycją, więcej
@@ -27,12 +30,24 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   przypięte przystanki działają dalej jako cały zespół.
 - Wybrany przystanek zespołu zapisuje się w linku jako `?przystanek=`. Starsze linki
   z `?slupek=` otwierają cały zespół.
+- Jeden zestaw ikon w całej aplikacji (Lucide). Każde pojęcie ma jedną ikonę: „Odjazdy”
+  w menu mają własną ikonę tablicy, odjazd i przyjazd w szczegółach połączenia mają
+  strzałki zamiast zegara, a przypięte miejsca zawsze mają pełną gwiazdkę. Rozwijane
+  sekcje mają strzałkę w dół, która po rozwinięciu obraca się w górę. Rozmiary ikon
+  zależą od ich roli (w czipie, w tekście, w przycisku, na kafelku).
+- Strzałka kierunku pojazdu na mapie i w legendzie ma kształt grotu nawigacji zamiast
+  trójkąta.
+- Favicona i ikony aplikacji (także na ekran początkowy iPhone’a) mają teraz to samo
+  logo co w aplikacji.
 - Usunięto nieczytane kolumny kolorów z przykładowego pliku `routes.txt` oraz nieaktualne
   komentarze o liczbie pociągów w mocku.
 
 ### Naprawione
 
 - Metro: numer peronu nie wyświetla się już dwa razy przy odjeździe.
+- Przycisk zmiany kierunku na stronie linii podaje czytnikowi ekranu wybrany kierunek
+  („Centrum do Dworzec Centralny zmień kierunek”), a nie tylko „Zmień kierunek”.
+  Strzałka „skąd → dokąd” w nagłówku połączenia jest odczytywana jako „do”.
 
 ## [1.1.0] — 2026-10-01
 

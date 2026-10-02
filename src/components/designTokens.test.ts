@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { MODE_COLOR } from './map/mapData'
+import { ACCENT_GRADIENT } from './icons'
 
 /**
  * Strażnik tokenów (PR 7): kolory statusu, błędu i obramowania powierzchni mają
@@ -59,6 +60,35 @@ describe('design tokens', () => {
       counts[file] = (counts[file] ?? 0) + 1
     }
     expect(counts).toEqual(allowed)
+  })
+
+  it('lucide is imported only by icons.tsx (single icon source, .claude/rules/ui-icons.md)', () => {
+    expect(offenders(/from ['"]lucide/, (file) => file === 'components/icons.tsx')).toEqual([])
+  })
+
+  it('ACCENT_GRADIENT (favicon and app icon routes, no CSS there) mirrors --accent-gradient in globals.css', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    expect(css.match(/--accent-gradient:\s*([^;]+);/)?.[1].trim()).toBe(ACCENT_GRADIENT)
+  })
+
+  it('expand/collapse uses DisclosureIcon (one rotation rule in globals.css), not per-site chevron rotation', () => {
+    expect(offenders(/ChevronDownIcon|group-open[^\s"'`]*:-?rotate|Chevron\w*Icon[^>]*\brotate-90\b/, (file) => file === 'components/icons.tsx')).toEqual([])
+  })
+
+  it('every lucideIcon() call is marked pure, so bundlers drop icons nobody imports', () => {
+    const source = readFileSync(join(SRC, 'components/icons.tsx'), 'utf8')
+    const calls = [...source.matchAll(/=\s*(\/\* @__PURE__ \*\/ )?lucideIcon\(/g)]
+    expect(calls.length).toBeGreaterThan(40)
+    expect(calls.filter((call) => call[1] === undefined).map((call) => call[0])).toEqual([])
+  })
+
+  it('icon sizes 10–19 px come from the ICON_SIZE role scale, not ad-hoc literals', () => {
+    // Rozmiary ≥ 20 to ilustracje (logo, kafelek pogody, miniatura stacji), nie role ikon.
+    expect(offenders(/size=\{1\d\}/)).toEqual([])
+  })
+
+  it('an icon set inline in a line of text uses ICON_SIZE.inline (.claude/rules/ui-icons.md), not the chip size', () => {
+    expect(offenders(/size=\{ICON_SIZE\.chip\}[^>]*className="[^"]*\binline align-/)).toEqual([])
   })
 
   it('mode colours on the map never reuse a status colour (#13: a bus must not read as „na czas”)', () => {

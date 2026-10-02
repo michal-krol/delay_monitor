@@ -6,7 +6,7 @@ import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { TransitDepartureList } from './TransitDepartureList'
 import { IconButton } from './IconButton'
-import { PIN_COLOR, StarIcon } from './icons'
+import { StarIcon, ICON_SIZE } from './icons'
 
 type Props = {
   city: string
@@ -43,7 +43,7 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onRemo
       <div className="flex items-center justify-between gap-2">
         <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">{name}</h2>
         <IconButton label={`Odepnij z Pulpitu: ${name}`} onClick={onRemove} className="z-10">
-          <StarIcon size={16} filled className={PIN_COLOR} />
+          <StarIcon size={ICON_SIZE.button} filled />
         </IconButton>
       </div>
 

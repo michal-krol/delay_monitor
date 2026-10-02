@@ -107,6 +107,9 @@ describe('MapLegend', () => {
     const arrows = [...container.querySelectorAll<HTMLElement>('span[style*="drop-shadow"]')]
     expect(arrows).toHaveLength(3) // autobus, tramwaj, pociąg
     expect(arrows[0].style.filter).toBe(outlineFilter(MODE_COLOR.bus))
+    // Ten sam glif co na mapie (Lucide navigation-2 z `VehicleHeadingIcon`), nie trójkąt z obramowań.
+    // eslint-disable-next-line testing-library/no-node-access -- jak wyżej
+    expect(arrows[0].querySelector('svg polygon')).toHaveAttribute('fill', 'currentColor')
   })
 
   it('explains bus colours by line kind with the Linie page labels and LINE_PALETTE swatches', () => {

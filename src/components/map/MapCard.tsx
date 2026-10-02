@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertBanner } from '../AlertBanner'
-import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, PIN_COLOR, StarIcon } from '../icons'
+import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { IconButton } from '../IconButton'
 import { DelayBadge } from '../DelayBadge'
 import { LineBadge } from '../LineBadge'
@@ -82,7 +82,7 @@ export function MapCard({
         pinned !== undefined &&
         onTogglePin !== undefined && (
           <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onTogglePin} pressed={pinned} size="lg">
-            <StarIcon size={16} filled={pinned} className={pinned ? PIN_COLOR : ''} />
+            <StarIcon size={ICON_SIZE.button} filled={pinned} />
           </IconButton>
         )
       }
@@ -126,7 +126,7 @@ function Subtitle({ selection, vehicle }: { selection: MapSelection; vehicle: Ci
             vehicle?.mode ?? 'bus',
             vehicle?.headsign !== null && vehicle?.headsign !== undefined ? (
               <span className="inline-flex items-center gap-1">
-                <ArrowRightIcon size={14} label="do" />
+                <ArrowRightIcon size={ICON_SIZE.inline} label="do" />
                 {vehicle.headsign}
               </span>
             ) : (
@@ -149,7 +149,7 @@ function Action({ href, children }: { href: string; children: ReactNode }) {
       style={{ background: 'var(--accent-gradient)' }}
     >
       {children}
-      <ChevronRightIcon size={14} />
+      <ChevronRightIcon size={ICON_SIZE.inline} />
     </Link>
   )
 }
@@ -269,7 +269,7 @@ function VehicleBody({
       )}
       {disrupted && (
         <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
-          <AlertCircleIcon size={16} />
+          <AlertCircleIcon size={ICON_SIZE.button} />
           Utrudnienia na tej linii — szczegóły w rozkładzie linii.
         </p>
       )}

@@ -4,6 +4,7 @@ import { lineKindFrom } from '@/lib/gtfs/schema'
 import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
 import { LINE_PALETTE, lineColor } from '../transitMode'
 import { stopDisplayName } from '../stopName'
+import { VEHICLE_HEADING_POLYGON } from '../icons'
 import type { MapRailStation } from '@/lib/weather/coordinates'
 
 /**
@@ -78,7 +79,7 @@ export function casingExpression(dark: boolean): unknown {
   return dark ? STROKE_DEFAULT : strokeExpression()
 }
 
-/** Obrys trójkąta z obramowań CSS (strzałki w DOM i w legendzie) — `drop-shadow` w 4 kierunkach w kolorze `strokeFor`. */
+/** Obrys strzałki kierunku pojazdu (`VehicleHeadingIcon` w markerze DOM i w legendzie) — `drop-shadow` w 4 kierunkach w kolorze `strokeFor`. */
 export function outlineFilter(color: string): string {
   const stroke = strokeFor(color)
   return ['1px 0', '-1px 0', '0 1px', '0 -1px'].map((offset) => `drop-shadow(${offset} 0 ${stroke})`).join(' ')
@@ -316,16 +317,29 @@ export function interpolatePoints(from: ReadonlyMap<string, [number, number]>, t
 }
 
 /**
- * Strzałka kierunku jazdy jako obraz SDF (kolor nadaje warstwa `icon-color`).
- * Piksele liczone wprost — bez canvasu, działa także w testach.
+ * Strzałka kierunku jazdy jako obraz SDF (kolor nadaje warstwa `icon-color`) — wielokąt Lucide
+ * `navigation-2`, ten sam glif co `VehicleHeadingIcon` i marker w `MapView`. Piksele liczone wprost
+ * (test parzysto-nieparzysty dla środka piksela) — bez canvasu, działa także w testach.
+ * Glif wypełnia wysokość obrazu (wyśrodkowany w poziomie), jak dawny trójkąt — pod niego
+ * dobrano `icon-size` i `icon-offset` warstwy `vehicles-arrows`.
  */
 export function arrowImage(size = 16): { width: number; height: number; data: Uint8Array } {
+  const xs = VEHICLE_HEADING_POLYGON.map(([x]) => x)
+  const ys = VEHICLE_HEADING_POLYGON.map(([, y]) => y)
+  const [minX, minY] = [Math.min(...xs), Math.min(...ys)]
+  const scale = size / (Math.max(...ys) - minY)
+  const offsetX = (size - (Math.max(...xs) - minX) * scale) / 2
+  const polygon = VEHICLE_HEADING_POLYGON.map(([x, y]) => [(x - minX) * scale + offsetX, (y - minY) * scale] as const)
   const data = new Uint8Array(size * size * 4)
   for (let y = 0; y < size; y += 1) {
-    // Trójkąt ostrzem do góry: szerokość rośnie liniowo od wierzchołka.
-    const half = ((y + 1) / size) * (size / 2)
     for (let x = 0; x < size; x += 1) {
-      if (Math.abs(x + 0.5 - size / 2) <= half) data[(y * size + x) * 4 + 3] = 255
+      const [px, py] = [x + 0.5, y + 0.5]
+      let inside = false
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+        const [[xi, yi], [xj, yj]] = [polygon[i], polygon[j]]
+        if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside
+      }
+      if (inside) data[(y * size + x) * 4 + 3] = 255
     }
   }
   return { width: size, height: size, data }

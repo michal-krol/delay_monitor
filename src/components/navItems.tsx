@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { HomeIcon, ListIcon, RouteIcon, MapIcon } from './icons'
+import { HomeIcon, DeparturesBoardIcon, RouteIcon, MapIcon } from './icons'
 
 export type ActiveItem = 'pulpit' | 'odjazdy' | 'linie' | 'mapa'
 
@@ -15,7 +15,7 @@ type NavItem = { key: ActiveItem; href: string; label: string; icon: typeof Home
  */
 export const NAV_ITEMS: NavItem[] = [
   { key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
-  { key: 'odjazdy', href: '/city', label: 'Odjazdy / Przyjazdy', icon: ListIcon },
+  { key: 'odjazdy', href: '/city', label: 'Odjazdy / Przyjazdy', icon: DeparturesBoardIcon },
   { key: 'linie', href: '/lines', label: 'Linie', icon: RouteIcon },
   { key: 'mapa', href: '/map', label: 'Mapa', icon: MapIcon },
 ]

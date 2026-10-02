@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowLeftIcon } from './icons'
+import { ArrowLeftIcon, ICON_SIZE } from './icons'
 import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
 import { ICON_BUTTON_CLASS, ICON_BUTTON_MD_SIZE, IconButton } from './IconButton'
 import { PageTitle } from './PageTitle'
@@ -56,11 +56,11 @@ export function TopBar(props: Props) {
         <div className="flex min-w-0 items-center gap-3">
           {back.backHref !== undefined ? (
             <Link href={back.backHref} aria-label={back.backLabel} className={`${ICON_BUTTON_CLASS} ${ICON_BUTTON_MD_SIZE}`}>
-              <ArrowLeftIcon size={16} />
+              <ArrowLeftIcon size={ICON_SIZE.button} />
             </Link>
           ) : (
             <IconButton label={back.backLabel} onClick={back.onBack}>
-              <ArrowLeftIcon size={16} />
+              <ArrowLeftIcon size={ICON_SIZE.button} />
             </IconButton>
           )}
           <Breadcrumb items={back.crumbs} />
@@ -72,7 +72,9 @@ export function TopBar(props: Props) {
         </div>
       )}
 
-      <div className={`flex shrink-0 items-center gap-2 ${back === null ? 'ml-auto' : ''}`}>
+      {/* Z tytułem grupa (Udostępnij + wybór miasta + motyw) może się zawinąć — na 375 px bywa szersza niż
+          wiersz i wystawała poza stronę (e2e headings.spec, WebKit na Linuksie). Z „wstecz” skraca się breadcrumb. */}
+      <div className={`flex items-center gap-2 ${back === null ? 'ml-auto min-w-0 flex-wrap justify-end' : 'shrink-0'}`}>
         {back === null ? props.actions : back.share === true && <ShareButton />}
         <ThemeToggle />
       </div>

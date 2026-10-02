@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { ArrowRightIcon, PIN_COLOR, StarIcon } from '../icons'
+import { ArrowRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { stopDisplayName } from '../stopName'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { type NearbyPoint, type VisibleItem } from './mapData'
@@ -49,7 +49,7 @@ export function NearbyPanel({
                     <span className="block truncate font-medium">{name}</span>
                     {departure !== undefined && (
                       <span className="block truncate text-xs text-text-muted">
-                        rozkład: {departure.line} <ArrowRightIcon size={12} label="do" className="inline align-[-2px]" /> {departure.headsign ?? '—'} o {departure.plannedAt.slice(11, 16)}
+                        rozkład: {departure.line} <ArrowRightIcon size={ICON_SIZE.inline} label="do" className="inline align-[-2px]" /> {departure.headsign ?? '—'} o {departure.plannedAt.slice(11, 16)}
                       </span>
                     )}
                   </span>
@@ -147,9 +147,9 @@ export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]
         aria-controls={panelId}
         aria-label="Przypięte"
         onClick={() => setOpen((o) => !o)}
-        className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl ${PIN_COLOR} transition hover:bg-black/5 dark:hover:bg-white/10`}
+        className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10`}
       >
-        <StarIcon size={16} />
+        <StarIcon size={ICON_SIZE.button} filled />
       </button>
       {open && (
         <ul id={panelId} aria-label="Przypięte" className="glass-strong absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">

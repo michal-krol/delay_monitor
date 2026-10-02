@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { trapTab } from '@/lib/focusTrap'
-import { AppLogo, CloseIcon, MenuIcon } from './icons'
+import { AppLogo, CloseIcon, MenuIcon, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { activeItemFromPath, NavList } from './navItems'
 
@@ -101,7 +101,7 @@ export function MobileNav() {
             <div className="flex items-center justify-between gap-2 px-1">
               <span className="font-heading text-[15px] font-bold">Monitor opóźnień</span>
               <IconButton ref={closeRef} label="Zamknij menu" onClick={close}>
-                <CloseIcon size={16} />
+                <CloseIcon size={ICON_SIZE.button} />
               </IconButton>
             </div>
             <NavList activeItem={activeItemFromPath(pathname)} onNavigate={close} />

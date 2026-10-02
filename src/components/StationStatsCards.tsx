@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { StationStats } from '@/lib/board/stationStats'
-import { ArrivalIcon, DepartureIcon, HourglassIcon, TargetIcon } from './icons'
+import { ArrivalIcon, DepartureIcon, HourglassIcon, TargetIcon, ICON_SIZE } from './icons'
 import { pluralPl } from '@/lib/plural'
 
 /**
@@ -97,19 +97,19 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
     <div className="@container">
       <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @5xl:grid-cols-4">
         <StatCard
-          icon={<DepartureIcon size={18} />}
+          icon={<DepartureIcon size={ICON_SIZE.tile} />}
           accent="var(--status-notStarted-bg)"
           label="Odjazdy dzisiaj"
           {...departures}
         />
         <StatCard
-          icon={<ArrivalIcon size={18} />}
+          icon={<ArrivalIcon size={ICON_SIZE.tile} />}
           accent="var(--status-onTime-bg)"
           label="Przyjazdy dzisiaj"
           {...arrivals}
         />
         <StatCard
-          icon={<HourglassIcon size={18} />}
+          icon={<HourglassIcon size={ICON_SIZE.tile} />}
           accent="var(--status-delayed-bg)"
           label="Średnie opóźnienie"
           value={loading ? LOADING : safe.averageDelayMinutes === null ? NO_DATA : `+${safe.averageDelayMinutes}`}
@@ -117,7 +117,7 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
           hint={realizationHint(loading, safe.averageDelaySample, `z ${safe.averageDelaySample} potwierdzonych dziś przejazdów`)}
         />
         <StatCard
-          icon={<TargetIcon size={18} />}
+          icon={<TargetIcon size={ICON_SIZE.tile} />}
           accent="var(--status-enRoute-bg)"
           label="Punktualność"
           value={loading ? LOADING : safe.punctualityPct === null ? NO_DATA : `${safe.punctualityPct}%`}

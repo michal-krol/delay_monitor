@@ -5,6 +5,7 @@ import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
 import { LineBadge } from './LineBadge'
 import { MODE_ICON } from './transitMode'
+import { ICON_SIZE } from './icons'
 
 export type StationOption = {
   id: string
@@ -222,7 +223,7 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
                   selectOption(option)
                 }}
               >
-                {Icon !== null && <Icon size={15} className="shrink-0 opacity-70" />}
+                {Icon !== null && <Icon size={ICON_SIZE.button} className="shrink-0 opacity-70" />}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{option.name}</span>
                   {option.kind === 'transit' && lines.length > 0 && (

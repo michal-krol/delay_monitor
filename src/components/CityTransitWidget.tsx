@@ -8,6 +8,7 @@ import { zonedHour } from '@/lib/pkp/time'
 import { pluralPl } from '@/lib/plural'
 import { AsideCard, HourlyTraffic } from './aside'
 import { MODE_ICON, MODE_LABEL, MODE_ORDER } from './transitMode'
+import { ICON_SIZE } from './icons'
 
 const MODE_ROWS = MODE_ORDER.filter((mode): mode is Exclude<GtfsMode, 'other'> => mode !== 'other').map((mode) => ({
   mode,
@@ -70,7 +71,7 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
               return (
                 <div key={row.mode} className="flex items-baseline justify-between gap-2 text-xs">
                   <span className="flex items-center gap-1.5 text-text-secondary">
-                    <Icon size={13} className="text-text-muted" />
+                    <Icon size={ICON_SIZE.chip} className="text-text-muted" />
                     {row.label}
                   </span>
                   <span className="text-right font-medium tabular-nums text-foreground">

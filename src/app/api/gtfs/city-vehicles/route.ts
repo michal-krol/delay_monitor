@@ -31,8 +31,9 @@ export async function GET(request: Request) {
   const vehicles =
     schedule !== null && vehiclePoller !== null ? mapCityVehicles(schedule, vehiclePoller.getPositions(), Date.now()) : []
 
-  // Numery linii z aktywnym alertem — znaczek ⚠ i filtr na mapie. Pole pomocnicze:
-  // `[]` także zanim AlertPoller jest gotowy (brak znaczka, nie „zero utrudnień", #13).
+  // Numery linii z aktywnym alertem — filtr „Tylko linie z utrudnieniami" i znacznik utrudnienia
+  // w karcie pojazdu (`MapCard`); kropka pojazdu na mapie nie ma znaczka. Pole pomocnicze:
+  // `[]` także zanim AlertPoller jest gotowy (brak znacznika, nie „zero utrudnień", #13).
   const alertLines = [...new Set((peekAlertPoller(city)?.getAlerts() ?? []).flatMap((alert) => alert.routes))].sort()
 
   return NextResponse.json({

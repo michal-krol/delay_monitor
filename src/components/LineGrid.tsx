@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { pluralPl } from '@/lib/plural'
-import { ChevronRightIcon } from './icons'
+import { ArrowRightIcon, DisclosureIcon, ICON_SIZE } from './icons'
 import { LineBadge } from './LineBadge'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, LINE_KIND_LABEL, MODE_ICON, MODE_ORDER, darkRingClass, lineColor } from './transitMode'
 
@@ -31,9 +31,18 @@ const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-indigo-
 const HOVER = 'hover:bg-black/5 dark:hover:bg-white/5'
 const SUMMARY_RESET = 'list-none [&::-webkit-details-marker]:hidden'
 
-function LineTile({ entry, city }: { entry: LineListEntry; city: string }) {
+/** „A → B” ze strzałką kierunku z `icons.tsx` (dekoracyjna — nazwa linku niesie pełny kierunek); bez separatora cała nazwa. */
+function Direction({ entry }: { entry: LineListEntry }) {
   const ends = splitEndStops(entry.longName)
-  const direction = ends === null ? entry.longName : `${ends[0]} → ${ends[1]}`
+  if (ends === null) return entry.longName
+  return (
+    <>
+      {ends[0]} <ArrowRightIcon size={ICON_SIZE.inline} className="inline align-[-2px]" /> {ends[1]}
+    </>
+  )
+}
+
+function LineTile({ entry, city }: { entry: LineListEntry; city: string }) {
   return (
     <Link
       href={lineHref(city, entry.routeId)}
@@ -43,7 +52,11 @@ function LineTile({ entry, city }: { entry: LineListEntry; city: string }) {
       <span className="flex">
         <LineBadge line={entry.line} mode={entry.mode} kind={entry.kind} />
       </span>
-      {direction !== '' && <span className="truncate text-xs text-text-secondary">{direction}</span>}
+      {entry.longName !== '' && (
+        <span className="truncate text-xs text-text-secondary">
+          <Direction entry={entry} />
+        </span>
+      )}
     </Link>
   )
 }
@@ -65,7 +78,7 @@ function Pictogram({ mode }: { mode: GtfsMode }) {
   const { bg, fg } = lineColor(mode, 'regular')
   return (
     <span className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-lg" style={{ background: bg, color: fg }}>
-      <Icon size={18} />
+      <Icon size={ICON_SIZE.tile} />
     </span>
   )
 }
@@ -98,13 +111,13 @@ export function LineGrid({ linesByMode, city, isOpen, onToggle }: Props) {
             data-testid="line-section"
             open={isOpen(mode, defaultCount)}
             onToggle={(event) => onToggle(mode, event.currentTarget.open, defaultCount)}
-            className="group/sec glass rounded-2xl"
+            className="glass rounded-2xl"
           >
             <summary className={`${SUMMARY_RESET} flex min-h-14 cursor-pointer items-center gap-2.5 rounded-2xl px-3.5 py-2.5 ${HOVER} ${FOCUS_RING}`}>
               <Pictogram mode={mode} />
               <span className="text-[15px] font-semibold text-foreground">{SECTION_LABEL[mode]}</span>
               <span className="text-xs text-text-muted">{linesCount(lines.length)}</span>
-              <ChevronRightIcon size={16} className="ml-auto text-text-muted transition-transform group-open/sec:rotate-90 motion-reduce:transition-none" />
+              <DisclosureIcon size={ICON_SIZE.button} className="ml-auto text-text-muted" />
             </summary>
             <div className="px-3.5 pb-3.5 pt-0.5">
               {mode === 'bus' ? <BusSubsections lines={lines} city={city} isOpen={isOpen} onToggle={onToggle} /> : <TileGrid lines={lines} city={city} />}
@@ -129,14 +142,14 @@ function BusSubsections({ lines, city, isOpen, onToggle }: { lines: LineListEntr
             data-testid="line-subsection"
             open={isOpen(key, ofKind.length)}
             onToggle={(event) => onToggle(key, event.currentTarget.open, ofKind.length)}
-            className="group/sub border-t border-surface-border first:border-t-0"
+            className="border-t border-surface-border first:border-t-0"
           >
             <summary className={`${SUMMARY_RESET} flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-0.5 py-1.5 text-[13px] text-text-secondary ${HOVER} ${FOCUS_RING}`}>
               <span className={`h-3 w-3 flex-none rounded-[3px] ${darkRingClass(kind)}`} style={{ background: lineColor('bus', kind).bg }} aria-hidden="true" />
               <span>
                 {BUS_KIND_LABEL[kind]} · {ofKind.length}
               </span>
-              <ChevronRightIcon size={16} className="ml-auto text-text-muted transition-transform group-open/sub:rotate-90 motion-reduce:transition-none" />
+              <DisclosureIcon size={ICON_SIZE.button} className="ml-auto text-text-muted" />
             </summary>
             <TileGrid lines={ofKind} city={city} />
           </details>
@@ -156,7 +169,6 @@ export function LineResults({ lines, city }: { lines: LineListEntry[]; city: str
       ) : (
         <ul>
           {lines.map((entry) => {
-            const ends = splitEndStops(entry.longName)
             const chip = LINE_KIND_LABEL[entry.kind]
             return (
               <li key={entry.routeId} className="border-t border-surface-border first:border-t-0">
@@ -166,7 +178,9 @@ export function LineResults({ lines, city }: { lines: LineListEntry[]; city: str
                   className={`flex min-h-12 items-center gap-2.5 rounded-lg px-1 py-1.5 ${HOVER} ${FOCUS_RING}`}
                 >
                   <LineBadge line={entry.line} mode={entry.mode} kind={entry.kind} />
-                  <span className="min-w-0 truncate text-sm text-foreground">{ends === null ? entry.longName : `${ends[0]} → ${ends[1]}`}</span>
+                  <span className="min-w-0 truncate text-sm text-foreground">
+                    <Direction entry={entry} />
+                  </span>
                   {chip !== '' && (
                     <span className="ml-auto whitespace-nowrap rounded-full bg-black/5 px-2 py-0.5 text-[11px] text-text-secondary dark:bg-white/10">{chip}</span>
                   )}

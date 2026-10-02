@@ -86,6 +86,9 @@ describe('PinnedMenu', () => {
     const fav = { key: 'pkp:33605', name: 'Warszawa Centralna', lat: 52.23, lon: 21.0 }
     rerender(<PinnedMenu pinnedItems={[fav]} onOpen={onOpen} />)
     const button = screen.getByRole('button', { name: 'Przypięte' })
+    // Przypięte = zawsze wypełniona gwiazdka (słownik ikon), także na przycisku menu.
+    // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona (aria-hidden)
+    expect(button.querySelector('svg path')).toHaveAttribute('fill', 'currentColor')
     fireEvent.click(button)
     expect(button).toHaveAttribute('aria-expanded', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Warszawa Centralna' }))

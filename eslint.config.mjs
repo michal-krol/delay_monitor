@@ -3,6 +3,12 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import testingLibrary from "eslint-plugin-testing-library";
 
+const FONT_RULE = { name: "next/font/google", message: "Use next/font/local with a file in src/app/fonts/ (the build must not need the network)." };
+const ICON_MESSAGE = "Import icons from @/components/icons — the single icon source (.claude/rules/ui-icons.md).";
+const ICON_RULES = ["lucide", "lucide-react"].map((name) => ({ name, message: ICON_MESSAGE }));
+// Głębokie ścieżki (`lucide/dist/esm/icons/star.mjs`) — `paths` porównuje cały specyfikator.
+const ICON_PATTERNS = [{ group: ["lucide/*", "lucide-react/*"], message: ICON_MESSAGE }];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -16,11 +22,19 @@ const eslintConfig = defineConfig([
   },
   // next/font/google pobiera czcionke z sieci przy buildzie — build ma byc
   // odtwarzalny bez sieci (AGENTS.md #16). Fonty leza w src/app/fonts/.
+  // Ikony mają jedno źródło: `src/components/icons.tsx` (.claude/rules/ui-icons.md).
   {
     rules: {
       "no-restricted-imports": ["error", {
-        paths: [{ name: "next/font/google", message: "Use next/font/local with a file in src/app/fonts/ (the build must not need the network)." }],
+        paths: [FONT_RULE, ...ICON_RULES],
+        patterns: ICON_PATTERNS,
       }],
+    },
+  },
+  {
+    files: ["src/components/icons.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [FONT_RULE] }],
     },
   },
   {

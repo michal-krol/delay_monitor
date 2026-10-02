@@ -1,6 +1,6 @@
 import { DelayBadge } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
-import { ArrowRightIcon } from './icons'
+import { AlertCircleIcon, ArrowRightIcon, ICON_SIZE } from './icons'
 import { formatClockTime } from '@/lib/format'
 import type { BoardApiRow } from '@/hooks/useBoard'
 
@@ -22,7 +22,7 @@ export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) 
         <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">
           <div className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1.5 font-medium text-text-secondary">
-              <CarrierLogo carrierCode={row.carrier} size={16} />
+              <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.button} />
               {/* Kafelek jest ciasny nawet na desktopie (siatka do 3 kolumn) — pełna
                   nazwa prawna przewoźnika ("«PKP Intercity» Spółka Akcyjna") jest tu
                   zawsze za długa i nieczytelna. Sam skrót, bez przełączania breakpointem. */}
@@ -32,7 +32,13 @@ export function BoardRowList({ rows, loading, showEmpty, emptyMessage }: Props) 
           </div>
           <div className="mt-0.5 text-text-muted">
             <span className="tabular-nums">{formatClockTime(row.plannedAt)}</span>{' '}
-            · {row.trainLabel} <ArrowRightIcon size={12} label="do" className="inline align-[-2px]" /> {row.headsign ?? '—'} ·{' '}
+            · {row.trainLabel}{' '}
+            {row.hasDisruption === true && (
+              <span className="text-warning-text">
+                <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" className="inline align-[-2px]" />
+              </span>
+            )}{' '}
+            <ArrowRightIcon size={ICON_SIZE.inline} label="do" className="inline align-[-2px]" /> {row.headsign ?? '—'} ·{' '}
             <span>Peron/Tor: {row.platform ?? '—'}</span>
           </div>
         </li>

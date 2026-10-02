@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
-import { SunIcon, MoonIcon } from './icons'
+import { SunIcon, MoonIcon, ICON_SIZE } from './icons'
 
 /**
  * Przełącznik jasny/ciemny jako ikona bez podpisu — przeniesiony z dolnej
@@ -35,7 +35,7 @@ export function ThemeToggle() {
       aria-label={isDark ? 'Przełącz na tryb jasny' : 'Przełącz na tryb ciemny'}
       className="touch-44 relative grid h-9 w-9 shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
     >
-      {isDark ? <SunIcon size={15} /> : <MoonIcon size={15} />}
+      {isDark ? <SunIcon size={ICON_SIZE.button} /> : <MoonIcon size={ICON_SIZE.button} />}
     </button>
   )
 }

@@ -1,3 +1,75 @@
+/**
+ * Jedyne źródło ikon w aplikacji (AGENTS.md, `.claude/rules/ui-icons.md`): węzły Lucide
+ * (`lucide`, ISC) rysowane przez `base()`. Tylko ten plik importuje `lucide` — pilnuje tego
+ * reguła ESLint `no-restricted-imports` i `designTokens.test.ts`. Mapa (DOM poza Reactem,
+ * raster SDF) bierze kształty stąd: `iconElement()`, `VEHICLE_HEADING_POLYGON`.
+ * Własne rysunki zostają tylko trzy: `MetroIcon` („M” w kole), `AppLogo`, logotypy przewoźników.
+ *
+ * Słownik — jedno pojęcie = jedna ikona:
+ * - Pulpit `HomeIcon` · Odjazdy/Przyjazdy (nawigacja) `DeparturesBoardIcon` · Linie `RouteIcon` · Mapa `MapIcon`
+ * - widok listy (np. „Lista” na mapie, liczba połączeń) `ListIcon`
+ * - odjazd `DepartureIcon` · przyjazd `ArrivalIcon` · data `CalendarIcon`
+ * - kierunek jazdy („skąd → dokąd”) `ArrowRightIcon` · otwórz/dalej `ChevronRightIcon` · wstecz `ArrowLeftIcon`
+ * - rozwiń/zwiń `DisclosureIcon` (otwarte = obrót 180°, klasa `disclosure-chevron`)
+ * - kolej (tryb, stacja) `TrainIcon` · pozycja pojazdu `VehiclePositionIcon` · kierunek jazdy pojazdu `VehicleHeadingIcon`
+ * - utrudnienie `AlertCircleIcon` · objaśnienie „?” `HelpCircleIcon` · informacja `InfoIcon`
+ * - przypięte `StarIcon filled` (sama nosi `PIN_COLOR`) · szukaj `SearchIcon` · filtry `FilterIcon`
+ * - motyw jasny i pogoda „słonecznie” dzielą `SunIcon` (różne ekrany, świadomie)
+ */
+import { createElement as createReactElement } from 'react'
+import {
+  Accessibility,
+  ArrowLeft,
+  ArrowRight,
+  ArrowRightFromLine,
+  ArrowRightLeft,
+  ArrowRightToLine,
+  Building,
+  BusFront,
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CircleAlert,
+  CircleDot,
+  CircleEllipsis,
+  CircleQuestionMark,
+  Cloud,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  CloudSnow,
+  createElement as createLucideElement,
+  Droplet,
+  Gauge,
+  Hourglass,
+  House,
+  Info,
+  Layers,
+  List,
+  ListClock,
+  ListFilter,
+  Map as MapGlyph,
+  Maximize,
+  Menu,
+  Moon,
+  Navigation2,
+  Pause,
+  Route,
+  Search,
+  Share,
+  Signpost,
+  Star,
+  Sun,
+  Target,
+  Timer,
+  TrainFront,
+  TramFront,
+  Wind,
+  X,
+  type IconNode,
+} from 'lucide'
+
 export type IconProps = {
   size?: number
   className?: string
@@ -5,16 +77,19 @@ export type IconProps = {
   label?: string
 }
 
-/** Jeden styl dla wszystkich ikon: viewBox 20×20, obrys 1.7, zaokrąglone końce. */
-function base(children: React.ReactNode, { size = 18, className, label }: IconProps) {
+/** Rozmiar według roli, nie „na oko”: w czipie 13, w linii tekstu 14, w przycisku 16, w kafelku/KPI 18. */
+export const ICON_SIZE = { chip: 13, inline: 14, button: 16, tile: 18 } as const
+
+/** Jeden styl dla wszystkich ikon: siatka Lucide 24×24, obrys 2, zaokrąglone końce. */
+function base(children: React.ReactNode, { size = ICON_SIZE.tile, className, label }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 20 20"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.7}
+      strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
@@ -26,308 +101,141 @@ function base(children: React.ReactNode, { size = 18, className, label }: IconPr
   )
 }
 
-export function HomeIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M3 10.5 10 4l7 6.5" />
-      <path d="M5.5 9v6.5a1 1 0 0 0 1 1H8.5v-5h3v5H13.5a1 1 0 0 0 1-1V9" />
-    </>,
-    props
+/** Węzły Lucide → elementy Reacta (`filled` = kształt wypełniony kolorem tekstu). */
+function shapes(node: IconNode, filled = false) {
+  return node.map(([tag, attrs], index) =>
+    createReactElement(tag, { key: index, ...attrs, ...(filled ? { fill: 'currentColor' } : {}) })
   )
 }
 
-export function ListIcon(props: IconProps) {
-  return base(<path d="M3 6h14M3 10h14M3 14h9" />, props)
+function lucideIcon(node: IconNode, filled = false) {
+  // Elementy Reacta są niezmienne — budujemy je raz na ikonę, nie przy każdym renderze.
+  const children = shapes(node, filled)
+  return function Icon(props: IconProps) {
+    return base(children, props)
+  }
 }
 
-/** Przypięcie: kontur = nieprzypięte, `filled` = przypięte. Kolor zawsze `PIN_COLOR`. */
-export function StarIcon({ filled = false, ...props }: IconProps & { filled?: boolean }) {
-  return base(
-    <path d="m10 3 2.2 4.5 4.9.7-3.6 3.5.9 4.9L10 14.2l-4.4 2.4.9-4.9L2.9 8.2l4.9-.7z" fill={filled ? 'currentColor' : 'none'} />,
-    props
-  )
-}
+export const HomeIcon = /* @__PURE__ */ lucideIcon(House)
+/** Widok listy — nie nawigacja „Odjazdy” (to `DeparturesBoardIcon`). */
+export const ListIcon = /* @__PURE__ */ lucideIcon(List)
+/** Nawigacja „Odjazdy / Przyjazdy” — tablica z godzinami. */
+export const DeparturesBoardIcon = /* @__PURE__ */ lucideIcon(ListClock)
 
 /** Jeden odcień przypięcia (gwiazdka; złota obwódka na mapie to ten sam #f59e0b) — amber-500. */
 export const PIN_COLOR = 'text-amber-500'
 
-export function RouteIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="5" cy="6" r="2" />
-      <circle cx="15" cy="6" r="2" />
-      <circle cx="10" cy="15" r="2" />
-      <path d="M6.6 7.2 8.6 13.2M13.4 7.2 11.4 13.2M7 6h6" />
-    </>,
-    props
-  )
+const STAR = { outline: shapes(Star), filled: shapes(Star, true) }
+
+/** Przypięcie: kontur = nieprzypięte, `filled` = przypięte — wtedy ikona sama nosi `PIN_COLOR`. */
+export function StarIcon({ filled = false, className, ...props }: IconProps & { filled?: boolean }) {
+  if (!filled) return base(STAR.outline, { ...props, className })
+  return base(STAR.filled, { ...props, className: className === undefined ? PIN_COLOR : `${PIN_COLOR} ${className}` })
 }
 
-export function MapIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M10 17s6-5.1 6-9.5A6 6 0 0 0 4 7.5C4 11.9 10 17 10 17Z" />
-      <circle cx="10" cy="7.5" r="2" />
-    </>,
-    props
-  )
-}
+export const RouteIcon = /* @__PURE__ */ lucideIcon(Route)
+export const MapIcon = /* @__PURE__ */ lucideIcon(MapGlyph)
+/** „Otwórz / dalej”. Nie kierunek jazdy (to `ArrowRightIcon`), nie rozwiń/zwiń (to `DisclosureIcon`). */
+export const ChevronRightIcon = /* @__PURE__ */ lucideIcon(ChevronRight)
+const ChevronDownIcon = /* @__PURE__ */ lucideIcon(ChevronDown)
 
-/** „Otwórz / dalej” oraz — obracany — rozwiń/zwiń. Nie kierunek jazdy (to `ArrowRightIcon`). */
-export function ChevronRightIcon(props: IconProps) {
-  return base(<path d="m8 5 5 5-5 5" />, props)
+/**
+ * Rozwiń/zwiń: chevron w dół, obrócony o 180°, gdy rodzic `<details>` jest otwarty albo przycisk
+ * ma `aria-expanded="true"` — klasa `disclosure-chevron` w `globals.css`, bez obrotu per miejsce.
+ */
+export function DisclosureIcon({ className, ...props }: IconProps) {
+  return <ChevronDownIcon {...props} className={className === undefined ? 'disclosure-chevron' : `disclosure-chevron ${className}`} />
 }
-
 /** Wybrane / skopiowane. */
-export function CheckIcon(props: IconProps) {
-  return base(<path d="m4.5 10.5 3.5 3.5 7.5-8" />, props)
-}
-
-export function SunIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="10" r="3.2" />
-      <path d="M10 2.5v1.8M10 15.7v1.8M17.5 10h-1.8M4.3 10H2.5M15.3 4.7 14 6M6 14l-1.3 1.3M15.3 15.3 14 14M6 6 4.7 4.7" />
-    </>,
-    props
-  )
-}
-
-export function MoonIcon(props: IconProps) {
-  return base(<path d="M16 12.2A6.5 6.5 0 1 1 7.8 4a5.2 5.2 0 0 0 8.2 8.2Z" />, props)
-}
-
-export function CloseIcon(props: IconProps) {
-  return base(<path d="M5 5l10 10M15 5 5 15" />, props)
-}
-
-export function ExpandIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M7 3H3v4M13 3h4v4M17 13v4h-4M3 13v4h4" />
-    </>,
-    props
-  )
-}
-
-export function MenuIcon(props: IconProps) {
-  return base(<path d="M3 5h14M3 10h14M3 15h14" />, props)
-}
-
+export const CheckIcon = /* @__PURE__ */ lucideIcon(Check)
+export const SunIcon = /* @__PURE__ */ lucideIcon(Sun)
+export const MoonIcon = /* @__PURE__ */ lucideIcon(Moon)
+export const CloseIcon = /* @__PURE__ */ lucideIcon(X)
+export const ExpandIcon = /* @__PURE__ */ lucideIcon(Maximize)
+export const MenuIcon = /* @__PURE__ */ lucideIcon(Menu)
 /** Wstecz. */
-export function ArrowLeftIcon(props: IconProps) {
-  return base(<path d="M16 10H4m0 0 5-5m-5 5 5 5" />, props)
-}
-
-export function CalendarIcon(props: IconProps) {
-  return base(
-    <>
-      <rect x="3" y="4.5" width="14" height="12" rx="2" />
-      <path d="M3 8.5h14M7 3v3M13 3v3" />
-    </>,
-    props
-  )
-}
-
-export function ClockIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="10" r="7.2" />
-      <path d="M10 6v4l3 2" />
-    </>,
-    props
-  )
-}
-
-export function TrainIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M5 12.5V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6.5" />
-      <rect x="4.3" y="12.5" width="11.4" height="2.4" rx="1.2" />
-      <circle cx="7.3" cy="9" r="1" fill="currentColor" stroke="none" />
-      <circle cx="12.7" cy="9" r="1" fill="currentColor" stroke="none" />
-      <path d="M6.3 15.8 4.6 18M13.7 15.8l1.7 2.2" />
-    </>,
-    props
-  )
-}
-
-export function BusIcon(props: IconProps) {
-  return base(
-    <>
-      <rect x="4.3" y="3.5" width="11.4" height="11" rx="2" />
-      <path d="M4.3 8.5h11.4" />
-      <circle cx="7.3" cy="11.4" r="1" fill="currentColor" stroke="none" />
-      <circle cx="12.7" cy="11.4" r="1" fill="currentColor" stroke="none" />
-      <path d="M6.3 14.5 5 16.5M13.7 14.5l1.3 2" />
-    </>,
-    props
-  )
-}
-
-export function TramIcon(props: IconProps) {
-  return base(
-    <>
-      <rect x="5" y="4" width="10" height="11" rx="2.4" />
-      <path d="M5 9h10" />
-      <path d="M10 4V2M7.5 2.6 10 4l2.5-1.4" />
-      <path d="M7 15l-1.6 2.4M13 15l1.6 2.4" />
-    </>,
-    props
-  )
-}
+export const ArrowLeftIcon = /* @__PURE__ */ lucideIcon(ArrowLeft)
+export const CalendarIcon = /* @__PURE__ */ lucideIcon(Calendar)
+/** Kolej jako tryb lub stacja — nie pozycja pociągu (to `VehiclePositionIcon`). */
+export const TrainIcon = /* @__PURE__ */ lucideIcon(TrainFront)
+export const BusIcon = /* @__PURE__ */ lucideIcon(BusFront)
+export const TramIcon = /* @__PURE__ */ lucideIcon(TramFront)
 
 export function MetroIcon(props: IconProps) {
   return base(
     <>
       {/* Własny piktogram (koło + „M”), nie oficjalne logo Metra Warszawskiego. */}
-      <circle cx="10" cy="10" r="7.6" />
-      <path d="M6.4 13.4V6.8l3.6 4.4 3.6-4.4v6.6" />
+      <circle cx="12" cy="12" r="9.1" />
+      <path d="M7.7 16.1V8.2l4.3 5.3 4.3-5.3v7.9" />
     </>,
     props
   )
 }
 
-export function AccessibleIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="3.6" r="1.5" fill="currentColor" stroke="none" />
-      <path d="M10 6v4.5h3.5M10 8.2h-3" />
-      <path d="M10 10.5c0 3.6-2.6 5.5-4.5 5.5S2 14 3.2 11.3" />
-      <path d="M10 10.5l2 5.5" />
-    </>,
-    props
-  )
-}
-
-export function AlertCircleIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="M10 9v4.5M10 6.8v.1" strokeWidth={2} />
-    </>,
-    props
-  )
-}
-
-/** "?" w kółku -- świadomie inny glif niż `AlertCircleIcon` (zarezerwowany dla wskaźnika utrudnienia), żeby dwa różne znaczenia nie dzieliły jednej ikony na tym samym ekranie. */
-export function HelpCircleIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="M7.8 8.2a2.2 2.2 0 1 1 3.6 1.7c-.7.6-1.2 1-1.2 1.9" />
-      <path d="M10 14.2v.1" strokeWidth={2} />
-    </>,
-    props
-  )
-}
-
+export const AccessibleIcon = /* @__PURE__ */ lucideIcon(Accessibility)
+/** Utrudnienie — zarezerwowane dla tego jednego znaczenia. */
+export const AlertCircleIcon = /* @__PURE__ */ lucideIcon(CircleAlert)
+/** "?" w kółku -- świadomie inny glif niż `AlertCircleIcon` (wskaźnik utrudnienia), żeby dwa różne znaczenia nie dzieliły jednej ikony. */
+export const HelpCircleIcon = /* @__PURE__ */ lucideIcon(CircleQuestionMark)
 /** Kierunek jazdy („skąd → dokąd”). „Otwórz / dalej” to `ChevronRightIcon`. */
-export function ArrowRightIcon(props: IconProps) {
-  return base(<path d="M4 10h12m0 0-5-5m5 5-5 5" />, props)
-}
-
+export const ArrowRightIcon = /* @__PURE__ */ lucideIcon(ArrowRight)
 /** Odjazdy (strzałka wychodzi od kreski peronu). */
-export function DepartureIcon(props: IconProps) {
-  return base(<path d="M4 4v12M8 10h9m0 0-3.5-3.5M17 10l-3.5 3.5" />, props)
-}
-
+export const DepartureIcon = /* @__PURE__ */ lucideIcon(ArrowRightFromLine)
 /** Przyjazdy (strzałka dochodzi do kreski peronu). */
-export function ArrivalIcon(props: IconProps) {
-  return base(<path d="M16 4v12M3 10h9m0 0L8.5 6.5M12 10l-3.5 3.5" />, props)
-}
-
+export const ArrivalIcon = /* @__PURE__ */ lucideIcon(ArrowRightToLine)
 /** Tryb „inne” — neutralny, żeby nieznany środek nie udawał autobusu. */
-export function OtherModeIcon(props: IconProps) {
-  return base(
-    <>
-      <rect x="3.5" y="3.5" width="13" height="13" rx="3" />
-      <circle cx="6.8" cy="10" r="1" fill="currentColor" stroke="none" />
-      <circle cx="10" cy="10" r="1" fill="currentColor" stroke="none" />
-      <circle cx="13.2" cy="10" r="1" fill="currentColor" stroke="none" />
-    </>,
-    props
-  )
-}
-
-/** Przystanek (znak z tablicą) — liczba przystanków, nie tryb. */
-export function StopIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M6 2.5v15M4 17.5h4" />
-      <rect x="6" y="3" width="9" height="6" rx="1.2" />
-    </>,
-    props
-  )
-}
-
+export const OtherModeIcon = /* @__PURE__ */ lucideIcon(CircleEllipsis)
+/** Przystanek — liczba przystanków, nie tryb. */
+export const StopIcon = /* @__PURE__ */ lucideIcon(Signpost)
 /** Środki transportu (warstwy) — liczba rodzajów w mieście. */
-export function LayersIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M10 3 3 6.8l7 3.8 7-3.8Z" />
-      <path d="m3 10.3 7 3.8 7-3.8M3 13.6l7 3.8 7-3.8" />
-    </>,
-    props
-  )
-}
-
+export const LayersIcon = /* @__PURE__ */ lucideIcon(Layers)
 /** „Pokaż całe miasto” — kadr na całe miasto, nie nawigacja „Mapa”. */
-export function CityIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M2.5 17h15M4.5 17V8.5H9M9 17V3.5h6.5V17" />
-      <path d="M11.5 6.5h2M11.5 9.5h2M11.5 12.5h2M6.5 11.5h.01M6.5 14h.01" />
-    </>,
-    props
-  )
-}
-
-/** Średnie opóźnienie (klepsydra) — godzina to `ClockIcon`. */
-export function HourglassIcon(props: IconProps) {
-  return base(
-    <path d="M5.5 3h9M5.5 17h9M7 3v1.8c0 2 3 3.2 3 5.2s-3 3.2-3 5.2V17M13 3v1.8c0 2-3 3.2-3 5.2s3 3.2 3 5.2V17" />,
-    props
-  )
-}
-
+export const CityIcon = /* @__PURE__ */ lucideIcon(Building)
+/** Średnie opóźnienie (klepsydra). */
+export const HourglassIcon = /* @__PURE__ */ lucideIcon(Hourglass)
 /** Punktualność (tarcza) — „wybrane” to `CheckIcon`. */
-export function TargetIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="10" r="7" />
-      <circle cx="10" cy="10" r="3.8" />
-      <circle cx="10" cy="10" r="1" fill="currentColor" stroke="none" />
-    </>,
-    props
-  )
-}
-
+export const TargetIcon = /* @__PURE__ */ lucideIcon(Target)
 /** Czas podróży (stoper) — trasa to `RouteIcon`. */
-export function TimerIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="11" r="6" />
-      <path d="M10 11V8M8.3 2.5h3.4M15 5.5l1.2-1.2" />
-    </>,
-    props
-  )
-}
-
+export const TimerIcon = /* @__PURE__ */ lucideIcon(Timer)
 /** Filtry warstw mapy. */
-export function FilterIcon(props: IconProps) {
-  return base(<path d="M3 5h14M6 10h8M9 15h2" />, props)
-}
+export const FilterIcon = /* @__PURE__ */ lucideIcon(ListFilter)
+export const SearchIcon = /* @__PURE__ */ lucideIcon(Search)
+/** Pozycja pojazdu (np. „Pociąg jest tutaj”) — ta sama kropka co pojazd na mapie. */
+export const VehiclePositionIcon = /* @__PURE__ */ lucideIcon(CircleDot)
+/** Kierunek jazdy pojazdu (strzałka przy kropce) — wypełniona, w kolorze rodzaju. */
+export const VehicleHeadingIcon = /* @__PURE__ */ lucideIcon(Navigation2, true)
+
+/** Gradient akcentu wprost — lustro `--accent-gradient` z `globals.css` dla tras ikon (`app/icon.tsx`), gdzie nie ma CSS. */
+export const ACCENT_GRADIENT = 'linear-gradient(135deg, #38bdf8, #6366f1)'
 
 /**
- * Logo aplikacji — ten sam rysunek co `app/icon.svg` (czoło pociągu z dwiema szybami),
- * biały na gradiencie akcentu. `TrainIcon` zostaje wyłącznie dla kolei.
+ * Logo aplikacji (czoło pociągu z dwiema szybami), biały na gradiencie akcentu. To samo źródło
+ * rysuje faviconę i ikony PWA (`app/icon.tsx`, `app/apple-icon.tsx`), dlatego układ w stylach
+ * inline i flexem — `ImageResponse` (Satori) nie zna klas Tailwinda. `TrainIcon` zostaje dla kolei.
  */
-export function AppLogo({ size = 36 }: { size?: number }) {
+export function AppLogo({
+  size = 36,
+  background = 'var(--accent-gradient)',
+  rounded = true,
+}: {
+  size?: number
+  background?: string
+  /** `false` dla ikony iOS — system sam nakłada maskę z zaokrągleniem. */
+  rounded?: boolean
+}) {
   return (
     <span
-      className="grid shrink-0 place-items-center text-white shadow-lg"
-      style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), background: 'var(--accent-gradient)' }}
+      className="shrink-0 shadow-lg"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        width: size,
+        height: size,
+        borderRadius: rounded ? Math.round(size * 0.3) : 0,
+        background,
+      }}
       aria-hidden="true"
     >
       <svg width={Math.round(size * 0.6)} height={Math.round(size * 0.6)} viewBox="0 0 24 24" fill="currentColor">
@@ -344,103 +252,34 @@ export function AppLogo({ size = 36 }: { size?: number }) {
 }
 
 /** Dwie strzałki w przeciwnych kierunkach — przełącznik kierunku linii. */
-export function SwapIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M4 7h11l-3-3" />
-      <path d="M16 13H5l3 3" />
-    </>,
-    props
-  )
-}
-
-export function ShareIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M14 6.5V4.5a1 1 0 0 0-1-1H4.5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1H13a1 1 0 0 0 1-1v-2" />
-      <path d="M10 10h6.5m0 0L14 7.5M16.5 10 14 12.5" />
-    </>,
-    props
-  )
-}
-
-export function InfoIcon(props: IconProps) {
-  return base(
-    <>
-      <circle cx="10" cy="10" r="7.2" />
-      <path d="M10 9.2v4.3" />
-      <path d="M10 6.5h.01" strokeWidth={2} />
-    </>,
-    props
-  )
-}
-
+export const SwapIcon = /* @__PURE__ */ lucideIcon(ArrowRightLeft)
+export const ShareIcon = /* @__PURE__ */ lucideIcon(Share)
+export const InfoIcon = /* @__PURE__ */ lucideIcon(Info)
 /** Postój na trasie — dwie pauzy, ten sam znak co na odtwarzaczu. */
-export function PauseIcon(props: IconProps) {
-  return base(<path d="M7.5 5v10M12.5 5v10" />, props)
-}
+export const PauseIcon = /* @__PURE__ */ lucideIcon(Pause)
 
 // --- Ikony pogodowe (widżet "Pogoda dziś" w StationAside) ---
 
-export function CloudIcon(props: IconProps) {
-  return base(<path d="M5.7 14.5a3 3 0 0 1-.4-6 4.2 4.2 0 0 1 8-1.4A3.3 3.3 0 0 1 14.3 14.5H5.7Z" strokeLinejoin="round" />, props)
+export const CloudIcon = /* @__PURE__ */ lucideIcon(Cloud)
+export const FogIcon = /* @__PURE__ */ lucideIcon(CloudFog)
+export const RainIcon = /* @__PURE__ */ lucideIcon(CloudRain)
+export const SnowIcon = /* @__PURE__ */ lucideIcon(CloudSnow)
+export const ThunderIcon = /* @__PURE__ */ lucideIcon(CloudLightning)
+export const WindIcon = /* @__PURE__ */ lucideIcon(Wind)
+export const DropletIcon = /* @__PURE__ */ lucideIcon(Droplet)
+export const GaugeIcon = /* @__PURE__ */ lucideIcon(Gauge)
+
+// --- Mapa: DOM poza Reactem i raster (te same węzły Lucide) ---
+
+const DOM_ICONS = { chevronRight: ChevronRight, vehicleHeading: Navigation2 } as const
+
+/** `<svg>` do DOM budowanego ręcznie (popup, marker pojazdu): `createElementNS`, nie innerHTML (#4). Dekoracyjny. */
+export function iconElement(icon: keyof typeof DOM_ICONS, attrs: Record<string, string> = {}): SVGSVGElement {
+  return createLucideElement(DOM_ICONS[icon], { 'aria-hidden': 'true', ...attrs }) as SVGSVGElement
 }
 
-export function FogIcon(props: IconProps) {
-  return base(<path d="M3 7.5h10M5 10.5h12M3 13.5h10" />, props)
-}
-
-export function RainIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M5.7 11.5a2.7 2.7 0 0 1-.3-5.4A3.8 3.8 0 0 1 12.8 4.6a3 3 0 0 1 1.5 5.9H5.7Z" strokeLinejoin="round" />
-      <path d="M6.5 13.5 5.8 15.7M10 13.5 9.3 15.7M13.5 13.5 12.8 15.7" />
-    </>,
-    props
-  )
-}
-
-export function SnowIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M5.7 11.5a2.7 2.7 0 0 1-.3-5.4A3.8 3.8 0 0 1 12.8 4.6a3 3 0 0 1 1.5 5.9H5.7Z" strokeLinejoin="round" />
-      <path d="M6.5 14v.1M10 14.5v.1M13.5 14v.1" strokeWidth={2.4} />
-    </>,
-    props
-  )
-}
-
-export function ThunderIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M5.7 10.5a2.7 2.7 0 0 1-.3-5.4A3.8 3.8 0 0 1 12.8 3.6a3 3 0 0 1 1.5 5.9H5.7Z" strokeLinejoin="round" />
-      <path d="M10.3 11.5 7.8 15.5h2.4L9 18.5 13.3 13h-2.6l1.6-1.5Z" strokeLinejoin="round" />
-    </>,
-    props
-  )
-}
-
-export function WindIcon(props: IconProps) {
-  return base(
-    <path
-      d="M3 8h8.5a2 2 0 1 0-1.8-2.8M3 11.5h11a2 2 0 1 1-1.8 2.8M3 15h6.5a1.6 1.6 0 1 0-1.4-2.3"
-     
-    />,
-    props
-  )
-}
-
-export function DropletIcon(props: IconProps) {
-  return base(<path d="M10 3.5s5 6 5 9.5a5 5 0 0 1-10 0c0-3.5 5-9.5 5-9.5Z" strokeLinejoin="round" />, props)
-}
-
-export function GaugeIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M3.5 13.5a6.5 6.5 0 0 1 13 0" />
-      <path d="M10 13.5 13 9" />
-      <circle cx="10" cy="13.5" r="1" fill="currentColor" stroke="none" />
-    </>,
-    props
-  )
-}
+/** Wierzchołki `navigation-2` na siatce 24×24 — z nich raster SDF strzałek pojazdów (`arrowImage`). */
+export const VEHICLE_HEADING_POLYGON: readonly (readonly [number, number])[] = (() => {
+  const numbers = String(Navigation2[0][1].points).trim().split(/[\s,]+/).map(Number)
+  return numbers.flatMap((value, index) => (index % 2 === 0 ? [[value, numbers[index + 1]] as const] : []))
+})()

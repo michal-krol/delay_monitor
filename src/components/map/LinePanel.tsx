@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRightIcon, ChevronRightIcon, SwapIcon } from '../icons'
+import { ArrowRightIcon, ChevronRightIcon, SwapIcon, ICON_SIZE } from '../icons'
 import { AlertBanner } from '../AlertBanner'
 import { LineBadge } from '../LineBadge'
 import { OnRequestBadge } from '../OnRequestBadge'
@@ -73,7 +73,7 @@ export function LinePanel({
         <>
           <div className="flex items-center gap-2">
             <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-sm font-semibold">
-              {direction.origin ?? '—'} <ArrowRightIcon size={14} label="do" className="shrink-0 text-text-muted" /> {direction.headsign ?? '—'}
+              {direction.origin ?? '—'} <ArrowRightIcon size={ICON_SIZE.inline} label="do" className="shrink-0 text-text-muted" /> {direction.headsign ?? '—'}
             </p>
             {other !== undefined && (
               <button
@@ -81,7 +81,7 @@ export function LinePanel({
                 onClick={() => onDirection(other.directionId)}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-surface-border px-2.5 py-1 text-xs font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
               >
-                <SwapIcon size={13} />
+                <SwapIcon size={ICON_SIZE.chip} />
                 Zmień kierunek
               </button>
             )}
@@ -109,7 +109,7 @@ export function LinePanel({
         style={{ background: 'var(--accent-gradient)' }}
       >
         Rozkład linii
-        <ChevronRightIcon size={14} />
+        <ChevronRightIcon size={ICON_SIZE.inline} />
       </Link>
     </PanelFrame>
   )
