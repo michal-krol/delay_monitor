@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import manifest from './manifest'
-import { APP_DESCRIPTION } from '@/lib/siteMeta'
+import { generateImageMetadata } from './icon'
+import { APP_DESCRIPTION, THEME_BG } from '@/lib/siteMeta'
 
 describe('manifest PWA', () => {
   const m = manifest()
@@ -17,11 +18,28 @@ describe('manifest PWA', () => {
     expect(m.description).toBe(APP_DESCRIPTION)
   })
 
-  it('ma ikony PNG 192 i 512 z generatora app/icon.tsx', () => {
+  it('ma ikony PNG 192 i 512 z generatora app/icon.tsx, zwykłe i maskowalne', () => {
     expect(m.icons).toEqual([
       { src: '/icon/192', sizes: '192x192', type: 'image/png' },
       { src: '/icon/512', sizes: '512x512', type: 'image/png' },
+      { src: '/icon/maskable-192', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon/maskable-512', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ])
+  })
+
+  it('każda ikona manifestu istnieje w generateImageMetadata z tym samym rozmiarem i typem', () => {
+    const generated = generateImageMetadata()
+    for (const icon of m.icons ?? []) {
+      const entry = generated.find((g) => `/icon/${g.id}` === icon.src)
+      expect(entry, icon.src).toBeDefined()
+      expect(`${entry!.size.width}x${entry!.size.height}`, icon.src).toBe(icon.sizes)
+      expect(entry!.contentType, icon.src).toBe(icon.type)
+    }
+  })
+
+  it('kolory = `--bg-base` jasnego motywu (THEME_BG, pilnowane względem globals.css)', () => {
+    expect(m.background_color).toBe(THEME_BG.light)
+    expect(m.theme_color).toBe(THEME_BG.light)
   })
 
   it('ma skróty dokładnie do Pulpitu, Mapy i Linii', () => {

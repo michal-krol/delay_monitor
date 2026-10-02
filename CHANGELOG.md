@@ -16,9 +16,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - „Ostatnio oglądane”: aplikacja pamięta do 8 ostatnio otwartych stacji i przystanków
   (wybrany przystanek zespołu razem z numerem). Cztery najnowsze są na Pulpicie, wszystkie —
   w pustej wyszukiwarce. „Wyczyść” usuwa listę.
-- Aplikację można zainstalować na ekranie początkowym telefonu: ma własną ikonę, kolor
-  paska przeglądarki dopasowany do motywu i skróty do Pulpitu, Mapy i Linii. Działa
-  tylko z dostępem do internetu.
+- Aplikację można zainstalować na ekranie początkowym telefonu: ma własną ikonę (na
+  Androidzie wypełnia cały kształt ikony, bez białej obwódki), kolor paska przeglądarki
+  dopasowany do motywu — także wybranego ręcznie przełącznikiem — i skróty do Pulpitu,
+  Mapy i Linii. Działa tylko z dostępem do internetu.
 - Komunikat „Brak połączenia — dane sprzed N min”, gdy telefon traci zasięg; ekran nadal
   pokazuje ostatnio pobrane dane.
 - Karty na Pulpicie oznaczają pociągi z utrudnieniem tą samą ikoną co pełna tablica.
