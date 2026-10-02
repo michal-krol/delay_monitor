@@ -8,6 +8,8 @@ test('manifest: 200, display standalone, ikony PNG odpowiadają 200', async ({ p
   const manifest = await response.json()
   expect(manifest.display).toBe('standalone')
   expect(manifest.icons.length).toBeGreaterThan(0)
+  const maskable = (manifest.icons as { src: string; purpose?: string }[]).filter((icon) => icon.purpose === 'maskable')
+  expect(maskable.map((icon) => icon.src)).toEqual(['/icon/maskable-192', '/icon/maskable-512'])
 
   for (const icon of manifest.icons as { src: string }[]) {
     const iconResponse = await request.get(icon.src)
@@ -17,6 +19,21 @@ test('manifest: 200, display standalone, ikony PNG odpowiadają 200', async ({ p
 
   await page.goto('/')
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', /manifest\.webmanifest/)
+})
+
+test('theme-color idzie za ręcznie wybranym motywem, nie tylko za systemowym', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  const themeColors = page.locator('meta[name="theme-color"]')
+  await expect(themeColors).toHaveCount(2)
+
+  // Na telefonie i komputerze przełącznik jest w innym nagłówku — klikamy widoczny.
+  await page.getByRole('button', { name: 'Przełącz na tryb ciemny' }).filter({ visible: true }).click()
+  for (const meta of await themeColors.all()) await expect(meta).toHaveAttribute('content', '#070b14')
+
+  await page.getByRole('button', { name: 'Przełącz na tryb jasny' }).filter({ visible: true }).click()
+  for (const meta of await themeColors.all()) await expect(meta).toHaveAttribute('content', '#eef0f8')
 })
 
 test('strona główna nie zgłasza błędów CSP w konsoli', async ({ page }) => {
