@@ -11,6 +11,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Karty na Pulpicie oznaczają pociągi z utrudnieniem tą samą ikoną co pełna tablica.
 - Filtr mapy „Tylko linie z utrudnieniami” ma ikonę utrudnienia, a przycisk „Lista” —
   ikonę listy.
+- Tryb mock pokazuje więcej funkcji z wersji 1.0.x–1.1.0: autobusy każdego rodzaju (zwykłe,
+  podmiejskie, lokalne, zastępcze), przystanek „na żądanie”, kilka komunikatów o utrudnieniach
+  (z zakresem dat, bardzo długi, z nieznanym skutkiem), pojazd z nieświeżą pozycją, więcej
+  stacji Warszawy i licznik utrudnień PKP zgodny z danymi.
+- Zmienna `MOCK_BUDGET` (`low` lub `unknown`) pokazuje w trybie mock panel diagnostyczny przy
+  niskim lub nieznanym limicie zapytań PKP. Zmienna `WEATHER_DATA_SOURCE=mock` podaje stałą
+  pogodę bez zapytań do Open-Meteo (testy e2e).
 
 ### Zmienione
 
@@ -32,6 +39,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   trójkąta.
 - Favicona i ikony aplikacji (także na ekran początkowy iPhone’a) mają teraz to samo
   logo co w aplikacji.
+- Usunięto nieczytane kolumny kolorów z przykładowego pliku `routes.txt` oraz nieaktualne
+  komentarze o liczbie pociągów w mocku.
 
 ### Naprawione
 

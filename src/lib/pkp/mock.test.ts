@@ -15,6 +15,33 @@ describe('createMockClient', () => {
     expect(results.length).toBeGreaterThanOrEqual(4)
   })
 
+  it('lists the Warsaw rail stations used across the fixtures (feeds the city rail-stop list)', async () => {
+    const results = await createMockClient().searchStations('warszawa')
+    expect(results.map((s) => s.id).sort()).toEqual(['33506', '33605', '38653'])
+  })
+
+  it('counts the disruptions from the fixture instead of reporting zero', async () => {
+    const count = await createMockClient().getDisruptionCount('2026-08-01', '2026-08-01')
+    expect(count).toBe(2)
+  })
+
+  it('reports a full-scale budget by default (unchanged)', async () => {
+    const result = await createMockClient().getOperations(['33605'])
+    expect(result.budget).toEqual({ hourly: 99, daily: 999, hourlyLimit: 100, dailyLimit: 1000 })
+  })
+
+  it('reports a nearly exhausted budget with budget "low"', async () => {
+    const result = await createMockClient({ budget: 'low' }).getOperations(['33605'])
+    expect(result.budget).toEqual({ hourly: 4, daily: 37, hourlyLimit: 100, dailyLimit: 1000 })
+  })
+
+  it('reports an unknown budget (null, never zero) with budget "unknown"', async () => {
+    const client = createMockClient({ budget: 'unknown' })
+    const result = await client.getOperations(['33605'])
+    expect(result.budget).toEqual({ hourly: null, daily: null, hourlyLimit: null, dailyLimit: null })
+    expect(client.getLastBudget()).toBeNull()
+  })
+
   it('returns only trains that stop at one of the requested station ids', async () => {
     const client = createMockClient()
     const result = await client.getOperations(['80416'])

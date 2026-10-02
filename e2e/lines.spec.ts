@@ -2,7 +2,8 @@ import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 // Strona „Linie”: zwijane sekcje (natywne <details>), szukanie, „Ostatnio oglądane”.
-// Mock GTFS ma ~7 linii (fixtures/gtfs/warszawa): metro M1/M2, tramwaj 20, autobusy 128/521/N16, kolej S2.
+// Mock GTFS ma 11 linii (fixtures/gtfs/warszawa): metro M1/M2, tramwaj 20, kolej S2, autobusy 128/190 (zwykłe),
+// 521 (przyspieszona), N16 (nocna), 712 (podmiejska), L-1 (lokalna), Z1 (zastępcza).
 // Na wąskim ekranie wszystkie sekcje startują zwinięte, na szerokim te do 30 linii otwarte —
 // testy nie zakładają stanu domyślnego, tylko go czytają albo rozwijają wszystko.
 const READY = 45_000
@@ -45,6 +46,12 @@ test('odwiedzona linia pojawia się w „Ostatnio oglądane”', async ({ page }
   await page.getByRole('link', { name: /^Linia M1: / }).click()
   await expect(page).toHaveURL(/\/city\/warszawa\/line\/M1/)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: READY })
+  // h1 i zapis „Ostatnio oglądane” nie są atomowe: zapis idzie w efekcie (`useEffect`) po
+  // commicie, w osobnym zadaniu. Pełna nawigacja tuż po h1 potrafiła zgubić ten efekt
+  // (wolny WebKit; odtworzone na Chromium z dławieniem CPU) — czekamy na sam zapis.
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem('monitor.recentLines.v1')))
+    .toBe(JSON.stringify({ warszawa: ['M1'] }))
 
   await gotoLines(page)
   const recent = page.getByRole('group', { name: 'Ostatnio oglądane' })

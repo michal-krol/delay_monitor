@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getStationCoordinates } from '@/lib/weather/coordinates'
 import { fetchOpenMeteoWeather, WeatherApiError, type OpenMeteoSnapshot } from '@/lib/weather/client'
+import { mockOpenMeteoWeather } from '@/lib/weather/mock'
+import { loadConfig } from '@/lib/config'
 import { createTtlCache } from '@/lib/cache'
 import { STATION_ID_PATTERN } from '@/lib/validation'
 import { logEvent } from '@/lib/log'
@@ -32,7 +34,10 @@ async function loadWeather(stationId: string): Promise<WeatherApiResponse> {
   const coordinates = await getStationCoordinates(stationId)
   if (coordinates === null) return { available: false, reason: 'no-location' }
 
-  const snapshot = await fetchOpenMeteoWeather(coordinates.lat, coordinates.lon)
+  const snapshot =
+    loadConfig().weatherDataSource === 'mock'
+      ? mockOpenMeteoWeather()
+      : await fetchOpenMeteoWeather(coordinates.lat, coordinates.lon)
   return { available: true, weather: { ...snapshot, fetchedAt: new Date().toISOString() }, location: coordinates }
 }
 

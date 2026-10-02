@@ -6,6 +6,10 @@
     { "id": "V/M1/1", "timestamp": "{{NOW}}", "lat": 52.2, "lon": 21.02, "side_number": "M1-01", "trip_id": "M1:KAB", "bearing": 0.0 },
     { "id": "V/128/1", "timestamp": "{{NOW}}", "lat": 52.21, "lon": 20.99, "side_number": "128-1", "trip_id": "128/1", "bearing": 45.0 },
     { "id": "V/S2/1", "timestamp": "{{NOW}}", "lat": 52.19, "lon": 21.05, "side_number": "S2-1", "trip_id": "S2/1", "bearing": 90.0 },
+    { "id": "V/712/1", "timestamp": "{{NOW}}", "lat": 52.2315, "lon": 21.005, "side_number": "7121", "trip_id": "712/1", "bearing": 200.0 },
+    { "id": "V/L-1/1", "timestamp": "{{NOW}}", "lat": 52.231, "lon": 21.006, "side_number": "L-101", "trip_id": "L-1/1", "bearing": 200.0 },
+    { "id": "V/Z1/1", "timestamp": "{{NOW}}", "lat": 52.2295, "lon": 21.008, "side_number": "Z1-1", "trip_id": "Z1/1", "bearing": 160.0 },
+    { "id": "V/190/1", "timestamp": "{{STALE}}", "lat": 52.23, "lon": 21.002, "side_number": "1901", "trip_id": "190/1", "bearing": 10.0 },
     { "id": "V/unknown/1", "timestamp": "{{NOW}}", "lat": 52.24, "lon": 20.98, "side_number": "9999", "trip_id": "nieznany-kurs", "bearing": null }
   ]
 }
