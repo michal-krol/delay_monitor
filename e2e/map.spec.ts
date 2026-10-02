@@ -634,3 +634,24 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek')
   })
 })
+
+// PR3: mała mapa w treści strony ma `cooperativeGestures` — jeden palec przewija stronę, nie mapę.
+test('mapa przystanku ma polską podpowiedź gestów', async ({ page }) => {
+  await page.goto(CENTRUM)
+  const map = page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })
+  await expect(map).toBeVisible({ timeout: READY })
+  await expect(page.locator('.maplibregl-cooperative-gesture-screen')).toContainText('dwoma palcami')
+})
+
+test('dotyk: przesunięcie jednym palcem nad mapą przystanku przewija stronę', async ({ page, browserName }, testInfo) => {
+  test.skip(browserName !== 'chromium' || testInfo.project.name === 'desktop-chromium', 'dotyk przez CDP — mobile-chromium')
+  await page.goto(CENTRUM)
+  const map = page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })
+  await expect(map).toBeVisible({ timeout: READY })
+  await expect(page.locator('.maplibregl-cooperative-gesture-screen')).toHaveCount(1)
+  await map.scrollIntoViewIfNeeded()
+  const before = await page.evaluate(() => window.scrollY)
+  const box = (await map.boundingBox())!
+  await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.7 }, 0, -150)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before + 50)
+})

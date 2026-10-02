@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { MapPin, MapRoute } from './MapView'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -141,6 +141,22 @@ describe('MapView', () => {
     render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Stacja' }]} ariaLabel="Mapa" />)
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
     expect(markerElementAt(0).style.backgroundColor).toBe(css(UNKNOWN_COLOR))
+  })
+
+  it('mała mapa: cooperativeGestures z polskimi podpowiedziami (strona przewija się jednym palcem); powiększona — bez', async () => {
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'A' }]} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+    const inline = vi.mocked(maplibregl.Map).mock.calls[0][0]
+    expect(inline.cooperativeGestures).toBe(true)
+    expect(inline.locale).toEqual({
+      'CooperativeGesturesHandler.WindowsHelpText': 'Użyj Ctrl + kółko myszy, aby przybliżyć mapę',
+      'CooperativeGesturesHandler.MacHelpText': 'Użyj ⌘ + kółko myszy, aby przybliżyć mapę',
+      'CooperativeGesturesHandler.MobileHelpText': 'Przesuwaj mapę dwoma palcami',
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(maplibregl.Map).mock.calls[1][0].cooperativeGestures).toBeFalsy()
   })
 
   it('podkład jak na mapie miasta: jasny bez `dark`, ciemny z `dark`; zmiana motywu montuje mapę od nowa', async () => {

@@ -154,9 +154,16 @@ function moverPopup(label: string): HTMLElement {
   return el
 }
 
+/** Podpowiedzi `cooperativeGestures` po polsku (klucze z `maplibre-gl.d.ts`, 6.11). */
+const COOPERATIVE_LOCALE_PL = {
+  'CooperativeGesturesHandler.WindowsHelpText': 'Użyj Ctrl + kółko myszy, aby przybliżyć mapę',
+  'CooperativeGesturesHandler.MacHelpText': 'Użyj ⌘ + kółko myszy, aby przybliżyć mapę',
+  'CooperativeGesturesHandler.MobileHelpText': 'Przesuwaj mapę dwoma palcami',
+}
+
 /**
  * Montuje mapę+markery w podanym kontenerze. Wspólna dla miniatury i widoku
- * powiększonego — różni je tylko `rich` (treść popupu) i to, kiedy efekt
+ * powiększonego — różni je tylko `rich` (treść popupu, gesty) i to, kiedy efekt
  * wywołujący to faktycznie odpala (`active`).
  */
 function mountMap(
@@ -184,6 +191,9 @@ function mountMap(
       style: dark ? STYLE_DARK : STYLE_LIGHT,
       center: [pins[0].lon, pins[0].lat],
       zoom: pins.length === 1 ? 15 : 13,
+      // Mała mapa w treści strony nie łapie przewijania: jeden palec / samo kółko przewija stronę,
+      // mapę przesuwają dwa palce / Ctrl+kółko. Powiększona (dialog) działa normalnie.
+      ...(rich ? {} : { cooperativeGestures: true, locale: COOPERATIVE_LOCALE_PL }),
     })
 
     const mapInstance = map
