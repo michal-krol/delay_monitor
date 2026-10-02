@@ -4,6 +4,7 @@ paths:
   - "src/components/map/**"
   - "src/lib/board/mapPosition.ts"
   - "src/components/StationThumb*"
+  - "src/components/BottomSheet*"
   - "public/maplibre-*"
   - "src/app/globals.css"
   - "e2e/map.spec.ts"
@@ -105,3 +106,22 @@ explicitly positioned ancestor works, and MapLibre still gets `position:relative
 conflict. Applies to EVERY new component mounting a map outside `MapView.tsx` (that one doesn't
 suffer, its containers have explicit height `h-64`/`inset-4`, not `absolute inset-0` on the
 MapLibre element itself).
+
+## Bottom sheet over the map (phones, PR3)
+
+Below `sm` every transport-map panel renders inside `src/components/BottomSheet.tsx`: a
+`pointer-events: none` scroll-snap container laid over the map, a transparent spacer and an
+opaque `pointer-events: auto` panel; snap markers at 25/55/90 % of the map area (CSS
+`.bottom-sheet*` in `globals.css`). The transparent part passes gestures to MapLibre, dragging
+the panel scrolls the container. Rules:
+
+- Dialog semantics, „×”, Escape and focus return live in `PanelFrame` inside the sheet — never
+  add a second dialog/close to the sheet.
+- Inner scrolling (`[data-sheet-scroll]` = `PanelFrame` body) is locked below `full`, otherwise
+  a drag scrolls the content instead of lifting the sheet. New scrollable panel content must
+  use the `PanelFrame` body or carry `data-sheet-scroll`.
+- A new object remounts the sheet (`key`) so it opens at `peek`.
+- Gestures are verified in e2e only on mobile-chromium (CDP touch); WebKit in Playwright has
+  no touch API — iOS momentum/drag needs click-QA on a real iPhone (staging).
+- Inline maps (`MapView` without `rich`) use `cooperativeGestures` with Polish strings so they
+  don't trap page scroll; the enlarged dialog map keeps normal gestures.
