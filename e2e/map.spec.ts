@@ -577,12 +577,40 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     const map = await openMap(page)
     const card = await openStopCard(page, 'Centrum')
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    // Fokus na nagłówku karty, widocznym nad dolnym paskiem już przy „peek”.
+    const heading = card.getByRole('heading', { name: 'Centrum' })
+    await expect(heading).toBeFocused()
+    await expect(heading).toBeInViewport()
+    expect((await heading.boundingBox())!.y + 20).toBeLessThan((await page.getByRole('navigation', { name: 'Nawigacja główna' }).boundingBox())!.y)
     const mapBox = (await map.boundingBox())!
     expect((await card.boundingBox())!.y - mapBox.y).toBeGreaterThanOrEqual(0.7 * mapBox.height)
     for (const snap of ['half', 'full', 'peek']) {
       await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
       await expect(sheet(page)).toHaveAttribute('data-snap', snap)
     }
+  })
+
+  test('wyniki wyszukiwania i menu kontrolek leżą nad arkuszem, nie pod nim', async ({ page }) => {
+    await openMap(page)
+    await openStopCard(page, 'Centrum')
+    await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'half')
+    const onTop = async (locator: Locator): Promise<boolean> => {
+      await locator.scrollIntoViewIfNeeded()
+      const box = (await locator.boundingBox())!
+      return locator.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [box.x + box.width / 2, box.y + box.height - 4])
+    }
+    await page.getByRole('button', { name: /Filtry/ }).click()
+    const lastFilter = page.getByRole('button', { name: 'Pokaż wszystko' })
+    await expect(lastFilter).toBeVisible()
+    // Strona się nie przewija: panel Filtry przewija się sam i jego dół też jest osiągalny (iPhone 15, 659 px).
+    expect(await onTop(lastFilter), 'panel Filtry pod arkuszem albo pod dolnym paskiem').toBe(true)
+    await page.keyboard.press('Escape')
+
+    await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Warszawa')
+    const options = page.getByRole('option')
+    await expect(options.last()).toBeVisible()
+    expect(await onTop(options.last()), 'wyniki wyszukiwania pod arkuszem').toBe(true)
   })
 
   test('„×" w karcie zamyka arkusz', async ({ page }) => {

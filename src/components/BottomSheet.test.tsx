@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { BottomSheet, nearestSnap, nextSnap } from './BottomSheet'
 
 describe('snap helpers', () => {
@@ -53,7 +53,8 @@ describe('BottomSheet', () => {
     expect(screen.getByRole('button', { name: 'Zmień wysokość panelu (teraz: do połowy)' })).toBeInTheDocument()
   })
 
-  it('scroll position drives the snap (drag), unlocking inner scroll only at full', () => {
+  it('snap state follows the scroll only once it settles (drag), so a smooth scroll never flips it back mid-way', () => {
+    vi.useFakeTimers()
     render(
       <BottomSheet>
         <p>Treść</p>
@@ -61,7 +62,35 @@ describe('BottomSheet', () => {
     )
     sheet().scrollTop = 540
     fireEvent.scroll(sheet())
+    expect(sheet()).toHaveAttribute('data-snap', 'peek')
+    act(() => vi.advanceTimersByTime(200))
     expect(sheet()).toHaveAttribute('data-snap', 'full')
+    vi.useRealTimers()
+  })
+
+  it('handle picks the next snap from the real position, not stale state (QA 2026-10-02: state „peek" at 298/653 px)', () => {
+    render(
+      <BottomSheet>
+        <p>Treść</p>
+      </BottomSheet>
+    )
+    // Przeciągnięcie do „half", zanim stan się ustalił.
+    sheet().scrollTop = 330
+    fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ }))
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 540 })
+  })
+
+  it('quick second tap continues from the pending target (peek → half → full), mid-animation', () => {
+    render(
+      <BottomSheet>
+        <p>Treść</p>
+      </BottomSheet>
+    )
+    const handle = screen.getByRole('button', { name: /^Zmień wysokość panelu/ })
+    fireEvent.click(handle)
+    sheet().scrollTop = 200 // animacja w połowie drogi do „half"
+    fireEvent.click(handle)
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 540 })
   })
 })
 

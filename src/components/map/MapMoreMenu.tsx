@@ -3,8 +3,7 @@
 import { useId, useRef, useState } from 'react'
 import { ListIcon, MoreIcon, ShareIcon, ICON_SIZE } from '../icons'
 import { useDismiss } from '@/hooks/useDismiss'
-
-const rowClass = 'flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10'
+import { rowClass } from './MapPanels'
 
 /** Telefon: „Lista” i „Udostępnij” schowane pod „Więcej”, żeby kontrolki mapy zmieściły się w dwóch rzędach. */
 export function MapMoreMenu({ listOpen, onToggleList, onShare }: { listOpen: boolean; onToggleList: () => void; onShare: () => void }) {
@@ -19,6 +18,8 @@ export function MapMoreMenu({ listOpen, onToggleList, onShare }: { listOpen: boo
 
   function choose(action: () => void): void {
     setOpen(false)
+    // Pozycja znika z menu — fokus na „Więcej” (panel „Lista” przejmie go potem i odda tutaj).
+    buttonRef.current?.focus()
     action()
   }
 

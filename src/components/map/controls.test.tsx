@@ -128,6 +128,8 @@ describe('MapMoreMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Udostępnij widok' }))
     expect(onShare).toHaveBeenCalledOnce()
     expect(button).toHaveAttribute('aria-expanded', 'false')
+    // Wybrana pozycja znika razem z menu — fokus wraca na „Więcej”, nie na <body>.
+    expect(button).toHaveFocus()
   })
 
   it('Escape closes the menu, is consumed (the panel stays) and returns focus to the button', () => {

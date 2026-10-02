@@ -484,7 +484,9 @@ export default function CityMapPage() {
           )}
 
           <div className="pointer-events-none absolute inset-0 flex flex-col">
-            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 sm:ml-4 sm:mt-4">
+            {/* Nad arkuszem (`.bottom-sheet`, z-20) tylko wtedy, gdy coś tu jest rozwinięte (wyniki wyszukiwania,
+                Filtry, Przypięte, Więcej) — inaczej lista otwierała się pod panelem; zwinięte zostają pod nim. */}
+            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 sm:ml-4 sm:mt-4">
               <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
                 {isWide ? (
                   <>

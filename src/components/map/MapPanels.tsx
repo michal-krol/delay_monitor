@@ -9,7 +9,7 @@ import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
 import { useDismiss } from '@/hooks/useDismiss'
 
-const rowClass = 'flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10'
+export const rowClass = 'flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10'
 
 /** Metry po ludzku. */
 function distanceLabel(m: number): string {
