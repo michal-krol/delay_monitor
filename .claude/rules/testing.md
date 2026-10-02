@@ -82,6 +82,10 @@ CI (separate `e2e` job, outside the fast `quality` job).
   (`iPhone 15`). New viewport = entry in `playwright.config.ts`.
 - Outside CI `playwright.config.ts` builds with `--webpack` (Turbopack fails when
   `node_modules` is above `turbopack.root`). Don't junction `node_modules` into the worktree.
+- `next.config.ts` roots file tracing (`outputFileTracingRoot` = `turbopack.root`) where
+  `node_modules/next` lives, so a worktree's standalone build stays in its `.next` (guard:
+  `next.config.test.ts`). Builds before 2026-10-02 left `.claude/worktrees/node_modules/{next,styled-jsx}`
+  — it shadows `next` for all worktrees (`next/og` prerender fails): delete those two, keep `.vite-temp`.
 - Locally `reuseExistingServer` attaches to ANY server on port 3123 — also another worktree's or
   session's build (seen 2026-09-29: a different branch's old UI, 14 false failures). Run
   `E2E_PORT=<free port> npm run e2e` in a worktree; `CI=1` does not help there (Turbopack build fails).
