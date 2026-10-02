@@ -8,6 +8,19 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Dodane
 
+- Dolny pasek nawigacji na telefonie: „Pulpit”, „Odjazdy”, „Linie” i „Mapa” zawsze pod
+  kciukiem. U góry cienki nagłówek z wyszukiwarką i przełącznikiem motywu.
+- Jedna wyszukiwarka stacji kolejowych z całej Polski i przystanków miejskich, dostępna
+  z każdego ekranu: na telefonie przyciskiem „Szukaj” w nagłówku, na komputerze przyciskiem
+  w pasku bocznym, skrótem Ctrl+K (⌘K) albo klawiszem „/”.
+- „Ostatnio oglądane”: aplikacja pamięta do 8 ostatnio otwartych stacji i przystanków
+  (wybrany przystanek zespołu razem z numerem). Cztery najnowsze są na Pulpicie, wszystkie —
+  w pustej wyszukiwarce. „Wyczyść” usuwa listę.
+- Aplikację można zainstalować na ekranie początkowym telefonu: ma własną ikonę, kolor
+  paska przeglądarki dopasowany do motywu i skróty do Pulpitu, Mapy i Linii. Działa
+  tylko z dostępem do internetu.
+- Komunikat „Brak połączenia — dane sprzed N min”, gdy telefon traci zasięg; ekran nadal
+  pokazuje ostatnio pobrane dane.
 - Karty na Pulpicie oznaczają pociągi z utrudnieniem tą samą ikoną co pełna tablica.
 - Filtr mapy „Tylko linie z utrudnieniami” ma ikonę utrudnienia, a przycisk „Lista” —
   ikonę listy.
@@ -21,6 +34,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Menu za przyciskiem „hamburgera” na telefonie zastąpił dolny pasek nawigacji.
+- Strzałka „Wróć” w szczegółach połączenia otwartych z udostępnionego linku (albo
+  z zainstalowanej aplikacji) prowadzi na Pulpit, zamiast nie robić nic.
+- Pole wyszukiwania pokazuje na telefonie klawiaturę z przyciskiem „Szukaj”, a podpowiedzi
+  mają większy obszar dotyku i wybierają się zwykłym stuknięciem.
 - Precyzyjne nazwy przystanków komunikacji miejskiej. Sama nazwa („Centrum”) oznacza
   teraz zawsze cały zespół przystanków, a konkretny przystanek ma numer („Centrum 02”):
   w „Najbliższym odjeździe”, na kartach Pulpitu i mapy, przy następnym przystanku

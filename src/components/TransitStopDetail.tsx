@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
+import { useRecentPlaces } from '@/hooks/useRecentPlaces'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -158,6 +159,20 @@ export function TransitStopDetail({
       : { kind: 'gtfs', city, id: board?.groupId ?? stopId, name: stopName }
   const key = pinnedKey(pinnedItem)
   const pinned = isPinned(key)
+
+  // „Ostatnio oglądane": te same wartości co `pinnedItem` (id zespołu, nazwa z numerem),
+  // zapis dopiero po wczytaniu tablicy i po ustaleniu przystanku — deep-link z trasy linii
+  // wybiera przystanek jeden render po odpowiedzi, a wcześniej zapisałby się sam zespół.
+  const { record: recordRecentPlace } = useRecentPlaces()
+  const boardLoaded = board !== null
+  const memberSettled = board?.requestedMember == null || effMember !== null || memberChoice !== undefined
+  const recentId = board?.groupId ?? stopId
+  const recentMember = activeMember?.id
+  const recentName = activeMember !== null ? stopDisplayName(stopName, activeMember.code ?? activeMember.platformCode) : stopName
+  useEffect(() => {
+    if (!boardLoaded || !memberSettled) return
+    recordRecentPlace({ kind: 'gtfs', city, id: recentId, name: recentName, ...(recentMember !== undefined && { member: recentMember }) })
+  }, [boardLoaded, memberSettled, city, recentId, recentMember, recentName, recordRecentPlace])
 
   const departures = useMemo(
     () => (lineFilter === null ? (board?.departures ?? []) : (board?.departures ?? []).filter((d) => d.routeId === lineFilter)),

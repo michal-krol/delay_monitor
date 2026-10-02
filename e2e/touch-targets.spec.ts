@@ -22,12 +22,24 @@ test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44, a w
   expect(box?.width).toBe(36)
 })
 
-test('hamburger (mobile) ma obszar trafienia >= 44×44', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name === 'desktop-chromium', 'hamburger tylko poniżej sm')
+test('„Szukaj" w nagłówku (mobile) ma obszar trafienia >= 44×44', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'desktop-chromium', 'nagłówek tylko poniżej sm')
   await page.goto('/')
-  const { w, h } = await afterSize(page.getByRole('button', { name: /otwórz menu/i }))
+  const { w, h } = await afterSize(page.getByRole('button', { name: 'Szukaj' }))
   expect(w).toBeGreaterThanOrEqual(44)
   expect(h).toBeGreaterThanOrEqual(44)
+})
+
+test('zakładki dolnego paska (mobile) mają pole >= 44×44', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'desktop-chromium', 'dolny pasek tylko poniżej sm')
+  await page.goto('/')
+  const links = page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('link')
+  await expect(links).toHaveCount(4)
+  for (let i = 0; i < 4; i++) {
+    const box = await links.nth(i).boundingBox()
+    expect(box?.width).toBeGreaterThanOrEqual(44)
+    expect(box?.height).toBeGreaterThanOrEqual(44)
+  }
 })
 
 test('„Powiększ mapę" zostaje w rogu mapy i ma obszar trafienia >= 44×44', async ({ page }) => {

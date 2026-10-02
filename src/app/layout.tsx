@@ -1,7 +1,8 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import localFont from 'next/font/local'
 import { ThemeProvider } from 'next-themes'
+import { APP_DESCRIPTION, APP_NAME } from '@/lib/siteMeta'
 import './globals.css'
 
 // Plik w repo (Manrope, SIL OFL 1.1 — fonts/OFL.txt), nie next/font/google: build nie pobiera
@@ -15,8 +16,19 @@ const manrope = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Monitor opóźnień',
-  description: 'Opóźnienia pociągów na wybranych stacjach w czasie zbliżonym do rzeczywistego',
+  title: APP_NAME,
+  description: APP_DESCRIPTION,
+}
+
+// Kolory paska przeglądarki = `--bg-base` każdego motywu (globals.css). `viewport-fit=cover` pozwala
+// rysować pod notchem (safe-area w pasku kart), `resizes-content` zmniejsza układ przy klawiaturze.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#eef0f8' },
+    { media: '(prefers-color-scheme: dark)', color: '#070b14' },
+  ],
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

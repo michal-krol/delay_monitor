@@ -359,7 +359,7 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- jak wyżej + `expanded` steruje montowaniem.
   }, [expanded, pinsKey, routeKey, onPinClick, dark])
 
-  // Escape zamyka powiększenie -- ten sam wzorzec co `MobileNav.tsx`.
+  // Escape zamyka powiększenie.
   useEffect(() => {
     if (!expanded) return
     closeButtonRef.current?.focus()

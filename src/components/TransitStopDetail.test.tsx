@@ -174,6 +174,50 @@ describe('TransitStopDetail', () => {
     expect(stop02).toHaveAttribute('aria-selected', 'false')
   })
 
+  describe('recent places', () => {
+    const KEY = 'monitor.recentPlaces.v1'
+    const stored = (): unknown => JSON.parse(window.localStorage.getItem(KEY) ?? '[]')
+    const mockGroupBoard = (): void => {
+      useTransitBoard.mockReturnValue({
+        data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
+        error: null,
+        loading: false,
+        failed: false,
+      })
+    }
+
+    it('records the whole zespół by groupId', () => {
+      mockGroupBoard()
+      // stopId ze ścieżki bywa przystankiem z deep-linku — zapisujemy id zespołu z odpowiedzi.
+      render(<TransitStopDetail city="warszawa" stopId="100102" />)
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' }])
+    })
+
+    it('records the selected przystanek with its number', () => {
+      mockGroupBoard()
+      search = 'przystanek=100102'
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', member: '100102', name: 'Centrum 02' }])
+    })
+
+    it('a deep link to one przystanek records only that przystanek, not the zespół first', () => {
+      useTransitBoard.mockReturnValue({
+        data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [{ ...groupBoard, requestedMember: '100102' }], attribution: [] },
+        error: null,
+        loading: false,
+        failed: false,
+      })
+      render(<TransitStopDetail city="warszawa" stopId="100102" />)
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', member: '100102', name: 'Centrum 02' }])
+    })
+
+    it('records nothing until the board has loaded', () => {
+      useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+      render(<TransitStopDetail city="warszawa" stopId="1001" initialName="Centrum" />)
+      expect(window.localStorage.getItem(KEY)).toBeNull()
+    })
+  })
+
   it('view tabs follow the WAI-ARIA tabs pattern: one tab stop, arrows/Home/End move selection and focus, a labelled tabpanel', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     const tabs = within(screen.getByRole('tablist', { name: 'Widok przystanku' })).getAllByRole('tab')
