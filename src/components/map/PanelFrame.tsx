@@ -65,7 +65,7 @@ export function PanelFrame({
   }, [])
 
   return (
-    <section role="dialog" aria-modal="false" aria-labelledby={headingId} className="glass-strong flex max-h-full flex-col overflow-hidden rounded-2xl shadow-xl">
+    <section role="dialog" aria-modal="false" aria-labelledby={headingId} className="panel-frame glass-strong flex max-h-full flex-col overflow-hidden rounded-2xl shadow-xl">
       <header className="flex items-start gap-3 border-b border-surface-border p-4">
         {leading}
         <div className="min-w-0 flex-1">
@@ -79,7 +79,7 @@ export function PanelFrame({
           <CloseIcon size={ICON_SIZE.button} />
         </IconButton>
       </header>
-      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>
+      <div ref={bodyRef} data-sheet-scroll className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>
         {children}
       </div>
     </section>

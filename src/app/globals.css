@@ -28,6 +28,8 @@
   --bg-base: #eef0f8;
   --surface: rgba(255, 255, 255, 0.72);
   --surface-strong: rgba(255, 255, 255, 0.88);
+  /* Nieprzezroczyste tło arkusza od dołu (`BottomSheet`) — szkło nad mapą psuło kontrast treści. */
+  --sheet-surface: #ffffff;
   --surface-border: rgba(15, 23, 42, 0.08);
   --surface-shadow: 0 8px 30px rgba(15, 23, 42, 0.1);
   --sidebar-bg: rgba(255, 255, 255, 0.75);
@@ -67,6 +69,7 @@
   --bg-base: #070b14;
   --surface: rgba(15, 23, 42, 0.55);
   --surface-strong: rgba(15, 23, 42, 0.75);
+  --sheet-surface: #0f172a;
   --surface-border: rgba(255, 255, 255, 0.08);
   --surface-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --sidebar-bg: rgba(6, 10, 20, 0.6);
@@ -241,6 +244,83 @@ details[open] > summary .disclosure-chevron,
   .disclosure-chevron {
     transition: none;
   }
+}
+
+/* Arkusz od dołu (`BottomSheet.tsx`, PR 3). Kontener przewijania leży nad mapą z
+   `pointer-events: none` — przezroczysty odstęp przepuszcza gesty do mapy, a przeciąganie
+   panelu (`pointer-events: auto`) przewija kontener i dociąga do znaczników (25/55/90%).
+   Poza punktem „full” wewnętrzne przewijanie panelu jest wyłączone, inaczej przeciągnięcie
+   przewijałoby treść zamiast podnieść arkusz. Reguły bez warstwy: wygrywają z `glass-strong`. */
+.bottom-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  scrollbar-width: none;
+}
+.bottom-sheet::-webkit-scrollbar {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bottom-sheet {
+    scroll-behavior: smooth;
+  }
+}
+.bottom-sheet__spacer {
+  position: relative;
+  height: 100%;
+}
+.bottom-sheet__snap {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  scroll-snap-align: start;
+}
+.bottom-sheet__panel {
+  display: flex;
+  flex-direction: column;
+  height: 90%;
+  pointer-events: auto;
+  background-color: var(--sheet-surface);
+  border-top: 1px solid var(--surface-border);
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
+}
+.bottom-sheet__handle {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 100%;
+  min-height: 2.75rem; /* cel dotyku 44 px; nagłówek panelu traci za to górny odstęp niżej */
+  border-radius: 1rem 1rem 0 0;
+}
+.bottom-sheet__grip {
+  width: 2.25rem;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background-color: var(--text-muted);
+  opacity: 0.6;
+}
+.bottom-sheet:not([data-snap='full']) [data-sheet-scroll] {
+  overflow-y: hidden;
+}
+.bottom-sheet__panel .panel-frame {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.bottom-sheet__panel .panel-frame > header {
+  padding-top: 0;
 }
 
 @utility glass {

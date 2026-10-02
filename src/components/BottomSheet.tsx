@@ -1,0 +1,66 @@
+'use client'
+
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+
+export type SheetSnap = 'peek' | 'half' | 'full'
+
+/** Ułamek wysokości obszaru, który arkusz zajmuje w danym punkcie zaczepienia. */
+export const SHEET_SNAPS: Record<SheetSnap, number> = { peek: 0.25, half: 0.55, full: 0.9 }
+
+const ORDER: SheetSnap[] = ['peek', 'half', 'full']
+const SNAP_LABEL: Record<SheetSnap, string> = { peek: 'niski', half: 'do połowy', full: 'pełny' }
+
+export function nextSnap(snap: SheetSnap): SheetSnap {
+  return ORDER[(ORDER.indexOf(snap) + 1) % ORDER.length]
+}
+
+/** Punkt najbliższy pozycji przewinięcia; niezmierzony arkusz (`height` 0) = `peek`. */
+export function nearestSnap(scrollTop: number, height: number): SheetSnap {
+  if (height <= 0) return 'peek'
+  const at = scrollTop / height
+  return ORDER.reduce((best, snap) => (Math.abs(SHEET_SNAPS[snap] - at) < Math.abs(SHEET_SNAPS[best] - at) ? snap : best))
+}
+
+/**
+ * Arkusz od dołu z trzema punktami zaczepienia na natywnym CSS scroll-snap (zero zależności).
+ * Kontener przewijania leży nad mapą z `pointer-events: none`, więc przezroczysta część
+ * przepuszcza gesty do mapy, a przeciąganie samego panelu przewija kontener (przeglądarka
+ * daje bezwładność i dociąga do punktu). CSS: `.bottom-sheet*` w `globals.css`.
+ *
+ * Semantyka okna (role="dialog", „×”, Escape, powrót fokusu) należy do treści — `PanelFrame`;
+ * arkusz jej nie dubluje. Zawsze startuje w `peek`; nowy obiekt = nowy `key` u wywołującego.
+ */
+export function BottomSheet({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [snap, setSnap] = useState<SheetSnap>('peek')
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    el?.scrollTo({ top: SHEET_SNAPS.peek * el.clientHeight, behavior: 'instant' })
+  }, [])
+
+  function cycle(): void {
+    const el = ref.current
+    if (el === null) return
+    const next = nextSnap(snap)
+    setSnap(next)
+    // Bez `behavior`: płynność decyduje CSS (`scroll-behavior` tylko bez prefers-reduced-motion).
+    el.scrollTo({ top: SHEET_SNAPS[next] * el.clientHeight })
+  }
+
+  return (
+    <div ref={ref} className="bottom-sheet" data-snap={snap} onScroll={(event) => setSnap(nearestSnap(event.currentTarget.scrollTop, event.currentTarget.clientHeight))}>
+      <div className="bottom-sheet__spacer" aria-hidden="true">
+        {ORDER.map((point) => (
+          <span key={point} className="bottom-sheet__snap" style={{ top: `${SHEET_SNAPS[point] * 100}%` }} />
+        ))}
+      </div>
+      <div className="bottom-sheet__panel">
+        <button type="button" className="bottom-sheet__handle" aria-label={`Zmień wysokość panelu (teraz: ${SNAP_LABEL[snap]})`} onClick={cycle}>
+          <span className="bottom-sheet__grip" />
+        </button>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      </div>
+    </div>
+  )
+}
