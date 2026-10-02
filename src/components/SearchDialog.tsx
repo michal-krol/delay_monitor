@@ -5,21 +5,22 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useCities, type CityEntry } from '@/hooks/useCities'
 import { useCityContext } from '@/hooks/useCityContext'
 import { defaultCityId } from '@/lib/cityDefault'
-import { encodeStopIdForPathSegment } from '@/lib/validation'
+import { CITY_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
 import { CloseIcon, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { RecentPlaces } from './RecentPlaces'
 import { StationSearch, type StationOption } from './StationSearch'
 
-const PATH_CITY = /^\/city\/([a-z]{2,24})(\/|$)/
+/** Segment po `/city/` — format sprawdza `CITY_ID_PATTERN` (AGENTS.md #4), nie ten regex. */
+const PATH_CITY_SEGMENT = /^\/city\/([^/]+)/
 
 /**
  * Miasto, w którym szukamy: to z adresu (`/city/[city]/…`), potem ostatnio wybrane,
  * na końcu domyślne (najwięcej stacji kolejowych). `null` = jeszcze nie wiadomo.
  */
 export function resolveSearchCity(pathname: string, contextCity: string | null, cities: CityEntry[] | null): string | null {
-  const fromPath = PATH_CITY.exec(pathname)
-  if (fromPath !== null) return fromPath[1]
+  const segment = PATH_CITY_SEGMENT.exec(pathname)?.[1]
+  if (segment !== undefined && CITY_ID_PATTERN.test(segment)) return segment
   if (contextCity !== null) return contextCity
   return cities === null ? null : defaultCityId(cities)
 }
@@ -79,6 +80,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
 
 function SearchDialogBody({ onClose }: { onClose: () => void }) {
   const router = useRouter()
+  const root = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const { city: contextCity } = useCityContext()
   const { state, cities, retry } = useCities()
@@ -94,8 +96,13 @@ function SearchDialogBody({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
+  // „Wyczyść" usuwa zogniskowany przycisk — fokus wraca do pola, zamiast wypaść na `<body>` poza modal.
+  function focusInput(): void {
+    root.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus()
+  }
+
   return (
-    <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4">
+    <div ref={root} className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4">
       <div className="flex items-start gap-2">
         {city !== null ? (
           <StationSearch
@@ -103,7 +110,7 @@ function SearchDialogBody({ onClose }: { onClose: () => void }) {
             autoFocus
             placeholder="Szukaj stacji lub przystanku…"
             endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`}
-            idle={<RecentPlaces limit={8} headingLevel="h3" />}
+            idle={<RecentPlaces limit={8} headingLevel="h3" onCleared={focusInput} />}
             onSelect={select}
           />
         ) : (

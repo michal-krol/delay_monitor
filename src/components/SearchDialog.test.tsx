@@ -31,6 +31,11 @@ describe('resolveSearchCity', () => {
     expect(resolveSearchCity('/', null, [KRAKOW, WARSZAWA])).toBe('warszawa')
   })
 
+  it('ignores a path city segment that fails CITY_ID_PATTERN', () => {
+    expect(resolveSearchCity('/city/WAW!/x', 'krakow', [WARSZAWA])).toBe('krakow')
+    expect(resolveSearchCity('/city/WAW!/x', null, [WARSZAWA])).toBe('warszawa')
+  })
+
   it('returns null when nothing is known', () => {
     expect(resolveSearchCity('/', null, null)).toBeNull()
     expect(resolveSearchCity('/', null, [])).toBeNull()
@@ -154,6 +159,17 @@ describe('SearchDialog', () => {
     render(<SearchDialog open onClose={vi.fn()} />)
     expect(await screen.findByRole('heading', { name: 'Ostatnio oglądane' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Stacja 1' })).toBeInTheDocument()
+  })
+
+  it('moves the focus back to the search input after „Wyczyść" (the focused button unmounts)', async () => {
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
+    stubFetch()
+    const user = userEvent.setup()
+    render(<SearchDialog open onClose={vi.fn()} />)
+    const input = await screen.findByRole('combobox')
+    await user.click(await screen.findByRole('button', { name: 'Wyczyść' }))
+    expect(screen.queryByRole('button', { name: 'Wyczyść' })).toBeNull()
+    expect(input).toHaveFocus()
   })
 
   it('calls onClose when the native dialog fires `close` (Escape)', async () => {
