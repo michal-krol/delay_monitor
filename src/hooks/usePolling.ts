@@ -57,6 +57,11 @@ export function lastPollingSuccessAt(): number | null {
   return lastSuccessAtMs
 }
 
+/** Do testów: kasuje stan modułu współdzielony między przypadkami. */
+export function __resetPollingSuccess(): void {
+  lastSuccessAtMs = null
+}
+
 /** Mały helper: `fetch` + rzut na JSON, rzuca na nie-2xx (ten sam kształt błędu co w istniejących hookach). */
 export async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url)

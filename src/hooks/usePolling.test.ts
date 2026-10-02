@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { lastPollingSuccessAt, usePolling } from './usePolling'
+import { __resetPollingSuccess, lastPollingSuccessAt, usePolling } from './usePolling'
 
-beforeEach(() => vi.useFakeTimers())
+beforeEach(() => {
+  vi.useFakeTimers()
+  __resetPollingSuccess()
+})
 afterEach(() => {
   vi.useRealTimers()
   Object.defineProperty(document, 'hidden', { value: false, configurable: true })
@@ -18,6 +21,7 @@ describe('usePolling', () => {
     const start = Date.parse('2026-10-02T10:00:00Z')
     vi.setSystemTime(start)
     const fetcher = vi.fn().mockResolvedValue({ ready: true })
+    expect(lastPollingSuccessAt()).toBeNull()
     renderHook(() => usePolling('k-success-at', fetcher, { refreshMs: null }))
     await vi.waitFor(() => expect(lastPollingSuccessAt()).not.toBeNull())
     expect(lastPollingSuccessAt()).toBeGreaterThanOrEqual(start)
