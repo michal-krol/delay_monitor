@@ -36,7 +36,8 @@ test('offline: baner „Brak połączenia" nad dolnym paskiem, bez naruszeń axe
   await page.waitForLoadState('networkidle')
 
   await context.setOffline(true)
-  const banner = page.getByRole('status').filter({ hasText: 'Brak połączenia' })
+  // Region `status` jest zawsze w DOM (pusty online) i ma zerowy rozmiar — widoczna jest pastylka w środku.
+  const banner = page.getByRole('status').getByText('Brak połączenia')
   await expect(banner).toBeVisible()
 
   if (testInfo.project.name !== 'desktop-chromium') {
