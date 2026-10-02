@@ -1,21 +1,11 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import { openSearch, SEARCH_DIALOG as DIALOG } from './helpers/search'
 
 // Globalne okno wyszukiwania (`SearchDialog`): przycisk „Szukaj" w nagłówku (telefon) albo w pasku
 // bocznym i skróty Ctrl/Cmd+K, „/" (desktop). Mock: stacja PKP „Warszawa Centralna" (33605)
 // i zespół GTFS „Centrum" (1001); `rail=all` zwraca obie grupy, „Centr" pasuje do obu.
 const READY = 45_000
-const DIALOG = 'Szukaj stacji lub przystanku'
 const INPUT = 'Szukaj stacji lub przystanku…'
-
-async function openSearch(page: Page, project: string) {
-  // Przycisk i skróty działają dopiero po hydracji; klik/klawisz przed nią znika bez śladu (flaky na zimnym starcie).
-  await page.waitForLoadState('networkidle')
-  if (project === 'desktop-chromium') await page.keyboard.press('Control+K')
-  else await page.getByRole('button', { name: 'Szukaj' }).click()
-  const dialog = page.getByRole('dialog', { name: DIALOG })
-  await expect(dialog).toBeVisible()
-  return dialog
-}
 
 test('otwarcie: okno widoczne, pole wyszukiwania ma fokus', async ({ page }, testInfo) => {
   await page.goto('/')

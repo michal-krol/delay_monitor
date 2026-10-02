@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
+import { openSearch } from './helpers/search'
 
 // Telefon (poniżej `sm`; mobile-chromium/mobile-safari): nawigacja = dolny pasek zakładek
 // „Nawigacja główna" + cienki nagłówek; pasek boczny jest `hidden sm:flex`. Na desktop-chromium
@@ -82,9 +83,7 @@ test('mobile: fokus na ostatnim linku długiej strony nie chowa się pod dolnym 
 
 test('a11y: otwarte okno wyszukiwania bez naruszeń serious/critical', async ({ page }, testInfo) => {
   await page.goto('/')
-  if (isMobile(testInfo.project.name)) await page.getByRole('button', { name: 'Szukaj' }).click()
-  else await page.keyboard.press('Control+K')
-  await expect(page.getByRole('dialog', { name: 'Szukaj stacji lub przystanku' })).toBeVisible()
+  await openSearch(page, testInfo.project.name)
 
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
   const blocking = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
