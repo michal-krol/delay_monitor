@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { ChevronDownIcon, VehicleHeadingIcon, ICON_SIZE } from '../icons'
+import { DisclosureIcon, VehicleHeadingIcon, ICON_SIZE } from '../icons'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, darkRingClass, lineColor } from '../transitMode'
 import { MODE_COLOR, outlineFilter, strokeFor } from './mapData'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -26,9 +26,9 @@ const VEHICLES: [GtfsMode, string][] = [
  */
 export function MapLegend() {
   return (
-    <details className="glass-strong group pointer-events-auto max-h-full w-56 overflow-y-auto rounded-2xl text-sm shadow-lg">
+    <details className="glass-strong pointer-events-auto max-h-full w-56 overflow-y-auto rounded-2xl text-sm shadow-lg">
       <summary className="flex min-h-11 cursor-pointer select-none list-none items-center justify-between rounded-2xl px-4 font-semibold [&::-webkit-details-marker]:hidden">
-        Legenda <ChevronDownIcon size={ICON_SIZE.inline} className="text-text-muted transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+        Legenda <DisclosureIcon size={ICON_SIZE.inline} className="text-text-muted" />
       </summary>
       <div className="space-y-3 px-4 pb-4">
         <Section title="Punkty" items={POINTS} shape="dot" />

@@ -8,12 +8,12 @@
  * Słownik — jedno pojęcie = jedna ikona:
  * - Pulpit `HomeIcon` · Odjazdy/Przyjazdy (nawigacja) `DeparturesBoardIcon` · Linie `RouteIcon` · Mapa `MapIcon`
  * - widok listy (np. „Lista” na mapie, liczba połączeń) `ListIcon`
- * - odjazd `DepartureIcon` · przyjazd `ArrivalIcon` · godzina `ClockIcon` · data `CalendarIcon`
+ * - odjazd `DepartureIcon` · przyjazd `ArrivalIcon` · data `CalendarIcon`
  * - kierunek jazdy („skąd → dokąd”) `ArrowRightIcon` · otwórz/dalej `ChevronRightIcon` · wstecz `ArrowLeftIcon`
- * - rozwiń/zwiń `ChevronDownIcon` (otwarte = obrót 180°)
+ * - rozwiń/zwiń `DisclosureIcon` (otwarte = obrót 180°, klasa `disclosure-chevron`)
  * - kolej (tryb, stacja) `TrainIcon` · pozycja pojazdu `VehiclePositionIcon` · kierunek jazdy pojazdu `VehicleHeadingIcon`
  * - utrudnienie `AlertCircleIcon` · objaśnienie „?” `HelpCircleIcon` · informacja `InfoIcon`
- * - przypięte `StarIcon filled` (zawsze `PIN_COLOR`) · szukaj `SearchIcon` · filtry `FilterIcon`
+ * - przypięte `StarIcon filled` (sama nosi `PIN_COLOR`) · szukaj `SearchIcon` · filtry `FilterIcon`
  * - motyw jasny i pogoda „słonecznie” dzielą `SunIcon` (różne ekrany, świadomie)
  */
 import { createElement as createReactElement } from 'react'
@@ -34,7 +34,6 @@ import {
   CircleDot,
   CircleEllipsis,
   CircleQuestionMark,
-  Clock,
   Cloud,
   CloudFog,
   CloudLightning,
@@ -110,8 +109,10 @@ function shapes(node: IconNode, filled = false) {
 }
 
 function lucideIcon(node: IconNode, filled = false) {
+  // Elementy Reacta są niezmienne — budujemy je raz na ikonę, nie przy każdym renderze.
+  const children = shapes(node, filled)
   return function Icon(props: IconProps) {
-    return base(shapes(node, filled), props)
+    return base(children, props)
   }
 }
 
@@ -121,20 +122,30 @@ export const ListIcon = lucideIcon(List)
 /** Nawigacja „Odjazdy / Przyjazdy” — tablica z godzinami. */
 export const DeparturesBoardIcon = lucideIcon(ListClock)
 
-/** Przypięcie: kontur = nieprzypięte, `filled` = przypięte. Kolor zawsze `PIN_COLOR`. */
-export function StarIcon({ filled = false, ...props }: IconProps & { filled?: boolean }) {
-  return base(shapes(Star, filled), props)
-}
-
 /** Jeden odcień przypięcia (gwiazdka; złota obwódka na mapie to ten sam #f59e0b) — amber-500. */
 export const PIN_COLOR = 'text-amber-500'
 
+const STAR = { outline: shapes(Star), filled: shapes(Star, true) }
+
+/** Przypięcie: kontur = nieprzypięte, `filled` = przypięte — wtedy ikona sama nosi `PIN_COLOR`. */
+export function StarIcon({ filled = false, className, ...props }: IconProps & { filled?: boolean }) {
+  if (!filled) return base(STAR.outline, { ...props, className })
+  return base(STAR.filled, { ...props, className: className === undefined ? PIN_COLOR : `${PIN_COLOR} ${className}` })
+}
+
 export const RouteIcon = lucideIcon(Route)
 export const MapIcon = lucideIcon(MapGlyph)
-/** „Otwórz / dalej”. Nie kierunek jazdy (to `ArrowRightIcon`), nie rozwiń/zwiń (to `ChevronDownIcon`). */
+/** „Otwórz / dalej”. Nie kierunek jazdy (to `ArrowRightIcon`), nie rozwiń/zwiń (to `DisclosureIcon`). */
 export const ChevronRightIcon = lucideIcon(ChevronRight)
-/** Rozwiń/zwiń (`<details>`, panele): w dół = zwinięte, obrót 180° = rozwinięte. */
-export const ChevronDownIcon = lucideIcon(ChevronDown)
+const ChevronDownIcon = lucideIcon(ChevronDown)
+
+/**
+ * Rozwiń/zwiń: chevron w dół, obrócony o 180°, gdy rodzic `<details>` jest otwarty albo przycisk
+ * ma `aria-expanded="true"` — klasa `disclosure-chevron` w `globals.css`, bez obrotu per miejsce.
+ */
+export function DisclosureIcon({ className, ...props }: IconProps) {
+  return <ChevronDownIcon {...props} className={className === undefined ? 'disclosure-chevron' : `disclosure-chevron ${className}`} />
+}
 /** Wybrane / skopiowane. */
 export const CheckIcon = lucideIcon(Check)
 export const SunIcon = lucideIcon(Sun)
@@ -145,8 +156,6 @@ export const MenuIcon = lucideIcon(Menu)
 /** Wstecz. */
 export const ArrowLeftIcon = lucideIcon(ArrowLeft)
 export const CalendarIcon = lucideIcon(Calendar)
-/** Godzina. Odjazd/przyjazd mają własne ikony (`DepartureIcon`/`ArrivalIcon`). */
-export const ClockIcon = lucideIcon(Clock)
 /** Kolej jako tryb lub stacja — nie pozycja pociągu (to `VehiclePositionIcon`). */
 export const TrainIcon = lucideIcon(TrainFront)
 export const BusIcon = lucideIcon(BusFront)
@@ -182,7 +191,7 @@ export const StopIcon = lucideIcon(Signpost)
 export const LayersIcon = lucideIcon(Layers)
 /** „Pokaż całe miasto” — kadr na całe miasto, nie nawigacja „Mapa”. */
 export const CityIcon = lucideIcon(Building)
-/** Średnie opóźnienie (klepsydra) — godzina to `ClockIcon`. */
+/** Średnie opóźnienie (klepsydra). */
 export const HourglassIcon = lucideIcon(Hourglass)
 /** Punktualność (tarcza) — „wybrane” to `CheckIcon`. */
 export const TargetIcon = lucideIcon(Target)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { ArrowRightIcon, PIN_COLOR, StarIcon, ICON_SIZE } from '../icons'
+import { ArrowRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { stopDisplayName } from '../stopName'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { type NearbyPoint, type VisibleItem } from './mapData'
@@ -147,7 +147,7 @@ export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]
         aria-controls={panelId}
         aria-label="Przypięte"
         onClick={() => setOpen((o) => !o)}
-        className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl ${PIN_COLOR} transition hover:bg-black/5 dark:hover:bg-white/10`}
+        className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10`}
       >
         <StarIcon size={ICON_SIZE.button} filled />
       </button>

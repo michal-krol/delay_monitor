@@ -25,16 +25,18 @@ Why: `adr/0006-ikony-lucide.md`.
 - **Concept → icon** (the dictionary lives in the `icons.tsx` header; change both together):
   - nav: Pulpit `HomeIcon`, Odjazdy `DeparturesBoardIcon`, Linie `RouteIcon`, Mapa `MapIcon`;
     `ListIcon` only for list views („Lista" on the map, trip counts)
-  - departure `DepartureIcon`, arrival `ArrivalIcon` (never `ClockIcon`, which means a time)
+  - departure `DepartureIcon`, arrival `ArrivalIcon` (not a clock)
   - travel direction „A → B" `ArrowRightIcon` (with `label="do"` when it is the only link
     between two names read aloud); open/next `ChevronRightIcon`; back `ArrowLeftIcon`
-  - expand/collapse `ChevronDownIcon`, open = `rotate-180` (`group-open:` on `<details>`,
-    matching the named group, e.g. `group-open/sec:`); sidebar collapse is a panel, not a
-    disclosure, and keeps the horizontal chevron
+  - expand/collapse `DisclosureIcon`: the `disclosure-chevron` class in `globals.css` turns it
+    180° inside the `<summary>` of an open `<details>` or under `aria-expanded="true"` — no
+    per-site rotate or `group-open:` classes; sidebar collapse is a panel, not a disclosure,
+    and keeps the horizontal chevron
   - rail mode/station `TrainIcon`; a vehicle's position `VehiclePositionIcon`; its heading
     `VehicleHeadingIcon` (same glyph as the map arrows)
   - disruption `AlertCircleIcon` only (help „?" is `HelpCircleIcon`)
-  - pinned = `StarIcon filled` in `PIN_COLOR`, everywhere (also menus)
+  - pinned = `StarIcon filled`, everywhere (also menus); a filled star carries `PIN_COLOR`
+    itself — don't add it at the call site
   - theme toggle and „sunny" weather share `SunIcon` — different screens, accepted
 - **Size by role** — `ICON_SIZE`: `chip` 13, `inline` 14 (in a line of text), `button` 16,
   `tile` 18 (tiles, KPIs, headers; the default). No `size={10..19}` literals

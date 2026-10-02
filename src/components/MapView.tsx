@@ -112,7 +112,7 @@ function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
     link.href = pin.href
     link.textContent = 'Zobacz pełną tablicę'
     link.className = 'mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400'
-    link.appendChild(iconElement('chevronRight', { width: '14', height: '14' }))
+    link.appendChild(iconElement('chevronRight', { width: String(ICON_SIZE.inline), height: String(ICON_SIZE.inline) }))
     wrap.appendChild(link)
   }
 

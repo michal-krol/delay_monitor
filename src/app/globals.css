@@ -187,6 +187,22 @@
   }
 }
 
+/* Strzałka rozwijania (`DisclosureIcon`): obrót o 180°, gdy jej `<summary>` należy do otwartego
+   `<details>` (dziecko bezpośrednie — zagnieżdżone sekcje się nie mieszają) albo przycisk ma
+   `aria-expanded="true"`. Jedno miejsce zamiast obrotu i `motion-reduce` w każdym komponencie. */
+.disclosure-chevron {
+  transition: rotate 150ms ease;
+}
+details[open] > summary .disclosure-chevron,
+[aria-expanded="true"] .disclosure-chevron {
+  rotate: 180deg;
+}
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-chevron {
+    transition: none;
+  }
+}
+
 @utility glass {
   background-color: var(--surface);
   backdrop-filter: blur(20px) saturate(150%);

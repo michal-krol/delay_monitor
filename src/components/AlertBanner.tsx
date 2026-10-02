@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircleIcon, ChevronDownIcon, ICON_SIZE } from './icons'
+import { AlertCircleIcon, DisclosureIcon, ICON_SIZE } from './icons'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 
@@ -76,7 +76,7 @@ export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
                 <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-warning-text">
                   <span className="group-open:hidden">Rozwiń</span>
                   <span className="hidden group-open:inline">Zwiń</span>
-                  <ChevronDownIcon size={ICON_SIZE.chip} className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                  <DisclosureIcon size={ICON_SIZE.chip} />
                 </span>
               </summary>
               {alert.body !== '' && <AlertBody body={alert.body} />}

@@ -103,7 +103,7 @@ describe('icons — jedno źródło (Lucide, PR1)', () => {
   })
 
   it('nowe pojęcia mają własne ikony', () => {
-    for (const Icon of [icons.DeparturesBoardIcon, icons.SearchIcon, icons.VehiclePositionIcon, icons.ChevronDownIcon]) {
+    for (const Icon of [icons.DeparturesBoardIcon, icons.SearchIcon, icons.VehiclePositionIcon, icons.DisclosureIcon]) {
       const { container, unmount } = render(<Icon />)
       expect(container.querySelector('svg')?.children.length).toBeGreaterThan(0)
       unmount()
@@ -141,5 +141,17 @@ describe('AppLogo — jedno źródło dla UI, favicony i ikon PWA', () => {
     expect(logo.style.borderRadius).toBe('0px')
     // Satori (ImageResponse) układa tylko flexem — bez klas Tailwinda.
     expect(logo.style.display).toBe('flex')
+  })
+})
+
+describe('icons — reguły pojęć wbudowane w ikony', () => {
+  it('przypięta gwiazdka sama nosi PIN_COLOR, kontur nie (miejsca wywołań nie mogą o tym zapomnieć)', () => {
+    expect(render(<icons.StarIcon filled className="shrink-0" />).container.querySelector('svg')).toHaveClass(icons.PIN_COLOR, 'shrink-0')
+    expect(render(<icons.StarIcon />).container.querySelector('svg')).not.toHaveClass(icons.PIN_COLOR)
+  })
+
+  it('DisclosureIcon niesie klasę obrotu z globals.css i przepuszcza własne klasy', () => {
+    const svg = render(<icons.DisclosureIcon className="ml-auto" />).container.querySelector('svg')
+    expect(svg).toHaveClass('disclosure-chevron', 'ml-auto')
   })
 })

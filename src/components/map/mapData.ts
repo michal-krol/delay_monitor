@@ -79,7 +79,7 @@ export function casingExpression(dark: boolean): unknown {
   return dark ? STROKE_DEFAULT : strokeExpression()
 }
 
-/** Obrys trójkąta z obramowań CSS (strzałki w DOM i w legendzie) — `drop-shadow` w 4 kierunkach w kolorze `strokeFor`. */
+/** Obrys strzałki kierunku pojazdu (`VehicleHeadingIcon` w markerze DOM i w legendzie) — `drop-shadow` w 4 kierunkach w kolorze `strokeFor`. */
 export function outlineFilter(color: string): string {
   const stroke = strokeFor(color)
   return ['1px 0', '-1px 0', '0 1px', '0 -1px'].map((offset) => `drop-shadow(${offset} 0 ${stroke})`).join(' ')

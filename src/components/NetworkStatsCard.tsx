@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useNetworkStats } from '@/hooks/useNetworkStats'
-import { AlertCircleIcon, ChevronDownIcon, ICON_SIZE } from './icons'
+import { AlertCircleIcon, DisclosureIcon, ICON_SIZE } from './icons'
 import { formatClockTime } from '@/lib/format'
 import type { NetworkStats, NetworkStatsStatistics } from '@/lib/board/networkStats'
 
@@ -108,7 +108,7 @@ export function NetworkStatsCard() {
             {error !== null ? `nieaktualne · ${formatClockTime(statistics.generatedAt)}` : formatClockTime(statistics.generatedAt)}
           </span>
         )}
-        <ChevronDownIcon size={ICON_SIZE.button} className={`shrink-0 text-text-muted transition-transform motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`} />
+        <DisclosureIcon size={ICON_SIZE.button} className="shrink-0 text-text-muted" />
       </button>
 
       {expanded && data !== null && (

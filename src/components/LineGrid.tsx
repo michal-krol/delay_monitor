@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { pluralPl } from '@/lib/plural'
-import { ArrowRightIcon, ChevronDownIcon, ICON_SIZE } from './icons'
+import { ArrowRightIcon, DisclosureIcon, ICON_SIZE } from './icons'
 import { LineBadge } from './LineBadge'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, LINE_KIND_LABEL, MODE_ICON, MODE_ORDER, darkRingClass, lineColor } from './transitMode'
 
@@ -111,13 +111,13 @@ export function LineGrid({ linesByMode, city, isOpen, onToggle }: Props) {
             data-testid="line-section"
             open={isOpen(mode, defaultCount)}
             onToggle={(event) => onToggle(mode, event.currentTarget.open, defaultCount)}
-            className="group/sec glass rounded-2xl"
+            className="glass rounded-2xl"
           >
             <summary className={`${SUMMARY_RESET} flex min-h-14 cursor-pointer items-center gap-2.5 rounded-2xl px-3.5 py-2.5 ${HOVER} ${FOCUS_RING}`}>
               <Pictogram mode={mode} />
               <span className="text-[15px] font-semibold text-foreground">{SECTION_LABEL[mode]}</span>
               <span className="text-xs text-text-muted">{linesCount(lines.length)}</span>
-              <ChevronDownIcon size={ICON_SIZE.button} className="ml-auto text-text-muted transition-transform group-open/sec:rotate-180 motion-reduce:transition-none" />
+              <DisclosureIcon size={ICON_SIZE.button} className="ml-auto text-text-muted" />
             </summary>
             <div className="px-3.5 pb-3.5 pt-0.5">
               {mode === 'bus' ? <BusSubsections lines={lines} city={city} isOpen={isOpen} onToggle={onToggle} /> : <TileGrid lines={lines} city={city} />}
@@ -142,14 +142,14 @@ function BusSubsections({ lines, city, isOpen, onToggle }: { lines: LineListEntr
             data-testid="line-subsection"
             open={isOpen(key, ofKind.length)}
             onToggle={(event) => onToggle(key, event.currentTarget.open, ofKind.length)}
-            className="group/sub border-t border-surface-border first:border-t-0"
+            className="border-t border-surface-border first:border-t-0"
           >
             <summary className={`${SUMMARY_RESET} flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-0.5 py-1.5 text-[13px] text-text-secondary ${HOVER} ${FOCUS_RING}`}>
               <span className={`h-3 w-3 flex-none rounded-[3px] ${darkRingClass(kind)}`} style={{ background: lineColor('bus', kind).bg }} aria-hidden="true" />
               <span>
                 {BUS_KIND_LABEL[kind]} · {ofKind.length}
               </span>
-              <ChevronDownIcon size={ICON_SIZE.button} className="ml-auto text-text-muted transition-transform group-open/sub:rotate-180 motion-reduce:transition-none" />
+              <DisclosureIcon size={ICON_SIZE.button} className="ml-auto text-text-muted" />
             </summary>
             <TileGrid lines={ofKind} city={city} />
           </details>

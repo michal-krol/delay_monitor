@@ -23,7 +23,7 @@ import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, AlertCircleIcon, CheckIcon, PIN_COLOR, StarIcon, ICON_SIZE } from './icons'
+import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from './icons'
 import { PageTitle } from './PageTitle'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
@@ -255,7 +255,7 @@ export function TransitStopDetail({
                 // (deep-link z linii zaznacza przystanek dopiero po niej) — przypięcie zapisałoby zły zakres.
                 disabled={board === null}
               >
-                <StarIcon size={ICON_SIZE.button} filled={pinned} className={pinned ? PIN_COLOR : ''} />
+                <StarIcon size={ICON_SIZE.button} filled={pinned} />
               </IconButton>
             </div>
           </div>

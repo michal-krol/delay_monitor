@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertBanner } from '../AlertBanner'
-import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, PIN_COLOR, StarIcon, ICON_SIZE } from '../icons'
+import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { IconButton } from '../IconButton'
 import { DelayBadge } from '../DelayBadge'
 import { LineBadge } from '../LineBadge'
@@ -82,7 +82,7 @@ export function MapCard({
         pinned !== undefined &&
         onTogglePin !== undefined && (
           <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onTogglePin} pressed={pinned} size="lg">
-            <StarIcon size={ICON_SIZE.button} filled={pinned} className={pinned ? PIN_COLOR : ''} />
+            <StarIcon size={ICON_SIZE.button} filled={pinned} />
           </IconButton>
         )
       }

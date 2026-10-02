@@ -6,7 +6,7 @@ import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { PageTitle } from './PageTitle'
-import { AlertCircleIcon, ArrivalIcon, ArrowRightIcon, CalendarIcon, ChevronDownIcon, DepartureIcon, InfoIcon, PauseIcon, TimerIcon, VehiclePositionIcon, ICON_SIZE } from './icons'
+import { AlertCircleIcon, ArrivalIcon, ArrowRightIcon, CalendarIcon, DisclosureIcon, DepartureIcon, InfoIcon, PauseIcon, TimerIcon, VehiclePositionIcon, ICON_SIZE } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import { resolvePositionAnchor } from '@/lib/board/trainDetail'
 import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
@@ -677,11 +677,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                   </span>
                                 )}
                                 {messages.length > 0 && (
-                                  <details className="group w-full">
+                                  <details className="w-full">
                                     <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                                       <AlertCircleIcon size={ICON_SIZE.inline} />
                                       Utrudnienie
-                                      <ChevronDownIcon size={ICON_SIZE.chip} className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                                      <DisclosureIcon size={ICON_SIZE.chip} />
                                     </summary>
                                     <p className="mt-1.5 text-xs text-text-secondary">{messages.join(' ')}</p>
                                   </details>
