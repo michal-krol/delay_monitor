@@ -286,6 +286,28 @@ describe('TransitStopDetail', () => {
     expect(screen.getByText('Aktualnie brak komunikatów dla tego przystanku.')).toBeInTheDocument()
   })
 
+  // PR0 review: przed odpowiedzią nie wiadomo, czy to zespół, czy jeden przystanek.
+  it('says alerts are loading, never „tego przystanku”, before the board arrives', async () => {
+    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
+    expect(screen.getByText('Wczytywanie komunikatów…')).toBeInTheDocument()
+    expect(screen.queryByText(/tego przystanku/)).not.toBeInTheDocument()
+  })
+
+  it('„Info” opens a sheet with the stop context (map, traffic, lines) and × closes it', async () => {
+    window.HTMLElement.prototype.scrollTo = () => {}
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    const info = screen.getByRole('button', { name: 'Info' })
+    await userEvent.click(info)
+    const sheet = screen.getByRole('dialog', { name: 'Informacje o przystanku' })
+    expect(within(sheet).getByText('Natężenie ruchu dziś')).toBeInTheDocument()
+    expect(within(sheet).getByText('Linie na tym przystanku')).toBeInTheDocument()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
+    expect(screen.queryByRole('dialog', { name: 'Informacje o przystanku' })).not.toBeInTheDocument()
+  })
+
   it('shows a loading hint, not "no alerts", on the Komunikaty tab while alerts are still unknown (alerts: null)', async () => {
     useTransitBoard.mockReturnValue({
       data: {

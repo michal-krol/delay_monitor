@@ -34,6 +34,41 @@ describe('TransitStopCard', () => {
     )
   })
 
+  it('tags departures with the stop number only when the group has more than one stop', () => {
+    const departure = {
+      tripId: 't',
+      routeId: '20',
+      line: '20',
+      mode: 'tram',
+      lineKind: 'regular',
+      headsign: 'Piaski',
+      plannedAt: '2026-09-02T14:30:00+02:00',
+      departureSec: 52200,
+      serviceDate: '2026-09-02',
+      stopId: '100101',
+      platformCode: '01',
+      stopCode: null,
+      wheelchair: 0,
+      frequencyBased: false,
+      onRequest: false,
+    }
+    const line = { routeId: '20', line: '20', mode: 'tram', kind: 'regular' }
+    const board = (members: unknown[]) => ({
+      data: { stops: [{ stopId: '1001', name: 'Centrum', modes: ['tram'], departures: [departure], members }], schedule: { state: 'ready' }, attribution: [] },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    useTransitBoard.mockReturnValue(board([{ id: '100101', lines: [line] }]))
+    const { unmount } = render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" onRemove={vi.fn()} />)
+    expect(screen.queryByTitle('Odjazd z przystanku 01')).not.toBeInTheDocument()
+    unmount()
+
+    useTransitBoard.mockReturnValue(board([{ id: '100101', lines: [line] }, { id: '100102', lines: [line] }]))
+    render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" onRemove={vi.fn()} />)
+    expect(screen.getByTitle('Odjazd z przystanku 01')).toBeInTheDocument()
+  })
+
   it('calls onRemove without following the card link', async () => {
     useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
     const onRemove = vi.fn()
@@ -102,7 +137,12 @@ describe('TransitStopCard', () => {
     plannedAt: '2026-09-02T14:30:00+02:00', departureSec: 52200, serviceDate: '2026-09-02', stopId: '100102',
     platformCode: null, stopCode: '02', wheelchair: 0, frequencyBased: false, onRequest: false,
   }
-  const centrum = { stopId: '100102', groupId: '1001', name: 'Centrum', modes: ['tram'], departures: [departure] }
+  // `/api/gtfs/board` zawsze niesie przystanki zespołu; numer na liście tylko przy więcej niż jednym.
+  const tram20 = { routeId: '20', line: '20', mode: 'tram', kind: 'regular' }
+  const centrum = {
+    stopId: '100102', groupId: '1001', name: 'Centrum', modes: ['tram'], departures: [departure],
+    members: [{ id: '100101', lines: [tram20] }, { id: '100102', lines: [tram20] }],
+  }
 
   it('a pinned single stop fetches only that stop and is named with its number', () => {
     useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })

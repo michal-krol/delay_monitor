@@ -202,12 +202,16 @@ describe('BoardTable — sygnalizacja zmiany opóźnienia', () => {
   })
 })
 
+/** Komórka pierwszego wiersza po `data-cell` (godzina, status…) — przez rolę, nie selektor. */
+function cell(name: string): HTMLElement {
+  return screen.getAllByRole('cell').find((c) => c.dataset.cell === name)!
+}
+
 describe('BoardTable — odliczanie „za N min”', () => {
   // NOW = 12:00, PLANNED = 12:30.
   it('counts down to a departure within the hour, next to the clock', () => {
     renderTable([row()])
-    const time = document.querySelector('td[data-cell="time"]')!
-    expect(within(time as HTMLElement).getByText('za 30 min')).toBeInTheDocument()
+    expect(within(cell('time')).getByText('za 30 min')).toBeInTheDocument()
   })
 
   it('counts to the forecast, not the plan, when the train is late (no new delay logic, AGENTS #2)', () => {
@@ -229,9 +233,7 @@ describe('BoardTable — odliczanie „za N min”', () => {
 describe('BoardTable — utrudnienie', () => {
   it('puts the disruption icon in the status cell, which the phone card shows (the chevron cell is hidden there)', () => {
     renderTable([row({ hasDisruption: true })])
-    const status = document.querySelector('td[data-cell="status"]') as HTMLElement
-    expect(within(status).getByRole('img', { name: 'Utrudnienie na trasie' })).toBeInTheDocument()
-    const chevron = document.querySelector('td[data-cell="chevron"]') as HTMLElement
-    expect(within(chevron).queryByRole('img', { name: 'Utrudnienie na trasie' })).toBeNull()
+    expect(within(cell('status')).getByRole('img', { name: 'Utrudnienie na trasie' })).toBeInTheDocument()
+    expect(within(cell('chevron')).queryByRole('img', { name: 'Utrudnienie na trasie' })).toBeNull()
   })
 })

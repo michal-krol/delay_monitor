@@ -17,7 +17,7 @@ import type { GtfsMode } from '@/lib/gtfs/types'
 import { FADE_START_SEC, vehicleKind } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
-import { stopDisplayName } from '../stopName'
+import { stopDisplayName, stopsWithLines } from '../stopName'
 
 /** Co jest wybrane na mapie. Pojazd niesie tylko `id` — pozycja/linia żyją w odczytach co 15 s. */
 export type MapSelection =
@@ -235,7 +235,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
         {error !== null && data === null ? (
           <p className="mt-2 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
         ) : (
-          <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} showStopCode={member === null} />
+          <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} showStopCode={member === null && stopsWithLines(board?.members).length > 1} />
         )}
       </div>
       <Action href={`/city/${city}/stop/${selection.id}`}>Rozkład przystanku</Action>

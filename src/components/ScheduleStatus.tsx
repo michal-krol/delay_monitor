@@ -71,7 +71,7 @@ export function ScheduleStatus({ schedule, cityName, title, error = false, quiet
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
       <span>{heading}</span>
       {schedule.loadedAt !== null && (
-        <span className="text-text-muted">· Aktualizacja: {formatUpdated(schedule.loadedAt)}</span>
+        <span className="text-text-muted max-sm:hidden">· Aktualizacja: {formatUpdated(schedule.loadedAt)}</span>
       )}
       {!quiet && (
         <span className="contents" aria-live="polite">

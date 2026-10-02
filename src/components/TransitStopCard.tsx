@@ -3,8 +3,10 @@
 import Link from 'next/link'
 import { useCities } from '@/hooks/useCities'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
+import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { TransitDepartureList } from './TransitDepartureList'
+import { stopsWithLines } from './stopName'
 import { IconButton } from './IconButton'
 import { StarIcon, ICON_SIZE } from './icons'
 
@@ -30,6 +32,8 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onRemo
   const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const board = data?.stops[0] ?? null
+  // Odliczanie „za N min” tyka z odpytywaniem (30 s), bez zegara na kartę.
+  const now = useSnapshotNow(data)
   // Zespół: nazwa z rozkładu (aktualna). Jeden przystanek: zapisana nazwa z numerem —
   // `board.name` to goła nazwa zespołu, która znaczyłaby „cały zespół".
   const name = member ? stopName : (board?.name ?? stopName)
@@ -52,7 +56,13 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onRemo
       {failed ? (
         <p className="mt-3 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
       ) : (
-        <TransitDepartureList departures={board?.departures ?? []} loading={loading} showStopCode={!member} />
+        <TransitDepartureList
+          departures={board?.departures ?? []}
+          loading={loading}
+          now={now}
+          // Numer tylko w zespole z kilkoma przystankami — w jednoprzystankowym nic nie rozróżnia.
+          showStopCode={!member && stopsWithLines(board?.members).length > 1}
+        />
       )}
 
       <Link

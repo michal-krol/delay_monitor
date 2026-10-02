@@ -128,6 +128,31 @@ describe('TransitDepartureList', () => {
     expect(screen.queryByText('peron 01')).not.toBeInTheDocument()
   })
 
+  it('counts down next to the clock as „za N min · wg rozkładu” (#13: schedule, not a measurement)', () => {
+    const now = new Date('2026-09-02T14:25:00+02:00').getTime()
+    render(<TransitDepartureList departures={[dep()]} now={now} />)
+    expect(screen.getByText('za 5 min · wg rozkładu')).toBeInTheDocument()
+  })
+
+  it('rows count down only within the hour; the next-departure block keeps hours', () => {
+    const now = new Date('2026-09-02T12:25:00+02:00').getTime()
+    render(
+      <TransitDepartureList
+        departures={[dep(), dep({ tripId: 't2', plannedAt: '2026-09-02T14:40:00+02:00', departureSec: 52800 })]}
+        now={now}
+        highlightFirst
+      />
+    )
+    expect(screen.getByText('za 2 h 5 min')).toBeInTheDocument()
+    expect(screen.queryByText(/wg rozkładu/)).not.toBeInTheDocument()
+  })
+
+  it('a metro stop tagged from platform_code reads „peron”, not „Odjazd z przystanku”', () => {
+    render(<TransitDepartureList departures={[dep({ mode: 'metro', stopCode: null, platformCode: 'P1' })]} showStopCode />)
+    expect(screen.getByTitle('Peron P1')).toBeInTheDocument()
+    expect(screen.queryByTitle('Odjazd z przystanku P1')).not.toBeInTheDocument()
+  })
+
   it('keeps the platform in a single-stop view', () => {
     render(<TransitDepartureList departures={[dep({ stopCode: null, platformCode: 'P1' })]} />)
     expect(screen.getByText('peron P1')).toBeInTheDocument()
