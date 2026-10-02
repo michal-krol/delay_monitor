@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StationSearch } from './StationSearch'
@@ -319,5 +319,96 @@ describe('StationSearch', () => {
     await user.click(option)
 
     expect(onSelect).toHaveBeenCalledWith({ id: '5136', name: 'Kraków Główny' })
+  })
+
+  it('input is type=search with enterKeyHint=search and autoComplete=off', () => {
+    render(<StationSearch onSelect={vi.fn()} />)
+    const input = screen.getByRole('combobox')
+    expect(input).toHaveAttribute('type', 'search')
+    expect(input).toHaveAttribute('enterkeyhint', 'search')
+    expect(input).toHaveAttribute('autocomplete', 'off')
+  })
+
+  it('selects an option on click, not on mousedown (and keeps focus in the input)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] })))
+    const onSelect = vi.fn()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={onSelect} />)
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+    const option = await vi.waitFor(() => screen.getByRole('option', { name: 'Kraków Główny' }))
+
+    // mousedown samo nie wybiera (przewijanie palcem po liście nie może niczego wybierać)…
+    expect(fireEvent.mouseDown(option)).toBe(false) // preventDefault: pole zachowuje fokus
+    expect(onSelect).not.toHaveBeenCalled()
+
+    await user.click(option)
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onSelect).toHaveBeenCalledWith({ id: '5136', name: 'Kraków Główny' })
+    expect(screen.getByRole('combobox')).toHaveFocus()
+  })
+
+  it('options have min-h-11 class (44 px touch target)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] })))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(await vi.waitFor(() => screen.getByRole('option'))).toHaveClass('min-h-11')
+  })
+
+  it('sheet variant renders the listbox and status in flow (no absolute class)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] }))
+      .mockImplementation(() => jsonResponse({ stations: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} variant="sheet" />)
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+    const listbox = await vi.waitFor(() => screen.getByRole('listbox'))
+    expect(listbox).not.toHaveClass('absolute')
+
+    await user.type(input, 'x')
+    await vi.advanceTimersByTimeAsync(300)
+    const status = await vi.waitFor(() => screen.getByRole('status'))
+    expect(status).not.toHaveClass('absolute')
+  })
+
+  it('dropdown variant keeps the absolute list and status (default unchanged)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ stations: [{ id: '5136', name: 'Kraków Główny' }] })))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('combobox'), 'krak')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(await vi.waitFor(() => screen.getByRole('listbox'))).toHaveClass('absolute')
+  })
+
+  it('shows idle content only while the query is empty', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<StationSearch onSelect={vi.fn()} variant="sheet" idle={<p>Ostatnio oglądane</p>} />)
+    const input = screen.getByRole('combobox')
+    expect(screen.getByText('Ostatnio oglądane')).toBeInTheDocument()
+
+    await user.type(input, 'ab')
+    expect(screen.queryByText('Ostatnio oglądane')).not.toBeInTheDocument()
+
+    await user.clear(input)
+    expect(screen.getByText('Ostatnio oglądane')).toBeInTheDocument()
+  })
+
+  it('focuses the input on mount with autoFocus', () => {
+    render(<StationSearch onSelect={vi.fn()} autoFocus />)
+    expect(screen.getByRole('combobox')).toHaveFocus()
   })
 })
