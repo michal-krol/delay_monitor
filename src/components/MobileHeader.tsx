@@ -20,7 +20,7 @@ export function MobileHeader({ onSearch }: { onSearch: () => void }) {
         borderColor: 'var(--sidebar-border)',
       }}
     >
-      <Link href="/" className="flex min-w-0 items-center gap-2.5">
+      <Link href="/" className="flex min-h-11 min-w-0 items-center gap-2.5">
         <AppLogo size={28} />
         <span className="font-heading truncate text-[15px] font-bold">Monitor opóźnień</span>
       </Link>
