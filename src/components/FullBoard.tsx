@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
+import { useRecentPlaces } from '@/hooks/useRecentPlaces'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable } from './BoardTable'
@@ -83,6 +84,14 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
   const configError = data?.status === 'configError'
+
+  // „Ostatnio oglądane": zapis po wczytaniu snapshotu, zależny od wartości (nie od obiektu
+  // snapshotu, który zmienia się co odpytanie). Nazwa równa id = brak `?name=` — nic do pokazania.
+  const { record: recordRecentPlace } = useRecentPlaces()
+  const snapshotLoaded = snapshot !== null
+  useEffect(() => {
+    if (snapshotLoaded && stationName !== stationId) recordRecentPlace({ kind: 'pkp', id: stationId, name: stationName })
+  }, [snapshotLoaded, stationId, stationName, recordRecentPlace])
 
   const now = useSnapshotNow(data)
 
