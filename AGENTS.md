@@ -116,7 +116,9 @@ gate, review + independent verification (`~/.claude/rules/verification.md`), pro
 Don't restate, don't re-read just-edited files, narrow big outputs. Plan mode: one Explore agent
 (the repo map is above). Economy never suppresses questions or proposals
 (`~/.claude/rules/collaboration.md`). One PR per session; review effort scaled by risk, not
-task count (`~/.claude/rules/workflow.md`, `verification.md`, `subagents.md`).
+task count (`~/.claude/rules/workflow.md`, `verification.md`, `subagents.md`). Subagents: a hook
+blocks Bash file writes (`>`, `tee`, `sed -i` outside temp/scratchpad) and `git stash`/`reset`/`restore`/`checkout --`
+— use Edit/Write or a WIP commit (`.claude/hooks/block-bash-writes.mjs`, `scripts/lib/bashGuard.mjs`).
 
 ### 16. Automated UI tests (e2e) → `testing.md`
 `npm run e2e`: Playwright, mock mode, zero network, projects `desktop-chromium`,
