@@ -12,6 +12,7 @@ import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { formatClockTime } from '@/lib/format'
+import { realizedTime } from './boardTime'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -105,20 +106,6 @@ function useChangedDelays(rows: BoardApiRow[]): ReadonlySet<string> {
   return changed
 }
 
-
-/**
- * Druga linia w kolumnie godziny — FAKT albo PROGNOZA, nigdy jedno udające
- * drugie (makieta §19).
- *
- * Kolejność jest istotna: potwierdzony czas rzeczywisty wypiera przewidywanie.
- * `null` znaczy „nie wiemy nic ponad plan" i wtedy druga linia po prostu nie
- * istnieje — pusty wiersz jest uczciwszy niż powtórzony plan udający pomiar.
- */
-function realizedTime(row: BoardApiRow): { time: string; kind: 'fact' | 'forecast' } | null {
-  if (row.actualAt !== null && row.delayMinutes !== null) return { time: formatClockTime(row.actualAt), kind: 'fact' }
-  if (row.predictedAt != null) return { time: formatClockTime(row.predictedAt), kind: 'forecast' }
-  return null
-}
 
 /** „przez Pruszków, Opoczno · +12 przystanków" — pusto, gdy nie znamy trasy. */
 function viaLabel(row: BoardApiRow): string | null {
@@ -296,7 +283,7 @@ function TimePair({ row }: { row: BoardApiRow }) {
           style={{ color: STATUS_TEXT[row.status] }}
           title={realized.kind === 'forecast' ? 'Godzina przewidywana — przystanek nie jest jeszcze potwierdzony.' : 'Godzina faktyczna — przejazd potwierdzony.'}
         >
-          {realized.time}
+          {formatClockTime(realized.at)}
         </span>
       )}
     </span>
