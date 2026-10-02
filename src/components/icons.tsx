@@ -51,7 +51,6 @@ import {
   ListFilter,
   Map as MapGlyph,
   Maximize,
-  Menu,
   Moon,
   Navigation2,
   Pause,
@@ -152,7 +151,6 @@ export const SunIcon = /* @__PURE__ */ lucideIcon(Sun)
 export const MoonIcon = /* @__PURE__ */ lucideIcon(Moon)
 export const CloseIcon = /* @__PURE__ */ lucideIcon(X)
 export const ExpandIcon = /* @__PURE__ */ lucideIcon(Maximize)
-export const MenuIcon = /* @__PURE__ */ lucideIcon(Menu)
 /** Wstecz. */
 export const ArrowLeftIcon = /* @__PURE__ */ lucideIcon(ArrowLeft)
 export const CalendarIcon = /* @__PURE__ */ lucideIcon(Calendar)

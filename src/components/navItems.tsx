@@ -3,21 +3,28 @@ import { HomeIcon, DeparturesBoardIcon, RouteIcon, MapIcon } from './icons'
 
 export type ActiveItem = 'pulpit' | 'odjazdy' | 'linie' | 'mapa'
 
-type NavItem = { key: ActiveItem; href: string; label: string; icon: typeof HomeIcon }
+type NavItem = {
+  key: ActiveItem
+  href: string
+  label: string
+  /** Krótka etykieta pod ikoną w dolnym pasku zakładek (`BottomNav`). */
+  shortLabel: string
+  icon: typeof HomeIcon
+}
 
 /**
  * „Odjazdy / Przyjazdy" prowadzi na `/city`, „Linie" na `/lines`, „Mapa" na
  * `/map` — wszystkie trzy dobierają domyślne miasto (ostatnie z
  * `useCityContext` albo to z największą liczbą stacji kolejowych) i
  * przekierowują. Przełącznik miasta jest w treści tamtych ekranów, nie
- * w menu. Współdzielone przez `Sidebar` (desktop) i `MobileNav` (szuflada) —
+ * w menu. Współdzielone przez `Sidebar` (desktop) i `BottomNav` (telefon) —
  * jedno źródło pozycji.
  */
 export const NAV_ITEMS: NavItem[] = [
-  { key: 'pulpit', href: '/', label: 'Pulpit', icon: HomeIcon },
-  { key: 'odjazdy', href: '/city', label: 'Odjazdy / Przyjazdy', icon: DeparturesBoardIcon },
-  { key: 'linie', href: '/lines', label: 'Linie', icon: RouteIcon },
-  { key: 'mapa', href: '/map', label: 'Mapa', icon: MapIcon },
+  { key: 'pulpit', href: '/', label: 'Pulpit', shortLabel: 'Pulpit', icon: HomeIcon },
+  { key: 'odjazdy', href: '/city', label: 'Odjazdy / Przyjazdy', shortLabel: 'Odjazdy', icon: DeparturesBoardIcon },
+  { key: 'linie', href: '/lines', label: 'Linie', shortLabel: 'Linie', icon: RouteIcon },
+  { key: 'mapa', href: '/map', label: 'Mapa', shortLabel: 'Mapa', icon: MapIcon },
 ]
 
 /**
@@ -32,19 +39,8 @@ export function activeItemFromPath(pathname: string): ActiveItem | undefined {
   return undefined
 }
 
-/**
- * Lista pozycji nawigacji. `collapsed` (tylko desktop) chowa etykiety;
- * `onNavigate` (tylko szuflada) zamyka ją po tapnięciu w link.
- */
-export function NavList({
-  activeItem,
-  collapsed = false,
-  onNavigate,
-}: {
-  activeItem?: ActiveItem
-  collapsed?: boolean
-  onNavigate?: () => void
-}) {
+/** Lista pozycji paska bocznego (desktop). `collapsed` chowa etykiety. */
+export function NavList({ activeItem, collapsed = false }: { activeItem?: ActiveItem; collapsed?: boolean }) {
   return (
     <nav className="flex flex-col gap-0.5">
       {NAV_ITEMS.map((item) => {
@@ -54,7 +50,6 @@ export function NavList({
           <Link
             key={item.key}
             href={item.href}
-            onClick={onNavigate}
             aria-current={isActive ? 'page' : undefined}
             aria-label={item.label}
             className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary transition"

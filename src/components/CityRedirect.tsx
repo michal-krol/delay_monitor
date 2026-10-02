@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCityContext } from '@/hooks/useCityContext'
 import { useCities } from '@/hooks/useCities'
+import { defaultCityId } from '@/lib/cityDefault'
 
 const RESOLVING = (
   <main className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 py-16 text-sm text-text-secondary">
@@ -41,8 +42,8 @@ function CityFromList({ to }: { to: (city: string) => string }) {
 
   useEffect(() => {
     if (state !== 'ready') return
-    const top = [...cities].sort((a, b) => b.railStations.length - a.railStations.length)[0]
-    if (top !== undefined) router.replace(to(top.id))
+    const top = defaultCityId(cities)
+    if (top !== null) router.replace(to(top))
   }, [state, cities, router, to])
 
   if (state === 'failed') {
