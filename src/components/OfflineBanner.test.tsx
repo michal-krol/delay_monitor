@@ -20,22 +20,24 @@ describe('offlineMessage', () => {
 })
 
 describe('OfflineBanner', () => {
-  it('jest ukryty online, pojawia się po zdarzeniu offline i znika po online', () => {
+  it('region status jest zawsze w DOM (pusty online), treść pojawia się po zdarzeniu offline i znika po online', () => {
     const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
     render(<OfflineBanner />)
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    const status = screen.getByRole('status')
+    expect(status).toBeEmptyDOMElement()
 
     act(() => {
       onLine.mockReturnValue(false)
       window.dispatchEvent(new Event('offline'))
     })
-    expect(screen.getByRole('status')).toHaveTextContent('Brak połączenia')
+    expect(screen.getByRole('status')).toBe(status)
+    expect(status).toHaveTextContent('Brak połączenia')
 
     act(() => {
       onLine.mockReturnValue(true)
       window.dispatchEvent(new Event('online'))
     })
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(status).toBeEmptyDOMElement()
     onLine.mockRestore()
   })
 })

@@ -17,13 +17,16 @@ export function offlineMessage(lastSuccessAt: number | null, nowMs: number): str
  */
 export function OfflineBanner() {
   const online = useOnline()
-  const now = useNow(30_000)
-  if (online) return null
+  // Region `status` jest w DOM od początku (pusty) — czytnik ogłasza dopiero zmianę treści, a nie
+  // wstawiony od razu wypełniony węzeł. Zegar (`useNow`) żyje tylko w pastylce, więc online nic nie tyka.
+  return <div role="status">{!online && <OfflinePill />}</div>
+}
 
+function OfflinePill() {
+  const now = useNow(30_000)
   return (
     <div
-      role="status"
-      className="glass-strong text-warning-text fixed left-1/2 z-40 -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap"
+      className="glass-strong text-warning-text fixed left-1/2 z-40 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-4 py-2 text-center text-sm font-medium"
       style={{ bottom: 'calc(var(--bottom-nav-h) + 0.75rem)' }}
     >
       {offlineMessage(lastPollingSuccessAt(), now)}
