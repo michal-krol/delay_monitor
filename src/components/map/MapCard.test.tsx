@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { BottomSheet } from '../BottomSheet'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MapCard } from './MapCard'
@@ -58,17 +59,18 @@ describe('MapCard — rail station', () => {
 })
 
 describe('MapCard — stop', () => {
-  it('compactAlerts collapses the stop notices into one summary (phone sheet)', () => {
+  it('inside the bottom sheet the stop notices collapse into one summary (phone)', () => {
     const notice = { id: 'a', routes: ['20'], effect: 'REDUCED_SERVICE', link: '', title: 'Objazd linii 20', body: '' }
     transitBoard.mockReturnValue({ data: { stops: [{ stopId: '1001', alerts: [notice], members: [], lines: [], departures: [] }] }, error: null })
     render(
-      <MapCard
-        compactAlerts
-        selection={{ kind: 'stop', id: '1001', groupId: '1001', name: 'Centrum', code: null, mode: 'tram', lat: 52.23, lon: 21.01 }}
-        vehicle={null}
-        city="warszawa"
-        onClose={() => {}}
-      />
+      <BottomSheet>
+        <MapCard
+          selection={{ kind: 'stop', id: '1001', groupId: '1001', name: 'Centrum', code: null, mode: 'tram', lat: 52.23, lon: 21.01 }}
+          vehicle={null}
+          city="warszawa"
+          onClose={() => {}}
+        />
+      </BottomSheet>
     )
     expect(screen.getByText('Komunikaty (1)')).toBeInTheDocument()
   })

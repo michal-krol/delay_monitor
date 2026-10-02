@@ -250,7 +250,7 @@ details[open] > summary .disclosure-chevron,
    `pointer-events: none` — przezroczysty odstęp przepuszcza gesty do mapy, a przeciąganie
    panelu (`pointer-events: auto`) przewija kontener i dociąga do znaczników (25/55/90%).
    Poza punktem „full” wewnętrzne przewijanie panelu jest wyłączone, inaczej przeciągnięcie
-   przewijałoby treść zamiast podnieść arkusz. Reguły bez warstwy: wygrywają z `glass-strong`. */
+   przewijałoby treść zamiast podnieść arkusz. `PanelFrame` w arkuszu rezygnuje z własnego szkła (`useInSheet`). */
 .bottom-sheet {
   position: absolute;
   inset: 0;
@@ -295,7 +295,7 @@ details[open] > summary .disclosure-chevron,
   flex-shrink: 0;
   place-items: center;
   width: 100%;
-  min-height: 2.75rem; /* cel dotyku 44 px; nagłówek panelu traci za to górny odstęp niżej */
+  min-height: 2.75rem; /* cel dotyku 44 px; nagłówek `PanelFrame` w arkuszu nie ma za to górnego odstępu */
   border-radius: 1rem 1rem 0 0;
 }
 .bottom-sheet__grip {
@@ -307,20 +307,6 @@ details[open] > summary .disclosure-chevron,
 }
 .bottom-sheet:not([data-snap='full']) [data-sheet-scroll] {
   overflow-y: hidden;
-}
-.bottom-sheet__panel .panel-frame {
-  flex: 1;
-  max-height: none;
-  min-height: 0;
-  background-color: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-.bottom-sheet__panel .panel-frame > header {
-  padding-top: 0;
 }
 
 @utility glass {

@@ -400,7 +400,6 @@ export default function CityMapPage() {
             : undefined
         }
         alertLines={vehiclesState.alertLines}
-        compactAlerts={!isWide}
       />
     ) : nearby !== null ? (
       <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={() => setNearby(null)} />
@@ -418,7 +417,6 @@ export default function CityMapPage() {
         onDirection={changeDirection}
         onStop={openLineStop}
         onClose={() => chooseLine(null)}
-        compactAlerts={!isWide}
       />
     ) : null
   // Nowy obiekt w arkuszu = nowy `key` → arkusz startuje znów w `peek`.
@@ -430,7 +428,7 @@ export default function CityMapPage() {
   )
   const lineSearch = <LineSearch lines={lines} onSelect={chooseLine} />
   const filters = (
-    <MapFilters compact={!isWide} hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} alertsOnly={alertsOnly} onAlertsOnly={changeAlertsOnly} />
+    <MapFilters hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} alertsOnly={alertsOnly} onAlertsOnly={changeAlertsOnly} />
   )
 
   function toggleList(): void {

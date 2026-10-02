@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { CloseIcon, ICON_SIZE } from '../icons'
 import { IconButton } from '../IconButton'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
+import { useInSheet } from '../BottomSheet'
 
 /**
  * Jedna rama dokowanego panelu mapy (spec §15): karta obiektu (`MapCard`),
@@ -35,6 +36,8 @@ export function PanelFrame({
   children: ReactNode
 }) {
   const headingId = useId()
+  // W arkuszu (telefon) tłem i zaokrągleniem jest sam arkusz; uchwyt nad nagłówkiem zastępuje górny odstęp.
+  const inSheet = useInSheet()
   const [bodyRef, bodyTabIndex] = useScrollableFocus<HTMLDivElement>()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
@@ -65,8 +68,13 @@ export function PanelFrame({
   }, [])
 
   return (
-    <section role="dialog" aria-modal="false" aria-labelledby={headingId} className="panel-frame glass-strong flex max-h-full flex-col overflow-hidden rounded-2xl shadow-xl">
-      <header className="flex items-start gap-3 border-b border-surface-border p-4">
+    <section
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby={headingId}
+      className={`flex flex-col overflow-hidden ${inSheet ? 'min-h-0 flex-1' : 'glass-strong max-h-full rounded-2xl shadow-xl'}`}
+    >
+      <header className={`flex items-start gap-3 border-b border-surface-border ${inSheet ? 'px-4 pb-4' : 'p-4'}`}>
         {leading}
         <div className="min-w-0 flex-1">
           <h2 ref={headingRef} id={headingId} tabIndex={-1} className="font-heading text-lg font-bold leading-tight outline-none first-letter:uppercase">
@@ -79,7 +87,7 @@ export function PanelFrame({
           <CloseIcon size={ICON_SIZE.button} />
         </IconButton>
       </header>
-      <div ref={bodyRef} data-sheet-scroll className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>
+      <div ref={bodyRef} data-sheet-scroll={inSheet || undefined} className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>
         {children}
       </div>
     </section>

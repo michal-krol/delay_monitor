@@ -93,12 +93,12 @@ describe('MapFilters', () => {
   })
 })
 
-describe('MapFilters compact', () => {
-  it('icon-only button is still named „Filtry" and shows the restriction count', () => {
-    render(<MapFilters compact hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={[]} onChange={() => {}} />)
+describe('MapFilters on a phone', () => {
+  it('icon-only below sm: the „Filtry" label stays for screen readers, the count stays visible', () => {
+    render(<MapFilters hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={[]} onChange={() => {}} />)
     const button = screen.getByRole('button', { name: /^Filtry/ })
     expect(button).toHaveTextContent('1 aktywnych ograniczeń')
-    expect(within(button).getByText('Filtry')).toHaveClass('sr-only')
+    expect(within(button).getByText('Filtry')).toHaveClass('max-sm:sr-only')
   })
 })
 

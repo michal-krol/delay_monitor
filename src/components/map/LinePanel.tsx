@@ -27,7 +27,6 @@ export function LinePanel({
   onDirection,
   onStop,
   onClose,
-  compactAlerts = false,
 }: {
   line: LineListEntry
   /** `undefined` = wczytuje się, `null` = rozkład nie zna przebiegu tej linii. */
@@ -41,8 +40,6 @@ export function LinePanel({
   onDirection: (directionId: number) => void
   onStop: (stop: LineRouteStop) => void
   onClose: () => void
-  /** Telefon (arkusz): komunikaty zwinięte w jeden wiersz „Komunikaty (n)”. */
-  compactAlerts?: boolean
 }) {
   const directions = detail?.directions ?? []
   const direction = directions.find((d) => d.directionId === directionId) ?? directions[0]
@@ -60,7 +57,7 @@ export function LinePanel({
     >
       {alerts.length > 0 && (
         <div className="mb-3">
-          <AlertBanner alerts={alerts} collapsed={compactAlerts} />
+          <AlertBanner alerts={alerts} />
         </div>
       )}
       {detail === undefined && error && <p className="text-sm text-error-text">Nie udało się pobrać przebiegu linii.</p>}

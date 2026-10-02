@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 export type SheetSnap = 'peek' | 'half' | 'full'
 
@@ -11,6 +11,13 @@ const ORDER: SheetSnap[] = ['peek', 'half', 'full']
 const SNAP_LABEL: Record<SheetSnap, string> = { peek: 'niski', half: 'do połowy', full: 'pełny' }
 /** Po tylu ms bez zdarzenia `scroll` przewijanie uznajemy za zakończone (`scrollend` w Safari dopiero od 26). */
 const SETTLE_MS = 120
+
+const InSheetContext = createContext(false)
+
+/** Treść wie, że leży w arkuszu (telefon): `PanelFrame` bez własnego szkła, `AlertBanner` zwinięty. */
+export function useInSheet(): boolean {
+  return useContext(InSheetContext)
+}
 
 export function nextSnap(snap: SheetSnap): SheetSnap {
   return ORDER[(ORDER.indexOf(snap) + 1) % ORDER.length]
@@ -78,7 +85,9 @@ export function BottomSheet({ children }: { children: ReactNode }) {
         <button type="button" className="bottom-sheet__handle" aria-label={`Zmień wysokość panelu (teraz: ${SNAP_LABEL[snap]})`} onClick={cycle}>
           <span className="bottom-sheet__grip" />
         </button>
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <InSheetContext.Provider value={true}>{children}</InSheetContext.Provider>
+        </div>
       </div>
     </div>
   )

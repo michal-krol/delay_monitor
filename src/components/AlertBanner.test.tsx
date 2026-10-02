@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { AlertBanner, alertDateRange } from './AlertBanner'
+import { BottomSheet } from './BottomSheet'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 
 const alert = (over: Partial<AlertRecord> = {}): AlertRecord => ({
@@ -52,9 +53,13 @@ describe('AlertBanner', () => {
   })
 })
 
-describe('AlertBanner collapsed (phone sheet cards)', () => {
+describe('AlertBanner inside the bottom sheet (phone map cards)', () => {
   it('one closed „Komunikaty (2)" disclosure holds both alerts; opening it keeps the inner „Rozwiń" labels', () => {
-    render(<AlertBanner collapsed alerts={[alert({ id: 'a' }), alert({ id: 'b', title: 'Drugi alert' })]} />)
+    render(
+      <BottomSheet>
+        <AlertBanner alerts={[alert({ id: 'a' }), alert({ id: 'b', title: 'Drugi alert' })]} />
+      </BottomSheet>
+    )
     const summary = screen.getByText('Komunikaty (2)')
     // eslint-disable-next-line testing-library/no-node-access -- stan <details> nie ma roli ARIA do zapytania
     const outer = summary.closest('details')!
@@ -66,8 +71,12 @@ describe('AlertBanner collapsed (phone sheet cards)', () => {
   })
 
   it('renders nothing for an empty list', () => {
-    const { container } = render(<AlertBanner collapsed alerts={[]} />)
-    expect(container).toBeEmptyDOMElement()
+    render(
+      <BottomSheet>
+        <AlertBanner alerts={[]} />
+      </BottomSheet>
+    )
+    expect(screen.queryByText(/Komunikaty/)).toBeNull()
   })
 })
 

@@ -18,7 +18,6 @@ export function MapFilters({
   onChange,
   alertsOnly = false,
   onAlertsOnly,
-  compact = false,
 }: {
   hidden: ReadonlySet<LayerKey>
   /** Rodzaje pojazdów obecne w danych miasta — nie pokazujemy przełącznika do pustej warstwy. */
@@ -27,8 +26,6 @@ export function MapFilters({
   /** „Tylko linie z utrudnieniami" — pomijane, gdy brak `onAlertsOnly`. */
   alertsOnly?: boolean
   onAlertsOnly?: (next: boolean) => void
-  /** Telefon: sama ikona (44×44), napis „Filtry” tylko dla czytnika; licznik zostaje. */
-  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const restrictions = hidden.size + (alertsOnly ? 1 : 0)
@@ -69,15 +66,14 @@ export function MapFilters({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className={`glass relative inline-flex h-full min-h-11 items-center rounded-xl text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10 ${
-          compact ? 'w-11 justify-center' : 'gap-2 px-3.5 py-2.5'
-        }`}
+        // Telefon (poniżej `sm`): sama ikona 44×44, napis „Filtry” tylko dla czytnika, licznik w rogu.
+        className="glass relative inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 max-sm:w-11 max-sm:justify-center max-sm:px-0 dark:hover:bg-white/10"
       >
         <FilterIcon size={ICON_SIZE.button} />
-        <span className={compact ? 'sr-only' : undefined}>Filtry</span>
+        <span className="max-sm:sr-only">Filtry</span>
         {restrictions > 0 && (
           <span
-            className={`grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white ${compact ? 'absolute -right-1.5 -top-1.5' : ''}`}
+            className="grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white max-sm:absolute max-sm:-right-1.5 max-sm:-top-1.5"
             style={{ background: 'var(--accent-solid)' }}
           >
             {restrictions}
