@@ -8,6 +8,7 @@ describe('manifest PWA', () => {
   it('uruchamia się jak aplikacja (standalone) od strony głównej', () => {
     expect(m.display).toBe('standalone')
     expect(m.start_url).toBe('/')
+    expect(m.id).toBe('/')
     expect(m.scope).toBe('/')
     expect(m.lang).toBe('pl')
   })

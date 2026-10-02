@@ -10,6 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'Opóźnienia',
     description: APP_DESCRIPTION,
     lang: 'pl',
+    // Stała tożsamość aplikacji — zmiana start_url nie utworzy „nowej" instalacji.
+    id: '/',
     start_url: '/',
     scope: '/',
     display: 'standalone',
