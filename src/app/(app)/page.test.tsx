@@ -41,11 +41,6 @@ vi.mock('@/hooks/useBoard', () => ({
   useBoard: () => ({ data: null, error: null }),
 }))
 
-// Mock `useRecentPlaces` to use real `localStorage` from the test.
-vi.mock('@/hooks/useRecentPlaces', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/hooks/useRecentPlaces')>()),
-}))
-
 describe('Page (Pulpit)', () => {
   // Restore even when an assertion fails, so fake timers and stubs never leak into the next test.
   afterEach(() => {

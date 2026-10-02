@@ -81,6 +81,8 @@ test('„Zamknij" zamyka okno', async ({ page }, testInfo) => {
 
 test('„/" wpisane w polu wyszukiwania na stronie miasta nie otwiera okna', async ({ page }) => {
   await page.goto('/city/warszawa')
+  // Bez hydracji listener „/" jeszcze nie istnieje i test przechodziłby na próżno.
+  await page.waitForLoadState('networkidle')
   const input = page.getByRole('combobox', { name: /Szukaj stacji kolejowej lub przystanku miejskiego/ })
   await input.click()
   await page.keyboard.type('a/b')
