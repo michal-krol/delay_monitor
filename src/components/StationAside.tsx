@@ -263,7 +263,8 @@ export function StationAside({
 
   return (
     <div className="flex flex-col gap-4">
-      <AsideCard title="Najpopularniejsze kierunki">
+      {/* Poniżej `xl` te kierunki są filtrami nad tablicą (`FullBoard`) — tu tylko w prawej kolumnie. */}
+      <AsideCard title="Najpopularniejsze kierunki" className="hidden xl:block">
         <PopularDestinations insights={insights} loading={loading} onSelect={onDestinationFilter} selected={destinationFilter} />
       </AsideCard>
       <AsideCard title="Utrudnienia na tej stacji">

@@ -28,7 +28,8 @@ const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
 /** Kolejność wpisów w legendzie -- ta sama co w `resolveStopStatus()`, nie kolejność zależna od `Object.keys`. */
 const STATUS_ORDER: RealizationStatus[] = ['onTime', 'delayed', 'cancelled', 'unknown', 'notStarted', 'enRoute']
 
-function StatusLegend() {
+/** Legenda statusów („?”) — przy zakładkach Odjazdy/Przyjazdy (`FullBoard`), bo nagłówek tabeli na telefonie jest ukryty. */
+export function StatusLegend() {
   return (
     <InfoTooltip label="Legenda statusów">
       <ul className="flex flex-col gap-2">
@@ -180,7 +181,6 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
               </th>
               <th scope="col" className="py-2 pr-3 font-medium text-text-muted">
                 Status
-                <StatusLegend />
               </th>
               <th scope="col" className="py-2 pr-1"><span className="sr-only">Szczegóły</span></th>
             </tr>

@@ -6,7 +6,8 @@ import { useStationWeather } from '@/hooks/useStationWeather'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
-import { BoardTable } from './BoardTable'
+import { BoardTable, StatusLegend } from './BoardTable'
+import { InfoButton, InfoSheet } from './InfoSheet'
 import { StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
@@ -62,7 +63,7 @@ function TabButton({
       aria-selected={active}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+      className={`rounded-full px-4 py-1.5 text-sm font-medium transition max-sm:min-h-11 ${
         active ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
       }`}
       // Ten sam akcent co zakładki przystanku (TransitStopDetail) — stacja wygląda jak przystanek.
@@ -80,6 +81,8 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   const panelId = `${idBase}-panel`
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
+  /** Arkusz „Info” (telefon): kontekst z prawej kolumny nad tablicą. */
+  const [infoOpen, setInfoOpen] = useState(false)
   const { data, error, lastSuccessAt, refresh } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
@@ -172,17 +175,39 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
     }
   }, [])
 
+  const loading = snapshot === null && error === null
+  const topDestinations = snapshot?.insights?.topDestinations ?? []
+  const aside = (
+    <StationAside
+      insights={snapshot?.insights}
+      disruptionMessages={snapshot?.disruptionMessages ?? []}
+      destinationFilter={destinationFilter}
+      onDestinationFilter={setDestinationFilter}
+      loading={loading}
+      currentHour={zonedHour(now, 'Europe/Warsaw')}
+      weather={weather}
+      stationName={stationName}
+      stationId={stationId}
+      mapPreview={mapPreview}
+    />
+  )
+
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
-      <div className="flex min-w-0 flex-col gap-5">
-        <section className="glass rounded-2xl p-5">
+    <div className="grid items-start gap-5 max-sm:gap-3 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+      {/* Na telefonie odjazdy pierwsze: zwarty nagłówek, KPI jako pigułki, kontekst w arkuszu „Info”. */}
+      <div className="flex min-w-0 flex-col gap-5 max-sm:gap-3">
+        <section className="glass rounded-2xl p-5 max-sm:p-4">
           {configError && <ConfigErrorBanner />}
 
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <StationThumb stationName={stationName} />
+              <div className="shrink-0 max-sm:hidden">
+                <StationThumb stationName={stationName} />
+              </div>
               <div className="min-w-0">
-                <PageTitle as={embedded ? 'h2' : 'h1'}>{stationName}</PageTitle>
+                <PageTitle as={embedded ? 'h2' : 'h1'} className="max-sm:text-xl">
+                  {stationName}
+                </PageTitle>
                 {/* Przy błędzie konfiguracji NIE pokazujemy statusu danych --
                     „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API"
                     to dokładnie to mieszanie sygnałów, przed którym ostrzega
@@ -210,10 +235,15 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
             "sprawdź klucz API" nie sąsiadował z wyglądającą na działającą tabelą. */}
         {!configError && (
           <>
-            <StationStatsCards stats={snapshot?.stats} loading={snapshot === null && error === null} />
+            <StationStatsCards stats={snapshot?.stats} loading={loading} />
 
-            <section className="glass rounded-2xl p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <section className="glass rounded-2xl p-5 max-sm:p-4">
+              {/* Na telefonie pasek przykleja się pod nagłówkiem aplikacji: zakładki, legenda i „Info”
+                  zostają pod ręką przy przewijaniu długiej tablicy. Nieprzezroczysty, bo wiersze jadą pod nim. */}
+              <div
+                data-testid="board-tabs-bar"
+                className="flex flex-wrap items-center justify-between gap-3 max-sm:sticky max-sm:gap-2 max-sm:top-[var(--header-h)] max-sm:z-20 max-sm:-mx-4 max-sm:-mt-4 max-sm:rounded-t-2xl max-sm:bg-[var(--sheet-surface)] max-sm:px-4 max-sm:py-2"
+              >
                 <div
                   role="tablist"
                   aria-label="Kierunek"
@@ -227,6 +257,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     Przyjazdy
                   </TabButton>
                 </div>
+                <StatusLegend />
 
                 {destinationFilter !== null && (
                   <button
@@ -238,7 +269,35 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     <CloseIcon size={ICON_SIZE.chip} />
                   </button>
                 )}
+                <div className="ml-auto sm:hidden">
+                  <InfoButton open={infoOpen} onClick={() => setInfoOpen((open) => !open)} />
+                </div>
               </div>
+
+              {/* Poniżej `xl` prawa kolumna jest pod tablicą albo w arkuszu, więc najpopularniejsze
+                  kierunki są tu, jako filtry nad tablicą (ten sam stan co karta w kolumnie od `xl`).
+                  Przewijane w poziomie zamiast zawijania: pierwszy odjazd ma się zmieścić na ekranie. */}
+              {direction === 'departures' && topDestinations.length > 0 && (
+                <div role="group" aria-label="Najpopularniejsze kierunki" className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 xl:hidden">
+                  {topDestinations.map((destination) => {
+                    const active = destinationFilter === destination.name
+                    return (
+                      <button
+                        key={destination.stationId}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setDestinationFilter(active ? null : destination.name)}
+                        className={`min-h-11 shrink-0 rounded-full border px-3.5 text-sm transition sm:min-h-9 ${
+                          active ? 'border-transparent text-white' : 'border-surface-border text-text-secondary hover:text-foreground'
+                        }`}
+                        style={active ? { background: 'var(--accent-gradient)' } : undefined}
+                      >
+                        {destination.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
               <div role="tabpanel" id={panelId} aria-labelledby={tabId(direction)}>
                 <BoardTable
@@ -246,7 +305,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                   direction={direction}
                   rows={rows}
                   now={now}
-                  loading={snapshot === null && error === null}
+                  loading={loading}
                 />
               </div>
             </section>
@@ -255,20 +314,15 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
       </div>
 
       {!configError && (
-        <aside className="xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">
-          <StationAside
-            insights={snapshot?.insights}
-            disruptionMessages={snapshot?.disruptionMessages ?? []}
-            destinationFilter={destinationFilter}
-            onDestinationFilter={setDestinationFilter}
-            loading={snapshot === null && error === null}
-            currentHour={zonedHour(now, 'Europe/Warsaw')}
-            weather={weather}
-            stationName={stationName}
-            stationId={stationId}
-            mapPreview={mapPreview}
-          />
-        </aside>
+        <aside className="max-sm:hidden xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">{aside}</aside>
+      )}
+
+      {/* Telefon: te same komponenty co prawa kolumna (jedna implementacja), plus pełne kafelki KPI. */}
+      {!configError && infoOpen && (
+        <InfoSheet title="Informacje o stacji" onClose={() => setInfoOpen(false)}>
+          <StationStatsCards stats={snapshot?.stats} loading={loading} />
+          {aside}
+        </InfoSheet>
       )}
     </div>
   )

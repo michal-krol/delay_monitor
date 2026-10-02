@@ -492,4 +492,54 @@ describe('FullBoard', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
+
+  describe('na telefonie (PR4)', () => {
+    const WITH_INSIGHTS = {
+      ...SNAPSHOT,
+      insights: { topDestinations: [{ stationId: '80416', name: 'Kraków', count: 12 }], hourlyTraffic: Array.from({ length: 24 }, () => 1) },
+    }
+    beforeEach(() => {
+      window.HTMLElement.prototype.scrollTo = () => {}
+    })
+
+    it('„Info” opens a sheet with the station context (same components as the aside) and × closes it', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+
+      const info = screen.getByRole('button', { name: 'Info' })
+      expect(info).toHaveAttribute('aria-expanded', 'false')
+      await user.click(info)
+      const sheet = screen.getByRole('dialog', { name: 'Informacje o stacji' })
+      expect(within(sheet).getByText('Natężenie ruchu dzisiaj')).toBeInTheDocument()
+      expect(within(sheet).getByText('Odjazdy dzisiaj')).toBeInTheDocument()
+      expect(info).toHaveAttribute('aria-expanded', 'true')
+
+      await user.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
+      expect(screen.queryByRole('dialog', { name: 'Informacje o stacji' })).not.toBeInTheDocument()
+    })
+
+    it('a popular-destination chip above the table filters the board and writes ?direction=', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+
+      const chips = screen.getByRole('group', { name: 'Najpopularniejsze kierunki' })
+      await user.click(within(chips).getByRole('button', { name: 'Kraków' }))
+      expect(within(chips).getByRole('button', { name: 'Kraków' })).toHaveAttribute('aria-pressed', 'true')
+      await waitFor(() => expect(new URLSearchParams(window.location.search).get('direction')).toBe('Kraków'))
+    })
+
+    it('the status legend sits next to the direction tabs, not in the (phone-hidden) table header', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+
+      const legend = screen.getByRole('button', { name: 'Legenda statusów' })
+      expect(within(screen.getByRole('table')).queryByRole('button', { name: 'Legenda statusów' })).toBeNull()
+      expect(within(screen.getByTestId('board-tabs-bar')).getByRole('button', { name: 'Legenda statusów' })).toBe(legend)
+    })
+  })
 })

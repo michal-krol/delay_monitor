@@ -92,6 +92,19 @@ describe('BottomSheet', () => {
     fireEvent.click(handle)
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 540 })
   })
+
+  it('opens at the requested snap (Info sheet starts at half)', () => {
+    render(
+      <BottomSheet initialSnap="half">
+        <p>Treść</p>
+      </BottomSheet>
+    )
+    expect(sheet()).toHaveAttribute('data-snap', 'half')
+    expect(scrollTo).toHaveBeenCalledWith({ top: 330, behavior: 'instant' })
+    sheet().scrollTop = 330 // jsdom nie przewija — pozycja po scrollTo
+    fireEvent.click(screen.getByRole('button', { name: 'Zmień wysokość panelu (teraz: do połowy)' }))
+    expect(sheet()).toHaveAttribute('data-snap', 'full')
+  })
 })
 
 describe('BottomSheet CSS', () => {
