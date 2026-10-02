@@ -72,6 +72,27 @@ describe('AppChrome search', () => {
     return screen.findByRole('combobox').then(() => expect(dialog.showModal).toHaveBeenCalledTimes(1))
   })
 
+  it('keeps the browser omnibox away: Ctrl+K while the dialog is open is also prevented', async () => {
+    render(<AppChrome />)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }))
+    await screen.findByRole('combobox')
+    const second = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true, cancelable: true })
+    document.dispatchEvent(second)
+    expect(second.defaultPrevented).toBe(true)
+    expect(dialog.showModal).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a shortcut during IME composition and one already handled', () => {
+    render(<AppChrome />)
+    const composing = new KeyboardEvent('keydown', { key: '/', isComposing: true, bubbles: true, cancelable: true })
+    document.dispatchEvent(composing)
+    expect(composing.defaultPrevented).toBe(false)
+    const handled = new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true })
+    document.addEventListener('keydown', (e) => e.preventDefault(), { once: true, capture: true })
+    document.dispatchEvent(handled)
+    expect(dialog.showModal).not.toHaveBeenCalled()
+  })
+
   it('opens on "/" from the page body', async () => {
     render(<AppChrome />)
     fireEvent.keyDown(document.body, { key: '/' })

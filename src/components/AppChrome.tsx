@@ -24,9 +24,12 @@ export function AppChrome() {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
-      if (searchOpen || !isSearchShortcut(event)) return
+      // Skrót już obsłużony gdzie indziej albo trwa kompozycja IME — nie przechwytujemy.
+      if (event.defaultPrevented || event.isComposing || !isSearchShortcut(event)) return
+      // Otwarte okno: Ctrl/Cmd+K nadal nie może trafić do przeglądarki (pasek adresu); „/" w polu to zwykły znak
+      // (isSearchShortcut go odrzuca), więc tu zostaje tylko odebranie skrótu.
       event.preventDefault()
-      setSearchOpen(true)
+      if (!searchOpen) setSearchOpen(true)
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)

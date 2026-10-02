@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RecentPlaces } from './RecentPlaces'
 import type { RecentPlace } from '@/hooks/useRecentPlaces'
 
@@ -39,6 +39,15 @@ describe('RecentPlaces', () => {
     await user.click(screen.getByRole('button', { name: 'Wyczyść' }))
     expect(screen.queryByRole('heading', { name: 'Ostatnio oglądane' })).toBeNull()
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull()
+  })
+
+  it('„Wyczyść" calls onCleared', async () => {
+    seed([pkp('1')])
+    const onCleared = vi.fn()
+    const user = userEvent.setup()
+    render(<RecentPlaces limit={8} onCleared={onCleared} />)
+    await user.click(screen.getByRole('button', { name: 'Wyczyść' }))
+    expect(onCleared).toHaveBeenCalledTimes(1)
   })
 
   it('links a single przystanek with ?przystanek=', () => {

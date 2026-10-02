@@ -6,7 +6,16 @@ import { recentPlaceHref, recentPlaceKey, useRecentPlaces } from '@/hooks/useRec
 import { ICON_SIZE, StopIcon, TrainIcon } from './icons'
 
 /** „Ostatnio oglądane" stacje i przystanki (z `localStorage`); nic nie renderuje, dopóki lista jest nieznana lub pusta. */
-export function RecentPlaces({ limit, headingLevel = 'h2' }: { limit: number; headingLevel?: 'h2' | 'h3' }) {
+export function RecentPlaces({
+  limit,
+  headingLevel = 'h2',
+  onCleared,
+}: {
+  limit: number
+  headingLevel?: 'h2' | 'h3'
+  /** Po „Wyczyść" zogniskowany przycisk znika z DOM — wywołujący decyduje, gdzie oddać fokus. */
+  onCleared?: () => void
+}) {
   const { places, loaded, clear } = useRecentPlaces()
   const headingId = useId()
   if (!loaded || places.length === 0) return null
@@ -20,7 +29,10 @@ export function RecentPlaces({ limit, headingLevel = 'h2' }: { limit: number; he
         </Heading>
         <button
           type="button"
-          onClick={clear}
+          onClick={() => {
+            clear()
+            onCleared?.()
+          }}
           className="touch-44 relative rounded-md px-2 py-1 text-xs font-medium text-text-secondary transition hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10"
         >
           Wyczyść
