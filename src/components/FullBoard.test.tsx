@@ -80,11 +80,27 @@ describe('FullBoard', () => {
     window.localStorage.removeItem('monitor.recentPlaces.v1')
   })
 
-  it('does not record when the name is just the id', async () => {
+  it('records the server-resolved snapshot name, never the ?name= prop text', async () => {
     window.localStorage.removeItem('monitor.recentPlaces.v1')
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
 
-    render(<FullBoard stationId="5100" stationName="5100" isPinned={false} onTogglePin={vi.fn()} />)
+    render(<FullBoard stationId="5100" stationName="Kliknij tutaj: przykładowy-link.example" isPinned={false} onTogglePin={vi.fn()} />)
+
+    await screen.findByText('EIC 1')
+    await waitFor(() =>
+      expect(JSON.parse(window.localStorage.getItem('monitor.recentPlaces.v1') ?? '[]')).toEqual([
+        { kind: 'pkp', id: '5100', name: 'Warszawa Centralna' },
+      ])
+    )
+    window.localStorage.removeItem('monitor.recentPlaces.v1')
+  })
+
+  it('does not record when the snapshot name is just the id', async () => {
+    window.localStorage.removeItem('monitor.recentPlaces.v1')
+    const unnamed = { ...SNAPSHOT, stationName: '5100' }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [unnamed], budget: undefined, status: 'ok' })))
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
     await screen.findByText('EIC 1')
     expect(window.localStorage.getItem('monitor.recentPlaces.v1')).toBeNull()

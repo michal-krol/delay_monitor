@@ -86,12 +86,14 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   const configError = data?.status === 'configError'
 
   // „Ostatnio oglądane": zapis po wczytaniu snapshotu, zależny od wartości (nie od obiektu
-  // snapshotu, który zmienia się co odpytanie). Nazwa równa id = brak `?name=` — nic do pokazania.
+  // snapshotu, który zmienia się co odpytanie). Zapisujemy nazwę rozwiązaną przez serwer, nie
+  // `?name=` z URL-a (wpis powstaje bez kliknięcia, więc nie może nieść cudzego tekstu z linku).
+  // Nazwa równa id = serwer nie znał nazwy — nic do pokazania.
   const { record: recordRecentPlace } = useRecentPlaces()
-  const snapshotLoaded = snapshot !== null
+  const resolvedName = snapshot?.stationName ?? null
   useEffect(() => {
-    if (snapshotLoaded && stationName !== stationId) recordRecentPlace({ kind: 'pkp', id: stationId, name: stationName })
-  }, [snapshotLoaded, stationId, stationName, recordRecentPlace])
+    if (resolvedName !== null && resolvedName !== stationId) recordRecentPlace({ kind: 'pkp', id: stationId, name: resolvedName })
+  }, [resolvedName, stationId, recordRecentPlace])
 
   const now = useSnapshotNow(data)
 
