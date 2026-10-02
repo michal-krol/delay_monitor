@@ -41,3 +41,8 @@ vi.mock('maplibre-gl', () => ({
     }
   },
 }))
+
+// jsdom nie implementuje `Element.scrollTo` (przewijanie bez układu) — `BottomSheet` go woła.
+if (typeof HTMLElement !== 'undefined' && HTMLElement.prototype.scrollTo === undefined) {
+  HTMLElement.prototype.scrollTo = () => {}
+}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
+import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
@@ -14,6 +15,7 @@ import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { stopDisplayName } from '@/components/stopName'
 import { MapFilters } from '@/components/map/MapFilters'
 import { MapLegend } from '@/components/map/MapLegend'
+import { MapMoreMenu } from '@/components/map/MapMoreMenu'
 import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
 import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
 import {
@@ -417,23 +419,37 @@ export default function CityMapPage() {
         onClose={() => chooseLine(null)}
       />
     ) : null
+  // Nowy obiekt w arkuszu = nowy `key` → arkusz startuje znów w `peek`.
+  const cardKey =
+    selection !== null ? `${selection.kind}:${selection.id}` : nearby !== null ? 'nearby' : listOpen ? 'list' : `line:${line?.routeId}`
 
   const placeSearch = (
     <StationSearch endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`} placeholder="Szukaj stacji lub przystanku…" onSelect={onSearchSelect} wide />
   )
   const lineSearch = <LineSearch lines={lines} onSelect={chooseLine} />
+  const filters = (
+    <MapFilters hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} alertsOnly={alertsOnly} onAlertsOnly={changeAlertsOnly} />
+  )
+
+  function toggleList(): void {
+    setListOpen((open) => !open)
+    setSelection(null)
+    setNearby(null)
+  }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <div className="px-4 py-4 sm:px-8 sm:py-5">
+    // Wysokość = ekran bez nagłówka i dolnego paska (od `sm` obie zmienne to 0): strona się nie przewija.
+    <div className="flex h-[calc(100dvh-var(--header-h)-var(--bottom-nav-h))] min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="px-4 py-2 sm:px-8 sm:py-5">
         <TopBar
+          compact
           title="Mapa transportu"
           subtitle={`${feed.name} · ${freshness}`}
-          actions={<CityPicker cities={cities} current={city} hrefFor={(id) => `/city/${id}/map`} />}
+          actions={<CityPicker compact cities={cities} current={city} hrefFor={(id) => `/city/${id}/map`} />}
         />
       </div>
 
-      <div className="relative flex min-h-[60vh] flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
           {mounted && initialCamera !== null && (
             <TransitMap
@@ -465,72 +481,68 @@ export default function CityMapPage() {
             />
           )}
 
-          {/* Kontrolki i karta telefonu w jednej kolumnie: karta (max 62%) dostaje tylko miejsce pod
-              kontrolkami, więc ich nie zakryje, nawet gdy przyciski zeszły do drugiego rzędu. */}
           <div className="pointer-events-none absolute inset-0 flex flex-col">
-            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 sm:ml-4 sm:mt-4">
+            {/* Nad arkuszem (`.bottom-sheet`, z-20) tylko wtedy, gdy coś tu jest rozwinięte (wyniki wyszukiwania,
+                Filtry, Przypięte, Więcej) — inaczej lista otwierała się pod panelem; zwinięte zostają pod nim. */}
+            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 sm:ml-4 sm:mt-4">
               <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
                 {isWide ? (
                   <>
                     <div className="w-72">{placeSearch}</div>
                     <div className="w-52">{lineSearch}</div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        aria-pressed={listOpen}
+                        onClick={toggleList}
+                        className={`glass inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${
+                          listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
+                        }`}
+                        style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
+                      >
+                        <ListIcon size={ICON_SIZE.button} />
+                        Lista
+                      </button>
+                      <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                      {filters}
+                      <button
+                        type="button"
+                        onClick={() => void share()}
+                        aria-label="Udostępnij ten widok mapy"
+                        className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        <ShareIcon size={ICON_SIZE.button} />
+                      </button>
+                    </div>
                   </>
                 ) : (
-                  // `min-w-40`: na telefonie przyciski schodzą pod pole zamiast ścisnąć je do „Sz…";
-                  // `ml-auto` niżej trzyma je z prawej, bo ich panele otwierają się w lewo.
-                  <div className="flex min-w-40 flex-1 flex-col gap-1.5">
-                    <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
-                      {(['place', 'line'] as const).map((tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          aria-pressed={searchTab === tab}
-                          onClick={() => setSearchTab(tab)}
-                          className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
-                          style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
-                        >
-                          {tab === 'place' ? 'Przystanek' : 'Linia'}
-                        </button>
-                      ))}
+                  // Telefon: dwa rzędy — zakładki i przyciski (ich panele otwierają się w lewo od prawej
+                  // krawędzi), pod nimi pole na całą szerokość. „Lista” i „Udostępnij” są w „Więcej”.
+                  <div className="flex w-full flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
+                        {(['place', 'line'] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            aria-pressed={searchTab === tab}
+                            onClick={() => setSearchTab(tab)}
+                            className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
+                            style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
+                          >
+                            {tab === 'place' ? 'Przystanek' : 'Linia'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="ml-auto flex gap-2">
+                        {filters}
+                        <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                        <MapMoreMenu listOpen={listOpen} onToggleList={toggleList} onShare={() => void share()} />
+                      </div>
                     </div>
                     {searchTab === 'place' ? placeSearch : lineSearch}
                   </div>
                 )}
-                <div className={`flex gap-2 ${isWide ? '' : 'ml-auto self-end'}`}>
-
-                  <button
-                    type="button"
-                    aria-pressed={listOpen}
-                    onClick={() => {
-                      setListOpen((open) => !open)
-                      setSelection(null)
-                      setNearby(null)
-                    }}
-                    className={`glass inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${
-                      listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
-                    }`}
-                    style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
-                  >
-                    <ListIcon size={ICON_SIZE.button} />
-                    Lista
-                  </button>
-                  <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                  <MapFilters
-                    hidden={hidden}
-                    vehicleLayers={vehicleLayers}
-                    onChange={changeHidden}
-                    alertsOnly={alertsOnly}
-                    onAlertsOnly={changeAlertsOnly}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void share()}
-                    aria-label="Udostępnij ten widok mapy"
-                    className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                  >
-                    <ShareIcon size={ICON_SIZE.button} />
-                  </button>
-                </div>
               </div>
 
               {(hidden.size > 0 || line !== null || alertsOnly) && (
@@ -567,10 +579,9 @@ export default function CityMapPage() {
                 </p>
               ))}
             </div>
-            {!isWide && card !== null && (
-              <div className="pointer-events-auto relative z-20 mt-auto flex min-h-0 max-h-[62%] flex-col p-2">{card}</div>
-            )}
           </div>
+
+          {!isWide && card !== null && <BottomSheet key={cardKey}>{card}</BottomSheet>}
 
           <p className="sr-only" aria-live="polite">
             {vehicleCountAnnouncement}
@@ -593,7 +604,7 @@ export default function CityMapPage() {
             </p>
           )}
 
-          {(isWide || selection === null) && (
+          {(isWide || card === null) && (
             // `sm:top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
             // miasto” (`top-[88px]` + `h-11` = 132 px) + 12 px odstępu. Od `top-3` rozwinięta legenda
             // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `WIDE_QUERY`)

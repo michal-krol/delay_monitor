@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { AlertCircleIcon, FilterIcon, ICON_SIZE } from '../icons'
 import { LAYER_LABEL, LAYER_MODE, POINT_LAYERS, type LayerKey } from './mapData'
 import { ModeChip } from './ModeChip'
+import { useDismiss } from '@/hooks/useDismiss'
 
 /**
  * Przycisk „Filtry" + panel warstw (spec §7). Domyślnie wszystko widoczne, więc
@@ -32,24 +33,10 @@ export function MapFilters({
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      event.preventDefault() // zjadamy Escape — ramka panelu (PanelFrame) się wtedy nie zamyka
-      setOpen(false)
-      buttonRef.current?.focus()
-    }
-    const onPointer = (event: PointerEvent): void => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onPointer)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onPointer)
-    }
-  }, [open])
+  useDismiss(open, rootRef, (byEscape) => {
+    setOpen(false)
+    if (byEscape) buttonRef.current?.focus()
+  })
 
   function toggle(key: LayerKey): void {
     const next = new Set(hidden)
@@ -79,19 +66,28 @@ export function MapFilters({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className="glass inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
+        // Telefon (poniżej `sm`): sama ikona 44×44, napis „Filtry” tylko dla czytnika, licznik w rogu.
+        className="glass relative inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 max-sm:w-11 max-sm:justify-center max-sm:px-0 dark:hover:bg-white/10"
       >
         <FilterIcon size={ICON_SIZE.button} />
-        Filtry
+        <span className="max-sm:sr-only">Filtry</span>
         {restrictions > 0 && (
-          <span className="grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white" style={{ background: 'var(--accent-solid)' }}>
+          <span
+            className="grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white max-sm:absolute max-sm:-right-1.5 max-sm:-top-1.5"
+            style={{ background: 'var(--accent-solid)' }}
+          >
             {restrictions}
             <span className="sr-only"> aktywnych ograniczeń</span>
           </span>
         )}
       </button>
       {open && (
-        <div id={panelId} className="glass-strong absolute right-0 z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 rounded-2xl p-4 shadow-xl">
+        // Strona mapy się nie przewija (PR3): panel przewija się sam, zamiast schodzić pod dolny pasek.
+        // 15rem ≈ nagłówek + pasek tytułu + rząd kontrolek nad panelem (najwyższy przypadek: telefon).
+        <div
+          id={panelId}
+          className="glass-strong absolute right-0 z-30 mt-2 max-h-[calc(100dvh-var(--bottom-nav-h)-15rem)] w-72 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto overscroll-contain rounded-2xl p-4 shadow-xl"
+        >
           {group('Punkty', POINT_LAYERS)}
           {vehicleLayers.length > 0 && group('Pojazdy', vehicleLayers)}
           {onAlertsOnly !== undefined && (

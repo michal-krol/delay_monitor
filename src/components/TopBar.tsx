@@ -14,6 +14,8 @@ type HeaderVariant = {
   subtitle: string
   /** Kontrolki po prawej stronie nagłówka (np. wybór miasta), przed `ThemeToggle`. */
   actions?: ReactNode
+  /** Poniżej `sm` jeden niski rząd: tytuł tylko dla czytnika (nazwa jest w dolnym pasku), mniejszy podtytuł. */
+  compact?: boolean
   backLabel?: never
   backHref?: never
   onBack?: never
@@ -41,6 +43,7 @@ type BackVariant = {
   title?: never
   subtitle?: never
   actions?: never
+  compact?: never
 } & ({ backHref: string; onBack?: never } | { onBack: () => void; backHref?: never })
 
 type Props = HeaderVariant | BackVariant
@@ -51,7 +54,7 @@ export function TopBar(props: Props) {
   return (
     // Wariant nagłówka zawija rząd (kontrolki schodzą pod tytuł na wąskim ekranie
     // zamiast wychodzić poza stronę); wariant z ← zostaje w jednym rzędzie.
-    <div className={`relative flex items-center justify-between gap-4 ${back === null ? 'flex-wrap gap-y-2' : ''}`}>
+    <div className={`relative flex items-center justify-between gap-4 ${back === null ? (props.compact ? 'flex-nowrap sm:flex-wrap sm:gap-y-2' : 'flex-wrap gap-y-2') : ''}`}>
       {back !== null ? (
         <div className="flex min-w-0 items-center gap-3">
           {back.backHref !== undefined ? (
@@ -67,8 +70,8 @@ export function TopBar(props: Props) {
         </div>
       ) : (
         <div className="min-w-0">
-          <PageTitle>{props.title}</PageTitle>
-          <p className="mt-0.5 text-sm text-text-muted">{props.subtitle}</p>
+          <PageTitle className={props.compact ? 'max-sm:sr-only' : ''}>{props.title}</PageTitle>
+          <p className={`text-text-muted ${props.compact ? 'text-xs sm:mt-0.5 sm:text-sm' : 'mt-0.5 text-sm'}`}>{props.subtitle}</p>
         </div>
       )}
 

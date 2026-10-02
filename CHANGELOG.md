@@ -35,6 +35,18 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Mapa transportu na telefonie zajmuje cały ekran między nagłówkiem a dolnym paskiem, a strona
+  się nie przewija. Karta przystanku, stacji, pojazdu albo linii otwiera się w panelu od dołu
+  na jednej czwartej ekranu. Panel można podnieść do połowy albo prawie do góry, przeciągając
+  go palcem albo dotykając uchwytu. „×” i Escape go zamykają, a mapę nad nim nadal da się
+  przesuwać.
+- Kontrolki mapy na telefonie mieszczą się w dwóch rzędach: przełącznik „Przystanek | Linia”,
+  „Filtry”, „Przypięte” i nowe menu „Więcej” (w nim „Lista” i „Udostępnij widok”), a pod nimi
+  pole wyszukiwania na całą szerokość. Nagłówek mapy jest niższy.
+- Komunikaty o utrudnieniach w karcie na mapie w telefonie są zwinięte w jeden wiersz
+  „Komunikaty (n)”, żeby odjazdy były widać od razu.
+- Małe mapy na stronach przystanku, stacji, linii i połączenia nie przechwytują już przewijania:
+  jednym palcem przewijasz stronę, dwoma przesuwasz mapę (na komputerze Ctrl + kółko).
 - Menu za przyciskiem „hamburgera” na telefonie zastąpił dolny pasek nawigacji.
 - Strzałka „Wróć” w szczegółach połączenia otwartych z udostępnionego linku (albo
   z zainstalowanej aplikacji) prowadzi na Pulpit, zamiast nie robić nic.

@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { ArrowRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { stopDisplayName } from '../stopName'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { type NearbyPoint, type VisibleItem } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
+import { useDismiss } from '@/hooks/useDismiss'
 
-const rowClass = 'flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10'
+export const rowClass = 'flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10'
 
 /** Metry po ludzku. */
 function distanceLabel(m: number): string {
@@ -121,23 +122,7 @@ export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]
   const [open, setOpen] = useState(false)
   const panelId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      event.preventDefault() // jak w MapFilters: Escape zamyka tylko listę, nie panel
-      setOpen(false)
-    }
-    const onPointer = (event: PointerEvent): void => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onPointer)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onPointer)
-    }
-  }, [open])
+  useDismiss(open, rootRef, () => setOpen(false))
   if (pinnedItems.length === 0) return null
   return (
     <div ref={rootRef} className="relative">
