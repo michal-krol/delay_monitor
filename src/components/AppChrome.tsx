@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { BottomNav } from './BottomNav'
 import { MobileHeader } from './MobileHeader'
 import { activeItemFromPath } from './navItems'
+import { OfflineBanner } from './OfflineBanner'
 import { isSearchShortcut } from './searchShortcut'
 import { SearchDialog } from './SearchDialog'
 import { Sidebar } from './Sidebar'
@@ -36,6 +37,7 @@ export function AppChrome() {
       <MobileHeader onSearch={openSearch} />
       <Sidebar activeItem={activeItemFromPath(pathname)} onSearch={openSearch} />
       <BottomNav />
+      <OfflineBanner />
       <SearchDialog open={searchOpen} onClose={closeSearch} />
     </>
   )

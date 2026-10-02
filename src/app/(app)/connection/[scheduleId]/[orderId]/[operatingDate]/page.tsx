@@ -54,6 +54,12 @@ export default function Page() {
       router.push('/')
       return
     }
+    // Bez Navigation API: `history.length` 1 = karta zaczyna się na tej stronie (udostępniony
+    // link, zimny start PWA) — nie ma dokąd wrócić, więc na stronę główną.
+    if (navigationApi === undefined && window.history.length <= 1) {
+      router.push('/')
+      return
+    }
     router.back()
   }
 

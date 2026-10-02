@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { usePolling } from './usePolling'
+import { lastPollingSuccessAt, usePolling } from './usePolling'
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
@@ -14,6 +14,15 @@ function setHidden(value: boolean): void {
 }
 
 describe('usePolling', () => {
+  it('records the time of each successful fetch for lastPollingSuccessAt()', async () => {
+    const start = Date.parse('2026-10-02T10:00:00Z')
+    vi.setSystemTime(start)
+    const fetcher = vi.fn().mockResolvedValue({ ready: true })
+    renderHook(() => usePolling('k-success-at', fetcher, { refreshMs: null }))
+    await vi.waitFor(() => expect(lastPollingSuccessAt()).not.toBeNull())
+    expect(lastPollingSuccessAt()).toBeGreaterThanOrEqual(start)
+  })
+
   it('steps through the retry ladder while isLoading returns true', async () => {
     const fetcher = vi.fn().mockResolvedValue({ ready: false })
     renderHook(() => usePolling('k', fetcher, { refreshMs: 30_000, isLoading: (d: { ready: boolean }) => !d.ready }))
