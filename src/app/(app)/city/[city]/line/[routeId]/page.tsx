@@ -61,6 +61,9 @@ export default function LineDetailPage() {
   const { cities } = useCities()
   const [dirIdx, setDirIdx] = useState(0)
   const [stopSel, setStopSel] = useState(0)
+  /** Poniżej `lg` jedna sekcja naraz (trasa albo rozkład); od `lg` obie obok siebie i stan nic nie zmienia. */
+  const [pane, setPane] = useState<'route' | 'timetable'>('route')
+  const paneSwitchRef = useRef<HTMLDivElement>(null)
   const [selectedBaseSec, setSelectedBaseSec] = useState<number | null>(null)
 
   // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
@@ -271,8 +274,23 @@ export default function LineDetailPage() {
               </section>
             )}
 
+            <div ref={paneSwitchRef} role="group" aria-label="Widok linii" className="glass flex w-max gap-1 rounded-full p-1 lg:hidden">
+              {(['route', 'timetable'] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={pane === key}
+                  onClick={() => setPane(key)}
+                  className={`min-h-11 rounded-full px-5 text-sm font-medium transition ${pane === key ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'}`}
+                  style={pane === key ? { background: 'var(--accent-gradient)' } : undefined}
+                >
+                  {key === 'route' ? 'Trasa' : 'Rozkład'}
+                </button>
+              ))}
+            </div>
+
             <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-              <section className="glass rounded-2xl p-4">
+              <section className={`glass rounded-2xl p-4 ${pane === 'route' ? '' : 'max-lg:hidden'}`}>
                 <h2 className="text-sm font-bold text-foreground">
                   Trasa linii · {stops.length} {pluralPl(stops.length, 'przystanek', 'przystanki', 'przystanków')}
                 </h2>
@@ -339,7 +357,14 @@ export default function LineDetailPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setStopSel(index)}
+                          onClick={() => {
+                            setStopSel(index)
+                            // Telefon: przystanek wybiera się po to, żeby zobaczyć jego rozkład.
+                            if (pane !== 'timetable') {
+                              setPane('timetable')
+                              paneSwitchRef.current?.scrollIntoView({ block: 'nearest' })
+                            }
+                          }}
                           aria-pressed={active}
                           className={`mb-2 flex flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm transition ${
                             active ? 'bg-black/5 font-semibold text-foreground dark:bg-white/10' : 'text-text-secondary hover:text-foreground'
@@ -385,7 +410,7 @@ export default function LineDetailPage() {
                 </div>
               </section>
 
-              <section className="glass rounded-2xl p-4">
+              <section className={`glass rounded-2xl p-4 ${pane === 'timetable' ? '' : 'max-lg:hidden'}`}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop !== undefined ? stopDisplayName(selectedStop.name, selectedStop.code) : ''}</h2>
                   {selectedStop !== undefined && (

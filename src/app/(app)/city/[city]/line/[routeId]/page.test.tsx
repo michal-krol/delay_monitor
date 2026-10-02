@@ -256,6 +256,27 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'Rozkład — Dworzec Centralny' })).toBeInTheDocument()
   })
 
+  // Poniżej `lg` widać jedną sekcję naraz; od `lg` obie obok siebie, przełącznik schowany (CSS).
+  it('below lg a „Trasa | Rozkład” switch shows one section; tapping a stop switches to its timetable', async () => {
+    stubFetch()
+    const user = userEvent.setup()
+    window.HTMLElement.prototype.scrollIntoView = vi.fn()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    const views = screen.getByRole('group', { name: 'Widok linii' })
+    const route = within(views).getByRole('button', { name: 'Trasa' })
+    const timetable = within(views).getByRole('button', { name: 'Rozkład' })
+    expect(route).toHaveAttribute('aria-pressed', 'true')
+    expect(timetable).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(screen.getByRole('button', { name: /Rondo ONZ/ }))
+    expect(timetable).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: /^Rozkład — Rondo ONZ/ })).toBeInTheDocument()
+
+    await user.click(route)
+    expect(route).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('highlights a picked departure across every stop of the route (start + travel offset)', async () => {
     stubFetch()
     const user = userEvent.setup()

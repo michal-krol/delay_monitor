@@ -78,28 +78,39 @@ export default function CityPage() {
         ) : undefined
       }
     >
+      {/* Z wybraną stacją/przystankiem nagłówek na telefonie jest zwarty (tytuł dla czytnika),
+          żeby pierwszy odjazd tablicy zmieścił się na ekranie — jak na mapie. */}
       <TopBar
+        compact={hasSelection}
         title={`Odjazdy i przyjazdy — ${cityName}`}
         subtitle="Stacje kolejowe i przystanki komunikacji miejskiej"
         actions={
           <>
             {/* „Udostępnij" tylko z wybraną stacją/przystankiem — sam ekran miasta to wyszukiwarka. */}
             {hasSelection && <ShareButton />}
-            <CityPicker cities={cities} current={city} />
+            <CityPicker compact={hasSelection} cities={cities} current={city} />
           </>
         }
       />
 
+      {/* Telefon: najpierw wyszukiwarka, kafelki pod nią (`order`, kafelki nie są fokusowalne,
+          więc kolejność Tab się nie rozjeżdża). Desktop bez zmian. */}
       {!hasSelection && (
-        <CityStatTiles stats={stats} loading={statsLoading} railStationCount={railStationCount} />
+        <div className="max-sm:order-1">
+          <CityStatTiles stats={stats} loading={statsLoading} railStationCount={railStationCount} />
+        </div>
       )}
 
-      <StationSearch
-        wide
-        endpoint={`/api/search?city=${encodeURIComponent(city)}`}
-        placeholder="Szukaj stacji kolejowej lub przystanku miejskiego…"
-        onSelect={pick}
-      />
+      {/* Telefon z wybraną tablicą: pole chowa się (szukanie jest pod lupą w nagłówku aplikacji,
+          a „Wróć do wyszukiwania” przywraca ekran wyszukiwania) — pierwszy odjazd ma być widoczny. */}
+      <div className={hasSelection ? 'max-sm:hidden' : undefined}>
+        <StationSearch
+          wide
+          endpoint={`/api/search?city=${encodeURIComponent(city)}`}
+          placeholder="Szukaj stacji kolejowej lub przystanku miejskiego…"
+          onSelect={pick}
+        />
+      </div>
 
       {hasSelection && (
         <section className="flex flex-col gap-4">
