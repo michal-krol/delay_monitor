@@ -45,9 +45,9 @@ export default function Page() {
   // `router.back()` bez wcześniejszej historii w tej karcie (wejście przez
   // wklejony/otwarty w nowej karcie link) zostawia użytkownika poza aplikacją
   // zamiast na niej — sprawdzone ręcznie. Navigation API (`window.navigation`)
-  // wie, czy jest dokąd wrócić; tam gdzie API niedostępne (np. starszy Safari)
-  // po prostu próbujemy `back()` jak dotąd — ta sama, nieco gorsza sytuacja co
-  // przed tym dodatkiem, nie regresja.
+  // wie, czy jest dokąd wrócić; bez niego (np. starszy Safari) przybliżamy to
+  // przez `history.length` (1 = karta zaczęła się na tej stronie). Gdy i to nie
+  // przesądza, wołamy `back()` — jak przed tym dodatkiem, nie regresja.
   function handleBack(): void {
     const navigationApi = (window as unknown as { navigation?: { canGoBack: boolean } }).navigation
     if (navigationApi !== undefined && !navigationApi.canGoBack) {
