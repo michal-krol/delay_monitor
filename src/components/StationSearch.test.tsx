@@ -392,6 +392,14 @@ describe('StationSearch', () => {
     expect(await vi.waitFor(() => screen.getByRole('listbox'))).toHaveClass('absolute')
   })
 
+  it('hides the native search clear button in the sheet only (it sits next to "Zamknij")', () => {
+    const { unmount } = render(<StationSearch onSelect={vi.fn()} variant="sheet" />)
+    expect(screen.getByRole('combobox')).toHaveClass('[&::-webkit-search-cancel-button]:appearance-none')
+    unmount()
+    render(<StationSearch onSelect={vi.fn()} />)
+    expect(screen.getByRole('combobox')).not.toHaveClass('[&::-webkit-search-cancel-button]:appearance-none')
+  })
+
   it('shows idle content only while the query is empty', async () => {
     vi.stubGlobal('fetch', vi.fn())
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })

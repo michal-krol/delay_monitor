@@ -203,7 +203,8 @@ export function StationSearch({
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
-        className={SEARCH_INPUT_CLASS}
+        // Arkusz ma własne „Zamknij ×" tuż obok — natywny „×" Chromium'a (type=search) dublowałby ikonę.
+        className={sheet ? `${SEARCH_INPUT_CLASS} [&::-webkit-search-cancel-button]:appearance-none` : SEARCH_INPUT_CLASS}
         placeholder={placeholder ?? 'Szukaj stacji…'}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
