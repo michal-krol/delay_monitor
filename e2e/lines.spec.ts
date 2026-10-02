@@ -2,7 +2,8 @@ import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 // Strona „Linie”: zwijane sekcje (natywne <details>), szukanie, „Ostatnio oglądane”.
-// Mock GTFS ma ~7 linii (fixtures/gtfs/warszawa): metro M1/M2, tramwaj 20, autobusy 128/521/N16, kolej S2.
+// Mock GTFS ma 11 linii (fixtures/gtfs/warszawa): metro M1/M2, tramwaj 20, kolej S2, autobusy 128/190 (zwykłe),
+// 521 (przyspieszona), N16 (nocna), 712 (podmiejska), L-1 (lokalna), Z1 (zastępcza).
 // Na wąskim ekranie wszystkie sekcje startują zwinięte, na szerokim te do 30 linii otwarte —
 // testy nie zakładają stanu domyślnego, tylko go czytają albo rozwijają wszystko.
 const READY = 45_000

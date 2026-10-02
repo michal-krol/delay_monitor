@@ -6,7 +6,9 @@ import { serviceDateWindow } from '@/lib/pkp/time'
 import { getCity, type CityFeed } from './cities'
 import { loadSchedule } from './loader'
 import { __resetMockCache, createMockClient } from './mock'
-import { nextDepartures } from './query'
+import { cityStats, lineDetail, nextDepartures } from './query'
+import { mockAlertFeed } from './alertClient'
+import { mockVehicleFeed } from './vehicleClient'
 
 const FIXTURE_ROOT = path.join(process.cwd(), 'fixtures', 'gtfs')
 const WAW = getCity('warszawa') as CityFeed
@@ -122,3 +124,41 @@ describe('acceptance: a second, fictional city works with no code change', () =>
     expect(departures[0].serviceDate).toBe(today)
   })
 })
+
+describe('Warszawa mock fixtures cover every bus kind and edge-case alert', () => {
+  it('has bus lines of every kind (regular ×2, zone, local, replacement, night, express)', async () => {
+    const schedule = await loadSchedule(createMockClient(WAW), WAW)
+    const stats = cityStats(schedule, 1)
+    expect(stats.busKinds).toEqual({ regular: 2, night: 1, express: 1, replacement: 1, zone: 1, local: 1 })
+    const kindOf = (name: string) => schedule.routes.find((r) => r.shortName === name)?.kind
+    expect([kindOf('190'), kindOf('712'), kindOf('L-1'), kindOf('Z1')]).toEqual(['regular', 'zone', 'local', 'replacement'])
+  })
+
+  it('marks a mid stop of the zone line as request-only (pickup_type=3)', async () => {
+    const schedule = await loadSchedule(createMockClient(WAW), WAW)
+    const route = schedule.routes.find((r) => r.shortName === '712')!
+    const stops = lineDetail(schedule, route.id)!.directions[0].stops
+    expect(stops.map((s) => s.onRequest)).toEqual([false, true, false])
+  })
+
+  it('serves alerts for date text, a long body, a second alert on 20 and an unknown effect', async () => {
+    const { alerts } = await mockAlertFeed(WAW)()
+    const forRoute = (line: string) => alerts.filter((a) => a.routes.includes(line))
+    expect(forRoute('20').length).toBe(2)
+    expect(forRoute('999').length).toBe(1)
+    expect(forRoute('M1').map((a) => a.id)).toEqual(forRoute('128').map((a) => a.id))
+    expect(forRoute('M1')[0].body).toMatch(/od .+ do /)
+    expect(forRoute('N16')[0].body.length).toBeGreaterThan(400)
+    expect(alerts.some((a) => !['REDUCED_SERVICE', 'DETOUR', 'OTHER_EFFECT', 'MODIFIED_SERVICE', 'STOP_MOVED'].includes(a.effect))).toBe(true)
+  })
+
+  it('serves vehicles on the new lines and one with a stale timestamp, the fresh one first', async () => {
+    const { positions } = await mockVehicleFeed(WAW)()
+    expect(positions[0].tripId).toBe('20-wd-0-1')
+    for (const trip of ['712/1', 'L-1/1', 'Z1/1']) expect(positions.some((p) => p.tripId === trip)).toBe(true)
+    const ages = positions.map((p) => Date.now() - Date.parse(p.timestamp))
+    expect(ages[0]).toBeLessThan(60_000)
+    expect(ages.some((a) => a > 10 * 60_000)).toBe(true)
+  })
+})
+

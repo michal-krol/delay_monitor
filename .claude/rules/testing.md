@@ -61,6 +61,14 @@ comments in `src/lib/pkp/mock.test.ts`. `105` (upcoming departure from `33605`) 
 only live-length „przez …" list (67 chars) — the board-width e2e (`aside-layout.spec.ts`) needs
 it; the other via lists are short, unlike live data.
 
+Mock switches and extras (additive, tests hard-code the base data): `MOCK_BUDGET=low|unknown`
+(`config.ts` → `createMockClient({ budget })`) shows a near-exhausted / unknown budget in
+`PollerDiagnostics`; `WEATHER_DATA_SOURCE=mock` serves canned weather from the server (e2e sets it;
+`page.route` cannot stub it — the fetch is server-side). Mock GTFS Warszawa has one bus line per kind
+(`128`/`190` regular, `712` zone with a request-only mid stop, `L-1` local, `Z1` replacement, `N16`,
+`521`), 4 extra alerts (date text, long body, 2nd on `20`, unknown effect) and one stale vehicle
+(`{{STALE}}`, `190/1`; the fresh `20-wd-0-1` stays first). Only OpenFreeMap tiles still hit the network.
+
 Check response shape in the public schema, don't guess from fixtures (no key, no cost):
 `curl -s https://pdp-api.plk-sa.pl/swagger/v1/swagger.json`
 

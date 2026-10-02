@@ -7,7 +7,7 @@ import { createPoller, type Poller } from './poller'
 export const appConfig = loadConfig()
 
 export const client: PkpClient =
-  appConfig.dataSource === 'live' ? createLiveClient(appConfig.apiKey as string) : createMockClient()
+  appConfig.dataSource === 'live' ? createLiveClient(appConfig.apiKey as string) : createMockClient({ budget: appConfig.mockBudget })
 
 // Nazwy stacji zapamiętane przy wyszukiwaniu, żeby poller mógł opisać snapshot
 // zanim zobaczy stację w odpowiedzi /operations. Ograniczone, bo bez limitu

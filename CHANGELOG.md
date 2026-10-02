@@ -6,6 +6,16 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Dodane
+
+- Tryb mock pokazuje więcej funkcji z wersji 1.0.x–1.1.0: autobusy każdego rodzaju (zwykłe,
+  podmiejskie, lokalne, zastępcze), przystanek „na żądanie”, kilka komunikatów o utrudnieniach
+  (z zakresem dat, bardzo długi, z nieznanym skutkiem), pojazd z nieświeżą pozycją, więcej
+  stacji Warszawy i licznik utrudnień PKP zgodny z danymi.
+- Zmienna `MOCK_BUDGET` (`low` lub `unknown`) pokazuje w trybie mock panel diagnostyczny przy
+  niskim lub nieznanym limicie zapytań PKP. Zmienna `WEATHER_DATA_SOURCE=mock` podaje stałą
+  pogodę bez zapytań do Open-Meteo (testy e2e).
+
 ### Zmienione
 
 - Precyzyjne nazwy przystanków komunikacji miejskiej. Sama nazwa („Centrum”) oznacza
@@ -17,6 +27,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   przypięte przystanki działają dalej jako cały zespół.
 - Wybrany przystanek zespołu zapisuje się w linku jako `?przystanek=`. Starsze linki
   z `?slupek=` otwierają cały zespół.
+- Usunięto nieczytane kolumny kolorów z przykładowego pliku `routes.txt` oraz nieaktualne
+  komentarze o liczbie pociągów w mocku.
 
 ### Naprawione
 
