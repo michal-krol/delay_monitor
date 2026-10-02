@@ -437,6 +437,47 @@ export default function CityMapPage() {
     setNearby(null)
   }
 
+  // Chipy filtrów i statusy: pod kontrolkami, a gdy na telefonie jest arkusz — na jego krawędzi (`above`),
+  // bo przy half/full by je zakrył (role=status, decyzja z PR3).
+  const sheetOpen = !isWide && card !== null
+  const statusStack = (
+    <>
+      {(hidden.size > 0 || line !== null || alertsOnly) && (
+        <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
+          {line !== null && (
+            <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
+          )}
+          {alertsOnly && (
+            <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
+          )}
+          {[...hidden].map((key) => (
+            <Chip
+              key={key}
+              label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
+              removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
+              onRemove={() => {
+                const next = new Set(hidden)
+                next.delete(key)
+                changeHidden(next)
+              }}
+            />
+          ))}
+        </ul>
+      )}
+
+      {shareStatus !== 'idle' && (
+        <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
+          {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
+        </p>
+      )}
+      {problems.map((problem) => (
+        <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
+          {problem}
+        </p>
+      ))}
+    </>
+  )
+
   return (
     // Wysokość = ekran bez nagłówka i dolnego paska (od `sm` obie zmienne to 0): strona się nie przewija.
     <div className="flex h-[calc(100dvh-var(--header-h)-var(--bottom-nav-h))] min-w-0 flex-1 flex-col overflow-hidden">
@@ -545,43 +586,27 @@ export default function CityMapPage() {
                 )}
               </div>
 
-              {(hidden.size > 0 || line !== null || alertsOnly) && (
-                <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
-                  {line !== null && (
-                    <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
-                  )}
-                  {alertsOnly && (
-                    <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
-                  )}
-                  {[...hidden].map((key) => (
-                    <Chip
-                      key={key}
-                      label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
-                      removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
-                      onRemove={() => {
-                        const next = new Set(hidden)
-                        next.delete(key)
-                        changeHidden(next)
-                      }}
-                    />
-                  ))}
-                </ul>
-              )}
-
-              {shareStatus !== 'idle' && (
-                <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
-                  {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
-                </p>
-              )}
-              {problems.map((problem) => (
-                <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
-                  {problem}
-                </p>
-              ))}
+              {!sheetOpen && statusStack}
             </div>
           </div>
 
-          {!isWide && card !== null && <BottomSheet key={cardKey}>{card}</BottomSheet>}
+          {sheetOpen && (
+            <BottomSheet
+              key={cardKey}
+              above={
+                <>
+                  {statusStack}
+                  {outsideFeed && (
+                    <p role="status" className="glass-strong rounded-full px-4 py-1.5 text-xs text-text-secondary">
+                      Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
+                    </p>
+                  )}
+                </>
+              }
+            >
+              {card}
+            </BottomSheet>
+          )}
 
           <p className="sr-only" aria-live="polite">
             {vehicleCountAnnouncement}
@@ -598,7 +623,7 @@ export default function CityMapPage() {
             <CityIcon size={ICON_SIZE.tile} />
           </button>
 
-          {outsideFeed && (
+          {outsideFeed && !sheetOpen && (
             <p role="status" className="glass-strong absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-xs text-text-secondary">
               Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
             </p>

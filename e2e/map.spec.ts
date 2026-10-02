@@ -633,6 +633,40 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
   })
 
+  // PR4 (decyzja z PR3): przy half/full arkusz zakrywał „Aktywne filtry” i komunikat udostępniania.
+  // Teraz jadą na górnej krawędzi arkusza — widoczne i klikalne w każdym punkcie.
+  test('chipy filtrów i komunikat „Skopiowano link…” zostają nad arkuszem przy half i full', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.resolve() }, configurable: true })
+    })
+    await openMap(page, `${CITY_MAP}?hide=busStops`)
+    await openStopCard(page, 'Centrum')
+    await (await moreItem(page, 'Udostępnij widok')).click()
+    const chips = page.getByRole('list', { name: 'Aktywne filtry' })
+    const copied = page.getByRole('status').filter({ hasText: 'Skopiowano link do tego widoku.' })
+    const uncovered = (locator: Locator) =>
+      locator.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2))
+      })
+    // Przy „full” nad arkuszem zostaje ok. 55 px (iPhone 15): mieści się rząd najbliżej krawędzi —
+    // status (ostatni w stosie); chipy wyżej mogą się uciąć (decyzja usera, PR4).
+    for (const [snap, visible] of [['half', [chips, copied]], ['full', [copied]]] as const) {
+      await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+      await expect(sheet(page)).toHaveAttribute('data-snap', snap)
+      await page.waitForTimeout(400) // płynne przewijanie do punktu
+      for (const locator of visible) {
+        await expect(locator).toBeInViewport()
+        expect(await uncovered(locator), `${snap}: zasłonięte`).toBe(true)
+      }
+    }
+    await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    await chips.getByRole('button', { name: 'Pokaż: przystanki autobusowe' }).click()
+    await expect(page).not.toHaveURL(/[?&]hide=/)
+  })
+
   test('pełny arkusz: treść panelu przewija się w środku, niższy — nie', async ({ page }) => {
     await openMap(page)
     await openStopCard(page, 'Centrum')

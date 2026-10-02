@@ -40,7 +40,19 @@ export function nearestSnap(scrollTop: number, height: number): SheetSnap {
  * arkusz jej nie dubluje. Startuje w `initialSnap` (mapa: `peek`, „Info” tablicy: `half`);
  * nowy obiekt = nowy `key` u wywołującego.
  */
-export function BottomSheet({ children, initialSnap = 'peek' }: { children: ReactNode; initialSnap?: SheetSnap }) {
+export function BottomSheet({
+  children,
+  initialSnap = 'peek',
+  above,
+}: {
+  children: ReactNode
+  initialSnap?: SheetSnap
+  /**
+   * Treść przyklejona nad górną krawędzią panelu i jadąca razem z nim (statusy, chipy filtrów
+   * mapy) — inaczej arkusz przy half/full by ją zakrył. Przy `full` mieści się ok. jeden rząd.
+   */
+  above?: ReactNode
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const [snap, setSnap] = useState<SheetSnap>(initialSnap)
   // Cel trwającej animacji uchwytu: szybkie drugie dotknięcie idzie od niego dalej (peek → half → full).
@@ -84,6 +96,7 @@ export function BottomSheet({ children, initialSnap = 'peek' }: { children: Reac
         ))}
       </div>
       <div className="bottom-sheet__panel">
+        {above !== undefined && <div className="bottom-sheet__above">{above}</div>}
         <button type="button" className="bottom-sheet__handle" aria-label={`Zmień wysokość panelu (teraz: ${SNAP_LABEL[snap]})`} onClick={cycle}>
           <span className="bottom-sheet__grip" />
         </button>
