@@ -41,6 +41,11 @@ vi.mock('@/hooks/useBoard', () => ({
   useBoard: () => ({ data: null, error: null }),
 }))
 
+// Mock `useRecentPlaces` to use real `localStorage` from the test.
+vi.mock('@/hooks/useRecentPlaces', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useRecentPlaces')>()),
+}))
+
 describe('Page (Pulpit)', () => {
   // Restore even when an assertion fails, so fake timers and stubs never leak into the next test.
   afterEach(() => {
@@ -53,6 +58,7 @@ describe('Page (Pulpit)', () => {
     replace.mockClear()
     searchParamsSeed = ''
     initialPinned = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
+    window.localStorage.clear()
   })
 
   it('klik w kartę stacji otwiera pełny widok stacji, z nazwą w adresie', async () => {
@@ -148,5 +154,53 @@ describe('Page (Pulpit)', () => {
     initialPinned = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
     render(<Page />)
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
+  it('pokazuje „Ostatnio oglądane" nad kartami przypiętych, gdy są ostatnio oglądane', () => {
+    window.localStorage.setItem(
+      'monitor.recentPlaces.v1',
+      JSON.stringify([{ kind: 'pkp', id: '100', name: 'Ostatnia stacja' }])
+    )
+    render(<Page />)
+
+    const recentHeading = screen.getByRole('heading', { name: 'Ostatnio oglądane' })
+    const pinnedHeading = screen.getByRole('heading', { name: 'Warszawa Centralna' })
+
+    expect(recentHeading).toBeInTheDocument()
+    expect(pinnedHeading).toBeInTheDocument()
+
+    // Both headings are h2, and RecentPlaces appears before Dashboard based on source order
+    // (between StationSearch and the conditional dashboard/empty-state)
+    expect(recentHeading.tagName).toBe('H2')
+    expect(pinnedHeading.tagName).toBe('H2')
+  })
+
+  it('ukrywa sekcję „Ostatnio oglądane", gdy jej brak', () => {
+    render(<Page />)
+    expect(screen.queryByRole('heading', { name: 'Ostatnio oglądane' })).not.toBeInTheDocument()
+  })
+
+  it('pokazuje co najwyżej 4 ostatnio oglądane', () => {
+    window.localStorage.setItem(
+      'monitor.recentPlaces.v1',
+      JSON.stringify([
+        { kind: 'pkp', id: '1', name: 'Stacja 1' },
+        { kind: 'pkp', id: '2', name: 'Stacja 2' },
+        { kind: 'pkp', id: '3', name: 'Stacja 3' },
+        { kind: 'pkp', id: '4', name: 'Stacja 4' },
+        { kind: 'pkp', id: '5', name: 'Stacja 5' },
+      ])
+    )
+    render(<Page />)
+
+    // Heading exists
+    expect(screen.getByRole('heading', { name: 'Ostatnio oglądane' })).toBeInTheDocument()
+
+    // Only 4 recent places shown despite 5 in storage (limit=4)
+    expect(screen.getByRole('link', { name: 'Stacja 1' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Stacja 2' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Stacja 3' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Stacja 4' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Stacja 5' })).not.toBeInTheDocument()
   })
 })
