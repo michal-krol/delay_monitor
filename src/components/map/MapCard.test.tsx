@@ -58,6 +58,21 @@ describe('MapCard — rail station', () => {
 })
 
 describe('MapCard — stop', () => {
+  it('compactAlerts collapses the stop notices into one summary (phone sheet)', () => {
+    const notice = { id: 'a', routes: ['20'], effect: 'REDUCED_SERVICE', link: '', title: 'Objazd linii 20', body: '' }
+    transitBoard.mockReturnValue({ data: { stops: [{ stopId: '1001', alerts: [notice], members: [], lines: [], departures: [] }] }, error: null })
+    render(
+      <MapCard
+        compactAlerts
+        selection={{ kind: 'stop', id: '1001', groupId: '1001', name: 'Centrum', code: null, mode: 'tram', lat: 52.23, lon: 21.01 }}
+        vehicle={null}
+        city="warszawa"
+        onClose={() => {}}
+      />
+    )
+    expect(screen.getByText('Komunikaty (1)')).toBeInTheDocument()
+  })
+
   it('asks for the post departures only and links to the stop timetable', () => {
     transitBoard.mockReturnValue({ data: null, error: null })
     render(

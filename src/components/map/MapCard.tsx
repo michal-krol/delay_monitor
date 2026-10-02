@@ -46,6 +46,7 @@ export function MapCard({
   onTogglePin,
   onNearby,
   alertLines = [],
+  compactAlerts = false,
 }: {
   selection: MapSelection
   /** Aktualny odczyt wybranego pojazdu; `null` = zniknął z feedu (pozycja > 180 s). */
@@ -64,6 +65,8 @@ export function MapCard({
   onNearby?: () => void
   /** Numery linii z aktywnym alertem. */
   alertLines?: string[]
+  /** Telefon (arkusz): komunikaty zwinięte w jeden wiersz „Komunikaty (n)”. */
+  compactAlerts?: boolean
 }) {
   const heading =
     selection.kind === 'vehicle'
@@ -92,7 +95,7 @@ export function MapCard({
       focusKey={`${selection.kind}:${selection.id}`}
     >
       {selection.kind === 'rail' && <RailBody id={selection.id} />}
-      {selection.kind === 'stop' && <StopBody selection={selection} city={city} />}
+      {selection.kind === 'stop' && <StopBody selection={selection} city={city} compactAlerts={compactAlerts} />}
       {selection.kind !== 'vehicle' && onNearby !== undefined && (
         <button
           type="button"
@@ -205,7 +208,7 @@ function RailBody({ id }: { id: string }) {
   )
 }
 
-function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind: 'stop' }>; city: string }) {
+function StopBody({ selection, city, compactAlerts }: { selection: Extract<MapSelection, { kind: 'stop' }>; city: string; compactAlerts: boolean }) {
   // Przystanek (np. „Centrum 01") → odjazdy tylko z niego; stacja metra = cały zespół.
   const member = selection.id !== selection.groupId ? selection.id : null
   const { data, error } = useTransitBoard(city, [selection.id], 3, member)
@@ -218,7 +221,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
     <>
       {board?.alerts != null && board.alerts.length > 0 && (
         <div className="mb-3">
-          <AlertBanner alerts={board.alerts} />
+          <AlertBanner alerts={board.alerts} collapsed={compactAlerts} />
         </div>
       )}
       {lines.length > 0 && (

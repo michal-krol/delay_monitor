@@ -52,6 +52,25 @@ describe('AlertBanner', () => {
   })
 })
 
+describe('AlertBanner collapsed (phone sheet cards)', () => {
+  it('one closed „Komunikaty (2)" disclosure holds both alerts; opening it keeps the inner „Rozwiń" labels', () => {
+    render(<AlertBanner collapsed alerts={[alert({ id: 'a' }), alert({ id: 'b', title: 'Drugi alert' })]} />)
+    const summary = screen.getByText('Komunikaty (2)')
+    // eslint-disable-next-line testing-library/no-node-access -- stan <details> nie ma roli ARIA do zapytania
+    const outer = summary.closest('details')!
+    expect(outer).not.toHaveAttribute('open')
+    fireEvent.click(summary)
+    expect(outer).toHaveAttribute('open')
+    expect(screen.getByText('Drugi alert')).toBeVisible()
+    for (const label of screen.getAllByText('Rozwiń')) expect(label).toBeVisible()
+  })
+
+  it('renders nothing for an empty list', () => {
+    const { container } = render(<AlertBanner collapsed alerts={[]} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+})
+
 describe('alertDateRange', () => {
   it('reads dates from the text: none, one, or the first–last range regardless of order', () => {
     expect(alertDateRange('Bez dat.')).toBeNull()

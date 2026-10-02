@@ -50,8 +50,26 @@ function AlertBody({ body }: { body: string }) {
   )
 }
 
-export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
+/**
+ * `collapsed` (karta mapy w arkuszu na telefonie): całość pod jednym „Komunikaty (n)”, żeby
+ * odjazdy były widać bez przewijania. Zewnętrzne `<details>` bez klasy `group` — wewnętrzne
+ * „Rozwiń/Zwiń” (`group-open:`) reagowałyby na jego otwarcie.
+ */
+export function AlertBanner({ alerts, collapsed = false }: { alerts: AlertRecord[]; collapsed?: boolean }) {
   if (alerts.length === 0) return null
+  if (collapsed)
+    return (
+      <details className="min-w-0 rounded-lg border border-amber-300/60 bg-amber-50 text-sm dark:border-amber-800/60 dark:bg-amber-950/40">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 font-medium [&::-webkit-details-marker]:hidden">
+          <AlertCircleIcon size={ICON_SIZE.button} className="shrink-0 text-warning-text" />
+          <span className="min-w-0 flex-1">Komunikaty ({alerts.length})</span>
+          <DisclosureIcon size={ICON_SIZE.chip} className="shrink-0 text-warning-text" />
+        </summary>
+        <div className="p-2 pt-0">
+          <AlertBanner alerts={alerts} />
+        </div>
+      </details>
+    )
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {alerts.map((alert) => {
