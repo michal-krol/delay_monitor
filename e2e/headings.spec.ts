@@ -92,8 +92,9 @@ for (const { name, path } of SHARE_PAGES) {
     expect(await overflow()).toBeLessThanOrEqual(0)
 
     await page.getByRole('button', { name: 'Udostępnij', exact: true }).click()
-    const status = page.getByRole('status')
-    await expect(status).toContainText('link w pasku adresu')
+    // Są dwa regiony `status` (komunikat udostępniania i pusty region baneru offline) — zawężamy do komunikatu udostępniania.
+    const status = page.getByRole('status').filter({ hasText: 'link w pasku adresu' })
+    await expect(status).toBeVisible()
     expect(await overflow()).toBeLessThanOrEqual(0)
     // Sam komunikat i przełącznik motywu mieszczą się w oknie (dokument mógłby ukrywać przepełnienie).
     for (const box of await Promise.all([status.boundingBox(), page.getByRole('button', { name: /Przełącz na tryb/ }).boundingBox()])) {
