@@ -65,6 +65,14 @@ describe('useRecentPlaces', () => {
     expect(result.current.loaded).toBe(true)
   })
 
+  it('record ignores an invalid place', () => {
+    const { result } = renderHook(() => useRecentPlaces())
+    act(() => result.current.record(pkp('1', 'x'.repeat(121))))
+    act(() => result.current.record({ kind: 'pkp', id: 'abc', name: 'x' }))
+    expect(result.current.places).toEqual([])
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull()
+  })
+
   it('clear empties state and storage', () => {
     const { result } = renderHook(() => useRecentPlaces())
     act(() => result.current.record(pkp('1')))

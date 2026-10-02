@@ -84,6 +84,8 @@ export function useRecentPlaces() {
   }, [])
 
   const record = useCallback((place: RecentPlace): void => {
+    // `name` bywa z `?name=` w URL-u (wejście spoza aplikacji) — zły wpis nie trafia do storage'u.
+    if (!placeSchema.safeParse(place).success) return
     const key = recentPlaceKey(place)
     // Storage świeżo (inne karty/instancje hooka nie są nadpisywane); lista z pamięci dopełnia go,
     // gdy zapis się nie udaje — inaczej każdy kolejny wpis zaczynałby od pustej listy.
