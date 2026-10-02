@@ -60,12 +60,14 @@ function readStorage(): RecentPlace[] {
   }
 }
 
-function writeStorage(places: RecentPlace[]): void {
+/** `false` = zapis się nie udał (pełny/zablokowany storage). */
+function writeStorage(places: RecentPlace[]): boolean {
   try {
     if (places.length === 0) window.localStorage.removeItem(STORAGE_KEY)
     else window.localStorage.setItem(STORAGE_KEY, JSON.stringify(places))
+    return true
   } catch {
-    // Pełny/zablokowany storage — lista działa do końca sesji, tylko się nie zapamięta.
+    return false
   }
 }
 
@@ -74,6 +76,7 @@ export function useRecentPlaces() {
   const [places, setPlaces] = useState<RecentPlace[]>([])
   const [loaded, setLoaded] = useState(false)
   const placesRef = useRef<RecentPlace[]>([])
+  const memoryOnly = useRef(false)
 
   useEffect(() => {
     const initial = readStorage()
@@ -87,20 +90,20 @@ export function useRecentPlaces() {
     // `name` bywa z `?name=` w URL-u (wejście spoza aplikacji) — zły wpis nie trafia do storage'u.
     if (!placeSchema.safeParse(place).success) return
     const key = recentPlaceKey(place)
-    // Storage świeżo (inne karty/instancje hooka nie są nadpisywane); lista z pamięci dopełnia go,
-    // gdy zapis się nie udaje — inaczej każdy kolejny wpis zaczynałby od pustej listy.
-    const stored = readStorage()
-    const base = [...stored, ...placesRef.current.filter((p) => !stored.some((s) => recentPlaceKey(s) === recentPlaceKey(p)))]
+    // Storage jest źródłem prawdy (inne karty/instancje hooka — w tym ich „Wyczyść" — nie są
+    // nadpisywane). Lista z pamięci wchodzi dopiero, gdy zapis się nie udaje — inaczej każdy
+    // kolejny wpis zaczynałby od pustej listy.
+    const base = memoryOnly.current ? placesRef.current : readStorage()
     const next = [place, ...base.filter((p) => recentPlaceKey(p) !== key)].slice(0, MAX_RECENT_PLACES)
     placesRef.current = next
     setPlaces(next)
-    writeStorage(next)
+    memoryOnly.current = !writeStorage(next)
   }, [])
 
   const clear = useCallback((): void => {
     placesRef.current = []
     setPlaces([])
-    writeStorage([])
+    memoryOnly.current = !writeStorage([])
   }, [])
 
   return { places, loaded, record, clear }

@@ -90,6 +90,16 @@ describe('useRecentPlaces', () => {
     expect(result.current.places.map(recentPlaceKey)).toEqual(['pkp:1'])
   })
 
+  it('does not resurrect places cleared by another instance', () => {
+    const { result: first } = renderHook(() => useRecentPlaces())
+    const { result: second } = renderHook(() => useRecentPlaces())
+    act(() => first.current.record(pkp('1')))
+    act(() => second.current.clear())
+    act(() => first.current.record(pkp('2')))
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null')).toEqual([pkp('2')])
+    expect(first.current.places.map(recentPlaceKey)).toEqual(['pkp:2'])
+  })
+
   it('merges with places written by another instance (re-reads storage before writing)', () => {
     const { result } = renderHook(() => useRecentPlaces())
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify([pkp('9')]))
