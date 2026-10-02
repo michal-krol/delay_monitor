@@ -116,11 +116,11 @@ function lucideIcon(node: IconNode, filled = false) {
   }
 }
 
-export const HomeIcon = lucideIcon(House)
+export const HomeIcon = /* @__PURE__ */ lucideIcon(House)
 /** Widok listy — nie nawigacja „Odjazdy” (to `DeparturesBoardIcon`). */
-export const ListIcon = lucideIcon(List)
+export const ListIcon = /* @__PURE__ */ lucideIcon(List)
 /** Nawigacja „Odjazdy / Przyjazdy” — tablica z godzinami. */
-export const DeparturesBoardIcon = lucideIcon(ListClock)
+export const DeparturesBoardIcon = /* @__PURE__ */ lucideIcon(ListClock)
 
 /** Jeden odcień przypięcia (gwiazdka; złota obwódka na mapie to ten sam #f59e0b) — amber-500. */
 export const PIN_COLOR = 'text-amber-500'
@@ -133,11 +133,11 @@ export function StarIcon({ filled = false, className, ...props }: IconProps & { 
   return base(STAR.filled, { ...props, className: className === undefined ? PIN_COLOR : `${PIN_COLOR} ${className}` })
 }
 
-export const RouteIcon = lucideIcon(Route)
-export const MapIcon = lucideIcon(MapGlyph)
+export const RouteIcon = /* @__PURE__ */ lucideIcon(Route)
+export const MapIcon = /* @__PURE__ */ lucideIcon(MapGlyph)
 /** „Otwórz / dalej”. Nie kierunek jazdy (to `ArrowRightIcon`), nie rozwiń/zwiń (to `DisclosureIcon`). */
-export const ChevronRightIcon = lucideIcon(ChevronRight)
-const ChevronDownIcon = lucideIcon(ChevronDown)
+export const ChevronRightIcon = /* @__PURE__ */ lucideIcon(ChevronRight)
+const ChevronDownIcon = /* @__PURE__ */ lucideIcon(ChevronDown)
 
 /**
  * Rozwiń/zwiń: chevron w dół, obrócony o 180°, gdy rodzic `<details>` jest otwarty albo przycisk
@@ -147,19 +147,19 @@ export function DisclosureIcon({ className, ...props }: IconProps) {
   return <ChevronDownIcon {...props} className={className === undefined ? 'disclosure-chevron' : `disclosure-chevron ${className}`} />
 }
 /** Wybrane / skopiowane. */
-export const CheckIcon = lucideIcon(Check)
-export const SunIcon = lucideIcon(Sun)
-export const MoonIcon = lucideIcon(Moon)
-export const CloseIcon = lucideIcon(X)
-export const ExpandIcon = lucideIcon(Maximize)
-export const MenuIcon = lucideIcon(Menu)
+export const CheckIcon = /* @__PURE__ */ lucideIcon(Check)
+export const SunIcon = /* @__PURE__ */ lucideIcon(Sun)
+export const MoonIcon = /* @__PURE__ */ lucideIcon(Moon)
+export const CloseIcon = /* @__PURE__ */ lucideIcon(X)
+export const ExpandIcon = /* @__PURE__ */ lucideIcon(Maximize)
+export const MenuIcon = /* @__PURE__ */ lucideIcon(Menu)
 /** Wstecz. */
-export const ArrowLeftIcon = lucideIcon(ArrowLeft)
-export const CalendarIcon = lucideIcon(Calendar)
+export const ArrowLeftIcon = /* @__PURE__ */ lucideIcon(ArrowLeft)
+export const CalendarIcon = /* @__PURE__ */ lucideIcon(Calendar)
 /** Kolej jako tryb lub stacja — nie pozycja pociągu (to `VehiclePositionIcon`). */
-export const TrainIcon = lucideIcon(TrainFront)
-export const BusIcon = lucideIcon(BusFront)
-export const TramIcon = lucideIcon(TramFront)
+export const TrainIcon = /* @__PURE__ */ lucideIcon(TrainFront)
+export const BusIcon = /* @__PURE__ */ lucideIcon(BusFront)
+export const TramIcon = /* @__PURE__ */ lucideIcon(TramFront)
 
 export function MetroIcon(props: IconProps) {
   return base(
@@ -172,38 +172,38 @@ export function MetroIcon(props: IconProps) {
   )
 }
 
-export const AccessibleIcon = lucideIcon(Accessibility)
+export const AccessibleIcon = /* @__PURE__ */ lucideIcon(Accessibility)
 /** Utrudnienie — zarezerwowane dla tego jednego znaczenia. */
-export const AlertCircleIcon = lucideIcon(CircleAlert)
+export const AlertCircleIcon = /* @__PURE__ */ lucideIcon(CircleAlert)
 /** "?" w kółku -- świadomie inny glif niż `AlertCircleIcon` (wskaźnik utrudnienia), żeby dwa różne znaczenia nie dzieliły jednej ikony. */
-export const HelpCircleIcon = lucideIcon(CircleQuestionMark)
+export const HelpCircleIcon = /* @__PURE__ */ lucideIcon(CircleQuestionMark)
 /** Kierunek jazdy („skąd → dokąd”). „Otwórz / dalej” to `ChevronRightIcon`. */
-export const ArrowRightIcon = lucideIcon(ArrowRight)
+export const ArrowRightIcon = /* @__PURE__ */ lucideIcon(ArrowRight)
 /** Odjazdy (strzałka wychodzi od kreski peronu). */
-export const DepartureIcon = lucideIcon(ArrowRightFromLine)
+export const DepartureIcon = /* @__PURE__ */ lucideIcon(ArrowRightFromLine)
 /** Przyjazdy (strzałka dochodzi do kreski peronu). */
-export const ArrivalIcon = lucideIcon(ArrowRightToLine)
+export const ArrivalIcon = /* @__PURE__ */ lucideIcon(ArrowRightToLine)
 /** Tryb „inne” — neutralny, żeby nieznany środek nie udawał autobusu. */
-export const OtherModeIcon = lucideIcon(CircleEllipsis)
+export const OtherModeIcon = /* @__PURE__ */ lucideIcon(CircleEllipsis)
 /** Przystanek — liczba przystanków, nie tryb. */
-export const StopIcon = lucideIcon(Signpost)
+export const StopIcon = /* @__PURE__ */ lucideIcon(Signpost)
 /** Środki transportu (warstwy) — liczba rodzajów w mieście. */
-export const LayersIcon = lucideIcon(Layers)
+export const LayersIcon = /* @__PURE__ */ lucideIcon(Layers)
 /** „Pokaż całe miasto” — kadr na całe miasto, nie nawigacja „Mapa”. */
-export const CityIcon = lucideIcon(Building)
+export const CityIcon = /* @__PURE__ */ lucideIcon(Building)
 /** Średnie opóźnienie (klepsydra). */
-export const HourglassIcon = lucideIcon(Hourglass)
+export const HourglassIcon = /* @__PURE__ */ lucideIcon(Hourglass)
 /** Punktualność (tarcza) — „wybrane” to `CheckIcon`. */
-export const TargetIcon = lucideIcon(Target)
+export const TargetIcon = /* @__PURE__ */ lucideIcon(Target)
 /** Czas podróży (stoper) — trasa to `RouteIcon`. */
-export const TimerIcon = lucideIcon(Timer)
+export const TimerIcon = /* @__PURE__ */ lucideIcon(Timer)
 /** Filtry warstw mapy. */
-export const FilterIcon = lucideIcon(ListFilter)
-export const SearchIcon = lucideIcon(Search)
+export const FilterIcon = /* @__PURE__ */ lucideIcon(ListFilter)
+export const SearchIcon = /* @__PURE__ */ lucideIcon(Search)
 /** Pozycja pojazdu (np. „Pociąg jest tutaj”) — ta sama kropka co pojazd na mapie. */
-export const VehiclePositionIcon = lucideIcon(CircleDot)
+export const VehiclePositionIcon = /* @__PURE__ */ lucideIcon(CircleDot)
 /** Kierunek jazdy pojazdu (strzałka przy kropce) — wypełniona, w kolorze rodzaju. */
-export const VehicleHeadingIcon = lucideIcon(Navigation2, true)
+export const VehicleHeadingIcon = /* @__PURE__ */ lucideIcon(Navigation2, true)
 
 /** Gradient akcentu wprost — lustro `--accent-gradient` z `globals.css` dla tras ikon (`app/icon.tsx`), gdzie nie ma CSS. */
 export const ACCENT_GRADIENT = 'linear-gradient(135deg, #38bdf8, #6366f1)'
@@ -252,22 +252,22 @@ export function AppLogo({
 }
 
 /** Dwie strzałki w przeciwnych kierunkach — przełącznik kierunku linii. */
-export const SwapIcon = lucideIcon(ArrowRightLeft)
-export const ShareIcon = lucideIcon(Share)
-export const InfoIcon = lucideIcon(Info)
+export const SwapIcon = /* @__PURE__ */ lucideIcon(ArrowRightLeft)
+export const ShareIcon = /* @__PURE__ */ lucideIcon(Share)
+export const InfoIcon = /* @__PURE__ */ lucideIcon(Info)
 /** Postój na trasie — dwie pauzy, ten sam znak co na odtwarzaczu. */
-export const PauseIcon = lucideIcon(Pause)
+export const PauseIcon = /* @__PURE__ */ lucideIcon(Pause)
 
 // --- Ikony pogodowe (widżet "Pogoda dziś" w StationAside) ---
 
-export const CloudIcon = lucideIcon(Cloud)
-export const FogIcon = lucideIcon(CloudFog)
-export const RainIcon = lucideIcon(CloudRain)
-export const SnowIcon = lucideIcon(CloudSnow)
-export const ThunderIcon = lucideIcon(CloudLightning)
-export const WindIcon = lucideIcon(Wind)
-export const DropletIcon = lucideIcon(Droplet)
-export const GaugeIcon = lucideIcon(Gauge)
+export const CloudIcon = /* @__PURE__ */ lucideIcon(Cloud)
+export const FogIcon = /* @__PURE__ */ lucideIcon(CloudFog)
+export const RainIcon = /* @__PURE__ */ lucideIcon(CloudRain)
+export const SnowIcon = /* @__PURE__ */ lucideIcon(CloudSnow)
+export const ThunderIcon = /* @__PURE__ */ lucideIcon(CloudLightning)
+export const WindIcon = /* @__PURE__ */ lucideIcon(Wind)
+export const DropletIcon = /* @__PURE__ */ lucideIcon(Droplet)
+export const GaugeIcon = /* @__PURE__ */ lucideIcon(Gauge)
 
 // --- Mapa: DOM poza Reactem i raster (te same węzły Lucide) ---
 

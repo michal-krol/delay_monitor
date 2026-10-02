@@ -24,7 +24,7 @@ rysunki zostają tylko trzy: „M" metra, logo aplikacji i logotypy przewoźnik�
 ## Konsekwencje
 
 - Pomiar (`next build --webpack`, suma `.next/static/chunks/*.js`): przed 2 379 704 B
-  (704 164 B gzip), po 2 384 422 B (706 714 B gzip). Różnica to +4,7 kB surowo i +2,6 kB po
+  (704 164 B gzip), po 2 384 290 B (706 674 B gzip). Różnica to +4,6 kB surowo i +2,5 kB po
   kompresji, łącznie z nowymi ikonami i trasami favicony.
 - Nowa zależność wymaga aktualizacji (Dependabot). Zmiana kształtu ikony w nowej wersji
   Lucide zmienia wygląd aplikacji bez zmiany naszego kodu.

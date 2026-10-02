@@ -4,10 +4,10 @@ import nextTs from "eslint-config-next/typescript";
 import testingLibrary from "eslint-plugin-testing-library";
 
 const FONT_RULE = { name: "next/font/google", message: "Use next/font/local with a file in src/app/fonts/ (the build must not need the network)." };
-const ICON_RULES = ["lucide", "lucide-react"].map((name) => ({
-  name,
-  message: "Import icons from @/components/icons — the single icon source (.claude/rules/ui-icons.md).",
-}));
+const ICON_MESSAGE = "Import icons from @/components/icons — the single icon source (.claude/rules/ui-icons.md).";
+const ICON_RULES = ["lucide", "lucide-react"].map((name) => ({ name, message: ICON_MESSAGE }));
+// Głębokie ścieżki (`lucide/dist/esm/icons/star.mjs`) — `paths` porównuje cały specyfikator.
+const ICON_PATTERNS = [{ group: ["lucide/*", "lucide-react/*"], message: ICON_MESSAGE }];
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -27,6 +27,7 @@ const eslintConfig = defineConfig([
     rules: {
       "no-restricted-imports": ["error", {
         paths: [FONT_RULE, ...ICON_RULES],
+        patterns: ICON_PATTERNS,
       }],
     },
   },

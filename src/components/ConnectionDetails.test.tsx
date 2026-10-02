@@ -5,6 +5,20 @@ import * as maplibregl from 'maplibre-gl'
 import { ConnectionDetails } from './ConnectionDetails'
 import { formatClockTime } from '@/lib/format'
 import { jsonResponse } from '@/test-utils/http'
+import { ArrivalIcon, DepartureIcon, VehiclePositionIcon, type IconProps } from './icons'
+
+/** Kształt ikony (dzieci `<svg>` bez `<title>`) — do porównania z ikoną ze słownika `icons.tsx`. */
+function glyph(svg: Element | null | undefined): string | undefined {
+  return svg?.innerHTML.replace(/<title>.*?<\/title>/, '')
+}
+
+function iconGlyph(Icon: (props: IconProps) => React.ReactNode): string | undefined {
+  const { container, unmount } = render(<Icon />)
+  // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access -- dekoracyjna ikona bez roli
+  const shape = glyph(container.querySelector('svg'))
+  unmount()
+  return shape
+}
 
 vi.mock('maplibre-gl', () => {
   const marker = {
@@ -133,6 +147,11 @@ describe('ConnectionDetails', () => {
     expect(screen.getByRole('heading', { name: 'EIC Grunwald' })).toBeInTheDocument()
     // Strzałka „skąd → dokąd” w nagłówku niesie znaczenie — czytnik słyszy „Gdańsk Główny do …”.
     expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
+    // Odjazd i przyjazd mają własne ikony ze słownika, nie zegar (to pojęcie „godzina”).
+    // eslint-disable-next-line testing-library/no-node-access -- ikona MetaItem jest dekoracyjna (aria-hidden), bez roli
+    const metaIcon = (label: string) => glyph(screen.getByText(label).parentElement?.previousElementSibling?.querySelector('svg'))
+    expect(metaIcon('Odjazd')).toBe(iconGlyph(DepartureIcon))
+    expect(metaIcon('Przyjazd (plan)')).toBe(iconGlyph(ArrivalIcon))
     expect(screen.getByText('+7 min')).toBeInTheDocument()
     // Peron i tor jako dwie osobne wartości, nie sklejone „3/1" -- jedna
     // bywa znana bez drugiej (makieta §10).
@@ -568,6 +587,9 @@ describe('ConnectionDetails', () => {
     expect(here).toHaveLength(1)
     // eslint-disable-next-line testing-library/no-node-access -- wiersz przystanku, żeby sprawdzić, PRZY KTÓRYM stoi znacznik
     expect(here[0].closest('li')).toHaveTextContent('Warszawa Centralna')
+    // Pozycja pociągu = kropka pojazdu (`VehiclePositionIcon`), nie ikona kolei — jedno pojęcie, jedna ikona.
+    // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona bez roli
+    expect(glyph(here[0].querySelector('svg'))).toBe(iconGlyph(VehiclePositionIcon))
   })
 
   it('shows no train-position marker at all before the train confirms any stop', async () => {
