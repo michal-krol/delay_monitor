@@ -117,6 +117,11 @@ the panel scrolls the container. Rules:
 
 - Dialog semantics, „×”, Escape and focus return live in `PanelFrame` inside the sheet — never
   add a second dialog/close to the sheet.
+- Content adapts through `useInSheet()` (context from `BottomSheet`), not props: `PanelFrame`
+  drops its glass card and marks its body `data-sheet-scroll`, `AlertBanner` collapses into
+  „Komunikaty (n)”. PR4's „Info” sheet gets the same for free.
+- Map controls rise above the sheet only while something in them is expanded
+  (`has-[[aria-expanded=true]]:z-30`); a new dropdown there needs `aria-expanded` on its trigger.
 - Inner scrolling (`[data-sheet-scroll]` = `PanelFrame` body) is locked below `full`, otherwise
   a drag scrolls the content instead of lifting the sheet. New scrollable panel content must
   use the `PanelFrame` body or carry `data-sheet-scroll`.
