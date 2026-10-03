@@ -8,6 +8,12 @@ const ICON_MESSAGE = "Import icons from @/components/icons — the single icon s
 const ICON_RULES = ["lucide", "lucide-react"].map((name) => ({ name, message: ICON_MESSAGE }));
 // Głębokie ścieżki (`lucide/dist/esm/icons/star.mjs`) — `paths` porównuje cały specyfikator.
 const ICON_PATTERNS = [{ group: ["lucide/*", "lucide-react/*"], message: ICON_MESSAGE }];
+const ROUTE_MAP_MESSAGE = "Index routes with indexRoutesByTrain() and look up with findRouteForTrain() — a plain Map drops other operating days' records (AGENTS.md #9).";
+// `new Map(routes.map(...))` i `new Map(snapshot.routes.map(...))`.
+const ROUTE_MAP_RULES = ["callee.object.name", "callee.object.property.name"].map((receiver) => ({
+  selector: `NewExpression[callee.name='Map'][arguments.0.callee.property.name='map'][arguments.0.${receiver}=/routes?/i]`,
+  message: ROUTE_MAP_MESSAGE,
+}));
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -29,6 +35,13 @@ const eslintConfig = defineConfig([
         paths: [FONT_RULE, ...ICON_RULES],
         patterns: ICON_PATTERNS,
       }],
+    },
+  },
+  // Rekordy tras PKP są per dzień kursowania — „ostatni wygrywa" gubi właściwy (AGENTS.md #9).
+  {
+    files: ["src/lib/board/**", "src/lib/pkp/**"],
+    rules: {
+      "no-restricted-syntax": ["error", ...ROUTE_MAP_RULES],
     },
   },
   {
