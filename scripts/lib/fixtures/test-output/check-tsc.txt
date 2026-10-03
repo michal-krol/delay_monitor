@@ -1,0 +1,13 @@
+
+> delay_monitor@1.1.0 check
+> npm run typecheck && npm run lint && npm run test
+
+
+> delay_monitor@1.1.0 typecheck
+> tsc --noEmit
+
+src/zzprobe/bad.ts(4,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/zzprobe/bad.ts(5,16): error TS2339: Property 'title' does not exist on type 'Train'.
+src/zzprobe/bad.ts(8,27): error TS2345: Argument of type '{ id: number; }' is not assignable to parameter of type 'Train'.
+  Property 'name' is missing in type '{ id: number; }' but required in type 'Train'.
+src/zzprobe/broken-import.test.ts(1,25): error TS2307: Cannot find module './does-not-exist' or its corresponding type declarations.

@@ -1,0 +1,234 @@
+
+Running 10 tests using 2 workers
+
+  ✓   1 [desktop-chromium] › zzpw/probe.spec.ts:5:5 › shows heading (670ms)
+  ✓   2 [mobile-chromium] › zzpw/probe.spec.ts:5:5 › shows heading (666ms)
+  ✓   3 [desktop-chromium] › zzpw/probe.spec.ts:8:5 › shows refresh button (265ms)
+  ✓   4 [mobile-chromium] › zzpw/probe.spec.ts:8:5 › shows refresh button (269ms)
+  ✘   5 [desktop-chromium] › zzpw/probe.spec.ts:11:5 › shows delay badge (1.2s)
+  ✘   6 [mobile-chromium] › zzpw/probe.spec.ts:11:5 › shows delay badge (1.2s)
+  ✘   7 [desktop-chromium] › zzpw/probe.spec.ts:11:5 › shows delay badge (retry #1) (1.3s)
+  ✘   8 [mobile-chromium] › zzpw/probe.spec.ts:11:5 › shows delay badge (retry #1) (1.2s)
+  ✘   9 [desktop-chromium] › zzpw/probe.spec.ts:14:5 › counts trains (1.3s)
+  ✘  10 [mobile-chromium] › zzpw/probe.spec.ts:14:5 › counts trains (1.3s)
+  ✘  11 [desktop-chromium] › zzpw/probe.spec.ts:14:5 › counts trains (retry #1) (1.3s)
+  -  13 [desktop-chromium] › zzpw/probe.spec.ts:17:6 › skipped one
+  ✘  12 [mobile-chromium] › zzpw/probe.spec.ts:14:5 › counts trains (retry #1) (1.3s)
+  -  14 [mobile-chromium] › zzpw/probe.spec.ts:17:6 › skipped one
+
+
+  1) [desktop-chromium] › zzpw/probe.spec.ts:11:5 › shows delay badge ──────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Opóźnienie')
+    Expected: visible
+    Timeout: 1000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByText('Opóźnienie') with timeout 1000ms
+      - waiting for getByText('Opóźnienie')
+
+
+      10 | })
+      11 | test('shows delay badge', async ({ page }) => {
+    > 12 |   await expect(page.getByText('Opóźnienie')).toBeVisible({ timeout: 1000 })
+         |                                              ^
+      13 | })
+      14 | test('counts trains', async ({ page }) => {
+      15 |   await expect(page.locator('#n')).toHaveText('4', { timeout: 1000 })
+        at /home/user/delay_monitor/zzpw/probe.spec.ts:12:46
+
+    Error Context: test-results/probe-shows-delay-badge-desktop-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Opóźnienie')
+    Expected: visible
+    Timeout: 1000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByText('Opóźnienie') with timeout 1000ms
+      - waiting for getByText('Opóźnienie')
+
+
+      10 | })
+      11 | test('shows delay badge', async ({ page }) => {
+    > 12 |   await expect(page.getByText('Opóźnienie')).toBeVisible({ timeout: 1000 })
+         |                                              ^
+      13 | })
+      14 | test('counts trains', async ({ page }) => {
+      15 |   await expect(page.locator('#n')).toHaveText('4', { timeout: 1000 })
+        at /home/user/delay_monitor/zzpw/probe.spec.ts:12:46
+
+    Error Context: test-results/probe-shows-delay-badge-desktop-chromium-retry1/error-context.md
+
+  2) [desktop-chromium] › zzpw/probe.spec.ts:14:5 › counts trains ──────────────────────────────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#n')
+    Expected: "4"
+    Received: "3"
+    Timeout:  1000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#n') with timeout 1000ms
+      - waiting for locator('#n')
+        11 × locator resolved to <p id="n">3</p>
+           - unexpected value "3"
+
+
+      13 | })
+      14 | test('counts trains', async ({ page }) => {
+    > 15 |   await expect(page.locator('#n')).toHaveText('4', { timeout: 1000 })
+         |                                    ^
+      16 | })
+      17 | test.skip('skipped one', async () => {})
+      18 |
+        at /home/user/delay_monitor/zzpw/probe.spec.ts:15:36
+
+    Error Context: test-results/probe-counts-trains-desktop-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#n')
+    Expected: "4"
+    Received: "3"
+    Timeout:  1000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#n') with timeout 1000ms
+      - waiting for locator('#n')
+        11 × locator resolved to <p id="n">3</p>
+           - unexpected value "3"
+
+
+      13 | })
+      14 | test('counts trains', async ({ page }) => {
+    > 15 |   await expect(page.locator('#n')).toHaveText('4', { timeout: 1000 })
+         |                                    ^
+      16 | })
+      17 | test.skip('skipped one', async () => {})
+      18 |
+        at /home/user/delay_monitor/zzpw/probe.spec.ts:15:36
+
+    Error Context: test-results/probe-counts-trains-desktop-chromium-retry1/error-context.md
+
+  3) [mobile-chromium] › zzpw/probe.spec.ts:11:5 › shows delay badge ───────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Opóźnienie')
+    Expected: visible
+    Timeout: 1000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByText('Opóźnienie') with timeout 1000ms
+      - waiting for getByText('Opóźnienie')
+
+
+      10 | })
+      11 | test('shows delay badge', async ({ page }) => {
+    > 12 |   await expect(page.getByText('Opóźnienie')).toBeVisible({ timeout: 1000 })
+         |                                              ^
+      13 | })
+      14 | test('counts trains', async ({ page }) => {
+      15 |   await expect(page.locator('#n')).toHaveText('4', { timeout: 1000 })
+        at /home/user/delay_monitor/zzpw/probe.spec.ts:12:46
+
+    Error Context: test-results/probe-shows-delay-badge-mobile-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Opóźnienie')
+    Expected: visible
+    Timeout: 1000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByText('Opóźnienie') with timeout 1000ms
+      - waiting for getByText('Opóźnienie')
+
+
+      10 | })
+      11 | test('shows delay badge', async ({ page }) => {
+    > 12 |   await expect(page.getByText('Opóźnienie')).toBeVisible({ timeout: 1000 })
+         |                                              ^
+      13 | })
+      14 | test('counts trains', async ({ page }) => {
+      15 |   await expect(page.locator('#n')).toHaveText('4', { timeout: 1000 })
+        at /home/user/delay_monitor/zzpw/probe.spec.ts:12:46
+
+    Error Context: test-results/probe-shows-delay-badge-mobile-chromium-retry1/error-context.md
+
+  4) [mobile-chromium] › zzpw/probe.spec.ts:14:5 › counts trains ───────────────────────────────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#n')
+    Expected: "4"
+    Received: "3"
+    Timeout:  1000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#n') with timeout 1000ms
+      - waiting for locator('#n')
+        11 × locator resolved to <p id="n">3</p>
+           - unexpected value "3"
+
+
+      13 | })
+      14 | test('counts trains', async ({ page }) => {
+    > 15 |   await expect(page.locator('#n')).toHaveText('4', { timeout: 1000 })
+         |                                    ^
+      16 | })
+      17 | test.skip('skipped one', async () => {})
+      18 |
+        at /home/user/delay_monitor/zzpw/probe.spec.ts:15:36
+
+    Error Context: test-results/probe-counts-trains-mobile-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('#n')
+    Expected: "4"
+    Received: "3"
+    Timeout:  1000ms
+
+    Call log:
+      - Expect "toHaveText" locator('#n') with timeout 1000ms
+      - waiting for locator('#n')
+        11 × locator resolved to <p id="n">3</p>
+           - unexpected value "3"
+
+
+      13 | })
+      14 | test('counts trains', async ({ page }) => {
+    > 15 |   await expect(page.locator('#n')).toHaveText('4', { timeout: 1000 })
+         |                                    ^
+      16 | })
+      17 | test.skip('skipped one', async () => {})
+      18 |
+        at /home/user/delay_monitor/zzpw/probe.spec.ts:15:36
+
+    Error Context: test-results/probe-counts-trains-mobile-chromium-retry1/error-context.md
+
+  4 failed
+    [desktop-chromium] › zzpw/probe.spec.ts:11:5 › shows delay badge ───────────────────────────────
+    [desktop-chromium] › zzpw/probe.spec.ts:14:5 › counts trains ───────────────────────────────────
+    [mobile-chromium] › zzpw/probe.spec.ts:11:5 › shows delay badge ────────────────────────────────
+    [mobile-chromium] › zzpw/probe.spec.ts:14:5 › counts trains ────────────────────────────────────
+  2 skipped
+  4 passed (10.8s)
