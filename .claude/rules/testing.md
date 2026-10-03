@@ -8,6 +8,9 @@ paths:
   - "vitest.config.mts"
   - "vitest.setup.ts"
   - ".githooks/**"
+  - ".claude/hooks/filter-test-output.mjs"
+  - "scripts/*filter-test-output*"
+  - "scripts/lib/testOutputFilter*"
   - ".github/workflows/**"
   - "src/app/**/route.ts"
   - "src/app/**/page.tsx"
@@ -63,6 +66,29 @@ already passed. So:
 - Workflow: run `npm run check` on the final working tree, commit everything, push — the gate
   is skipped. Commit only part of it, or edit after the check → different tree → gate runs.
 - Pure logic: `scripts/lib/gate.mjs` (tested); don't re-derive it in shell.
+
+### Filtered gate output (hook, token audit 2026-10-03 Q5)
+
+`.claude/hooks/filter-test-output.mjs` (PreToolUse/Bash, `.claude/settings.json`) rewrites a
+plain `npm run check` / `npm test` / `npm run test` / `npx vitest run` / `npm run e2e` /
+`npx playwright test` (optional `VAR=value` prefixes, plain or quoted args) into
+`(set -o pipefail; <cmd> 2>&1 | node scripts/filter-test-output.mjs)`. Output = npm step
+headers, failing test names + assertion/diff lines (≤20 per block, `… N more lines`), tsc
+and eslint errors, Vitest/Playwright summaries. First line names the full log
+(`$TMPDIR/claude-test-output/*.log`, pruned after 24 h) — read it there instead of rerunning.
+
+- Exit code: `pipefail` carries the gate's; the filter always exits 0.
+- Raw output: any operator opts out (`npm run check 2>&1 | cat`, `> /tmp/x.log`); so do
+  `$VAR`, `$(...)` and other non-plain args. Pre-push hook output is not filtered.
+- Coexists with `block-push-main.mjs` / `block-bash-writes.mjs`: hooks run in parallel on the
+  ORIGINAL input (hooks docs), so `bashGuard` judges the command as written; the rewritten
+  form also passes it (test). The hook returns `allow` only for these commands — deny/ask
+  rules are still evaluated on the rewritten input.
+- Logic: `scripts/lib/testOutputFilter.mjs` (pure), tests on real outputs in
+  `scripts/lib/fixtures/test-output/` (green check, tsc, eslint, failing Vitest + jsdom DOM
+  dump, failed suite, Playwright with retries). Format changed after a Vitest/Playwright/eslint
+  bump → recapture the fixture, don't hand-edit it. Unrecognized output falls back to its
+  last 60 lines.
 
 ## #8 Fixtures don't reflect live API scale
 

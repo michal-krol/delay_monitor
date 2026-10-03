@@ -1,0 +1,28 @@
+
+> delay_monitor@1.1.0 check
+> npm run typecheck && npm run lint && npm run test
+
+
+> delay_monitor@1.1.0 typecheck
+> tsc --noEmit
+
+
+> delay_monitor@1.1.0 lint
+> eslint
+
+
+> delay_monitor@1.1.0 test
+> vitest run
+
+
+ RUN  v5.0.2 /home/user/delay_monitor
+
+
+ Test Files  171 passed | 2 skipped (173)
+      Tests  2085 passed | 14 skipped (2099)
+   Start at  08:19:45
+   Duration  83.28s (environment 42%, tests 29%, setup 17%, import 8%, transform 4%, worker 1%)
+
+    Isolate  173 workers spawned · ~696ms startup each (spawn + environment, per file)
+             at least ~39.46s faster with isolate: false — reuses workers across files instead of one per file
+
