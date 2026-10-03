@@ -7,6 +7,7 @@ import {
   UPSTREAM_LOOKBACK_HOPS,
 } from './upstreamEstimate'
 import type { RawOperationStation, RawRoute, RawRouteStop, RawTrainOperation } from '../pkp/types'
+import { indexRoutesByTrain } from './routeKey'
 
 function stop(overrides: Partial<RawOperationStation> & { stationId: string }): RawOperationStation {
   return {
@@ -62,7 +63,7 @@ function route(scheduleId: string, orderId: string, stationIds: string[]): RawRo
 }
 
 function routesMap(...routes: RawRoute[]): Map<string, RawRoute> {
-  return new Map(routes.map((r) => [`${r.scheduleId}-${r.orderId}`, r]))
+  return indexRoutesByTrain(routes)
 }
 
 describe('findPrecedingStationIds', () => {
