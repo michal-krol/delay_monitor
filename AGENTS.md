@@ -38,6 +38,7 @@ etc.): read the linked rule file before changing code in its area.** General wor
 ```bash
 npm run dev            # mock mode, no key
 npm run check          # typecheck && lint && test — pre-push gate
+npm run status         # branch, ahead/behind origin/dev, dirty files, PR + CI
 TZ=UTC npm run test    # time logic
 npm run e2e            # UI changes
 PKP_CONTRACT=1 npm run test -- contract       # PKP schema/query params
