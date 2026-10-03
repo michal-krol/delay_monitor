@@ -91,6 +91,11 @@ describe('formatStatus', () => {
     expect(out).toContain('PR:     #7 OPEN, CI fail (2 checks) — failing: quality; pending: e2e')
   })
 
+  it('shortens a long gh error to one readable line', () => {
+    const out = formatStatus({ ...base, pr: { error: 'x'.repeat(300) } })
+    expect(out).toContain(`PR:     unavailable (${'x'.repeat(99)}…)`)
+  })
+
   it('degrades without a base ref, without a PR and without gh', () => {
     expect(formatStatus({ ...base, aheadBehind: null, pr: { none: true } })).toContain(
       'vs origin/dev: unknown (ref missing — git fetch origin dev)',

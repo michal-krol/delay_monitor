@@ -63,7 +63,7 @@ export function formatStatus({ branch, head, base, aheadBehind, dirty, pr }) {
 }
 
 function formatPr(pr) {
-  if ('error' in pr) return `unavailable (${pr.error})`
+  if ('error' in pr) return `unavailable (${truncate(pr.error, 100)})`
   if ('none' in pr) return 'none for this branch'
   const { checks } = pr
   let text = `#${pr.number} ${pr.state}, CI ${checks.state}`
@@ -73,4 +73,8 @@ function formatPr(pr) {
     checks.pending.length > 0 && `pending: ${checks.pending.join(', ')}`,
   ].filter(Boolean)
   return details.length > 0 ? `${text} — ${details.join('; ')}` : text
+}
+
+function truncate(text, max) {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
