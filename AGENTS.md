@@ -31,7 +31,7 @@ etc.): read the linked rule file before changing code in its area.** General wor
 | `fixtures/`, `data/` | mock payloads (PKP, GTFS per city), static station coordinates |
 | `e2e/` | Playwright suite |
 | `adr/` | architecture decision records (Polish) |
-| `.github/workflows/` | CI (`ci.yml`), nightly contract (`contract.yml`), prod health (`health.yml`) |
+| `.github/workflows/` | CI (`ci.yml`), nightly contract (`contract.yml`), prod health (`health.yml`), Claude PR review (`claude-review.yml`) |
 
 ## Commands
 

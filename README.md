@@ -263,6 +263,7 @@ npm run e2e            # testy end-to-end
 | `ci.yml` | pull request oraz push do `dev` i `main` | typecheck, lint, testy w strefach Europe/Warsaw i UTC, pokrycie kodu, testy end-to-end |
 | `contract.yml` | codziennie | testy kontraktowe API PKP i GTFS |
 | `health.yml` | co 30 minut | stan produkcji na podstawie `/api/health` |
+| `claude-review.yml` | pull request do `dev` (z gałęzi tego repozytorium) i wzmianka `@claude` | automatyczny przegląd poprawności i bezpieczeństwa przez Claude Code, komentarze w kodzie |
 
 Aktualizacje zależności proponuje Dependabot (npm, GitHub Actions, obraz Docker).
 
