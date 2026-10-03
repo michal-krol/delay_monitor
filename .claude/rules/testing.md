@@ -20,7 +20,8 @@ General rules: `~/.claude/rules/testing-unit.md`, `testing-e2e.md`.
 ## #12 Gate commands
 
 ```bash
-npm run check                               # typecheck && lint && test (pre-push hook)
+npm run check                               # typecheck && lint && test; green → gate stamp
+npm run status                              # branch, HEAD, ahead/behind origin/dev, dirty, PR + CI
 TZ=UTC npm run test                         # time logic (#1); CI runs Europe/Warsaw + UTC
 npm run e2e                                 # UI changes (#16)
 PKP_CONTRACT=1 npm run test -- contract     # touching src/lib/pkp/schema.ts or query params in client.ts
@@ -42,9 +43,26 @@ GTFS_CONTRACT=1 npm run test -- gtfs/contract
   rules. Files under `src/app/**` (`route.ts`, `page.tsx`, `layout.tsx`) may export only the
   fields Next allows (HTTP methods / route config, the default page, `metadata`…); a test-only
   helper exported from `route.ts` passed the gate and failed `next build` (TS2344 "not
-  assignable to never"). Put such state and helpers in a `src/lib/` module. After changing
-  anything in `src/app/**`, run `npx next build --webpack` (worktree) before pushing — CI builds
-  only in the e2e job.
+  assignable to never"). Put such state and helpers in a `src/lib/` module. The pre-push hook
+  builds for you when the pushed range touches `src/app/**` (below); CI builds only in the e2e job.
+
+### Pre-push hook and gate stamp (`.githooks/pre-push` → `scripts/pre-push.mjs`)
+
+Token audit 2026-10-03: `npm run check` ran ~285×/week, mostly re-checking a tree that had
+already passed. So:
+
+- A green `npm run check` (`scripts/check.mjs`) writes `<git common dir>/gate-ok-<tree>`;
+  `<tree>` = `git write-tree` of the working tree as checked (tracked + untracked, minus
+  `.gitignore`, via a throwaway index — your staging is untouched). No stamp on failure, nor
+  when files changed during the run. The common dir is shared by all worktrees; stamps older
+  than 14 days are pruned.
+- pre-push, in order: (1) `npm run deps:check` always; (2) `npm run check` unless every pushed
+  commit's tree (`git rev-parse <sha>^{tree}`) has a stamp; (3) `npx next build --webpack` when
+  the pushed range touches `src/app/**` — range = remote tip..pushed sha, for a new branch
+  merge-base with `origin/dev` (else `origin/main`); unknown range → build.
+- Workflow: run `npm run check` on the final working tree, commit everything, push — the gate
+  is skipped. Commit only part of it, or edit after the check → different tree → gate runs.
+- Pure logic: `scripts/lib/gate.mjs` (tested); don't re-derive it in shell.
 
 ## #8 Fixtures don't reflect live API scale
 
