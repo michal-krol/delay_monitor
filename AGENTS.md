@@ -112,25 +112,39 @@ Sized by change: trivial = fix + test + gate; normal/architectural = questions f
 gate, review + independent verification (`~/.claude/rules/verification.md`), proposals. Cite sources used in analysis
 (swagger, GTFS schema, `node_modules/next/dist/docs/`, README, memory, handoffs).
 
-### 15. Economy of actions and words → global `~/.claude/rules/workflow.md`
-Don't restate, don't re-read just-edited files, narrow big outputs. Plan mode: one Explore agent
-(the repo map is above). Economy never suppresses questions or proposals
-(`~/.claude/rules/collaboration.md`). One PR per session; review effort scaled by risk, not
-task count (`~/.claude/rules/workflow.md`, `verification.md`, `subagents.md`). Subagents: a hook
-blocks Bash file writes (`>`, `tee`, `sed -i` outside temp/scratchpad) and `git stash`/`reset`/`restore`/`checkout --`
-— use Edit/Write or a WIP commit (`.claude/hooks/block-bash-writes.mjs`, `scripts/lib/bashGuard.mjs`).
+### 15. Economy of context → global `~/.claude/rules/workflow.md`
+Cost ≈ context size × turns (measured 2026-10-03: 83% of context tokens were in calls >200k).
+- New topic or merged PR → handoff, then `/clear` or a new session. One PR per session.
+- Big outputs never stay in context: CI logs via `gh run view --log-failed | tail -200`;
+  browser checks via `read_page`/`get_page_text`, screenshots only when layout matters.
+- Long automated runs (subagent-driven plans, many tasks): start with `/autocompact 300k` and
+  keep progress in the plan file (see "Compact instructions" below).
+- One fact lives in one file; others link to it (duplicated facts drift — `gtfs.md` did).
+- Economy never suppresses questions or proposals (`~/.claude/rules/collaboration.md`).
+- Subagents: a hook blocks Bash file writes and `git stash`/`reset`/`restore`/`checkout --`
+  (`.claude/hooks/block-bash-writes.mjs`) — use Edit/Write or a WIP commit.
 
 ### 16. Automated UI tests (e2e) → `testing.md`
 `npm run e2e`: Playwright, mock mode, zero network, projects `desktop-chromium`,
 `mobile-chromium`, `mobile-safari`. New view/flow → smoke desktop+mobile + axe scan.
 
 ### 17. Plugins pinned in `.claude/settings.json`
-Versioned for every session in this repo: `superpowers`, `ponytail`, `caveman`, `taste-skill`,
-`ui-ux-pro-max`, `claude-obsidian`, `playwright`(+skill), `codex`. User-level extras (not
-pinned here): `impeccable`, `claude-mem`, `typescript-lsp`, `claude-md-management`. First session after cloning = one-time trust prompt
-for third-party marketplaces. Cost: skill descriptions in every session — don't
-extend without counting; narrow per session via `/plugin`. `.claude/settings.local.json`
-(gitignored) for private overrides. Design-skill routing: `~/.claude/rules/frontend-ui.md`.
+Enabled for every session in this repo: `superpowers`, `ponytail`, `caveman`, `codex`.
+Disabled here on purpose (0 uses in 7 days, measured 2026-10-03; duplicates of `impeccable`,
+the handoff skill or the built-in browser): `taste-skill`, `ui-ux-pro-max`, `claude-obsidian`,
+`playwright`, `playwright-skill`. User-level extras (not pinned here): `impeccable` (the one UI
+plugin), `claude-mem`, `typescript-lsp`, `claude-md-management`, `railway`. First session after
+cloning = one-time trust prompt for third-party marketplaces. Cost: every enabled plugin's skill
+descriptions ride in every session and subagent start (~63–77k tokens of fixed prefix) — count
+before enabling; narrow per session via `/plugin`. `.claude/settings.local.json` (gitignored)
+for private overrides. Design-skill routing: `~/.claude/rules/frontend-ui.md`.
+
+## Compact instructions
+
+When compacting, keep: the plan file path and the current task, branch + HEAD SHA, open review
+findings, user decisions from this session, failing test names. Drop: tool outputs, diffs, logs,
+file contents (re-read them). Path-scoped `.claude/rules/*` are lost on compaction — re-read the
+rule for the area you work in.
 
 ## Project skills
 

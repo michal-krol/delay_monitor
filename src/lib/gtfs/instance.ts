@@ -19,7 +19,7 @@ const config = loadConfig()
 
 /**
  * Zweryfikowane empirycznie (`next build --webpack` + `next start`, `GET
- * /api/health` PRZED jakimkolwiek żądaniem GTFS, AGENTS.md #14): webpack
+ * /api/health` PRZED jakimkolwiek żądaniem GTFS, `.claude/rules/gtfs.md`): webpack
  * bundluje `instrumentation.ts` i każdy route handler jako OSOBNE chunki,
  * każdy z własną instancją modułu — `new Map()` na poziomie modułu dawał więc
  * DWA różne rejestry (pusty w route handlerach mimo rozgrzewki w instrumentacji,
