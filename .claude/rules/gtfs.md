@@ -1,6 +1,7 @@
 ---
 paths:
   - "src/lib/gtfs/**"
+  - "src/instrumentation.ts"
   - "src/app/api/gtfs/**"
   - "src/app/*/city/**"
   - "src/app/*/lines/**"
@@ -26,27 +27,22 @@ paths:
   `/api/gtfs/*` never wait — `ensureLoaded()` fire-and-forget, `getSchedule()` returns `null`
   until ready, the client retries. A failed load backs off server-side (30 s doubling to 1 h, reset on
   success or idle release, gate in `startLoad()`): client retries during the window don't refetch.
-- **Warm-up at process start (`src/instrumentation.ts`).** `register()` (Node runtime only —
-  `process.env.NEXT_RUNTIME === 'nodejs'`, dynamic import) calls `warmUpGtfsPollers()`
-  (`gtfs/instance.ts`) fire-and-forget for every `enabledGtfsCities()`; it calls the poller's
-  `preload()`, NOT `ensureLoaded()`: only the schedule load starts — no `onWake`, no
-  `lastInterestAt`, no idle timer, so the vehicle/alert feeds are not polled with zero
-  viewers (`ensureLoaded()` there polled the vehicle feed ~240×/boot) — owner decision: a
-  configured city's schedule is resident from boot (~0.5 GB RSS accepted) instead of waiting
-  for the first viewer. `register()` never awaits the load itself, only the (near-instant)
-  dynamic import — Next.js requires `register()` to complete before the server serves.
-  `createGtfsPoller`'s `keepSchedule` dep (set `true` for every poller created in
-  `instance.ts`, since every poller there is for an enabled — i.e. warmed — city) keeps the
-  schedule, `status` and the hourly `maybeRollDay` reload timer alive past `idleTtlMs`; only
-  `onIdle()` still fires, so the vehicle/alert pollers stop without a viewer (no 24/7 upstream
-  polling for those). `onWake` is fired ONLY from `ensureLoaded()` (a real viewer), never from
-  the internal `startLoad()` that `maybeRollDay()` also calls — an unattended day-rollover
-  reload of a kept schedule must NOT resurrect the vehicle/alert pollers (caught in review:
-  wiring `onWake` into `startLoad()` made every idle-stopped warmed city's pollers restart
-  forever at the next day boundary, with zero viewers). Module state (`pollers` Map) is
-  shared between the instrumentation bundle and route handlers — verified empirically
-  (`next build --webpack` + `next start`, `/api/health` before any GTFS request shows the
-  warmed city loading/ready).
+- **Warm-up at process start (`src/instrumentation.ts`).** `register()` (Node runtime only,
+  dynamic import) calls `warmUpGtfsPollers()` (`gtfs/instance.ts`) fire-and-forget for every
+  `enabledGtfsCities()` and never awaits the load — Next.js requires `register()` to finish
+  before serving. It calls the poller's `preload()`, NOT `ensureLoaded()`: schedule only, no
+  `onWake`/`lastInterestAt`/idle timer, so vehicle/alert feeds aren't polled with zero viewers
+  (`ensureLoaded()` there once polled the vehicle feed ~240×/boot). Owner decision: an enabled
+  city's schedule is resident from boot (~0.5 GB RSS accepted). `keepSchedule: true` (every
+  poller in `instance.ts`) keeps schedule, `status` and the hourly `maybeRollDay` reload past
+  `idleTtlMs`; only `onIdle()` fires, so vehicle/alert pollers stop without a viewer.
+  `onWake` fires ONLY from `ensureLoaded()` (a real viewer), never from the internal
+  `startLoad()` that `maybeRollDay()` also calls — otherwise every idle warmed city restarts
+  its pollers at each day boundary.
+- **Instrumentation and route handlers are separate module instances** (webpack bundles them as
+  separate chunks). The poller registry lives on `globalThis` under a `Symbol.for` key
+  (`gtfs/instance.ts`) — never a module-level `Map`: that gave two registries and `/api/health`
+  showed a warmed city as `idle` (PR #82). Any process-wide singleton follows the same pattern.
 - **Feed fetch timeouts differ by feed.** Vehicles/alerts: 10 s for the whole request. Static
   feed range reads (`client.ts`): the timeout covers only time to response headers, not the
   streamed body — a 107 MB body can legitimately take longer than 30 s; a body stalling
@@ -161,23 +157,17 @@ paths:
   `alertPoller.ts` — never re-derive it from `getView().state` in a route. `null` = unknown
   (poller absent/`idle`/`loading`); `ready` → alerts; `failed` → last good alerts. The only
   variation is `failed` with no successful fetch yet (`ageMs === null`):
-  - default (`/api/gtfs/line`, `/api/gtfs/board` per stop) → `[]`. Their clients retry while
-    `alerts === null` and never see the feed state, so `null` there would poll a dead feed
-    forever. The line page fetches once, so without `null` a warm schedule answered `[]` before
-    the first alert fetch and the banner never appeared; `isLineLoading` retries while
-    `alerts === null`, `useTransitBoard` on the ladder while any stop has `alerts === null`.
-  - `requireFetch: true` (`/api/gtfs/city-stats` only) → `null`: numeric tile, #7, „0" must
-    differ from „unknown". It also returns `alertFeed.{state,ageMs}`; `useCityStats` retries
-    while `alerts == null` unless `alertFeed.state === 'failed'` (no polling a dead feed every
-    15 s). Any `failed` feed (with or without last good data) re-polls slowly instead, every
-    5 min (the `AlertPoller` retry rhythm, visible tab only; a still-`loading` schedule keeps the
-    15 s ladder tail), via a result-driven `refreshMs` in `usePolling`, so a later recovery shows
-    up and the stale age keeps growing. Deliberately not in `useLineDetail`/the line page: the
-    line response is a list with no feed state (`failed` is indistinguishable from "no alerts"),
-    and switching lines refetches anyway.
-  `/api/gtfs/board` used to answer `[]` and wait for the 30 s refresh — the stop page's
-  „Komunikaty" tab then claimed „Aktualnie brak komunikatów" for the first viewer after a wake
-  (flaky e2e 2026-09-29).
+  - default (`/api/gtfs/line`, `/api/gtfs/board` per stop) → `[]` (their clients never see the
+    feed state, so `null` would poll a dead feed forever). While loading they return `null` and
+    clients retry: `isLineLoading` while `alerts === null`, `useTransitBoard` on the ladder while
+    any stop has `alerts === null` — otherwise the first viewer after a wake saw „Aktualnie brak
+    komunikatów" (flaky e2e 2026-09-29).
+  - `requireFetch: true` (`/api/gtfs/city-stats` only) → `null`: numeric tile, #7, „0" ≠
+    „unknown". Also returns `alertFeed.{state,ageMs}`; `useCityStats` retries while
+    `alerts == null` unless `alertFeed.state === 'failed'`. A `failed` feed re-polls every 5 min
+    (visible tab only; a still-`loading` schedule keeps the 15 s ladder) via a result-driven
+    `refreshMs` in `usePolling`, so recovery shows and the stale age keeps growing. Not in
+    `useLineDetail`: the line response has no feed state and switching lines refetches anyway.
 
 Contract: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (network, no cost).
 `GTFS_DATA_SOURCE=mock` (default) keeps dev/test/CI zero-network. Fixtures in
