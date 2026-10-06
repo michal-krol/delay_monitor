@@ -292,7 +292,6 @@ details[open] > summary .disclosure-chevron,
   /* Szkło arkusza: prawie kryjące (94%), żeby axe i czytelność nie zależały od kafelków mapy pod spodem. */
   background-color: color-mix(in srgb, var(--sheet-surface) 94%, transparent);
   backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
   border-top: 1px solid var(--surface-border);
   border-radius: 1rem 1rem 0 0;
   box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
@@ -352,12 +351,10 @@ details[open] > summary .disclosure-chevron,
 @utility glass-chrome {
   background-color: var(--sidebar-bg);
   backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
 @utility glass-chrome-strong {
   background-color: color-mix(in srgb, var(--sheet-surface) 88%, transparent);
   backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
 }
 /* Prośba o mniej przezroczystości albo tryb wysokiego kontrastu: pełne tło, bez rozmycia. Zwykła reguła
    (poza warstwami) bije utility Tailwinda. */
@@ -367,7 +364,6 @@ details[open] > summary .disclosure-chevron,
   .bottom-sheet__panel {
     background-color: var(--sheet-surface);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 }
 
@@ -392,7 +388,6 @@ details[open] > summary .disclosure-chevron,
 .dark .maplibregl-popup-content {
   background-color: var(--map-surface);
   backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
 }
 .dark .maplibregl-popup-tip {
   border-top-color: var(--map-surface) !important;
@@ -485,6 +480,110 @@ details[open] > summary .disclosure-chevron,
 @media (prefers-reduced-motion: no-preference) {
   .press:active {
     transform: scale(0.97);
+  }
+}
+
+/* Żywy feedback (PR 6). Wszystko, co się rusza, siedzi pod `prefers-reduced-motion: no-preference`;
+   bez ruchu zostaje statyczny stan (kolor, poświata) — informacja zawsze jest też w tekście obok. */
+
+/* Halo aktywnej zakładki dolnego paska: miękka poświata pod ikoną. */
+.nav-halo {
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  transition: box-shadow var(--duration-base) var(--ease-out);
+}
+[data-active] > .nav-halo {
+  box-shadow: 0 0 14px 3px rgba(56, 189, 248, 0.45);
+}
+
+/* Kropka „dane są świeże” (`LiveDot`): kolor akcentu, nie zieleń statusu (#13). */
+.live-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-inline-end: 0.25rem;
+  border-radius: 9999px;
+  vertical-align: middle;
+  color: var(--status-notStarted-text);
+  background-color: currentColor;
+}
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .live-dot {
+    animation: livePulse 2.2s ease-out infinite;
+  }
+}
+
+/* Opóźniony wiersz tablicy: miękka poświata od lewej krawędzi. Sama w sobie nic nie mówi —
+   status jest w plakietce z tekstem („+N min”). */
+.board-table tr[data-status='delayed'] {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--status-delayed-bg) 14%, transparent), transparent 45%);
+}
+@media (max-width: 39.999rem) {
+  .board-table tr[data-status='delayed'] {
+    box-shadow: 0 0 14px -4px color-mix(in srgb, var(--status-delayed-bg) 45%, transparent);
+  }
+}
+
+/* Karta Pulpitu ugina się, gdy wciśnięta jest jej przezroczysta nakładka (`data-card-open`). */
+@media (prefers-reduced-motion: no-preference) {
+  .card-press {
+    transition-property: transform, box-shadow;
+  }
+  .card-press:has(> [data-card-open]:active) {
+    transform: scale(0.985);
+  }
+}
+
+/* Wejścia (`@starting-style`): okno wyszukiwania, menu i panele pływające, pastylka offline.
+   Tylko wejście — wyjście natywnego `<dialog>` zostaje natychmiastowe (bez `allow-discrete`). */
+@media (prefers-reduced-motion: no-preference) {
+  dialog[open] {
+    opacity: 1;
+    translate: 0 0;
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      translate var(--duration-base) var(--ease-out);
+  }
+  dialog[open]::backdrop {
+    opacity: 1;
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  .enter-pop {
+    transform-origin: top right;
+    transition:
+      opacity var(--duration-fast) var(--ease-out),
+      scale var(--duration-fast) var(--ease-out),
+      translate var(--duration-fast) var(--ease-out);
+  }
+  .enter-fade {
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  @starting-style {
+    dialog[open] {
+      opacity: 0;
+      translate: 0 -12px;
+    }
+    dialog[open]::backdrop {
+      opacity: 0;
+    }
+    .enter-pop {
+      opacity: 0;
+      scale: 0.97;
+      translate: 0 -4px;
+    }
+    .enter-fade {
+      opacity: 0;
+    }
   }
 }
 

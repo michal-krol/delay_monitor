@@ -54,7 +54,7 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onRemo
   const href = member ? `${groupPath}?przystanek=${encodeURIComponent(stopId)}` : groupPath
 
   return (
-    <article className="glass group relative isolate w-full overflow-hidden rounded-2xl border border-surface-border p-5">
+    <article className="glass card-press group relative isolate w-full overflow-hidden rounded-2xl border border-surface-border p-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">{name}</h2>
         <IconButton label={`Odepnij z Pulpitu: ${name}`} onClick={onRemove} className="z-10">
@@ -79,6 +79,7 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onRemo
       <Link
         href={href}
         aria-label={`Pokaż przystanek: ${name}`}
+        data-card-open
         className="absolute inset-0 rounded-2xl focus:outline-none"
       />
     </article>

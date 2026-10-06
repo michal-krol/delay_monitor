@@ -1,6 +1,7 @@
 import type { BoardApiResponse } from '@/hooks/useBoard'
 import { effectiveAgeMs, formatAge, formatAgo } from '@/lib/format'
 import { useNow } from '@/hooks/useNow'
+import { LiveDot } from './LiveDot'
 
 type Props = {
   fetchedAt: string | undefined
@@ -89,6 +90,8 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
 
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
+      {/* Puls tylko, gdy dane są świeże i ostatnie odświeżenie się udało — inaczej udawałby żywość (#7). */}
+      {!error && !isStale && <LiveDot />}
       {onRefresh !== undefined && ageMs !== undefined ? (
         <button
           type="button"

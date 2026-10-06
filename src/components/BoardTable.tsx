@@ -327,6 +327,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
     // przez prawdziwy <button> na etykiecie pociągu.
     <tr
       data-past={isPast || undefined}
+      data-status={row.status}
       className={`group border-b border-black/5 transition dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${isPast ? 'opacity-50' : ''} ${canOpenDetails ? 'cursor-pointer' : ''} ${delayChanged ? 'delay-changed' : ''}`}
       // borderLeftColor działa wyłącznie w układzie kartowym (poniżej `sm`,
       // patrz `.board-table` w globals.css) -- na desktopie wiersz nie ma

@@ -28,7 +28,7 @@ export function MapMoreMenu({ listOpen, onToggleList, onShare }: { listOpen: boo
         <MoreIcon size={ICON_SIZE.button} />
       </button>
       {open && (
-        <ul id={panelId} aria-label="Więcej" className="glass-chrome-strong border border-surface-border absolute right-0 z-30 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">
+        <ul id={panelId} aria-label="Więcej" className="glass-chrome-strong border border-surface-border enter-pop absolute right-0 z-30 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-2xl p-2 shadow-xl">
           <li>
             <button type="button" aria-pressed={listOpen} onClick={() => choose(onToggleList)} className={rowClass}>
               <ListIcon size={ICON_SIZE.button} />

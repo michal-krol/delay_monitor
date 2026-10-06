@@ -151,6 +151,11 @@ describe('design tokens', () => {
     expect(offenders(/backdrop-blur/)).toEqual([])
   })
 
+  it('globals.css writes backdrop-filter unprefixed only: with a hand-written -webkit- twin the build kept ONLY the prefixed one and Chromium rendered no blur', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    expect(css).not.toContain('-webkit-backdrop-filter')
+  })
+
   it('content cards (.glass, .glass-strong) carry no backdrop-filter — blur over a flat page is invisible and costs GPU', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     for (const name of ['glass', 'glass-strong']) {
@@ -182,6 +187,22 @@ describe('design tokens', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     const panel = css.match(/\.bottom-sheet__panel \{([^}]*)\}/)?.[1] ?? ''
     expect(panel).toMatch(/color-mix\(in srgb, var\(--sheet-surface\) (9\d)%/)
+  })
+
+  it('pulses, entry transitions and card press only exist under prefers-reduced-motion: no-preference', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    for (const rule of ['animation: livePulse', '@starting-style', '.card-press:has(> [data-card-open]:active)']) {
+      const index = css.indexOf(rule)
+      expect(index, rule).toBeGreaterThan(-1)
+      const before = css.slice(0, index)
+      expect(before.slice(before.lastIndexOf('@media')), rule).toMatch(/^@media \(prefers-reduced-motion: no-preference\)\s*\{/)
+    }
+  })
+
+  it('both Pulpit cards carry the card-press class (one press feel)', () => {
+    for (const file of ['components/StationCard.tsx', 'components/TransitStopCard.tsx']) {
+      expect(readFileSync(join(SRC, file), 'utf8'), file).toContain('card-press')
+    }
   })
 
   it('globals.css kills the grey tap flash and defines the own press state', () => {

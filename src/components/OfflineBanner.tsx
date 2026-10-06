@@ -26,7 +26,7 @@ function OfflinePill() {
   const now = useNow(30_000)
   return (
     <div
-      className="glass-chrome-strong border border-surface-border shadow-lg text-warning-text fixed left-1/2 z-40 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-4 py-2 text-center text-sm font-medium"
+      className="glass-chrome-strong border border-surface-border enter-fade shadow-lg text-warning-text fixed left-1/2 z-40 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-4 py-2 text-center text-sm font-medium"
       style={{ bottom: 'calc(var(--bottom-nav-h) + 0.75rem)' }}
     >
       {offlineMessage(lastPollingSuccessAt(), now)}

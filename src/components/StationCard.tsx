@@ -44,7 +44,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
   return (
     <article
       data-status={leadStatus}
-      className="glow-ring card-hover group relative isolate w-full overflow-hidden rounded-2xl border p-5 text-left transition duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
+      className="glow-ring card-hover card-press group relative isolate w-full overflow-hidden rounded-2xl border p-5 text-left transition duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
       style={
         {
           borderColor: BORDER_COLOR[leadStatus],
@@ -125,6 +125,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         type="button"
         onClick={() => onExpand({ id: stationId, name: stationName })}
         aria-label={`Pokaż pełną tablicę: ${stationName}`}
+        data-card-open
         className="absolute inset-0 rounded-2xl focus:outline-none"
       />
     </article>

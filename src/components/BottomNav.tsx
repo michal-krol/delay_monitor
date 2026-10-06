@@ -32,6 +32,7 @@ export function BottomNav() {
               <Link
                 href={item.href}
                 aria-current={isActive ? 'page' : undefined}
+                data-active={isActive || undefined}
                 className="press flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium text-text-secondary transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none focus-visible:ring-inset"
                 style={
                   isActive
@@ -39,7 +40,9 @@ export function BottomNav() {
                     : undefined
                 }
               >
-                <Icon size={ICON_SIZE.tile} />
+                <span className="nav-halo">
+                  <Icon size={ICON_SIZE.tile} />
+                </span>
                 <span>{item.shortLabel}</span>
               </Link>
             </li>
