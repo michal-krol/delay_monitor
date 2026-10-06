@@ -29,7 +29,7 @@ export function MobileHeader({ onSearch }: { onSearch: () => void }) {
             ustępuje drugiej (CSS scroll-driven, `globals.css`), bez zmiany układu. Kopia nazwy tablicy jest
             `aria-hidden` — nazwę niesie `h1` strony. */}
         <span className="header-titles grid min-w-0" data-context={contextTitle !== null ? '' : undefined}>
-          <span className="header-title-app font-heading truncate text-[15px] font-bold [grid-area:1/1]">Monitor opóźnień</span>
+          <span data-testid="header-app-title" className="header-title-app font-heading truncate text-[15px] font-bold [grid-area:1/1]">Monitor opóźnień</span>
           {contextTitle !== null && (
             <span aria-hidden="true" data-testid="header-context-title" className="header-title-context font-heading truncate text-[15px] font-bold [grid-area:1/1]">
               {contextTitle}
