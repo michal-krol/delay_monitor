@@ -93,6 +93,40 @@ describe('BottomSheet', () => {
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 540 })
   })
 
+  it('a settle timer that fires mid-animation does not overwrite the handle target (flaky e2e under load: frames > 120 ms apart)', () => {
+    vi.useFakeTimers()
+    render(
+      <BottomSheet>
+        <p>Treść</p>
+      </BottomSheet>
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ })) // cel: half (330 px)
+    sheet().scrollTop = 160 // animacja dopiero ruszyła, najbliżej „peek”
+    fireEvent.scroll(sheet())
+    act(() => vi.advanceTimersByTime(200)) // brak zdarzeń scroll dłużej niż SETTLE_MS
+    expect(sheet()).toHaveAttribute('data-snap', 'half')
+    sheet().scrollTop = 330
+    fireEvent.scroll(sheet())
+    act(() => vi.advanceTimersByTime(200))
+    expect(sheet()).toHaveAttribute('data-snap', 'half')
+    vi.useRealTimers()
+  })
+
+  it('gives up waiting for the target after a second (the user took over the drag) and follows the position', () => {
+    vi.useFakeTimers()
+    render(
+      <BottomSheet>
+        <p>Treść</p>
+      </BottomSheet>
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ })) // cel: half
+    sheet().scrollTop = 540 // użytkownik przeciągnął na „full”
+    fireEvent.scroll(sheet())
+    act(() => vi.advanceTimersByTime(1500))
+    expect(sheet()).toHaveAttribute('data-snap', 'full')
+    vi.useRealTimers()
+  })
+
   it('opens at the requested snap (Info sheet starts at half)', () => {
     render(
       <BottomSheet initialSnap="half">
