@@ -25,9 +25,10 @@ type Props = {
  */
 export function StatTile({ icon, accent, label, value, unit, hint, hideUnitInPill = false, uppercaseLabel = false, pills = true, className = '' }: Props) {
   return (
-    <div className={`glass flex items-start gap-3 rounded-2xl p-4 ${pills ? 'max-sm:items-baseline max-sm:gap-1.5 max-sm:rounded-full max-sm:px-2.5 max-sm:py-1' : ''} ${className}`.trim()}>
+    <div data-testid="stat-tile" className={`glass flex items-start gap-3 rounded-2xl p-4 ${pills ? 'max-sm:items-baseline max-sm:gap-1.5 max-sm:rounded-full max-sm:px-2.5 max-sm:py-1' : ''} ${className}`.trim()}>
       {icon !== undefined && (
         <span
+          data-testid="stat-tile-icon"
           className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${pills ? 'max-sm:hidden' : ''}`}
           style={{ backgroundColor: `color-mix(in srgb, ${accent} 16%, transparent)`, color: accent }}
           aria-hidden="true"
