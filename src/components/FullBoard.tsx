@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { startTransition, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
@@ -13,6 +13,7 @@ import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
 import { PageTitle } from './PageTitle'
 import { PlaceTitle } from './PlaceTitle'
+import { TabCrossfade } from './TabCrossfade'
 import { CloseIcon, StarIcon, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
@@ -109,8 +110,11 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
    * dodatkowy render i renderowanie odfiltrowanej tablicy przez jedną klatkę.
    */
   function switchDirection(next: Direction): void {
-    setDirection(next)
-    setDestinationFilter(null)
+    // `startTransition`: dopiero zmiana stanu w przejściu uruchamia crossfade (`TabCrossfade`).
+    startTransition(() => {
+      setDirection(next)
+      setDestinationFilter(null)
+    })
   }
 
   const allRows = useMemo(() => (snapshot ? snapshot[direction] : []), [snapshot, direction])
@@ -289,13 +293,15 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
               )}
 
               <div role="tabpanel" id={panelId} aria-labelledby={tabId(direction)}>
-                <BoardTable
-                  stationName={stationName}
-                  direction={direction}
-                  rows={rows}
-                  now={now}
-                  loading={loading}
-                />
+                <TabCrossfade id={direction} name="board-rows">
+                  <BoardTable
+                    stationName={stationName}
+                    direction={direction}
+                    rows={rows}
+                    now={now}
+                    loading={loading}
+                  />
+                </TabCrossfade>
               </div>
             </section>
           </>
