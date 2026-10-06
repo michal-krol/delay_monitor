@@ -2,8 +2,7 @@ import { DelayBadge } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
 import { AlertCircleIcon, ArrowRightIcon, ICON_SIZE } from './icons'
 import { formatClockTime } from '@/lib/format'
-import { countdownLabel } from '@/lib/countdown'
-import { expectedAt } from './boardTime'
+import { rowCountdown } from './boardTime'
 import type { BoardApiRow } from '@/hooks/useBoard'
 
 type Props = {
@@ -23,7 +22,7 @@ export function BoardRowList({ rows, now, loading, showEmpty, emptyMessage }: Pr
       {loading && <li className="py-2 text-sm text-text-muted">Wczytywanie…</li>}
       {showEmpty && <li className="py-2 text-sm text-text-muted">{emptyMessage}</li>}
       {rows.map((row) => {
-        const countdown = row.status === 'cancelled' ? null : countdownLabel(now, expectedAt(row))
+        const countdown = rowCountdown(row, now)
         return (
         <li key={`${row.trainNumber}-${row.plannedAt}`} className="py-2 text-sm first:pt-0 last:pb-0">
           <div className="flex items-center justify-between gap-2">

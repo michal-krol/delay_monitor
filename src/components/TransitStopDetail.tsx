@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
-import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -27,7 +26,7 @@ import { TransitDepartureList } from './TransitDepartureList'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from './icons'
 import { PageTitle } from './PageTitle'
-import { InfoButton, InfoSheet } from './InfoSheet'
+import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
 import { pluralPl } from '@/lib/plural'
@@ -93,14 +92,8 @@ export function TransitStopDetail({
   const [lineFilter, setLineFilter] = useState<string | null>(null)
   const [requestedMember, setRequestedMember] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<StopTab>('departures')
-  /** Arkusz „Info” (telefon): mapa, pogoda, natężenie i linie z prawej kolumny. */
-  const [infoOpen, setInfoOpen] = useState(false)
-  /**
-   * Kontekst (kafelki, pogoda, mapa…) istnieje w JEDNYM miejscu: od `sm` w prawej kolumnie, na telefonie
-   * tylko w arkuszu „Info” — ukryta kopia montowałaby drugą mapę MapLibre i dublowała tekst. W SSR „szeroko”,
-   * do hydracji kolumnę na telefonie chowa CSS (`max-sm:hidden`).
-   */
-  const wide = useMediaQuery(SM_UP, true)
+  // Kontekst w kolumnie (`wide`) albo w arkuszu „Info” — jedno miejsce naraz, patrz `useBoardContext`.
+  const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
   const tabIdBase = useId()
   const viewTabId = (tab: StopTab): string => `${tabIdBase}-tab-${tab}`
   const viewPanelId = `${tabIdBase}-panel`
@@ -325,7 +318,7 @@ export function TransitStopDetail({
               )}
               {data !== null && (
                 <div className="mt-2">
-                  <ScheduleStatus schedule={data.schedule} cityName={cityName} error={error !== null} />
+                  <ScheduleStatus compact schedule={data.schedule} cityName={cityName} error={error !== null} />
                 </div>
               )}
             </div>
@@ -419,7 +412,9 @@ export function TransitStopDetail({
 
         <div className="grid gap-3 max-sm:flex max-sm:flex-wrap max-sm:gap-1.5 sm:grid-cols-3">
           {/* Telefon: liczbę linii widać w filtrze linii poniżej — pigułki mieszczą się w jednym rzędzie. */}
-          <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover max-sm:hidden!" />
+          <div className="contents max-sm:hidden">
+            <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />
+          </div>
           <SummaryCard label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" className="card-hover" />
           <SummaryCard
             label="Pierwszy / ostatni"
@@ -437,7 +432,7 @@ export function TransitStopDetail({
               przewijany w poziomie (cele 44 px); „Info” poza przewijaniem, zawsze pod ręką. */}
           <div
             data-testid="stop-tabs-bar"
-            className="mb-3 flex flex-col gap-2 max-sm:sticky max-sm:top-[var(--header-h)] max-sm:z-20 max-sm:-mx-4 max-sm:-mt-4 max-sm:rounded-t-2xl max-sm:bg-[var(--sheet-surface)] max-sm:px-4 max-sm:py-2"
+            className={`mb-3 flex flex-col gap-2 ${STICKY_TABS_BAR}`}
           >
             <div className="flex items-center gap-2">
               <div
@@ -472,7 +467,7 @@ export function TransitStopDetail({
                   </button>
                 ))}
               </div>
-              <InfoButton open={infoOpen} onClick={() => setInfoOpen((open) => !open)} />
+              <InfoButton open={infoOpen} onClick={toggleInfo} />
             </div>
 
             {(activeTab === 'departures' || activeTab === 'schedule') && board !== null && board.lines.length > 1 && (
@@ -568,8 +563,8 @@ export function TransitStopDetail({
         <AttributionFooter attribution={data?.attribution ?? []} />
       </aside>
 
-      {!wide && infoOpen && (
-        <InfoSheet title="Informacje o przystanku" onClose={() => setInfoOpen(false)}>
+      {infoOpen && (
+        <InfoSheet title="Informacje o przystanku" onClose={closeInfo}>
           {asideCards}
         </InfoSheet>
       )}

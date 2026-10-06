@@ -12,8 +12,7 @@ import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { formatClockTime } from '@/lib/format'
-import { expectedAt, realizedTime } from './boardTime'
-import { countdownLabel } from '@/lib/countdown'
+import { realizedTime, rowCountdown } from './boardTime'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -273,8 +272,7 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
 
 function TimePair({ row, now }: { row: BoardApiRow; now: number }) {
   const realized = realizedTime(row)
-  // Do godziny z realizacji (fakt/prognoza), nie do planu; odwołanego nie odliczamy.
-  const countdown = row.status === 'cancelled' ? null : countdownLabel(now, expectedAt(row))
+  const countdown = rowCountdown(row, now)
 
   return (
     <span className="block tabular-nums">

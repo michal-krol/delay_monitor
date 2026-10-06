@@ -1,4 +1,5 @@
 import type { BoardApiRow } from '@/hooks/useBoard'
+import { countdownLabel } from '@/lib/countdown'
 
 type RealizationFields = Pick<BoardApiRow, 'actualAt' | 'delayMinutes' | 'predictedAt'>
 
@@ -19,4 +20,9 @@ export function realizedTime(row: RealizationFields): { at: string; kind: 'fact'
 /** Godzina, do której odliczamy („za N min”): fakt, prognoza, a bez nich plan. Zero nowej logiki opóźnień. */
 export function expectedAt(row: RealizationFields & Pick<BoardApiRow, 'plannedAt'>): string {
   return realizedTime(row)?.at ?? row.plannedAt
+}
+
+/** „za N min” wiersza tablicy PKP (tablica, Pulpit); odwołany pociąg nigdy nie odlicza. */
+export function rowCountdown(row: RealizationFields & Pick<BoardApiRow, 'plannedAt' | 'status'>, now: number): string | null {
+  return row.status === 'cancelled' ? null : countdownLabel(now, expectedAt(row))
 }

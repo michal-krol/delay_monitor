@@ -10,6 +10,8 @@ type Props = {
   error?: boolean
   /** Bez ostrzeżeń (wiek danych, nieudane odświeżanie) — sama linijka „tytuł · Aktualizacja”, np. w stopce strony. */
   quiet?: boolean
+  /** Telefon: bez „· Aktualizacja: …” (data wczytania feedu) — nagłówek tablicy przystanku ma zostawić miejsce na odjazdy. Ostrzeżenia zostają. */
+  compact?: boolean
 }
 
 const STALE_MS = 60 * 60 * 1000
@@ -50,7 +52,7 @@ const PHASE_LABEL: Record<string, string> = {
  * FAZĄ (nazwa fazy niepokoi mniej niż licznik sekund). `droppedRows` nie ma
  * w tej odpowiedzi — trójstan jest w `/api/health`.
  */
-export function ScheduleStatus({ schedule, cityName, title, error = false, quiet = false }: Props) {
+export function ScheduleStatus({ schedule, cityName, title, error = false, quiet = false, compact = false }: Props) {
   const heading = title ?? `Rozkład jazdy — ${cityName}`
 
   if (schedule.state === 'loading') {
@@ -71,7 +73,7 @@ export function ScheduleStatus({ schedule, cityName, title, error = false, quiet
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
       <span>{heading}</span>
       {schedule.loadedAt !== null && (
-        <span className="text-text-muted max-sm:hidden">· Aktualizacja: {formatUpdated(schedule.loadedAt)}</span>
+        <span className={`text-text-muted ${compact ? 'max-sm:hidden' : ''}`}>· Aktualizacja: {formatUpdated(schedule.loadedAt)}</span>
       )}
       {!quiet && (
         <span className="contents" aria-live="polite">

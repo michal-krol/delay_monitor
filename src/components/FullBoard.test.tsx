@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
 import { jsonResponse } from '@/test-utils/http'
+import { stubMatchMedia } from '@/test-utils/media'
 
 // Szczegóły połączenia mają teraz własną trasę (`/connection/...`) — klik w
 // wiersz nawiguje przez `router.push`, zamiast otwierać panel w miejscu.
@@ -498,14 +499,10 @@ describe('FullBoard', () => {
       ...SNAPSHOT,
       insights: { topDestinations: [{ stationId: '80416', name: 'Kraków', count: 12 }], hourlyTraffic: Array.from({ length: 24 }, () => 1) },
     }
-    // Telefon: `useMediaQuery(SM_UP)` = false (jsdom nie ma `matchMedia`, więc bez atrapy = „szeroko”).
-    const originalMatchMedia = window.matchMedia
+    // Telefon: `useMediaQuery(SM_UP)` = false (bez atrapy jsdom = „szeroko”); sprząta `unstubAllGlobals`.
     beforeEach(() => {
       window.HTMLElement.prototype.scrollTo = () => {}
-      window.matchMedia = (() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as unknown as typeof window.matchMedia
-    })
-    afterEach(() => {
-      window.matchMedia = originalMatchMedia
+      stubMatchMedia(false)
     })
 
     it('„Info” opens a sheet with the station context (same components as the aside) and × closes it', async () => {

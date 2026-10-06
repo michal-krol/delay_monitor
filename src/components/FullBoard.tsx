@@ -4,11 +4,10 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
-import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable, StatusLegend } from './BoardTable'
-import { InfoButton, InfoSheet } from './InfoSheet'
+import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
@@ -82,14 +81,8 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   const panelId = `${idBase}-panel`
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
-  /** Arkusz „Info” (telefon): kontekst z prawej kolumny nad tablicą. */
-  const [infoOpen, setInfoOpen] = useState(false)
-  /**
-   * Kontekst (kafelki, pogoda, mapa…) istnieje w JEDNYM miejscu: od `sm` w prawej kolumnie, na telefonie
-   * tylko w arkuszu „Info” — ukryta kopia montowałaby drugą mapę MapLibre i dublowała tekst. W SSR „szeroko”,
-   * do hydracji kolumnę na telefonie chowa CSS (`max-sm:hidden`).
-   */
-  const wide = useMediaQuery(SM_UP, true)
+  // Kontekst w kolumnie (`wide`) albo w arkuszu „Info” — jedno miejsce naraz, patrz `useBoardContext`.
+  const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
   const { data, error, lastSuccessAt, refresh } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
@@ -249,7 +242,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                   zostają pod ręką przy przewijaniu długiej tablicy. Nieprzezroczysty, bo wiersze jadą pod nim. */}
               <div
                 data-testid="board-tabs-bar"
-                className="flex flex-wrap items-center justify-between gap-3 max-sm:sticky max-sm:gap-2 max-sm:top-[var(--header-h)] max-sm:z-20 max-sm:-mx-4 max-sm:-mt-4 max-sm:rounded-t-2xl max-sm:bg-[var(--sheet-surface)] max-sm:px-4 max-sm:py-2"
+                className={`flex flex-wrap items-center justify-between gap-3 max-sm:gap-2 ${STICKY_TABS_BAR}`}
               >
                 <div
                   role="tablist"
@@ -276,8 +269,8 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     <CloseIcon size={ICON_SIZE.chip} />
                   </button>
                 )}
-                <div className="ml-auto sm:hidden">
-                  <InfoButton open={infoOpen} onClick={() => setInfoOpen((open) => !open)} />
+                <div className="ml-auto">
+                  <InfoButton open={infoOpen} onClick={toggleInfo} />
                 </div>
               </div>
 
@@ -325,8 +318,8 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
       )}
 
       {/* Telefon: te same komponenty co prawa kolumna (jedna implementacja), plus pełne kafelki KPI. */}
-      {!configError && !wide && infoOpen && (
-        <InfoSheet title="Informacje o stacji" onClose={() => setInfoOpen(false)}>
+      {!configError && infoOpen && (
+        <InfoSheet title="Informacje o stacji" onClose={closeInfo}>
           <StationStatsCards stats={snapshot?.stats} loading={loading} />
           {aside}
         </InfoSheet>

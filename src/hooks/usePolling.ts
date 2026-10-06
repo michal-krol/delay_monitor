@@ -134,15 +134,9 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
       paused = false
 
       const opts = optionsRef.current
+      inFlight = true
       try {
-        let result: T
-        inFlight = true
-        try {
-          result = await fetcherRef.current({ background: scheduled })
-        } finally {
-          // Także po wyjątku rzuconym synchronicznie — inaczej `refresh` zostałby zablokowany na zawsze.
-          inFlight = false
-        }
+        const result = await fetcherRef.current({ background: scheduled })
         if (cancelled) return
         const successAt = Date.now()
         lastSuccessAtMs = successAt
@@ -171,6 +165,9 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
             : { key, data: seeded?.data ?? opts.initialData ?? null, error: message, lastSuccessAt: seeded?.lastSuccessAt ?? null } // nowy klucz, jeszcze bez sukcesu -- nie przeciekają dane starego (własny cache tego klucza tak)
         )
         schedule(opts.errorRetryMs ?? (typeof opts.refreshMs === 'number' ? opts.refreshMs : DEFAULT_ERROR_RETRY_MS))
+      } finally {
+        // Także po wyjątku (również synchronicznym) — inaczej `refresh` byłby zablokowany na zawsze.
+        inFlight = false
       }
     }
 
