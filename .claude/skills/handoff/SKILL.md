@@ -36,9 +36,12 @@ previous file, don't require reading the whole chain.
 ## Gather facts first
 
 ```bash
-git -C E:/Claude_Code/delay_monitor log --oneline -1 origin/dev
+npm run status -- --fetch     # branch, HEAD, ahead/behind origin/dev, dirty files, PR + CI state
 git -C E:/Claude_Code/delay_monitor log --oneline -1 origin/main
 gh pr list --state open
 ```
+
+`npm run status` replaces separate `git log` / `git status` / `gh pr view` calls; it degrades
+without `gh` or network (the PR line says why).
 
 After writing, update memory only for durable facts (decisions, constraints) — not the narrative.

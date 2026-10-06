@@ -1,10 +1,9 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
 import { AlertCircleIcon, FilterIcon, ICON_SIZE } from '../icons'
 import { LAYER_LABEL, LAYER_MODE, POINT_LAYERS, type LayerKey } from './mapData'
 import { ModeChip } from './ModeChip'
-import { useDismiss } from '@/hooks/useDismiss'
+import { useDropdown } from '@/hooks/useDropdown'
 
 /**
  * Przycisk „Filtry" + panel warstw (spec §7). Domyślnie wszystko widoczne, więc
@@ -27,16 +26,8 @@ export function MapFilters({
   alertsOnly?: boolean
   onAlertsOnly?: (next: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const { open, toggle: toggleOpen, rootRef, buttonRef, panelId } = useDropdown({ focusTriggerOnEscape: true })
   const restrictions = hidden.size + (alertsOnly ? 1 : 0)
-  const panelId = useId()
-  const rootRef = useRef<HTMLDivElement>(null)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-
-  useDismiss(open, rootRef, (byEscape) => {
-    setOpen(false)
-    if (byEscape) buttonRef.current?.focus()
-  })
 
   function toggle(key: LayerKey): void {
     const next = new Set(hidden)
@@ -65,7 +56,7 @@ export function MapFilters({
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         // Telefon (poniżej `sm`): sama ikona 44×44, napis „Filtry” tylko dla czytnika, licznik w rogu.
         className="glass relative inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 max-sm:w-11 max-sm:justify-center max-sm:px-0 dark:hover:bg-white/10"
       >

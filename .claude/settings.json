@@ -20,7 +20,8 @@
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-push-main.mjs\"" },
-          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-bash-writes.mjs\"" }
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-bash-writes.mjs\"" },
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/filter-test-output.mjs\"" }
         ]
       }
     ]
@@ -55,11 +56,11 @@
     "superpowers@claude-plugins-official": true,
     "ponytail@ponytail": true,
     "caveman@caveman": true,
-    "taste-skill@taste-skill": true,
-    "ui-ux-pro-max@ui-ux-pro-max-skill": true,
-    "claude-obsidian@agricidaniel-claude-obsidian": true,
-    "playwright@claude-plugins-official": true,
-    "playwright-skill@playwright-skill": true,
+    "taste-skill@taste-skill": false,
+    "ui-ux-pro-max@ui-ux-pro-max-skill": false,
+    "claude-obsidian@agricidaniel-claude-obsidian": false,
+    "playwright@claude-plugins-official": false,
+    "playwright-skill@playwright-skill": false,
     "codex@openai-codex": true
   }
 }

@@ -45,7 +45,7 @@ day** of the same run — same `trainOrderId`, different `orderId`, sometimes di
 platforms. A plain "last one wins" `Map` kept the wrong day's record in ~13% of cases even
 though today's existed. `indexRoutesByTrain()` / `findRouteForTrain()` in `board/routeKey.ts`
 fix this (variant per run+day + a dateless fallback, exact day first).
-**Do not go back to `new Map(routes.map(r => [routeKey(r), r]))`.** Counting (as opposed to
+`new Map(routes.map(...))` is blocked by lint (`no-restricted-syntax`, `eslint.config.mjs`). Counting (as opposed to
 finding one route) iterates the poller's **raw route list**, not the index — the index
 collapses variants and undercounts.
 

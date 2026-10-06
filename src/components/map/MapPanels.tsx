@@ -1,13 +1,12 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
 import { ArrowRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { stopDisplayName } from '../stopName'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { type NearbyPoint, type VisibleItem } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
-import { useDismiss } from '@/hooks/useDismiss'
+import { useDropdown } from '@/hooks/useDropdown'
 
 export const rowClass = 'flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10'
 
@@ -119,10 +118,7 @@ export type PinnedPoint = { key: string; name: string; lat: number; lon: number 
 
 /** Szybki przeskok do przypiętych stacji/przystanków (te same co na Pulpicie). */
 export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]; onOpen: (pinnedItem: PinnedPoint) => void }) {
-  const [open, setOpen] = useState(false)
-  const panelId = useId()
-  const rootRef = useRef<HTMLDivElement>(null)
-  useDismiss(open, rootRef, () => setOpen(false))
+  const { open, toggle, close, rootRef, panelId } = useDropdown({ focusTriggerOnEscape: false })
   if (pinnedItems.length === 0) return null
   return (
     <div ref={rootRef} className="relative">
@@ -131,7 +127,7 @@ export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]
         aria-expanded={open}
         aria-controls={panelId}
         aria-label="Przypięte"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         className={`glass grid h-full min-h-11 w-11 place-items-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10`}
       >
         <StarIcon size={ICON_SIZE.button} filled />
@@ -143,7 +139,7 @@ export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]
               <button
                 type="button"
                 onClick={() => {
-                  setOpen(false)
+                  close()
                   onOpen(pinnedItem)
                 }}
                 className={rowClass}
