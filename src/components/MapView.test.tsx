@@ -424,6 +424,22 @@ describe('MapView', () => {
       expect(fullscreenMap.remove).toHaveBeenCalled()
     })
 
+    // PR4: mapa siedzi w arkuszu „Info” (PanelFrame zamyka się na Escape bez `defaultPrevented`) —
+    // Escape ma zamknąć tylko powiększenie, nie cały arkusz pod nim.
+    it('Escape zamykający powiększenie oznacza zdarzenie jako obsłużone (arkusz pod spodem zostaje)', async () => {
+      const user = userEvent.setup()
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)
+      await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+      let prevented: boolean | null = null
+      const spy = (event: KeyboardEvent): void => {
+        prevented = event.defaultPrevented
+      }
+      window.addEventListener('keydown', spy)
+      await user.keyboard('{Escape}')
+      window.removeEventListener('keydown', spy)
+      expect(prevented).toBe(true)
+    })
+
     it('zamknięcie powiększonej mapy to wspólny IconButton', async () => {
       const user = userEvent.setup()
       render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)

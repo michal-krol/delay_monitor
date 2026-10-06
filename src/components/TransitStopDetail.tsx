@@ -21,11 +21,12 @@ import { CityWeatherCard } from './CityWeatherCard'
 import { LineBadge } from './LineBadge'
 import { MapView } from './MapView'
 import { ScheduleStatus } from './ScheduleStatus'
-import { stopDisplayName } from './stopName'
+import { stopDisplayName, stopsWithLines } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from './icons'
 import { PageTitle } from './PageTitle'
+import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
 import { pluralPl } from '@/lib/plural'
@@ -49,12 +50,13 @@ function primaryMode(lines: GtfsLine[]): GtfsMode {
   return 'other'
 }
 
+/** Kafelek podsumowania; poniżej `sm` pigułka (etykieta + liczba), żeby odjazdy były wyżej. */
 function SummaryCard({ label, value, hint, className = '' }: { label: string; value: string; hint?: string; className?: string }) {
   return (
-    <div className={`glass rounded-2xl p-4 ${className}`.trim()}>
-      <div className="text-xs font-medium uppercase tracking-wide text-text-muted">{label}</div>
-      <div className="mt-1 font-heading text-2xl font-extrabold tracking-tight text-foreground">{value}</div>
-      {hint !== undefined && <div className="text-xs text-text-secondary">{hint}</div>}
+    <div className={`glass rounded-2xl p-4 max-sm:flex max-sm:items-baseline max-sm:gap-1.5 max-sm:rounded-full max-sm:px-2.5 max-sm:py-1 ${className}`.trim()}>
+      <div className="text-xs font-medium uppercase tracking-wide text-text-muted max-sm:normal-case max-sm:tracking-normal">{label} </div>
+      <div className="mt-1 font-heading text-2xl font-extrabold tracking-tight text-foreground max-sm:mt-0 max-sm:text-sm">{value}</div>
+      {hint !== undefined && <div className="text-xs text-text-secondary max-sm:hidden">{hint}</div>}
     </div>
   )
 }
@@ -90,6 +92,8 @@ export function TransitStopDetail({
   const [lineFilter, setLineFilter] = useState<string | null>(null)
   const [requestedMember, setRequestedMember] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<StopTab>('departures')
+  // Kontekst w kolumnie (`wide`) albo w arkuszu „Info” — jedno miejsce naraz, patrz `useBoardContext`.
+  const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
   const tabIdBase = useId()
   const viewTabId = (tab: StopTab): string => `${tabIdBase}-tab-${tab}`
   const viewPanelId = `${tabIdBase}-panel`
@@ -140,7 +144,7 @@ export function TransitStopDetail({
   }, [board?.name])
   // Pomijamy „przystanki" bez linii (stacje-rodzice metra, np. 7014M) — nie da się
   // z nich odjechać, tylko zaśmiecają przełącznik.
-  const members = useMemo(() => (board?.members ?? []).filter((m) => m.lines.length > 0), [board])
+  const members = useMemo(() => stopsWithLines(board?.members), [board])
   // Kolejność zakładek: „Cały zespół” (null), potem przystanki. Nieznany `?przystanek=` (poprawny format,
   // spoza zespołu) nie zaznacza żadnej — przystanek Tab dostaje wtedy pierwsza.
   const memberIds: (string | null)[] = [null, ...members.map((member) => member.id)]
@@ -217,14 +221,70 @@ export function TransitStopDetail({
     [members, stopName, board]
   )
 
+  const asideCards = (
+    <>
+      <CityWeatherCard city={city} />
+
+      {mapPins.length > 0 && (
+        <AsideCard title="Mapa" className="card-hover">
+          <MapView pins={mapPins} onPinClick={setMemberChoice} ariaLabel={members.length > 1 ? `Mapa zespołu przystanków ${stopName}` : `Mapa przystanku ${stopName}`} dark={resolvedTheme === 'dark'} />
+        </AsideCard>
+      )}
+
+      <AsideCard title="Natężenie ruchu dziś" className="card-hover">
+        <HourlyTraffic
+          hourly={summary?.hourly ?? null}
+          loading={loading}
+          currentHour={zonedHour(now, getCity(city)?.timezone ?? 'Europe/Warsaw')}
+          emptyLabel={`Rozkład na dziś nie zawiera odjazdów z ${scopeGenitive}.`}
+          unknownLabel={board !== null && board.summary === null ? 'Brak rozkładu na dziś.' : undefined}
+        />
+      </AsideCard>
+
+      <AsideCard title={wholeGroup ? 'Linie w tym zespole' : 'Linie na tym przystanku'} className="card-hover">
+        {linesByMode.length === 0 ? (
+          <p className="text-xs text-text-muted">—</p>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {linesByMode.map(([mode, lines]) => (
+              <div key={mode}>
+                <div className="mb-1 text-xs text-text-muted">{MODE_LABEL[mode]}</div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {lines.map((line) => (
+                    <span key={line.routeId} className="inline-flex items-center gap-1">
+                      <LineBadge
+                        line={line.line}
+                        mode={line.mode}
+                        kind={line.kind}
+                        size="sm"
+                        href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
+                      />
+                      {LINE_KIND_LABEL[line.kind] !== '' && (
+                        <span className="text-[10px] text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </AsideCard>
+    </>
+  )
+
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
-      <div className="flex min-w-0 flex-col gap-5">
-        <section className="glass-strong glow-ring rounded-2xl p-5" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="grid items-start gap-5 max-sm:gap-3 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+      {/* Na telefonie odjazdy pierwsze: przystanki zespołu jako chipy, podsumowanie jako pigułki,
+          kontekst (mapa, pogoda, natężenie, linie) w arkuszu „Info”. */}
+      <div className="flex min-w-0 flex-col gap-5 max-sm:gap-3">
+        <section className="glass-strong glow-ring rounded-2xl p-5 max-sm:p-4" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
+          <div className="flex flex-wrap items-start justify-between gap-3 max-sm:flex-nowrap">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <PageTitle as={embedded ? 'h2' : 'h1'}>{stopName}</PageTitle>
+                <PageTitle as={embedded ? 'h2' : 'h1'} className="max-sm:text-xl">
+                  {stopName}
+                </PageTitle>
                 {board?.wheelchairNote != null && (
                   <span className="text-warning-text">
                     <AccessibleIcon
@@ -252,13 +312,13 @@ export function TransitStopDetail({
               {board !== null && board.modes.length > 0 && (
                 // Jeden `<p>` z jednym tekstowym węzłem — świadomie, nie chipy per tryb:
                 // `page.test.tsx` odpytuje `/metro · tramwaj/` jako ciągły tekst.
-                <p className="mt-1 text-sm text-text-secondary">
+                <p className="mt-1 text-sm text-text-secondary max-sm:hidden">
                   {board.modes.map((mode) => MODE_LABEL[mode]).join(' · ')}
                 </p>
               )}
               {data !== null && (
                 <div className="mt-2">
-                  <ScheduleStatus schedule={data.schedule} cityName={cityName} error={error !== null} />
+                  <ScheduleStatus compact schedule={data.schedule} cityName={cityName} error={error !== null} />
                 </div>
               )}
             </div>
@@ -277,11 +337,11 @@ export function TransitStopDetail({
         </section>
 
         {members.length > 1 && (
-          <section className="glass rounded-2xl p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-text-muted">
+          <section className="glass rounded-2xl p-4 max-sm:border-0 max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-muted max-sm:sr-only">
               Przystanki w zespole · {members.length}
             </div>
-            <p className="mt-0.5 text-xs text-text-secondary">
+            <p className="mt-0.5 text-xs text-text-secondary max-sm:hidden">
               Każdy przystanek zespołu ma własne linie i kierunek. Wybierz ten, z którego
               wsiadasz lub wysiadasz.
             </p>
@@ -289,7 +349,8 @@ export function TransitStopDetail({
               role="tablist"
               aria-label="Przystanek w zespole"
               onKeyDown={(event) => onTablistKeyDown(event, memberIndex, (index) => selectMember(memberIds[index]))}
-              className="mt-2.5 grid grid-flow-col auto-cols-[minmax(11rem,1fr)] gap-2 overflow-x-auto pb-1 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3"
+              // Telefon: jeden przewijany rząd chipów 44 px (sam numer); od `sm` karty z ulicą i liniami.
+              className="mt-2 grid grid-flow-col auto-cols-max gap-2 overflow-x-auto pb-1 sm:mt-2.5 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3"
             >
               <button
                 type="button"
@@ -297,16 +358,16 @@ export function TransitStopDetail({
                 onClick={() => selectMember(null)}
                 aria-selected={effMember === null}
                 tabIndex={memberIndex === 0 ? 0 : -1}
-                className={`card-hover relative rounded-xl border px-3 py-2.5 text-left text-xs transition ${effMember === null ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
+                className={`card-hover relative rounded-xl border px-3 py-2.5 text-left text-xs transition max-sm:min-h-11 max-sm:py-2 ${effMember === null ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
                 style={effMember === null ? ({ '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties) : undefined}
               >
                 {effMember === null && (
-                  <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
+                  <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white max-sm:hidden">
                     <CheckIcon className="h-2.5 w-2.5" />
                   </span>
                 )}
                 <span className="font-semibold">Cały zespół</span>
-                <span className="mt-0.5 block text-text-secondary">wszystkie przystanki razem</span>
+                <span className="mt-0.5 block text-text-secondary max-sm:hidden">wszystkie przystanki razem</span>
               </button>
               {members.map((member, index) => {
                 const on = effMember === member.id
@@ -320,11 +381,11 @@ export function TransitStopDetail({
                     onClick={() => selectMember(member.id)}
                     aria-selected={on}
                     tabIndex={memberIndex === index + 1 ? 0 : -1}
-                    className={`card-hover relative flex flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left transition ${on ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
+                    className={`card-hover relative flex flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left transition max-sm:min-h-11 max-sm:justify-center max-sm:py-2 ${on ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
                     style={on ? ({ '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties) : undefined}
                   >
                     {on && (
-                      <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white">
+                      <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white max-sm:hidden">
                         <CheckIcon className="h-2.5 w-2.5" />
                       </span>
                     )}
@@ -332,11 +393,11 @@ export function TransitStopDetail({
                         zaczynać się dokładnie od "Centrum 02" (testy jednostkowe/e2e
                         odpytują ten prefiks przez `getByText`/`getByRole(...,{name})`,
                         które nie łączą tekstu rozbitego na sąsiednie elementy). */}
-                    <span className="pr-5 font-heading text-base font-extrabold tabular-nums text-foreground">
+                    <span className="pr-5 font-heading text-base font-extrabold tabular-nums text-foreground max-sm:pr-0 max-sm:text-sm">
                       {stopDisplayName(stopName, member.code ?? member.platformCode)}
                     </span>
-                    {member.street !== null && <span className="text-xs text-text-muted">{member.street}</span>}
-                    <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                    {member.street !== null && <span className="text-xs text-text-muted max-sm:hidden">{member.street}</span>}
+                    <span className="mt-0.5 flex flex-wrap items-center gap-1 max-sm:hidden">
                       {visibleLines.map((line) => (
                         <LineBadge key={line.routeId} line={line.line} mode={line.mode} kind={line.kind} size="sm" />
                       ))}
@@ -349,8 +410,11 @@ export function TransitStopDetail({
           </section>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />
+        <div className="grid gap-3 max-sm:flex max-sm:flex-wrap max-sm:gap-1.5 sm:grid-cols-3">
+          {/* Telefon: liczbę linii widać w filtrze linii poniżej — pigułki mieszczą się w jednym rzędzie. */}
+          <div className="contents max-sm:hidden">
+            <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />
+          </div>
           <SummaryCard label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" className="card-hover" />
           <SummaryCard
             label="Pierwszy / ostatni"
@@ -363,82 +427,90 @@ export function TransitStopDetail({
           />
         </div>
 
-        <section className="glass rounded-2xl p-5">
+        <section className="glass rounded-2xl p-5 max-sm:p-4">
+          {/* Telefon: zakładki i filtr linii przyklejone pod nagłówkiem aplikacji, każdy rząd
+              przewijany w poziomie (cele 44 px); „Info” poza przewijaniem, zawsze pod ręką. */}
           <div
-            role="tablist"
-            aria-label="Widok przystanku"
-            onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => setActiveTab(STOP_TABS[index].key))}
-            className="mb-3 flex flex-wrap items-center gap-1.5"
+            data-testid="stop-tabs-bar"
+            className={`mb-3 flex flex-col gap-2 ${STICKY_TABS_BAR}`}
           >
-            {STOP_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                id={viewTabId(tab.key)}
-                aria-controls={viewPanelId}
-                aria-selected={activeTab === tab.key}
-                tabIndex={activeTab === tab.key ? 0 : -1}
-                onClick={() => setActiveTab(tab.key)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === tab.key ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
-                }`}
-                style={activeTab === tab.key ? { background: 'var(--accent-gradient)' } : undefined}
+            <div className="flex items-center gap-2">
+              <div
+                role="tablist"
+                aria-label="Widok przystanku"
+                onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => setActiveTab(STOP_TABS[index].key))}
+                className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 max-sm:-my-1 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:py-1"
               >
-                {tab.label}
-                {tab.key === 'alerts' && (board?.alerts?.length ?? 0) > 0 && (
-                  <AlertCircleIcon
-                    size={ICON_SIZE.inline}
-                    label="aktywne utrudnienia"
-                    className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-warning-text'}`}
-                  />
-                )}
-              </button>
-            ))}
+                {STOP_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    id={viewTabId(tab.key)}
+                    aria-controls={viewPanelId}
+                    aria-selected={activeTab === tab.key}
+                    tabIndex={activeTab === tab.key ? 0 : -1}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition max-sm:min-h-11 ${
+                      activeTab === tab.key ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
+                    }`}
+                    style={activeTab === tab.key ? { background: 'var(--accent-gradient)' } : undefined}
+                  >
+                    {tab.label}
+                    {tab.key === 'alerts' && (board?.alerts?.length ?? 0) > 0 && (
+                      <AlertCircleIcon
+                        size={ICON_SIZE.inline}
+                        label="aktywne utrudnienia"
+                        className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-warning-text'}`}
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <InfoButton open={infoOpen} onClick={toggleInfo} />
+            </div>
+
+            {(activeTab === 'departures' || activeTab === 'schedule') && board !== null && board.lines.length > 1 && (
+              <div role="group" aria-label="Filtr linii" className="flex flex-wrap items-center gap-1.5 max-sm:-my-1 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:py-1">
+                <button
+                  type="button"
+                  onClick={() => setLineFilter(null)}
+                  aria-pressed={lineFilter === null}
+                  className={`shrink-0 rounded-full border px-2.5 py-1 text-xs transition max-sm:min-h-11 max-sm:px-3.5 ${
+                    lineFilter === null ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
+                  }`}
+                  style={lineFilter === null ? { background: 'var(--accent-gradient)' } : undefined}
+                >
+                  Wszystkie
+                </button>
+                {board.lines.map((line) => (
+                  <button
+                    key={line.routeId}
+                    type="button"
+                    onClick={() => setLineFilter(lineFilter === line.routeId ? null : line.routeId)}
+                    aria-pressed={lineFilter === line.routeId}
+                    className="grid shrink-0 place-items-center rounded-full max-sm:min-h-11 max-sm:min-w-11"
+                  >
+                    <span style={{ opacity: lineFilter !== null && lineFilter !== line.routeId ? 0.4 : 1 }}>
+                      <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div role="tabpanel" id={viewPanelId} aria-labelledby={viewTabId(activeTab)}>
             {(activeTab === 'departures' || activeTab === 'schedule') && (
-              <>
-                {board !== null && board.lines.length > 1 && (
-                  <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setLineFilter(null)}
-                      aria-pressed={lineFilter === null}
-                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                        lineFilter === null ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
-                      }`}
-                      style={lineFilter === null ? { background: 'var(--accent-gradient)' } : undefined}
-                    >
-                      Wszystkie
-                    </button>
-                    {board.lines.map((line) => (
-                      <button
-                        key={line.routeId}
-                        type="button"
-                        onClick={() => setLineFilter(lineFilter === line.routeId ? null : line.routeId)}
-                        aria-pressed={lineFilter === line.routeId}
-                        className="rounded-full"
-                      >
-                        <span style={{ opacity: lineFilter !== null && lineFilter !== line.routeId ? 0.4 : 1 }}>
-                          <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <TransitDepartureList
-                  departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
-                  loading={loading}
-                  emptyMessage={failed ? 'Nie udało się pobrać rozkładu.' : undefined}
-                  city={city}
-                  showStopCode={activeMember === null && members.length > 1}
-                  now={now}
-                  highlightFirst={activeTab === 'departures'}
-                />
-              </>
+              <TransitDepartureList
+                departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
+                loading={loading}
+                emptyMessage={failed ? 'Nie udało się pobrać rozkładu.' : undefined}
+                city={city}
+                showStopCode={activeMember === null && members.length > 1}
+                now={now}
+                highlightFirst={activeTab === 'departures'}
+              />
             )}
 
             {activeTab === 'lines' &&
@@ -472,10 +544,11 @@ export function TransitStopDetail({
               ))}
 
             {activeTab === 'alerts' &&
-              (board?.alerts === null ? (
-                // Feed alertów jeszcze nie odpowiedział — nieznane, nie „brak" (#7); hook ponawia drabinką.
+              (board === null || board.alerts === null ? (
+                // Tablica albo feed alertów jeszcze nie odpowiedział — nieznane, nie „brak" (#7); hook ponawia
+                // drabinką. Bez tablicy nie wiadomo też, czy to zespół, czy przystanek (żadnego „tego przystanku").
                 <p className="text-sm text-text-muted">Wczytywanie komunikatów…</p>
-              ) : board?.alerts?.length ? (
+              ) : board.alerts.length > 0 ? (
                 <AlertBanner alerts={board.alerts} />
               ) : (
                 <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla {scopeGenitive}.</p>
@@ -485,56 +558,16 @@ export function TransitStopDetail({
       </div>
 
       <aside className="flex flex-col gap-4 xl:sticky xl:top-6">
-        <CityWeatherCard city={city} />
-
-        {mapPins.length > 0 && (
-          <AsideCard title="Mapa" className="card-hover">
-            <MapView pins={mapPins} onPinClick={setMemberChoice} ariaLabel={members.length > 1 ? `Mapa zespołu przystanków ${stopName}` : `Mapa przystanku ${stopName}`} dark={resolvedTheme === 'dark'} />
-          </AsideCard>
-        )}
-
-        <AsideCard title="Natężenie ruchu dziś" className="card-hover">
-          <HourlyTraffic
-            hourly={summary?.hourly ?? null}
-            loading={loading}
-            currentHour={zonedHour(now, getCity(city)?.timezone ?? 'Europe/Warsaw')}
-            emptyLabel={`Rozkład na dziś nie zawiera odjazdów z ${scopeGenitive}.`}
-            unknownLabel={board !== null && board.summary === null ? 'Brak rozkładu na dziś.' : undefined}
-          />
-        </AsideCard>
-
-        <AsideCard title={wholeGroup ? 'Linie w tym zespole' : 'Linie na tym przystanku'} className="card-hover">
-          {linesByMode.length === 0 ? (
-            <p className="text-xs text-text-muted">—</p>
-          ) : (
-            <div className="flex flex-col gap-2.5">
-              {linesByMode.map(([mode, lines]) => (
-                <div key={mode}>
-                  <div className="mb-1 text-xs text-text-muted">{MODE_LABEL[mode]}</div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {lines.map((line) => (
-                      <span key={line.routeId} className="inline-flex items-center gap-1">
-                        <LineBadge
-                          line={line.line}
-                          mode={line.mode}
-                          kind={line.kind}
-                          size="sm"
-                          href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
-                        />
-                        {LINE_KIND_LABEL[line.kind] !== '' && (
-                          <span className="text-[10px] text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
-                        )}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </AsideCard>
-
+        {/* Telefon: karty są w arkuszu „Info”; licencja danych zostaje widoczna pod tablicą. */}
+        {wide && <div className="contents max-sm:hidden">{asideCards}</div>}
         <AttributionFooter attribution={data?.attribution ?? []} />
       </aside>
+
+      {infoOpen && (
+        <InfoSheet title="Informacje o przystanku" onClose={closeInfo}>
+          {asideCards}
+        </InfoSheet>
+      )}
     </div>
   )
 }

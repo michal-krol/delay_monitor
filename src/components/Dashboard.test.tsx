@@ -82,7 +82,7 @@ describe('Dashboard', () => {
       />
     )
 
-    await waitFor(() => expect(screen.getAllByText(/Ostatnia aktualizacja:/)).toHaveLength(1))
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })).toHaveLength(1))
   })
 
   it('passes each snapshot to the matching station card by id order', async () => {

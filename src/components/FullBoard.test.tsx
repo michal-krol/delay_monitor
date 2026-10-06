@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
 import { jsonResponse } from '@/test-utils/http'
+import { stubMatchMedia } from '@/test-utils/media'
 
 // Szczegóły połączenia mają teraz własną trasę (`/connection/...`) — klik w
 // wiersz nawiguje przez `router.push`, zamiast otwierać panel w miejscu.
@@ -355,14 +356,15 @@ describe('FullBoard', () => {
     expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
   })
 
-  it('shows the absolute last-updated date and time instead of a relative age', async () => {
+  // PR4: wiek danych jest przyciskiem „odśwież teraz”; pełna data i godzina zostają w `title`.
+  it('shows the data age as a refresh button with the absolute last-updated time in its title', async () => {
     const snapshot = { ...SNAPSHOT, fetchedAt: '2026-08-01T20:24:11.827Z' }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshot], budget: undefined, status: 'ok' })))
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
-    expect(await screen.findByText(/Ostatnia aktualizacja:/)).toBeInTheDocument()
-    expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
+    const button = await screen.findByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })
+    expect(button).toHaveAttribute('title', 'Ostatnia aktualizacja: 01.08.2026, 22:24:11')
   })
 
   it('navigates to the connection-details route for the clicked train, carrying its scheduleId/orderId/operatingDate and label', async () => {
@@ -490,5 +492,68 @@ describe('FullBoard', () => {
     rerender(<FullBoard embedded stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     expect(screen.getByRole('heading', { level: 2, name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+  })
+
+  describe('na telefonie (PR4)', () => {
+    const WITH_INSIGHTS = {
+      ...SNAPSHOT,
+      insights: { topDestinations: [{ stationId: '80416', name: 'Kraków', count: 12 }], hourlyTraffic: Array.from({ length: 24 }, () => 1) },
+    }
+    // Telefon: `useMediaQuery(SM_UP)` = false (bez atrapy jsdom = „szeroko”); sprząta `unstubAllGlobals`.
+    beforeEach(() => {
+      window.HTMLElement.prototype.scrollTo = () => {}
+      stubMatchMedia(false)
+    })
+
+    it('„Info” opens a sheet with the station context (same components as the aside) and × closes it', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+
+      const info = screen.getByRole('button', { name: 'Info' })
+      expect(info).toHaveAttribute('aria-expanded', 'false')
+      await user.click(info)
+      const sheet = screen.getByRole('dialog', { name: 'Informacje o stacji' })
+      expect(within(sheet).getByText('Natężenie ruchu dzisiaj')).toBeInTheDocument()
+      expect(within(sheet).getByText('Odjazdy dzisiaj')).toBeInTheDocument()
+      expect(info).toHaveAttribute('aria-expanded', 'true')
+
+      await user.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
+      expect(screen.queryByRole('dialog', { name: 'Informacje o stacji' })).not.toBeInTheDocument()
+    })
+
+    it('on a phone the context renders once — in the Info sheet, not also in a hidden aside', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+      expect(screen.queryByText('Natężenie ruchu dzisiaj')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Info' }))
+      expect(screen.getAllByText('Natężenie ruchu dzisiaj')).toHaveLength(1)
+    })
+
+    it('a popular-destination chip above the table filters the board and writes ?direction=', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+
+      const chips = screen.getByRole('group', { name: 'Najpopularniejsze kierunki' })
+      await user.click(within(chips).getByRole('button', { name: 'Kraków' }))
+      expect(within(chips).getByRole('button', { name: 'Kraków' })).toHaveAttribute('aria-pressed', 'true')
+      await waitFor(() => expect(new URLSearchParams(window.location.search).get('direction')).toBe('Kraków'))
+    })
+
+    it('the status legend sits next to the direction tabs, not in the (phone-hidden) table header', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+
+      const legend = screen.getByRole('button', { name: 'Legenda statusów' })
+      expect(within(screen.getByRole('table')).queryByRole('button', { name: 'Legenda statusów' })).toBeNull()
+      expect(within(screen.getByTestId('board-tabs-bar')).getByRole('button', { name: 'Legenda statusów' })).toBe(legend)
+    })
   })
 })

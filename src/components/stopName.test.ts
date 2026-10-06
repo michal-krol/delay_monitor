@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stopDisplayName } from './stopName'
+import { stopDisplayName, stopsWithLines } from './stopName'
 
 describe('stopDisplayName', () => {
   it('appends the code to the group name', () => {
@@ -16,5 +16,12 @@ describe('stopDisplayName', () => {
   })
   it('appends when the name only ends with the same digits', () => {
     expect(stopDisplayName('Linia 101', '01')).toBe('Linia 101 01')
+  })
+})
+
+describe('stopsWithLines', () => {
+  it('drops members without lines (metro parent stations) and tolerates a missing list', () => {
+    expect(stopsWithLines([{ id: 'a', lines: ['20'] }, { id: '7014M', lines: [] }]).map((m) => m.id)).toEqual(['a'])
+    expect(stopsWithLines(undefined)).toEqual([])
   })
 })

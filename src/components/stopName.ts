@@ -9,3 +9,11 @@ export function stopDisplayName(name: string, code: string | null): string {
   if (code === null || code === '' || name.endsWith(` ${code}`)) return name
   return `${name} ${code}`
 }
+
+/**
+ * Przystanki zespołu, z których da się odjechać — bez „przystanków” bez linii (stacje-rodzice
+ * metra, np. 7014M). Jedna reguła dla przełącznika przystanku i dla tagu numeru na listach.
+ */
+export function stopsWithLines<T extends { lines: readonly unknown[] }>(members: readonly T[] | undefined): T[] {
+  return (members ?? []).filter((member) => member.lines.length > 0)
+}

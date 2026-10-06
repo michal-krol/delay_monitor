@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { StationStatsCards } from './StationStatsCards'
+import { BottomSheet } from './BottomSheet'
 import type { StationStats } from '@/lib/board/stationStats'
 
 function stats(overrides: Partial<StationStats> = {}): StationStats {
@@ -79,5 +80,24 @@ describe('StationStatsCards', () => {
     expect(screen.getByText('Przyjazdy dzisiaj')).toBeInTheDocument()
     expect(screen.getByText('Średnie opóźnienie')).toBeInTheDocument()
     expect(screen.getByText('Punktualność')).toBeInTheDocument()
+  })
+
+  // Na telefonie kafelki nad tablicą są pigułkami (bez podpisu); w arkuszu „Info” pełnymi kafelkami.
+  it('renders pills on the board and full tiles inside the Info sheet, with the same three states', () => {
+    const noDelay = stats({ averageDelayMinutes: null, averageDelaySample: 0 })
+    const { unmount } = render(<StationStatsCards stats={noDelay} />)
+    expect(screen.getByTestId('station-stats')).toHaveAttribute('data-variant', 'pills')
+    expect(screen.getByText('brak danych')).toBeInTheDocument()
+    unmount()
+
+    window.HTMLElement.prototype.scrollTo = () => {}
+    render(
+      <BottomSheet>
+        <StationStatsCards stats={noDelay} />
+      </BottomSheet>
+    )
+    expect(screen.getByTestId('station-stats')).toHaveAttribute('data-variant', 'tiles')
+    expect(screen.getByText('brak danych')).toBeInTheDocument()
+    expect(screen.getByText('dziś, opóźnienie do 5 min')).toBeInTheDocument()
   })
 })

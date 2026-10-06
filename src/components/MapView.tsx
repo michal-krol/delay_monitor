@@ -377,7 +377,11 @@ export function MapView({
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     function onKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') setExpanded(false)
+      if (event.key === 'Escape') {
+        // Obsłużone: `PanelFrame` arkusza „Info” (listener na `window`) nie zamknie się tym samym Escape.
+        event.preventDefault()
+        setExpanded(false)
+      }
       trapTab(event, dialogRef.current)
     }
     document.addEventListener('keydown', onKeyDown)

@@ -49,11 +49,13 @@ test('linii na 375 px: karty „Trasa linii” i Rozkładu mają się zmieścić
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/city/warszawa/line/20')
   await expect(page.getByRole('heading', { level: 1, name: /Centrum – Dworzec Centralny/ })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /^Rozkład/ })).toBeVisible()
+  const overflow = () =>
+    page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }))
-  expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  // Poniżej `lg` jedna sekcja naraz (PR4): „Trasa”, potem „Rozkład” z przełącznika.
+  await expect(page.getByRole('heading', { name: /^Trasa linii/ })).toBeVisible()
+  expect(await overflow()).toBeLessThanOrEqual(0)
+  await page.getByRole('group', { name: 'Widok linii' }).getByRole('button', { name: 'Rozkład' }).click()
+  await expect(page.getByRole('heading', { name: /^Rozkład/ })).toBeVisible()
+  expect(await overflow()).toBeLessThanOrEqual(0)
 })

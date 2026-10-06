@@ -14,6 +14,7 @@ import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatAge, formatClockTime, formatDuration } from '@/lib/format'
+import { countdownLabel } from '@/lib/countdown'
 import { usePolling } from '@/hooks/usePolling'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
@@ -164,13 +165,6 @@ function formatDurationOrNull(minutes: number | null): string | null {
   return minutes === null || minutes < 0 ? null : formatDuration(minutes)
 }
 
-/** `null` = nie ma czego odliczać (brak godziny albo już po). Świadomie nie pokazujemy ujemnych „za −5 min". */
-function formatCountdown(targetIso: string | null, now: number): string | null {
-  if (targetIso === null) return null
-  const minutes = Math.round((new Date(targetIso).getTime() - now) / 60_000)
-  if (minutes < 1) return null
-  return `za ${formatDuration(minutes)}`
-}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return <h2 className="text-[11px] font-semibold tracking-[0.13em] text-text-muted uppercase">{children}</h2>
@@ -348,7 +342,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   }, [status, trainNumber])
 
   const arrivalTime = formatTime(summary.destination?.displayAt ?? null)
-  const countdown = formatCountdown(summary.destination?.displayAt ?? null, now)
+  // Bez sufitu godziny: do celu podróży „za 2 h 5 min” ma sens (wspólne odliczanie, `lib/countdown.ts`).
+  const destinationAt = summary.destination?.displayAt ?? null
+  const countdown = destinationAt === null ? null : countdownLabel(now, destinationAt, Infinity)
   const travelTime = formatDurationOrNull(summary.plannedDurationMinutes)
 
   return (

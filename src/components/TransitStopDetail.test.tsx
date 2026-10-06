@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
+import { stubMatchMedia } from '@/test-utils/media'
 
 let search = ''
 const push = vi.fn()
@@ -284,6 +285,41 @@ describe('TransitStopDetail', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
     expect(screen.getByText('Aktualnie brak komunikatów dla tego przystanku.')).toBeInTheDocument()
+  })
+
+  // PR0 review: przed odpowiedzią nie wiadomo, czy to zespół, czy jeden przystanek.
+  it('says alerts are loading, never „tego przystanku”, before the board arrives', async () => {
+    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
+    expect(screen.getByText('Wczytywanie komunikatów…')).toBeInTheDocument()
+    expect(screen.queryByText(/tego przystanku/)).not.toBeInTheDocument()
+  })
+
+  it('on a phone the stop context renders once — in the Info sheet, not also in a hidden aside', async () => {
+    stubMatchMedia(false)
+    window.HTMLElement.prototype.scrollTo = () => {}
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.queryByText('Natężenie ruchu dziś')).not.toBeInTheDocument()
+    // Licencja danych zostaje widoczna pod tablicą także na telefonie.
+    expect(screen.getByText(/ZTM/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Info' }))
+    expect(screen.getAllByText('Natężenie ruchu dziś')).toHaveLength(1)
+  })
+
+  it('„Info” opens a sheet with the stop context (map, traffic, lines) and × closes it', async () => {
+    stubMatchMedia(false)
+    window.HTMLElement.prototype.scrollTo = () => {}
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    const info = screen.getByRole('button', { name: 'Info' })
+    await userEvent.click(info)
+    const sheet = screen.getByRole('dialog', { name: 'Informacje o przystanku' })
+    expect(within(sheet).getByText('Natężenie ruchu dziś')).toBeInTheDocument()
+    expect(within(sheet).getByText('Linie na tym przystanku')).toBeInTheDocument()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
+    expect(screen.queryByRole('dialog', { name: 'Informacje o przystanku' })).not.toBeInTheDocument()
   })
 
   it('shows a loading hint, not "no alerts", on the Komunikaty tab while alerts are still unknown (alerts: null)', async () => {

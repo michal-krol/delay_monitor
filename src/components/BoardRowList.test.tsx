@@ -23,8 +23,10 @@ const ROW: BoardApiRow = {
   platform: '3',
 }
 
+const NOW = Date.parse('2026-10-01T11:52:00+02:00')
+
 function renderRows(rows: BoardApiRow[]) {
-  return render(<BoardRowList rows={rows} loading={false} showEmpty={false} emptyMessage="" />)
+  return render(<BoardRowList rows={rows} now={NOW} loading={false} showEmpty={false} emptyMessage="" />)
 }
 
 describe('BoardRowList', () => {
@@ -36,5 +38,10 @@ describe('BoardRowList', () => {
   it('shows no disruption icon when the row has none or the field is unknown', () => {
     renderRows([{ ...ROW, hasDisruption: false }, { ...ROW, orderId: '110', trainNumber: '110' }])
     expect(screen.queryByRole('img', { name: 'Utrudnienie na trasie' })).toBeNull()
+  })
+
+  it('counts down to the next departure on the Pulpit card', () => {
+    renderRows([ROW])
+    expect(screen.getByText(/za 8 min/)).toBeInTheDocument()
   })
 })

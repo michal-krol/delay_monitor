@@ -80,6 +80,18 @@ describe('BoardStatus', () => {
     expect(screen.queryByText(/API nie odpowiada/)).not.toBeInTheDocument()
   })
 
+  it('turns the data age into a refresh-now button when given onRefresh', () => {
+    const onRefresh = vi.fn()
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} lastSuccessAt={NOW - 40_000} data={makeData()} error={false} onRefresh={onRefresh} />)
+
+    const button = screen.getByRole('button', { name: 'Aktualizacja 41 s temu — odśwież teraz' })
+    expect(button).toHaveTextContent('Aktualizacja 41 s temu')
+    expect(button).toHaveAttribute('title', expect.stringContaining('01.08.2026'))
+    button.click()
+    expect(onRefresh).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/Ostatnia aktualizacja:/)).not.toBeInTheDocument()
+  })
+
   it('always shows a short plain-language note about how often data refreshes', () => {
     render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} data={makeData()} error={false} />)
     expect(screen.getByText('Dane odświeżają się automatycznie co ok. 1,5 minuty.')).toBeInTheDocument()

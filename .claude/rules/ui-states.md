@@ -24,3 +24,11 @@ data age, not a white screen. Error banner only for a configuration error (401).
   three sub-requests separately — one failing degrades only that one.
 - Schedule-only data (#10): „PKP nie podaje dziś danych o ruchu", not an error state.
 - GTFS: always „rozkład", **never** „na czas" (#13).
+- Data age on the PKP board/Pulpit („Aktualizacja … temu”, `BoardStatus` with `onRefresh`) is
+  a button: `usePolling().refresh()` refetches now (no-op while a fetch is in flight, the
+  refresh clock restarts). `/api/board` reads the poller snapshot — zero PKP cost (#3).
+- Phone layouts hide/compact things with responsive classes on ONE DOM (`max-sm:`), never a
+  second copy of a widget — duplicate text breaks `getByText` and screen readers. Content that
+  moves between places (board context: aside from `sm`, „Info” sheet on phones) renders in ONE
+  place chosen by `useMediaQuery(SM_UP, true)` (`src/hooks/useMediaQuery.ts`) — a CSS-hidden
+  copy still mounts a second MapLibre map and fetches.

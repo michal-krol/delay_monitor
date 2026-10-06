@@ -37,11 +37,24 @@ export function nearestSnap(scrollTop: number, height: number): SheetSnap {
  * daje bezwładność i dociąga do punktu). CSS: `.bottom-sheet*` w `globals.css`.
  *
  * Semantyka okna (role="dialog", „×”, Escape, powrót fokusu) należy do treści — `PanelFrame`;
- * arkusz jej nie dubluje. Zawsze startuje w `peek`; nowy obiekt = nowy `key` u wywołującego.
+ * arkusz jej nie dubluje. Startuje w `initialSnap` (mapa: `peek`, „Info” tablicy: `half`);
+ * nowy obiekt = nowy `key` u wywołującego.
  */
-export function BottomSheet({ children }: { children: ReactNode }) {
+export function BottomSheet({
+  children,
+  initialSnap = 'peek',
+  above,
+}: {
+  children: ReactNode
+  initialSnap?: SheetSnap
+  /**
+   * Treść przyklejona nad górną krawędzią panelu i jadąca razem z nim (statusy, chipy filtrów
+   * mapy) — inaczej arkusz przy half/full by ją zakrył. Przy `full` mieści się ok. jeden rząd.
+   */
+  above?: ReactNode
+}) {
   const ref = useRef<HTMLDivElement>(null)
-  const [snap, setSnap] = useState<SheetSnap>('peek')
+  const [snap, setSnap] = useState<SheetSnap>(initialSnap)
   // Cel trwającej animacji uchwytu: szybkie drugie dotknięcie idzie od niego dalej (peek → half → full).
   const targetRef = useRef<SheetSnap | null>(null)
   const settleRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -49,7 +62,8 @@ export function BottomSheet({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     const el = ref.current
-    el?.scrollTo({ top: SHEET_SNAPS.peek * el.clientHeight, behavior: 'instant' })
+    el?.scrollTo({ top: SHEET_SNAPS[initialSnap] * el.clientHeight, behavior: 'instant' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- punkt startowy tylko przy montowaniu; inny = nowy `key`
   }, [])
 
   function cycle(): void {
@@ -82,6 +96,7 @@ export function BottomSheet({ children }: { children: ReactNode }) {
         ))}
       </div>
       <div className="bottom-sheet__panel">
+        {above !== undefined && <div className="bottom-sheet__above">{above}</div>}
         <button type="button" className="bottom-sheet__handle" aria-label={`Zmień wysokość panelu (teraz: ${SNAP_LABEL[snap]})`} onClick={cycle}>
           <span className="bottom-sheet__grip" />
         </button>

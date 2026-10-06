@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { showBoardContext, showLineTimetable } from './helpers/info'
 import AxeBuilder from '@axe-core/playwright'
 
 // Mock „Centrum" (zespół 1001) = 4 przystanki z RÓŻNYMI liniami: 100101→20,
@@ -13,7 +14,8 @@ test('przystanek miejski: przełącznik przystanków zespołu', async ({ page })
   await page.goto(CENTRUM)
   await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
 
-  const switcher = page.getByText('Przystanki w zespole', { exact: false })
+  // Nagłówek „Przystanki w zespole” jest na telefonie tylko dla czytnika (PR4) — przełącznik po roli.
+  const switcher = page.getByRole('tablist', { name: 'Przystanek w zespole' })
   await expect(switcher).toBeVisible({ timeout: READY })
 
   // „Cały zespół" + jeden przycisk na przystanek, konwencja ZTM „Centrum 02".
@@ -28,9 +30,11 @@ test('przystanek miejski: przełącznik przystanków zespołu', async ({ page })
 
   // Powrót do całego zespołu — odjazdy tagowane numerem przystanku.
   await page.getByRole('tab', { name: /Cały zespół/ }).click()
-  await expect(page.getByText(/^0\d$/).first()).toBeVisible({ timeout: READY })
+  // Po tytule tagu: `getByText(/^0\d$/)` trafiał dotąd w oś „00” wykresu w prawej kolumnie, nie w tag (PR4).
+  await expect(page.getByTitle(/^Odjazd z przystanku 0\d$/).first()).toBeVisible({ timeout: READY })
 
-  // Widżet pogody w kontekście miasta obecny na każdym ekranie GTFS (#5 / to ważne).
+  // Widżet pogody w kontekście miasta obecny na każdym ekranie GTFS (#5 / to ważne); telefon: w „Info”.
+  await showBoardContext(page)
   await expect(page.getByRole('heading', { name: /Pogoda dziś/ })).toBeVisible()
 })
 
@@ -75,6 +79,7 @@ test('przystanek metra z dwukropkiem w ID: link z linii prowadzi do tablicy, nie
   // co łapie prawdziwy routing). Musi zadziałać przez klik ORAZ po twardym
   // przeładowaniu tego samego URL-a (`decodeStopIdFromPathSegment`).
   await page.goto('/city/warszawa/line/M1')
+  await showLineTimetable(page)
   const link = page.getByRole('link', { name: /pełna tablica przystanku/ })
   await expect(link).toBeVisible({ timeout: READY })
 

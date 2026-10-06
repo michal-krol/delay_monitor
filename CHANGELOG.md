@@ -32,6 +32,15 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Zmienna `MOCK_BUDGET` (`low` lub `unknown`) pokazuje w trybie mock panel diagnostyczny przy
   niskim lub nieznanym limicie zapytań PKP. Zmienna `WEATHER_DATA_SOURCE=mock` podaje stałą
   pogodę bez zapytań do Open-Meteo (testy e2e).
+- Odliczanie „za N min” przy godzinie odjazdu na tablicy stacji, na kartach Pulpitu i na liście
+  odjazdów przystanku, gdy do odjazdu zostało mniej niż godzina. Pociąg odlicza do godziny
+  faktycznej albo prognozowanej, jeśli PKP ją podaje; odwołany nie odlicza wcale. Komunikacja
+  miejska pisze „za N min · wg rozkładu”, bo to plan, nie pomiar.
+- Przycisk „Info” na tablicy stacji i przystanku w telefonie otwiera panel od dołu ze
+  statystykami, pogodą, natężeniem ruchu, mapą i liniami — tym samym, co na komputerze stoi
+  w prawej kolumnie.
+- Dotknięcie „Aktualizacja … temu” na tablicy stacji i na Pulpicie od razu odświeża dane.
+  Pełna data i godzina aktualizacji są w podpowiedzi.
 
 ### Zmienione
 
@@ -72,8 +81,31 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   logo co w aplikacji.
 - Usunięto nieczytane kolumny kolorów z przykładowego pliku `routes.txt` oraz nieaktualne
   komentarze o liczbie pociągów w mocku.
+- Tablice na telefonie zaczynają się od odjazdów: na ekranie 375×667 pierwszy odjazd stacji,
+  przystanku i stacji wybranej na ekranie miasta widać bez przewijania. Nagłówek tablicy jest
+  zwarty, statystyki są pigułkami w jednym–dwóch rzędach, a przystanki zespołu — rzędem
+  przycisków z samym numerem.
+- Zakładki „Odjazdy | Przyjazdy” (i zakładki przystanku z filtrem linii) przyklejają się pod
+  nagłówkiem przy przewijaniu, mają przyciski 44 px, a obok nich jest legenda statusów „?”
+  (wcześniej w nagłówku tabeli, którego na telefonie nie widać).
+- Najpopularniejsze kierunki są na tablicy stacji przyciskami nad listą (na węższych ekranach
+  niż szeroki monitor); dotknięcie filtruje tablicę i zapisuje kierunek w linku.
+- Ekran miasta na telefonie: najpierw wyszukiwarka, statystyki pod nią.
+- Strona linii poniżej szerokości laptopa: przełącznik „Trasa | Rozkład”; wybór przystanku na
+  trasie od razu pokazuje jego rozkład.
+- Mapa na telefonie: chipy „Aktywne filtry”, komunikat „Skopiowano link…” i komunikaty
+  o problemach z danymi jadą nad górną krawędzią panelu, zamiast chować się pod nim.
 
 ### Naprawione
+
+- Ikonę utrudnienia na trasie widać teraz także na tablicy w telefonie (wcześniej stała
+  w kolumnie ukrytej w widoku kart).
+- Zakładka „Komunikaty” przystanku podczas wczytywania pisze „Wczytywanie komunikatów…”
+  zamiast twierdzić, że dla „tego przystanku” nie ma komunikatów.
+- Metro: oznaczenie z numerem peronu czytnik ekranu odczytuje jako „peron P1”, a nie
+  „Odjazd z przystanku P1”.
+- Karta przypiętego zespołu na Pulpicie i karta przystanku na mapie pokazują numer przystanku
+  przy odjeździe tylko wtedy, gdy zespół ma więcej niż jeden przystanek.
 
 - Metro: numer peronu nie wyświetla się już dwa razy przy odjeździe.
 - Przycisk zmiany kierunku na stronie linii podaje czytnikowi ekranu wybrany kierunek

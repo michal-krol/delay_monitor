@@ -115,6 +115,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
 
       <BoardRowList
         rows={departures}
+        now={now}
         loading={!snapshot && !error}
         showEmpty={snapshot !== null && departures.length === 0}
         emptyMessage="Brak odjazdów w najbliższych godzinach"
