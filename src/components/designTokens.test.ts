@@ -118,6 +118,13 @@ describe('design tokens', () => {
     expect(offenders(/text-\[1[01]px\]/)).toEqual([])
   })
 
+  it('UI copy: a failed fetch is „Nie udało się …", never „Błąd …"; no „słupek" for a stop (.claude/rules/ui-copy.md)', () => {
+    // API JSON (`src/app/api`) i komunikaty `Error` to nie tekst dla użytkownika.
+    expect(offenders(/^s*Błąd |>Błąd |['"]Błąd /, (file) => file.startsWith('app/api/'))).toEqual([])
+    // „słupki" wykresu w komentarzach są w porządku — gwarantujemy tylko brak „słupek przystank…" w tekście UI.
+    expect(offenders(/[>'"`]s*[Ss]łupek|słupka?s+(przystank|nr)/)).toEqual([])
+  })
+
   it('card-hover lifts only where hover exists (a tap must not leave a card stuck raised)', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     const rule = css.match(/\.card-hover:hover\s*\{/)

@@ -71,7 +71,7 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
     if (error) {
       return (
         <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-          <span className="text-error-text">Błąd pobierania danych</span>
+          <span className="text-error-text">Nie udało się pobrać danych</span>
           {REFRESH_HINT}
         </p>
       )
@@ -109,7 +109,7 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
           we flex-wrap rodzica (chipy układają się tak samo jak wcześniej). */}
       <span className="contents" aria-live="polite">
         {/* Ostrzeżenie, nie błąd: ostatni dobry snapshot wciąż jest na ekranie (#7), jak w `ScheduleStatus`. */}
-        {error && <span className="text-warning-text">Błąd ostatniego odświeżenia</span>}
+        {error && <span className="text-warning-text">Nie udało się odświeżyć</span>}
 
         {isStale && <span className="text-warning-text">dane sprzed {formatAge(ageMs)}</span>}
 
