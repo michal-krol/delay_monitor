@@ -13,6 +13,7 @@ import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { formatClockTime } from '@/lib/format'
 import { realizedTime, rowCountdown } from './boardTime'
+import { useRowAnimation } from '@/hooks/useRowAnimation'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -136,6 +137,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const changedDelays = useChangedDelays(rows)
+  const rowsRef = useRowAnimation<HTMLTableSectionElement>()
 
   const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED_ROWS)
   const hiddenCount = rows.length - visibleRows.length
@@ -180,7 +182,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
               <th scope="col" className="py-2 pr-1"><span className="sr-only">Szczegóły</span></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={rowsRef}>
             {visibleRows.length === 0 && loading && (
               <>
                 <tr>

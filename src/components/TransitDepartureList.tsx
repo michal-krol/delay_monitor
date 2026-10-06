@@ -4,6 +4,7 @@ import { LineBadge } from './LineBadge'
 import { OnRequestBadge } from './OnRequestBadge'
 import { LINE_KIND_LABEL } from './transitMode'
 import { LiveDot } from './LiveDot'
+import { useRowAnimation } from '@/hooks/useRowAnimation'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
 
@@ -147,6 +148,7 @@ export function TransitDepartureList({
   now,
   highlightFirst = false,
 }: Props) {
+  const listRef = useRowAnimation<HTMLUListElement>()
   if (loading) {
     return (
       <ul className="mt-3 space-y-2" aria-hidden="true">
@@ -194,7 +196,7 @@ export function TransitDepartureList({
       )}
 
       {listed.length > 0 && (
-        <ul data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
+        <ul ref={listRef} data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
           {listed.map((departure, index) => (
             <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showStopCode={showStopCode} now={now} />
           ))}
