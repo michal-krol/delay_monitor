@@ -290,6 +290,19 @@ describe('usePolling', () => {
     expect(fetcher).toHaveBeenCalledTimes(4)
   })
 
+  it('refresh keeps working after a fetcher that throws synchronously', async () => {
+    const fetcher = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('sync')
+      })
+      .mockResolvedValue({ ready: true })
+    const { result } = renderHook(() => usePolling('k-sync-throw', fetcher, { refreshMs: 30_000 }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+    result.current.refresh()
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
+  })
+
   it('refresh is ignored while a fetch is in flight', async () => {
     let resolve: (value: { ready: boolean }) => void = () => {}
     const fetcher = vi.fn(() => new Promise<{ ready: boolean }>((r) => (resolve = r)))

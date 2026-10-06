@@ -52,6 +52,15 @@ test('375×667: najbliższy odjazd przystanku „Centrum” widać bez przewijan
   await expectAboveNav(page, first)
 })
 
+test('ekran miasta na telefonie: najpierw wyszukiwarka, kafelki statystyk pod nią', async ({ page }) => {
+  await page.goto('/city/warszawa')
+  const search = page.getByRole('combobox', { name: /Szukaj stacji kolejowej lub przystanku/ })
+  const tile = page.getByText('przystanki miejskie', { exact: true })
+  await expect(search).toBeVisible({ timeout: READY })
+  await expect(tile).toBeVisible()
+  expect((await search.boundingBox())!.y).toBeLessThan((await tile.boundingBox())!.y)
+})
+
 test('pasek zakładek przystanku zostaje pod nagłówkiem po przewinięciu o 600 px', async ({ page }) => {
   // Mock zespołu ma kilkanaście odjazdów — lista wydłużona kopiami, żeby było co przewijać.
   await page.route('**/api/gtfs/board**', async (route) => {

@@ -93,6 +93,26 @@ describe('MapCard — stop', () => {
     expect(screen.getByRole('link', { name: /Rozkład przystanku/ })).toHaveAttribute('href', '/city/warszawa/stop/100101')
   })
 
+  // PR0 review: numer przystanku przy odjeździe tylko w zespole z więcej niż jednym przystankiem.
+  it('tags group departures with the stop number only when the group has more than one stop', () => {
+    const tram20 = { routeId: '20', line: '20', mode: 'tram', kind: 'regular' }
+    const departure = {
+      tripId: 't', routeId: '20', line: '20', mode: 'tram', lineKind: 'regular', headsign: 'Piaski', plannedAt: '2026-09-02T14:30:00+02:00',
+      departureSec: 52200, serviceDate: '2026-09-02', stopId: '100101', platformCode: '01', stopCode: null, wheelchair: 0, frequencyBased: false, onRequest: false,
+    }
+    const board = (members: unknown[]) => ({ data: { stops: [{ stopId: '1001', alerts: [], lines: [tram20], departures: [departure], members }] }, error: null })
+    const selection = { kind: 'stop' as const, id: '1001', groupId: '1001', name: 'Centrum', code: null, mode: 'tram' as const, lat: 52.23, lon: 21.01 }
+
+    transitBoard.mockReturnValue(board([{ id: '100101', lines: [tram20] }]))
+    const { unmount } = render(<MapCard selection={selection} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(screen.queryByTitle('Odjazd z przystanku 01')).not.toBeInTheDocument()
+    unmount()
+
+    transitBoard.mockReturnValue(board([{ id: '100101', lines: [tram20] }, { id: '100102', lines: [tram20] }]))
+    render(<MapCard selection={selection} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByTitle('Odjazd z przystanku 01')).toBeInTheDocument()
+  })
+
   it('reports a failed timetable fetch', () => {
     transitBoard.mockReturnValue({ data: null, error: 'boom' })
     render(

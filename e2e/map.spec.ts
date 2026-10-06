@@ -644,18 +644,17 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
   })
 
-  // PR4 (decyzja z PR3): przy half/full arkusz zakrywał „Aktywne filtry” i komunikat udostępniania.
-  // Teraz jadą na górnej krawędzi arkusza — widoczne i klikalne w każdym punkcie.
-  test('chipy filtrów i komunikat „Skopiowano link…” zostają nad arkuszem przy half i full', async ({ page }) => {
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
-      Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.resolve() }, configurable: true })
-    })
+  // PR4 (decyzja z PR3): przy half/full arkusz zakrywał „Aktywne filtry” i komunikaty (role=status).
+  // Teraz jadą na górnej krawędzi arkusza — widoczne i klikalne w każdym punkcie. Komunikat o awarii
+  // stacji kolejowych, bo jest trwały; „Skopiowano link…” znika po kilku sekundach (flaky pod obciążeniem),
+  // a oba idą tym samym stosem (`statusStack` w `map/page.tsx`).
+  test('chipy filtrów i komunikaty statusu zostają nad arkuszem przy half i full', async ({ page }) => {
+    await page.route('**/api/rail-stations/list**', (route) => route.abort())
     await openMap(page, `${CITY_MAP}?hide=busStops`)
     await openStopCard(page, 'Centrum')
-    await (await moreItem(page, 'Udostępnij widok')).click()
     const chips = page.getByRole('list', { name: 'Aktywne filtry' })
-    const copied = page.getByRole('status').filter({ hasText: 'Skopiowano link do tego widoku.' })
+    const problem = page.getByRole('status').filter({ hasText: 'Nie udało się wczytać stacji kolejowych — ponawiam.' })
+    await expect(problem).toBeAttached({ timeout: READY })
     const uncovered = (locator: Locator) =>
       locator.evaluate((el) => {
         const r = el.getBoundingClientRect()
@@ -663,7 +662,7 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
       })
     // Przy „full” nad arkuszem zostaje ok. 55 px (iPhone 15): mieści się rząd najbliżej krawędzi —
     // status (ostatni w stosie); chipy wyżej mogą się uciąć (decyzja usera, PR4).
-    for (const [snap, visible] of [['half', [chips, copied]], ['full', [copied]]] as const) {
+    for (const [snap, visible] of [['half', [chips, problem]], ['full', [problem]]] as const) {
       await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
       await expect(sheet(page)).toHaveAttribute('data-snap', snap)
       await page.waitForTimeout(400) // płynne przewijanie do punktu

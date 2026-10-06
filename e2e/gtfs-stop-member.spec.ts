@@ -30,7 +30,8 @@ test('przystanek miejski: przełącznik przystanków zespołu', async ({ page })
 
   // Powrót do całego zespołu — odjazdy tagowane numerem przystanku.
   await page.getByRole('tab', { name: /Cały zespół/ }).click()
-  await expect(page.getByText(/^0\d$/).first()).toBeVisible({ timeout: READY })
+  // Po tytule tagu: `getByText(/^0\d$/)` trafiał dotąd w oś „00” wykresu w prawej kolumnie, nie w tag (PR4).
+  await expect(page.getByTitle(/^Odjazd z przystanku 0\d$/).first()).toBeVisible({ timeout: READY })
 
   // Widżet pogody w kontekście miasta obecny na każdym ekranie GTFS (#5 / to ważne); telefon: w „Info”.
   await showBoardContext(page)

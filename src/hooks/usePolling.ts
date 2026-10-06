@@ -135,10 +135,14 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
 
       const opts = optionsRef.current
       try {
+        let result: T
         inFlight = true
-        const result = await fetcherRef.current({ background: scheduled }).finally(() => {
+        try {
+          result = await fetcherRef.current({ background: scheduled })
+        } finally {
+          // Także po wyjątku rzuconym synchronicznie — inaczej `refresh` zostałby zablokowany na zawsze.
           inFlight = false
-        })
+        }
         if (cancelled) return
         const successAt = Date.now()
         lastSuccessAtMs = successAt
