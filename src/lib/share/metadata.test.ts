@@ -5,11 +5,11 @@ const PLACE = { kind: 'place', label: 'Stacja kolejowa', title: 'Szczecin Głów
 const TITLE = 'Szczecin Główny — Monitor opóźnień'
 
 describe('cardMetadata', () => {
-  it('generic card keeps the root metadata', () => {
-    expect(cardMetadata({ kind: 'generic' }, {})).toEqual({})
+  it('generic card keeps the root title and still asks for a large Twitter card', () => {
+    expect(cardMetadata({ kind: 'generic' }, {})).toEqual({ twitter: { card: 'summary_large_image' } })
   })
   it('place card sets title, og:title and twitter:title', () => {
-    expect(cardMetadata(PLACE, {})).toEqual({ title: TITLE, openGraph: { title: TITLE }, twitter: { title: TITLE } })
+    expect(cardMetadata(PLACE, {})).toEqual({ title: TITLE, openGraph: { title: TITLE }, twitter: { card: 'summary_large_image', title: TITLE } })
   })
   it('sets metadataBase from the Railway domain, for generic cards too (og:image must be absolute)', () => {
     const env = { RAILWAY_PUBLIC_DOMAIN: 'app.up.railway.app' }

@@ -18,8 +18,10 @@ export function publicBaseUrl(env: Record<string, string | undefined> = process.
 export function cardMetadata(card: ShareCard, env?: Record<string, string | undefined>): Metadata {
   const base = publicBaseUrl(env)
   const title = shareTitle(card)
+  // Karta ma 1200×630 — bez jawnego `card` Next wstawia `summary` (mały kwadrat), nie duży podgląd.
   return {
     ...(base !== null && { metadataBase: base }),
-    ...(title !== null && { title, openGraph: { title }, twitter: { title } }),
+    twitter: { card: 'summary_large_image', ...(title !== null && { title }) },
+    ...(title !== null && { title, openGraph: { title } }),
   }
 }
