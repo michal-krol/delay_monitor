@@ -378,12 +378,12 @@ export default function LineDetailPage() {
                               </span>
                             )}
                             {(first || last) && (
-                              <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-text-muted">
+                              <span className="ml-1.5 text-xs uppercase tracking-[0.08em] text-text-muted">
                                 {first ? 'początek' : 'koniec'}
                               </span>
                             )}
                             {stop.street !== null && (
-                              <span className="ml-2 text-[11px] text-text-muted">{stop.street}</span>
+                              <span className="ml-2 text-xs text-text-muted">{stop.street}</span>
                             )}
                           </span>
                           {stop.wheelchair === 2 && (
@@ -403,7 +403,7 @@ export default function LineDetailPage() {
                     )
                   })}
                 </ol>
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted">
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek</span>
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} aria-hidden="true" /> na żądanie</span>
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek krańcowy</span>

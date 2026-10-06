@@ -167,16 +167,16 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                   dostępności. Widoczny podpis zostaje, nazwa jest zdaniem. */}
               <th scope="col" aria-label={direction === 'departures' ? 'Odjazd — plan i faktycznie' : 'Przyjazd — plan i faktycznie'} className="py-2 pr-3 pl-3 font-medium text-text-muted">
                 {direction === 'departures' ? 'Odjazd' : 'Przyjazd'}
-                <span className="block text-[11px] font-normal">plan · faktycznie</span>
+                <span className="block text-xs font-normal">plan · faktycznie</span>
               </th>
               <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Pociąg</th>
               <th scope="col" aria-label="Kierunek i przystanki pośrednie" className="py-2 pr-3 font-medium text-text-muted">
                 Kierunek
-                <span className="block text-[11px] font-normal">przez</span>
+                <span className="block text-xs font-normal">przez</span>
               </th>
               <th scope="col" aria-label="Peron i tor" className="py-2 pr-3 font-medium text-text-muted">
                 Peron
-                <span className="block text-[11px] font-normal">tor</span>
+                <span className="block text-xs font-normal">tor</span>
               </th>
               <th scope="col" className="py-2 pr-3 font-medium text-text-muted">
                 Status

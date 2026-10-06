@@ -113,4 +113,22 @@ describe('design tokens', () => {
     expect(css).toContain('scroll-padding-bottom: var(--bottom-nav-h)')
     expect(css).toContain('scroll-padding-top: var(--header-h)')
   })
+
+  it('no text below 12 px (text-xs is the floor on phones, PR 5)', () => {
+    expect(offenders(/text-\[1[01]px\]/)).toEqual([])
+  })
+
+  it('card-hover lifts only where hover exists (a tap must not leave a card stuck raised)', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const rule = css.match(/\.card-hover:hover\s*\{/)
+    expect(rule).not.toBeNull()
+    const before = css.slice(0, rule!.index)
+    expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(hover: hover\)\s*\{\s*$/)
+  })
+
+  it('globals.css kills the grey tap flash and defines the own press state', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    expect(css).toContain('-webkit-tap-highlight-color: transparent')
+    expect(css).toMatch(/\.press:active\s*\{/)
+  })
 })

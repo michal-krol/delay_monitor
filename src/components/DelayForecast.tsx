@@ -205,7 +205,7 @@ export function DelayForecast({ series, arrivalTime, arrivalStatus, className }:
             className="rounded-lg border px-2.5 py-1 text-right"
             style={{ borderColor: 'color-mix(in srgb, currentColor 25%, transparent)', color: lineColor }}
           >
-            <div className="text-[10px] tracking-[0.08em] text-text-muted uppercase">Przyjazd</div>
+            <div className="text-xs tracking-[0.08em] text-text-muted uppercase">Przyjazd</div>
             <div className="text-sm font-bold tabular-nums">{arrivalTime}</div>
           </div>
         )}

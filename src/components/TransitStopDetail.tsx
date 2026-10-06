@@ -260,7 +260,7 @@ export function TransitStopDetail({
                         href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
                       />
                       {LINE_KIND_LABEL[line.kind] !== '' && (
-                        <span className="text-[10px] text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
+                        <span className="text-xs text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
                       )}
                     </span>
                   ))}
@@ -401,7 +401,7 @@ export function TransitStopDetail({
                       {visibleLines.map((line) => (
                         <LineBadge key={line.routeId} line={line.line} mode={line.mode} kind={line.kind} size="sm" />
                       ))}
-                      {overflow > 0 && <span className="text-[11px] text-text-muted">+{overflow}</span>}
+                      {overflow > 0 && <span className="text-xs text-text-muted">+{overflow}</span>}
                     </span>
                   </button>
                 )

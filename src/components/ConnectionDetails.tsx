@@ -167,7 +167,7 @@ function formatDurationOrNull(minutes: number | null): string | null {
 
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-[11px] font-semibold tracking-[0.13em] text-text-muted uppercase">{children}</h2>
+  return <h2 className="text-xs font-semibold tracking-[0.13em] text-text-muted uppercase">{children}</h2>
 }
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -194,7 +194,7 @@ function MetaItem({
     <div className="flex items-start gap-2.5">
       <span className="mt-0.5 shrink-0 text-text-muted">{icon}</span>
       <div className="min-w-0">
-        <div className="text-[11px] tracking-[0.08em] text-text-muted uppercase">{label}</div>
+        <div className="text-xs tracking-[0.08em] text-text-muted uppercase">{label}</div>
         <div className="mt-0.5 font-medium text-foreground tabular-nums">{value}</div>
         {hint !== null && hint !== undefined && <div className="truncate text-xs text-text-secondary">{hint}</div>}
       </div>
@@ -435,7 +435,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 />
                 {arrivalTime !== null && (
                   <div className="text-right">
-                    <div className="text-[11px] tracking-[0.08em] text-text-muted uppercase">Przyjazd do celu</div>
+                    <div className="text-xs tracking-[0.08em] text-text-muted uppercase">Przyjazd do celu</div>
                     <div className="font-heading text-3xl font-bold text-foreground tabular-nums">{arrivalTime}</div>
                     {countdown !== null && <div className="text-sm text-text-secondary">{countdown}</div>}
                   </div>
@@ -611,7 +611,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                   {stop.stationName}
                                 </span>
                                 {(isFirst || isLast) && (
-                                  <span className="ml-2 text-[10px] tracking-[0.1em] text-text-muted uppercase">
+                                  <span className="ml-2 text-xs tracking-[0.1em] text-text-muted uppercase">
                                     {isFirst ? 'odjazd' : 'przyjazd'}
                                   </span>
                                 )}

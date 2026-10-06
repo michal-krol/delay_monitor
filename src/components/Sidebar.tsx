@@ -58,7 +58,7 @@ export function Sidebar({ activeItem, onSearch }: Props) {
           {!collapsed && (
             <div className="min-w-0">
               <div className="font-heading truncate text-[15px] font-bold">Monitor opóźnień</div>
-              <div className="truncate text-[11px] text-text-muted">
+              <div className="truncate text-xs text-text-muted">
                 v{process.env.NEXT_PUBLIC_APP_VERSION} · {environmentLabel(process.env.NEXT_PUBLIC_APP_BRANCH ?? '')}
               </div>
             </div>
@@ -87,7 +87,7 @@ export function Sidebar({ activeItem, onSearch }: Props) {
         {!collapsed && (
           <>
             <span className="flex-1 truncate text-left">Szukaj</span>
-            <kbd aria-hidden="true" className="font-sans text-[11px] text-text-muted">
+            <kbd aria-hidden="true" className="font-sans text-xs text-text-muted">
               {isMac ? '⌘ K' : 'Ctrl K'}
             </kbd>
           </>

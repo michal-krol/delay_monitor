@@ -205,7 +205,7 @@ export function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-[10px] text-text-muted">
+      <div className="flex items-center justify-between text-xs text-text-muted">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--status-onTime-bg)' }} aria-hidden="true" />
           Open-Meteo

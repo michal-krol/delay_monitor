@@ -176,6 +176,8 @@
 html {
   scroll-padding-top: var(--header-h);
   scroll-padding-bottom: var(--bottom-nav-h);
+  /* Własny stan wciśnięcia (`.press`) zamiast szarego mignięcia przeglądarki mobilnej. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Tokeny ruchu na PR 6 — jeszcze nieużywane. Czasy zerują się przy `prefers-reduced-motion`. */
@@ -434,8 +436,22 @@ details[open] > summary .disclosure-chevron,
     transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.card-hover:hover {
-  transform: translateY(-3px);
+/* Tylko tam, gdzie jest hover — po dotyku karta nie zostaje „uniesiona”. */
+@media (hover: hover) {
+  .card-hover:hover {
+    transform: translateY(-3px);
+  }
+}
+
+/* Własny stan wciśnięcia przycisków i chipów (PR 5). Ruch tylko bez prefers-reduced-motion;
+   przy reduced-motion wciśnięcie zmienia tylko krycie. */
+.press:active {
+  opacity: 0.85;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .press:active {
+    transform: scale(0.97);
+  }
 }
 
 /* Mikroanimacje z makiety Claude Design ("Czy dojadę? — Makieta dashboardu",
