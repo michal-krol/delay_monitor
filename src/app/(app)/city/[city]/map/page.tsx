@@ -292,9 +292,14 @@ export default function CityMapPage() {
   function openPinned(pinnedItem: PinnedPoint): void {
     const fav = pinnedItems.find((f) => pinnedKey(f) === pinnedItem.key)
     if (fav?.kind === 'pkp') onMapSelect({ kind: 'rail', id: fav.id })
-    else {
-      const stop = stopsState.stops?.find((s) => s.id === fav?.id || s.groupId === fav?.id)
+    else if (fav?.kind === 'gtfs' && fav.member === true) {
+      const stop = stopsState.stops?.find((s) => s.id === fav.id)
       if (stop !== undefined) onMapSelect({ kind: 'stop', id: stop.id })
+    } else if (fav?.kind === 'gtfs') {
+      // Przypięty zespół (albo stary wpis pod id przystanku): karta ZESPOŁU, nie pierwszego przystanku —
+      // inaczej klucz przypięcia się nie zgadza i gwiazdka jest pusta.
+      const stop = stopsState.stops?.find((s) => s.groupId === fav.id || s.id === fav.id)
+      if (stop !== undefined) setSelection({ kind: 'stop', id: stop.groupId, groupId: stop.groupId, name: stop.name, code: null, mode: stop.mode, lat: stop.lat, lon: stop.lon })
     }
     focusOn(pinnedItem.lat, pinnedItem.lon)
   }

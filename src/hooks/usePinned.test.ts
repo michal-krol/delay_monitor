@@ -193,4 +193,34 @@ describe('usePinned — wrogie wejście z localStorage', () => {
     act(() => result.current.addPinned(STOP))
     expect(result.current.pinnedItems).toEqual([LEGACY_GROUP, STOP])
   })
+
+  it('replacePinned swaps the entry in place (order kept) and writes once', async () => {
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    const legacy: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100101', name: 'Centrum' }
+    const group: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' }
+    act(() => result.current.addPinned(WAW))
+    act(() => result.current.addPinned(legacy))
+    act(() => result.current.addPinned(KRK))
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+
+    act(() => result.current.replacePinned(pinnedKey(legacy), group))
+
+    expect(result.current.pinnedItems).toEqual([WAW, group, KRK])
+    expect(readV2()).toEqual([WAW, group, KRK])
+    expect(setItem).toHaveBeenCalledTimes(1)
+  })
+
+  it('replacePinned only drops the old entry when the target is already pinned (no duplicate)', async () => {
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    const legacy: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100101', name: 'Centrum' }
+    const group: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' }
+    act(() => result.current.addPinned(group))
+    act(() => result.current.addPinned(legacy))
+
+    act(() => result.current.replacePinned(pinnedKey(legacy), group))
+
+    expect(result.current.pinnedItems).toEqual([group])
+  })
 })

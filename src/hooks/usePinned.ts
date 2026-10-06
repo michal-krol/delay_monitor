@@ -113,9 +113,25 @@ export function usePinned() {
     })
   }
 
+  /**
+   * Podmienia wpis w miejscu (kolejność Pulpitu zostaje) — normalizacja starych przypięć. Gdy
+   * docelowy klucz już istnieje, stary wpis tylko znika, bez duplikatu.
+   */
+  function replacePinned(oldKey: string, next: PinnedItem): void {
+    const nextKey = pinnedKey(next)
+    setPinnedItems((current) => {
+      if (!current.some((item) => pinnedKey(item) === oldKey)) return current
+      const updated = current.some((item) => pinnedKey(item) === nextKey)
+        ? current.filter((item) => pinnedKey(item) !== oldKey)
+        : current.map((item) => (pinnedKey(item) === oldKey ? next : item))
+      writeStorage(updated)
+      return updated
+    })
+  }
+
   function isPinned(key: string): boolean {
     return pinnedItems.some((item) => pinnedKey(item) === key)
   }
 
-  return { pinnedItems, loaded, addPinned, removePinned, isPinned }
+  return { pinnedItems, loaded, addPinned, removePinned, replacePinned, isPinned }
 }

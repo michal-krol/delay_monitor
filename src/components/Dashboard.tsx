@@ -11,9 +11,11 @@ type Props = {
   pinnedItems: PinnedItem[]
   onExpand: (station: StationOption) => void
   onRemove: (key: string) => void
+  /** Podmiana starego wpisu na znormalizowany (`usePinned().replacePinned`). */
+  onNormalize?: (oldKey: string, next: PinnedItem) => void
 }
 
-export function Dashboard({ pinnedItems, onExpand, onRemove }: Props) {
+export function Dashboard({ pinnedItems, onExpand, onRemove, onNormalize }: Props) {
   // Pulpit jest ponad miastami: stacja PKP i przystanek miejski (dowolnego
   // miasta) wiszą obok siebie na jednej siatce. Stacje idą przez wspólny
   // `useBoard` (jedno zapytanie), przystanki miejskie mają własne karty.
@@ -66,6 +68,7 @@ export function Dashboard({ pinnedItems, onExpand, onRemove }: Props) {
                 stopName={pinnedItem.name}
                 member={pinnedItem.member === true}
                 onRemove={() => onRemove(pinnedKey(pinnedItem))}
+                onGroupResolved={(groupId) => onNormalize?.(pinnedKey(pinnedItem), { ...pinnedItem, id: groupId })}
               />
             )
         )}

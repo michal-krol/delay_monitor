@@ -28,7 +28,7 @@ export default function Page() {
 function PulpitPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { pinnedItems, loaded, removePinned } = usePinned()
+  const { pinnedItems, loaded, removePinned, replacePinned } = usePinned()
 
   const rawFocus = searchParams.get('focus')
   const focusedStationId = rawFocus && STATION_ID_PATTERN.test(rawFocus) ? rawFocus : null
@@ -70,7 +70,7 @@ function PulpitPage() {
       {pinnedItems.length === 0 ? (
         <EmptyState />
       ) : (
-        <Dashboard pinnedItems={pinnedItems} onExpand={goToBoard} onRemove={removePinned} />
+        <Dashboard pinnedItems={pinnedItems} onExpand={goToBoard} onRemove={removePinned} onNormalize={replacePinned} />
       )}
     </PageShell>
   )
