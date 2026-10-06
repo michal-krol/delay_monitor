@@ -66,6 +66,11 @@ describe('design tokens', () => {
     expect(offenders(/from ['"]lucide/, (file) => file === 'components/icons.tsx')).toEqual([])
   })
 
+  it('motion libraries have one importer each: AnimatedNumber (number-flow) and useRowAnimation (auto-animate), .claude/rules/ui-motion.md', () => {
+    expect(offenders(/from ['"]@number-flow/, (file) => file === 'components/AnimatedNumber.tsx')).toEqual([])
+    expect(offenders(/from ['"]@formkit\/auto-animate/, (file) => file === 'hooks/useRowAnimation.ts')).toEqual([])
+  })
+
   it('ACCENT_GRADIENT (favicon and app icon routes, no CSS there) mirrors --accent-gradient in globals.css', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     expect(css.match(/--accent-gradient:\s*([^;]+);/)?.[1].trim()).toBe(ACCENT_GRADIENT)

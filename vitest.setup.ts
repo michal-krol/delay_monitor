@@ -1,6 +1,11 @@
 import { afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
+import { configure } from '@testing-library/react'
 import { clearPollingCache } from './src/hooks/pollingCache'
+
+// `AnimatedNumber` (@number-flow/react) trzyma w swoim elemencie zapasowy <span> z tym samym napisem co
+// węzeł `sr-only` — bez wykluczenia każde `getByText('+3 min')` trafiałoby w dwa elementy.
+configure({ defaultIgnore: 'script, style, number-flow-react span' })
 
 // Cache `usePolling` to stan modułu -- każdy test zaczyna od pustego.
 afterEach(() => clearPollingCache())
