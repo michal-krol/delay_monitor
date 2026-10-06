@@ -23,6 +23,9 @@ PKP responses = data from outside the system.
 - View state from the URL (`src/lib/urlState.ts`): a bad param is silently ignored, never a
   render failure. `patchUrlParams()` reads the current `window.location.search` and patches —
   it doesn't build from scratch (several modules write to the same URL).
+- Link-preview cards and page titles (`src/lib/share/`) take names ONLY from the station dictionary
+  and the loaded GTFS schedule, by route params — never `?name=` or other URL text; unknown or
+  malformed id → generic card. `?name=` is display-only inside the client pages.
 - Security headers from `next.config.ts` are guarded by `next.config.test.ts` — weakening the
   policy = update the test.
 - Deliberately accepted risks and their rationale are kept out of the public README, in the

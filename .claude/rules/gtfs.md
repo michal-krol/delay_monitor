@@ -172,3 +172,6 @@ paths:
 Contract: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (network, no cost).
 `GTFS_DATA_SOURCE=mock` (default) keeps dev/test/CI zero-network. Fixtures in
 `fixtures/gtfs/<city>/` are plain `.txt`, no ZIP.
+Link-preview routes (`opengraph-image.tsx`, `generateMetadata`) read the schedule with
+`peekGtfsPoller(city)?.getSchedule()` — never `getGtfsPoller`/`ensureLoaded` (a crawler is not a
+viewer and must not wake the pollers); not loaded yet → generic card with a short cache.
