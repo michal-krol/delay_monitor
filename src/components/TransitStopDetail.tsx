@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -94,6 +95,12 @@ export function TransitStopDetail({
   const [activeTab, setActiveTab] = useState<StopTab>('departures')
   /** Arkusz „Info” (telefon): mapa, pogoda, natężenie i linie z prawej kolumny. */
   const [infoOpen, setInfoOpen] = useState(false)
+  /**
+   * Kontekst (kafelki, pogoda, mapa…) istnieje w JEDNYM miejscu: od `sm` w prawej kolumnie, na telefonie
+   * tylko w arkuszu „Info” — ukryta kopia montowałaby drugą mapę MapLibre i dublowała tekst. W SSR „szeroko”,
+   * do hydracji kolumnę na telefonie chowa CSS (`max-sm:hidden`).
+   */
+  const wide = useMediaQuery(SM_UP, true)
   const tabIdBase = useId()
   const viewTabId = (tab: StopTab): string => `${tabIdBase}-tab-${tab}`
   const viewPanelId = `${tabIdBase}-panel`
@@ -557,11 +564,11 @@ export function TransitStopDetail({
 
       <aside className="flex flex-col gap-4 xl:sticky xl:top-6">
         {/* Telefon: karty są w arkuszu „Info”; licencja danych zostaje widoczna pod tablicą. */}
-        <div className="contents max-sm:hidden">{asideCards}</div>
+        {wide && <div className="contents max-sm:hidden">{asideCards}</div>}
         <AttributionFooter attribution={data?.attribution ?? []} />
       </aside>
 
-      {infoOpen && (
+      {!wide && infoOpen && (
         <InfoSheet title="Informacje o przystanku" onClose={() => setInfoOpen(false)}>
           {asideCards}
         </InfoSheet>

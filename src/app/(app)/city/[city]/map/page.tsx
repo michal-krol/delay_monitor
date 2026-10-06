@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
@@ -52,8 +52,8 @@ import type { GtfsMode } from '@/lib/gtfs/types'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 import { lineColor } from '@/components/transitMode'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 
-const WIDE_QUERY = '(min-width: 40rem)'
 const LAST_VIEW_KEY = 'monitor.map.view.v1'
 /** `localStorage` to dane spoza aplikacji — schemat, nie asercja typu (AGENTS.md #4). */
 const lastViewSchema = z.object({ city: z.string(), at: z.string() })
@@ -86,18 +86,6 @@ function useCityList<T>(url: string, pick: (json: Record<string, unknown>) => T[
   return data?.items ?? null
 }
 
-/** Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon. */
-function useIsWide(): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const media = window.matchMedia(WIDE_QUERY)
-      media.addEventListener('change', onChange)
-      return () => media.removeEventListener('change', onChange)
-    },
-    () => window.matchMedia(WIDE_QUERY).matches,
-    () => false
-  )
-}
 
 export default function CityMapPage() {
   const params = useParams<{ city: string }>()
@@ -115,7 +103,8 @@ export default function CityMapPage() {
   const [searchTab, setSearchTab] = useState<'place' | 'line'>('place')
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
-  const isWide = useIsWide()
+  // Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon.
+  const isWide = useMediaQuery(SM_UP, false)
 
   const vehiclesState = useCityVehicles(city)
   const stopsState = useCityStops(city)
@@ -632,7 +621,7 @@ export default function CityMapPage() {
           {(isWide || card === null) && (
             // `sm:top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
             // miasto” (`top-[88px]` + `h-11` = 132 px) + 12 px odstępu. Od `top-3` rozwinięta legenda
-            // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `WIDE_QUERY`)
+            // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `SM_UP`)
             // przyciski Lista/Filtry/Udostępnij schodzą do drugiego rzędu (114–158 px przy 375 px),
             // stąd `top-44` (176 px) — przy 144 px legenda zakrywała ich dolne 14 px.
             <div className="pointer-events-none absolute bottom-8 right-3 top-44 z-10 flex flex-col justify-end sm:right-4 sm:top-36">

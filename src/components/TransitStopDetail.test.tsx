@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
@@ -295,7 +295,29 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByText(/tego przystanku/)).not.toBeInTheDocument()
   })
 
+  it('on a phone the stop context renders once — in the Info sheet, not also in a hidden aside', async () => {
+    const original = window.matchMedia
+    window.matchMedia = (() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as unknown as typeof window.matchMedia
+    try {
+      window.HTMLElement.prototype.scrollTo = () => {}
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.queryByText('Natężenie ruchu dziś')).not.toBeInTheDocument()
+      // Licencja danych zostaje widoczna pod tablicą także na telefonie.
+      expect(screen.getByText(/ZTM/)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Info' }))
+      expect(screen.getAllByText('Natężenie ruchu dziś')).toHaveLength(1)
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
   it('„Info” opens a sheet with the stop context (map, traffic, lines) and × closes it', async () => {
+    const original = window.matchMedia
+    window.matchMedia = (() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as unknown as typeof window.matchMedia
+    onTestFinished(() => {
+      window.matchMedia = original
+    })
     window.HTMLElement.prototype.scrollTo = () => {}
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)

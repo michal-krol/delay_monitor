@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable, StatusLegend } from './BoardTable'
@@ -83,6 +84,12 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
   /** Arkusz „Info” (telefon): kontekst z prawej kolumny nad tablicą. */
   const [infoOpen, setInfoOpen] = useState(false)
+  /**
+   * Kontekst (kafelki, pogoda, mapa…) istnieje w JEDNYM miejscu: od `sm` w prawej kolumnie, na telefonie
+   * tylko w arkuszu „Info” — ukryta kopia montowałaby drugą mapę MapLibre i dublowała tekst. W SSR „szeroko”,
+   * do hydracji kolumnę na telefonie chowa CSS (`max-sm:hidden`).
+   */
+  const wide = useMediaQuery(SM_UP, true)
   const { data, error, lastSuccessAt, refresh } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
@@ -313,12 +320,12 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
         )}
       </div>
 
-      {!configError && (
+      {!configError && wide && (
         <aside className="max-sm:hidden xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">{aside}</aside>
       )}
 
       {/* Telefon: te same komponenty co prawa kolumna (jedna implementacja), plus pełne kafelki KPI. */}
-      {!configError && infoOpen && (
+      {!configError && !wide && infoOpen && (
         <InfoSheet title="Informacje o stacji" onClose={() => setInfoOpen(false)}>
           <StationStatsCards stats={snapshot?.stats} loading={loading} />
           {aside}

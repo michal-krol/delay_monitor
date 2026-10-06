@@ -498,8 +498,14 @@ describe('FullBoard', () => {
       ...SNAPSHOT,
       insights: { topDestinations: [{ stationId: '80416', name: 'Kraków', count: 12 }], hourlyTraffic: Array.from({ length: 24 }, () => 1) },
     }
+    // Telefon: `useMediaQuery(SM_UP)` = false (jsdom nie ma `matchMedia`, więc bez atrapy = „szeroko”).
+    const originalMatchMedia = window.matchMedia
     beforeEach(() => {
       window.HTMLElement.prototype.scrollTo = () => {}
+      window.matchMedia = (() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as unknown as typeof window.matchMedia
+    })
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia
     })
 
     it('„Info” opens a sheet with the station context (same components as the aside) and × closes it', async () => {
@@ -518,6 +524,17 @@ describe('FullBoard', () => {
 
       await user.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
       expect(screen.queryByRole('dialog', { name: 'Informacje o stacji' })).not.toBeInTheDocument()
+    })
+
+    it('on a phone the context renders once — in the Info sheet, not also in a hidden aside', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+      expect(screen.queryByText('Natężenie ruchu dzisiaj')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Info' }))
+      expect(screen.getAllByText('Natężenie ruchu dzisiaj')).toHaveLength(1)
     })
 
     it('a popular-destination chip above the table filters the board and writes ?direction=', async () => {
