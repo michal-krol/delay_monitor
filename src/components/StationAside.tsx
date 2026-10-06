@@ -37,18 +37,51 @@ import { AsideCard, EmptyHint, HourlyTraffic } from './aside'
  * ma: dokąd stąd najczęściej się jedzie, co jest zepsute i kiedy jest tłok.
  */
 
-function PopularDestinations({
+/**
+ * `list` — karta w prawej kolumnie (od `xl`), z liczbą połączeń i komunikatami stanów. `chips` — te same
+ * kierunki jako filtry nad tablicą poniżej `xl` (ten sam stan w `FullBoard`): przewijane w poziomie
+ * zamiast zawijania (pierwszy odjazd ma się zmieścić na ekranie), cele 44 px; bez rzędu, gdy nie ma
+ * czego pokazać — stany ładowania/błędu mówi wtedy karta, nie pasek nad tablicą.
+ */
+export function PopularDestinations({
   insights,
   loading,
   onSelect,
   selected,
+  variant = 'list',
 }: {
   insights: StationInsights | undefined
   loading: boolean
   onSelect: (name: string | null) => void
   selected: string | null
+  variant?: 'list' | 'chips'
 }) {
   const destinations = insights?.topDestinations ?? []
+
+  if (variant === 'chips') {
+    if (loading || destinations.length === 0) return null
+    return (
+      <div role="group" aria-label="Najpopularniejsze kierunki" className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 xl:hidden">
+        {destinations.map((destination) => {
+          const active = selected === destination.name
+          return (
+            <button
+              key={destination.stationId}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onSelect(active ? null : destination.name)}
+              className={`press min-h-11 shrink-0 rounded-full border px-3.5 text-sm transition sm:min-h-9 ${
+                active ? 'border-transparent text-white' : 'border-surface-border text-text-secondary hover:text-foreground'
+              }`}
+              style={active ? { background: 'var(--accent-gradient)' } : undefined}
+            >
+              {destination.name}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   // Trzy różne stany, trzy różne komunikaty (AGENTS.md #7): „jeszcze się
   // ładuje", „nie udało się pobrać" i „pobrano, ale nic tu nie ma".

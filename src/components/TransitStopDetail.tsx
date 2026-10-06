@@ -28,6 +28,7 @@ import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from 
 import { PageTitle } from './PageTitle'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { IconButton } from './IconButton'
+import { StatTile } from './StatTile'
 import { onTablistKeyDown } from './tablistKeys'
 import { pluralPl } from '@/lib/plural'
 
@@ -48,17 +49,6 @@ function primaryMode(lines: GtfsLine[]): GtfsMode {
     if (lines.some((l) => l.mode === mode)) return mode
   }
   return 'other'
-}
-
-/** Kafelek podsumowania; poniżej `sm` pigułka (etykieta + liczba), żeby odjazdy były wyżej. */
-function SummaryCard({ label, value, hint, className = '' }: { label: string; value: string; hint?: string; className?: string }) {
-  return (
-    <div className={`glass rounded-2xl p-4 max-sm:flex max-sm:items-baseline max-sm:gap-1.5 max-sm:rounded-full max-sm:px-2.5 max-sm:py-1 ${className}`.trim()}>
-      <div className="text-xs font-medium uppercase tracking-wide text-text-muted max-sm:normal-case max-sm:tracking-normal">{label} </div>
-      <div className="mt-1 font-heading text-2xl font-extrabold tracking-tight text-foreground max-sm:mt-0 max-sm:text-sm">{value}</div>
-      {hint !== undefined && <div className="text-xs text-text-secondary max-sm:hidden">{hint}</div>}
-    </div>
-  )
 }
 
 /**
@@ -413,10 +403,11 @@ export function TransitStopDetail({
         <div className="grid gap-3 max-sm:flex max-sm:flex-wrap max-sm:gap-1.5 sm:grid-cols-3">
           {/* Telefon: liczbę linii widać w filtrze linii poniżej — pigułki mieszczą się w jednym rzędzie. */}
           <div className="contents max-sm:hidden">
-            <SummaryCard label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />
+            <StatTile uppercaseLabel label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />
           </div>
-          <SummaryCard label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" className="card-hover" />
-          <SummaryCard
+          <StatTile uppercaseLabel label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" className="card-hover" />
+          <StatTile
+            uppercaseLabel
             label="Pierwszy / ostatni"
             value={
               summary && summary.firstDepartureSec !== null && summary.lastDepartureSec !== null
