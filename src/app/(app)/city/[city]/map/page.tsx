@@ -122,7 +122,7 @@ export default function CityMapPage() {
   const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
   const { share, status: shareStatus } = useShareUrl()
-  const { pinnedItems, addPinned, removePinned, isPinned } = usePinned()
+  const { pinnedItems, addPinned, removePinned, replacePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
@@ -306,6 +306,8 @@ export default function CityMapPage() {
       // inaczej klucz przypięcia się nie zgadza i gwiazdka jest pusta.
       const stop = stopsState.stops?.find((s) => s.groupId === fav.id || s.id === fav.id)
       if (stop !== undefined) setSelection({ ...stopSelection(stop), id: stop.groupId, code: null })
+      // Stary wpis zespołu pod id przystanku: przepisujemy na id zespołu od razu, żeby gwiazdka na karcie była zapełniona.
+      if (stop !== undefined && fav.id !== stop.groupId) replacePinned(pinnedKey(fav), { ...fav, id: stop.groupId })
     }
     focusOn(pinnedItem.lat, pinnedItem.lon)
   }
