@@ -17,7 +17,7 @@ type Props = {
 
 /** Wspólny wygląd `IconButton` (bez rozmiaru) — używa go też link ← w `TopBar`, żeby oba wyglądały tak samo. */
 export const ICON_BUTTON_CLASS =
-  'touch-44 relative grid shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10 disabled:pointer-events-none disabled:opacity-40'
+  'press touch-44 relative grid shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10 disabled:pointer-events-none disabled:opacity-40'
 /** Rozmiar `md` (36 px). */
 export const ICON_BUTTON_MD_SIZE = 'h-9 w-9'
 

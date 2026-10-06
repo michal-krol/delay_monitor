@@ -32,7 +32,7 @@ export function InfoButton({ open, onClick }: { open: boolean; onClick: () => vo
       onClick={onClick}
       aria-haspopup="dialog"
       aria-expanded={open}
-      className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:text-foreground sm:hidden"
+      className="press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:text-foreground sm:hidden"
     >
       <InfoIcon size={ICON_SIZE.button} />
       Info
