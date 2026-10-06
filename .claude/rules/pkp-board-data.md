@@ -27,6 +27,11 @@ train as on time — this reached the main board once.
   „w trasie" instead of „jeszcze nie wyjechał". It is not per-stop (that is still
   `isConfirmed`) and does not change delay computation. Don't break this.
 
+Countdown „za N min” (PR4) adds no delay logic: `expectedAt()` in `src/components/boardTime.ts`
+takes the realized time the board already shows (`realizedTime()`: fact, else forecast, else
+plan) and `countdownLabel()` (`src/lib/countdown.ts`, the one countdown for PKP and GTFS) turns
+it into text. Cancelled rows never count down.
+
 ## #9 `/operations` and `/schedules` are not limited to "today"
 
 Verified live (Warszawa Zachodnia, 2026-08-28): one `/operations?stations=…&withPlanned=true`

@@ -125,7 +125,15 @@ the panel scrolls the container. Rules:
 - Inner scrolling (`[data-sheet-scroll]` = `PanelFrame` body) is locked below `full`, otherwise
   a drag scrolls the content instead of lifting the sheet. New scrollable panel content must
   use the `PanelFrame` body or carry `data-sheet-scroll`.
-- A new object remounts the sheet (`key`) so it opens at `peek`.
+- A new object remounts the sheet (`key`) so it opens at `initialSnap` (default `peek`).
+- Things that must stay visible over the open sheet (filter chips, `role=status` messages) go in
+  the `above` slot: it rides on the panel's top edge and scrolls with it. At `full` only about
+  one row fits (~55 px on iPhone 15) — put the most important item last (nearest the edge).
+- Board pages (PR4) use `InfoSheet` (`src/components/InfoSheet.tsx`): the sheet needs a
+  positioned parent, and a board page scrolls, so the host is `fixed` between `--header-h` and
+  `--bottom-nav-h`, `pointer-events-none`, `sm:hidden`, opening at `half`. Its content is the
+  same aside components as desktop (one implementation); `useInSheet()` switches e.g.
+  `StationStatsCards` from phone pills back to full tiles.
 - Gestures are verified in e2e only on mobile-chromium (CDP touch); WebKit in Playwright has
   no touch API — iOS momentum/drag needs click-QA on a real iPhone (staging).
 - Inline maps (`MapView` without `rich`) use `cooperativeGestures` with Polish strings so they
