@@ -42,7 +42,7 @@ export function CityPicker({
       <select
         value={current}
         onChange={(event) => choose(event.target.value)}
-        className="glass rounded-lg px-3 py-2 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-indigo-500"
+        className="glass rounded-lg px-3 py-2 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-indigo-500 max-sm:min-h-11 max-sm:text-base"
       >
         {options.map((option) => (
           <option key={option.id} value={option.id}>

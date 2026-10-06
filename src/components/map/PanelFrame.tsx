@@ -87,7 +87,7 @@ export function PanelFrame({
           <CloseIcon size={ICON_SIZE.button} />
         </IconButton>
       </header>
-      <div ref={bodyRef} data-sheet-scroll={inSheet || undefined} className="min-h-0 flex-1 overflow-y-auto p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>
+      <div ref={bodyRef} data-sheet-scroll={inSheet || undefined} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4" tabIndex={bodyTabIndex} aria-label={bodyLabel ?? title}>
         {children}
       </div>
     </section>

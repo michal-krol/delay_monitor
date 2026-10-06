@@ -250,7 +250,7 @@ export default function LineDetailPage() {
               type="button"
               onClick={switchDirection}
               disabled={directions.length < 2}
-              className="inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
+              className="press inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition max-sm:min-h-11 enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
             >
               {/* Spacje tekstowe: w flexie nie zmieniają układu, a nazwa dostępna nie skleja się w „CentrumdoDworzec”. */}
               <span>{direction.origin ?? stops[0]?.name}</span>{' '}
@@ -366,7 +366,7 @@ export default function LineDetailPage() {
                             }
                           }}
                           aria-pressed={active}
-                          className={`mb-2 flex flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm transition ${
+                          className={`press mb-2 flex flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm transition max-sm:min-h-11 max-sm:items-center ${
                             active ? 'bg-black/5 font-semibold text-foreground dark:bg-white/10' : 'text-text-secondary hover:text-foreground'
                           }`}
                         >
