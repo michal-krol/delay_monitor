@@ -61,7 +61,7 @@ function Card({ card }: { card: ShareCard }) {
   )
 }
 
-export function renderShareImage(card: ShareCard): ImageResponse {
+export function shareImageResponse(card: ShareCard): ImageResponse {
   return new ImageResponse(<Card card={card} />, {
     ...SHARE_SIZE,
     headers: { 'Cache-Control': card.kind === 'place' ? CACHE_PLACE : CACHE_GENERIC },

@@ -41,6 +41,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   w prawej kolumnie.
 - Dotknięcie „Aktualizacja … temu” na tablicy stacji i na Pulpicie od razu odświeża dane.
   Pełna data i godzina aktualizacji są w podpowiedzi.
+- Podgląd linku do stacji, przystanku i linii (komunikator, media społecznościowe): karta
+  z logo, nazwą miejsca, ikoną rodzaju transportu i miastem oraz tytuł strony z nazwą zamiast
+  samego „Monitor opóźnień”. Nazwy pochodzą wyłącznie z naszych danych (słownik stacji,
+  rozkład) — nigdy z adresu; nieznany lub niepoprawny identyfikator daje kartę ogólną.
 
 ### Zmienione
 
