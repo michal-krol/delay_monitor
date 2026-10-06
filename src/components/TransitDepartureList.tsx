@@ -149,7 +149,7 @@ export function TransitDepartureList({
     return (
       <ul className="mt-3 space-y-2" aria-hidden="true">
         {[0, 1, 2].map((i) => (
-          <li key={i} className="h-10 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
+          <li key={i} className="h-10 animate-pulse rounded-lg bg-black/5 motion-reduce:animate-none dark:bg-white/5" />
         ))}
       </ul>
     )

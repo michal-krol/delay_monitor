@@ -146,11 +146,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
     router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`)
   }
 
-  const emptyMessage = loading
-    ? 'Wczytywanie…'
-    : direction === 'departures'
-      ? 'Brak odjazdów w najbliższych godzinach'
-      : 'Brak przyjazdów w najbliższych godzinach'
+  const emptyMessage = direction === 'departures' ? 'Brak odjazdów w najbliższych godzinach' : 'Brak przyjazdów w najbliższych godzinach'
 
   return (
     <div className="mt-3 @container">
@@ -185,7 +181,23 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
             </tr>
           </thead>
           <tbody>
-            {visibleRows.length === 0 && (
+            {visibleRows.length === 0 && loading && (
+              <>
+                <tr>
+                  <td colSpan={6} className="sr-only">
+                    Wczytywanie…
+                  </td>
+                </tr>
+                {[0, 1, 2].map((i) => (
+                  <tr key={i} data-testid="skeleton-row" aria-hidden="true">
+                    <td colSpan={6} className="py-2">
+                      <div className="h-12 animate-pulse rounded-lg bg-black/5 motion-reduce:animate-none dark:bg-white/5" />
+                    </td>
+                  </tr>
+                ))}
+              </>
+            )}
+            {visibleRows.length === 0 && !loading && (
               <tr>
                 <td colSpan={6} className="py-6 text-center text-text-muted">
                   {emptyMessage}

@@ -44,4 +44,16 @@ describe('BoardRowList', () => {
     renderRows([ROW])
     expect(screen.getByText(/za 8 min/)).toBeInTheDocument()
   })
+
+  it('loading: skeleton rows instead of a text line, still announced as „Wczytywanie…” to screen readers', () => {
+    render(<BoardRowList rows={[]} now={NOW} loading showEmpty={false} emptyMessage="" />)
+    expect(screen.getAllByTestId('skeleton-row')).toHaveLength(3)
+    expect(screen.getByText('Wczytywanie…')).toHaveClass('sr-only')
+  })
+
+  it('loaded and empty: the empty message, no skeleton („brak odjazdów” ≠ „jeszcze się ładuje”)', () => {
+    render(<BoardRowList rows={[]} now={NOW} loading={false} showEmpty emptyMessage="Brak odjazdów" />)
+    expect(screen.queryByTestId('skeleton-row')).toBeNull()
+    expect(screen.getByText('Brak odjazdów')).toBeInTheDocument()
+  })
 })
