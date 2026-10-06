@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react'
 import type { StationStats } from '@/lib/board/stationStats'
 import { ArrivalIcon, DepartureIcon, HourglassIcon, TargetIcon, ICON_SIZE } from './icons'
 import { pluralPl } from '@/lib/plural'
 import { useInSheet } from './BottomSheet'
+import { StatTile } from './StatTile'
 
 /**
  * Cztery kafelki KPI nad tablicą.
@@ -17,47 +17,6 @@ import { useInSheet } from './BottomSheet'
  * Kafelek „0 pociągów" przy zepsutym pobraniu rozkładu byłby kłamstwem, i to
  * dokładnie tym rodzajem, przed którym stoi AGENTS.md #7.
  */
-
-type CardProps = {
-  icon: ReactNode
-  /** Kolor akcentu ikony — token statusu, nie własny hex (patrz `globals.css`). */
-  accent: string
-  label: string
-  value: string
-  unit?: string
-  hint: string
-  /** W pigułce bez jednostki — „Odjazdy dzisiaj 2” mówi wszystko, a dwa rzędy pigułek zamiast trzech. */
-  hideUnitInPill?: boolean
-}
-
-/**
- * Ta sama karta w dwóch kształtach, bez drugiej kopii w DOM: `pills` — poniżej `sm` pigułka
- * (etykieta + liczba, bez ikony i podpisu), żeby pierwszy odjazd mieścił się na ekranie; od `sm`
- * zwykły kafelek. `tiles` — zawsze kafelek (arkusz „Info”, gdzie jest miejsce na podpis metody).
- */
-function StatCard({ icon, accent, label, value, unit, hint, hideUnitInPill = false, pills }: CardProps & { pills: boolean }) {
-  return (
-    <div className={`glass flex items-start gap-3 rounded-2xl p-4 ${pills ? 'max-sm:items-baseline max-sm:gap-1 max-sm:rounded-full max-sm:px-2.5 max-sm:py-1' : ''}`}>
-      <span
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${pills ? 'max-sm:hidden' : ''}`}
-        style={{ backgroundColor: `color-mix(in srgb, ${accent} 16%, transparent)`, color: accent }}
-        aria-hidden="true"
-      >
-        {icon}
-      </span>
-      <span className={`min-w-0 ${pills ? 'max-sm:flex max-sm:items-baseline max-sm:gap-1.5 max-sm:whitespace-nowrap' : ''}`}>
-        <span className="block text-xs font-medium text-text-muted">{label} </span>
-        <span className="block">
-          <span className={`font-heading text-2xl font-extrabold tracking-tight text-foreground tabular-nums ${pills ? 'max-sm:text-base' : ''}`}>{value}</span>
-          {/* Spacja jest znakiem treści, nie tylko odstępem: `ml-1` daje
-              margines wizualny, ale czytnik ekranu przeczytałby „2pociągi". */}
-          {unit !== undefined && <span className={`ml-1 text-sm text-text-secondary ${pills ? (hideUnitInPill ? 'max-sm:hidden' : 'max-sm:text-xs') : ''}`}> {unit}</span>}
-        </span>
-        <span className={`block text-xs text-text-muted ${pills ? 'max-sm:hidden' : ''}`}>{hint}</span>
-      </span>
-    </div>
-  )
-}
 
 const NO_DATA = 'brak danych'
 const LOADING = '—'
@@ -106,21 +65,21 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
     // nigdy 3 (auto-fill dałby sierotę 3+1).
     <div className="@container" data-testid="station-stats" data-variant={pills ? 'pills' : 'tiles'}>
       <div className={`grid grid-cols-1 gap-3 @md:grid-cols-2 @5xl:grid-cols-4 ${pills ? 'max-sm:flex max-sm:flex-wrap max-sm:gap-1.5' : ''}`}>
-        <StatCard
+        <StatTile
           pills={pills}
           icon={<DepartureIcon size={ICON_SIZE.tile} />}
           accent="var(--status-notStarted-bg)"
           label="Odjazdy dzisiaj"
           {...departures}
         />
-        <StatCard
+        <StatTile
           pills={pills}
           icon={<ArrivalIcon size={ICON_SIZE.tile} />}
           accent="var(--status-onTime-bg)"
           label="Przyjazdy dzisiaj"
           {...arrivals}
         />
-        <StatCard
+        <StatTile
           pills={pills}
           icon={<HourglassIcon size={ICON_SIZE.tile} />}
           accent="var(--status-delayed-bg)"
@@ -129,7 +88,7 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
           unit={loading || safe.averageDelayMinutes === null ? undefined : 'min'}
           hint={realizationHint(loading, safe.averageDelaySample, `z ${safe.averageDelaySample} potwierdzonych dziś przejazdów`)}
         />
-        <StatCard
+        <StatTile
           pills={pills}
           icon={<TargetIcon size={ICON_SIZE.tile} />}
           accent="var(--status-enRoute-bg)"

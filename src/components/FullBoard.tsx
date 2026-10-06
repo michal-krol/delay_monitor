@@ -8,7 +8,7 @@ import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable, StatusLegend } from './BoardTable'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
-import { StationAside } from './StationAside'
+import { PopularDestinations, StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
 import { PageTitle } from './PageTitle'
@@ -176,7 +176,6 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   }, [])
 
   const loading = snapshot === null && error === null
-  const topDestinations = snapshot?.insights?.topDestinations ?? []
   const aside = (
     <StationAside
       insights={snapshot?.insights}
@@ -274,29 +273,9 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                 </div>
               </div>
 
-              {/* Poniżej `xl` prawa kolumna jest pod tablicą albo w arkuszu, więc najpopularniejsze
-                  kierunki są tu, jako filtry nad tablicą (ten sam stan co karta w kolumnie od `xl`).
-                  Przewijane w poziomie zamiast zawijania: pierwszy odjazd ma się zmieścić na ekranie. */}
-              {direction === 'departures' && topDestinations.length > 0 && (
-                <div role="group" aria-label="Najpopularniejsze kierunki" className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 xl:hidden">
-                  {topDestinations.map((destination) => {
-                    const active = destinationFilter === destination.name
-                    return (
-                      <button
-                        key={destination.stationId}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setDestinationFilter(active ? null : destination.name)}
-                        className={`min-h-11 shrink-0 rounded-full border px-3.5 text-sm transition sm:min-h-9 ${
-                          active ? 'border-transparent text-white' : 'border-surface-border text-text-secondary hover:text-foreground'
-                        }`}
-                        style={active ? { background: 'var(--accent-gradient)' } : undefined}
-                      >
-                        {destination.name}
-                      </button>
-                    )
-                  })}
-                </div>
+              {/* Poniżej `xl` kierunki są filtrami nad tablicą (ten sam stan co karta w kolumnie od `xl`). */}
+              {direction === 'departures' && (
+                <PopularDestinations variant="chips" insights={snapshot?.insights} loading={false} onSelect={setDestinationFilter} selected={destinationFilter} />
               )}
 
               <div role="tabpanel" id={panelId} aria-labelledby={tabId(direction)}>

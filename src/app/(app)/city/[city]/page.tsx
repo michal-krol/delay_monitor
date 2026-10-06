@@ -117,7 +117,7 @@ export default function CityPage() {
           <button
             type="button"
             onClick={clearSelection}
-            className="inline-flex items-center gap-2 self-start text-sm font-semibold text-text-secondary hover:text-foreground"
+            className="press touch-44 relative inline-flex items-center gap-2 self-start text-sm font-semibold text-text-secondary hover:text-foreground"
           >
             <ArrowLeftIcon size={ICON_SIZE.button} />
             Wróć do wyszukiwania

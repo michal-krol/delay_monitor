@@ -33,7 +33,7 @@ export function BottomNav() {
               <Link
                 href={item.href}
                 aria-current={isActive ? 'page' : undefined}
-                className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium text-text-secondary transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none focus-visible:ring-inset"
+                className="press flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium text-text-secondary transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none focus-visible:ring-inset"
                 style={
                   isActive
                     ? { background: 'var(--nav-active-bg)', color: 'var(--nav-active-text)', fontWeight: 600 }

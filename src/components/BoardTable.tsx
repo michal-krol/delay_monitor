@@ -146,11 +146,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
     router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`)
   }
 
-  const emptyMessage = loading
-    ? 'Wczytywanie…'
-    : direction === 'departures'
-      ? 'Brak odjazdów w najbliższych godzinach'
-      : 'Brak przyjazdów w najbliższych godzinach'
+  const emptyMessage = direction === 'departures' ? 'Brak odjazdów w najbliższych godzinach' : 'Brak przyjazdów w najbliższych godzinach'
 
   return (
     <div className="mt-3 @container">
@@ -167,16 +163,16 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                   dostępności. Widoczny podpis zostaje, nazwa jest zdaniem. */}
               <th scope="col" aria-label={direction === 'departures' ? 'Odjazd — plan i faktycznie' : 'Przyjazd — plan i faktycznie'} className="py-2 pr-3 pl-3 font-medium text-text-muted">
                 {direction === 'departures' ? 'Odjazd' : 'Przyjazd'}
-                <span className="block text-[11px] font-normal">plan · faktycznie</span>
+                <span className="block text-xs font-normal">plan · faktycznie</span>
               </th>
               <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Pociąg</th>
               <th scope="col" aria-label="Kierunek i przystanki pośrednie" className="py-2 pr-3 font-medium text-text-muted">
                 Kierunek
-                <span className="block text-[11px] font-normal">przez</span>
+                <span className="block text-xs font-normal">przez</span>
               </th>
               <th scope="col" aria-label="Peron i tor" className="py-2 pr-3 font-medium text-text-muted">
                 Peron
-                <span className="block text-[11px] font-normal">tor</span>
+                <span className="block text-xs font-normal">tor</span>
               </th>
               <th scope="col" className="py-2 pr-3 font-medium text-text-muted">
                 Status
@@ -185,7 +181,23 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
             </tr>
           </thead>
           <tbody>
-            {visibleRows.length === 0 && (
+            {visibleRows.length === 0 && loading && (
+              <>
+                <tr>
+                  <td colSpan={6} className="sr-only">
+                    Wczytywanie…
+                  </td>
+                </tr>
+                {[0, 1, 2].map((i) => (
+                  <tr key={i} data-testid="skeleton-row" aria-hidden="true">
+                    <td colSpan={6} className="py-2">
+                      <div className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
+                    </td>
+                  </tr>
+                ))}
+              </>
+            )}
+            {visibleRows.length === 0 && !loading && (
               <tr>
                 <td colSpan={6} className="py-6 text-center text-text-muted">
                   {emptyMessage}

@@ -40,7 +40,7 @@ export function MapFilters({
     <fieldset className="space-y-1">
       <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</legend>
       {keys.map((key) => (
-        <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+        <label key={key} className="press flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 max-sm:min-h-11 dark:hover:bg-white/10">
           <input type="checkbox" checked={!hidden.has(key)} onChange={() => toggle(key)} className="h-4 w-4 accent-indigo-600" />
           <ModeChip mode={LAYER_MODE[key]} />
           {LAYER_LABEL[key]}
@@ -82,7 +82,7 @@ export function MapFilters({
           {group('Punkty', POINT_LAYERS)}
           {vehicleLayers.length > 0 && group('Pojazdy', vehicleLayers)}
           {onAlertsOnly !== undefined && (
-            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+            <label className="press flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 max-sm:min-h-11 dark:hover:bg-white/10">
               <input type="checkbox" checked={alertsOnly} onChange={() => onAlertsOnly(!alertsOnly)} className="h-4 w-4 accent-indigo-600" />
               <AlertCircleIcon size={ICON_SIZE.button} className="shrink-0 text-warning-text" />
               Tylko linie z utrudnieniami
@@ -95,7 +95,7 @@ export function MapFilters({
               onChange(new Set())
               onAlertsOnly?.(false)
             }}
-            className="w-full rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
+            className="press w-full rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 max-sm:min-h-11 dark:hover:bg-white/10"
           >
             Pokaż wszystko
           </button>

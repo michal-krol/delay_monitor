@@ -236,4 +236,17 @@ describe('BoardTable — utrudnienie', () => {
     expect(within(cell('status')).getByRole('img', { name: 'Utrudnienie na trasie' })).toBeInTheDocument()
     expect(within(cell('chevron')).queryByRole('img', { name: 'Utrudnienie na trasie' })).toBeNull()
   })
+
+  it('loading with no rows: skeleton rows, not „Brak odjazdów”; the sr-only „Wczytywanie…” stays', () => {
+    render(<BoardTable stationName="Warszawa Zachodnia" direction="departures" rows={[]} now={NOW} loading />)
+    expect(screen.getAllByTestId('skeleton-row')).toHaveLength(3)
+    expect(screen.getByText('Wczytywanie…')).toHaveClass('sr-only')
+    expect(screen.queryByText(/Brak odjazdów/)).toBeNull()
+  })
+
+  it('loaded with no rows: the empty message, no skeleton', () => {
+    renderTable([])
+    expect(screen.queryByTestId('skeleton-row')).toBeNull()
+    expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
+  })
 })

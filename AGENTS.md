@@ -27,7 +27,7 @@ etc.): read the linked rule file before changing code in its area.** General wor
 | `src/lib/validation.ts`, `urlState.ts`, `cache.ts`, `config.ts` | input patterns, URL view state, `createTtlCache()`, env schema |
 | `src/app/(app)/` | pages (station, connection, city, lines, map) |
 | `src/app/api/` | route handlers (board, train, gtfs/*, weather, health, …) |
-| `src/components/`, `src/hooks/` | UI (flat, transport map in `components/map/`), client hooks; icons only via `components/icons.tsx` (`ui-icons.md`) |
+| `src/components/`, `src/hooks/` | UI (flat, transport map in `components/map/`), client hooks; icons only via `components/icons.tsx` (`ui-icons.md`), UI wording per `ui-copy.md` |
 | `fixtures/`, `data/` | mock payloads (PKP, GTFS per city), static station coordinates |
 | `e2e/` | Playwright suite |
 | `adr/` | architecture decision records (Polish) |

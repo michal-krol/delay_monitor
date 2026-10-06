@@ -76,7 +76,7 @@ export function CityTransitWidget({ city, cityName }: { city: string; cityName: 
                   </span>
                   <span className="text-right font-medium tabular-nums text-foreground">
                     {stats.linesByMode[row.mode]} {pluralPl(stats.linesByMode[row.mode], 'linia', 'linie', 'linii')}
-                    {extras.length > 0 && <span className="block text-[10px] font-normal text-text-muted">{extras.join(' · ')}</span>}
+                    {extras.length > 0 && <span className="block text-xs font-normal text-text-muted">{extras.join(' · ')}</span>}
                   </span>
                 </div>
               )

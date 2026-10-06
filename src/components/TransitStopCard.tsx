@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect } from 'react'
 import { useCities } from '@/hooks/useCities'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
@@ -17,6 +18,12 @@ type Props = {
   /** Przypięty jeden przystanek zespołu (`stopName` ma już numer, „Centrum 02"); brak = cały zespół. */
   member?: boolean
   onRemove: () => void
+  /**
+   * Stary wpis zespołu zapisany pod id przystanku (deep-link, pin z mapy sprzed flagi `member`):
+   * po wczytaniu tablicy zgłasza prawdziwe id zespołu, żeby Pulpit przepisał wpis i gwiazdka na
+   * stronie zespołu się zgadzała. Nie dotyczy przypiętego pojedynczego przystanku (`member`).
+   */
+  onGroupResolved?: (groupId: string) => void
 }
 
 /**
@@ -25,13 +32,17 @@ type Props = {
  * ma opóźnień. Każda karta odpytuje swój przystanek osobno (GTFS nie ma limitu
  * zapytań; Pulpit trzyma kilka przypięć, nie kilkadziesiąt).
  */
-export function TransitStopCard({ city, stopId, stopName, member = false, onRemove }: Props) {
+export function TransitStopCard({ city, stopId, stopName, member = false, onRemove, onGroupResolved }: Props) {
   const { data, loading, failed } = useTransitBoard(city, [stopId], 3, member ? stopId : null)
   // Ten sam wspólny hook `/api/cities` co `CityWeatherCard`/`TransitStopDetail`/
   // strona miasta (Task 9).
   const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
   const board = data?.stops[0] ?? null
+  const groupId = board?.groupId ?? null
+  useEffect(() => {
+    if (!member && groupId !== null && groupId !== stopId) onGroupResolved?.(groupId)
+  }, [member, groupId, stopId, onGroupResolved])
   // Odliczanie „za N min” tyka z odpytywaniem (30 s), bez zegara na kartę.
   const now = useSnapshotNow(data)
   // Zespół: nazwa z rozkładu (aktualna). Jeden przystanek: zapisana nazwa z numerem —

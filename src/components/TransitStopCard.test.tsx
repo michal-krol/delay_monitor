@@ -162,4 +162,36 @@ describe('TransitStopCard', () => {
     expect(screen.getByText('Odjazd z przystanku')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Pokaż przystanek/ })).toHaveAttribute('href', '/city/warszawa/stop/1001')
   })
+
+  describe('legacy group pin saved under a member stop id', () => {
+    const board = (groupId: string) => ({
+      data: { stops: [{ stopId: '100101', groupId, name: 'Centrum', modes: ['tram'], departures: [], members: [] }], schedule: { state: 'ready' }, attribution: [] },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+
+    it('reports the real group id once the board is loaded (the pin is rewritten to it)', () => {
+      useTransitBoard.mockReturnValue(board('1001'))
+      const onGroupResolved = vi.fn()
+      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum" onRemove={vi.fn()} onGroupResolved={onGroupResolved} />)
+      expect(onGroupResolved).toHaveBeenCalledWith('1001')
+    })
+
+    it('stays quiet when the pin already is the group, or is a single member (member: true)', () => {
+      const onGroupResolved = vi.fn()
+      useTransitBoard.mockReturnValue(board('1001'))
+      const { unmount } = render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" onRemove={vi.fn()} onGroupResolved={onGroupResolved} />)
+      unmount()
+      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum 01" member onRemove={vi.fn()} onGroupResolved={onGroupResolved} />)
+      expect(onGroupResolved).not.toHaveBeenCalled()
+    })
+
+    it('stays quiet while the board is loading (unknown group is not a reason to rewrite)', () => {
+      useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+      const onGroupResolved = vi.fn()
+      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum" onRemove={vi.fn()} onGroupResolved={onGroupResolved} />)
+      expect(onGroupResolved).not.toHaveBeenCalled()
+    })
+  })
 })

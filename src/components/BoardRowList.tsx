@@ -19,7 +19,14 @@ type Props = {
 export function BoardRowList({ rows, now, loading, showEmpty, emptyMessage }: Props) {
   return (
     <ul className="mt-4 divide-y divide-black/5 dark:divide-white/5">
-      {loading && <li className="py-2 text-sm text-text-muted">Wczytywanie…</li>}
+      {loading && (
+        <>
+          <li className="sr-only">Wczytywanie…</li>
+          {[0, 1, 2].map((i) => (
+            <li key={i} data-testid="skeleton-row" aria-hidden="true" className="my-2 h-9 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
+          ))}
+        </>
+      )}
       {showEmpty && <li className="py-2 text-sm text-text-muted">{emptyMessage}</li>}
       {rows.map((row) => {
         const countdown = rowCountdown(row, now)

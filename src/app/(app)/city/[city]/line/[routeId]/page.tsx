@@ -250,7 +250,7 @@ export default function LineDetailPage() {
               type="button"
               onClick={switchDirection}
               disabled={directions.length < 2}
-              className="inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
+              className="press inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition max-sm:min-h-11 enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
             >
               {/* Spacje tekstowe: w flexie nie zmieniają układu, a nazwa dostępna nie skleja się w „CentrumdoDworzec”. */}
               <span>{direction.origin ?? stops[0]?.name}</span>{' '}
@@ -366,7 +366,7 @@ export default function LineDetailPage() {
                             }
                           }}
                           aria-pressed={active}
-                          className={`mb-2 flex flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm transition ${
+                          className={`press mb-2 flex flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm transition max-sm:min-h-11 max-sm:items-center ${
                             active ? 'bg-black/5 font-semibold text-foreground dark:bg-white/10' : 'text-text-secondary hover:text-foreground'
                           }`}
                         >
@@ -378,12 +378,12 @@ export default function LineDetailPage() {
                               </span>
                             )}
                             {(first || last) && (
-                              <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-text-muted">
+                              <span className="ml-1.5 text-xs uppercase tracking-[0.08em] text-text-muted">
                                 {first ? 'początek' : 'koniec'}
                               </span>
                             )}
                             {stop.street !== null && (
-                              <span className="ml-2 text-[11px] text-text-muted">{stop.street}</span>
+                              <span className="ml-2 text-xs text-text-muted">{stop.street}</span>
                             )}
                           </span>
                           {stop.wheelchair === 2 && (
@@ -403,7 +403,7 @@ export default function LineDetailPage() {
                     )
                   })}
                 </ol>
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted">
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek</span>
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} aria-hidden="true" /> na żądanie</span>
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek krańcowy</span>

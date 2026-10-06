@@ -17,6 +17,15 @@ describe('PanelFrame', () => {
     expect(screen.getByLabelText('Lista')).toHaveTextContent('treść')
   })
 
+  it('contains overscroll in its scrolling body (no scroll chaining to the page under a sheet)', () => {
+    render(
+      <PanelFrame title="W pobliżu" closeLabel="Zamknij panel" onClose={vi.fn()} bodyLabel="Lista">
+        treść
+      </PanelFrame>,
+    )
+    expect(screen.getByLabelText('Lista')).toHaveClass('overscroll-contain')
+  })
+
   it('focuses the heading on mount and again when focusKey changes', () => {
     const { rerender } = render(
       <PanelFrame title="A" closeLabel="Zamknij" onClose={vi.fn()} focusKey="a">

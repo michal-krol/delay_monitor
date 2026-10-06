@@ -9,7 +9,7 @@ export function OnRequestBadge() {
   return (
     <span
       title={ON_REQUEST_TITLE}
-      className="inline-block shrink-0 whitespace-nowrap rounded border border-surface-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+      className="inline-block shrink-0 whitespace-nowrap rounded border border-surface-border px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
     >
       na żądanie
     </span>

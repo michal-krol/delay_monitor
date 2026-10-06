@@ -113,7 +113,7 @@ export function HourlyTraffic({
           />
         ))}
       </div>
-      <div className="mt-1 flex justify-between text-[10px] text-text-muted tabular-nums">
+      <div className="mt-1 flex justify-between text-xs text-text-muted tabular-nums">
         <span>00</span>
         <span>12</span>
         <span>23</span>

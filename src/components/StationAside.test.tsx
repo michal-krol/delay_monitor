@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { StationAside } from './StationAside'
+import { PopularDestinations, StationAside } from './StationAside'
 import type { StationInsights } from '@/lib/board/stationStats'
 import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
 
@@ -249,5 +249,45 @@ describe('StationAside', () => {
       renderAside({ weather: { status: 'unavailable' } })
       expect(screen.queryByRole('region', { name: /Mapa stacji/ })).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('PopularDestinations', () => {
+  const INSIGHTS = {
+    topDestinations: [
+      { stationId: '1', name: 'Kraków', count: 24 },
+      { stationId: '2', name: 'Gdańsk', count: 1 },
+    ],
+    hourlyTraffic: new Array(24).fill(0),
+  } as unknown as StationInsights
+
+  it('variant="chips": a pressed-state group of name-only buttons that toggles the filter', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    render(<PopularDestinations variant="chips" insights={INSIGHTS} loading={false} onSelect={onSelect} selected="Kraków" />)
+    const group = screen.getByRole('group', { name: 'Najpopularniejsze kierunki' })
+    const kraków = within(group).getByRole('button', { name: 'Kraków' })
+    expect(kraków).toHaveAttribute('aria-pressed', 'true')
+    expect(within(group).getByRole('button', { name: 'Gdańsk' })).toHaveAttribute('aria-pressed', 'false')
+    await user.click(kraków)
+    expect(onSelect).toHaveBeenCalledWith(null)
+    await user.click(within(group).getByRole('button', { name: 'Gdańsk' }))
+    expect(onSelect).toHaveBeenCalledWith('Gdańsk')
+  })
+
+  it('variant="chips": renders nothing when there are no destinations, loading or failed (the board stays uncluttered)', () => {
+    const { container, rerender } = render(<PopularDestinations variant="chips" insights={undefined} loading={false} onSelect={vi.fn()} selected={null} />)
+    expect(container).toBeEmptyDOMElement()
+    rerender(<PopularDestinations variant="chips" insights={undefined} loading onSelect={vi.fn()} selected={null} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('default variant is the list with counts and keeps the loading / failed messages', () => {
+    const { rerender } = render(<PopularDestinations insights={INSIGHTS} loading={false} onSelect={vi.fn()} selected={null} />)
+    expect(screen.getByRole('button', { name: /Kraków/ })).toHaveTextContent('Kraków 24 połączenia')
+    rerender(<PopularDestinations insights={undefined} loading onSelect={vi.fn()} selected={null} />)
+    expect(screen.getByText('Wczytywanie rozkładu…')).toBeInTheDocument()
+    rerender(<PopularDestinations insights={undefined} loading={false} onSelect={vi.fn()} selected={null} />)
+    expect(screen.getByText(/Nie udało się pobrać rozkładu/)).toBeInTheDocument()
   })
 })

@@ -206,7 +206,7 @@ describe('StationCard', () => {
 
     // Ostatni dobry snapshot zostaje na ekranie — błąd odświeżenia nie
     // zastępuje danych czerwonym komunikatem, tylko wiekiem danych (#7).
-    expect(screen.queryByText('Błąd pobierania danych')).not.toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się pobrać danych')).not.toBeInTheDocument()
     expect(screen.getByText(`Nie udało się odświeżyć · dane z ${formatClockTime(fetchedAt)}`)).toBeInTheDocument()
     expect(screen.getByText('IC')).toBeInTheDocument()
   })
@@ -214,7 +214,7 @@ describe('StationCard', () => {
   it('error without snapshot shows error', () => {
     render(<StationCard stationId="5100" stationName="X" snapshot={null} error={true} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
 
-    expect(screen.getByText('Błąd pobierania danych')).toBeInTheDocument()
+    expect(screen.getByText('Nie udało się pobrać danych')).toBeInTheDocument()
   })
 
   it('renders a config error banner instead of the card when configError is true', () => {

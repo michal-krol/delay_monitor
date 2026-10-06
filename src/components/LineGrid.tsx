@@ -182,7 +182,7 @@ export function LineResults({ lines, city }: { lines: LineListEntry[]; city: str
                     <Direction entry={entry} />
                   </span>
                   {chip !== '' && (
-                    <span className="ml-auto whitespace-nowrap rounded-full bg-black/5 px-2 py-0.5 text-[11px] text-text-secondary dark:bg-white/10">{chip}</span>
+                    <span className="ml-auto whitespace-nowrap rounded-full bg-black/5 px-2 py-0.5 text-xs text-text-secondary dark:bg-white/10">{chip}</span>
                   )}
                 </Link>
               </li>

@@ -106,7 +106,7 @@ export function LineSearch({
               role="option"
               aria-label={`Linia ${line.line}${line.longName !== '' ? `, ${line.longName}` : ''}`}
               aria-selected={index === activeIndex}
-              className={`flex cursor-pointer items-center gap-2.5 px-3.5 py-2 text-sm ${
+              className={`flex min-h-11 cursor-pointer items-center gap-2.5 px-3.5 py-2 text-sm ${
                 index === activeIndex ? 'bg-black/5 dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/10'
               }`}
               onMouseDown={(event) => {

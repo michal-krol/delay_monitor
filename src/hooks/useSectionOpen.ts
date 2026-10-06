@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
+import { useMediaQuery } from './useMediaQuery'
 
 const STORAGE_KEY = 'monitor.linesSections.v1'
 const NARROW_QUERY = '(max-width: 767px)'
@@ -34,14 +35,6 @@ function readStorage(): OpenMap {
   }
 }
 
-function isNarrow(): boolean {
-  try {
-    return typeof window.matchMedia === 'function' && window.matchMedia(NARROW_QUERY).matches
-  } catch {
-    return false
-  }
-}
-
 /**
  * Stan rozwinięcia sekcji listy linii. Zapisana wartość wygrywa; bez niej: wąski
  * ekran → zwinięta, szeroki → rozwinięta, gdy linii ≤ 30. Odczyt w efekcie (nie w
@@ -50,19 +43,15 @@ function isNarrow(): boolean {
  */
 export function useSectionOpen() {
   const [stored, setStored] = useState<OpenMap>({})
-  const [narrow, setNarrow] = useState(false)
+  // „Wąsko” na żywo (obrót telefonu, zmiana okna); w SSR „szeroko” — jak przed odczytem pamięci.
+  const narrow = useMediaQuery(NARROW_QUERY, false)
   const storedRef = useRef<OpenMap>({})
-  const narrowRef = useRef(false)
 
   useEffect(() => {
     const initial = readStorage()
-    const initialNarrow = isNarrow()
     storedRef.current = initial
-    narrowRef.current = initialNarrow
-    /* eslint-disable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStored(initial)
-    setNarrow(initialNarrow)
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
 
   const isOpen = useCallback(
@@ -78,7 +67,7 @@ export function useSectionOpen() {
    */
   const setOpen = useCallback((key: string, open: boolean, lineCount: number): void => {
     if (!validKey(key)) return
-    const current = storedRef.current[key] ?? (!narrowRef.current && lineCount <= MAX_LINES_OPEN_BY_DEFAULT)
+    const current = storedRef.current[key] ?? (!narrow && lineCount <= MAX_LINES_OPEN_BY_DEFAULT)
     if (current === open) return
     const next = { ...storedRef.current, [key]: open }
     storedRef.current = next
@@ -88,7 +77,7 @@ export function useSectionOpen() {
     } catch {
       // Pełny/zablokowany storage — sekcja działa do końca sesji, tylko się nie zapamięta.
     }
-  }, [])
+  }, [narrow])
 
   return { isOpen, setOpen }
 }

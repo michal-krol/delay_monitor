@@ -102,6 +102,18 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Telefon: wszystkie przyciski i pola listy mają cel dotyku co najmniej 44 px (wybór miasta,
+  filtry mapy, strona linii, „Wróć do wyszukiwania”), a tekst nigdzie nie jest mniejszy niż
+  12 px. Pola formularzy mają 16 px, więc iPhone nie powiększa ekranu po dotknięciu pola.
+  Karty nie „zostają uniesione” po dotyku, a przyciski mają własny stan wciśnięcia.
+- Ładowanie tablic pokazuje szkielety wierszy zamiast samego napisu „Wczytywanie…”; komunikaty
+  o nieudanym pobraniu mówią jednolicie „Nie udało się …” (słownik w `.claude/rules/ui-copy.md`).
+- Mapa: otwarcie przypiętego zespołu przystanków z menu „Przypięte” pokazuje kartę zespołu
+  z zapełnioną gwiazdką, a stare przypięcia zespołu zapisane pod id przystanku są po wczytaniu
+  Pulpitu przepisywane na id zespołu.
+- Arkusz od dołu nie przeskakuje już na mijany punkt, gdy animacja uchwytu jest wolna
+  (obciążone urządzenie); testy arkusza mapy czekają na dojazd zamiast ścigać się z animacją.
+
 - Ikonę utrudnienia na trasie widać teraz także na tablicy w telefonie (wcześniej stała
   w kolumnie ukrytej w widoku kart).
 - Zakładka „Komunikaty” przystanku podczas wczytywania pisze „Wczytywanie komunikatów…”

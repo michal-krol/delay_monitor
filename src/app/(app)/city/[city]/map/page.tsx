@@ -39,6 +39,7 @@ import {
 } from '@/components/map/mapData'
 import { useCities } from '@/hooks/useCities'
 import { useCityStops } from '@/hooks/useCityStops'
+import type { CityStop } from '@/lib/gtfs/query'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useLineDetail } from '@/hooks/useLineDetail'
@@ -87,6 +88,11 @@ function useCityList<T>(url: string, pick: (json: Record<string, unknown>) => T[
 }
 
 
+/** Zaznaczenie przystanku z listy przystanków miasta (jedno miejsce zamiast kilku kopii literału). */
+function stopSelection(stop: CityStop): Extract<MapSelection, { kind: 'stop' }> {
+  return { kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon }
+}
+
 export default function CityMapPage() {
   const params = useParams<{ city: string }>()
   const city = typeof params.city === 'string' ? params.city : ''
@@ -116,7 +122,7 @@ export default function CityMapPage() {
   const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
   const { share, status: shareStatus } = useShareUrl()
-  const { pinnedItems, addPinned, removePinned, isPinned } = usePinned()
+  const { pinnedItems, addPinned, removePinned, replacePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
@@ -273,7 +279,7 @@ export default function CityMapPage() {
       focusOn(point.lat, point.lon)
     } else {
       const { stop } = point
-      setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      setSelection(stopSelection(stop))
       focusOn(stop.lat, stop.lon)
     }
   }
@@ -292,9 +298,16 @@ export default function CityMapPage() {
   function openPinned(pinnedItem: PinnedPoint): void {
     const fav = pinnedItems.find((f) => pinnedKey(f) === pinnedItem.key)
     if (fav?.kind === 'pkp') onMapSelect({ kind: 'rail', id: fav.id })
-    else {
-      const stop = stopsState.stops?.find((s) => s.id === fav?.id || s.groupId === fav?.id)
+    else if (fav?.kind === 'gtfs' && fav.member === true) {
+      const stop = stopsState.stops?.find((s) => s.id === fav.id)
       if (stop !== undefined) onMapSelect({ kind: 'stop', id: stop.id })
+    } else if (fav?.kind === 'gtfs') {
+      // Przypięty zespół (albo stary wpis pod id przystanku): karta ZESPOŁU, nie pierwszego przystanku —
+      // inaczej klucz przypięcia się nie zgadza i gwiazdka jest pusta.
+      const stop = stopsState.stops?.find((s) => s.groupId === fav.id || s.id === fav.id)
+      if (stop !== undefined) setSelection({ ...stopSelection(stop), id: stop.groupId, code: null })
+      // Stary wpis zespołu pod id przystanku: przepisujemy na id zespołu od razu, żeby gwiazdka na karcie była zapełniona.
+      if (stop !== undefined && fav.id !== stop.groupId) replacePinned(pinnedKey(fav), { ...fav, id: stop.groupId })
     }
     focusOn(pinnedItem.lat, pinnedItem.lon)
   }
@@ -315,7 +328,7 @@ export default function CityMapPage() {
     if (hit.kind === 'vehicle') return setSelection({ kind: 'vehicle', id: hit.id })
     if (hit.kind === 'stop') {
       const stop = stopsState.stops?.find((s) => s.id === hit.id)
-      if (stop !== undefined) setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      if (stop !== undefined) setSelection(stopSelection(stop))
       return
     }
     const station = railState.stations?.find((s) => s.id === hit.id)

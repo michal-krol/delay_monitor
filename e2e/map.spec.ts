@@ -562,6 +562,22 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
 
   const sheet = (page: Page): Locator => page.locator('.bottom-sheet')
 
+  /** Ułamki wysokości z `SHEET_SNAPS` (BottomSheet.tsx). */
+  const SNAP_FRACTION = { peek: 0.25, half: 0.55, full: 0.9 } as const
+
+  /**
+   * Uchwyt przełącza `data-snap` od razu, a przewijanie jedzie płynnie jeszcze chwilę. Kolejny klik w trakcie
+   * animacji to inny scenariusz (osobny test jednostkowy) — tu czekamy na dojazd, żeby test nie ścigał się
+   * z animacją pod obciążeniem (flaky z PR3).
+   */
+  async function clickHandleTo(page: Page, snap: keyof typeof SNAP_FRACTION): Promise<void> {
+    await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+    await expect(sheet(page)).toHaveAttribute('data-snap', snap)
+    await expect
+      .poll(() => sheet(page).evaluate((el, fraction) => Math.abs(el.scrollTop - fraction * el.clientHeight), SNAP_FRACTION[snap]), { message: `arkusz nie dojechał do „${snap}”` })
+      .toBeLessThan(3)
+  }
+
   async function openStopCard(page: Page, name: string, option: string | RegExp = name): Promise<Locator> {
     await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill(name)
     await page.getByRole('option', { name: option }).first().click()
@@ -595,17 +611,13 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     expect((await heading.boundingBox())!.y + 20).toBeLessThan((await page.getByRole('navigation', { name: 'Nawigacja główna' }).boundingBox())!.y)
     const mapBox = (await map.boundingBox())!
     expect((await card.boundingBox())!.y - mapBox.y).toBeGreaterThanOrEqual(0.7 * mapBox.height)
-    for (const snap of ['half', 'full', 'peek']) {
-      await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
-      await expect(sheet(page)).toHaveAttribute('data-snap', snap)
-    }
+    for (const snap of ['half', 'full', 'peek'] as const) await clickHandleTo(page, snap)
   })
 
   test('wyniki wyszukiwania i menu kontrolek leżą nad arkuszem, nie pod nim', async ({ page }) => {
     await openMap(page)
     await openStopCard(page, 'Centrum')
-    await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
-    await expect(sheet(page)).toHaveAttribute('data-snap', 'half')
+    await clickHandleTo(page, 'half')
     const onTop = async (locator: Locator): Promise<boolean> => {
       await locator.scrollIntoViewIfNeeded()
       const box = (await locator.boundingBox())!
@@ -635,10 +647,7 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
   test('nowy panel przy pełnym arkuszu startuje znów nisko (peek)', async ({ page }) => {
     await openMap(page)
     const card = await openStopCard(page, 'Warszawa Centralna', 'Warszawa Centralna')
-    for (const snap of ['half', 'full']) {
-      await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
-      await expect(sheet(page)).toHaveAttribute('data-snap', snap)
-    }
+    for (const snap of ['half', 'full'] as const) await clickHandleTo(page, snap)
     await card.getByRole('button', { name: 'Co jest w pobliżu?' }).click()
     await expect(page.getByRole('dialog', { name: 'W pobliżu' })).toBeVisible()
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
@@ -663,16 +672,13 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     // Przy „full” nad arkuszem zostaje ok. 55 px (iPhone 15): mieści się rząd najbliżej krawędzi —
     // status (ostatni w stosie); chipy wyżej mogą się uciąć (decyzja usera, PR4).
     for (const [snap, visible] of [['half', [chips, problem]], ['full', [problem]]] as const) {
-      await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
-      await expect(sheet(page)).toHaveAttribute('data-snap', snap)
-      await page.waitForTimeout(400) // płynne przewijanie do punktu
+      await clickHandleTo(page, snap)
       for (const locator of visible) {
         await expect(locator).toBeInViewport()
         expect(await uncovered(locator), `${snap}: zasłonięte`).toBe(true)
       }
     }
-    await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
-    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    await clickHandleTo(page, 'peek')
     await chips.getByRole('button', { name: 'Pokaż: przystanki autobusowe' }).click()
     await expect(page).not.toHaveURL(/[?&]hide=/)
   })
@@ -682,10 +688,7 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await openStopCard(page, 'Centrum')
     const body = page.locator('.bottom-sheet [data-sheet-scroll]')
     await expect(body).toHaveCSS('overflow-y', 'hidden')
-    for (const snap of ['half', 'full']) {
-      await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
-      await expect(sheet(page)).toHaveAttribute('data-snap', snap)
-    }
+    for (const snap of ['half', 'full'] as const) await clickHandleTo(page, snap)
     await expect(body).toHaveCSS('overflow-y', 'auto')
   })
 

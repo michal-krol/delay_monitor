@@ -101,7 +101,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
 
       {error && !snapshot && (
         <p aria-live="polite" className="mt-1 text-xs text-error-text">
-          Błąd pobierania danych
+          Nie udało się pobrać danych
         </p>
       )}
       {error && snapshot && (

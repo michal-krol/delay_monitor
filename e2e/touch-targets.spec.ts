@@ -78,3 +78,61 @@ test('przełącznik paska bocznego (desktop) ma obszar trafienia >= 44×44', asy
   expect(w).toBeGreaterThanOrEqual(44)
   expect(h).toBeGreaterThanOrEqual(44)
 })
+
+// PR5: pozostałe cele dotyku na telefonie. „Cel” = większy z rozmiarów pola przycisku
+// i niewidocznego `::after` (`touch-44`) — obie drogi spełniają WCAG 2.5.5.
+async function hitHeight(el: Locator): Promise<number> {
+  return el.evaluate((node) => {
+    const after = parseFloat(getComputedStyle(node, '::after').height)
+    return Math.max(node.getBoundingClientRect().height, Number.isNaN(after) ? 0 : after)
+  })
+}
+
+test.describe('PR5: cele dotyku na telefonie', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name === 'desktop-chromium', 'cele dotyku dotyczą telefonu (poniżej sm)')
+  })
+
+  test('CityPicker: select ma >= 44 px wysokości', async ({ page }) => {
+    await page.goto('/city/warszawa/lines')
+    expect(await hitHeight(page.getByRole('combobox', { name: 'Miasto' }))).toBeGreaterThanOrEqual(44)
+  })
+
+  test('MapFilters: wiersze warstw i „Pokaż wszystko” mają >= 44 px', async ({ page }) => {
+    await page.goto('/city/warszawa/map')
+    await page.getByRole('button', { name: /Filtry/ }).click()
+    const rows = page.getByRole('checkbox').locator('xpath=ancestor::label[1]')
+    await expect(rows.first()).toBeVisible({ timeout: READY })
+    for (let i = 0; i < (await rows.count()); i++) expect(await hitHeight(rows.nth(i))).toBeGreaterThanOrEqual(44)
+    expect(await hitHeight(page.getByRole('button', { name: 'Pokaż wszystko' }))).toBeGreaterThanOrEqual(44)
+  })
+
+  test('strona linii: pigułka kierunku i przystanek na osi mają >= 44 px', async ({ page }) => {
+    await page.goto('/city/warszawa/line/20')
+    await expect(page.getByRole('heading', { name: /^Trasa linii/ })).toBeAttached({ timeout: READY })
+    expect(await hitHeight(page.getByRole('button', { name: /zmień kierunek/ }))).toBeGreaterThanOrEqual(44)
+    const stop = page.getByRole('list').getByRole('button', { pressed: false }).first()
+    await expect(stop).toBeVisible({ timeout: READY })
+    expect(await hitHeight(stop)).toBeGreaterThanOrEqual(44)
+  })
+
+  test('„Wróć do wyszukiwania” ma >= 44 px', async ({ page }) => {
+    await page.goto('/city/warszawa?station=33605&name=Warszawa%20Centralna')
+    const back = page.getByRole('button', { name: 'Wróć do wyszukiwania' })
+    await expect(back).toBeVisible({ timeout: READY })
+    expect(await hitHeight(back)).toBeGreaterThanOrEqual(44)
+  })
+})
+
+test('pola input i select mają font >= 16 px na telefonie', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'desktop-chromium', 'iOS zoomuje pole tylko na telefonie')
+  const FIELDS = 'input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea'
+  for (const path of ['/', '/city/warszawa', '/city/warszawa/lines', '/city/warszawa/map']) {
+    await page.goto(path)
+    await expect(page.locator(FIELDS).first()).toBeAttached({ timeout: READY })
+    const small = await page.locator(FIELDS).evaluateAll((nodes) =>
+      nodes.map((n) => ({ n: (n as HTMLElement).getAttribute('aria-label') ?? n.tagName, px: parseFloat(getComputedStyle(n).fontSize) })).filter((f) => f.px < 16),
+    )
+    expect(small, `${path}: pola poniżej 16 px`).toEqual([])
+  }
+})
