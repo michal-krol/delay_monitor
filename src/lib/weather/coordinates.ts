@@ -60,3 +60,9 @@ export const getMapRailStations = once(async (): Promise<MapRailStation[]> => {
   }
   return stations
 })
+
+/** Nazwa stacji z tego samego pliku — źródło nazw dla kart podglądu linków (zero zapytań do PKP, #3). `null` = nieznane ID. */
+export async function getStationName(stationId: string): Promise<string | null> {
+  const all = await loadCoordinates()
+  return Object.hasOwn(all, stationId) ? all[stationId].name : null
+}

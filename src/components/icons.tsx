@@ -163,11 +163,12 @@ export const TramIcon = /* @__PURE__ */ lucideIcon(TramFront)
 
 export function MetroIcon(props: IconProps) {
   return base(
-    <>
+    // `<g>`, nie fragment: Satori (karty podglądu linków, `lib/share/render.tsx`) nie przyjmuje fragmentów w `<svg>`.
+    <g>
       {/* Własny piktogram (koło + „M”), nie oficjalne logo Metra Warszawskiego. */}
       <circle cx="12" cy="12" r="9.1" />
       <path d="M7.7 16.1V8.2l4.3 5.3 4.3-5.3v7.9" />
-    </>,
+    </g>,
     props
   )
 }
