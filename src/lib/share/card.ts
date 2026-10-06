@@ -20,16 +20,18 @@ export type ShareLookups = {
 }
 
 const GENERIC: ShareCard = { kind: 'generic' }
-const MAX_TEXT = 80
+// Limity tak dobrane, żeby tekst mieścił się na karcie 1200×630 (tytuł ≤ 3 linie, opis ≤ 1 linia).
+const MAX_TITLE = 60
+const MAX_DETAIL = 48
 
-const clamp = (text: string): string => text.slice(0, MAX_TEXT)
+const clamp = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text)
 
 export async function resolveRailCard(stationId: string, lookups: ShareLookups): Promise<ShareCard> {
   if (!STATION_ID_PATTERN.test(stationId)) return GENERIC
   try {
     const name = await lookups.railStationName(stationId)
     if (name === null) return GENERIC
-    return { kind: 'place', label: 'Stacja kolejowa', title: clamp(name), detail: null, mode: 'rail', city: null }
+    return { kind: 'place', label: 'Stacja kolejowa', title: clamp(name, MAX_TITLE), detail: null, mode: 'rail', city: null }
   } catch {
     return GENERIC
   }
@@ -51,7 +53,7 @@ export async function resolveStopCard(city: string, stopSegment: string, lookups
   if (found === null) return GENERIC
   const group = stopGroup(found.schedule, stopId)
   if (group === null) return GENERIC
-  return { kind: 'place', label: 'Przystanek', title: clamp(group.name), detail: null, mode: group.modes[0] ?? 'other', city: found.name }
+  return { kind: 'place', label: 'Przystanek', title: clamp(group.name, MAX_TITLE), detail: null, mode: group.modes[0] ?? 'other', city: found.name }
 }
 
 export async function resolveLineCard(city: string, routeId: string, lookups: ShareLookups): Promise<ShareCard> {
@@ -62,8 +64,8 @@ export async function resolveLineCard(city: string, routeId: string, lookups: Sh
   const route = routeIdx === undefined ? undefined : found.schedule.routes[routeIdx]
   if (route === undefined) return GENERIC
   const line = route.shortName || route.longName || route.id
-  const detail = route.longName !== '' && route.longName !== line ? clamp(route.longName) : null
-  return { kind: 'place', label: 'Linia', title: clamp(line), detail, mode: route.mode, city: found.name }
+  const detail = route.longName !== '' && route.longName !== line ? clamp(route.longName, MAX_DETAIL) : null
+  return { kind: 'place', label: 'Linia', title: clamp(line, MAX_TITLE), detail, mode: route.mode, city: found.name }
 }
 
 /** Tytuł strony/podglądu; `null` = zostaje tytuł z root layoutu. */

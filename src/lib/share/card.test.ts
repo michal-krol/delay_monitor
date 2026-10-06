@@ -55,11 +55,11 @@ describe('rail card', () => {
     const broken: ShareLookups = { ...l, railStationName: async () => { throw new Error('boom') } }
     expect(await resolveRailCard('273', broken)).toEqual({ kind: 'generic' })
   })
-  it('title is clamped to 80 chars', async () => {
+  it('title is clamped to 60 chars with an ellipsis', async () => {
     const { l } = await lookups()
     const long: ShareLookups = { ...l, railStationName: async () => 'X'.repeat(300) }
     const card = await resolveRailCard('273', long)
-    expect(card.kind === 'place' && card.title.length).toBe(80)
+    expect(card.kind === 'place' && card.title).toBe(`${'X'.repeat(59)}…`)
   })
 })
 
