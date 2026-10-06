@@ -14,6 +14,7 @@ import type { RealizationStatus } from '@/lib/board/realization'
 import { formatClockTime } from '@/lib/format'
 import { realizedTime, rowCountdown } from './boardTime'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -145,7 +146,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   function openDetails(row: BoardApiRow): void {
     // encodeURIComponent, nie URLSearchParams (form-encoding zamieniłoby
     // spacje na `+`) -- ta sama konwencja co /station/[stationId] w page.tsx.
-    router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`)
+    router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`, NAV_FORWARD_OPTIONS)
   }
 
   const emptyMessage = direction === 'departures' ? 'Brak odjazdów w najbliższych godzinach' : 'Brak przyjazdów w najbliższych godzinach'

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { NAV_TAB_TYPES } from '@/lib/navTransition'
 import { HomeIcon, DeparturesBoardIcon, RouteIcon, MapIcon } from './icons'
 
 export type ActiveItem = 'pulpit' | 'odjazdy' | 'linie' | 'mapa'
@@ -50,6 +51,7 @@ export function NavList({ activeItem, collapsed = false }: { activeItem?: Active
           <Link
             key={item.key}
             href={item.href}
+            transitionTypes={NAV_TAB_TYPES}
             aria-current={isActive ? 'page' : undefined}
             aria-label={item.label}
             className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary transition"

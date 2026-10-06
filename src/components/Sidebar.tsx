@@ -48,6 +48,7 @@ export function Sidebar({ activeItem, onSearch }: Props) {
       className="glass-chrome hidden shrink-0 flex-col gap-6 self-start sticky top-0 h-dvh overflow-y-auto border-r p-4 transition-[width] duration-200 sm:flex"
       style={{
         width: collapsed ? '76px' : '252px',
+        viewTransitionName: 'site-sidebar',
         borderColor: 'var(--sidebar-border)',
       }}
     >

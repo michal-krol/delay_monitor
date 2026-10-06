@@ -587,6 +587,92 @@ details[open] > summary .disclosure-chevron,
   }
 }
 
+/* Przejścia widoku (PR 6; `<ViewTransition>` z Reacta, typy w `src/lib/navTransition.ts`). Przeglądarki bez
+   View Transitions API po prostu nie animują. Czasy z tokenów ruchu (zerowe przy reduced-motion);
+   dodatkowo pas bezpieczeństwa niżej gasi ruch także tam, gdzie klasa przejścia mimo wszystko zadziała. */
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vt-slide {
+  from {
+    translate: var(--vt-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+/* Do przodu: stara treść ucieka w lewo, nowa wjeżdża z prawej. Wstecz: odwrotnie. */
+::view-transition-old(.nav-forward) {
+  --vt-offset: -24px;
+  animation:
+    var(--duration-fast) ease-in both vt-fade reverse,
+    var(--duration-slow) ease-in-out both vt-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --vt-offset: 24px;
+  animation:
+    var(--duration-base) ease-out var(--duration-fast) both vt-fade,
+    var(--duration-slow) ease-in-out both vt-slide;
+}
+::view-transition-old(.nav-back) {
+  --vt-offset: 24px;
+  animation:
+    var(--duration-fast) ease-in both vt-fade reverse,
+    var(--duration-slow) ease-in-out both vt-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --vt-offset: -24px;
+  animation:
+    var(--duration-base) ease-out var(--duration-fast) both vt-fade,
+    var(--duration-slow) ease-in-out both vt-slide;
+}
+/* Zakładka paska: sam krzyżowy zanik, bez ruchu. */
+::view-transition-old(.nav-tab) {
+  animation: var(--duration-fast) ease-in both vt-fade reverse;
+}
+::view-transition-new(.nav-tab) {
+  animation: var(--duration-base) ease-out var(--duration-fast) both vt-fade;
+}
+/* Tytuł kafelka → nagłówek tablicy. */
+::view-transition-group(.morph) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-out);
+}
+/* Kotwice: nagłówek, dolny pasek i pasek boczny stoją w miejscu, gdy treść jedzie. */
+::view-transition-group(site-header),
+::view-transition-group(site-bottom-nav),
+::view-transition-group(site-sidebar) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header),
+::view-transition-old(site-bottom-nav),
+::view-transition-old(site-sidebar) {
+  display: none;
+}
+::view-transition-new(site-header),
+::view-transition-new(site-bottom-nav),
+::view-transition-new(site-sidebar) {
+  animation: none;
+}
+/* Kliknięcia w trakcie przejścia trafiają w żywą stronę, nie w nakładkę. */
+::view-transition {
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
 /* Mikroanimacje z makiety Claude Design ("Czy dojadę? — Makieta dashboardu",
    artboardy Main/EmptyState/ErrorStates) — przeniesione 1:1 co do wartości. */
 @keyframes softBreathe {

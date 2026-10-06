@@ -26,6 +26,7 @@ import { TransitDepartureList } from './TransitDepartureList'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from './icons'
 import { PageTitle } from './PageTitle'
+import { PlaceTitle } from './PlaceTitle'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { IconButton } from './IconButton'
 import { StatTile } from './StatTile'
@@ -272,9 +273,17 @@ export function TransitStopDetail({
           <div className="flex flex-wrap items-start justify-between gap-3 max-sm:flex-nowrap">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <PageTitle as={embedded ? 'h2' : 'h1'} className="max-sm:text-xl">
-                  {stopName}
-                </PageTitle>
+                {embedded ? (
+                  <PageTitle as="h2" className="max-sm:text-xl">
+                    {stopName}
+                  </PageTitle>
+                ) : (
+                  <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>
+                    <PageTitle as="h1" className="max-sm:text-xl">
+                      {stopName}
+                    </PageTitle>
+                  </PlaceTitle>
+                )}
                 {board?.wheelchairNote != null && (
                   <span className="text-warning-text">
                     <AccessibleIcon

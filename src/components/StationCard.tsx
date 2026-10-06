@@ -4,6 +4,7 @@ import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { IconButton } from './IconButton'
 import { StarIcon, TrainIcon, ICON_SIZE } from './icons'
 import { BoardRowList } from './BoardRowList'
+import { PlaceTitle } from './PlaceTitle'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
@@ -80,7 +81,9 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">{stationName}</h2>
+        <PlaceTitle kind="pkp" id={stationId}>
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{stationName}</h2>
+        </PlaceTitle>
         <div className="flex shrink-0 items-center gap-1.5">
           {delayedCount > 0 && (
             /* Ten sam bursztynowy chip co „Utrudnienie" w panelu szczegółów

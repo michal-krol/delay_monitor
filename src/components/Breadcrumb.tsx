@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { NAV_BACK_TYPES } from '@/lib/navTransition'
 
 export type BreadcrumbItem = { label: string; href?: string }
 
@@ -25,7 +26,7 @@ export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
               </span>
             )}
             {!isCurrent && item.href !== undefined ? (
-              <Link href={item.href} className="transition hover:text-foreground">
+              <Link href={item.href} transitionTypes={NAV_BACK_TYPES} className="transition hover:text-foreground">
                 {item.label}
               </Link>
             ) : (

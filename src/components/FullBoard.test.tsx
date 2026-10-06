@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
 import { jsonResponse } from '@/test-utils/http'
 import { stubMatchMedia } from '@/test-utils/media'
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 // Szczegóły połączenia mają teraz własną trasę (`/connection/...`) — klik w
 // wiersz nawiguje przez `router.push`, zamiast otwierać panel w miejscu.
@@ -374,7 +375,7 @@ describe('FullBoard', () => {
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await user.click(await screen.findByRole('button', { name: 'EIC 1' }))
 
-    expect(push).toHaveBeenCalledWith('/connection/2026/12345/2026-08-01?train=EIC%201')
+    expect(push).toHaveBeenCalledWith('/connection/2026/12345/2026-08-01?train=EIC%201', NAV_FORWARD_OPTIONS)
   })
 
   it('does not make the row clickable when operatingDate is missing', async () => {

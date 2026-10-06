@@ -10,6 +10,7 @@ import { TransitDepartureList } from './TransitDepartureList'
 import { stopsWithLines } from './stopName'
 import { IconButton } from './IconButton'
 import { StarIcon, ICON_SIZE } from './icons'
+import { PlaceTitle } from './PlaceTitle'
 
 type Props = {
   city: string
@@ -56,7 +57,9 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onRemo
   return (
     <article className="glass card-press group relative isolate w-full overflow-hidden rounded-2xl border border-surface-border p-5">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">{name}</h2>
+        <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>
+          <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">{name}</h2>
+        </PlaceTitle>
         <IconButton label={`Odepnij z Pulpitu: ${name}`} onClick={onRemove} className="z-10">
           <StarIcon size={ICON_SIZE.button} filled />
         </IconButton>

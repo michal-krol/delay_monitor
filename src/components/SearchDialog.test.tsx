@@ -7,6 +7,7 @@ import { __resetCityContext } from '@/hooks/useCityContext'
 import { resetCitiesCacheForTests, type CityEntry } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 import { stubDialogMethods } from '@/test-utils/dialog'
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 const usePathname = vi.fn()
 const push = vi.fn()
@@ -136,7 +137,7 @@ describe('SearchDialog', () => {
     await user.type(await screen.findByRole('combobox'), 'cent')
     await vi.advanceTimersByTimeAsync(300)
     await user.click(await screen.findByRole('option', { name: 'Centrum' }))
-    expect(push).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum')
+    expect(push).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum', NAV_FORWARD_OPTIONS)
     expect(onClose).toHaveBeenCalled()
   })
 
@@ -149,7 +150,7 @@ describe('SearchDialog', () => {
     await user.type(await screen.findByRole('combobox'), 'zach')
     await vi.advanceTimersByTimeAsync(300)
     await user.click(await screen.findByRole('option', { name: 'Warszawa Zachodnia' }))
-    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Zachodnia')
+    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Zachodnia', NAV_FORWARD_OPTIONS)
     expect(onClose).toHaveBeenCalled()
   })
 

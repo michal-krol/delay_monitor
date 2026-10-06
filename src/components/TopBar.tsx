@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import { NAV_BACK_TYPES } from '@/lib/navTransition'
 import { ArrowLeftIcon, ICON_SIZE } from './icons'
 import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
 import { ICON_BUTTON_CLASS, ICON_BUTTON_MD_SIZE, IconButton } from './IconButton'
@@ -58,7 +59,7 @@ export function TopBar(props: Props) {
       {back !== null ? (
         <div className="flex min-w-0 items-center gap-3">
           {back.backHref !== undefined ? (
-            <Link href={back.backHref} aria-label={back.backLabel} className={`${ICON_BUTTON_CLASS} ${ICON_BUTTON_MD_SIZE}`}>
+            <Link href={back.backHref} transitionTypes={NAV_BACK_TYPES} aria-label={back.backLabel}className={`${ICON_BUTTON_CLASS} ${ICON_BUTTON_MD_SIZE}`}>
               <ArrowLeftIcon size={ICON_SIZE.button} />
             </Link>
           ) : (

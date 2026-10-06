@@ -10,6 +10,7 @@ import { CloseIcon, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { RecentPlaces } from './RecentPlaces'
 import { StationSearch, type StationOption } from './StationSearch'
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 /** Segment po `/city/` — format sprawdza `CITY_ID_PATTERN` (AGENTS.md #4), nie ten regex. */
 const PATH_CITY_SEGMENT = /^\/city\/([^/]+)/
@@ -89,9 +90,9 @@ function SearchDialogBody({ onClose }: { onClose: () => void }) {
   function select(option: StationOption): void {
     const name = encodeURIComponent(option.name)
     if (option.kind === 'transit' && city !== null) {
-      router.push(`/city/${city}/stop/${encodeStopIdForPathSegment(option.id)}?name=${name}`)
+      router.push(`/city/${city}/stop/${encodeStopIdForPathSegment(option.id)}?name=${name}`, NAV_FORWARD_OPTIONS)
     } else {
-      router.push(`/station/${option.id}?name=${name}`)
+      router.push(`/station/${option.id}?name=${name}`, NAV_FORWARD_OPTIONS)
     }
     onClose()
   }

@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import { pluralPl } from '@/lib/plural'
+import { NavTransition } from './NavTransition'
 
 /**
  * Prawa kolumna kontekstowa — pozycjonowanie wspólne dla czterech ekranów
@@ -41,11 +42,15 @@ export function PageAside({ children }: { children: ReactNode }) {
  */
 export function PageShell({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
-    // Kolumna na węższych ekranach (aside pod treścią), wiersz od `xl`.
-    <div className="flex min-w-0 flex-1 flex-col xl:flex-row">
-      <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">{children}</main>
-      {aside !== undefined && <PageAside>{aside}</PageAside>}
-    </div>
+    // `NavTransition` MUSI być zewnętrznym elementem strony: zagnieżdżony wewnątrz węzła DOM, który sam się
+    // wstawia/usuwa, nie dostaje wejścia/wyjścia (potwierdzone w przeglądarce). Dlatego owija cały korzeń.
+    <NavTransition>
+      {/* Kolumna na węższych ekranach (aside pod treścią), wiersz od `xl`. */}
+      <div className="flex min-w-0 flex-1 flex-col xl:flex-row">
+        <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">{children}</main>
+        {aside !== undefined && <PageAside>{aside}</PageAside>}
+      </div>
+    </NavTransition>
   )
 }
 

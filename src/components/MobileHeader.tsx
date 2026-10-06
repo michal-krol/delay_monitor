@@ -15,6 +15,8 @@ export function MobileHeader({ onSearch }: { onSearch: () => void }) {
       className="sticky top-0 z-30 flex items-center justify-between gap-2 glass-chrome border-b px-4 sm:hidden"
       style={{
         height: 'var(--header-h)',
+        // Kotwica: pasek stoi w miejscu podczas przesunięcia treści (`globals.css`, „View transitions”).
+        viewTransitionName: 'site-header',
         paddingTop: 'env(safe-area-inset-top)',
         borderColor: 'var(--sidebar-border)',
       }}
