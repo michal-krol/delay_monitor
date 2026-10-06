@@ -26,8 +26,9 @@
      kontrastu, nie samego `color-scheme`. Ten sam odcień co ostatni stop
      gradientu -- wizualnie niewidoczny, leży pod obrazem. */
   --bg-base: #eef0f8;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-strong: rgba(255, 255, 255, 0.88);
+  /* Karty treści prawie kryjące (PR 6): bez rozmycia, kontrast i koszt GPU; szkło to tylko pływający chrome (`glass-chrome`). */
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-strong: rgba(255, 255, 255, 0.95);
   /* Nieprzezroczyste tło arkusza od dołu (`BottomSheet`) — szkło nad mapą psuło kontrast treści. */
   --sheet-surface: #ffffff;
   --surface-border: rgba(15, 23, 42, 0.08);
@@ -67,8 +68,8 @@
     radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.1), transparent 55%),
     linear-gradient(180deg, #0a0f1c 0%, #070b14 100%);
   --bg-base: #070b14;
-  --surface: rgba(15, 23, 42, 0.55);
-  --surface-strong: rgba(15, 23, 42, 0.75);
+  --surface: rgba(15, 23, 42, 0.8);
+  --surface-strong: rgba(15, 23, 42, 0.9);
   --sheet-surface: #0f172a;
   --surface-border: rgba(255, 255, 255, 0.08);
   --surface-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
@@ -288,7 +289,10 @@ details[open] > summary .disclosure-chevron,
   flex-direction: column;
   height: 90%;
   pointer-events: auto;
-  background-color: var(--sheet-surface);
+  /* Szkło arkusza: prawie kryjące (94%), żeby axe i czytelność nie zależały od kafelków mapy pod spodem. */
+  background-color: color-mix(in srgb, var(--sheet-surface) 94%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
   border-top: 1px solid var(--surface-border);
   border-radius: 1rem 1rem 0 0;
   box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
@@ -328,20 +332,43 @@ details[open] > summary .disclosure-chevron,
   overflow-y: hidden;
 }
 
+/* Karta treści: prawie kryjąca, BEZ `backdrop-filter` (PR 6). Pływające paski, menu i kontrolki mapy: `glass-chrome*` niżej. */
 @utility glass {
   background-color: var(--surface);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
   border: 1px solid var(--surface-border);
   box-shadow: var(--surface-shadow);
 }
 
 @utility glass-strong {
   background-color: var(--surface-strong);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
   border: 1px solid var(--surface-border);
   box-shadow: var(--surface-shadow);
+}
+
+/* Szkło tylko na pływającym chromie (PR 6): nagłówek, dolny pasek, pasek boczny, kontrolki i menu mapy,
+   pastylka offline, arkusze. Samo tło + rozmycie; ramkę i cień dokłada wywołujący (pasek: jedna krawędź,
+   kontrolka: `border border-surface-border shadow-md`). Tło zostaje na tyle kryjące, by axe liczył kontrast
+   względem nieprzezroczystego `body` (patrz `color-scheme` wyżej) — nie wolno schodzić z alfy poniżej ~0,6. */
+@utility glass-chrome {
+  background-color: var(--sidebar-bg);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+@utility glass-chrome-strong {
+  background-color: color-mix(in srgb, var(--sheet-surface) 88%, transparent);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+/* Prośba o mniej przezroczystości albo tryb wysokiego kontrastu: pełne tło, bez rozmycia. Zwykła reguła
+   (poza warstwami) bije utility Tailwinda. */
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .glass-chrome,
+  .glass-chrome-strong,
+  .bottom-sheet__panel {
+    background-color: var(--sheet-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 /* MapLibre wendoruje własny CSS (importowany wyżej) z twardo wpisanym

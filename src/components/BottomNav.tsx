@@ -16,9 +16,8 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Nawigacja główna"
-      className="fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur-md sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 glass-chrome border-t sm:hidden"
       style={{
-        background: 'var(--sidebar-bg)',
         borderColor: 'var(--sidebar-border)',
         paddingBottom: 'env(safe-area-inset-bottom)',
         paddingInline: 'env(safe-area-inset-left) env(safe-area-inset-right)',

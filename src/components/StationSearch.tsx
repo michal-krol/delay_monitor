@@ -213,7 +213,7 @@ export function StationSearch({
       {message !== null && (
         <p
           role="status"
-          className={`glass-strong ${layerClass} w-full rounded-xl px-3.5 py-2 text-sm ${
+          className={`glass-chrome-strong border border-surface-border ${layerClass} w-full rounded-xl px-3.5 py-2 text-sm ${
             status === 'error' ? 'text-error-text' : 'text-text-secondary'
           }`}
         >
@@ -224,7 +224,7 @@ export function StationSearch({
         <ul
           id={listboxId}
           role="listbox"
-          className={`glass-strong ${layerClass} w-full overflow-hidden rounded-xl py-1`}
+          className={`glass-chrome-strong border border-surface-border ${layerClass} w-full overflow-hidden rounded-xl py-1`}
         >
           {options.map((option, index) => {
             const Icon = option.mode ? MODE_ICON[option.mode] : null

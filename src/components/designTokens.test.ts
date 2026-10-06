@@ -147,6 +147,43 @@ describe('design tokens', () => {
     expect(offenders(/motion-reduce:animate-none/)).toEqual([])
   })
 
+  it('blur comes only from the glass-chrome utilities in globals.css (no backdrop-blur-* classes)', () => {
+    expect(offenders(/backdrop-blur/)).toEqual([])
+  })
+
+  it('content cards (.glass, .glass-strong) carry no backdrop-filter — blur over a flat page is invisible and costs GPU', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    for (const name of ['glass', 'glass-strong']) {
+      const body = css.match(new RegExp(`@utility ${name} \\{([^}]*)\\}`))?.[1]
+      expect(body, name).toBeDefined()
+      expect(body, name).not.toContain('backdrop-filter')
+    }
+  })
+
+  it('glass-chrome falls back to solid under prefers-reduced-transparency', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const block = css.match(/@media \(prefers-reduced-transparency: reduce\)[^{]*\{([\s\S]*?\n\})/)?.[1] ?? ''
+    expect(block).toContain('.glass-chrome')
+    expect(block).toContain('.glass-chrome-strong')
+    expect(block).toContain('backdrop-filter: none')
+    expect(block).toContain('var(--sheet-surface)')
+  })
+
+  it('floating chrome (map controls, menus, offline pill, nav bars) uses glass-chrome, not the content-card glass', () => {
+    const contentGlass = /(^|[\s"'`])glass(-strong)?(?![-\w])/
+    const chromeFiles = (file: string): boolean =>
+      !(file.startsWith('components/map/') || ['components/OfflineBanner.tsx', 'components/MobileHeader.tsx', 'components/BottomNav.tsx'].includes(file))
+    // Mapa: kontrolki, menu i panele; tekst komentarzy pomijamy (linie zaczynające się od `//`, `*`, `{/*`).
+    const hits = offenders(contentGlass, chromeFiles).filter((hit) => !/:\d+\s+(\/\/|\*|\{\/\*)/.test(hit))
+    expect(hits).toEqual([])
+  })
+
+  it('the sheet panel is near-opaque, not fully transparent (axe contrast over the map canvas)', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const panel = css.match(/\.bottom-sheet__panel \{([^}]*)\}/)?.[1] ?? ''
+    expect(panel).toMatch(/color-mix\(in srgb, var\(--sheet-surface\) (9\d)%/)
+  })
+
   it('globals.css kills the grey tap flash and defines the own press state', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     expect(css).toContain('-webkit-tap-highlight-color: transparent')

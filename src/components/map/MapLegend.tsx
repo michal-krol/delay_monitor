@@ -26,7 +26,7 @@ const VEHICLES: [GtfsMode, string][] = [
  */
 export function MapLegend() {
   return (
-    <details className="glass-strong pointer-events-auto max-h-full w-56 overflow-y-auto rounded-2xl text-sm shadow-lg">
+    <details className="glass-chrome-strong border border-surface-border pointer-events-auto max-h-full w-56 overflow-y-auto rounded-2xl text-sm shadow-lg">
       <summary className="flex min-h-11 cursor-pointer select-none list-none items-center justify-between rounded-2xl px-4 font-semibold [&::-webkit-details-marker]:hidden">
         Legenda <DisclosureIcon size={ICON_SIZE.inline} className="text-text-muted" />
       </summary>

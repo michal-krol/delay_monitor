@@ -12,11 +12,10 @@ import { ThemeToggle } from './ThemeToggle'
 export function MobileHeader({ onSearch }: { onSearch: () => void }) {
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b px-4 backdrop-blur-md sm:hidden"
+      className="sticky top-0 z-30 flex items-center justify-between gap-2 glass-chrome border-b px-4 sm:hidden"
       style={{
         height: 'var(--header-h)',
         paddingTop: 'env(safe-area-inset-top)',
-        background: 'var(--sidebar-bg)',
         borderColor: 'var(--sidebar-border)',
       }}
     >

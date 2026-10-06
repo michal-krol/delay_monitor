@@ -58,7 +58,7 @@ export function MapFilters({
         aria-controls={panelId}
         onClick={toggleOpen}
         // Telefon (poniżej `sm`): sama ikona 44×44, napis „Filtry” tylko dla czytnika, licznik w rogu.
-        className="glass relative inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 max-sm:w-11 max-sm:justify-center max-sm:px-0 dark:hover:bg-white/10"
+        className="glass-chrome border border-surface-border shadow-md relative inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 max-sm:w-11 max-sm:justify-center max-sm:px-0 dark:hover:bg-white/10"
       >
         <FilterIcon size={ICON_SIZE.button} />
         <span className="max-sm:sr-only">Filtry</span>
@@ -77,7 +77,7 @@ export function MapFilters({
         // 15rem ≈ nagłówek + pasek tytułu + rząd kontrolek nad panelem (najwyższy przypadek: telefon).
         <div
           id={panelId}
-          className="glass-strong absolute right-0 z-30 mt-2 max-h-[calc(100dvh-var(--bottom-nav-h)-15rem)] w-72 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto overscroll-contain rounded-2xl p-4 shadow-xl"
+          className="glass-chrome-strong border border-surface-border absolute right-0 z-30 mt-2 max-h-[calc(100dvh-var(--bottom-nav-h)-15rem)] w-72 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto overscroll-contain rounded-2xl p-4 shadow-xl"
         >
           {group('Punkty', POINT_LAYERS)}
           {vehicleLayers.length > 0 && group('Pojazdy', vehicleLayers)}
