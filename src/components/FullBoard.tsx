@@ -14,6 +14,7 @@ import { StationThumb } from './StationThumb'
 import { PageTitle } from './PageTitle'
 import { PlaceTitle } from './PlaceTitle'
 import { TabCrossfade } from './TabCrossfade'
+import { useHeaderTitle } from './headerTitle'
 import { CloseIcon, StarIcon, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
@@ -78,6 +79,8 @@ function TabButton({
 
 export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
+  // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
+  useHeaderTitle(embedded ? null : stationName)
   const idBase = useId()
   const tabId = (d: Direction): string => `${idBase}-tab-${d}`
   const panelId = `${idBase}-panel`

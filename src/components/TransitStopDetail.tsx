@@ -28,6 +28,7 @@ import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from 
 import { PageTitle } from './PageTitle'
 import { PlaceTitle } from './PlaceTitle'
 import { TabCrossfade } from './TabCrossfade'
+import { useHeaderTitle } from './headerTitle'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { IconButton } from './IconButton'
 import { StatTile } from './StatTile'
@@ -145,6 +146,8 @@ export function TransitStopDetail({
   const memberIndex = Math.max(0, memberIds.indexOf(effMember))
   const activeMember = effMember !== null ? members.find((m) => m.id === effMember) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
+  // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
+  useHeaderTitle(embedded ? null : stopName)
   // Widok całego zespołu (kilka przystanków, żaden niewybrany) mówi „zespół"; jeden
   // przystanek — wybrany albo jedyny w zespole — mówi „przystanek".
   const wholeGroup = activeMember === null && members.length > 1

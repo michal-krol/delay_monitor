@@ -673,6 +673,47 @@ details[open] > summary .disclosure-chevron,
   }
 }
 
+/* Nagłówek telefonu przy przewijaniu tablicy (PR 6): nazwa aplikacji ustępuje nazwie stacji/przystanku.
+   Czysty progressive enhancement — bez `animation-timeline` (Safari < 26) albo przy reduced-motion kopia nazwy
+   tablicy jest ukryta i nagłówek wygląda jak zawsze. Zero zmian układu: oba napisy w jednej komórce siatki. */
+.header-title-context {
+  display: none;
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .header-title-context {
+      display: block;
+      opacity: 0;
+      animation: header-title-in linear both;
+      animation-timeline: scroll(root);
+      animation-range: 40px 140px;
+    }
+    .header-titles[data-context] > .header-title-app {
+      animation: header-title-out linear both;
+      animation-timeline: scroll(root);
+      animation-range: 40px 140px;
+    }
+  }
+}
+@keyframes header-title-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes header-title-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* Mikroanimacje z makiety Claude Design ("Czy dojadę? — Makieta dashboardu",
    artboardy Main/EmptyState/ErrorStates) — przeniesione 1:1 co do wartości. */
 @keyframes softBreathe {

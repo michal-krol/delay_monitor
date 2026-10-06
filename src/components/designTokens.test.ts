@@ -199,6 +199,16 @@ describe('design tokens', () => {
     }
   })
 
+  it('the header title swap is scroll-driven progressive enhancement: hidden by default, animated only with support and motion allowed', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    expect(css).toMatch(/\.header-title-context\s*\{\s*display:\s*none/)
+    const index = css.indexOf('animation-timeline: scroll(root)')
+    expect(index).toBeGreaterThan(-1)
+    const before = css.slice(0, index)
+    expect(before.slice(before.lastIndexOf('@supports'))).toMatch(/^@supports \(animation-timeline: scroll\(\)\)/)
+    expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(prefers-reduced-motion: no-preference\)/)
+  })
+
   it('both Pulpit cards carry the card-press class (one press feel)', () => {
     for (const file of ['components/StationCard.tsx', 'components/TransitStopCard.tsx']) {
       expect(readFileSync(join(SRC, file), 'utf8'), file).toContain('card-press')
