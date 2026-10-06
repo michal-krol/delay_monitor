@@ -191,7 +191,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                 {[0, 1, 2].map((i) => (
                   <tr key={i} data-testid="skeleton-row" aria-hidden="true">
                     <td colSpan={6} className="py-2">
-                      <div className="h-12 animate-pulse rounded-lg bg-black/5 motion-reduce:animate-none dark:bg-white/5" />
+                      <div className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
                     </td>
                   </tr>
                 ))}

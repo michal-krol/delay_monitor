@@ -39,6 +39,7 @@ import {
 } from '@/components/map/mapData'
 import { useCities } from '@/hooks/useCities'
 import { useCityStops } from '@/hooks/useCityStops'
+import type { CityStop } from '@/lib/gtfs/query'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useLineDetail } from '@/hooks/useLineDetail'
@@ -86,6 +87,11 @@ function useCityList<T>(url: string, pick: (json: Record<string, unknown>) => T[
   return data?.items ?? null
 }
 
+
+/** Zaznaczenie przystanku z listy przystanków miasta (jedno miejsce zamiast kilku kopii literału). */
+function stopSelection(stop: CityStop): Extract<MapSelection, { kind: 'stop' }> {
+  return { kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon }
+}
 
 export default function CityMapPage() {
   const params = useParams<{ city: string }>()
@@ -273,7 +279,7 @@ export default function CityMapPage() {
       focusOn(point.lat, point.lon)
     } else {
       const { stop } = point
-      setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      setSelection(stopSelection(stop))
       focusOn(stop.lat, stop.lon)
     }
   }
@@ -299,7 +305,7 @@ export default function CityMapPage() {
       // Przypięty zespół (albo stary wpis pod id przystanku): karta ZESPOŁU, nie pierwszego przystanku —
       // inaczej klucz przypięcia się nie zgadza i gwiazdka jest pusta.
       const stop = stopsState.stops?.find((s) => s.groupId === fav.id || s.id === fav.id)
-      if (stop !== undefined) setSelection({ kind: 'stop', id: stop.groupId, groupId: stop.groupId, name: stop.name, code: null, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      if (stop !== undefined) setSelection({ ...stopSelection(stop), id: stop.groupId, code: null })
     }
     focusOn(pinnedItem.lat, pinnedItem.lon)
   }
@@ -320,7 +326,7 @@ export default function CityMapPage() {
     if (hit.kind === 'vehicle') return setSelection({ kind: 'vehicle', id: hit.id })
     if (hit.kind === 'stop') {
       const stop = stopsState.stops?.find((s) => s.id === hit.id)
-      if (stop !== undefined) setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      if (stop !== undefined) setSelection(stopSelection(stop))
       return
     }
     const station = railState.stations?.find((s) => s.id === hit.id)

@@ -443,6 +443,13 @@ details[open] > summary .disclosure-chevron,
   }
 }
 
+/* Szkielety ładowania (`animate-pulse`) nie pulsują przy prefers-reduced-motion — jedna reguła na wszystkie. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
+  }
+}
+
 /* Własny stan wciśnięcia przycisków i chipów (PR 5). Ruch tylko bez prefers-reduced-motion;
    przy reduced-motion wciśnięcie zmienia tylko krycie. */
 .press:active {

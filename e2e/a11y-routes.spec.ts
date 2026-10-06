@@ -37,6 +37,9 @@ for (const theme of ['light', 'dark'] as const) {
       await page.addInitScript((value) => window.localStorage.setItem('theme', value), theme)
       await route.go(page)
       await expect(route.ready(page).first()).toBeAttached({ timeout: READY })
+      // Po nawigacji po stronie klienta (wiersz tablicy → połączenie) Next podmienia <title> chwilę po treści — WebKit
+      // potrafił go wtedy nie mieć w chwili skanu (document-title, serious).
+      await expect(page).toHaveTitle(/.+/)
       await expect(page.locator('html')).toHaveClass(new RegExp(theme))
 
       const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()

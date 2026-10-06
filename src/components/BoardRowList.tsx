@@ -23,7 +23,7 @@ export function BoardRowList({ rows, now, loading, showEmpty, emptyMessage }: Pr
         <>
           <li className="sr-only">Wczytywanie…</li>
           {[0, 1, 2].map((i) => (
-            <li key={i} data-testid="skeleton-row" aria-hidden="true" className="my-2 h-9 animate-pulse rounded-lg bg-black/5 motion-reduce:animate-none dark:bg-white/5" />
+            <li key={i} data-testid="skeleton-row" aria-hidden="true" className="my-2 h-9 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
           ))}
         </>
       )}

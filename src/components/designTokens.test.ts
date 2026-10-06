@@ -120,9 +120,9 @@ describe('design tokens', () => {
 
   it('UI copy: a failed fetch is „Nie udało się …", never „Błąd …"; no „słupek" for a stop (.claude/rules/ui-copy.md)', () => {
     // API JSON (`src/app/api`) i komunikaty `Error` to nie tekst dla użytkownika.
-    expect(offenders(/^s*Błąd |>Błąd |['"]Błąd /, (file) => file.startsWith('app/api/'))).toEqual([])
+    expect(offenders(/^\s*Błąd |>Błąd |['"]Błąd /, (file) => file.startsWith('app/api/'))).toEqual([])
     // „słupki" wykresu w komentarzach są w porządku — gwarantujemy tylko brak „słupek przystank…" w tekście UI.
-    expect(offenders(/[>'"`]s*[Ss]łupek|słupka?s+(przystank|nr)/)).toEqual([])
+    expect(offenders(/[>'"`]\s*[Ss]łupek|słupka?\s+(przystank|nr)/)).toEqual([])
   })
 
   it('card-hover lifts only where hover exists (a tap must not leave a card stuck raised)', () => {
@@ -131,6 +131,15 @@ describe('design tokens', () => {
     expect(rule).not.toBeNull()
     const before = css.slice(0, rule!.index)
     expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(hover: hover\)\s*\{\s*$/)
+  })
+
+  it('skeleton pulse stops under prefers-reduced-motion in one global rule (not per site)', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const rule = css.match(/\.animate-pulse\s*\{\s*animation:\s*none/)
+    expect(rule).not.toBeNull()
+    const before = css.slice(0, rule!.index)
+    expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(prefers-reduced-motion: reduce\)\s*\{\s*$/)
+    expect(offenders(/motion-reduce:animate-none/)).toEqual([])
   })
 
   it('globals.css kills the grey tap flash and defines the own press state', () => {
