@@ -47,13 +47,13 @@ function makeInput(over: Overrides): BuildScheduleInput {
 }
 
 describe('cleanGroupName', () => {
-  it('drops a trailing 2-digit słupek number (ZTM convention)', () => {
+  it('drops a trailing 2-digit przystanek number (ZTM convention)', () => {
     expect(cleanGroupName('Centrum 01')).toBe('Centrum')
     expect(cleanGroupName('Rondo ONZ 02')).toBe('Rondo ONZ')
   })
   it('leaves names without a trailing number alone', () => {
     expect(cleanGroupName('Świętokrzyska')).toBe('Świętokrzyska')
-    expect(cleanGroupName('Dworzec Zachodni 100')).toBe('Dworzec Zachodni 100') // 3 cyfry ≠ słupek
+    expect(cleanGroupName('Dworzec Zachodni 100')).toBe('Dworzec Zachodni 100') // 3 cyfry ≠ przystanek
   })
 })
 

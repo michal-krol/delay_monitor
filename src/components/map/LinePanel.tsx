@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRightIcon, ChevronRightIcon, SwapIcon } from '../icons'
+import { ArrowRightIcon, ChevronRightIcon, SwapIcon, ICON_SIZE } from '../icons'
 import { AlertBanner } from '../AlertBanner'
 import { LineBadge } from '../LineBadge'
 import { OnRequestBadge } from '../OnRequestBadge'
@@ -9,6 +9,7 @@ import { MODE_LABEL } from '../transitMode'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { LineDetail, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import { PanelFrame } from './PanelFrame'
+import { stopDisplayName } from '../stopName'
 
 /**
  * Panel trybu linii (spec §6) — w tym samym dokowanym miejscu co karta obiektu.
@@ -72,7 +73,7 @@ export function LinePanel({
         <>
           <div className="flex items-center gap-2">
             <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-sm font-semibold">
-              {direction.origin ?? '—'} <ArrowRightIcon size={14} label="do" className="shrink-0 text-text-muted" /> {direction.headsign ?? '—'}
+              {direction.origin ?? '—'} <ArrowRightIcon size={ICON_SIZE.inline} label="do" className="shrink-0 text-text-muted" /> {direction.headsign ?? '—'}
             </p>
             {other !== undefined && (
               <button
@@ -80,7 +81,7 @@ export function LinePanel({
                 onClick={() => onDirection(other.directionId)}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-surface-border px-2.5 py-1 text-xs font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
               >
-                <SwapIcon size={13} />
+                <SwapIcon size={ICON_SIZE.chip} />
                 Zmień kierunek
               </button>
             )}
@@ -94,7 +95,7 @@ export function LinePanel({
                   className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <span className="w-6 shrink-0 text-right text-xs tabular-nums text-text-muted">{index + 1}</span>
-                  <span className="min-w-0 flex-1 truncate">{stop.name}</span>
+                  <span className="min-w-0 flex-1 truncate">{stopDisplayName(stop.name, stop.code)}</span>
                   {stop.onRequest && <OnRequestBadge />}
                 </button>
               </li>
@@ -108,7 +109,7 @@ export function LinePanel({
         style={{ background: 'var(--accent-gradient)' }}
       >
         Rozkład linii
-        <ChevronRightIcon size={14} />
+        <ChevronRightIcon size={ICON_SIZE.inline} />
       </Link>
     </PanelFrame>
   )

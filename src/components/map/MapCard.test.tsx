@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { BottomSheet } from '../BottomSheet'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MapCard } from './MapCard'
@@ -17,7 +18,7 @@ const rail = { kind: 'rail' as const, id: '33605', name: 'Warszawa Centralna', l
 function vehicle(over: Partial<CityVehicle> = {}): CityVehicle {
   return {
     id: 'v1', lat: 52.2, lon: 21.0, bearing: null, sideNumber: '3801', ageSec: 12, headsign: 'Dworzec Centralny',
-    routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', directionId: 0, nextStop: { name: 'Rondo ONZ', groupId: '7002' }, ...over,
+    routeId: '20', shortName: '20', mode: 'tram', kind: 'regular', directionId: 0, nextStop: { name: 'Rondo ONZ', code: null, groupId: '7002' }, ...over,
   }
 }
 
@@ -58,34 +59,78 @@ describe('MapCard — rail station', () => {
 })
 
 describe('MapCard — stop', () => {
+  it('inside the bottom sheet the stop notices collapse into one summary (phone)', () => {
+    const notice = { id: 'a', routes: ['20'], effect: 'REDUCED_SERVICE', link: '', title: 'Objazd linii 20', body: '' }
+    transitBoard.mockReturnValue({ data: { stops: [{ stopId: '1001', alerts: [notice], members: [], lines: [], departures: [] }] }, error: null })
+    render(
+      <BottomSheet>
+        <MapCard
+          selection={{ kind: 'stop', id: '1001', groupId: '1001', name: 'Centrum', code: null, mode: 'tram', lat: 52.23, lon: 21.01 }}
+          vehicle={null}
+          city="warszawa"
+          onClose={() => {}}
+        />
+      </BottomSheet>
+    )
+    expect(screen.getByText('Komunikaty (1)')).toBeInTheDocument()
+  })
+
   it('asks for the post departures only and links to the stop timetable', () => {
     transitBoard.mockReturnValue({ data: null, error: null })
     render(
       <MapCard
-        selection={{ kind: 'stop', id: '100101', groupId: '1001', name: 'Centrum', mode: 'bus', lat: 52.23, lon: 21.01 }}
+        selection={{ kind: 'stop', id: '100101', groupId: '1001', name: 'Centrum', code: '01', mode: 'bus', lat: 52.23, lon: 21.01 }}
         vehicle={null}
         city="warszawa"
         onClose={() => {}}
       />
     )
     expect(transitBoard).toHaveBeenCalledWith('warszawa', ['100101'], 3, '100101')
+    // Jeden przystanek zespołu = zawsze z numerem; goła nazwa oznacza cały zespół.
+    expect(screen.getByRole('dialog', { name: 'Centrum 01' })).toBeInTheDocument()
     expect(screen.getByText('Przystanek autobusowy')).toBeInTheDocument()
     expect(screen.getByText(/rozkład/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Rozkład przystanku/ })).toHaveAttribute('href', '/city/warszawa/stop/100101')
   })
 
+  // PR0 review: numer przystanku przy odjeździe tylko w zespole z więcej niż jednym przystankiem.
+  it('tags group departures with the stop number only when the group has more than one stop', () => {
+    const tram20 = { routeId: '20', line: '20', mode: 'tram', kind: 'regular' }
+    const departure = {
+      tripId: 't', routeId: '20', line: '20', mode: 'tram', lineKind: 'regular', headsign: 'Piaski', plannedAt: '2026-09-02T14:30:00+02:00',
+      departureSec: 52200, serviceDate: '2026-09-02', stopId: '100101', platformCode: '01', stopCode: null, wheelchair: 0, frequencyBased: false, onRequest: false,
+    }
+    const board = (members: unknown[]) => ({ data: { stops: [{ stopId: '1001', alerts: [], lines: [tram20], departures: [departure], members }] }, error: null })
+    const selection = { kind: 'stop' as const, id: '1001', groupId: '1001', name: 'Centrum', code: null, mode: 'tram' as const, lat: 52.23, lon: 21.01 }
+
+    transitBoard.mockReturnValue(board([{ id: '100101', lines: [tram20] }]))
+    const { unmount } = render(<MapCard selection={selection} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(screen.queryByTitle('Odjazd z przystanku 01')).not.toBeInTheDocument()
+    unmount()
+
+    transitBoard.mockReturnValue(board([{ id: '100101', lines: [tram20] }, { id: '100102', lines: [tram20] }]))
+    render(<MapCard selection={selection} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByTitle('Odjazd z przystanku 01')).toBeInTheDocument()
+  })
+
   it('reports a failed timetable fetch', () => {
     transitBoard.mockReturnValue({ data: null, error: 'boom' })
     render(
-      <MapCard selection={{ kind: 'stop', id: '1001', groupId: '1001', name: 'Centrum', mode: 'metro', lat: null, lon: null }} vehicle={null} city="warszawa" onClose={() => {}} />
+      <MapCard selection={{ kind: 'stop', id: '1001', groupId: '1001', name: 'Centrum', code: null, mode: 'metro', lat: null, lon: null }} vehicle={null} city="warszawa" onClose={() => {}} />
     )
     expect(transitBoard).toHaveBeenCalledWith('warszawa', ['1001'], 3, null)
+    expect(screen.getByRole('dialog', { name: 'Centrum' })).toBeInTheDocument()
     expect(screen.getByText('Stacja metra')).toBeInTheDocument()
     expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
   })
 })
 
 describe('MapCard — vehicle', () => {
+  it('names the next stop with its number in the group', () => {
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ nextStop: { name: 'Rondo ONZ', code: '02', groupId: '7002' } })} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText('Rondo ONZ 02')).toBeInTheDocument()
+  })
+
   it('shows line, direction, next stop and freshness — no delay', () => {
     render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} />)
     expect(screen.getByRole('heading', { name: 'tramwaj 20' })).toBeInTheDocument()
@@ -173,7 +218,7 @@ describe('MapCard — pinned items, nearby, disruptions', () => {
       data: { stops: [{ stopId: '100101', members: [], lines: [], departures: [], alerts: [{ id: 'a1', routes: ['128'], effect: 'DETOUR', link: '', title: 'Objazd linii 128', body: 'Remont' }] }] },
       error: null,
     })
-    render(<MapCard selection={{ kind: 'stop', id: '100101', groupId: '1001', name: 'Centrum', mode: 'bus', lat: 52.23, lon: 21.01 }} vehicle={null} city="warszawa" onClose={() => {}} />)
+    render(<MapCard selection={{ kind: 'stop', id: '100101', groupId: '1001', name: 'Centrum', code: '01', mode: 'bus', lat: 52.23, lon: 21.01 }} vehicle={null} city="warszawa" onClose={() => {}} />)
     expect(screen.getByText('Objazd linii 128')).toBeInTheDocument()
   })
 })

@@ -1,5 +1,5 @@
 import type { CityStats } from '@/lib/gtfs/query'
-import { LayersIcon, ListIcon, StopIcon, TrainIcon } from './icons'
+import { LayersIcon, ListIcon, StopIcon, TrainIcon, ICON_SIZE } from './icons'
 
 type Props = {
   stats: CityStats | null
@@ -45,10 +45,10 @@ export function CityStatTiles({ stats, loading, railStationCount }: Props) {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Tile icon={<StopIcon size={17} />} value={num(groups)} label="przystanki miejskie" />
-      <Tile icon={<TrainIcon size={17} />} value={num(railStationCount)} label="stacje kolejowe" />
-      <Tile icon={<LayersIcon size={17} />} value={num(modes)} label="środki transportu" />
-      <Tile icon={<ListIcon size={17} />} value={num(trips)} label="połączenia dziś" />
+      <Tile icon={<StopIcon size={ICON_SIZE.tile} />} value={num(groups)} label="przystanki miejskie" />
+      <Tile icon={<TrainIcon size={ICON_SIZE.tile} />} value={num(railStationCount)} label="stacje kolejowe" />
+      <Tile icon={<LayersIcon size={ICON_SIZE.tile} />} value={num(modes)} label="środki transportu" />
+      <Tile icon={<ListIcon size={ICON_SIZE.tile} />} value={num(trips)} label="połączenia dziś" />
     </div>
   )
 }

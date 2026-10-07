@@ -61,6 +61,24 @@ describe('GET /api/weather', () => {
     expect(fetchOpenMeteoWeather).not.toHaveBeenCalled()
   })
 
+  it('serves a canned snapshot without calling Open-Meteo when WEATHER_DATA_SOURCE=mock', async () => {
+    vi.stubEnv('WEATHER_DATA_SOURCE', 'mock')
+    try {
+      getStationCoordinates.mockResolvedValueOnce({ lat: 52.2288207, lon: 21.00316 })
+      fetchOpenMeteoWeather.mockClear()
+      const { GET } = await import('./route')
+
+      const response = await GET(new Request('http://localhost/api/weather?stationId=999001'))
+      const body = await response.json()
+
+      expect(body.available).toBe(true)
+      expect(typeof body.weather.current.temperatureC).toBe('number')
+      expect(fetchOpenMeteoWeather).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('returns available:true with the weather snapshot on success', async () => {
     getStationCoordinates.mockResolvedValueOnce({ lat: 52.2288207, lon: 21.00316 })
     fetchOpenMeteoWeather.mockResolvedValueOnce(SNAPSHOT)

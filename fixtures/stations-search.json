@@ -5,6 +5,8 @@
     { "id": "7500", "name": "Gdańsk Główny" },
     { "id": "60103", "name": "Wrocław Główny" },
     { "id": "73312", "name": "Katowice" },
-    { "id": "30601", "name": "Poznań Główny" }
+    { "id": "30601", "name": "Poznań Główny" },
+    { "id": "33506", "name": "Warszawa Zachodnia" },
+    { "id": "38653", "name": "Warszawa Wschodnia" }
   ]
 }

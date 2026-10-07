@@ -63,7 +63,7 @@ export function CategoryBadge({ category, categoryName }: Props) {
 
   return (
     <span
-      className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] leading-none font-bold tracking-wide tabular-nums"
+      className="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs leading-none font-bold tracking-wide tabular-nums"
       style={{ backgroundColor: `var(--cat-${serviceClassOf(category)}-bg)`, color: 'var(--cat-fg)' }}
       title={categoryName ?? undefined}
     >

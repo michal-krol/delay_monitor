@@ -210,7 +210,7 @@ function Panel() {
       : `co ${Math.round(health.intervalMs / 1000)} s${health.throttled ? ' (zdławiony)' : ''}`
 
   return (
-    <div className="mt-auto rounded-xl border p-3 text-[11px]" style={{ borderColor: 'var(--sidebar-border)' }}>
+    <div className="mt-auto rounded-xl border p-3 text-xs" style={{ borderColor: 'var(--sidebar-border)' }}>
       <div className="mb-2 flex items-center gap-1.5 tracking-[0.1em] text-text-muted uppercase">
         <span
           className="h-1.5 w-1.5 rounded-full"

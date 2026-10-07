@@ -5,6 +5,10 @@ const envSchema = z.object({
   PKP_DATA_SOURCE: z.enum(['auto', 'live', 'mock']).default('auto'),
   POLL_INTERVAL_MS: z.coerce.number().int().positive().default(90000),
   INTEREST_TTL_MS: z.coerce.number().int().positive().default(300000),
+  /** Tylko tryb mock: jaki budżet PKP pokazuje panel diagnostyczny (`low`/`unknown` = stany graniczne UI). */
+  MOCK_BUDGET: z.enum(['default', 'low', 'unknown']).default('default'),
+  /** `mock` = stała pogoda z serwera, zero ruchu do Open-Meteo (e2e). Domyślnie `live`. */
+  WEATHER_DATA_SOURCE: z.enum(['live', 'mock']).default('live'),
 
   /**
    * Podprojekt komunikacji miejskiej (GTFS). `GTFS_ENABLED` to wyłącznik:
@@ -32,6 +36,7 @@ const envSchema = z.object({
 })
 
 export type DataSource = 'live' | 'mock'
+export type MockBudget = 'default' | 'low' | 'unknown'
 
 export type GtfsConfig = {
   enabled: boolean
@@ -47,6 +52,8 @@ export type AppConfig = {
   dataSource: DataSource
   pollIntervalMs: number
   interestTtlMs: number
+  mockBudget: MockBudget
+  weatherDataSource: DataSource
   gtfs: GtfsConfig
 }
 
@@ -69,6 +76,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     dataSource,
     pollIntervalMs: parsed.POLL_INTERVAL_MS,
     interestTtlMs: parsed.INTEREST_TTL_MS,
+    mockBudget: parsed.MOCK_BUDGET,
+    weatherDataSource: parsed.WEATHER_DATA_SOURCE,
     gtfs: {
       enabled: parsed.GTFS_ENABLED,
       cities: gtfsCities,

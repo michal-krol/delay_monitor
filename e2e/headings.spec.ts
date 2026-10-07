@@ -44,20 +44,24 @@ const DETAIL_PAGES = [
 ]
 
 for (const { name, path, back } of DETAIL_PAGES) {
-  test(`jeden górny rząd: ${name}`, async ({ page }) => {
+  test(`jeden górny rząd: ${name}`, async ({ page }, testInfo) => {
     await page.goto(path)
     const nav = page.getByRole('navigation', { name: 'Ścieżka nawigacji' })
     await expect(nav).toBeVisible({ timeout: 45_000 })
     await expect(page.getByRole('navigation', { name: 'Ścieżka nawigacji' })).toHaveCount(1)
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1)
-    // ← i ścieżka w tym samym rzędzie co „Udostępnij”/motyw, nie w osobnym.
+    // ← i ścieżka w tym samym rzędzie co motyw (desktop). Poniżej `sm` motyw jest w `MobileHeader` —
+    // jeden na ekran, nad wierszem „wstecz".
     const backControl = page.getByRole(name === 'połączenie' ? 'button' : 'link', { name: back, exact: true })
     await expect(backControl).toBeVisible()
-    const [backBox, themeBox] = await Promise.all([
-      backControl.boundingBox(),
-      page.getByRole('button', { name: /Przełącz na tryb/ }).boundingBox(),
-    ])
-    expect(Math.abs(backBox!.y + backBox!.height / 2 - (themeBox!.y + themeBox!.height / 2))).toBeLessThan(2)
+    const theme = page.getByRole('button', { name: /Przełącz na tryb/ })
+    await expect(theme).toHaveCount(1)
+    const [backBox, themeBox] = await Promise.all([backControl.boundingBox(), theme.boundingBox()])
+    if (testInfo.project.name === 'desktop-chromium') {
+      expect(Math.abs(backBox!.y + backBox!.height / 2 - (themeBox!.y + themeBox!.height / 2))).toBeLessThan(2)
+    } else {
+      expect(backBox!.y).toBeGreaterThanOrEqual(themeBox!.y + themeBox!.height)
+    }
     // Poziome przewijanie strony = przepełnienie (375 px, długie nazwy).
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
@@ -88,8 +92,9 @@ for (const { name, path } of SHARE_PAGES) {
     expect(await overflow()).toBeLessThanOrEqual(0)
 
     await page.getByRole('button', { name: 'Udostępnij', exact: true }).click()
-    const status = page.getByRole('status')
-    await expect(status).toContainText('link w pasku adresu')
+    // Są dwa regiony `status` (komunikat udostępniania i pusty region baneru offline) — zawężamy do komunikatu udostępniania.
+    const status = page.getByRole('status').filter({ hasText: 'link w pasku adresu' })
+    await expect(status).toBeVisible()
     expect(await overflow()).toBeLessThanOrEqual(0)
     // Sam komunikat i przełącznik motywu mieszczą się w oknie (dokument mógłby ukrywać przepełnienie).
     for (const box of await Promise.all([status.boundingBox(), page.getByRole('button', { name: /Przełącz na tryb/ }).boundingBox()])) {
@@ -98,3 +103,12 @@ for (const { name, path } of SHARE_PAGES) {
     }
   })
 }
+
+// Grupa akcji w nagłówku (Udostępnij + wybór miasta + motyw) ma się zawinąć, a nie wystawać:
+// w CI (WebKit na Linuksie, szerszy font) przy 375 px wystawała o 1 px; przy 320 px widać to wszędzie.
+test('akcje nagłówka zawijają się zamiast przepełniać stronę (320 px)', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 812 })
+  await page.goto('/city/warszawa?stop=1001&name=Centrum')
+  await expect(page.getByRole('button', { name: 'Udostępnij', exact: true })).toBeVisible({ timeout: 45_000 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+})

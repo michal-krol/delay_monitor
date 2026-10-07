@@ -6,7 +6,7 @@ import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { PageTitle } from './PageTitle'
-import { AlertCircleIcon, ArrowRightIcon, CalendarIcon, ClockIcon, InfoIcon, PauseIcon, TimerIcon, TrainIcon } from './icons'
+import { AlertCircleIcon, ArrivalIcon, ArrowRightIcon, CalendarIcon, DisclosureIcon, DepartureIcon, InfoIcon, PauseIcon, TimerIcon, VehiclePositionIcon, ICON_SIZE } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import { resolvePositionAnchor } from '@/lib/board/trainDetail'
 import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
@@ -14,6 +14,7 @@ import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
 import { formatAge, formatClockTime, formatDuration } from '@/lib/format'
+import { countdownLabel } from '@/lib/countdown'
 import { usePolling } from '@/hooks/usePolling'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
@@ -164,16 +165,9 @@ function formatDurationOrNull(minutes: number | null): string | null {
   return minutes === null || minutes < 0 ? null : formatDuration(minutes)
 }
 
-/** `null` = nie ma czego odliczać (brak godziny albo już po). Świadomie nie pokazujemy ujemnych „za −5 min". */
-function formatCountdown(targetIso: string | null, now: number): string | null {
-  if (targetIso === null) return null
-  const minutes = Math.round((new Date(targetIso).getTime() - now) / 60_000)
-  if (minutes < 1) return null
-  return `za ${formatDuration(minutes)}`
-}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-[11px] font-semibold tracking-[0.13em] text-text-muted uppercase">{children}</h2>
+  return <h2 className="text-xs font-semibold tracking-[0.13em] text-text-muted uppercase">{children}</h2>
 }
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -200,7 +194,7 @@ function MetaItem({
     <div className="flex items-start gap-2.5">
       <span className="mt-0.5 shrink-0 text-text-muted">{icon}</span>
       <div className="min-w-0">
-        <div className="text-[11px] tracking-[0.08em] text-text-muted uppercase">{label}</div>
+        <div className="text-xs tracking-[0.08em] text-text-muted uppercase">{label}</div>
         <div className="mt-0.5 font-medium text-foreground tabular-nums">{value}</div>
         {hint !== null && hint !== undefined && <div className="truncate text-xs text-text-secondary">{hint}</div>}
       </div>
@@ -348,7 +342,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   }, [status, trainNumber])
 
   const arrivalTime = formatTime(summary.destination?.displayAt ?? null)
-  const countdown = formatCountdown(summary.destination?.displayAt ?? null, now)
+  // Bez sufitu godziny: do celu podróży „za 2 h 5 min” ma sens (wspólne odliczanie, `lib/countdown.ts`).
+  const destinationAt = summary.destination?.displayAt ?? null
+  const countdown = destinationAt === null ? null : countdownLabel(now, destinationAt, Infinity)
   const travelTime = formatDurationOrNull(summary.plannedDurationMinutes)
 
   return (
@@ -411,14 +407,14 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     </span>
                   )}
                   <PageTitle>{trainNumber}</PageTitle>
-                  {data.carrierCode !== null && <CarrierLogo carrierCode={data.carrierCode} size={18} />}
+                  {data.carrierCode !== null && <CarrierLogo carrierCode={data.carrierCode} size={ICON_SIZE.tile} />}
                   <span className="text-sm text-text-secondary">{data.carrierName ?? data.carrierCode ?? ''}</span>
                   {routeNameSuffix !== null && <span className="text-sm font-medium text-text-muted">· {routeNameSuffix}</span>}
                 </div>
                 {summary.origin !== null && summary.destination !== null && (
                   <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-lg font-semibold text-foreground sm:text-xl">
                     <span>{summary.origin.stationName}</span>
-                    <ArrowRightIcon size={18} className="text-text-muted" />
+                    <ArrowRightIcon size={ICON_SIZE.tile} label="do" className="text-text-muted" />
                     <span>{summary.destination.stationName}</span>
                   </p>
                 )}
@@ -439,7 +435,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 />
                 {arrivalTime !== null && (
                   <div className="text-right">
-                    <div className="text-[11px] tracking-[0.08em] text-text-muted uppercase">Przyjazd do celu</div>
+                    <div className="text-xs tracking-[0.08em] text-text-muted uppercase">Przyjazd do celu</div>
                     <div className="font-heading text-3xl font-bold text-foreground tabular-nums">{arrivalTime}</div>
                     {countdown !== null && <div className="text-sm text-text-secondary">{countdown}</div>}
                   </div>
@@ -451,24 +447,24 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               className="mt-5 grid gap-4 border-t border-surface-border pt-4 text-sm @md:grid-cols-2 @xl:grid-cols-4"
             >
               <MetaItem
-                icon={<CalendarIcon size={16} />}
+                icon={<CalendarIcon size={ICON_SIZE.button} />}
                 label="Data"
                 value={formatOperatingDate(data.operatingDate) ?? data.operatingDate}
               />
               <MetaItem
-                icon={<ClockIcon size={16} />}
+                icon={<DepartureIcon size={ICON_SIZE.button} />}
                 label="Odjazd"
                 value={formatTime(summary.origin?.displayAt ?? null) ?? '—'}
                 hint={summary.origin?.stationName ?? null}
               />
               <MetaItem
-                icon={<ClockIcon size={16} />}
+                icon={<ArrivalIcon size={ICON_SIZE.button} />}
                 label="Przyjazd (plan)"
                 value={formatTime(summary.destination?.plannedAt ?? null) ?? '—'}
                 hint={summary.destination?.stationName ?? null}
               />
               <MetaItem
-                icon={<TimerIcon size={16} />}
+                icon={<TimerIcon size={ICON_SIZE.button} />}
                 label="Czas podróży"
                 value={travelTime ?? '—'}
                 hint={`${summary.stopCount} ${pluralPl(summary.stopCount, 'przystanek', 'przystanki', 'przystanków')}`}
@@ -488,7 +484,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               {scheduleMode && (
                 <div className="glass flex items-start gap-3 rounded-2xl p-4">
                   <span className="mt-0.5 shrink-0 text-text-muted">
-                    <InfoIcon size={16} />
+                    <InfoIcon size={ICON_SIZE.button} />
                   </span>
                   <div>
                     <p className="text-sm font-medium text-foreground">Brak potwierdzeń przejazdu z PKP.</p>
@@ -615,7 +611,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                   {stop.stationName}
                                 </span>
                                 {(isFirst || isLast) && (
-                                  <span className="ml-2 text-[10px] tracking-[0.1em] text-text-muted uppercase">
+                                  <span className="ml-2 text-xs tracking-[0.1em] text-text-muted uppercase">
                                     {isFirst ? 'odjazd' : 'przyjazd'}
                                   </span>
                                 )}
@@ -652,7 +648,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                       color: 'var(--status-enRoute-fg)',
                                     }}
                                   >
-                                    <TrainIcon size={14} />
+                                    <VehiclePositionIcon size={ICON_SIZE.inline} />
                                     {scheduleMode
                                       ? 'Pociąg jest tutaj — wg rozkładu'
                                       : staleProjection
@@ -664,7 +660,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                   <span
                                     className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary"
                                   >
-                                    <PauseIcon size={14} />
+                                    <PauseIcon size={ICON_SIZE.inline} />
                                     Postój {stopMinutes} min
                                   </span>
                                 )}
@@ -672,15 +668,16 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                                   // Ograniczenie postoju („tylko dla wysiadających”), nie utrudnienie: neutralny
                                   // chip jak „Postój”, bo amber + AlertCircle to wyłącznie „Utrudnienie” obok.
                                   <span className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary">
-                                    <InfoIcon size={14} />
+                                    <InfoIcon size={ICON_SIZE.inline} />
                                     {stopTypeName}
                                   </span>
                                 )}
                                 {messages.length > 0 && (
                                   <details className="w-full">
-                                    <summary className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                      <AlertCircleIcon size={14} />
+                                    <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                      <AlertCircleIcon size={ICON_SIZE.inline} />
                                       Utrudnienie
+                                      <DisclosureIcon size={ICON_SIZE.chip} />
                                     </summary>
                                     <p className="mt-1.5 text-xs text-text-secondary">{messages.join(' ')}</p>
                                   </details>
@@ -714,7 +711,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               {routeDisruptions.length === 0 ? (
                 <div className="glass flex items-start gap-3 rounded-2xl p-4">
                   <span className="mt-0.5 shrink-0 text-text-muted">
-                    <InfoIcon size={16} />
+                    <InfoIcon size={ICON_SIZE.button} />
                   </span>
                   <div>
                     <p className="text-sm font-medium text-foreground">Aktualnie brak utrudnień na trasie.</p>
@@ -726,7 +723,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               ) : (
                 <div className="glass flex items-start gap-3 rounded-2xl p-4">
                   <span className="mt-0.5 shrink-0 text-warning-text">
-                    <AlertCircleIcon size={16} />
+                    <AlertCircleIcon size={ICON_SIZE.button} />
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">

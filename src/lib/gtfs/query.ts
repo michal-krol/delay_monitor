@@ -37,7 +37,7 @@ function eventDeparture(schedule: GtfsSchedule, eventIndex: number): GtfsDepartu
     serviceDate: schedule.serviceDates[day],
     stopId: schedule.stopIds[stopIdx],
     platformCode: schedule.stopPlatforms[stopIdx],
-    /** Numer słupka w zespole (`stop_code`, „01"/„07") — z którego słupka rusza ten kurs. */
+    /** Numer przystanku w zespole (`stop_code`, „01"/„07") — z którego przystanku rusza ten kurs. */
     stopCode: schedule.stopCodes[stopIdx] ?? null,
     wheelchair: schedule.stopWheelchair[stopIdx] as 0 | 1 | 2,
     frequencyBased: schedule.tripFrequencyBased[trip] === 1,
@@ -45,14 +45,14 @@ function eventDeparture(schedule: GtfsSchedule, eventIndex: number): GtfsDepartu
   }
 }
 
-/** Id zespołu dla dowolnego `id` (zespół albo słupek). `null` = nieznane. */
+/** Id zespołu dla dowolnego `id` (zespół albo przystanek). `null` = nieznane. */
 export function groupIdOf(schedule: GtfsSchedule, id: string): string | null {
   if (schedule.groupMembers.has(id)) return id
   const index = schedule.stopIndexById.get(id)
   return index === undefined ? null : schedule.stopGroupIds[index]
 }
 
-/** Indeksy słupków wskazane przez `id` — sam słupek albo cały zespół. */
+/** Indeksy przystanków wskazane przez `id` — sam przystanek albo cały zespół. */
 function resolveStopIndices(schedule: GtfsSchedule, id: string): number[] {
   const direct = schedule.stopIndexById.get(id)
   const group = schedule.groupMembers.get(id)
@@ -71,9 +71,9 @@ function lowerBound(schedule: GtfsSchedule, lo: number, hi: number, thresholdSec
 }
 
 /**
- * Najbliższe `limit` odjazdów dla listy identyfikatorów (słupków lub zespołów).
+ * Najbliższe `limit` odjazdów dla listy identyfikatorów (przystanków lub zespołów).
  * `nowMs` — chwila odniesienia; zdarzenia wcześniejsze są pomijane.
- * O(log k + N) na słupek, liniowe scalenie ≤ MAX_MERGED_RUNS przebiegów.
+ * O(log k + N) na przystanek, liniowe scalenie ≤ MAX_MERGED_RUNS przebiegów.
  */
 export function nextDepartures(
   schedule: GtfsSchedule,
@@ -108,12 +108,12 @@ export type StopGroupMember = {
   lat: number
   lon: number
   platformCode: string | null
-  /** `stop_code` — numer słupka w zespole („01", „06"). `null` gdy feed nie podaje. */
+  /** `stop_code` — numer przystanku w zespole („01", „06"). `null` gdy feed nie podaje. */
   code: string | null
-  /** `street_name` — ulica, przy której stoi słupek. Rozróżnia krawędzie zespołu. */
+  /** `street_name` — ulica, przy której stoi przystanek. Rozróżnia krawędzie zespołu. */
   street: string | null
   wheelchair: 0 | 1 | 2
-  /** Linie zatrzymujące się NA TYM słupku (nie w całym zespole). */
+  /** Linie zatrzymujące się NA TYM przystanku (nie w całym zespole). */
   lines: GtfsLine[]
 }
 
@@ -123,7 +123,7 @@ export type GtfsLine = { routeId: string; line: string; mode: GtfsMode; kind: Li
 export type StopGroup = {
   id: string
   name: string
-  /** Słupek podany w żądaniu wprost (deep-link z trasy linii); `null` = pytano o cały zespół. */
+  /** Przystanek podany w żądaniu wprost (deep-link z trasy linii); `null` = pytano o cały zespół. */
   requestedMemberId: string | null
   members: StopGroupMember[]
   /** Rodzaje transportu obsługujące ten zespół — do plakietek/filtra. */
@@ -132,8 +132,8 @@ export type StopGroup = {
   lines: GtfsLine[]
   /**
    * Sygnał dostępności zespołu. Feed WTP daje `wheelchair_boarding = 1` na ~89%
-   * słupków (wartość DOMYŚLNA — nie oznaczamy), więc jedyny wartościowy sygnał to
-   * `2` = NIEdostępny. `'inaccessible'` = wszystkie słupki oznaczone `2`,
+   * przystanków (wartość DOMYŚLNA — nie oznaczamy), więc jedyny wartościowy sygnał to
+   * `2` = NIEdostępny. `'inaccessible'` = wszystkie przystanki oznaczone `2`,
    * `'partial'` = część, `null` = brak sygnału (nic nie pokazujemy).
    */
   wheelchairNote: 'inaccessible' | 'partial' | null
@@ -168,7 +168,7 @@ export function groupLines(schedule: GtfsSchedule, groupId: string): GtfsLine[] 
     .map(lineOf)
 }
 
-/** Linie zatrzymujące się na JEDNYM słupku — skan jego wycinka CSR (okno [wczoraj, dziś, jutro]). */
+/** Linie zatrzymujące się na JEDNYM przystanku — skan jego wycinka CSR (okno [wczoraj, dziś, jutro]). */
 function stopLinesOf(schedule: GtfsSchedule, stopIndex: number): GtfsLine[] {
   const set = new Set<number>()
   for (let k = schedule.stopEventOffset[stopIndex]; k < schedule.stopEventOffset[stopIndex + 1]; k += 1) {
@@ -183,8 +183,8 @@ function stopLinesOf(schedule: GtfsSchedule, stopIndex: number): GtfsLine[] {
 }
 
 export function stopGroup(schedule: GtfsSchedule, id: string): StopGroup | null {
-  // Zawsze zwracamy CAŁY zespół — nawet gdy `id` wskazuje pojedynczy słupek
-  // (`701307`). Słupek podany wprost = `requestedMemberId`, żeby UI mógł go od
+  // Zawsze zwracamy CAŁY zespół — nawet gdy `id` wskazuje pojedynczy przystanek
+  // (`701307`). Przystanek podany wprost = `requestedMemberId`, żeby UI mógł go od
   // razu podświetlić w przełączniku (deep-link z trasy linii).
   const groupId = groupIdOf(schedule, id)
   if (groupId === null) return null
@@ -266,9 +266,9 @@ export type LineRouteStop = {
   stopId: string
   groupId: string
   name: string
-  /** `stop_code` — numer słupka („07"), żeby user wiedział, z którego słupka jedzie linia. */
+  /** `stop_code` — numer przystanku („07"), żeby user wiedział, z którego przystanku jedzie linia. */
   code: string | null
-  /** `street_name` — ulica, przy której stoi słupek. `null` gdy feed nie podaje. */
+  /** `street_name` — ulica, przy której stoi przystanek. `null` gdy feed nie podaje. */
   street: string | null
   wheelchair: 0 | 1 | 2
   lat: number
@@ -299,7 +299,7 @@ export type LineDetail = LineListEntry & { directions: LineRouteDirection[] }
  * okna [wczoraj, dziś, jutro]). Dzięki temu kolumny „soboty" / „niedziele" są
  * zawsze widoczne, niezależnie od tego, jaki dziś dzień tygodnia.
  * `originGroupId` — zespół przystanku startowego przebiegu (kurs może ruszać
- * z dowolnego słupka tego zespołu).
+ * z dowolnego przystanku tego zespołu).
  */
 function lineDeparturesFromRuns(
   schedule: GtfsSchedule,
@@ -463,8 +463,8 @@ export function stopSummary(schedule: GtfsSchedule, groupId: string, serviceDayI
   }
 
   return {
-    // Liczba linii z faktycznych odjazdów „dziś" tego zakresu (słupek albo cały
-    // zespół) — nie z `groupRoutes`, które nie zna kluczy słupków.
+    // Liczba linii z faktycznych odjazdów „dziś" tego zakresu (przystanek albo cały
+    // zespół) — nie z `groupRoutes`, które nie zna kluczy przystanków.
     lineCount: routeSet.size,
     departuresToday: count,
     firstDepartureSec: firstSec,
@@ -482,7 +482,7 @@ export type CityStats = {
   stopGroupCount: number
   /** Liczba środków transportu obecnych w feedzie (rodzaje z ≥1 linią). */
   modeCount: number
-  /** Liczba kursów w dobie „dziś" (jeden kurs = jeden przejazd pojazdu, NIE zdarzenie na słupku). */
+  /** Liczba kursów w dobie „dziś" (jeden kurs = jeden przejazd pojazdu, NIE zdarzenie na przystanku). */
   tripsToday: number
   /** Sekunda pierwszego / ostatniego ROZPOCZĘTEGO kursu dziś. `null` = brak. */
   firstDepartureSec: number | null
@@ -522,7 +522,7 @@ export function cityStats(schedule: GtfsSchedule, todayIndex: number): CityStats
   for (const route of byMode.bus) busKinds[route.kind] += 1
 
   // Pierwszy odjazd każdego kursu „dziś" — jeden skan zdarzeń. Wcześniej `hourly`
-  // liczyło ZDARZENIA na słupkach (~1 mln/dobę) obok `tripsToday` liczącego kursy
+  // liczyło ZDARZENIA na przystankach (~1 mln/dobę) obok `tripsToday` liczącego kursy
   // (~35 tys.) — dwie różne skale w jednym widżecie. Teraz oba liczą kursy.
   const firstDep = new Int32Array(schedule.tripIds.length).fill(-1)
   for (let e = 0; e < schedule.evCount; e += 1) {
@@ -668,7 +668,7 @@ function normalizedStopsFor(schedule: GtfsSchedule): NormalizedStop[] {
   return entries
 }
 
-/** Wyszukiwarka zespołów (nie słupków) — wpada wprost w istniejący `StationSearch`. */
+/** Wyszukiwarka zespołów (nie przystanków) — wpada wprost w istniejący `StationSearch`. */
 export function searchStops(schedule: GtfsSchedule, query: string, limit: number): StopSearchResult[] {
   const needle = normalizeForSearch(query)
   if (needle.length === 0) return []
@@ -689,12 +689,12 @@ export function searchStops(schedule: GtfsSchedule, query: string, limit: number
   return results.slice(0, limit).map(({ id, name }) => ({ id, name }))
 }
 
-/** Punkt przystanku na mapie miasta — słupek albo (dla metra) cała stacja-rodzic. Bez pola opóźnienia (#13). */
+/** Punkt przystanku na mapie miasta — przystanek albo (dla metra) cała stacja-rodzic. Bez pola opóźnienia (#13). */
 export type CityStop = {
   id: string
   groupId: string
   name: string
-  /** `stop_code` słupka („01"); `null` dla stacji-rodzica i gdy feed nie podaje. */
+  /** `stop_code` przystanku („01"); `null` dla stacji-rodzica i gdy feed nie podaje. */
   code: string | null
   lat: number
   lon: number
@@ -706,10 +706,10 @@ const cityStopsCache = new WeakMap<GtfsSchedule, CityStop[]>()
 
 /**
  * Wszystkie przystanki miasta z pozycją — warstwa przystanków na mapie miasta.
- * Liczone RAZ na załadowany rozkład (skan wycinków CSR wszystkich słupków),
+ * Liczone RAZ na załadowany rozkład (skan wycinków CSR wszystkich przystanków),
  * potem z `WeakMap` — rozkład przeładowany = nowy obiekt = nowy wpis.
  *
- * - Słupek z rodzicem (peron metra) zwija się do rodzica: jeden punkt na stację.
+ * - Przystanek z rodzicem (peron metra) zwija się do rodzica: jeden punkt na stację.
  * - Pomijane: brak kursów w oknie [wczoraj, dziś, jutro], pozycja (0,0) (schema
  *   daje `0` przy braku współrzędnych) i przystanki wyłącznie kolejowe — kolej to
  *   osobna warstwa stacji PKP.
@@ -720,7 +720,7 @@ export function cityStops(schedule: GtfsSchedule): CityStop[] {
 
   const n = schedule.stopIds.length
   const rank = new Map(MODE_ORDER.map((mode, index) => [mode, index]))
-  // Najlepsza (najniższa) ranga trybu per punkt — słupki dzieci zasilają rodzica.
+  // Najlepsza (najniższa) ranga trybu per punkt — przystanki dzieci zasilają rodzica.
   const bestRank = new Int8Array(n).fill(99)
   const hasChild = new Uint8Array(n)
   for (let s = 0; s < n; s += 1) {
@@ -757,7 +757,7 @@ export function cityStops(schedule: GtfsSchedule): CityStop[] {
   return stops
 }
 
-/** Środek zespołu (średnia słupków z pozycją) — cel `flyTo` z wyszukiwarki. `null` gdy żaden słupek nie ma pozycji. */
+/** Środek zespołu (średnia przystanków z pozycją) — cel `flyTo` z wyszukiwarki. `null` gdy żaden przystanek nie ma pozycji. */
 export function groupCentroid(schedule: GtfsSchedule, groupId: string): { lat: number; lon: number } | null {
   let lat = 0
   let lon = 0

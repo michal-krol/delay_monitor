@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
-import { FilterIcon } from '../icons'
+import { AlertCircleIcon, FilterIcon, ICON_SIZE } from '../icons'
 import { LAYER_LABEL, LAYER_MODE, POINT_LAYERS, type LayerKey } from './mapData'
 import { ModeChip } from './ModeChip'
+import { useDropdown } from '@/hooks/useDropdown'
 
 /**
  * Przycisk „Filtry" + panel warstw (spec §7). Domyślnie wszystko widoczne, więc
@@ -26,30 +26,8 @@ export function MapFilters({
   alertsOnly?: boolean
   onAlertsOnly?: (next: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const { open, toggle: toggleOpen, rootRef, buttonRef, panelId } = useDropdown({ focusTriggerOnEscape: true })
   const restrictions = hidden.size + (alertsOnly ? 1 : 0)
-  const panelId = useId()
-  const rootRef = useRef<HTMLDivElement>(null)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      event.preventDefault() // zjadamy Escape — ramka panelu (PanelFrame) się wtedy nie zamyka
-      setOpen(false)
-      buttonRef.current?.focus()
-    }
-    const onPointer = (event: PointerEvent): void => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onPointer)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onPointer)
-    }
-  }, [open])
 
   function toggle(key: LayerKey): void {
     const next = new Set(hidden)
@@ -62,7 +40,7 @@ export function MapFilters({
     <fieldset className="space-y-1">
       <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</legend>
       {keys.map((key) => (
-        <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+        <label key={key} className="press flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 max-sm:min-h-11 dark:hover:bg-white/10">
           <input type="checkbox" checked={!hidden.has(key)} onChange={() => toggle(key)} className="h-4 w-4 accent-indigo-600" />
           <ModeChip mode={LAYER_MODE[key]} />
           {LAYER_LABEL[key]}
@@ -78,25 +56,35 @@ export function MapFilters({
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((o) => !o)}
-        className="glass inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10"
+        onClick={toggleOpen}
+        // Telefon (poniżej `sm`): sama ikona 44×44, napis „Filtry” tylko dla czytnika, licznik w rogu.
+        className="glass-chrome border border-surface-border shadow-md relative inline-flex h-full min-h-11 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-black/5 max-sm:w-11 max-sm:justify-center max-sm:px-0 dark:hover:bg-white/10"
       >
-        <FilterIcon size={16} />
-        Filtry
+        <FilterIcon size={ICON_SIZE.button} />
+        <span className="max-sm:sr-only">Filtry</span>
         {restrictions > 0 && (
-          <span className="grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white" style={{ background: 'var(--accent-solid)' }}>
+          <span
+            className="grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs text-white max-sm:absolute max-sm:-right-1.5 max-sm:-top-1.5"
+            style={{ background: 'var(--accent-solid)' }}
+          >
             {restrictions}
             <span className="sr-only"> aktywnych ograniczeń</span>
           </span>
         )}
       </button>
       {open && (
-        <div id={panelId} className="glass-strong absolute right-0 z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 rounded-2xl p-4 shadow-xl">
+        // Strona mapy się nie przewija (PR3): panel przewija się sam, zamiast schodzić pod dolny pasek.
+        // 15rem ≈ nagłówek + pasek tytułu + rząd kontrolek nad panelem (najwyższy przypadek: telefon).
+        <div
+          id={panelId}
+          className="glass-chrome-strong border border-surface-border enter-pop absolute right-0 z-30 mt-2 max-h-[calc(100dvh-var(--bottom-nav-h)-15rem)] w-72 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto overscroll-contain rounded-2xl p-4 shadow-xl"
+        >
           {group('Punkty', POINT_LAYERS)}
           {vehicleLayers.length > 0 && group('Pojazdy', vehicleLayers)}
           {onAlertsOnly !== undefined && (
-            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+            <label className="press flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-black/5 max-sm:min-h-11 dark:hover:bg-white/10">
               <input type="checkbox" checked={alertsOnly} onChange={() => onAlertsOnly(!alertsOnly)} className="h-4 w-4 accent-indigo-600" />
+              <AlertCircleIcon size={ICON_SIZE.button} className="shrink-0 text-warning-text" />
               Tylko linie z utrudnieniami
             </label>
           )}
@@ -107,7 +95,7 @@ export function MapFilters({
               onChange(new Set())
               onAlertsOnly?.(false)
             }}
-            className="w-full rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
+            className="press w-full rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 disabled:opacity-50 max-sm:min-h-11 dark:hover:bg-white/10"
           >
             Pokaż wszystko
           </button>

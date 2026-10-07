@@ -6,6 +6,149 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+## [1.2.0] — 2026-10-07
+
+### Dodane
+
+- Dolny pasek nawigacji na telefonie: „Pulpit”, „Odjazdy”, „Linie” i „Mapa” zawsze pod
+  kciukiem. U góry cienki nagłówek z wyszukiwarką i przełącznikiem motywu.
+- Jedna wyszukiwarka stacji kolejowych z całej Polski i przystanków miejskich, dostępna
+  z każdego ekranu: na telefonie przyciskiem „Szukaj” w nagłówku, na komputerze przyciskiem
+  w pasku bocznym, skrótem Ctrl+K (⌘K) albo klawiszem „/”.
+- „Ostatnio oglądane”: aplikacja pamięta do 8 ostatnio otwartych stacji i przystanków
+  (wybrany przystanek zespołu razem z numerem). Cztery najnowsze są na Pulpicie, wszystkie —
+  w pustej wyszukiwarce. „Wyczyść” usuwa listę.
+- Aplikację można zainstalować na ekranie początkowym telefonu: ma własną ikonę (na
+  Androidzie wypełnia cały kształt ikony, bez białej obwódki), kolor paska przeglądarki
+  dopasowany do motywu — także wybranego ręcznie przełącznikiem — i skróty do Pulpitu,
+  Mapy i Linii. Działa tylko z dostępem do internetu.
+- Komunikat „Brak połączenia — dane sprzed N min”, gdy telefon traci zasięg; ekran nadal
+  pokazuje ostatnio pobrane dane.
+- Karty na Pulpicie oznaczają pociągi z utrudnieniem tą samą ikoną co pełna tablica.
+- Filtr mapy „Tylko linie z utrudnieniami” ma ikonę utrudnienia, a przycisk „Lista” —
+  ikonę listy.
+- Tryb mock pokazuje więcej funkcji z wersji 1.0.x–1.1.0: autobusy każdego rodzaju (zwykłe,
+  podmiejskie, lokalne, zastępcze), przystanek „na żądanie”, kilka komunikatów o utrudnieniach
+  (z zakresem dat, bardzo długi, z nieznanym skutkiem), pojazd z nieświeżą pozycją, więcej
+  stacji Warszawy i licznik utrudnień PKP zgodny z danymi.
+- Zmienna `MOCK_BUDGET` (`low` lub `unknown`) pokazuje w trybie mock panel diagnostyczny przy
+  niskim lub nieznanym limicie zapytań PKP. Zmienna `WEATHER_DATA_SOURCE=mock` podaje stałą
+  pogodę bez zapytań do Open-Meteo (testy e2e).
+- Odliczanie „za N min” przy godzinie odjazdu na tablicy stacji, na kartach Pulpitu i na liście
+  odjazdów przystanku, gdy do odjazdu zostało mniej niż godzina. Pociąg odlicza do godziny
+  faktycznej albo prognozowanej, jeśli PKP ją podaje; odwołany nie odlicza wcale. Komunikacja
+  miejska pisze „za N min · wg rozkładu”, bo to plan, nie pomiar.
+- Przycisk „Info” na tablicy stacji i przystanku w telefonie otwiera panel od dołu ze
+  statystykami, pogodą, natężeniem ruchu, mapą i liniami — tym samym, co na komputerze stoi
+  w prawej kolumnie.
+- Dotknięcie „Aktualizacja … temu” na tablicy stacji i na Pulpicie od razu odświeża dane.
+  Pełna data i godzina aktualizacji są w podpowiedzi.
+- Podgląd linku do stacji, przystanku i linii (komunikator, media społecznościowe): karta
+  z logo, nazwą miejsca, ikoną rodzaju transportu i miastem oraz tytuł strony z nazwą zamiast
+  samego „Monitor opóźnień”. Nazwy pochodzą wyłącznie z naszych danych (słownik stacji,
+  rozkład) — nigdy z adresu; nieznany lub niepoprawny identyfikator daje kartę ogólną.
+- Płynne przejścia między ekranami: wejście w stację z Pulpitu „przenosi” nazwę z karty do
+  nagłówka tablicy, głębsze ekrany wjeżdżają z prawej, powrót odjeżdża w prawo, a zakładki
+  dolnego paska i przełączenie Odjazdy ↔ Przyjazdy przenikają się. Pasek u góry i dolny
+  stoją w miejscu.
+- Na telefonie, gdy przewijasz tablicę stacji lub przystanku, nagłówek zamienia nazwę aplikacji
+  na nazwę miejsca (bez przesuwania treści).
+- Liczby opóźnień i kafelki statystyk „toczą się” przy zmianie wartości, a wiersze tablicy
+  i listy odjazdów płynnie się pojawiają i przesuwają.
+- Drobne sygnały żywych danych: poświata pod aktywną zakładką dolnego paska, pulsująca kropka
+  przy świeżych danych i pojazdach z pozycją na żywo, miękka poświata przy opóźnionych
+  pociągach (status zawsze jest też napisany) oraz ugięcie karty Pulpitu pod palcem.
+- Wszystkie efekty wyłączają się przy ustawieniu systemu „ogranicz ruch”, a przy „ogranicz
+  przezroczystość” paski i arkusze mają pełne tło. Przejścia między ekranami są na razie tylko
+  w przeglądarkach z silnikiem Chromium (Chrome, Edge, Samsung Internet); w Safari ich nie ma.
+
+### Zmienione
+
+- Mapa transportu na telefonie zajmuje cały ekran między nagłówkiem a dolnym paskiem, a strona
+  się nie przewija. Karta przystanku, stacji, pojazdu albo linii otwiera się w panelu od dołu
+  na jednej czwartej ekranu. Panel można podnieść do połowy albo prawie do góry, przeciągając
+  go palcem albo dotykając uchwytu. „×” i Escape go zamykają, a mapę nad nim nadal da się
+  przesuwać.
+- Kontrolki mapy na telefonie mieszczą się w dwóch rzędach: przełącznik „Przystanek | Linia”,
+  „Filtry”, „Przypięte” i nowe menu „Więcej” (w nim „Lista” i „Udostępnij widok”), a pod nimi
+  pole wyszukiwania na całą szerokość. Nagłówek mapy jest niższy.
+- Komunikaty o utrudnieniach w karcie na mapie w telefonie są zwinięte w jeden wiersz
+  „Komunikaty (n)”, żeby odjazdy były widać od razu.
+- Małe mapy na stronach przystanku, stacji, linii i połączenia nie przechwytują już przewijania:
+  jednym palcem przewijasz stronę, dwoma przesuwasz mapę (na komputerze Ctrl + kółko).
+- Menu za przyciskiem „hamburgera” na telefonie zastąpił dolny pasek nawigacji.
+- Strzałka „Wróć” w szczegółach połączenia otwartych z udostępnionego linku (albo
+  z zainstalowanej aplikacji) prowadzi na Pulpit, zamiast nie robić nic.
+- Pole wyszukiwania pokazuje na telefonie klawiaturę z przyciskiem „Szukaj”, a podpowiedzi
+  mają większy obszar dotyku i wybierają się zwykłym stuknięciem.
+- Precyzyjne nazwy przystanków komunikacji miejskiej. Sama nazwa („Centrum”) oznacza
+  teraz zawsze cały zespół przystanków, a konkretny przystanek ma numer („Centrum 02”):
+  w „Najbliższym odjeździe”, na kartach Pulpitu i mapy, przy następnym przystanku
+  pojazdu, w panelu linii i na stronie linii. Z aplikacji zniknęło słowo „słupek”.
+- Przypinasz to, co widzisz: przypięty „Centrum 02” pokazuje na Pulpicie odjazdy tylko
+  z tego przystanku, a przypięty zespół — wszystkie, z numerami przystanków. Wcześniej
+  przypięte przystanki działają dalej jako cały zespół.
+- Wybrany przystanek zespołu zapisuje się w linku jako `?przystanek=`. Starsze linki
+  z `?slupek=` otwierają cały zespół.
+- Jeden zestaw ikon w całej aplikacji (Lucide). Każde pojęcie ma jedną ikonę: „Odjazdy”
+  w menu mają własną ikonę tablicy, odjazd i przyjazd w szczegółach połączenia mają
+  strzałki zamiast zegara, a przypięte miejsca zawsze mają pełną gwiazdkę. Rozwijane
+  sekcje mają strzałkę w dół, która po rozwinięciu obraca się w górę. Rozmiary ikon
+  zależą od ich roli (w czipie, w tekście, w przycisku, na kafelku).
+- Strzałka kierunku pojazdu na mapie i w legendzie ma kształt grotu nawigacji zamiast
+  trójkąta.
+- Favicona i ikony aplikacji (także na ekran początkowy iPhone’a) mają teraz to samo
+  logo co w aplikacji.
+- Usunięto nieczytane kolumny kolorów z przykładowego pliku `routes.txt` oraz nieaktualne
+  komentarze o liczbie pociągów w mocku.
+- Tablice na telefonie zaczynają się od odjazdów: na ekranie 375×667 pierwszy odjazd stacji,
+  przystanku i stacji wybranej na ekranie miasta widać bez przewijania. Nagłówek tablicy jest
+  zwarty, statystyki są pigułkami w jednym–dwóch rzędach, a przystanki zespołu — rzędem
+  przycisków z samym numerem.
+- Zakładki „Odjazdy | Przyjazdy” (i zakładki przystanku z filtrem linii) przyklejają się pod
+  nagłówkiem przy przewijaniu, mają przyciski 44 px, a obok nich jest legenda statusów „?”
+  (wcześniej w nagłówku tabeli, którego na telefonie nie widać).
+- Najpopularniejsze kierunki są na tablicy stacji przyciskami nad listą (na węższych ekranach
+  niż szeroki monitor); dotknięcie filtruje tablicę i zapisuje kierunek w linku.
+- Ekran miasta na telefonie: najpierw wyszukiwarka, statystyki pod nią.
+- Strona linii poniżej szerokości laptopa: przełącznik „Trasa | Rozkład”; wybór przystanku na
+  trasie od razu pokazuje jego rozkład.
+- Mapa na telefonie: chipy „Aktywne filtry”, komunikat „Skopiowano link…” i komunikaty
+  o problemach z danymi jadą nad górną krawędzią panelu, zamiast chować się pod nim.
+- Rozmycie tła (szkło) jest tylko na pływających elementach: paski, menu i kontrolki mapy,
+  pastylka offline i arkusze. Karty z treścią są prawie kryjące i bez rozmycia.
+
+### Naprawione
+
+- Telefon: wszystkie przyciski i pola listy mają cel dotyku co najmniej 44 px (wybór miasta,
+  filtry mapy, strona linii, „Wróć do wyszukiwania”), a tekst nigdzie nie jest mniejszy niż
+  12 px. Pola formularzy mają 16 px, więc iPhone nie powiększa ekranu po dotknięciu pola.
+  Karty nie „zostają uniesione” po dotyku, a przyciski mają własny stan wciśnięcia.
+- Ładowanie tablic pokazuje szkielety wierszy zamiast samego napisu „Wczytywanie…”; komunikaty
+  o nieudanym pobraniu mówią jednolicie „Nie udało się …” (słownik w `.claude/rules/ui-copy.md`).
+- Mapa: otwarcie przypiętego zespołu przystanków z menu „Przypięte” pokazuje kartę zespołu
+  z zapełnioną gwiazdką, a stare przypięcia zespołu zapisane pod id przystanku są po wczytaniu
+  Pulpitu przepisywane na id zespołu.
+- Arkusz od dołu nie przeskakuje już na mijany punkt, gdy animacja uchwytu jest wolna
+  (obciążone urządzenie); testy arkusza mapy czekają na dojazd zamiast ścigać się z animacją.
+
+- Ikonę utrudnienia na trasie widać teraz także na tablicy w telefonie (wcześniej stała
+  w kolumnie ukrytej w widoku kart).
+- Zakładka „Komunikaty” przystanku podczas wczytywania pisze „Wczytywanie komunikatów…”
+  zamiast twierdzić, że dla „tego przystanku” nie ma komunikatów.
+- Metro: oznaczenie z numerem peronu czytnik ekranu odczytuje jako „peron P1”, a nie
+  „Odjazd z przystanku P1”.
+- Karta przypiętego zespołu na Pulpicie i karta przystanku na mapie pokazują numer przystanku
+  przy odjeździe tylko wtedy, gdy zespół ma więcej niż jeden przystanek.
+
+- Metro: numer peronu nie wyświetla się już dwa razy przy odjeździe.
+- Przycisk zmiany kierunku na stronie linii podaje czytnikowi ekranu wybrany kierunek
+  („Centrum do Dworzec Centralny zmień kierunek”), a nie tylko „Zmień kierunek”.
+  Strzałka „skąd → dokąd” w nagłówku połączenia jest odczytywana jako „do”.
+- Rozmycie tła na paskach i kartach nie działało w Chrome (build gubił właściwość bez
+  prefiksu). Teraz działa, ale tylko tam, gdzie ma działać.
+- Plakietka „opóźniony” bez znanej liczby minut pokazuje samo słowo zamiast „+null min”.
+
 ## [1.1.0] — 2026-10-01
 
 ### Dodane
@@ -549,7 +692,8 @@ Pierwsza wersja funkcjonalna.
 - Tryb jasny i ciemny.
 - Wdrożenie na Railway i bramka jakości w GitHub Actions.
 
-[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.1.0...HEAD
+[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/michal-krol/delay_monitor/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/michal-krol/delay_monitor/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/michal-krol/delay_monitor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/michal-krol/delay_monitor/compare/v1.0.0...v1.0.1

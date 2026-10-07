@@ -16,17 +16,17 @@ test('wiersz odjazdu na 375 px: bez poziomego przewijania, nagłówek kursu wido
     await route.fulfill({ response, json: body })
   })
 
-  // Cały zespół (`1001`), nie słupek (`100101`): deep-link na słupek pobiera najpierw
-  // listę zespołu, a potem drugi raz zawężoną do słupka (`requestedMember` → `?member=`).
+  // Cały zespół (`1001`), nie przystanek (`100101`): deep-link na przystanek pobiera najpierw
+  // listę zespołu, a potem drugi raz zawężoną do przystanku (`requestedMember` → `?member=`).
   // Gdy pierwszy odjazd obu list się różni (zależy od godziny), React podmienia `<li>`
   // w trakcie pomiaru i `boundingBox()` dostaje odpięty węzeł → `null` → szerokość 0
   // (flaky 2026-10-01). Zespół = jedno źródło listy, bez podmiany, a do tego najpełniejszy
-  // zestaw oznaczeń: numer słupka („Odjazd z: 01") + peron + plakietka + „za …".
+  // zestaw oznaczeń: numer przystanku („Odjazd z przystanku 01") + peron + plakietka + „za …".
   await page.goto('/city/warszawa/stop/1001')
   const row = page.getByTestId('departure-list').locator('li').first()
   await expect(row).toBeVisible({ timeout: 45_000 })
   await expect(row).toContainText('na żądanie')
-  await expect(row).toContainText('Odjazd z:')
+  await expect(row).toContainText('Odjazd z przystanku')
 
   const { scrollWidth, clientWidth } = await row.evaluate((el) => ({
     scrollWidth: el.scrollWidth,
@@ -49,11 +49,13 @@ test('linii na 375 px: karty „Trasa linii” i Rozkładu mają się zmieścić
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/city/warszawa/line/20')
   await expect(page.getByRole('heading', { level: 1, name: /Centrum – Dworzec Centralny/ })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /^Rozkład/ })).toBeVisible()
+  const overflow = () =>
+    page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }))
-  expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  // Poniżej `lg` jedna sekcja naraz (PR4): „Trasa”, potem „Rozkład” z przełącznika.
+  await expect(page.getByRole('heading', { name: /^Trasa linii/ })).toBeVisible()
+  expect(await overflow()).toBeLessThanOrEqual(0)
+  await page.getByRole('group', { name: 'Widok linii' }).getByRole('button', { name: 'Rozkład' }).click()
+  await expect(page.getByRole('heading', { name: /^Rozkład/ })).toBeVisible()
+  expect(await overflow()).toBeLessThanOrEqual(0)
 })

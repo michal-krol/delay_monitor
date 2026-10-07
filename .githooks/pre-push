@@ -1,4 +1,5 @@
 #!/bin/sh
-# Bramka jakości przed pushem — patrz AGENTS.md #12.
+# Bramka jakości przed pushem — patrz AGENTS.md #12 i .claude/rules/testing.md.
 # Włączenie (raz na klon): git config core.hooksPath .githooks
-npm run deps:check && npm run check
+# Logika (stempel bramki, warunkowy next build) w scripts/pre-push.mjs; stdin gita przechodzi dalej.
+exec node scripts/pre-push.mjs "$@"

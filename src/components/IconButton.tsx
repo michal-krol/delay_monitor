@@ -11,11 +11,13 @@ type Props = {
   /** Tylko pozycjonowanie/widoczność (np. odsłanianie na hover karty), nie wygląd. */
   className?: string
   ref?: Ref<HTMLButtonElement>
+  /** Akcja chwilowo niemożliwa (np. przypięcie zanim wiadomo, co przypinamy). */
+  disabled?: boolean
 }
 
 /** Wspólny wygląd `IconButton` (bez rozmiaru) — używa go też link ← w `TopBar`, żeby oba wyglądały tak samo. */
 export const ICON_BUTTON_CLASS =
-  'touch-44 relative grid shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10'
+  'press touch-44 relative grid shrink-0 place-items-center rounded-full border border-surface-border text-text-secondary transition hover:bg-black/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10 disabled:pointer-events-none disabled:opacity-40'
 /** Rozmiar `md` (36 px). */
 export const ICON_BUTTON_MD_SIZE = 'h-9 w-9'
 
@@ -24,12 +26,13 @@ export const ICON_BUTTON_MD_SIZE = 'h-9 w-9'
  * ten sam krój co `ThemeToggle`, obok którego zwykle stoi. Wcześniej sześć
  * wariantów (z obwódką i bez, 28/36/44 px, kwadrat i koło).
  */
-export function IconButton({ label, onClick, children, pressed, size = 'md', className = '', ref }: Props) {
+export function IconButton({ label, onClick, children, pressed, size = 'md', className = '', ref, disabled }: Props) {
   return (
     <button
       ref={ref}
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
       aria-pressed={pressed}
       className={`${ICON_BUTTON_CLASS} ${size === 'lg' ? 'h-11 w-11' : ICON_BUTTON_MD_SIZE} ${className}`}

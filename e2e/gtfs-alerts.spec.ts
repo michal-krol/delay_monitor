@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 const READY = 45_000
 
@@ -15,11 +15,11 @@ test('linia: aktywny alert z fixture\'u pokazuje baner utrudnienia, alert linii 
   await expect(page.getByText('Utrudnienie na linii spoza fixture\'u')).not.toBeVisible()
 })
 
-test('przystanek: zakładka Komunikaty pokazuje utrudnienie linii 20 też zawężona do jednego słupka (?member= deep-link)', async ({ page }) => {
-  // Regresja: 100101 to słupek zespołu 1001 (Centrum), obsługiwany przez
+test('przystanek: zakładka Komunikaty pokazuje utrudnienie linii 20 też zawężona do jednego przystanku (?member= deep-link)', async ({ page }) => {
+  // Regresja: 100101 to przystanek zespołu 1001 (Centrum), obsługiwany przez
   // linię 20 (patrz fixtures/gtfs/warszawa/stop_times.txt). Handler
   // `/api/gtfs/board` kiedyś dopasowywał alerty po `scopeId ?? group.id`,
-  // a `groupRoutes` zna tylko klucze zespołów — słupek zawężał wynik do [].
+  // a `groupRoutes` zna tylko klucze zespołów — przystanek zawężał wynik do [].
   await page.goto('/city/warszawa/stop/100101')
   await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible({ timeout: READY })
   const alertsTab = page.getByRole('tab', { name: /Komunikaty/ })
@@ -33,7 +33,7 @@ test('a11y: strona linii z widocznym banerem utrudnienia bez naruszeń serious/c
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
   await expect(page.getByText('Utrudnienia w kursowaniu linii 20')).toBeVisible({ timeout: READY })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })

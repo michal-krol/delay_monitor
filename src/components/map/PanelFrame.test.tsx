@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { PanelFrame } from './PanelFrame'
+import { BottomSheet } from '../BottomSheet'
 
 describe('PanelFrame', () => {
   it('is a non-modal dialog labelled by its heading, with a body region', () => {
@@ -14,6 +15,15 @@ describe('PanelFrame', () => {
     const dialog = screen.getByRole('dialog', { name: 'W pobliżu' })
     expect(dialog).toHaveAttribute('aria-modal', 'false')
     expect(screen.getByLabelText('Lista')).toHaveTextContent('treść')
+  })
+
+  it('contains overscroll in its scrolling body (no scroll chaining to the page under a sheet)', () => {
+    render(
+      <PanelFrame title="W pobliżu" closeLabel="Zamknij panel" onClose={vi.fn()} bodyLabel="Lista">
+        treść
+      </PanelFrame>,
+    )
+    expect(screen.getByLabelText('Lista')).toHaveClass('overscroll-contain')
   })
 
   it('focuses the heading on mount and again when focusKey changes', () => {
@@ -115,5 +125,28 @@ describe('PanelFrame', () => {
     expect(buttons).toEqual(['Przypnij', 'Zamknij'])
     await userEvent.click(screen.getByRole('button', { name: 'Zamknij' }))
     expect(onClose).toHaveBeenCalledOnce()
+  })
+})
+
+describe('PanelFrame inside the bottom sheet', () => {
+  it('drops its own glass card and marks the body as the sheet-locked scroller; outside the sheet it keeps both as before', () => {
+    const { unmount } = render(
+      <BottomSheet>
+        <PanelFrame title="A" closeLabel="Zamknij" onClose={vi.fn()} bodyLabel="Treść A">
+          treść
+        </PanelFrame>
+      </BottomSheet>
+    )
+    expect(screen.getByRole('dialog', { name: 'A' })).not.toHaveClass('glass-chrome-strong')
+    expect(screen.getByLabelText('Treść A')).toHaveAttribute('data-sheet-scroll')
+    unmount()
+
+    render(
+      <PanelFrame title="B" closeLabel="Zamknij" onClose={vi.fn()} bodyLabel="Treść B">
+        treść
+      </PanelFrame>
+    )
+    expect(screen.getByRole('dialog', { name: 'B' })).toHaveClass('glass-chrome-strong')
+    expect(screen.getByLabelText('Treść B')).not.toHaveAttribute('data-sheet-scroll')
   })
 })

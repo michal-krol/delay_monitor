@@ -1,16 +1,21 @@
 'use client'
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { startTransition, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
+import { useRecentPlaces } from '@/hooks/useRecentPlaces'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
-import { BoardTable } from './BoardTable'
-import { StationAside } from './StationAside'
+import { BoardTable, StatusLegend } from './BoardTable'
+import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
+import { PopularDestinations, StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
 import { PageTitle } from './PageTitle'
-import { CloseIcon, PIN_COLOR, StarIcon } from './icons'
+import { PlaceTitle } from './PlaceTitle'
+import { TabCrossfade } from './TabCrossfade'
+import { useHeaderTitle } from './headerTitle'
+import { CloseIcon, StarIcon, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
@@ -61,7 +66,7 @@ function TabButton({
       aria-selected={active}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+      className={`rounded-full px-4 py-1.5 text-sm font-medium transition max-sm:min-h-11 ${
         active ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
       }`}
       // Ten sam akcent co zakładki przystanku (TransitStopDetail) — stacja wygląda jak przystanek.
@@ -74,15 +79,29 @@ function TabButton({
 
 export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
+  // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
+  useHeaderTitle(embedded ? null : stationName)
   const idBase = useId()
   const tabId = (d: Direction): string => `${idBase}-tab-${d}`
   const panelId = `${idBase}-panel`
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
-  const { data, error, lastSuccessAt } = useBoard([stationId])
+  // Kontekst w kolumnie (`wide`) albo w arkuszu „Info” — jedno miejsce naraz, patrz `useBoardContext`.
+  const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
+  const { data, error, lastSuccessAt, refresh } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
   const configError = data?.status === 'configError'
+
+  // „Ostatnio oglądane": zapis po wczytaniu snapshotu, zależny od wartości (nie od obiektu
+  // snapshotu, który zmienia się co odpytanie). Zapisujemy nazwę rozwiązaną przez serwer, nie
+  // `?name=` z URL-a (wpis powstaje bez kliknięcia, więc nie może nieść cudzego tekstu z linku).
+  // Nazwa równa id = serwer nie znał nazwy — nic do pokazania.
+  const { record: recordRecentPlace } = useRecentPlaces()
+  const resolvedName = snapshot?.stationName ?? null
+  useEffect(() => {
+    if (resolvedName !== null && resolvedName !== stationId) recordRecentPlace({ kind: 'pkp', id: stationId, name: resolvedName })
+  }, [resolvedName, stationId, recordRecentPlace])
 
   const now = useSnapshotNow(data)
 
@@ -94,8 +113,11 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
    * dodatkowy render i renderowanie odfiltrowanej tablicy przez jedną klatkę.
    */
   function switchDirection(next: Direction): void {
-    setDirection(next)
-    setDestinationFilter(null)
+    // `startTransition`: dopiero zmiana stanu w przejściu uruchamia crossfade (`TabCrossfade`).
+    startTransition(() => {
+      setDirection(next)
+      setDestinationFilter(null)
+    })
   }
 
   const allRows = useMemo(() => (snapshot ? snapshot[direction] : []), [snapshot, direction])
@@ -161,24 +183,54 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
     }
   }, [])
 
+  const loading = snapshot === null && error === null
+  const aside = (
+    <StationAside
+      insights={snapshot?.insights}
+      disruptionMessages={snapshot?.disruptionMessages ?? []}
+      destinationFilter={destinationFilter}
+      onDestinationFilter={setDestinationFilter}
+      loading={loading}
+      currentHour={zonedHour(now, 'Europe/Warsaw')}
+      weather={weather}
+      stationName={stationName}
+      stationId={stationId}
+      mapPreview={mapPreview}
+    />
+  )
+
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
-      <div className="flex min-w-0 flex-col gap-5">
-        <section className="glass rounded-2xl p-5">
+    <div className="grid items-start gap-5 max-sm:gap-3 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+      {/* Na telefonie odjazdy pierwsze: zwarty nagłówek, KPI jako pigułki, kontekst w arkuszu „Info”. */}
+      <div className="flex min-w-0 flex-col gap-5 max-sm:gap-3">
+        <section className="glass rounded-2xl p-5 max-sm:p-4">
           {configError && <ConfigErrorBanner />}
 
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <StationThumb stationName={stationName} />
+              <div className="shrink-0 max-sm:hidden">
+                <StationThumb stationName={stationName} />
+              </div>
               <div className="min-w-0">
-                <PageTitle as={embedded ? 'h2' : 'h1'}>{stationName}</PageTitle>
+                {/* Nazwany element przejścia z kafelka Pulpitu; osadzona tablica (ekran miasta) nie przychodzi z Pulpitu. */}
+                {embedded ? (
+                  <PageTitle as="h2" className="max-sm:text-xl">
+                    {stationName}
+                  </PageTitle>
+                ) : (
+                  <PlaceTitle kind="pkp" id={stationId}>
+                    <PageTitle as="h1" className="max-sm:text-xl">
+                      {stationName}
+                    </PageTitle>
+                  </PlaceTitle>
+                )}
                 {/* Przy błędzie konfiguracji NIE pokazujemy statusu danych --
                     „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API"
                     to dokładnie to mieszanie sygnałów, przed którym ostrzega
                     AGENTS.md #7. Ta sama zasada co ukrycie tabeli niżej. */}
                 {!configError && (
                   <div className="mt-1">
-                    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} />
+                    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
                   </div>
                 )}
               </div>
@@ -186,7 +238,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
 
             <div className="flex flex-wrap items-center gap-2">
               <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
-                <StarIcon size={15} filled={isPinned} className={isPinned ? PIN_COLOR : ''} />
+                <StarIcon size={ICON_SIZE.button} filled={isPinned} />
               </IconButton>
             </div>
           </div>
@@ -199,10 +251,15 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
             "sprawdź klucz API" nie sąsiadował z wyglądającą na działającą tabelą. */}
         {!configError && (
           <>
-            <StationStatsCards stats={snapshot?.stats} loading={snapshot === null && error === null} />
+            <StationStatsCards stats={snapshot?.stats} loading={loading} />
 
-            <section className="glass rounded-2xl p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <section className="glass rounded-2xl p-5 max-sm:p-4">
+              {/* Na telefonie pasek przykleja się pod nagłówkiem aplikacji: zakładki, legenda i „Info”
+                  zostają pod ręką przy przewijaniu długiej tablicy. Nieprzezroczysty, bo wiersze jadą pod nim. */}
+              <div
+                data-testid="board-tabs-bar"
+                className={`flex flex-wrap items-center justify-between gap-3 max-sm:gap-2 ${STICKY_TABS_BAR}`}
+              >
                 <div
                   role="tablist"
                   aria-label="Kierunek"
@@ -216,6 +273,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     Przyjazdy
                   </TabButton>
                 </div>
+                <StatusLegend />
 
                 {destinationFilter !== null && (
                   <button
@@ -224,40 +282,45 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground"
                   >
                     Kierunek: {destinationFilter}
-                    <CloseIcon size={12} />
+                    <CloseIcon size={ICON_SIZE.chip} />
                   </button>
                 )}
+                <div className="ml-auto">
+                  <InfoButton open={infoOpen} onClick={toggleInfo} />
+                </div>
               </div>
 
+              {/* Poniżej `xl` kierunki są filtrami nad tablicą (ten sam stan co karta w kolumnie od `xl`). */}
+              {direction === 'departures' && (
+                <PopularDestinations variant="chips" insights={snapshot?.insights} loading={false} onSelect={setDestinationFilter} selected={destinationFilter} />
+              )}
+
               <div role="tabpanel" id={panelId} aria-labelledby={tabId(direction)}>
-                <BoardTable
-                  stationName={stationName}
-                  direction={direction}
-                  rows={rows}
-                  now={now}
-                  loading={snapshot === null && error === null}
-                />
+                <TabCrossfade id={direction} name="board-rows">
+                  <BoardTable
+                    stationName={stationName}
+                    direction={direction}
+                    rows={rows}
+                    now={now}
+                    loading={loading}
+                  />
+                </TabCrossfade>
               </div>
             </section>
           </>
         )}
       </div>
 
-      {!configError && (
-        <aside className="xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">
-          <StationAside
-            insights={snapshot?.insights}
-            disruptionMessages={snapshot?.disruptionMessages ?? []}
-            destinationFilter={destinationFilter}
-            onDestinationFilter={setDestinationFilter}
-            loading={snapshot === null && error === null}
-            currentHour={zonedHour(now, 'Europe/Warsaw')}
-            weather={weather}
-            stationName={stationName}
-            stationId={stationId}
-            mapPreview={mapPreview}
-          />
-        </aside>
+      {!configError && wide && (
+        <aside className="max-sm:hidden xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">{aside}</aside>
+      )}
+
+      {/* Telefon: te same komponenty co prawa kolumna (jedna implementacja), plus pełne kafelki KPI. */}
+      {!configError && infoOpen && (
+        <InfoSheet title="Informacje o stacji" onClose={closeInfo}>
+          <StationStatsCards stats={snapshot?.stats} loading={loading} />
+          {aside}
+        </InfoSheet>
       )}
     </div>
   )

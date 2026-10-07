@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
+import { stubMatchMedia } from '@/test-utils/media'
 
 let search = ''
 const push = vi.fn()
@@ -39,7 +40,7 @@ const board = {
   ],
 }
 
-/** Zespół „Centrum" z 3 słupkami — do testów przełącznika (linie 187-247). */
+/** Zespół „Centrum" z 3 przystankami — do testów przełącznika (linie 187-247). */
 const groupBoard = {
   ...board,
   stopId: '1001',
@@ -95,7 +96,7 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByRole('region', { name: /^Mapa przystanku/ })).not.toBeInTheDocument()
   })
 
-  it('shows a map card with one pin per słupek when the group has members', () => {
+  it('shows a map card with one pin per przystanek when the group has members', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
@@ -103,7 +104,7 @@ describe('TransitStopDetail', () => {
       failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
-    expect(screen.getByRole('region', { name: 'Mapa przystanku Centrum' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Mapa zespołu przystanków Centrum' })).toBeInTheDocument()
   })
 
   it('filters the board by line when a line chip is clicked', async () => {
@@ -133,9 +134,9 @@ describe('TransitStopDetail', () => {
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
-  it('shows the słupek switcher only when the group has more than one member', () => {
+  it('shows the przystanek switcher only when the group has more than one member', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    expect(screen.queryByText('Słupki tego przystanku', { exact: false })).not.toBeInTheDocument()
+    expect(screen.queryByText('Przystanki w zespole', { exact: false })).not.toBeInTheDocument()
 
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
@@ -144,12 +145,13 @@ describe('TransitStopDetail', () => {
       failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
-    expect(screen.getByText('Słupki tego przystanku · 2')).toBeInTheDocument()
+    expect(screen.getByText('Przystanki w zespole · 2')).toBeInTheDocument()
+    expect(screen.getByText('Zespół przystanków · 2 przystanki')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /^Centrum 01/ })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /^Centrum 02/ })).toBeInTheDocument()
   })
 
-  it('clicking a słupek scopes the header subtitle and selects that tab only', async () => {
+  it('clicking a przystanek scopes the header subtitle and selects that tab only', async () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
@@ -158,19 +160,63 @@ describe('TransitStopDetail', () => {
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
 
-    const wholeGroup = screen.getByRole('tab', { name: /Cały przystanek/ })
-    const slupek02 = screen.getByRole('tab', { name: /^Centrum 02/ })
+    const wholeGroup = screen.getByRole('tab', { name: /Cały zespół/ })
+    const stop02 = screen.getByRole('tab', { name: /^Centrum 02/ })
     expect(wholeGroup).toHaveAttribute('aria-selected', 'true')
 
-    await userEvent.click(slupek02)
-    expect(slupek02).toHaveAttribute('aria-selected', 'true')
+    await userEvent.click(stop02)
+    expect(stop02).toHaveAttribute('aria-selected', 'true')
     expect(wholeGroup).toHaveAttribute('aria-selected', 'false')
     // podtytuł nagłówka + przycisk przełącznika oba noszą „Centrum 02"
     expect(screen.getAllByText(/^Centrum 02/)).toHaveLength(2)
 
     await userEvent.click(wholeGroup)
     expect(wholeGroup).toHaveAttribute('aria-selected', 'true')
-    expect(slupek02).toHaveAttribute('aria-selected', 'false')
+    expect(stop02).toHaveAttribute('aria-selected', 'false')
+  })
+
+  describe('recent places', () => {
+    const KEY = 'monitor.recentPlaces.v1'
+    const stored = (): unknown => JSON.parse(window.localStorage.getItem(KEY) ?? '[]')
+    const mockGroupBoard = (): void => {
+      useTransitBoard.mockReturnValue({
+        data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
+        error: null,
+        loading: false,
+        failed: false,
+      })
+    }
+
+    it('records the whole zespół by groupId', () => {
+      mockGroupBoard()
+      // stopId ze ścieżki bywa przystankiem z deep-linku — zapisujemy id zespołu z odpowiedzi.
+      render(<TransitStopDetail city="warszawa" stopId="100102" />)
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' }])
+    })
+
+    it('records the selected przystanek with its number', () => {
+      mockGroupBoard()
+      search = 'przystanek=100102'
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', member: '100102', name: 'Centrum 02' }])
+    })
+
+    it('a deep link to one przystanek records only that przystanek, not the zespół first', () => {
+      useTransitBoard.mockReturnValue({
+        data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [{ ...groupBoard, requestedMember: '100102' }], attribution: [] },
+        error: null,
+        loading: false,
+        failed: false,
+      })
+      render(<TransitStopDetail city="warszawa" stopId="100102" />)
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', member: '100102', name: 'Centrum 02' }])
+    })
+
+    it('records nothing until the board has loaded', () => {
+      useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+      render(<TransitStopDetail city="warszawa" stopId="1001" initialName="Centrum" />)
+      expect(window.localStorage.getItem(KEY)).toBeNull()
+    })
   })
 
   it('view tabs follow the WAI-ARIA tabs pattern: one tab stop, arrows/Home/End move selection and focus, a labelled tabpanel', async () => {
@@ -196,7 +242,7 @@ describe('TransitStopDetail', () => {
     expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
   })
 
-  it('słupek tabs: one tab stop and arrow keys select the next słupek', async () => {
+  it('przystanek tabs: one tab stop and arrow keys select the next przystanek', async () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
@@ -204,7 +250,7 @@ describe('TransitStopDetail', () => {
       failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
-    const tabs = within(screen.getByRole('tablist', { name: 'Słupek przystanku' })).getAllByRole('tab')
+    const tabs = within(screen.getByRole('tablist', { name: 'Przystanek w zespole' })).getAllByRole('tab')
     expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1'])
 
     tabs[0].focus()
@@ -239,6 +285,41 @@ describe('TransitStopDetail', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
     expect(screen.getByText('Aktualnie brak komunikatów dla tego przystanku.')).toBeInTheDocument()
+  })
+
+  // PR0 review: przed odpowiedzią nie wiadomo, czy to zespół, czy jeden przystanek.
+  it('says alerts are loading, never „tego przystanku”, before the board arrives', async () => {
+    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
+    expect(screen.getByText('Wczytywanie komunikatów…')).toBeInTheDocument()
+    expect(screen.queryByText(/tego przystanku/)).not.toBeInTheDocument()
+  })
+
+  it('on a phone the stop context renders once — in the Info sheet, not also in a hidden aside', async () => {
+    stubMatchMedia(false)
+    window.HTMLElement.prototype.scrollTo = () => {}
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    expect(screen.queryByText('Natężenie ruchu dziś')).not.toBeInTheDocument()
+    // Licencja danych zostaje widoczna pod tablicą także na telefonie.
+    expect(screen.getByText(/ZTM/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Info' }))
+    expect(screen.getAllByText('Natężenie ruchu dziś')).toHaveLength(1)
+  })
+
+  it('„Info” opens a sheet with the stop context (map, traffic, lines) and × closes it', async () => {
+    stubMatchMedia(false)
+    window.HTMLElement.prototype.scrollTo = () => {}
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
+    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+    const info = screen.getByRole('button', { name: 'Info' })
+    await userEvent.click(info)
+    const sheet = screen.getByRole('dialog', { name: 'Informacje o przystanku' })
+    expect(within(sheet).getByText('Natężenie ruchu dziś')).toBeInTheDocument()
+    expect(within(sheet).getByText('Linie na tym przystanku')).toBeInTheDocument()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
+    expect(screen.queryByRole('dialog', { name: 'Informacje o przystanku' })).not.toBeInTheDocument()
   })
 
   it('shows a loading hint, not "no alerts", on the Komunikaty tab while alerts are still unknown (alerts: null)', async () => {
@@ -276,31 +357,38 @@ describe('TransitStopDetail', () => {
     expect(screen.getByText('Piaski')).toBeInTheDocument()
   })
 
-  it('preselects the słupek named in `?slupek=` when nothing has been clicked yet', () => {
+  it('preselects the przystanek named in `?przystanek=` when nothing has been clicked yet', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
       loading: false,
       failed: false,
     })
-    search = 'slupek=100102'
+    search = 'przystanek=100102'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     expect(screen.getByRole('tab', { name: /^Centrum 02/ })).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('ignores a malformed `?slupek=` and falls back to the whole group', () => {
+  it('ignores an old `?slupek=` link and shows the whole group', () => {
+    useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [groupBoard], attribution: [] }, error: null, loading: false, failed: false })
+    search = 'slupek=100102'
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    expect(screen.getByRole('tab', { name: /Cały zespół/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('ignores a malformed `?przystanek=` and falls back to the whole group', () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
       loading: false,
       failed: false,
     })
-    search = 'slupek=..%2F..'
+    search = 'przystanek=..%2F..'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
-    expect(screen.getByRole('tab', { name: /Cały przystanek/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /Cały zespół/ })).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('writes the clicked słupek to the URL via router.replace, keeping other params', async () => {
+  it('writes the clicked przystanek to the URL via router.replace, keeping other params', async () => {
     useTransitBoard.mockReturnValue({
       data: { city: 'warszawa', schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }, stops: [groupBoard], attribution: [] },
       error: null,
@@ -310,7 +398,7 @@ describe('TransitStopDetail', () => {
     search = 'name=Centrum'
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     await userEvent.click(screen.getByRole('tab', { name: /^Centrum 02/ }))
-    expect(replace).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum&slupek=100102', { scroll: false })
+    expect(replace).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum&przystanek=100102', { scroll: false })
   })
 
   it('highlights the nearest upcoming departure on the Najbliższe odjazdy tab, not on Pełny rozkład', async () => {
@@ -338,6 +426,31 @@ describe('TransitStopDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
       { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' },
+    ])
+  })
+
+  it('cannot pin before the board says whether a group or one stop is shown', () => {
+    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="100102" initialName="Centrum" />)
+    expect(screen.getByRole('button', { name: /Przypnij do Pulpitu/ })).toBeDisabled()
+  })
+
+  it('pins the selected stop of a group with its number', async () => {
+    useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [groupBoard], attribution: [] }, error: null, loading: false, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="1001" />)
+    await userEvent.click(screen.getByRole('tab', { name: /^Centrum 02/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
+    expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
+      { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum 02', member: true },
+    ])
+  })
+
+  it('pins the whole group, not the stop from the link, when the group is shown', async () => {
+    useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [{ ...groupBoard, stopId: '100102' }], attribution: [] }, error: null, loading: false, failed: false })
+    render(<TransitStopDetail city="warszawa" stopId="100102" />)
+    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
+    expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
+      { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' },
     ])
   })
 

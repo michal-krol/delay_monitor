@@ -38,11 +38,15 @@ describe('splitEndStops', () => {
 })
 
 describe('LineGrid', () => {
-  it('a tile links to the line page, named "Linia N: A – B", showing "A → B"', () => {
+  it('a tile links to the line page, named "Linia N: A – B", showing A and B joined by the direction arrow icon', () => {
     render(<LineGrid linesByMode={lines} city="warszawa" isOpen={always} onToggle={vi.fn()} />)
     const link = screen.getByRole('link', { name: 'Linia M1: Kabaty – Młociny' })
     expect(link).toHaveAttribute('href', '/city/warszawa/line/M1')
-    expect(link).toHaveTextContent('Kabaty → Młociny')
+    expect(link).toHaveTextContent('Kabaty Młociny')
+    // Strzałka kierunku z jednego źródła ikon (`ArrowRightIcon`), nie znak „→” (.claude/rules/ui-icons.md).
+    expect(link).not.toHaveTextContent('→')
+    // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona (aria-hidden), nazwa linku niesie kierunek
+    expect(link.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
   })
 
   it('falls back to the whole longName when it has no end-stop separator', () => {

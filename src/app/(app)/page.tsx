@@ -1,10 +1,12 @@
 'use client'
 
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { usePinned } from '@/hooks/usePinned'
 import { Dashboard } from '@/components/Dashboard'
 import { EmptyState } from '@/components/EmptyState'
+import { RecentPlaces } from '@/components/RecentPlaces'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { TopBar } from '@/components/TopBar'
 import { NetworkStatsCard } from '@/components/NetworkStatsCard'
@@ -27,13 +29,13 @@ export default function Page() {
 function PulpitPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { pinnedItems, loaded, removePinned } = usePinned()
+  const { pinnedItems, loaded, removePinned, replacePinned } = usePinned()
 
   const rawFocus = searchParams.get('focus')
   const focusedStationId = rawFocus && STATION_ID_PATTERN.test(rawFocus) ? rawFocus : null
 
   function goToBoard(station: StationOption): void {
-    router.push(`/station/${station.id}?name=${encodeURIComponent(station.name)}`)
+    router.push(`/station/${station.id}?name=${encodeURIComponent(station.name)}`, NAV_FORWARD_OPTIONS)
   }
 
   /**
@@ -64,11 +66,12 @@ function PulpitPage() {
     <PageShell aside={<NetworkStatsCard />}>
       <TopBar title="Pulpit" subtitle="Przypięte stacje i przystanki z najbliższymi odjazdami" />
       <StationSearch onSelect={goToBoard} placeholder="Dodaj stację…" />
+      <RecentPlaces limit={4} />
 
       {pinnedItems.length === 0 ? (
         <EmptyState />
       ) : (
-        <Dashboard pinnedItems={pinnedItems} onExpand={goToBoard} onRemove={removePinned} />
+        <Dashboard pinnedItems={pinnedItems} onExpand={goToBoard} onRemove={removePinned} onNormalize={replacePinned} />
       )}
     </PageShell>
   )

@@ -2,8 +2,9 @@
 
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { IconButton } from './IconButton'
-import { PIN_COLOR, StarIcon } from './icons'
+import { StarIcon, TrainIcon, ICON_SIZE } from './icons'
 import { BoardRowList } from './BoardRowList'
+import { PlaceTitle } from './PlaceTitle'
 import { pluralPl } from '@/lib/plural'
 import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
@@ -44,7 +45,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
   return (
     <article
       data-status={leadStatus}
-      className="glow-ring card-hover group relative isolate w-full overflow-hidden rounded-2xl border p-5 text-left transition duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
+      className="glow-ring card-hover card-press group relative isolate w-full overflow-hidden rounded-2xl border p-5 text-left transition duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
       style={
         {
           borderColor: BORDER_COLOR[leadStatus],
@@ -72,18 +73,17 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
           <line x1="4" y1="120" x2="112" y2="72" style={{ stroke: statusTint(leadStatus, 26) }} strokeWidth="3" strokeLinecap="round" />
           <line x1="20" y1="130" x2="122" y2="86" style={{ stroke: statusTint(leadStatus, 16) }} strokeWidth="3" strokeLinecap="round" />
           <line x1="38" y1="139" x2="132" y2="100" style={{ stroke: statusTint(leadStatus, 9) }} strokeWidth="3" strokeLinecap="round" />
-          <g transform="translate(80,4) scale(4.4)" fill="none" style={{ stroke: statusTint(leadStatus, 65) }} strokeWidth="0.35" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12.5V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6.5" />
-            <rect x="4.3" y="12.5" width="11.4" height="2.4" rx="1.2" />
-            <circle cx="7.3" cy="9" r="1" style={{ fill: statusTint(leadStatus, 65) }} stroke="none" />
-            <circle cx="12.7" cy="9" r="1" style={{ fill: statusTint(leadStatus, 65) }} stroke="none" />
-            <path d="M6.3 15.8 4.6 18M13.7 15.8l1.7 2.2" />
+          {/* Ten sam `TrainIcon` (jedno źródło ikon), powiększony do ~88 px; cienki obrys przez CSS `stroke-width` (bije atrybut). */}
+          <g transform="translate(80,4) scale(3.667)" style={{ color: statusTint(leadStatus, 65) }}>
+            <TrainIcon size={24} className="[stroke-width:0.42]" />
           </g>
         </svg>
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">{stationName}</h2>
+        <PlaceTitle kind="pkp" id={stationId}>
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{stationName}</h2>
+        </PlaceTitle>
         <div className="flex shrink-0 items-center gap-1.5">
           {delayedCount > 0 && (
             /* Ten sam bursztynowy chip co „Utrudnienie" w panelu szczegółów
@@ -97,14 +97,14 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
               pełna, klik odpina. z-10 stawia przycisk nad nakładką rozwijającą tablicę,
               która w drzewie stoi później i domyślnie przykryłaby go w całości. */}
           <IconButton label={`Odepnij z Pulpitu: ${stationName}`} onClick={onRemove} className="z-10">
-            <StarIcon size={16} filled className={PIN_COLOR} />
+            <StarIcon size={ICON_SIZE.button} filled />
           </IconButton>
         </div>
       </div>
 
       {error && !snapshot && (
         <p aria-live="polite" className="mt-1 text-xs text-error-text">
-          Błąd pobierania danych
+          Nie udało się pobrać danych
         </p>
       )}
       {error && snapshot && (
@@ -118,6 +118,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
 
       <BoardRowList
         rows={departures}
+        now={now}
         loading={!snapshot && !error}
         showEmpty={snapshot !== null && departures.length === 0}
         emptyMessage="Brak odjazdów w najbliższych godzinach"
@@ -127,6 +128,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         type="button"
         onClick={() => onExpand({ id: stationId, name: stationName })}
         aria-label={`Pokaż pełną tablicę: ${stationName}`}
+        data-card-open
         className="absolute inset-0 rounded-2xl focus:outline-none"
       />
     </article>

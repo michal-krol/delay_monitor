@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
 import { LineBadge } from './LineBadge'
 import { MODE_ICON } from './transitMode'
+import { ICON_SIZE } from './icons'
 
 export type StationOption = {
   id: string
@@ -30,6 +31,14 @@ type Props = {
   endpoint?: string
   /** Szeroka lista podpowiedzi (ekran miasta) — bez `max-w-md`. */
   wide?: boolean
+  /**
+   * `'dropdown'` (domyślnie): status i lista nakładają się na treść (`absolute`).
+   * `'sheet'`: w normalnym przepływie, przewija je rodzic (arkusz wyszukiwania) — bez `max-w-md`.
+   */
+  variant?: 'dropdown' | 'sheet'
+  /** Treść pod polem, dopóki zapytanie jest puste (arkusz: „Ostatnio oglądane"). */
+  idle?: ReactNode
+  autoFocus?: boolean
 }
 
 /** Wygląd pola wyszukiwania — wspólny dla stacji/przystanków, linii na mapie i listy linii. */
@@ -46,7 +55,15 @@ const LOADING_RETRY_MS = 1500
 
 type SearchStatus = 'idle' | 'searching' | 'ready' | 'error'
 
-export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOINT, wide = false }: Props) {
+export function StationSearch({
+  onSelect,
+  placeholder,
+  endpoint = DEFAULT_ENDPOINT,
+  wide = false,
+  variant = 'dropdown',
+  idle,
+  autoFocus = false,
+}: Props) {
   const [query, setQuery] = useState('')
   const [options, setOptions] = useState<StationOption[]>([])
   const [status, setStatus] = useState<SearchStatus>('idle')
@@ -164,11 +181,17 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
             : 'Brak stacji ani przystanków o tej nazwie'
           : null
 
+  const sheet = variant === 'sheet'
+  // Arkusz: lista w przepływie (przewija ją rodzic); dropdown: nakłada się na treść poniżej.
+  const layerClass = sheet ? 'mt-2' : 'absolute z-10 mt-2'
+
   return (
-    <div className={`relative w-full ${wide ? '' : 'max-w-md'}`}>
+    <div className={`relative w-full ${wide || sheet ? '' : 'max-w-md'}`}>
       <input
         ref={inputRef}
-        type="text"
+        type="search"
+        enterKeyHint="search"
+        autoFocus={autoFocus}
         role="combobox"
         // Nazwa dostępna: sam `placeholder` znika, gdy pole ma wartość, i część
         // czytników ekranu go nie czyta jako etykiety. `aria-autocomplete="list"`
@@ -180,7 +203,8 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
-        className={SEARCH_INPUT_CLASS}
+        // Arkusz ma własne „Zamknij ×" tuż obok — natywny „×" Chromium'a (type=search) dublowałby ikonę.
+        className={sheet ? `${SEARCH_INPUT_CLASS} [&::-webkit-search-cancel-button]:appearance-none` : SEARCH_INPUT_CLASS}
         placeholder={placeholder ?? 'Szukaj stacji…'}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
@@ -189,7 +213,7 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
       {message !== null && (
         <p
           role="status"
-          className={`glass-strong absolute z-10 mt-2 w-full rounded-xl px-3.5 py-2 text-sm ${
+          className={`glass-chrome-strong border border-surface-border enter-pop ${layerClass} w-full rounded-xl px-3.5 py-2 text-sm ${
             status === 'error' ? 'text-error-text' : 'text-text-secondary'
           }`}
         >
@@ -200,7 +224,7 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
         <ul
           id={listboxId}
           role="listbox"
-          className="glass-strong absolute z-10 mt-2 w-full overflow-hidden rounded-xl py-1"
+          className={`glass-chrome-strong border border-surface-border enter-pop ${layerClass} w-full overflow-hidden rounded-xl py-1`}
         >
           {options.map((option, index) => {
             const Icon = option.mode ? MODE_ICON[option.mode] : null
@@ -213,16 +237,16 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
                 // Dostępna nazwa stabilna mimo bogatszej treści wizualnej.
                 aria-label={option.name}
                 aria-selected={index === activeIndex}
-                className={`flex cursor-pointer items-center gap-2.5 px-3.5 py-2 text-sm transition ${
+                className={`flex cursor-pointer min-h-11 items-center gap-2.5 px-3.5 py-2 text-sm transition ${
                   index === activeIndex ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
                 style={index === activeIndex ? { background: 'var(--accent-gradient)' } : undefined}
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  selectOption(option)
-                }}
+                // mousedown nie wybiera (przewijanie palcem), tylko trzyma fokus w polu, żeby lista
+                // nie zniknęła przed `click`.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => selectOption(option)}
               >
-                {Icon !== null && <Icon size={15} className="shrink-0 opacity-70" />}
+                {Icon !== null && <Icon size={ICON_SIZE.button} className="shrink-0 opacity-70" />}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{option.name}</span>
                   {option.kind === 'transit' && lines.length > 0 && (
@@ -246,6 +270,7 @@ export function StationSearch({ onSelect, placeholder, endpoint = DEFAULT_ENDPOI
           })}
         </ul>
       )}
+      {query.trim() === '' && idle}
     </div>
   )
 }

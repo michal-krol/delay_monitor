@@ -1,18 +1,21 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
+import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { CityIcon, CloseIcon, ShareIcon } from '@/components/icons'
+import { CityIcon, CloseIcon, ListIcon, ShareIcon, ICON_SIZE } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
+import { stopDisplayName } from '@/components/stopName'
 import { MapFilters } from '@/components/map/MapFilters'
 import { MapLegend } from '@/components/map/MapLegend'
+import { MapMoreMenu } from '@/components/map/MapMoreMenu'
 import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
 import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
 import {
@@ -36,6 +39,7 @@ import {
 } from '@/components/map/mapData'
 import { useCities } from '@/hooks/useCities'
 import { useCityStops } from '@/hooks/useCityStops'
+import type { CityStop } from '@/lib/gtfs/query'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useLineDetail } from '@/hooks/useLineDetail'
@@ -49,8 +53,8 @@ import type { GtfsMode } from '@/lib/gtfs/types'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 import { lineColor } from '@/components/transitMode'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 
-const WIDE_QUERY = '(min-width: 40rem)'
 const LAST_VIEW_KEY = 'monitor.map.view.v1'
 /** `localStorage` to dane spoza aplikacji — schemat, nie asercja typu (AGENTS.md #4). */
 const lastViewSchema = z.object({ city: z.string(), at: z.string() })
@@ -83,17 +87,10 @@ function useCityList<T>(url: string, pick: (json: Record<string, unknown>) => T[
   return data?.items ?? null
 }
 
-/** Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon. */
-function useIsWide(): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const media = window.matchMedia(WIDE_QUERY)
-      media.addEventListener('change', onChange)
-      return () => media.removeEventListener('change', onChange)
-    },
-    () => window.matchMedia(WIDE_QUERY).matches,
-    () => false
-  )
+
+/** Zaznaczenie przystanku z listy przystanków miasta (jedno miejsce zamiast kilku kopii literału). */
+function stopSelection(stop: CityStop): Extract<MapSelection, { kind: 'stop' }> {
+  return { kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon }
 }
 
 export default function CityMapPage() {
@@ -112,7 +109,8 @@ export default function CityMapPage() {
   const [searchTab, setSearchTab] = useState<'place' | 'line'>('place')
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
-  const isWide = useIsWide()
+  // Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon.
+  const isWide = useMediaQuery(SM_UP, false)
 
   const vehiclesState = useCityVehicles(city)
   const stopsState = useCityStops(city)
@@ -124,7 +122,7 @@ export default function CityMapPage() {
   const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
   const { share, status: shareStatus } = useShareUrl()
-  const { pinnedItems, addPinned, removePinned, isPinned } = usePinned()
+  const { pinnedItems, addPinned, removePinned, replacePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
@@ -262,7 +260,7 @@ export default function CityMapPage() {
   function openLineStop(stop: LineRouteStop): void {
     const known = stopsState.stops?.find((s) => s.id === stop.stopId)
     const mode = known?.mode ?? (line?.mode === 'tram' || line?.mode === 'metro' ? line.mode : 'bus')
-    setSelection({ kind: 'stop', id: stop.stopId, groupId: stop.groupId, name: stop.name, mode, lat: stop.lat, lon: stop.lon })
+    setSelection({ kind: 'stop', id: stop.stopId, groupId: stop.groupId, name: stop.name, code: stop.code, mode, lat: stop.lat, lon: stop.lon })
     setFocus({ lat: stop.lat, lon: stop.lon, nonce: Date.now() })
   }
 
@@ -281,7 +279,7 @@ export default function CityMapPage() {
       focusOn(point.lat, point.lon)
     } else {
       const { stop } = point
-      setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      setSelection(stopSelection(stop))
       focusOn(stop.lat, stop.lon)
     }
   }
@@ -300,9 +298,16 @@ export default function CityMapPage() {
   function openPinned(pinnedItem: PinnedPoint): void {
     const fav = pinnedItems.find((f) => pinnedKey(f) === pinnedItem.key)
     if (fav?.kind === 'pkp') onMapSelect({ kind: 'rail', id: fav.id })
-    else {
-      const stop = stopsState.stops?.find((s) => s.id === fav?.id || s.groupId === fav?.id)
+    else if (fav?.kind === 'gtfs' && fav.member === true) {
+      const stop = stopsState.stops?.find((s) => s.id === fav.id)
       if (stop !== undefined) onMapSelect({ kind: 'stop', id: stop.id })
+    } else if (fav?.kind === 'gtfs') {
+      // Przypięty zespół (albo stary wpis pod id przystanku): karta ZESPOŁU, nie pierwszego przystanku —
+      // inaczej klucz przypięcia się nie zgadza i gwiazdka jest pusta.
+      const stop = stopsState.stops?.find((s) => s.groupId === fav.id || s.id === fav.id)
+      if (stop !== undefined) setSelection({ ...stopSelection(stop), id: stop.groupId, code: null })
+      // Stary wpis zespołu pod id przystanku: przepisujemy na id zespołu od razu, żeby gwiazdka na karcie była zapełniona.
+      if (stop !== undefined && fav.id !== stop.groupId) replacePinned(pinnedKey(fav), { ...fav, id: stop.groupId })
     }
     focusOn(pinnedItem.lat, pinnedItem.lon)
   }
@@ -310,7 +315,11 @@ export default function CityMapPage() {
   /** Klucz przypiętego dla karty stacji/przystanku; `null` dla pojazdu. */
   function pinnedItemFor(sel: MapSelection): PinnedItem | null {
     if (sel.kind === 'rail') return { kind: 'pkp', id: sel.id, name: sel.name }
-    if (sel.kind === 'stop') return { kind: 'gtfs', city, id: sel.id, name: sel.name }
+    // Jeden przystanek zespołu (pin na mapie) → przypięty z numerem; wybór z wyszukiwarki = cały zespół.
+    if (sel.kind === 'stop')
+      return sel.id !== sel.groupId
+        ? { kind: 'gtfs', city, id: sel.id, name: stopDisplayName(sel.name, sel.code), member: true }
+        : { kind: 'gtfs', city, id: sel.id, name: sel.name }
     return null
   }
 
@@ -319,7 +328,7 @@ export default function CityMapPage() {
     if (hit.kind === 'vehicle') return setSelection({ kind: 'vehicle', id: hit.id })
     if (hit.kind === 'stop') {
       const stop = stopsState.stops?.find((s) => s.id === hit.id)
-      if (stop !== undefined) setSelection({ kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, mode: stop.mode, lat: stop.lat, lon: stop.lon })
+      if (stop !== undefined) setSelection(stopSelection(stop))
       return
     }
     const station = railState.stations?.find((s) => s.id === hit.id)
@@ -333,7 +342,7 @@ export default function CityMapPage() {
       setSelection({ kind: 'rail', id: option.id, name: option.name, lat, lon })
     } else {
       // Zespół przystankowy: odjazdy całego zespołu; stacja metra (rodzic) ma w warstwie swój punkt.
-      setSelection({ kind: 'stop', id: option.id, groupId: option.id, name: option.name, mode: option.mode ?? 'bus', lat, lon })
+      setSelection({ kind: 'stop', id: option.id, groupId: option.id, name: option.name, code: null, mode: option.mode ?? 'bus', lat, lon })
     }
     if (lat !== null && lon !== null) setFocus({ lat, lon, nonce: Date.now() })
   }
@@ -412,23 +421,78 @@ export default function CityMapPage() {
         onClose={() => chooseLine(null)}
       />
     ) : null
+  // Nowy obiekt w arkuszu = nowy `key` → arkusz startuje znów w `peek`.
+  const cardKey =
+    selection !== null ? `${selection.kind}:${selection.id}` : nearby !== null ? 'nearby' : listOpen ? 'list' : `line:${line?.routeId}`
 
   const placeSearch = (
     <StationSearch endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`} placeholder="Szukaj stacji lub przystanku…" onSelect={onSearchSelect} wide />
   )
   const lineSearch = <LineSearch lines={lines} onSelect={chooseLine} />
+  const filters = (
+    <MapFilters hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} alertsOnly={alertsOnly} onAlertsOnly={changeAlertsOnly} />
+  )
+
+  function toggleList(): void {
+    setListOpen((open) => !open)
+    setSelection(null)
+    setNearby(null)
+  }
+
+  // Chipy filtrów i statusy: pod kontrolkami, a gdy na telefonie jest arkusz — na jego krawędzi (`above`),
+  // bo przy half/full by je zakrył (role=status, decyzja z PR3).
+  const sheetOpen = !isWide && card !== null
+  const statusStack = (
+    <>
+      {(hidden.size > 0 || line !== null || alertsOnly) && (
+        <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
+          {line !== null && (
+            <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
+          )}
+          {alertsOnly && (
+            <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
+          )}
+          {[...hidden].map((key) => (
+            <Chip
+              key={key}
+              label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
+              removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
+              onRemove={() => {
+                const next = new Set(hidden)
+                next.delete(key)
+                changeHidden(next)
+              }}
+            />
+          ))}
+        </ul>
+      )}
+
+      {shareStatus !== 'idle' && (
+        <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
+          {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
+        </p>
+      )}
+      {problems.map((problem) => (
+        <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
+          {problem}
+        </p>
+      ))}
+    </>
+  )
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <div className="px-4 py-4 sm:px-8 sm:py-5">
+    // Wysokość = ekran bez nagłówka i dolnego paska (od `sm` obie zmienne to 0): strona się nie przewija.
+    <div className="flex h-[calc(100dvh-var(--header-h)-var(--bottom-nav-h))] min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="px-4 py-2 sm:px-8 sm:py-5">
         <TopBar
+          compact
           title="Mapa transportu"
           subtitle={`${feed.name} · ${freshness}`}
-          actions={<CityPicker cities={cities} current={city} hrefFor={(id) => `/city/${id}/map`} />}
+          actions={<CityPicker compact cities={cities} current={city} hrefFor={(id) => `/city/${id}/map`} />}
         />
       </div>
 
-      <div className="relative flex min-h-[60vh] flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
           {mounted && initialCamera !== null && (
             <TransitMap
@@ -460,111 +524,91 @@ export default function CityMapPage() {
             />
           )}
 
-          {/* Kontrolki i karta telefonu w jednej kolumnie: karta (max 62%) dostaje tylko miejsce pod
-              kontrolkami, więc ich nie zakryje, nawet gdy przyciski zeszły do drugiego rzędu. */}
           <div className="pointer-events-none absolute inset-0 flex flex-col">
-            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 sm:ml-4 sm:mt-4">
+            {/* Nad arkuszem (`.bottom-sheet`, z-20) tylko wtedy, gdy coś tu jest rozwinięte (wyniki wyszukiwania,
+                Filtry, Przypięte, Więcej) — inaczej lista otwierała się pod panelem; zwinięte zostają pod nim. */}
+            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 sm:ml-4 sm:mt-4">
               <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
                 {isWide ? (
                   <>
                     <div className="w-72">{placeSearch}</div>
                     <div className="w-52">{lineSearch}</div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        aria-pressed={listOpen}
+                        onClick={toggleList}
+                        className={`glass inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${
+                          listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
+                        }`}
+                        style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
+                      >
+                        <ListIcon size={ICON_SIZE.button} />
+                        Lista
+                      </button>
+                      <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                      {filters}
+                      <button
+                        type="button"
+                        onClick={() => void share()}
+                        aria-label="Udostępnij ten widok mapy"
+                        className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        <ShareIcon size={ICON_SIZE.button} />
+                      </button>
+                    </div>
                   </>
                 ) : (
-                  // `min-w-40`: na telefonie przyciski schodzą pod pole zamiast ścisnąć je do „Sz…";
-                  // `ml-auto` niżej trzyma je z prawej, bo ich panele otwierają się w lewo.
-                  <div className="flex min-w-40 flex-1 flex-col gap-1.5">
-                    <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
-                      {(['place', 'line'] as const).map((tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          aria-pressed={searchTab === tab}
-                          onClick={() => setSearchTab(tab)}
-                          className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
-                          style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
-                        >
-                          {tab === 'place' ? 'Przystanek' : 'Linia'}
-                        </button>
-                      ))}
+                  // Telefon: dwa rzędy — zakładki i przyciski (ich panele otwierają się w lewo od prawej
+                  // krawędzi), pod nimi pole na całą szerokość. „Lista” i „Udostępnij” są w „Więcej”.
+                  <div className="flex w-full flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
+                        {(['place', 'line'] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            aria-pressed={searchTab === tab}
+                            onClick={() => setSearchTab(tab)}
+                            className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
+                            style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
+                          >
+                            {tab === 'place' ? 'Przystanek' : 'Linia'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="ml-auto flex gap-2">
+                        {filters}
+                        <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                        <MapMoreMenu listOpen={listOpen} onToggleList={toggleList} onShare={() => void share()} />
+                      </div>
                     </div>
                     {searchTab === 'place' ? placeSearch : lineSearch}
                   </div>
                 )}
-                <div className={`flex gap-2 ${isWide ? '' : 'ml-auto self-end'}`}>
-
-                  <button
-                    type="button"
-                    aria-pressed={listOpen}
-                    onClick={() => {
-                      setListOpen((open) => !open)
-                      setSelection(null)
-                      setNearby(null)
-                    }}
-                    className={`glass min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${
-                      listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
-                    }`}
-                    style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
-                  >
-                    Lista
-                  </button>
-                  <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                  <MapFilters
-                    hidden={hidden}
-                    vehicleLayers={vehicleLayers}
-                    onChange={changeHidden}
-                    alertsOnly={alertsOnly}
-                    onAlertsOnly={changeAlertsOnly}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void share()}
-                    aria-label="Udostępnij ten widok mapy"
-                    className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                  >
-                    <ShareIcon size={16} />
-                  </button>
-                </div>
               </div>
 
-              {(hidden.size > 0 || line !== null || alertsOnly) && (
-                <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
-                  {line !== null && (
-                    <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
-                  )}
-                  {alertsOnly && (
-                    <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
-                  )}
-                  {[...hidden].map((key) => (
-                    <Chip
-                      key={key}
-                      label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
-                      removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
-                      onRemove={() => {
-                        const next = new Set(hidden)
-                        next.delete(key)
-                        changeHidden(next)
-                      }}
-                    />
-                  ))}
-                </ul>
-              )}
-
-              {shareStatus !== 'idle' && (
-                <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
-                  {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
-                </p>
-              )}
-              {problems.map((problem) => (
-                <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
-                  {problem}
-                </p>
-              ))}
+              {!sheetOpen && statusStack}
             </div>
-            {!isWide && card !== null && (
-              <div className="pointer-events-auto relative z-20 mt-auto flex min-h-0 max-h-[62%] flex-col p-2">{card}</div>
-            )}
           </div>
+
+          {sheetOpen && (
+            <BottomSheet
+              key={cardKey}
+              above={
+                <>
+                  {statusStack}
+                  {outsideFeed && (
+                    <p role="status" className="glass-strong rounded-full px-4 py-1.5 text-xs text-text-secondary">
+                      Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
+                    </p>
+                  )}
+                </>
+              }
+            >
+              {card}
+            </BottomSheet>
+          )}
 
           <p className="sr-only" aria-live="polite">
             {vehicleCountAnnouncement}
@@ -578,19 +622,19 @@ export default function CityMapPage() {
             title="Pokaż całe miasto"
             className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
           >
-            <CityIcon size={18} />
+            <CityIcon size={ICON_SIZE.tile} />
           </button>
 
-          {outsideFeed && (
+          {outsideFeed && !sheetOpen && (
             <p role="status" className="glass-strong absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-xs text-text-secondary">
               Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
             </p>
           )}
 
-          {(isWide || selection === null) && (
+          {(isWide || card === null) && (
             // `sm:top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
             // miasto” (`top-[88px]` + `h-11` = 132 px) + 12 px odstępu. Od `top-3` rozwinięta legenda
-            // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `WIDE_QUERY`)
+            // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `SM_UP`)
             // przyciski Lista/Filtry/Udostępnij schodzą do drugiego rzędu (114–158 px przy 375 px),
             // stąd `top-44` (176 px) — przy 144 px legenda zakrywała ich dolne 14 px.
             <div className="pointer-events-none absolute bottom-8 right-3 top-44 z-10 flex flex-col justify-end sm:right-4 sm:top-36">
@@ -611,7 +655,7 @@ function Chip({ label, removeLabel, onRemove }: { label: string; removeLabel: st
     <li className="glass-strong inline-flex items-center gap-1 rounded-full py-1 pl-3 pr-1 text-xs font-medium">
       {label}
       <button type="button" onClick={onRemove} aria-label={removeLabel} className="touch-44 relative -my-1 grid h-9 w-9 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
-        <CloseIcon size={12} />
+        <CloseIcon size={ICON_SIZE.chip} />
       </button>
     </li>
   )

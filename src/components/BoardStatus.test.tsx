@@ -58,7 +58,7 @@ describe('BoardStatus', () => {
 
   it('reports a fetch error', () => {
     render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={true} />)
-    expect(screen.getByText('Błąd pobierania danych')).toBeInTheDocument()
+    expect(screen.getByText('Nie udało się pobrać danych')).toBeInTheDocument()
   })
 
   it('shows the refresh-cadence note even while still loading, not just once data has arrived', () => {
@@ -78,6 +78,18 @@ describe('BoardStatus', () => {
     expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
     expect(screen.queryByText(/odświeżanie ograniczone/)).not.toBeInTheDocument()
     expect(screen.queryByText(/API nie odpowiada/)).not.toBeInTheDocument()
+  })
+
+  it('turns the data age into a refresh-now button when given onRefresh', () => {
+    const onRefresh = vi.fn()
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} lastSuccessAt={NOW - 40_000} data={makeData()} error={false} onRefresh={onRefresh} />)
+
+    const button = screen.getByRole('button', { name: 'Aktualizacja 41 s temu — odśwież teraz' })
+    expect(button).toHaveTextContent('Aktualizacja 41 s temu')
+    expect(button).toHaveAttribute('title', expect.stringContaining('01.08.2026'))
+    button.click()
+    expect(onRefresh).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/Ostatnia aktualizacja:/)).not.toBeInTheDocument()
   })
 
   it('always shows a short plain-language note about how often data refreshes', () => {
@@ -126,8 +138,8 @@ describe('BoardStatus', () => {
 
     expect(screen.getByText(/Ostatnia aktualizacja:/)).toBeInTheDocument()
     expect(screen.getByText('dane sprzed 7 min')).toBeInTheDocument()
-    expect(screen.getByText('Błąd ostatniego odświeżenia')).toBeInTheDocument()
-    expect(screen.queryByText('Błąd pobierania danych')).not.toBeInTheDocument()
+    expect(screen.getByText('Nie udało się odświeżyć')).toBeInTheDocument()
+    expect(screen.queryByText('Nie udało się pobrać danych')).not.toBeInTheDocument()
   })
 
   it('omits the budget tooltip when the API did not report a budget', () => {
@@ -213,10 +225,10 @@ describe('BoardStatus', () => {
     const { container, rerender } = render(<BoardStatus fetchedAt={undefined} ageMs={undefined} data={null} error={true} />)
     // eslint-disable-next-line testing-library/no-node-access
     expect(container.firstElementChild).toHaveClass('text-text-secondary')
-    expect(screen.getByText('Błąd pobierania danych')).toHaveClass('text-error-text')
+    expect(screen.getByText('Nie udało się pobrać danych')).toHaveClass('text-error-text')
     rerender(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} data={makeData()} error={true} />)
     // Ostatni dobry snapshot wciąż jest na ekranie (#7) — jak „błąd ostatniego odświeżenia" w ScheduleStatus.
-    expect(screen.getByText('Błąd ostatniego odświeżenia')).toHaveClass('text-warning-text')
+    expect(screen.getByText('Nie udało się odświeżyć')).toHaveClass('text-warning-text')
   })
 })
 

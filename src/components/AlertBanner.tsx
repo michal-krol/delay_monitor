@@ -1,6 +1,9 @@
 'use client'
 
-import { AlertCircleIcon } from './icons'
+import { useInSheet } from './BottomSheet'
+import { AlertCircleIcon, DisclosureIcon, ICON_SIZE } from './icons'
+
+const ALERT_CARD = 'min-w-0 rounded-lg border border-amber-300/60 bg-amber-50 text-sm dark:border-amber-800/60 dark:bg-amber-950/40'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
 
@@ -50,8 +53,31 @@ function AlertBody({ body }: { body: string }) {
   )
 }
 
+/**
+ * W arkuszu (karta mapy na telefonie, `useInSheet`) całość pod jednym „Komunikaty (n)”, żeby
+ * odjazdy były widać bez przewijania. Zewnętrzne `<details>` bez klasy `group` — wewnętrzne
+ * „Rozwiń/Zwiń” (`group-open:`) reagowałyby na jego otwarcie.
+ */
 export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
+  const inSheet = useInSheet()
   if (alerts.length === 0) return null
+  if (inSheet)
+    return (
+      <details className={ALERT_CARD}>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 font-medium [&::-webkit-details-marker]:hidden">
+          <AlertCircleIcon size={ICON_SIZE.button} className="shrink-0 text-warning-text" />
+          <span className="min-w-0 flex-1">Komunikaty ({alerts.length})</span>
+          <DisclosureIcon size={ICON_SIZE.chip} className="shrink-0 text-warning-text" />
+        </summary>
+        <div className="p-2 pt-0">
+          <AlertList alerts={alerts} />
+        </div>
+      </details>
+    )
+  return <AlertList alerts={alerts} />
+}
+
+function AlertList({ alerts }: { alerts: AlertRecord[] }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {alerts.map((alert) => {
@@ -64,18 +90,19 @@ export function AlertBanner({ alerts }: { alerts: AlertRecord[] }) {
         return (
           <div
             key={alert.id}
-            className="min-w-0 rounded-lg border border-amber-300/60 bg-amber-50 text-sm dark:border-amber-800/60 dark:bg-amber-950/40"
+            className={ALERT_CARD}
           >
             <details className="group">
               <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2 p-3 [&::-webkit-details-marker]:hidden">
-                <AlertCircleIcon size={16} className="mt-0.5 shrink-0 text-warning-text" />
+                <AlertCircleIcon size={ICON_SIZE.button} className="mt-0.5 shrink-0 text-warning-text" />
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-foreground [overflow-wrap:anywhere]">{alert.title || 'Utrudnienie'}</span>
                   {dates !== null && <span className="mt-0.5 block text-xs text-text-muted">Daty w komunikacie: {dates}</span>}
                 </span>
-                <span className="shrink-0 text-xs font-medium text-warning-text">
+                <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-warning-text">
                   <span className="group-open:hidden">Rozwiń</span>
                   <span className="hidden group-open:inline">Zwiń</span>
+                  <DisclosureIcon size={ICON_SIZE.chip} />
                 </span>
               </summary>
               {alert.body !== '' && <AlertBody body={alert.body} />}

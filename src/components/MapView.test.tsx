@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { MapPin, MapRoute } from './MapView'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +7,7 @@ import * as maplibregl from 'maplibre-gl'
 import { MapView, STYLE_DARK, STYLE_LIGHT } from './MapView'
 import { MODE_COLOR, UNKNOWN_COLOR, outlineFilter, strokeFor } from './map/mapData'
 import { LINE_PALETTE } from './transitMode'
+import { ChevronRightIcon } from './icons'
 
 type PopupMock = { setDOMContent: (node: HTMLElement) => PopupMock; content: HTMLElement | null }
 
@@ -73,7 +74,7 @@ describe('MapView', () => {
   })
 
   it('wystawia dostępny region dla czytnika ekranu, gdy są piny', () => {
-    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa przystanku Foo" />)
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]} ariaLabel="Mapa przystanku Foo" />)
     expect(screen.getByRole('region', { name: 'Mapa przystanku Foo' })).toBeInTheDocument()
   })
 
@@ -82,8 +83,8 @@ describe('MapView', () => {
       <MapView
         dark={false}
         pins={[
-          { id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' },
-          { id: 'b', lat: 52.2, lon: 21.1, label: 'Słupek B' },
+          { id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' },
+          { id: 'b', lat: 52.2, lon: 21.1, label: 'Przystanek B' },
         ]}
         ariaLabel="Mapa"
       />
@@ -142,6 +143,22 @@ describe('MapView', () => {
     expect(markerElementAt(0).style.backgroundColor).toBe(css(UNKNOWN_COLOR))
   })
 
+  it('mała mapa: cooperativeGestures z polskimi podpowiedziami (strona przewija się jednym palcem); powiększona — bez', async () => {
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'A' }]} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+    const inline = vi.mocked(maplibregl.Map).mock.calls[0][0]
+    expect(inline.cooperativeGestures).toBe(true)
+    expect(inline.locale).toEqual({
+      'CooperativeGesturesHandler.WindowsHelpText': 'Użyj Ctrl + kółko myszy, aby przybliżyć mapę',
+      'CooperativeGesturesHandler.MacHelpText': 'Użyj ⌘ + kółko myszy, aby przybliżyć mapę',
+      'CooperativeGesturesHandler.MobileHelpText': 'Przesuwaj mapę dwoma palcami',
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(maplibregl.Map).mock.calls[1][0].cooperativeGestures).toBeFalsy()
+  })
+
   it('podkład jak na mapie miasta: jasny bez `dark`, ciemny z `dark`; zmiana motywu montuje mapę od nowa', async () => {
     const pins: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'A' }]
     const { rerender } = render(<MapView dark={false} pins={pins} ariaLabel="Mapa" />)
@@ -167,21 +184,21 @@ describe('MapView', () => {
 
   it('klik na pin woła onPinClick z jego id', async () => {
     const onPinClick = vi.fn()
-    render(<MapView dark={false} pins={[{ id: 'slupek-1', lat: 52.1, lon: 21.0, label: 'Słupek 1' }]} onPinClick={onPinClick} ariaLabel="Mapa" />)
+    render(<MapView dark={false} pins={[{ id: 'stop-1', lat: 52.1, lon: 21.0, label: 'Przystanek 1' }]} onPinClick={onPinClick} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(1))
     markerElementAt(0).dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
-    expect(onPinClick).toHaveBeenCalledWith('slupek-1')
+    expect(onPinClick).toHaveBeenCalledWith('stop-1')
   })
 
   it('nie przeinicjalizowuje mapy, gdy `pins` to nowa referencja o tej samej treści (poller tablicy odświeża co ~30s)', async () => {
-    const pinsA: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]
+    const pinsA: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]
     const { rerender } = render(<MapView dark={false} pins={pinsA} ariaLabel="Mapa" />)
     await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
 
     // Nowa tablica, identyczna treść -- tak jak po kolejnym pollu w TransitStopDetail/StationAside.
-    const pinsB: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]
+    const pinsB: MapPin[] = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]
     rerender(<MapView dark={false} pins={pinsB} ariaLabel="Mapa" />)
 
     expect(maplibregl.Map).toHaveBeenCalledTimes(1)
@@ -290,6 +307,12 @@ describe('MapView', () => {
       const [dot, arrow] = [element.querySelector<HTMLElement>('[data-part="dot"]'), element.querySelector<HTMLElement>('[data-part="arrow"]')]
       expect(dot?.style.backgroundColor).toBe(css(MODE_COLOR.tram))
       expect(arrow?.hidden).toBe(false)
+      // Ta sama strzałka co `VehicleHeadingIcon` i warstwa `vehicles-arrows` (Lucide navigation-2), nie trójkąt z obramowań.
+      // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+      expect(arrow?.querySelector('svg')).toHaveAttribute('fill', MODE_COLOR.tram)
+      // Glif zajmuje ~58% szerokości siatki — pudełko 16 px daje grot ~9×13 px, jak dawny trójkąt 10×8, nie zmniejszony do ~7 px.
+      // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+      expect(arrow?.querySelector('svg')).toHaveAttribute('width', '16')
 
       const marker = vi.mocked(maplibregl.Marker).mock.results[0].value
       rerender(<MapView dark={false} pins={[PIN]} movers={[{ ...mover, bearing: 180 }]} ariaLabel="Mapa" />)
@@ -302,7 +325,7 @@ describe('MapView', () => {
   })
 
   it('ustawia workerUrl na własny statyczny asset przed konstrukcją mapy', async () => {
-    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Słupek A' }]} ariaLabel="Mapa" />)
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]} ariaLabel="Mapa" />)
 
     await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
     // Bez tego `new Worker("", {type:"module"})` w buildzie produkcyjnym --
@@ -367,8 +390,10 @@ describe('MapView', () => {
       const svg = link.querySelector('svg[aria-hidden="true"]')
       expect(svg).not.toBeNull()
       expect(svg?.namespaceURI).toBe('http://www.w3.org/2000/svg')
-      // eslint-disable-next-line testing-library/no-node-access
-      expect(svg?.querySelector('path')).toHaveAttribute('d', 'm8 5 5 5-5 5')
+      // Ten sam glif co `ChevronRightIcon` (jedno źródło ikon), nie kopia ścieżki.
+      const { container } = render(<ChevronRightIcon />)
+      // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+      expect(svg?.querySelector('path')?.getAttribute('d')).toBe(container.querySelector('path')?.getAttribute('d'))
     })
 
     it.each([
@@ -397,6 +422,22 @@ describe('MapView', () => {
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(fullscreenMap.remove).toHaveBeenCalled()
+    })
+
+    // PR4: mapa siedzi w arkuszu „Info” (PanelFrame zamyka się na Escape bez `defaultPrevented`) —
+    // Escape ma zamknąć tylko powiększenie, nie cały arkusz pod nim.
+    it('Escape zamykający powiększenie oznacza zdarzenie jako obsłużone (arkusz pod spodem zostaje)', async () => {
+      const user = userEvent.setup()
+      render(<MapView dark={false} pins={[PIN]} ariaLabel="Mapa" />)
+      await user.click(screen.getByRole('button', { name: 'Powiększ mapę' }))
+      let prevented: boolean | null = null
+      const spy = (event: KeyboardEvent): void => {
+        prevented = event.defaultPrevented
+      }
+      window.addEventListener('keydown', spy)
+      await user.keyboard('{Escape}')
+      window.removeEventListener('keydown', spy)
+      expect(prevented).toBe(true)
     })
 
     it('zamknięcie powiększonej mapy to wspólny IconButton', async () => {

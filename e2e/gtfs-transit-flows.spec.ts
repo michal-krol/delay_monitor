@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { showBoardContext } from './helpers/info'
 
 // GTFS mock parsuje się raz przy starcie serwera (~kilkanaście s) — strony
 // same ponawiają, więc czekamy z zapasem na pierwszą treść z rozkładu.
@@ -37,7 +38,7 @@ test('linia: przełącznik kierunku odwraca początek i koniec trasy', async ({ 
   // renderuje się na każdym viewporcie.
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
 
-  const directionButton = page.getByRole('button', { name: 'Zmień kierunek' })
+  const directionButton = page.getByRole('button', { name: /zmień kierunek/i })
   const before = await directionButton.textContent()
 
   await directionButton.click()
@@ -58,6 +59,8 @@ const WEATHER_VIEWS = [
 for (const view of WEATHER_VIEWS) {
   test(`pogoda w kontekście miasta obecna na każdym ekranie GTFS: ${view.name}`, async ({ page }) => {
     await page.goto(view.path)
+    // Przystanek na telefonie: pogoda w arkuszu „Info” (PR4); inne ekrany — nic do otwarcia.
+    if (view.path.includes('/stop/')) await showBoardContext(page)
     await expect(page.getByRole('heading', { name: /Pogoda dziś/ })).toBeVisible({ timeout: READY })
   })
 }

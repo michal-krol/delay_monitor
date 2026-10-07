@@ -6,12 +6,14 @@ import {
   type NameDictionaries,
   type OperationsStatistics,
   type PkpClient,
+  type RateLimitBudget,
   type TrainDetailResult,
 } from './client'
 import type { RawTrainOperation, Station } from './types'
 import { disruptionsResponseSchema, operationsResponseSchema, schedulesResponseSchema, stationSearchResponseSchema } from './schema'
 import { matchesStationName, normalizeForSearch } from '../search'
 import { once } from '../cache'
+import type { MockBudget } from '../config'
 import { warsawDateString } from './time'
 
 const FIXTURES_DIR = path.join(process.cwd(), 'fixtures')
@@ -75,7 +77,18 @@ function rebaseTrains(trains: RawTrainOperation[], now: number): RawTrainOperati
   }))
 }
 
-export function createMockClient(): PkpClient {
+const MOCK_BUDGETS: Record<MockBudget, RateLimitBudget> = {
+  // Sufity takie jak na żywym kluczu Basic, żeby panel diagnostyczny
+  // w trybie mock pokazywał wiarygodny kształt, nie same liczby bez skali.
+  default: { hourly: 99, daily: 999, hourlyLimit: 100, dailyLimit: 1000 },
+  low: { hourly: 4, daily: 37, hourlyLimit: 100, dailyLimit: 1000 },
+  // Brak nagłówków X-RateLimit-* = „nie wiadomo", nigdy zero (AGENTS.md #3).
+  unknown: { hourly: null, daily: null, hourlyLimit: null, dailyLimit: null },
+}
+
+export type MockClientOptions = { budget?: MockBudget }
+
+export function createMockClient({ budget = 'default' }: MockClientOptions = {}): PkpClient {
   // Odpowiednik cache'u słownika z klienta live: zapełnia się przy pierwszym
   // odczycie fixture'ów i pozwala `/api/board` odsiać nieznane identyfikatory
   // bez czekania na wejście/wyjście.
@@ -120,10 +133,8 @@ export function createMockClient(): PkpClient {
       return {
         trains: rebaseTrains(filtered, Date.now()),
         stationNames: data.stations,
-        // Sufity takie jak na żywym kluczu Basic, żeby panel diagnostyczny
-        // w trybie mock pokazywał wiarygodny kształt, nie same liczby bez skali.
-        budget: { hourly: 99, daily: 999, hourlyLimit: 100, dailyLimit: 1000 },
-        // Fixture ma 8 pociągów — nigdy nie zbliża się do OPERATIONS_PAGE_SIZE.
+        budget: MOCK_BUDGETS[budget],
+        // Fixture ma 15 pociągów — nigdy nie zbliża się do OPERATIONS_PAGE_SIZE.
         truncated: false,
       }
     },
@@ -168,7 +179,7 @@ export function createMockClient(): PkpClient {
 
       const route = schedules.routes.find((r) => r.scheduleId === scheduleId && r.orderId === orderId) ?? null
       // `operations.json` niesie słownik nazw dla wszystkich stacji użytych
-      // w fixture'ach (nie tylko tych 4 z stations-search.json, które są
+      // w fixture'ach (nie tylko tych 6 z stations-search.json, które są
       // wyłącznie na potrzeby wyszukiwarki przypiętych) — to właściwe źródło.
       return { operation, route, stationNames: operations.stations }
     },
@@ -182,7 +193,7 @@ export function createMockClient(): PkpClient {
 
     // Widżet "stan sieci": w trybie mock nie ma osobnego fixture'a o skali
     // żywego API (patrz AGENTS.md #8) -- liczby liczone wprost z tych samych
-    // 8 pociągów co reszta mocka, żeby były wewnętrznie spójne, nie realistyczne.
+    // 15 pociągów co reszta mocka, żeby były wewnętrznie spójne, nie realistyczne.
     async getOperationsStatistics(): Promise<OperationsStatistics> {
       const { trains } = await loadOperations()
       const counts = { notStarted: 0, inProgress: 0, completed: 0, cancelled: 0, partialCancelled: 0 }
@@ -209,10 +220,9 @@ export function createMockClient(): PkpClient {
     },
 
     async getDisruptionCount(): Promise<number> {
-      // Osobna funkcjonalność (widżet "stan sieci", networkStats.ts) --
-      // celowo nie licz z tego samego fixture'a co getDisruptions() niżej,
-      // to nie było w zakresie tej zmiany i nie ma testu blokującego to zachowanie.
-      return 0
+      // Widżet "stan sieci" (networkStats.ts): ten sam fixture co getDisruptions()
+      // niżej, żeby kafel nie pokazywał „0" przy widocznych utrudnieniach.
+      return (await loadDisruptions()).disruptions.length
     },
 
     async getDisruptions(stationIds: string[]): Promise<GetDisruptionsResult> {

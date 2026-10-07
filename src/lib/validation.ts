@@ -27,7 +27,7 @@ export const CITY_ID_PATTERN = /^[a-z]{2,24}$/
 
 /**
  * Identyfikatory przystanków GTFS NIE są liczbami (inaczej niż w PKP):
- * `100101` (zespół+słupek), `7014M` (stacja metra), `7014M:P1` (peron metra).
+ * `100101` (zespół+przystanek), `7014M` (stacja metra), `7014M:P1` (peron metra).
  * Osobny wzorzec, NIE rozluźnienie `STATION_ID_PATTERN` — tamten chroni
  * identyfikatory trafiające do zapytań kierowanych do PKP i musi zostać ścisły.
  *

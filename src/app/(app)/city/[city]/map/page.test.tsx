@@ -148,7 +148,7 @@ describe('CityMapPage', () => {
     expect(map().selected).toMatchObject({ lat: 52.2, lon: 21.0 })
 
     map().onSelect({ kind: 'stop', id: '100101' })
-    expect(await screen.findByRole('dialog', { name: 'Centrum' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Centrum 01' })).toBeInTheDocument()
 
     map().onSelect({ kind: 'rail', id: '33605' })
     expect(await screen.findByRole('dialog', { name: 'Warszawa Centralna' })).toBeInTheDocument()
@@ -288,9 +288,33 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     await waitFor(() => expect(map().pinnedItems).toEqual([]))
 
     map().onSelect({ kind: 'stop', id: '100101' })
-    const stopCard = await screen.findByRole('dialog', { name: 'Centrum' })
+    const stopCard = await screen.findByRole('dialog', { name: 'Centrum 01' })
     fireEvent.click(within(stopCard).getByRole('button', { name: 'Przypnij do Pulpitu' }))
     await waitFor(() => expect(map().pinnedItems).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
+    // Pin z mapy = jeden przystanek zespołu → przypięty z numerem (Pulpit pokaże „Centrum 01").
+    expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
+      { kind: 'gtfs', city: 'warszawa', id: '100101', name: 'Centrum 01', member: true },
+    ])
+  })
+
+  it('opening a pinned zespół from the menu shows the group card with a filled star (not its first stop)', async () => {
+    window.localStorage.setItem('monitor.favourites.v2', JSON.stringify([{ kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' }]))
+    render(<CityMapPage />)
+    await waitFor(() => expect(map().pinnedItems).toHaveLength(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Przypięte' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Centrum' }))
+    const card = await screen.findByRole('dialog', { name: 'Centrum' })
+    expect(within(card).getByRole('button', { name: 'Odepnij z Pulpitu' })).toBeInTheDocument()
+  })
+
+  it('opening a pinned single stop keeps the stop card (with its number) and a filled star', async () => {
+    window.localStorage.setItem('monitor.favourites.v2', JSON.stringify([{ kind: 'gtfs', city: 'warszawa', id: '100101', name: 'Centrum 01', member: true }]))
+    render(<CityMapPage />)
+    await waitFor(() => expect(map().pinnedItems).toHaveLength(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Przypięte' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Centrum 01' }))
+    const card = await screen.findByRole('dialog', { name: 'Centrum 01' })
+    expect(within(card).getByRole('button', { name: 'Odepnij z Pulpitu' })).toBeInTheDocument()
   })
 
   it('right-click opens "nearby" with the closest places; a row opens its card', async () => {
@@ -300,7 +324,7 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     const panel = await screen.findByRole('dialog', { name: 'W pobliżu' })
     expect(map().selected).toEqual({ lat: 52.2301, lon: 21.0101 })
     fireEvent.click(within(panel).getByRole('button', { name: /Centrum/ }))
-    expect(await screen.findByRole('dialog', { name: 'Centrum' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Centrum 01' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Zamknij kartę' }))
     expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
   })

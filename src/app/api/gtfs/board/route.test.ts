@@ -113,7 +113,7 @@ describe('GET /api/gtfs/board', () => {
     const { body } = await call('http://localhost/api/gtfs/board?city=warszawa&stops=1001')
     expect(body.stops[0].members).toHaveLength(2)
     expect(body.stops[0].members.map((m: { id: string }) => m.id)).toEqual(['100101', '100102'])
-    expect(body.stops[0].wheelchairNote).toBeNull() // słupki wheelchair=1 → brak sygnału
+    expect(body.stops[0].wheelchairNote).toBeNull() // przystanki wheelchair=1 → brak sygnału
     expect(body.stops[0].activeMember).toBeNull()
   })
 
@@ -237,9 +237,9 @@ describe('GET /api/gtfs/board', () => {
     }
   })
 
-  it('stop.alerts still matches when scoped to one słupek (?member=), not keyed by member id', async () => {
+  it('stop.alerts still matches when scoped to one przystanek (?member=), not keyed by member id', async () => {
     // Regresja: `schedule.groupRoutes` jest kluczowany wyłącznie id zespołu
-    // (`1001`), nigdy słupka (`100101`) — dopasowanie alertów musi zawsze iść
+    // (`1001`), nigdy przystanku (`100101`) — dopasowanie alertów musi zawsze iść
     // po zespole, inaczej `?member=` cichnie baner (patrz komentarz przy
     // `groupRouteIdxs` w route.ts).
     alertPoller = {

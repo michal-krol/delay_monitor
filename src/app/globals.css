@@ -26,8 +26,11 @@
      kontrastu, nie samego `color-scheme`. Ten sam odcień co ostatni stop
      gradientu -- wizualnie niewidoczny, leży pod obrazem. */
   --bg-base: #eef0f8;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-strong: rgba(255, 255, 255, 0.88);
+  /* Karty treści prawie kryjące (PR 6): bez rozmycia, kontrast i koszt GPU; szkło to tylko pływający chrome (`glass-chrome`). */
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-strong: rgba(255, 255, 255, 0.95);
+  /* Nieprzezroczyste tło arkusza od dołu (`BottomSheet`) — szkło nad mapą psuło kontrast treści. */
+  --sheet-surface: #ffffff;
   --surface-border: rgba(15, 23, 42, 0.08);
   --surface-shadow: 0 8px 30px rgba(15, 23, 42, 0.1);
   --sidebar-bg: rgba(255, 255, 255, 0.75);
@@ -65,8 +68,9 @@
     radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.1), transparent 55%),
     linear-gradient(180deg, #0a0f1c 0%, #070b14 100%);
   --bg-base: #070b14;
-  --surface: rgba(15, 23, 42, 0.55);
-  --surface-strong: rgba(15, 23, 42, 0.75);
+  --surface: rgba(15, 23, 42, 0.8);
+  --surface-strong: rgba(15, 23, 42, 0.9);
+  --sheet-surface: #0f172a;
   --surface-border: rgba(255, 255, 255, 0.08);
   --surface-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --sidebar-bg: rgba(6, 10, 20, 0.6);
@@ -156,6 +160,48 @@
   --cat-fg: #ffffff;
 }
 
+/* Powłoka aplikacji (PR 2): poniżej `sm` cienki nagłówek u góry i pasek zakładek
+   u dołu (oba z `env(safe-area-inset-*)`), od `sm` pasek boczny — obie wysokości
+   spadają do 0. Treść rezerwuje `--bottom-nav-h` w `(app)/layout.tsx`, a kotwice
+   i `scrollIntoView` omijają paski przez `scroll-padding` niżej. */
+:root {
+  --header-h: calc(3rem + env(safe-area-inset-top));
+  --bottom-nav-h: calc(3.5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 40rem) {
+  :root {
+    --header-h: 0px;
+    --bottom-nav-h: 0px;
+  }
+}
+html {
+  scroll-padding-top: var(--header-h);
+  scroll-padding-bottom: var(--bottom-nav-h);
+  /* Własny stan wciśnięcia (`.press`) zamiast szarego mignięcia przeglądarki mobilnej. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Tokeny ruchu na PR 6 — jeszcze nieużywane. Czasy zerują się przy `prefers-reduced-motion`. */
+:root {
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+}
+
+/* Otwarte okno wyszukiwania (`<dialog>` modalny) blokuje przewijanie strony pod spodem. */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
 @theme inline {
   --color-foreground: var(--foreground);
   --color-text-secondary: var(--text-secondary);
@@ -187,20 +233,138 @@
   }
 }
 
+/* Strzałka rozwijania (`DisclosureIcon`): obrót o 180°, gdy jej `<summary>` należy do otwartego
+   `<details>` (dziecko bezpośrednie — zagnieżdżone sekcje się nie mieszają) albo przycisk ma
+   `aria-expanded="true"`. Jedno miejsce zamiast obrotu i `motion-reduce` w każdym komponencie. */
+.disclosure-chevron {
+  transition: rotate 150ms ease;
+}
+details[open] > summary .disclosure-chevron,
+[aria-expanded="true"] .disclosure-chevron {
+  rotate: 180deg;
+}
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-chevron {
+    transition: none;
+  }
+}
+
+/* Arkusz od dołu (`BottomSheet.tsx`, PR 3). Kontener przewijania leży nad mapą z
+   `pointer-events: none` — przezroczysty odstęp przepuszcza gesty do mapy, a przeciąganie
+   panelu (`pointer-events: auto`) przewija kontener i dociąga do znaczników (25/55/90%).
+   Poza punktem „full” wewnętrzne przewijanie panelu jest wyłączone, inaczej przeciągnięcie
+   przewijałoby treść zamiast podnieść arkusz. `PanelFrame` w arkuszu rezygnuje z własnego szkła (`useInSheet`). */
+.bottom-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  scrollbar-width: none;
+}
+.bottom-sheet::-webkit-scrollbar {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bottom-sheet {
+    scroll-behavior: smooth;
+  }
+}
+.bottom-sheet__spacer {
+  position: relative;
+  height: 100%;
+}
+.bottom-sheet__snap {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  scroll-snap-align: start;
+}
+.bottom-sheet__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 90%;
+  pointer-events: auto;
+  /* Szkło arkusza: prawie kryjące (94%), żeby axe i czytelność nie zależały od kafelków mapy pod spodem. Bez rozmycia — przy 94% krycia
+     nie byłoby widać, a kosztowało (INP otwarcia arkusza „Info”, pomiar PR 6). */
+  background-color: color-mix(in srgb, var(--sheet-surface) 94%, transparent);
+  border-top: 1px solid var(--surface-border);
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
+}
+/* Slot `above`: nad krawędzią panelu, przewija się z nim. Przepuszcza gesty do mapy poza samymi elementami. */
+.bottom-sheet__above {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding: 0 0.75rem 0.5rem;
+  pointer-events: none;
+}
+.bottom-sheet__above > * {
+  pointer-events: auto;
+}
+.bottom-sheet__handle {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 100%;
+  min-height: 2.75rem; /* cel dotyku 44 px; nagłówek `PanelFrame` w arkuszu nie ma za to górnego odstępu */
+  border-radius: 1rem 1rem 0 0;
+}
+.bottom-sheet__grip {
+  width: 2.25rem;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background-color: var(--text-muted);
+  opacity: 0.6;
+}
+.bottom-sheet:not([data-snap='full']) [data-sheet-scroll] {
+  overflow-y: hidden;
+}
+
+/* Karta treści: prawie kryjąca, BEZ `backdrop-filter` (PR 6). Pływające paski, menu i kontrolki mapy: `glass-chrome*` niżej. */
 @utility glass {
   background-color: var(--surface);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
   border: 1px solid var(--surface-border);
   box-shadow: var(--surface-shadow);
 }
 
 @utility glass-strong {
   background-color: var(--surface-strong);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
   border: 1px solid var(--surface-border);
   box-shadow: var(--surface-shadow);
+}
+
+/* Szkło tylko na pływającym chromie (PR 6): nagłówek, dolny pasek, pasek boczny, kontrolki i menu mapy,
+   pastylka offline, arkusze. Samo tło + rozmycie; ramkę i cień dokłada wywołujący (pasek: jedna krawędź,
+   kontrolka: `border border-surface-border shadow-md`). Tło zostaje na tyle kryjące, by axe liczył kontrast
+   względem nieprzezroczystego `body` (patrz `color-scheme` wyżej) — nie wolno schodzić z alfy poniżej ~0,6. */
+@utility glass-chrome {
+  background-color: var(--sidebar-bg);
+  backdrop-filter: blur(12px);
+}
+@utility glass-chrome-strong {
+  background-color: color-mix(in srgb, var(--sheet-surface) 88%, transparent);
+  backdrop-filter: blur(16px);
+}
+/* Prośba o mniej przezroczystości albo tryb wysokiego kontrastu: pełne tło, bez rozmycia. Zwykła reguła
+   (poza warstwami) bije utility Tailwinda. */
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .glass-chrome,
+  .glass-chrome-strong,
+  .bottom-sheet__panel {
+    background-color: var(--sheet-surface);
+    backdrop-filter: none;
+  }
 }
 
 /* MapLibre wendoruje własny CSS (importowany wyżej) z twardo wpisanym
@@ -224,7 +388,6 @@
 .dark .maplibregl-popup-content {
   background-color: var(--map-surface);
   backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
 }
 .dark .maplibregl-popup-tip {
   border-top-color: var(--map-surface) !important;
@@ -295,8 +458,264 @@
     transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.card-hover:hover {
-  transform: translateY(-3px);
+/* Tylko tam, gdzie jest hover — po dotyku karta nie zostaje „uniesiona”. */
+@media (hover: hover) {
+  .card-hover:hover {
+    transform: translateY(-3px);
+  }
+}
+
+/* Szkielety ładowania (`animate-pulse`) nie pulsują przy prefers-reduced-motion — jedna reguła na wszystkie. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
+  }
+}
+
+/* Własny stan wciśnięcia przycisków i chipów (PR 5). Ruch tylko bez prefers-reduced-motion;
+   przy reduced-motion wciśnięcie zmienia tylko krycie. */
+.press:active {
+  opacity: 0.85;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .press:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Żywy feedback (PR 6). Wszystko, co się rusza, siedzi pod `prefers-reduced-motion: no-preference`;
+   bez ruchu zostaje statyczny stan (kolor, poświata) — informacja zawsze jest też w tekście obok. */
+
+/* Halo aktywnej zakładki dolnego paska: miękka poświata pod ikoną. */
+.nav-halo {
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  transition: box-shadow var(--duration-base) var(--ease-out);
+}
+[data-active] > .nav-halo {
+  box-shadow: 0 0 14px 3px rgba(56, 189, 248, 0.45);
+}
+
+/* Zapasowy napis liczby, zanim załaduje się biblioteka toczących się cyfr (`AnimatedNumber`): te same wymiary co jej element
+   (`line-height: 1`, pionowy margines maski), żeby podmiana nie przesunęła układu (CLS). */
+.number-fallback {
+  display: inline-block;
+  padding-block: 0.25em;
+  font-kerning: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Kropka „dane są świeże” (`LiveDot`): kolor akcentu, nie zieleń statusu (#13). */
+.live-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-inline-end: 0.25rem;
+  border-radius: 9999px;
+  vertical-align: middle;
+  color: var(--status-notStarted-text);
+  background-color: currentColor;
+}
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .live-dot {
+    animation: livePulse 2.2s ease-out infinite;
+  }
+}
+
+/* Opóźniony wiersz tablicy: miękka poświata od lewej krawędzi. Sama w sobie nic nie mówi —
+   status jest w plakietce z tekstem („+N min”). */
+.board-table tr[data-status='delayed'] {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--status-delayed-bg) 14%, transparent), transparent 45%);
+}
+@media (max-width: 39.999rem) {
+  .board-table tr[data-status='delayed'] {
+    box-shadow: 0 0 14px -4px color-mix(in srgb, var(--status-delayed-bg) 45%, transparent);
+  }
+}
+
+/* Karta Pulpitu ugina się, gdy wciśnięta jest jej przezroczysta nakładka (`data-card-open`). */
+@media (prefers-reduced-motion: no-preference) {
+  .card-press {
+    transition-property: transform, box-shadow;
+  }
+  .card-press:has(> [data-card-open]:active) {
+    transform: scale(0.985);
+  }
+}
+
+/* Wejścia (`@starting-style`): okno wyszukiwania, menu i panele pływające, pastylka offline.
+   Tylko wejście — wyjście natywnego `<dialog>` zostaje natychmiastowe (bez `allow-discrete`). */
+@media (prefers-reduced-motion: no-preference) {
+  dialog[open] {
+    opacity: 1;
+    translate: 0 0;
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      translate var(--duration-base) var(--ease-out);
+  }
+  dialog[open]::backdrop {
+    opacity: 1;
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  /* Bez `scale`: panel się nie kurczy, więc jego cele dotyku mają 44 px także w trakcie wejścia. */
+  .enter-pop {
+    transition:
+      opacity var(--duration-fast) var(--ease-out),
+      translate var(--duration-fast) var(--ease-out);
+  }
+  .enter-fade {
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  @starting-style {
+    dialog[open] {
+      opacity: 0;
+      translate: 0 -12px;
+    }
+    dialog[open]::backdrop {
+      opacity: 0;
+    }
+    .enter-pop {
+      opacity: 0;
+      translate: 0 -4px;
+    }
+    .enter-fade {
+      opacity: 0;
+    }
+  }
+}
+
+/* Przejścia widoku (PR 6; `<ViewTransition>` z Reacta, typy w `src/lib/navTransition.ts`). Przeglądarki bez
+   View Transitions API po prostu nie animują. Czasy z tokenów ruchu (zerowe przy reduced-motion);
+   dodatkowo pas bezpieczeństwa niżej gasi ruch także tam, gdzie klasa przejścia mimo wszystko zadziała. */
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vt-slide {
+  from {
+    translate: var(--vt-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+/* Do przodu: stara treść ucieka w lewo, nowa wjeżdża z prawej. Wstecz: odwrotnie. */
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back) {
+  animation:
+    var(--duration-fast) ease-in both vt-fade reverse,
+    var(--duration-slow) ease-in-out both vt-slide reverse;
+}
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back) {
+  animation:
+    var(--duration-base) ease-out var(--duration-fast) both vt-fade,
+    var(--duration-slow) ease-in-out both vt-slide;
+}
+::view-transition-old(.nav-forward),
+::view-transition-new(.nav-back) {
+  --vt-offset: -24px;
+}
+::view-transition-new(.nav-forward),
+::view-transition-old(.nav-back) {
+  --vt-offset: 24px;
+}
+/* Zakładka paska: sam krzyżowy zanik, bez ruchu. */
+::view-transition-old(.nav-tab) {
+  animation: var(--duration-fast) ease-in both vt-fade reverse;
+}
+::view-transition-new(.nav-tab) {
+  animation: var(--duration-base) ease-out var(--duration-fast) both vt-fade;
+}
+/* Tytuł kafelka → nagłówek tablicy. */
+::view-transition-group(.morph) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-out);
+}
+/* Kotwice: nagłówek, dolny pasek i pasek boczny stoją w miejscu, gdy treść jedzie. */
+::view-transition-group(site-header),
+::view-transition-group(site-bottom-nav),
+::view-transition-group(site-sidebar) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header),
+::view-transition-old(site-bottom-nav),
+::view-transition-old(site-sidebar) {
+  display: none;
+}
+::view-transition-new(site-header),
+::view-transition-new(site-bottom-nav),
+::view-transition-new(site-sidebar) {
+  animation: none;
+}
+/* Kliknięcia w trakcie przejścia trafiają w żywą stronę, nie w nakładkę. */
+::view-transition {
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
+/* Nagłówek telefonu przy przewijaniu tablicy (PR 6): nazwa aplikacji ustępuje nazwie stacji/przystanku.
+   Czysty progressive enhancement — bez `animation-timeline` (Safari < 26) albo przy reduced-motion kopia nazwy
+   tablicy jest ukryta i nagłówek wygląda jak zawsze. Zero zmian układu: oba napisy w jednej komórce siatki. */
+.header-title-context {
+  display: none;
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .header-title-context {
+      display: block;
+      opacity: 0;
+      animation: header-title-in linear both;
+      animation-timeline: scroll(root);
+      animation-range: 40px 140px;
+    }
+    .header-titles[data-context] > .header-title-app {
+      animation: header-title-out linear both;
+      animation-timeline: scroll(root);
+      animation-range: 40px 140px;
+    }
+  }
+}
+@keyframes header-title-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes header-title-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 /* Mikroanimacje z makiety Claude Design ("Czy dojadę? — Makieta dashboardu",

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 // Bramka a11y: blokujemy tylko realne bariery (serious/critical), reszta to
 // szum na tym etapie. WCAG 2 A/AA.
@@ -29,7 +29,7 @@ for (const view of VIEWS) {
     await page.goto(view.path)
     await expect(view.ready(page)).toBeVisible({ timeout: 15_000 })
 
-    const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+    const { violations } = await scanA11y(page)
 
     const blocking = violations.filter((v) => BLOCKING.includes(v.impact ?? ''))
     expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
@@ -52,7 +52,7 @@ test('a11y: pulpit z przypiętymi kartami bez naruszeń serious/critical', async
   await expect(page.getByRole('heading', { name: 'Warszawa Centralna' })).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText('Rozkład — Warszawa')).toBeVisible({ timeout: 15_000 })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
 
   const blocking = violations.filter((v) => BLOCKING.includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])

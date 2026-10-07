@@ -1,7 +1,8 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
+import { showBoardContext } from './helpers/info'
 
-// Mock „Centrum" (zespół 1001) = 4 słupki (AGENTS.md #13, patrz gtfs-slupek.spec.ts).
+// Mock „Centrum" (zespół 1001) = 4 przystanki (AGENTS.md #13, patrz gtfs-stop-member.spec.ts).
 const CENTRUM = '/city/warszawa/stop/1001'
 // Mock ma prawdziwe ID: Warszawa Centralna 33605 (AGENTS.md #8).
 const STATION_BOARD = '/station/33605?name=Warszawa%20Centralna'
@@ -29,31 +30,33 @@ async function expectTilesRendered(canvas: Locator): Promise<void> {
   }).toPass({ timeout: 15_000 })
 }
 
-test('przystanek miejski: mapa pokazuje jeden pin na słupek i steruje przełącznikiem', async ({ page }) => {
+test('przystanek miejski: mapa pokazuje jeden pin na przystanek i steruje przełącznikiem', async ({ page }) => {
   await page.goto(CENTRUM)
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
   await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
 
-  const map = page.getByRole('region', { name: /^Mapa przystanku/ })
+  const map = page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })
   await expect(map).toBeVisible({ timeout: READY })
   await expect(page.locator('.maplibregl-marker')).toHaveCount(4)
   await expectTilesRendered(map.locator('canvas'))
 
-  // Klik na pin steruje TYM SAMYM przełącznikiem słupka co karty poniżej (MapView.tsx: onPinClick).
+  // Klik na pin steruje TYM SAMYM przełącznikiem przystanku co karty poniżej (MapView.tsx: onPinClick).
   await page.locator('.maplibregl-marker').first().click()
   await expect(page.getByRole('tab', { name: /^Centrum 0\d/, selected: true })).toBeVisible()
 })
 
 test('przystanek miejski: „Powiększ mapę" otwiera pełnoekranowy widok z podglądem odjazdów w popupie', async ({ page }) => {
   await page.goto(CENTRUM)
-  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
+  await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
 
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
-  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  const dialog = page.getByRole('dialog', { name: /^Mapa (zespołu przystanków|przystanku)/ })
   await expect(dialog).toBeVisible()
   await expect(dialog.locator('.maplibregl-marker')).toHaveCount(4)
   await expectTilesRendered(dialog.locator('canvas'))
 
-  // Powiększony popup ma podgląd odjazdów tego słupka -- mini nie (za mało miejsca).
+  // Powiększony popup ma podgląd odjazdów tego przystanku -- mini nie (za mało miejsca).
   await dialog.locator('.maplibregl-marker').first().click()
   await expect(page.locator('.maplibregl-popup-content').getByText(/^\d{2}:\d{2} →/).first()).toBeVisible()
 
@@ -63,9 +66,10 @@ test('przystanek miejski: „Powiększ mapę" otwiera pełnoekranowy widok z pod
 
 test('przystanek miejski: kliknięcie tła zamyka pełnoekranową mapę', async ({ page }) => {
   await page.goto(CENTRUM)
-  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
+  await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
-  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  const dialog = page.getByRole('dialog', { name: /^Mapa (zespołu przystanków|przystanku)/ })
   await expect(dialog).toBeVisible()
 
   // Dialog ma margines (inset-4 / sm:inset-10) -- róg viewportu to samo tło.
@@ -77,9 +81,10 @@ test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', a
   // WebKit domyślnie pomija przyciski w kolejności Tab (Full Keyboard Access).
   test.skip(browserName === 'webkit', 'Tab w Safari zależy od ustawień systemu')
   await page.goto(CENTRUM)
-  await expect(page.getByRole('region', { name: /^Mapa przystanku/ })).toBeVisible({ timeout: READY })
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
+  await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
-  const dialog = page.getByRole('dialog', { name: /^Mapa przystanku/ })
+  const dialog = page.getByRole('dialog', { name: /^Mapa (zespołu przystanków|przystanku)/ })
   await expect(dialog).toBeVisible()
   // MapLibre przebudowuje atrybucję (`replaceChildren`, nowe linki) za każdym razem, gdy używane
   // źródło stylu dołoży swoją -- fokusowany link znika i fokus spada na body. Sam „MapLibre" to
@@ -101,6 +106,7 @@ test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', a
 test('przystanek miejski: zablokowane kafelki nie psują strony (piny i reszta widoku żyją)', async ({ page }) => {
   await page.route('**/tiles.openfreemap.org/**', (route) => route.abort())
   await page.goto(CENTRUM)
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
   await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
   await expect(page.locator('.maplibregl-marker')).toHaveCount(4, { timeout: READY })
   await expect(page.getByRole('tab', { name: /^Centrum 0\d/ }).first()).toBeVisible()
@@ -110,9 +116,12 @@ test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten s
   page,
 }) => {
   await page.goto(STATION_BOARD)
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
 
   // Karta pogody istnieje od razu (nagłówek statyczny) — na pin czekamy dopiero
-  // po realnym zwrocie /api/weather (available:true + location), nie po samym mount.
+  // po zwrocie /api/weather (available:true + location), nie po samym mount. Pogodę serwuje
+  // `WEATHER_DATA_SOURCE=mock` (playwright.config.ts) — zero ruchu do Open-Meteo; jedyny
+  // zewnętrzny ruch to kafelki OpenFreeMap (świadomy wyjątek, AGENTS.md #6).
   await expect(page.getByText(/°C/)).toBeVisible({ timeout: 20_000 })
 
   const map = page.getByRole('region', { name: 'Mapa stacji Warszawa Centralna' })
@@ -123,9 +132,10 @@ test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten s
 
 test('a11y: przystanek miejski z mapą bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(CENTRUM)
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
@@ -133,20 +143,22 @@ test('a11y: przystanek miejski z mapą bez naruszeń serious/critical', async ({
 test('a11y: przystanek miejski z mapą w trybie ciemnym bez naruszeń serious/critical', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto(CENTRUM)
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
 
 test('a11y: powiększona mapa (dialog) bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(CENTRUM)
+  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
   await expect(page.getByRole('dialog').locator('.maplibregl-marker').first()).toBeVisible()
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
@@ -175,7 +187,7 @@ test('linia: mapa trasy rysuje piny przystanków i pojazdy, klik pinu wybiera pr
 test('a11y: strona linii z mapą trasy bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(LINE_20)
   await expect(page.getByRole('region', { name: 'Mapa trasy linii 20' })).toBeVisible({ timeout: READY })
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
@@ -216,13 +228,13 @@ test('połączenie: mapa nie pokazuje zmyślonej pozycji dla pociągu, który je
 test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(TRAIN_104)
   await expect(page.getByRole('heading', { name: 'Mapa trasy' })).toBeVisible({ timeout: READY })
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
 
 // Każda mapa `MapView` w obu motywach (PR 6: ciemny podkład, piny w kolorze rodzaju, kontrolki `glass`).
-// Mapa stacji siedzi w bocznym panelu, na telefonie ukrytym — stąd `toBeAttached`, nie `toBeVisible`.
+// Mapa stacji siedzi w bocznym panelu; na telefonie w arkuszu „Info” (PR4) — stąd `showBoardContext`.
 for (const colorScheme of ['light', 'dark'] as const) {
   for (const [name, path, ready] of [
     ['linii', LINE_20, 'Mapa trasy linii 20'],
@@ -233,8 +245,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
     test(`a11y: mapa ${name} w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} bez naruszeń serious/critical`, async ({ page }) => {
       await page.emulateMedia({ colorScheme })
       await page.goto(path)
+      if (path === STATION_BOARD) await showBoardContext(page)
       await expect(page.getByRole('region', { name: new RegExp(`^${ready}`) }).locator('.maplibregl-marker').first()).toBeAttached({ timeout: READY })
-      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+      const { violations } = await scanA11y(page)
       const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
       expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
     })
@@ -261,8 +274,18 @@ async function lineSearch(page: Page): Promise<Locator> {
   return page.getByRole('combobox', { name: 'Szukaj linii' })
 }
 
+/** Na telefonie „Lista” i „Udostępnij” są w menu „Więcej” (PR3); na desktopie to zwykłe przyciski. */
+async function moreItem(page: Page, name: string): Promise<Locator> {
+  const more = page.getByRole('button', { name: 'Więcej' })
+  if (await more.isVisible()) {
+    await more.click()
+    return page.getByRole('list', { name: 'Więcej' }).getByRole('button', { name })
+  }
+  return page.getByRole('button', { name, exact: true })
+}
+
 async function expectNoBlockingA11y(page: Page): Promise<void> {
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 }
@@ -320,8 +343,8 @@ test.describe('niski desktop (800×600)', () => {
   })
 })
 
-// Regresja (QA staging 2026-10-01): na 375 px przyciski Lista/Filtry/Udostępnij zeszły do drugiego
-// rzędu (114–158 px od góry mapy), a rozwinięta legenda zaczynała się na 144 px i zakrywała ich dół.
+// Regresja (QA staging 2026-10-01): na 375 px przyciski zeszły do drugiego rzędu, a rozwinięta
+// legenda zaczynała się na 144 px i zakrywała ich dół. Od PR3 w rzędzie są Filtry i „Więcej”.
 test.describe('mapa transportu: rozwinięta legenda pod przyciskami w drugim rzędzie', () => {
   test.beforeEach(({}, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
@@ -333,11 +356,7 @@ test.describe('mapa transportu: rozwinięta legenda pod przyciskami w drugim rz�
     const legend = page.locator('details', { has: page.getByText('Legenda', { exact: true }) })
     await legend.getByText('Legenda', { exact: true }).click()
     await expect(legend).toHaveAttribute('open', '')
-    for (const button of [
-      page.getByRole('button', { name: 'Lista', exact: true }),
-      page.getByRole('button', { name: /Filtry/ }),
-      page.getByRole('button', { name: 'Udostępnij ten widok mapy' }),
-    ]) {
+    for (const button of [page.getByRole('button', { name: /Filtry/ }), page.getByRole('button', { name: 'Więcej' })]) {
       const box = (await button.boundingBox())!
       // 1 px nad krawędzią: sam brzeg (`y + height`) należy już do elementu pod spodem.
       const hit = await button.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [box.x + box.width / 2, box.y + box.height - 1])
@@ -422,7 +441,7 @@ test('mapa transportu: awaria pozycji pojazdów to komunikat, a mapa kolei i prz
 
 test('mapa transportu: „Lista" pokazuje obiekty w kadrze, „Co jest w pobliżu?" działa z klawiatury', async ({ page }) => {
   await openMap(page, `${CITY_MAP}?at=52.23000,21.00800,15.0`)
-  await page.getByRole('button', { name: 'Lista' }).click()
+  await (await moreItem(page, 'Lista')).click()
   const list = page.getByRole('dialog', { name: 'W widoku' })
   // Śródmieście mieści się w kadrze także na telefonie (Centralna już nie).
   const station = list.getByRole('button', { name: 'Warszawa Śródmieście', exact: true })
@@ -466,22 +485,37 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
   })
 
-  test('375 px: pola miejsca i linii mają co najmniej 160 px, strona nie przewija się w poziomie', async ({ page }) => {
+  test('375 px: pola miejsca i linii mają co najmniej 280 px, strona nie przewija się w poziomie', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await openMap(page)
     const place = await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).boundingBox()
-    expect(place!.width).toBeGreaterThanOrEqual(160)
+    expect(place!.width).toBeGreaterThanOrEqual(280)
     const line = await (await lineSearch(page)).boundingBox()
-    expect(line!.width).toBeGreaterThanOrEqual(160)
-    // Przyciski zostają przy prawej krawędzi: panel „Filtry" (`right-0`) otwiera się w lewo,
-    // przy przyciskach z lewej wyjeżdżał ~100 px poza ekran.
-    const share = await page.getByRole('button', { name: 'Udostępnij ten widok mapy' }).boundingBox()
-    expect(share!.x + share!.width).toBeCloseTo(line!.x + line!.width, 0)
+    expect(line!.width).toBeGreaterThanOrEqual(280)
+    // Przyciski zostają przy prawej krawędzi: panele „Filtry"/„Więcej" (`right-0`) otwierają się w lewo,
+    // przy przyciskach z lewej wyjeżdżały ~100 px poza ekran.
+    const more = await page.getByRole('button', { name: 'Więcej' }).boundingBox()
+    expect(more!.x + more!.width).toBeCloseTo(line!.x + line!.width, 0)
     const { scrollWidth, clientWidth } = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
     }))
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  })
+
+  test('375×812: kontrolki zajmują dwa rzędy — zakładki z przyciskami, pod nimi pole', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openMap(page)
+    const top = async (locator: Locator) => (await locator.boundingBox())!.y
+    const center = async (locator: Locator) => {
+      const box = (await locator.boundingBox())!
+      return box.y + box.height / 2
+    }
+    const tabs = page.getByRole('group', { name: 'Czego szukasz' })
+    const tabsCenter = await center(tabs)
+    expect(await center(page.getByRole('button', { name: /Filtry/ }))).toBeCloseTo(tabsCenter, 0)
+    expect(await center(page.getByRole('button', { name: 'Więcej' }))).toBeCloseTo(tabsCenter, 0)
+    expect(await top(page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' })) - (await top(tabs))).toBeLessThan(60)
   })
 
   // CI 2026-10-01 (mobile-safari, iPhone 15): przyciski w drugim rzędzie zepchnęły chip linii
@@ -503,4 +537,197 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     expect(await top(page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }))).toBeCloseTo(row, 0)
     expect(await top(page.getByRole('combobox', { name: 'Szukaj linii' }))).toBeCloseTo(row, 0)
   })
+})
+
+/**
+ * Przeciągnięcie jednym palcem przez CDP (`Input.dispatchTouchEvent`) — prawdziwe wejście
+ * dotykowe w Chromium, z przewijaniem i dociąganiem do punktów scroll-snap. Tylko Chromium:
+ * WebKit w Playwright nie ma API dotyku (gest na iOS = click-QA na urządzeniu).
+ */
+async function touchDrag(page: Page, from: { x: number; y: number }, dx: number, dy: number): Promise<void> {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] })
+  for (let i = 1; i <= 10; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (dx * i) / 10, y: from.y + (dy * i) / 10 }] })
+    await page.waitForTimeout(8)
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+}
+
+// PR3: na telefonie karty mapy leżą w arkuszu od dołu z trzema punktami (BottomSheet.tsx).
+test.describe('mapa transportu: arkusz na telefonie', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name === 'desktop-chromium', 'arkusz tylko poniżej sm; desktop ma panel obok mapy')
+  })
+
+  const sheet = (page: Page): Locator => page.locator('.bottom-sheet')
+
+  /** Ułamki wysokości z `SHEET_SNAPS` (BottomSheet.tsx). */
+  const SNAP_FRACTION = { peek: 0.25, half: 0.55, full: 0.9 } as const
+
+  /**
+   * Uchwyt przełącza `data-snap` od razu, a przewijanie jedzie płynnie jeszcze chwilę. Kolejny klik w trakcie
+   * animacji to inny scenariusz (osobny test jednostkowy) — tu czekamy na dojazd, żeby test nie ścigał się
+   * z animacją pod obciążeniem (flaky z PR3).
+   */
+  async function clickHandleTo(page: Page, snap: keyof typeof SNAP_FRACTION): Promise<void> {
+    await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+    await expect(sheet(page)).toHaveAttribute('data-snap', snap)
+    await expect
+      .poll(() => sheet(page).evaluate((el, fraction) => Math.abs(el.scrollTop - fraction * el.clientHeight), SNAP_FRACTION[snap]), { message: `arkusz nie dojechał do „${snap}”` })
+      .toBeLessThan(3)
+  }
+
+  async function openStopCard(page: Page, name: string, option: string | RegExp = name): Promise<Locator> {
+    await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill(name)
+    await page.getByRole('option', { name: option }).first().click()
+    const card = page.getByRole('dialog', { name })
+    await expect(card).toBeVisible()
+    return card
+  }
+
+  for (const height of [812, 667]) {
+    test(`375×${height}: strona mapy się nie przewija, mapa wypełnia ekran`, async ({ page }) => {
+      await page.setViewportSize({ width: 375, height })
+      const map = await openMap(page)
+      const { scrollHeight, innerHeight } = await page.evaluate(() => ({
+        scrollHeight: document.documentElement.scrollHeight,
+        innerHeight: window.innerHeight,
+      }))
+      expect(scrollHeight).toBeLessThanOrEqual(innerHeight)
+      // Przed PR3 przy 812 px: 70% (pełny TopBar ok. 135 px nad mapą).
+      if (height === 812) expect((await map.boundingBox())!.height).toBeGreaterThanOrEqual(0.75 * height)
+    })
+  }
+
+  test('karta przystanku otwiera się nisko (peek), uchwyt przełącza peek → połowa → pełny → peek', async ({ page }) => {
+    const map = await openMap(page)
+    const card = await openStopCard(page, 'Centrum')
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    // Fokus na nagłówku karty, widocznym nad dolnym paskiem już przy „peek”.
+    const heading = card.getByRole('heading', { name: 'Centrum' })
+    await expect(heading).toBeFocused()
+    await expect(heading).toBeInViewport()
+    expect((await heading.boundingBox())!.y + 20).toBeLessThan((await page.getByRole('navigation', { name: 'Nawigacja główna' }).boundingBox())!.y)
+    const mapBox = (await map.boundingBox())!
+    expect((await card.boundingBox())!.y - mapBox.y).toBeGreaterThanOrEqual(0.7 * mapBox.height)
+    for (const snap of ['half', 'full', 'peek'] as const) await clickHandleTo(page, snap)
+  })
+
+  test('wyniki wyszukiwania i menu kontrolek leżą nad arkuszem, nie pod nim', async ({ page }) => {
+    await openMap(page)
+    await openStopCard(page, 'Centrum')
+    await clickHandleTo(page, 'half')
+    const onTop = async (locator: Locator): Promise<boolean> => {
+      await locator.scrollIntoViewIfNeeded()
+      const box = (await locator.boundingBox())!
+      return locator.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [box.x + box.width / 2, box.y + box.height - 4])
+    }
+    await page.getByRole('button', { name: /Filtry/ }).click()
+    const lastFilter = page.getByRole('button', { name: 'Pokaż wszystko' })
+    await expect(lastFilter).toBeVisible()
+    // Strona się nie przewija: panel Filtry przewija się sam i jego dół też jest osiągalny (iPhone 15, 659 px).
+    expect(await onTop(lastFilter), 'panel Filtry pod arkuszem albo pod dolnym paskiem').toBe(true)
+    await page.keyboard.press('Escape')
+
+    await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Warszawa')
+    const options = page.getByRole('option')
+    await expect(options.last()).toBeVisible()
+    expect(await onTop(options.last()), 'wyniki wyszukiwania pod arkuszem').toBe(true)
+  })
+
+  test('„×" w karcie zamyka arkusz', async ({ page }) => {
+    await openMap(page)
+    const card = await openStopCard(page, 'Centrum')
+    await expect(sheet(page)).toHaveCount(1)
+    await card.getByRole('button', { name: 'Zamknij kartę' }).click()
+    await expect(sheet(page)).toHaveCount(0)
+  })
+
+  test('nowy panel przy pełnym arkuszu startuje znów nisko (peek)', async ({ page }) => {
+    await openMap(page)
+    const card = await openStopCard(page, 'Warszawa Centralna', 'Warszawa Centralna')
+    for (const snap of ['half', 'full'] as const) await clickHandleTo(page, snap)
+    await card.getByRole('button', { name: 'Co jest w pobliżu?' }).click()
+    await expect(page.getByRole('dialog', { name: 'W pobliżu' })).toBeVisible()
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+  })
+
+  // PR4 (decyzja z PR3): przy half/full arkusz zakrywał „Aktywne filtry” i komunikaty (role=status).
+  // Teraz jadą na górnej krawędzi arkusza — widoczne i klikalne w każdym punkcie. Komunikat o awarii
+  // stacji kolejowych, bo jest trwały; „Skopiowano link…” znika po kilku sekundach (flaky pod obciążeniem),
+  // a oba idą tym samym stosem (`statusStack` w `map/page.tsx`).
+  test('chipy filtrów i komunikaty statusu zostają nad arkuszem przy half i full', async ({ page }) => {
+    await page.route('**/api/rail-stations/list**', (route) => route.abort())
+    await openMap(page, `${CITY_MAP}?hide=busStops`)
+    await openStopCard(page, 'Centrum')
+    const chips = page.getByRole('list', { name: 'Aktywne filtry' })
+    const problem = page.getByRole('status').filter({ hasText: 'Nie udało się wczytać stacji kolejowych — ponawiam.' })
+    await expect(problem).toBeAttached({ timeout: READY })
+    const uncovered = (locator: Locator) =>
+      locator.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2))
+      })
+    // Przy „full” nad arkuszem zostaje ok. 55 px (iPhone 15): mieści się rząd najbliżej krawędzi —
+    // status (ostatni w stosie); chipy wyżej mogą się uciąć (decyzja usera, PR4).
+    for (const [snap, visible] of [['half', [chips, problem]], ['full', [problem]]] as const) {
+      await clickHandleTo(page, snap)
+      for (const locator of visible) {
+        await expect(locator).toBeInViewport()
+        expect(await uncovered(locator), `${snap}: zasłonięte`).toBe(true)
+      }
+    }
+    await clickHandleTo(page, 'peek')
+    await chips.getByRole('button', { name: 'Pokaż: przystanki autobusowe' }).click()
+    await expect(page).not.toHaveURL(/[?&]hide=/)
+  })
+
+  test('pełny arkusz: treść panelu przewija się w środku, niższy — nie', async ({ page }) => {
+    await openMap(page)
+    await openStopCard(page, 'Centrum')
+    const body = page.locator('.bottom-sheet [data-sheet-scroll]')
+    await expect(body).toHaveCSS('overflow-y', 'hidden')
+    for (const snap of ['half', 'full'] as const) await clickHandleTo(page, snap)
+    await expect(body).toHaveCSS('overflow-y', 'auto')
+  })
+
+  test('dotyk: mapa nad arkuszem przesuwa się, przeciągnięcie arkusza zmienia punkt', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'dotyk przez CDP tylko w Chromium')
+    const map = await openMap(page)
+    await openStopCard(page, 'Centrum')
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    // Kamera po wyborze przystanku dojeżdża animacją — czekamy, aż `?at=` się ustali.
+    await page.waitForTimeout(1500)
+    const box = (await map.boundingBox())!
+    const at = new URL(page.url()).searchParams.get('at')
+    await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.45 }, 60, 120)
+    await expect.poll(() => new URL(page.url()).searchParams.get('at')).not.toBe(at)
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+
+    await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
+    await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek')
+  })
+})
+
+// PR3: mała mapa w treści strony ma `cooperativeGestures` — jeden palec przewija stronę, nie mapę.
+// Strona linii: jej mapa stoi w treści na każdej szerokości (mapa przystanku na telefonie jest od PR4 w arkuszu „Info”).
+test('mała mapa ma polską podpowiedź gestów', async ({ page }) => {
+  await page.goto(LINE_20)
+  const map = page.getByRole('region', { name: 'Mapa trasy linii 20' })
+  await expect(map).toBeVisible({ timeout: READY })
+  await expect(page.locator('.maplibregl-cooperative-gesture-screen')).toContainText('dwoma palcami')
+})
+
+test('dotyk: przesunięcie jednym palcem nad małą mapą przewija stronę', async ({ page, browserName }, testInfo) => {
+  test.skip(browserName !== 'chromium' || testInfo.project.name === 'desktop-chromium', 'dotyk przez CDP — mobile-chromium')
+  await page.goto(LINE_20)
+  const map = page.getByRole('region', { name: 'Mapa trasy linii 20' })
+  await expect(map).toBeVisible({ timeout: READY })
+  await expect(page.locator('.maplibregl-cooperative-gesture-screen')).toHaveCount(1)
+  await map.scrollIntoViewIfNeeded()
+  const before = await page.evaluate(() => window.scrollY)
+  const box = (await map.boundingBox())!
+  await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.7 }, 0, -150)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before + 50)
 })

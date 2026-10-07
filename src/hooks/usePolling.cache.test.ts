@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MAX_CACHED_ENTRIES } from './pollingCache'
 import { usePolling, type UsePollingOptions } from './usePolling'
@@ -73,7 +73,11 @@ describe('usePolling cacheNamespace', () => {
   it('evicts the oldest entry beyond MAX_CACHED_ENTRIES', async () => {
     for (let i = 0; i <= MAX_CACHED_ENTRIES; i += 1) {
       const view = mount(`k${i}`, vi.fn().mockResolvedValue({ key: `k${i}` }), { refreshMs: null, cacheNamespace: 't5' })
-      await vi.waitFor(() => expect(view.result.current.data).toEqual({ key: `k${i}` }))
+      // Bez `vi.waitFor`: jego pierwsza próba zawsze przegrywa z mikrozadaniem fetchera, a odstęp
+      // 50 ms między próbami liczy się na PRAWDZIWYM zegarze (fake timers go nie dotyczą) --
+      // 51 montowań to ≥ 2,6 s z 5 s budżetu, a pod obciążeniem maszyny limit pękał.
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(view.result.current.data).toEqual({ key: `k${i}` })
       view.unmount()
     }
     expect(mount('k0', never(), { refreshMs: null, cacheNamespace: 't5' }).result.current.data).toBeNull()

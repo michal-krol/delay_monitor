@@ -1,6 +1,7 @@
 import type { BoardApiResponse } from '@/hooks/useBoard'
-import { effectiveAgeMs, formatAge } from '@/lib/format'
+import { effectiveAgeMs, formatAge, formatAgo } from '@/lib/format'
 import { useNow } from '@/hooks/useNow'
+import { LiveDot } from './LiveDot'
 
 type Props = {
   fetchedAt: string | undefined
@@ -9,6 +10,11 @@ type Props = {
   lastSuccessAt?: number | null
   data: BoardApiResponse | null
   error: boolean
+  /**
+   * Podany = wiek danych jest przyciskiem „odśwież teraz” (ten sam hook, `/api/board` czyta
+   * snapshot pollera — zero zapytań do PKP, AGENTS.md #3).
+   */
+  onRefresh?: () => void
 }
 
 /**
@@ -47,12 +53,13 @@ function budgetHint(data: BoardApiResponse | null): string | undefined {
  * i wtedy są warte ogłoszenia: błąd, wiek danych, `degraded`, throttling.
  */
 /** Statyczny fakt o tempie odświeżania -- ma być widoczny zawsze, niezależnie od stanu ładowania/błędu. */
-const REFRESH_HINT = <span>Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
+// Na telefonie schowany: kompaktowy nagłówek tablicy ma zostawić miejsce na pierwszy odjazd.
+const REFRESH_HINT = <span className="max-sm:hidden">Dane odświeżają się automatycznie co ok. 1,5 minuty.</span>
 
 /** Wiek podajemy z dokładnością do minuty, więc tykanie co 30 s wystarcza. */
 const AGE_TICK_MS = 30_000
 
-export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, data, error }: Props) {
+export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, data, error, onRefresh }: Props) {
   const now = useNow(AGE_TICK_MS)
   const ageMs = effectiveAgeMs(responseAgeMs, lastSuccessAt, now)
   // Baner błędu zastępuje CAŁĄ linijkę statusu tylko, gdy nie ma jeszcze
@@ -65,7 +72,7 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
     if (error) {
       return (
         <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-          <span className="text-error-text">Błąd pobierania danych</span>
+          <span className="text-error-text">Nie udało się pobrać danych</span>
           {REFRESH_HINT}
         </p>
       )
@@ -83,14 +90,29 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
 
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-      <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
+      {/* Puls tylko, gdy dane są świeże i ostatnie odświeżenie się udało — inaczej udawałby żywość (#7). */}
+      {!error && !isStale && <LiveDot />}
+      {onRefresh !== undefined && ageMs !== undefined ? (
+        <button
+          type="button"
+          onClick={onRefresh}
+          title={`Ostatnia aktualizacja: ${formatLastUpdated(fetchedAt)}`}
+          className="inline-flex items-center rounded-full underline decoration-dotted underline-offset-2 transition hover:text-foreground max-sm:min-h-11"
+        >
+          Aktualizacja {formatAgo(ageMs / 1000)}
+          {' '}
+          <span className="sr-only">— odśwież teraz</span>
+        </button>
+      ) : (
+        <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
+      )}
       {REFRESH_HINT}
 
       {/* `display: contents` -- węzeł istnieje dla `aria-live`, ale nie wchodzi
           we flex-wrap rodzica (chipy układają się tak samo jak wcześniej). */}
       <span className="contents" aria-live="polite">
         {/* Ostrzeżenie, nie błąd: ostatni dobry snapshot wciąż jest na ekranie (#7), jak w `ScheduleStatus`. */}
-        {error && <span className="text-warning-text">Błąd ostatniego odświeżenia</span>}
+        {error && <span className="text-warning-text">Nie udało się odświeżyć</span>}
 
         {isStale && <span className="text-warning-text">dane sprzed {formatAge(ageMs)}</span>}
 

@@ -64,8 +64,8 @@ describe('DelayBadge', () => {
 
   it('notStarted z prognozą PKP dokleja "· prognoza +N min" i tooltip', () => {
     const { unmount } = render(<DelayBadge status="notStarted" delayMinutes={null} predictedDelayMinutes={74} />)
-    const badge = screen.getByText('jeszcze nie wyjechał · prognoza +74 min')
-    expect(badge).toBeInTheDocument()
+    const badge = screen.getByTestId('delay-badge')
+    expect(badge).toHaveTextContent('jeszcze nie wyjechał · prognoza +74 min')
     expect(badge.getAttribute('title')).toMatch(/prognoza pkp/i)
     unmount()
 
@@ -113,8 +113,8 @@ describe('DelayBadge', () => {
 
   it('enRoute z estymatą pokazuje przybliżoną liczbę minut i tooltip z zastrzeżeniem', () => {
     render(<DelayBadge status="enRoute" delayMinutes={null} estimatedDelayMinutes={30} />)
-    const badge = screen.getByText('w trasie, ~+30 min')
-    expect(badge).toBeInTheDocument()
+    const badge = screen.getByTestId('delay-badge')
+    expect(badge).toHaveTextContent('w trasie, ~+30 min')
     expect(badge).toHaveAttribute('title')
     expect(badge.getAttribute('title')).toMatch(/potwierdzonej stacji/i)
   })
@@ -183,14 +183,14 @@ describe('DelayBadge', () => {
 describe('DelayBadge — wariant tekstowy', () => {
   it('używa tokenu tekstowego jako koloru, nie jako tła', () => {
     render(<DelayBadge status="delayed" delayMinutes={4} variant="text" />)
-    const badge = screen.getByText('+4 min')
+    const badge = screen.getByTestId('delay-badge')
     expect(badge).toHaveStyle({ color: 'var(--status-delayed-text)' })
     expect(badge.style.backgroundColor).toBe('')
   })
 
   it('domyślnie zostaje pigułką, żeby istniejące użycia się nie zmieniły', () => {
     render(<DelayBadge status="delayed" delayMinutes={4} />)
-    expect(screen.getByText('+4 min')).toHaveStyle({ backgroundColor: 'var(--status-delayed-bg)' })
+    expect(screen.getByTestId('delay-badge')).toHaveStyle({ backgroundColor: 'var(--status-delayed-bg)' })
   })
 
   it('mówi to samo co pigułka — wariant zmienia wygląd, nigdy treść', () => {

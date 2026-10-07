@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { createRequire } from 'node:module'
+import { relative } from 'node:path'
 import nextConfig from './next.config'
 
 /**
@@ -47,6 +49,16 @@ describe('nagłówki bezpieczeństwa', () => {
     expect(csp).not.toContain('*')
   })
 
+  it('allows the web app manifest from our own origin', async () => {
+    // Manifest PWA (/manifest.webmanifest) pokrywa default-src; gdyby ktoś dopisał
+    // manifest-src, musi zostać na własnym origin.
+    const csp = (await headersFor('/')).get('Content-Security-Policy') ?? ''
+    const manifestSrc = csp.split('; ').find((d) => d.startsWith('manifest-src'))
+
+    expect(csp).toContain("default-src 'self'")
+    if (manifestSrc) expect(manifestSrc).toBe("manifest-src 'self'")
+  })
+
   it('nie dopuszcza eval w wariancie produkcyjnym', async () => {
     // 'unsafe-eval' jest potrzebny wyłącznie hot reloadowi w trybie dev.
     const csp = (await headersFor('/')).get('Content-Security-Policy') ?? ''
@@ -60,5 +72,29 @@ describe('nagłówki bezpieczeństwa', () => {
 
   it('nie ogłasza użytego frameworka', () => {
     expect(nextConfig.poweredByHeader).toBe(false)
+  })
+})
+
+/**
+ * `output: 'standalone'` kopiuje śledzone pliki do
+ * `.next/standalone/<ścieżka względem outputFileTracingRoot>`. Gdy korzeń leży
+ * PONIŻEJ katalogu z `node_modules` (worktree agenta: `node_modules` w głównym
+ * checkoutcie, `../../../`), ścieżka względna zaczyna się od `..` i build pisze
+ * poza `.next` — 2026-10-02 powstał tak niepełny `.claude/worktrees/node_modules/next`,
+ * który przesłaniał prawdziwy `next` wszystkim worktree (prerender `/apple-icon`
+ * z `next/og` padał na brakującym `@vercel/og`).
+ */
+describe('korzeń śledzenia plików (standalone)', () => {
+  const nextPackageJson = createRequire(import.meta.url).resolve('next/package.json')
+  // Next bierze `outputFileTracingRoot`, a bez niego `turbopack.root` (server/config.js).
+  const tracingRoot = nextConfig.outputFileTracingRoot ?? nextConfig.turbopack?.root
+
+  it('obejmuje node_modules, z którego ładuje się next', () => {
+    expect(tracingRoot).toBeDefined()
+    expect(relative(tracingRoot!, nextPackageJson)).not.toMatch(/^\.\./)
+  })
+
+  it('jest tym samym katalogiem dla webpacka i Turbopacka', () => {
+    expect(nextConfig.outputFileTracingRoot).toBe(nextConfig.turbopack?.root)
   })
 })

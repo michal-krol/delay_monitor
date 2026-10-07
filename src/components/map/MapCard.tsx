@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertBanner } from '../AlertBanner'
-import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, PIN_COLOR, StarIcon } from '../icons'
+import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { IconButton } from '../IconButton'
 import { DelayBadge } from '../DelayBadge'
 import { LineBadge } from '../LineBadge'
@@ -17,11 +17,13 @@ import type { GtfsMode } from '@/lib/gtfs/types'
 import { FADE_START_SEC, vehicleKind } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
+import { stopDisplayName, stopsWithLines } from '../stopName'
 
 /** Co jest wybrane na mapie. Pojazd niesie tylko `id` — pozycja/linia żyją w odczytach co 15 s. */
 export type MapSelection =
   | { kind: 'rail'; id: string; name: string; lat: number | null; lon: number | null }
-  | { kind: 'stop'; id: string; groupId: string; name: string; mode: GtfsMode; lat: number | null; lon: number | null }
+  /** `code` = numer przystanku w zespole („02"); `null` = cały zespół (wybór z wyszukiwarki) albo brak numeru. */
+  | { kind: 'stop'; id: string; groupId: string; name: string; code: string | null; mode: GtfsMode; lat: number | null; lon: number | null }
   | { kind: 'vehicle'; id: string }
 
 /**
@@ -68,7 +70,9 @@ export function MapCard({
       ? vehicle?.shortName !== null && vehicle?.shortName !== undefined
         ? `${MODE_LABEL[vehicle.mode ?? 'bus']} ${vehicle.shortName}`
         : 'Pojazd'
-      : selection.name
+      : selection.kind === 'stop'
+        ? stopDisplayName(selection.name, selection.code)
+        : selection.name
 
   return (
     <PanelFrame
@@ -78,7 +82,7 @@ export function MapCard({
         pinned !== undefined &&
         onTogglePin !== undefined && (
           <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onTogglePin} pressed={pinned} size="lg">
-            <StarIcon size={16} filled={pinned} className={pinned ? PIN_COLOR : ''} />
+            <StarIcon size={ICON_SIZE.button} filled={pinned} />
           </IconButton>
         )
       }
@@ -122,7 +126,7 @@ function Subtitle({ selection, vehicle }: { selection: MapSelection; vehicle: Ci
             vehicle?.mode ?? 'bus',
             vehicle?.headsign !== null && vehicle?.headsign !== undefined ? (
               <span className="inline-flex items-center gap-1">
-                <ArrowRightIcon size={14} label="do" />
+                <ArrowRightIcon size={ICON_SIZE.inline} label="do" />
                 {vehicle.headsign}
               </span>
             ) : (
@@ -145,7 +149,7 @@ function Action({ href, children }: { href: string; children: ReactNode }) {
       style={{ background: 'var(--accent-gradient)' }}
     >
       {children}
-      <ChevronRightIcon size={14} />
+      <ChevronRightIcon size={ICON_SIZE.inline} />
     </Link>
   )
 }
@@ -202,7 +206,7 @@ function RailBody({ id }: { id: string }) {
 }
 
 function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind: 'stop' }>; city: string }) {
-  // Słupek (np. „Centrum 01") → odjazdy tylko z niego; stacja metra = cały zespół.
+  // Przystanek (np. „Centrum 01") → odjazdy tylko z niego; stacja metra = cały zespół.
   const member = selection.id !== selection.groupId ? selection.id : null
   const { data, error } = useTransitBoard(city, [selection.id], 3, member)
   const board = data?.stops[0] ?? null
@@ -231,7 +235,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
         {error !== null && data === null ? (
           <p className="mt-2 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
         ) : (
-          <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} />
+          <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} showStopCode={member === null && stopsWithLines(board?.members).length > 1} />
         )}
       </div>
       <Action href={`/city/${city}/stop/${selection.id}`}>Rozkład przystanku</Action>
@@ -265,14 +269,14 @@ function VehicleBody({
       )}
       {disrupted && (
         <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
-          <AlertCircleIcon size={16} />
+          <AlertCircleIcon size={ICON_SIZE.button} />
           Utrudnienia na tej linii — szczegóły w rozkładzie linii.
         </p>
       )}
       <dl className="mt-3 space-y-3 text-sm">
         <div>
           <dt className="text-xs text-text-muted">Następny przystanek</dt>
-          <dd className="font-semibold">{vehicle.nextStop?.name ?? 'nie wiadomo'}</dd>
+          <dd className="font-semibold">{vehicle.nextStop !== null ? stopDisplayName(vehicle.nextStop.name, vehicle.nextStop.code) : 'nie wiadomo'}</dd>
         </div>
         <div>
           <dt className="text-xs text-text-muted">Pozycja</dt>

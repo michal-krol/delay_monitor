@@ -8,7 +8,7 @@ const KEY = 'monitor.linesSections.v1'
 function mockNarrow(narrow: boolean): void {
   vi.stubGlobal(
     'matchMedia',
-    vi.fn((query: string) => ({ matches: narrow && query === '(max-width: 767px)', media: query })),
+    vi.fn((query: string) => ({ matches: narrow && query === '(max-width: 767px)', media: query, addEventListener: () => {}, removeEventListener: () => {} })),
   )
 }
 
@@ -123,6 +123,30 @@ describe('useSectionOpen', () => {
     })
     const { result } = renderHook(() => useSectionOpen())
     expect(result.current.isOpen('metro', 1)).toBe(true)
+  })
+
+  it('follows a width change live: the default flips, a stored value still wins', () => {
+    const listeners = new Set<() => void>()
+    let narrow = true
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        get matches() {
+          return narrow && query === '(max-width: 767px)'
+        },
+        addEventListener: (_: string, cb: () => void) => listeners.add(cb),
+        removeEventListener: (_: string, cb: () => void) => listeners.delete(cb),
+      })),
+    )
+    window.localStorage.setItem(KEY, JSON.stringify({ bus: false }))
+    const { result } = renderHook(() => useSectionOpen())
+    expect(result.current.isOpen('metro', 1)).toBe(false)
+    act(() => {
+      narrow = false
+      listeners.forEach((cb) => cb())
+    })
+    expect(result.current.isOpen('metro', 1)).toBe(true)
+    expect(result.current.isOpen('bus', 1)).toBe(false)
   })
 
   it('works when matchMedia is missing', () => {

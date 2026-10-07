@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { pinnedKey, type PinnedItem } from '@/hooks/usePinned'
 import { jsonResponse } from '@/test-utils/http'
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -53,13 +54,14 @@ describe('Page (Pulpit)', () => {
     replace.mockClear()
     searchParamsSeed = ''
     initialPinned = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
+    window.localStorage.clear()
   })
 
   it('klik w kartę stacji otwiera pełny widok stacji, z nazwą w adresie', async () => {
     render(<Page />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Pokaż pełną tablicę: Warszawa Centralna/ }))
-    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna')
+    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna', NAV_FORWARD_OPTIONS)
   })
 
   it('przekierowuje stary adres ?focus= na widok stacji, zachowując nazwę z przypiętych', () => {
@@ -136,7 +138,7 @@ describe('Page (Pulpit)', () => {
     await user.click(await screen.findByRole('option', { name: 'Kraków Główny' }))
 
     // encodeURIComponent (not form-encoding) — spaces become %20, same contract as the card click.
-    expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
+    expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny', NAV_FORWARD_OPTIONS)
   })
 
   it('exactly one h1 on the empty Pulpit and on the Pulpit with pinned cards', () => {
@@ -148,5 +150,71 @@ describe('Page (Pulpit)', () => {
     initialPinned = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
     render(<Page />)
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
+  it('pokazuje „Ostatnio oglądane" nad kartami przypiętych, gdy są ostatnio oglądane', () => {
+    window.localStorage.setItem(
+      'monitor.recentPlaces.v1',
+      JSON.stringify([{ kind: 'pkp', id: '100', name: 'Ostatnia stacja' }])
+    )
+    render(<Page />)
+
+    const recentHeading = screen.getByRole('heading', { name: 'Ostatnio oglądane' })
+    const pinnedHeading = screen.getByRole('heading', { name: 'Warszawa Centralna' })
+
+    expect(recentHeading).toBeInTheDocument()
+    expect(pinnedHeading).toBeInTheDocument()
+
+    // Recent heading comes before pinned heading in DOM
+    const positionBits = recentHeading.compareDocumentPosition(pinnedHeading)
+    expect(positionBits & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('pokazuje „Ostatnio oglądane" nad stanem pustym, gdy brak przypiętych, ale są ostatnio oglądane', () => {
+    window.localStorage.setItem(
+      'monitor.recentPlaces.v1',
+      JSON.stringify([{ kind: 'pkp', id: '100', name: 'Ostatnia stacja' }])
+    )
+    initialPinned = []
+    render(<Page />)
+
+    const recentHeading = screen.getByRole('heading', { name: 'Ostatnio oglądane' })
+    const emptyStateText = screen.getByText(/Wyszukaj stację/)
+
+    expect(recentHeading).toBeInTheDocument()
+    expect(emptyStateText).toBeInTheDocument()
+
+    // Recent heading comes before empty state text in DOM
+    const positionBits = recentHeading.compareDocumentPosition(emptyStateText)
+    expect(positionBits & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('ukrywa sekcję „Ostatnio oglądane", gdy jej brak', () => {
+    render(<Page />)
+    expect(screen.queryByRole('heading', { name: 'Ostatnio oglądane' })).not.toBeInTheDocument()
+  })
+
+  it('pokazuje co najwyżej 4 ostatnio oglądane', () => {
+    window.localStorage.setItem(
+      'monitor.recentPlaces.v1',
+      JSON.stringify([
+        { kind: 'pkp', id: '1', name: 'Stacja 1' },
+        { kind: 'pkp', id: '2', name: 'Stacja 2' },
+        { kind: 'pkp', id: '3', name: 'Stacja 3' },
+        { kind: 'pkp', id: '4', name: 'Stacja 4' },
+        { kind: 'pkp', id: '5', name: 'Stacja 5' },
+      ])
+    )
+    render(<Page />)
+
+    // Heading exists
+    expect(screen.getByRole('heading', { name: 'Ostatnio oglądane' })).toBeInTheDocument()
+
+    // Only 4 recent places shown despite 5 in storage (limit=4)
+    expect(screen.getByRole('link', { name: 'Stacja 1' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Stacja 2' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Stacja 3' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Stacja 4' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Stacja 5' })).not.toBeInTheDocument()
   })
 })

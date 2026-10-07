@@ -31,6 +31,8 @@ General rules: `~/.claude/rules/deployment.md`, `versioning.md`. Public summary:
   (`FAST_RETRY_DELAYS_MS` in `useBoard.ts`).
 - Railway `dev` runs `GTFS_DATA_SOURCE=live`; default is `mock` (#13).
 - `data/` and `fixtures/` are traced into `.next/standalone` (read via `process.cwd()`).
+- `metadataBase` for `og:image` comes from Railway's `RAILWAY_PUBLIC_DOMAIN` (`src/lib/share/metadata.ts`);
+  without it Next would emit `http://localhost:PORT` image URLs. Check on staging after changing domains.
 - One replica only (#5): never scale horizontally.
 - `E2E=1` disables `output: standalone` (because `next start` doesn't work with standalone);
   Railway/production unaffected.

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
 import type { PinnedItem } from '@/hooks/usePinned'
 import { jsonResponse } from '@/test-utils/http'
@@ -12,12 +12,13 @@ vi.mock('next/navigation', () => ({
 }))
 
 // Karty przystanków miejskich odpytują własny endpoint — mockujemy hook.
-vi.mock('@/hooks/useTransitBoard', () => ({
-  useTransitBoard: () => ({
-    data: { stops: [{ stopId: '7014M', name: 'Świętokrzyska', modes: ['metro'], departures: [] }], schedule: { state: 'ready' }, attribution: [] },
-    error: null,
-  }),
-}))
+const DEFAULT_TRANSIT_BOARD = {
+  data: { stops: [{ stopId: '7014M', name: 'Świętokrzyska', modes: ['metro'], departures: [] }], schedule: { state: 'ready' }, attribution: [] },
+  error: null,
+}
+const { useTransitBoard } = vi.hoisted(() => ({ useTransitBoard: vi.fn() }))
+vi.mock('@/hooks/useTransitBoard', () => ({ useTransitBoard }))
+beforeEach(() => useTransitBoard.mockReturnValue(DEFAULT_TRANSIT_BOARD))
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -82,7 +83,7 @@ describe('Dashboard', () => {
       />
     )
 
-    await waitFor(() => expect(screen.getAllByText(/Ostatnia aktualizacja:/)).toHaveLength(1))
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })).toHaveLength(1))
   })
 
   it('passes each snapshot to the matching station card by id order', async () => {
@@ -256,4 +257,16 @@ describe('Dashboard', () => {
 
 
 
+
+  it('rewrites a legacy group pin (saved under a member stop id) to the real group id once the board loads', () => {
+    useTransitBoard.mockReturnValue({
+      data: { stops: [{ stopId: '100101', groupId: '1001', name: 'Centrum', modes: ['tram'], departures: [], members: [] }], schedule: { state: 'ready' }, attribution: [] },
+      error: null,
+    })
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' })))
+    const legacy: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100101', name: 'Centrum' }
+    const onNormalize = vi.fn()
+    render(<Dashboard pinnedItems={[legacy]} onExpand={vi.fn()} onRemove={vi.fn()} onNormalize={onNormalize} />)
+    expect(onNormalize).toHaveBeenCalledWith('gtfs:warszawa:100101', { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' })
+  })
 })

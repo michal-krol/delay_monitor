@@ -7,11 +7,14 @@ import { CarrierLogo } from './CarrierLogo'
 import { CategoryBadge } from './CategoryBadge'
 import { InfoTooltip } from './InfoTooltip'
 import { statusTint } from './realizationColors'
-import { AlertCircleIcon, ChevronRightIcon } from './icons'
+import { AlertCircleIcon, ChevronRightIcon, ICON_SIZE } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { formatClockTime } from '@/lib/format'
+import { realizedTime, rowCountdown } from './boardTime'
+import { useRowAnimation } from '@/hooks/useRowAnimation'
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -26,7 +29,8 @@ const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
 /** Kolejność wpisów w legendzie -- ta sama co w `resolveStopStatus()`, nie kolejność zależna od `Object.keys`. */
 const STATUS_ORDER: RealizationStatus[] = ['onTime', 'delayed', 'cancelled', 'unknown', 'notStarted', 'enRoute']
 
-function StatusLegend() {
+/** Legenda statusów („?”) — przy zakładkach Odjazdy/Przyjazdy (`FullBoard`), bo nagłówek tabeli na telefonie jest ukryty. */
+export function StatusLegend() {
   return (
     <InfoTooltip label="Legenda statusów">
       <ul className="flex flex-col gap-2">
@@ -65,6 +69,8 @@ const ROW_TINT: Partial<Record<RealizationStatus, string>> = {
  * rozwinięcie jest czysto klienckie i nie kosztuje ani jednego zapytania.
  */
 const COLLAPSED_ROWS = 10
+/** Powyżej tylu widocznych wierszy minuty opóźnienia są zwykłym tekstem (patrz `DelayBadge` `animated`). */
+const MAX_ANIMATED_ROWS = 40
 
 /** Stabilny klucz wiersza -- ten sam przejazd między snapshotami. */
 function rowKey(row: BoardApiRow): string {
@@ -106,20 +112,6 @@ function useChangedDelays(rows: BoardApiRow[]): ReadonlySet<string> {
 }
 
 
-/**
- * Druga linia w kolumnie godziny — FAKT albo PROGNOZA, nigdy jedno udające
- * drugie (makieta §19).
- *
- * Kolejność jest istotna: potwierdzony czas rzeczywisty wypiera przewidywanie.
- * `null` znaczy „nie wiemy nic ponad plan" i wtedy druga linia po prostu nie
- * istnieje — pusty wiersz jest uczciwszy niż powtórzony plan udający pomiar.
- */
-function realizedTime(row: BoardApiRow): { time: string; kind: 'fact' | 'forecast' } | null {
-  if (row.actualAt !== null && row.delayMinutes !== null) return { time: formatClockTime(row.actualAt), kind: 'fact' }
-  if (row.predictedAt != null) return { time: formatClockTime(row.predictedAt), kind: 'forecast' }
-  return null
-}
-
 /** „przez Pruszków, Opoczno · +12 przystanków" — pusto, gdy nie znamy trasy. */
 function viaLabel(row: BoardApiRow): string | null {
   const via = row.via ?? []
@@ -148,6 +140,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const changedDelays = useChangedDelays(rows)
+  const rowsRef = useRowAnimation<HTMLTableSectionElement>()
 
   const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED_ROWS)
   const hiddenCount = rows.length - visibleRows.length
@@ -155,14 +148,10 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   function openDetails(row: BoardApiRow): void {
     // encodeURIComponent, nie URLSearchParams (form-encoding zamieniłoby
     // spacje na `+`) -- ta sama konwencja co /station/[stationId] w page.tsx.
-    router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`)
+    router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`, NAV_FORWARD_OPTIONS)
   }
 
-  const emptyMessage = loading
-    ? 'Wczytywanie…'
-    : direction === 'departures'
-      ? 'Brak odjazdów w najbliższych godzinach'
-      : 'Brak przyjazdów w najbliższych godzinach'
+  const emptyMessage = direction === 'departures' ? 'Brak odjazdów w najbliższych godzinach' : 'Brak przyjazdów w najbliższych godzinach'
 
   return (
     <div className="mt-3 @container">
@@ -179,26 +168,41 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                   dostępności. Widoczny podpis zostaje, nazwa jest zdaniem. */}
               <th scope="col" aria-label={direction === 'departures' ? 'Odjazd — plan i faktycznie' : 'Przyjazd — plan i faktycznie'} className="py-2 pr-3 pl-3 font-medium text-text-muted">
                 {direction === 'departures' ? 'Odjazd' : 'Przyjazd'}
-                <span className="block text-[11px] font-normal">plan · faktycznie</span>
+                <span className="block text-xs font-normal">plan · faktycznie</span>
               </th>
               <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Pociąg</th>
               <th scope="col" aria-label="Kierunek i przystanki pośrednie" className="py-2 pr-3 font-medium text-text-muted">
                 Kierunek
-                <span className="block text-[11px] font-normal">przez</span>
+                <span className="block text-xs font-normal">przez</span>
               </th>
               <th scope="col" aria-label="Peron i tor" className="py-2 pr-3 font-medium text-text-muted">
                 Peron
-                <span className="block text-[11px] font-normal">tor</span>
+                <span className="block text-xs font-normal">tor</span>
               </th>
               <th scope="col" className="py-2 pr-3 font-medium text-text-muted">
                 Status
-                <StatusLegend />
               </th>
               <th scope="col" className="py-2 pr-1"><span className="sr-only">Szczegóły</span></th>
             </tr>
           </thead>
-          <tbody>
-            {visibleRows.length === 0 && (
+          <tbody ref={rowsRef}>
+            {visibleRows.length === 0 && loading && (
+              <>
+                <tr>
+                  <td colSpan={6} className="sr-only">
+                    Wczytywanie…
+                  </td>
+                </tr>
+                {[0, 1, 2].map((i) => (
+                  <tr key={i} data-testid="skeleton-row" aria-hidden="true">
+                    <td colSpan={6} className="py-2">
+                      <div className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
+                    </td>
+                  </tr>
+                ))}
+              </>
+            )}
+            {visibleRows.length === 0 && !loading && (
               <tr>
                 <td colSpan={6} className="py-6 text-center text-text-muted">
                   {emptyMessage}
@@ -213,6 +217,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                 now={now}
                 onOpen={openDetails}
                 delayChanged={changedDelays.has(rowKey(row))}
+                animateNumbers={visibleRows.length <= MAX_ANIMATED_ROWS}
               />
             ))}
           </tbody>
@@ -242,6 +247,8 @@ type RowProps = {
   onOpen: (row: BoardApiRow) => void
   /** Opóźnienie zmieniło się w tym odświeżeniu — wiersz raz błyska (patrz `useChangedDelays`). */
   delayChanged: boolean
+  /** Minuty opóźnienia z toczącymi się cyframi (`false` na długiej tablicy, patrz `MAX_ANIMATED_ROWS`). */
+  animateNumbers: boolean
 }
 
 /** Pasek akcentu po lewej stronie wiersza (makieta §12) -- pozwala skanować listę wzrokiem bez czytania wartości. */
@@ -275,7 +282,7 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
       <span className="min-w-0">
         <span className="block truncate font-semibold text-foreground">{row.trainLabel}</span>
         <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
-          <CarrierLogo carrierCode={row.carrier} size={12} />
+          <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
           <span className="min-w-0 truncate">{row.carrierName ?? (row.carrier || '—')}</span>
         </span>
       </span>
@@ -283,8 +290,9 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
   )
 }
 
-function TimePair({ row }: { row: BoardApiRow }) {
+function TimePair({ row, now }: { row: BoardApiRow; now: number }) {
   const realized = realizedTime(row)
+  const countdown = rowCountdown(row, now)
 
   return (
     <span className="block tabular-nums">
@@ -296,14 +304,15 @@ function TimePair({ row }: { row: BoardApiRow }) {
           style={{ color: STATUS_TEXT[row.status] }}
           title={realized.kind === 'forecast' ? 'Godzina przewidywana — przystanek nie jest jeszcze potwierdzony.' : 'Godzina faktyczna — przejazd potwierdzony.'}
         >
-          {realized.time}
+          {formatClockTime(realized.at)}
         </span>
       )}
+      {countdown !== null && <span className="block text-xs font-semibold text-text-secondary">{countdown}</span>}
     </span>
   )
 }
 
-function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
+function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }: RowProps) {
   // Pociąg, którego planowy czas już minął — cały wiersz wizualnie
   // przygaszony (łącznie z przewoźnikiem i plakietką statusu), żeby
   // odróżnić go od nadchodzących, bez zmiany danych. Wyjątek: pociąg
@@ -326,6 +335,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
     // przez prawdziwy <button> na etykiecie pociągu.
     <tr
       data-past={isPast || undefined}
+      data-status={row.status}
       className={`group border-b border-black/5 transition dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${isPast ? 'opacity-50' : ''} ${canOpenDetails ? 'cursor-pointer' : ''} ${delayChanged ? 'delay-changed' : ''}`}
       // borderLeftColor działa wyłącznie w układzie kartowym (poniżej `sm`,
       // patrz `.board-table` w globals.css) -- na desktopie wiersz nie ma
@@ -334,7 +344,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
       onClick={canOpenDetails ? () => onOpen(row) : undefined}
     >
       <td data-cell="time" className="py-2.5 pr-3 pl-3 whitespace-nowrap" style={{ boxShadow: `inset 3px 0 0 0 ${accentColor(row.status)}` }}>
-        <TimePair row={row} />
+        <TimePair row={row} now={now} />
       </td>
       {/* `truncate` nie kurczy komórki (min-content = pełna nazwa przewoźnika), więc w wąskiej tabeli
           (kontener < 42rem, np. FullBoard przy oknie 1280 px) limit jest niższy — inaczej tabela 600 px
@@ -379,21 +389,21 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
           direction={direction === 'arrivals' ? 'arrival' : 'departure'}
           estimatedDelayMinutes={row.estimatedDelayMinutes}
           predictedDelayMinutes={row.predictedDelayMinutes ?? null}
+          animated={animateNumbers}
         />
+        {/* W komórce statusu, nie przy strzałce: karta na telefonie chowa komórkę strzałki. */}
+        {row.hasDisruption === true && (
+          <span className="ml-1.5 inline-block align-middle text-warning-text">
+            <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" />
+          </span>
+        )}
       </td>
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
-        <span className="inline-flex items-center gap-1">
-          {row.hasDisruption === true && (
-            <span className="text-warning-text">
-              <AlertCircleIcon size={14} label="Utrudnienie na trasie" />
-            </span>
-          )}
-          {canOpenDetails && (
-            <span className="transition group-hover:translate-x-0.5 group-hover:text-foreground">
-              <ChevronRightIcon size={14} />
-            </span>
-          )}
-        </span>
+        {canOpenDetails && (
+          <span className="inline-flex transition group-hover:translate-x-0.5 group-hover:text-foreground">
+            <ChevronRightIcon size={ICON_SIZE.inline} />
+          </span>
+        )}
       </td>
     </tr>
   )

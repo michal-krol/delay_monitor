@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { ChevronRightIcon } from '../icons'
+import { DisclosureIcon, VehicleHeadingIcon, ICON_SIZE } from '../icons'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, darkRingClass, lineColor } from '../transitMode'
 import { MODE_COLOR, outlineFilter, strokeFor } from './mapData'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -26,9 +26,9 @@ const VEHICLES: [GtfsMode, string][] = [
  */
 export function MapLegend() {
   return (
-    <details className="glass-strong group pointer-events-auto max-h-full w-56 overflow-y-auto rounded-2xl text-sm shadow-lg">
+    <details className="glass-chrome-strong border border-surface-border pointer-events-auto max-h-full w-56 overflow-y-auto rounded-2xl text-sm shadow-lg">
       <summary className="flex min-h-11 cursor-pointer select-none list-none items-center justify-between rounded-2xl px-4 font-semibold [&::-webkit-details-marker]:hidden">
-        Legenda <ChevronRightIcon size={14} className="rotate-90 text-text-muted group-open:-rotate-90" />
+        Legenda <DisclosureIcon size={ICON_SIZE.inline} className="text-text-muted" />
       </summary>
       <div className="space-y-3 px-4 pb-4">
         <Section title="Punkty" items={POINTS} shape="dot" />
@@ -62,7 +62,9 @@ function Section({ title, items, shape }: { title: string; items: [GtfsMode, str
             ) : (
               <span className="relative ml-1 mr-1 mt-1.5 h-3 w-3" aria-hidden="true">
                 <span className="block h-3 w-3 rounded-full border-2 border-white" style={{ background: MODE_COLOR[mode], borderColor: strokeFor(MODE_COLOR[mode]) }} />
-                <span className="absolute -top-[8px] left-[2px] h-0 w-0 border-x-[4px] border-b-[6px] border-x-transparent" style={{ borderBottomColor: MODE_COLOR[mode], filter: outlineFilter(MODE_COLOR[mode]) }} />
+                <span className="absolute -top-3 left-0 h-3 w-3" style={{ color: MODE_COLOR[mode], filter: outlineFilter(MODE_COLOR[mode]) }}>
+                  <VehicleHeadingIcon className="block h-full w-full" />
+                </span>
               </span>
             )}
             {label}

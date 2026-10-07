@@ -1,16 +1,25 @@
 import type { NextConfig } from "next";
 import { execSync } from "node:child_process";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import pkg from "./package.json";
 
 /**
- * Katalog projektu. Bez tego Turbopack szuka „root" w górę drzewa po pierwszym
- * napotkanym lockfile — a w worktree agenta (`.claude/worktrees/**`) trafia na
- * `package-lock.json` GŁÓWNEGO checkoutu i ostrzega przy każdym starcie.
- * `import.meta.url` działa i w `dev`, i w `build` (config ładowany jako ESM).
+ * Korzeń śledzenia plików i Turbopacka = katalog, w którym naprawdę leży
+ * `node_modules` z `next`. W zwykłym checkoutcie (CI, Dockerfile: `/app`) to
+ * katalog projektu, więc produkcyjny `.next/standalone/server.js` się nie
+ * zmienia. W worktree agenta (`.claude/worktrees/**`) `node_modules` jest tylko
+ * w głównym checkoutcie (`../../../`). Z korzeniem w katalogu worktree
+ * `output: "standalone"` kopiował śledzone pliki do
+ * `.next/standalone/../../../node_modules`, czyli do
+ * `.claude/worktrees/node_modules/next`, a ten niepełny `next` przesłaniał
+ * prawdziwy wszystkim worktree (2026-10-02, prerender `next/og`). Z głównym
+ * checkoutem jako korzeniem serwer standalone worktree ląduje w
+ * `.next/standalone/.claude/worktrees/<nazwa>/` i nic nie wychodzi poza `.next`.
+ * Jawny korzeń wyłącza też zgadywanie po lockfile'ach (Next wybierał
+ * `package-lock.json` głównego checkoutu i ostrzegał przy każdym starcie).
  */
-const projectRoot = dirname(fileURLToPath(import.meta.url));
+const tracingRoot = resolve(createRequire(import.meta.url).resolve("next/package.json"), "../../..");
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -126,9 +135,10 @@ const nextConfig: NextConfig = {
   // w teście — pakiet e2e (playwright.config.ts) buduje bez standalone.
   output: process.env.E2E ? undefined : "standalone",
 
-  // Patrz `projectRoot` wyżej -- w worktree Next inaczej wybiera lockfile
-  // głównego checkoutu i ostrzega o „multiple lockfiles".
-  turbopack: { root: projectRoot },
+  // Patrz `tracingRoot` wyżej. Oba muszą być równe -- inaczej Next ostrzega
+  // i bierze `outputFileTracingRoot` (server/config.js).
+  outputFileTracingRoot: tracingRoot,
+  turbopack: { root: tracingRoot },
 
   // Domyślnie Next ogłasza się nagłówkiem X-Powered-By. Nie ma powodu ułatwiać
   // dopasowania podatności do wersji frameworka.

@@ -27,6 +27,11 @@ train as on time — this reached the main board once.
   „w trasie" instead of „jeszcze nie wyjechał". It is not per-stop (that is still
   `isConfirmed`) and does not change delay computation. Don't break this.
 
+Countdown „za N min” (PR4) adds no delay logic: `expectedAt()` in `src/components/boardTime.ts`
+takes the realized time the board already shows (`realizedTime()`: fact, else forecast, else
+plan) and `countdownLabel()` (`src/lib/countdown.ts`, the one countdown for PKP and GTFS) turns
+it into text. Cancelled rows never count down.
+
 ## #9 `/operations` and `/schedules` are not limited to "today"
 
 Verified live (Warszawa Zachodnia, 2026-08-28): one `/operations?stations=…&withPlanned=true`
@@ -40,7 +45,7 @@ day** of the same run — same `trainOrderId`, different `orderId`, sometimes di
 platforms. A plain "last one wins" `Map` kept the wrong day's record in ~13% of cases even
 though today's existed. `indexRoutesByTrain()` / `findRouteForTrain()` in `board/routeKey.ts`
 fix this (variant per run+day + a dateless fallback, exact day first).
-**Do not go back to `new Map(routes.map(r => [routeKey(r), r]))`.** Counting (as opposed to
+`new Map(routes.map(...))` is blocked by lint (`no-restricted-syntax`, `eslint.config.mjs`). Counting (as opposed to
 finding one route) iterates the poller's **raw route list**, not the index — the index
 collapses variants and undercounts.
 

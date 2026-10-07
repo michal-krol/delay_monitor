@@ -121,10 +121,10 @@ describe('stopGroup', () => {
     // Linie z `groupRoutes` — posortowane, metro przed tramwajem w `modes`.
     expect(group?.lines.map((line) => line.line)).toEqual(['20', 'M1'])
     expect(group?.modes).toEqual(['metro', 'tram'])
-    expect(group?.wheelchairNote).toBeNull() // słupki wheelchair=0 → brak sygnału
+    expect(group?.wheelchairNote).toBeNull() // przystanki wheelchair=0 → brak sygnału
   })
 
-  it('wheelchairNote: `2` na wszystkich słupkach = inaccessible, na części = partial, `1`/`0` = null', async () => {
+  it('wheelchairNote: `2` na wszystkich przystankach = inaccessible, na części = partial, `1`/`0` = null', async () => {
     const withFlags = (a: 0 | 1 | 2, b: 0 | 1 | 2) =>
       make({
         stops: [
@@ -137,7 +137,7 @@ describe('stopGroup', () => {
     expect(stopGroup(await withFlags(2, 2), '1001')?.wheelchairNote).toBe('inaccessible')
     expect(stopGroup(await withFlags(2, 0), '1001')?.wheelchairNote).toBe('partial')
     expect(stopGroup(await withFlags(1, 1), '1001')?.wheelchairNote).toBeNull()
-    // Sama nazwa zespołu bez numeru słupka.
+    // Sama nazwa zespołu bez numeru przystanku.
     expect(stopGroup(await withFlags(1, 1), '1001')?.name).toBe('Centrum')
   })
 
@@ -145,7 +145,7 @@ describe('stopGroup', () => {
     expect(stopGroup(await make({}), 'nope')).toBeNull()
   })
 
-  it('given a bare słupek id returns the WHOLE group + requestedMemberId (deep-link z trasy linii)', async () => {
+  it('given a bare przystanek id returns the WHOLE group + requestedMemberId (deep-link z trasy linii)', async () => {
     const schedule = await make({
       stops: [
         { id: '100107', name: 'Centrum', lat: 52, lon: 21, locationType: '0', parentId: null, platformCode: null, wheelchair: 1, code: '07', street: 'Marszałkowska' },
@@ -416,7 +416,7 @@ describe('edge cases', () => {
   })
 
   it('nextDepartures caps how many stop runs it merges for a huge group', async () => {
-    // 20 słupków w jednym zespole (prefiks 4-cyfrowy), każdy z odjazdem.
+    // 20 przystanków w jednym zespole (prefiks 4-cyfrowy), każdy z odjazdem.
     const stops = Array.from({ length: 20 }, (_, i) => stop(`5500${i.toString().padStart(2, '0')}`.slice(0, 6), 'Węzeł'))
     const trips = stops.map((_, i) => ({ routeId: '1', serviceId: 'S', tripId: `t${i}`, headsign: 'H', directionId: 0 as const }))
     const lines = ['trip_id,stop_id,arrival_time,departure_time,stop_sequence']
@@ -571,7 +571,7 @@ describe('lineDetail', () => {
     expect(detail!.mode).toBe('tram')
     expect(detail!.directions.map((d) => d.directionId)).toEqual([0, 1])
     expect(detail!.directions[0]).toMatchObject({ headsign: 'Piaski' })
-    // nazwa zespołu oczyszczona z numeru słupka
+    // nazwa zespołu oczyszczona z numeru przystanku
     expect(detail!.directions[0].stops.map((s) => s.name)).toEqual(['Centrum', 'Rondo ONZ', 'Dworzec'])
     expect(detail!.directions[0].stops.map((s) => s.groupId)).toEqual(['1001', '7002', '5008'])
     expect(detail!.directions[1].stops.map((s) => s.name)).toEqual(['Dworzec', 'Centrum'])

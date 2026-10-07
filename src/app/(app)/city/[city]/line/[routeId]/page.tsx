@@ -12,10 +12,11 @@ import { OnRequestBadge } from '@/components/OnRequestBadge'
 import { LineTimetable } from '@/components/LineTimetable'
 import { MapView, type MapMover, type MapPin } from '@/components/MapView'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
+import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
 import { CityWeatherCard } from '@/components/CityWeatherCard'
-import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon } from '@/components/icons'
+import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon, VehicleHeadingIcon, ICON_SIZE } from '@/components/icons'
 import { LINE_KIND_LABEL, MODE_LABEL, darkRingClass, lineColor } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
 import { formatSecondsOfDay } from '@/lib/format'
@@ -42,6 +43,12 @@ type LineResponse = {
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
 
+/** Przystanek, za którym jest pojazd — jeden konkretny, więc z numerem („za „Centrum 02”"). */
+function afterStopName(stops: typeof NO_STOPS, index: number): string {
+  const stop = stops[index]
+  return stop !== undefined ? stopDisplayName(stop.name, stop.code) : '—'
+}
+
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
   const city = typeof params.city === 'string' ? params.city : ''
@@ -54,6 +61,9 @@ export default function LineDetailPage() {
   const { cities } = useCities()
   const [dirIdx, setDirIdx] = useState(0)
   const [stopSel, setStopSel] = useState(0)
+  /** Poniżej `lg` jedna sekcja naraz (trasa albo rozkład); od `lg` obie obok siebie i stan nic nie zmienia. */
+  const [pane, setPane] = useState<'route' | 'timetable'>('route')
+  const paneSwitchRef = useRef<HTMLDivElement>(null)
   const [selectedBaseSec, setSelectedBaseSec] = useState<number | null>(null)
 
   // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
@@ -93,7 +103,7 @@ export default function LineDetailPage() {
   const showVehicles = direction !== undefined && (direction.directionId === 0 || direction.directionId === 1)
   const liveVehicles = useLineVehicles(city, routeId, showVehicles ? vehicleDir : 2)
 
-  // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam słupek może wystąpić
+  // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam przystanek może wystąpić
   // dwa razy), pojazdy z tego samego pollingu co karta „Pojazdy w trasie" -- zero nowych zapytań.
   const mapPins = useMemo<MapPin[]>(
     () =>
@@ -101,7 +111,7 @@ export default function LineDetailPage() {
         id: String(index),
         lat: stop.lat,
         lon: stop.lon,
-        label: stop.code !== null ? `${stop.name} ${stop.code}` : stop.name,
+        label: stopDisplayName(stop.name, stop.code),
         mode: line?.mode,
         kind: line?.kind,
         href: `/city/${city}/stop/${encodeStopIdForPathSegment(stop.stopId)}?name=${encodeURIComponent(stop.name)}`,
@@ -123,7 +133,7 @@ export default function LineDetailPage() {
       id: v.sideNumber + v.tripId,
       lat: v.lat,
       lon: v.lon,
-      label: `#${v.sideNumber} · za „${stops[v.afterStopOrder]?.name ?? '—'}”`,
+      label: `#${v.sideNumber} · za „${afterStopName(stops, v.afterStopOrder)}”`,
       mode: line?.mode ?? 'bus',
       kind: mapKind,
       bearing: v.bearing,
@@ -186,7 +196,7 @@ export default function LineDetailPage() {
                   <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
                     <span className="text-foreground">#{v.sideNumber}</span>
                     <span className="text-text-muted">
-                      za „{stops[v.afterStopOrder]?.name ?? '—'}”
+                      za „{afterStopName(stops, v.afterStopOrder)}”
                       {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
                     </span>
                   </li>
@@ -240,13 +250,13 @@ export default function LineDetailPage() {
               type="button"
               onClick={switchDirection}
               disabled={directions.length < 2}
-              aria-label="Zmień kierunek"
-              className="inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
+              className="press inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition max-sm:min-h-11 enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
             >
-              <span>{direction.origin ?? stops[0]?.name}</span>
-              <ArrowRightIcon size={13} className="text-text-muted" />
-              <span>{direction.headsign ?? stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`}</span>
-              {directions.length >= 2 && <SwapIcon size={15} className="ml-1 text-indigo-600 dark:text-indigo-400" />}
+              {/* Spacje tekstowe: w flexie nie zmieniają układu, a nazwa dostępna nie skleja się w „CentrumdoDworzec”. */}
+              <span>{direction.origin ?? stops[0]?.name}</span>{' '}
+              <ArrowRightIcon size={ICON_SIZE.chip} label="do" className="text-text-muted" />{' '}
+              <span>{direction.headsign ?? stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`}</span>{' '}
+              {directions.length >= 2 && <SwapIcon size={ICON_SIZE.button} label="zmień kierunek" className="ml-1 text-indigo-600 dark:text-indigo-400" />}
             </button>
 
             {/* W treści głównej, nie w aside: aside schodzi pod treść poniżej `xl`, a mapa ma być tuż pod nagłówkiem trasy, także na telefonie. */}
@@ -264,8 +274,23 @@ export default function LineDetailPage() {
               </section>
             )}
 
+            <div ref={paneSwitchRef} role="group" aria-label="Widok linii" className="glass flex w-max gap-1 rounded-full p-1 lg:hidden">
+              {(['route', 'timetable'] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={pane === key}
+                  onClick={() => setPane(key)}
+                  className={`min-h-11 rounded-full px-5 text-sm font-medium transition ${pane === key ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'}`}
+                  style={pane === key ? { background: 'var(--accent-gradient)' } : undefined}
+                >
+                  {key === 'route' ? 'Trasa' : 'Rozkład'}
+                </button>
+              ))}
+            </div>
+
             <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-              <section className="glass rounded-2xl p-4">
+              <section className={`glass rounded-2xl p-4 ${pane === 'route' ? '' : 'max-lg:hidden'}`}>
                 <h2 className="text-sm font-bold text-foreground">
                   Trasa linii · {stops.length} {pluralPl(stops.length, 'przystanek', 'przystanki', 'przystanków')}
                 </h2>
@@ -320,7 +345,7 @@ export default function LineDetailPage() {
                                         ...(hasCustomStroke(palette.bg) ? ({ '--tw-ring-color': strokeFor(palette.bg) } as CSSProperties) : {}),
                                       }}
                                     >
-                                      <ArrowRightIcon size={10} className="rotate-90" />
+                                      <VehicleHeadingIcon className="h-2.5 w-2.5 rotate-180" />
                                       <span className="sr-only">
                                         Pojazd {v.sideNumber}
                                         {v.ageSec > 60 ? `, ${Math.round(v.ageSec / 60)} min temu` : ''}
@@ -332,34 +357,38 @@ export default function LineDetailPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setStopSel(index)}
+                          onClick={() => {
+                            setStopSel(index)
+                            // Telefon: przystanek wybiera się po to, żeby zobaczyć jego rozkład.
+                            if (pane !== 'timetable') {
+                              setPane('timetable')
+                              paneSwitchRef.current?.scrollIntoView({ block: 'nearest' })
+                            }
+                          }}
                           aria-pressed={active}
-                          className={`mb-2 flex flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm transition ${
+                          className={`press mb-2 flex flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm transition max-sm:min-h-11 max-sm:items-center ${
                             active ? 'bg-black/5 font-semibold text-foreground dark:bg-white/10' : 'text-text-secondary hover:text-foreground'
                           }`}
                         >
                           <span className={`min-w-0 flex-1 ${first || last ? 'font-semibold text-foreground' : ''}`}>
-                            {stop.name}
-                            {stop.code !== null && (
-                              <span className="ml-1 text-[11px] font-semibold tabular-nums text-text-muted">{stop.code}</span>
-                            )}
+                            {stopDisplayName(stop.name, stop.code)}
                             {stop.onRequest && (
                               <span className="ml-1.5 inline-block align-middle">
                                 <OnRequestBadge />
                               </span>
                             )}
                             {(first || last) && (
-                              <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-text-muted">
+                              <span className="ml-1.5 text-xs uppercase tracking-[0.08em] text-text-muted">
                                 {first ? 'początek' : 'koniec'}
                               </span>
                             )}
                             {stop.street !== null && (
-                              <span className="ml-2 text-[11px] text-text-muted">{stop.street}</span>
+                              <span className="ml-2 text-xs text-text-muted">{stop.street}</span>
                             )}
                           </span>
                           {stop.wheelchair === 2 && (
                             <AccessibleIcon
-                              size={13}
+                              size={ICON_SIZE.chip}
                               className="shrink-0 self-center text-warning-text"
                               label="Przystanek niedostępny dla osób na wózku"
                             />
@@ -374,23 +403,23 @@ export default function LineDetailPage() {
                     )
                   })}
                 </ol>
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted">
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek</span>
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} aria-hidden="true" /> na żądanie</span>
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek krańcowy</span>
                 </div>
               </section>
 
-              <section className="glass rounded-2xl p-4">
+              <section className={`glass rounded-2xl p-4 ${pane === 'timetable' ? '' : 'max-lg:hidden'}`}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop?.name}</h2>
+                  <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop !== undefined ? stopDisplayName(selectedStop.name, selectedStop.code) : ''}</h2>
                   {selectedStop !== undefined && (
                     <Link
                       href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
                       className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                     >
-                      pełna tablica słupka
-                      <ChevronRightIcon size={12} className="ml-0.5 inline align-[-2px]" />
+                      pełna tablica przystanku
+                      <ChevronRightIcon size={ICON_SIZE.inline} className="ml-0.5 inline align-[-2px]" />
                     </Link>
                   )}
                 </div>

@@ -7,7 +7,7 @@ import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
 import { trapTab } from '@/lib/focusTrap'
 import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
 import { MODE_ICON, lineColor } from './transitMode'
-import { ExpandIcon, CloseIcon, MapIcon } from './icons'
+import { ExpandIcon, CloseIcon, MapIcon, iconElement, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { MODE_COLOR, UNKNOWN_COLOR, casingFor, outlineFilter, strokeFor } from './map/mapData'
 
@@ -77,7 +77,7 @@ function createMarkerElement(pin: MapPin): { element: HTMLDivElement; root: Root
   element.style.setProperty('--tw-ring-color', strokeFor(color))
   const root = createRoot(element)
   const Icon = pin.mode !== undefined ? MODE_ICON[pin.mode] : MapIcon
-  root.render(<Icon size={16} />)
+  root.render(<Icon size={ICON_SIZE.button} />)
   return { element, root }
 }
 
@@ -112,7 +112,7 @@ function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
     link.href = pin.href
     link.textContent = 'Zobacz pełną tablicę'
     link.className = 'mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400'
-    link.appendChild(createChevronElement())
+    link.appendChild(iconElement('chevronRight', { width: String(ICON_SIZE.inline), height: String(ICON_SIZE.inline) }))
     wrap.appendChild(link)
   }
 
@@ -120,34 +120,9 @@ function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
 }
 
 /**
- * Chevron „dalej” do popupu (DOM poza Reactem) — ta sama geometria co `ChevronRightIcon`
- * z `icons.tsx` (viewBox 20×20, obrys 1.7). `createElementNS`, nie innerHTML (#4).
- */
-function createChevronElement(): SVGSVGElement {
-  const ns = 'http://www.w3.org/2000/svg'
-  const svg = document.createElementNS(ns, 'svg')
-  const attrs: Record<string, string> = {
-    viewBox: '0 0 20 20',
-    width: '14',
-    height: '14',
-    fill: 'none',
-    stroke: 'currentColor',
-    'stroke-width': '1.7',
-    'stroke-linecap': 'round',
-    'stroke-linejoin': 'round',
-    'aria-hidden': 'true',
-  }
-  for (const [name, value] of Object.entries(attrs)) svg.setAttribute(name, value)
-  const path = document.createElementNS(ns, 'path')
-  path.setAttribute('d', 'm8 5 5 5-5 5')
-  svg.appendChild(path)
-  return svg
-}
-
-/**
  * Pojazd jak na mapie miasta (`vehicles` + `vehicles-arrows` w `TransitMap`): kropka w kolorze
- * rodzaju, strzałka przed nią. Cały marker obraca MapLibre (`rotation`), więc strzałka stoi
- * „na górze" elementu; bez kierunku jest ukryta.
+ * rodzaju, strzałka `VehicleHeadingIcon` przed nią. Cały marker obraca MapLibre (`rotation`),
+ * więc strzałka stoi „na górze" elementu; bez kierunku jest ukryta.
  */
 function createMoverElement(mover: MapMover): HTMLDivElement {
   const color = lineColor(mover.mode, mover.kind).bg
@@ -159,12 +134,13 @@ function createMoverElement(mover: MapMover): HTMLDivElement {
   dot.className = 'h-4 w-4 rounded-full shadow ring-2 ring-white'
   dot.style.backgroundColor = color
   dot.style.setProperty('--tw-ring-color', strokeFor(color))
+  // Ostrzem do góry, wyśrodkowana nad kropką: pudełko 16 px (glif ~9×13 px, podstawa ~2 px nad kropką).
+  // Opakowanie w `div`, bo `hidden` działa na HTMLElement, nie na SVGElement.
   const arrow = document.createElement('div')
   arrow.dataset.part = 'arrow'
-  // Trójkąt z obramowań (ostrzem do góry), 3 px nad kropką.
-  arrow.className = 'absolute -top-[11px] left-[3px] h-0 w-0 border-x-[5px] border-b-[8px] border-x-transparent'
-  arrow.style.borderBottomColor = color
-  // Trójkąt z obramowań nie ma własnego obrysu — `drop-shadow` w kolorze `strokeFor` (żółte metro ~1,3:1 na jasnym podkładzie).
+  arrow.className = 'absolute -top-4 left-0 h-4 w-4'
+  arrow.appendChild(iconElement('vehicleHeading', { width: '16', height: '16', fill: color, stroke: color }))
+  // Obrys w kolorze `strokeFor` przez `drop-shadow` (żółte metro ~1,3:1 na jasnym podkładzie), jak przy kropce.
   arrow.style.filter = outlineFilter(color)
   arrow.hidden = mover.bearing === null || mover.bearing === undefined
   element.append(dot, arrow)
@@ -178,9 +154,16 @@ function moverPopup(label: string): HTMLElement {
   return el
 }
 
+/** Podpowiedzi `cooperativeGestures` po polsku (klucze z `maplibre-gl.d.ts`, 6.11). */
+const COOPERATIVE_LOCALE_PL = {
+  'CooperativeGesturesHandler.WindowsHelpText': 'Użyj Ctrl + kółko myszy, aby przybliżyć mapę',
+  'CooperativeGesturesHandler.MacHelpText': 'Użyj ⌘ + kółko myszy, aby przybliżyć mapę',
+  'CooperativeGesturesHandler.MobileHelpText': 'Przesuwaj mapę dwoma palcami',
+}
+
 /**
  * Montuje mapę+markery w podanym kontenerze. Wspólna dla miniatury i widoku
- * powiększonego — różni je tylko `rich` (treść popupu) i to, kiedy efekt
+ * powiększonego — różni je tylko `rich` (treść popupu, gesty) i to, kiedy efekt
  * wywołujący to faktycznie odpala (`active`).
  */
 function mountMap(
@@ -208,6 +191,9 @@ function mountMap(
       style: dark ? STYLE_DARK : STYLE_LIGHT,
       center: [pins[0].lon, pins[0].lat],
       zoom: pins.length === 1 ? 15 : 13,
+      // Mała mapa w treści strony nie łapie przewijania: jeden palec / samo kółko przewija stronę,
+      // mapę przesuwają dwa palce / Ctrl+kółko. Powiększona (dialog) działa normalnie.
+      ...(rich ? {} : { cooperativeGestures: true, locale: COOPERATIVE_LOCALE_PL }),
     })
 
     const mapInstance = map
@@ -347,10 +333,10 @@ export function MapView({
 
   // Sygnatura TOŻSAMOŚCI/POZYCJI pinów, celowo BEZ `mode`/`preview`/`href`.
   // Dwa powody: (1) wołający (np. `TransitStopDetail`) przelicza `pins` na
-  // nowo przy każdym pollu tablicy (~30 s) nawet gdy słupki się nie zmieniły
+  // nowo przy każdym pollu tablicy (~30 s) nawet gdy przystanki się nie zmieniły
   // -- pełna tablica w dep array przeinicjalizowywałaby mapę (reset
   // zoomu/pana) co poll. (2) klik pinu woła `onPinClick`, co w GTFS wybiera
-  // słupek i odświeża `board` -> `mapPins.preview` się zmienia -- gdyby
+  // przystanek i odświeża `board` -> `mapPins.preview` się zmienia -- gdyby
   // `preview` był w tej sygnaturze, KAŻDY klik pinu przeinicjalizowywałby
   // mapę i niszczył popup, który sam ten klik otworzył (zaobserwowane
   // ręcznie: popup migał i znikał). `mode` per pin faktycznie nie zmienia
@@ -383,7 +369,7 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- jak wyżej + `expanded` steruje montowaniem.
   }, [expanded, pinsKey, routeKey, onPinClick, dark])
 
-  // Escape zamyka powiększenie -- ten sam wzorzec co `MobileNav.tsx`.
+  // Escape zamyka powiększenie.
   useEffect(() => {
     if (!expanded) return
     closeButtonRef.current?.focus()
@@ -391,7 +377,11 @@ export function MapView({
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     function onKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') setExpanded(false)
+      if (event.key === 'Escape') {
+        // Obsłużone: `PanelFrame` arkusza „Info” (listener na `window`) nie zamknie się tym samym Escape.
+        event.preventDefault()
+        setExpanded(false)
+      }
       trapTab(event, dialogRef.current)
     }
     document.addEventListener('keydown', onKeyDown)
@@ -414,16 +404,16 @@ export function MapView({
           type="button"
           onClick={() => setExpanded(true)}
           aria-label="Powiększ mapę"
-          className="touch-44 glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
+          className="touch-44 glass-chrome border border-surface-border shadow-md absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
         >
-          <ExpandIcon size={16} />
+          <ExpandIcon size={ICON_SIZE.button} />
         </button>
       </div>
 
-      {/* Portal do `document.body`: `.glass`/`.card-hover` (AsideCard) używają
-          `backdrop-filter`, co tworzy containing block dla `position: fixed`
-          potomków -- bez portalu overlay byłby przycięty do karty mapy, nie
-          pokrywał viewportu. */}
+      {/* Portal do `document.body`: `.card-hover` (AsideCard) ma `transform`, co tworzy
+          containing block dla `position: fixed` potomków (tak samo `backdrop-filter`
+          na `glass-chrome*`) -- bez portalu overlay byłby przycięty do karty mapy,
+          nie pokrywał viewportu. */}
       {expanded &&
         createPortal(
           <div className="fixed inset-0 z-50">
@@ -437,9 +427,9 @@ export function MapView({
               <div ref={fullscreenContainerRef} className="h-full w-full" />
               {/* Tło na opakowaniu, nie na przycisku: tło i hover `IconButton` to ta sama
                   właściwość, więc na przycisku jedno kasowałoby drugie. */}
-              <div className="absolute right-3 top-3 rounded-full bg-surface-strong shadow-md backdrop-blur-xl">
+              <div className="absolute right-3 top-3 rounded-full glass-chrome-strong shadow-md">
                 <IconButton ref={closeButtonRef} label="Zamknij powiększoną mapę" onClick={() => setExpanded(false)}>
-                  <CloseIcon size={16} />
+                  <CloseIcon size={ICON_SIZE.button} />
                 </IconButton>
               </div>
             </div>

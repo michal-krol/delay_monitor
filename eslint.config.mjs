@@ -3,6 +3,18 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import testingLibrary from "eslint-plugin-testing-library";
 
+const FONT_RULE = { name: "next/font/google", message: "Use next/font/local with a file in src/app/fonts/ (the build must not need the network)." };
+const ICON_MESSAGE = "Import icons from @/components/icons — the single icon source (.claude/rules/ui-icons.md).";
+const ICON_RULES = ["lucide", "lucide-react"].map((name) => ({ name, message: ICON_MESSAGE }));
+// Głębokie ścieżki (`lucide/dist/esm/icons/star.mjs`) — `paths` porównuje cały specyfikator.
+const ICON_PATTERNS = [{ group: ["lucide/*", "lucide-react/*"], message: ICON_MESSAGE }];
+const ROUTE_MAP_MESSAGE = "Index routes with indexRoutesByTrain() and look up with findRouteForTrain() — a plain Map drops other operating days' records (AGENTS.md #9).";
+// `new Map(routes.map(...))` i `new Map(snapshot.routes.map(...))`.
+const ROUTE_MAP_RULES = ["callee.object.name", "callee.object.property.name"].map((receiver) => ({
+  selector: `NewExpression[callee.name='Map'][arguments.0.callee.property.name='map'][arguments.0.${receiver}=/routes?/i]`,
+  message: ROUTE_MAP_MESSAGE,
+}));
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -16,11 +28,26 @@ const eslintConfig = defineConfig([
   },
   // next/font/google pobiera czcionke z sieci przy buildzie — build ma byc
   // odtwarzalny bez sieci (AGENTS.md #16). Fonty leza w src/app/fonts/.
+  // Ikony mają jedno źródło: `src/components/icons.tsx` (.claude/rules/ui-icons.md).
   {
     rules: {
       "no-restricted-imports": ["error", {
-        paths: [{ name: "next/font/google", message: "Use next/font/local with a file in src/app/fonts/ (the build must not need the network)." }],
+        paths: [FONT_RULE, ...ICON_RULES],
+        patterns: ICON_PATTERNS,
       }],
+    },
+  },
+  // Rekordy tras PKP są per dzień kursowania — „ostatni wygrywa" gubi właściwy (AGENTS.md #9).
+  {
+    files: ["src/lib/board/**", "src/lib/pkp/**"],
+    rules: {
+      "no-restricted-syntax": ["error", ...ROUTE_MAP_RULES],
+    },
+  },
+  {
+    files: ["src/components/icons.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [FONT_RULE] }],
     },
   },
   {

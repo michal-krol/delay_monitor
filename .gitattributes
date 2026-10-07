@@ -4,3 +4,5 @@
 # CRLF przy checkout/commit i test fałszywie pada.
 public/maplibre-gl-worker.mjs -text
 public/maplibre-gl-shared.mjs -text
+# Surowe wyjścia bramki (testOutputFilter.test.mjs) -- bajt-w-bajt jak z terminala.
+scripts/lib/fixtures/test-output/*.txt -text

@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { usePolling } from './usePolling'
+import { __resetPollingSuccess, lastPollingSuccessAt, usePolling } from './usePolling'
 
-beforeEach(() => vi.useFakeTimers())
+beforeEach(() => {
+  vi.useFakeTimers()
+  __resetPollingSuccess()
+})
 afterEach(() => {
   vi.useRealTimers()
   Object.defineProperty(document, 'hidden', { value: false, configurable: true })
@@ -14,6 +17,16 @@ function setHidden(value: boolean): void {
 }
 
 describe('usePolling', () => {
+  it('records the time of each successful fetch for lastPollingSuccessAt()', async () => {
+    const start = Date.parse('2026-10-02T10:00:00Z')
+    vi.setSystemTime(start)
+    const fetcher = vi.fn().mockResolvedValue({ ready: true })
+    expect(lastPollingSuccessAt()).toBeNull()
+    renderHook(() => usePolling('k-success-at', fetcher, { refreshMs: null }))
+    await vi.waitFor(() => expect(lastPollingSuccessAt()).not.toBeNull())
+    expect(lastPollingSuccessAt()).toBeGreaterThanOrEqual(start)
+  })
+
   it('steps through the retry ladder while isLoading returns true', async () => {
     const fetcher = vi.fn().mockResolvedValue({ ready: false })
     renderHook(() => usePolling('k', fetcher, { refreshMs: 30_000, isLoading: (d: { ready: boolean }) => !d.ready }))
@@ -232,7 +245,7 @@ describe('usePolling', () => {
     const fetcher = vi.fn().mockResolvedValue({ ok: true })
     const { result } = renderHook(() => usePolling(null, fetcher, { refreshMs: 30_000 }))
     expect(fetcher).not.toHaveBeenCalled()
-    expect(result.current).toEqual({ data: null, error: null, lastSuccessAt: null })
+    expect(result.current).toMatchObject({ data: null, error: null, lastSuccessAt: null })
   })
 
   it('stops scheduling once isDone returns true', async () => {
@@ -256,5 +269,55 @@ describe('usePolling', () => {
     fetcher.mockClear()
     await vi.advanceTimersByTimeAsync(60_000)
     expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('refresh fetches immediately and keeps one timer', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ready: true })
+    const { result } = renderHook(() => usePolling('k-refresh', fetcher, { refreshMs: 30_000 }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(10_000)
+    result.current.refresh()
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
+    expect(fetcher).toHaveBeenLastCalledWith({ background: false })
+
+    // Zegar liczy od odświeżenia: stary timer (za 20 s) skasowany, nowy za 30 s — dokładnie jeden.
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(fetcher).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(fetcher).toHaveBeenCalledTimes(4)
+  })
+
+  it('refresh keeps working after a fetcher that throws synchronously', async () => {
+    const fetcher = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('sync')
+      })
+      .mockResolvedValue({ ready: true })
+    const { result } = renderHook(() => usePolling('k-sync-throw', fetcher, { refreshMs: 30_000 }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+    result.current.refresh()
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
+  })
+
+  it('refresh is ignored while a fetch is in flight', async () => {
+    let resolve: (value: { ready: boolean }) => void = () => {}
+    const fetcher = vi.fn(() => new Promise<{ ready: boolean }>((r) => (resolve = r)))
+    const { result } = renderHook(() => usePolling('k-inflight', fetcher, { refreshMs: 30_000 }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+
+    result.current.refresh()
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    resolve({ ready: true })
+
+    // Po odpowiedzi dokładnie jeden cykl, nie dwa nakładające się.
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    resolve({ ready: true })
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(fetcher).toHaveBeenCalledTimes(3)
   })
 })

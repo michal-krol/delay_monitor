@@ -15,11 +15,14 @@ export function CityPicker({
   cities,
   current,
   hrefFor = (id) => `/city/${id}`,
+  compact = false,
 }: {
   cities: CityOption[]
   current: string
   /** Dokąd nawigować po zmianie miasta — domyślnie ekran odjazdów, `Linie` podają własny. */
   hrefFor?: (id: string) => string
+  /** Poniżej `sm` etykieta „Miasto” tylko dla czytnika (oszczędza miejsce nad mapą). */
+  compact?: boolean
 }) {
   const router = useRouter()
   const { setCity } = useCityContext()
@@ -35,11 +38,11 @@ export function CityPicker({
 
   return (
     <label className="flex items-center gap-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-text-muted">Miasto</span>
+      <span className={`text-xs font-medium uppercase tracking-wide text-text-muted ${compact ? 'max-sm:sr-only' : ''}`}>Miasto</span>
       <select
         value={current}
         onChange={(event) => choose(event.target.value)}
-        className="glass rounded-lg px-3 py-2 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-indigo-500"
+        className="glass rounded-lg px-3 py-2 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-indigo-500 max-sm:min-h-11 max-sm:text-base"
       >
         {options.map((option) => (
           <option key={option.id} value={option.id}>

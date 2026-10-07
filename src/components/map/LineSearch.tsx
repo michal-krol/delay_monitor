@@ -93,12 +93,12 @@ export function LineSearch({
         className={SEARCH_INPUT_CLASS}
       />
       {message !== null && (
-        <p role="status" className="glass-strong absolute z-20 mt-2 w-full rounded-xl px-3.5 py-2 text-sm text-text-secondary">
+        <p role="status" className="glass-chrome-strong border border-surface-border enter-pop absolute z-20 mt-2 w-full rounded-xl px-3.5 py-2 text-sm text-text-secondary">
           {message}
         </p>
       )}
       {isOpen && (
-        <ul id={listboxId} role="listbox" aria-label="Linie" className="glass-strong absolute z-20 mt-2 w-full overflow-hidden rounded-xl py-1">
+        <ul id={listboxId} role="listbox" aria-label="Linie" className="glass-chrome-strong border border-surface-border enter-pop absolute z-20 mt-2 w-full overflow-hidden rounded-xl py-1">
           {options.map((line, index) => (
             <li
               key={line.routeId}
@@ -106,7 +106,7 @@ export function LineSearch({
               role="option"
               aria-label={`Linia ${line.line}${line.longName !== '' ? `, ${line.longName}` : ''}`}
               aria-selected={index === activeIndex}
-              className={`flex cursor-pointer items-center gap-2.5 px-3.5 py-2 text-sm ${
+              className={`flex min-h-11 cursor-pointer items-center gap-2.5 px-3.5 py-2 text-sm ${
                 index === activeIndex ? 'bg-black/5 dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/10'
               }`}
               onMouseDown={(event) => {
