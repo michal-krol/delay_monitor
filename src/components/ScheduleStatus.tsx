@@ -14,9 +14,13 @@ type Props = {
   compact?: boolean
 }
 
-const STALE_MS = 60 * 60 * 1000
+/**
+ * Statyczny rozkład zmienia się raz na dobę (nowy feed), więc „dane sprzed 3 h" to norma, nie ostrzeżenie.
+ * Ostrzegamy dopiero po dobie bez odświeżenia; wcześniejszy problem zgłasza `state: 'failed'` albo błąd sieci.
+ */
+const STALE_MS = 24 * 60 * 60 * 1000
 
-/** Czy stan rozkładu wymaga uwagi: wczytywanie, nieudane odświeżanie, dane starsze niż godzina albo błąd sieci. */
+/** Czy stan rozkładu wymaga uwagi: wczytywanie, nieudane odświeżanie, dane starsze niż doba albo błąd sieci. */
 export function scheduleNeedsAttention(schedule: Props['schedule'], error: boolean): boolean {
   return schedule.state === 'loading' || schedule.state === 'failed' || error || (schedule.ageMs !== null && schedule.ageMs >= STALE_MS)
 }

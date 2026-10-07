@@ -34,6 +34,12 @@ describe('CityPicker', () => {
     expect(JSON.parse(window.localStorage.getItem('monitor.cityContext.v2') ?? 'null')).toBe('krakow')
   })
 
+  it('renders nothing while the registry holds a single city (nothing to choose)', () => {
+    const { container } = render(<CityPicker cities={[cities[0]]} current="warszawa" />)
+    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
   it('falls back to the current id when the list has not loaded', () => {
     render(<CityPicker cities={[]} current="warszawa" />)
     expect(screen.getByRole('option')).toHaveValue('warszawa')

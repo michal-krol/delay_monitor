@@ -5,12 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useCityContext } from '@/hooks/useCityContext'
 import { useCities } from '@/hooks/useCities'
 import { defaultCityId } from '@/lib/cityDefault'
+import { PageSkeleton } from './PageSkeleton'
 
-const RESOLVING = (
-  <main className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 py-16 text-sm text-text-secondary">
-    Wybieram miasto…
-  </main>
-)
+// Szkielet zamiast gołego „Wybieram miasto…” (wybór trwał nawet kilka sekund; #7).
+const RESOLVING = <PageSkeleton />
 
 /**
  * Wspólny komponent dla `/city`, `/lines` i `/map` bez segmentu miasta — te

@@ -9,7 +9,8 @@ export type CityOption = { id: string; name: string; railStations: { id: string 
  * Wybór miasta w treści ekranu Odjazdy/Przyjazdy (dawniej w pasku bocznym).
  * Lista posortowana malejąco po liczbie stacji kolejowych — największy węzeł
  * pierwszy. Brak opcji „Cała Polska" — ekran jest zawsze przypisany do miasta.
- * `cities` podaje ekran (jeden wspólny fetch `/api/cities`).
+ * `cities` podaje ekran (jeden wspólny fetch `/api/cities`). Przy jednym mieście
+ * w rejestrze nic nie renderuje.
  */
 export function CityPicker({
   cities,
@@ -26,6 +27,9 @@ export function CityPicker({
 }) {
   const router = useRouter()
   const { setCity } = useCityContext()
+
+  // Jedno miasto w rejestrze = nie ma z czego wybierać; lista pusta (jeszcze się wczytuje) zostaje z bieżącym miastem.
+  if (cities.length === 1) return null
 
   const sorted = [...cities].sort((a, b) => b.railStations.length - a.railStations.length)
   const options = sorted.length > 0 ? sorted : [{ id: current, name: current, railStations: [] }]

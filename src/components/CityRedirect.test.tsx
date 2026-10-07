@@ -40,6 +40,13 @@ describe('CityRedirect', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/city/warszawa'))
   })
 
+  it('shows a skeleton (not bare text) while the city is being resolved', () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+    render(<CityRedirect to={to} />)
+    expect(screen.getByTestId('page-skeleton')).toBeInTheDocument()
+    expect(screen.queryByText('Wybieram miasto…')).not.toBeInTheDocument()
+  })
+
   it('empty list', async () => {
     vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [] })))
     render(<CityRedirect to={to} />)

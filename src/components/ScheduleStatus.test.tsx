@@ -55,16 +55,32 @@ describe('ScheduleStatus', () => {
   })
 })
 
+describe('ScheduleStatus staleness', () => {
+  it('shows no "dane sprzed" chip for a ready schedule younger than 24 h', () => {
+    render(<ScheduleStatus schedule={block({ ageMs: 3 * 60 * 60 * 1000 })} cityName="Warszawa" />)
+    expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
+  })
+
+  it('shows the chip once a ready schedule is a day old', () => {
+    render(<ScheduleStatus schedule={block({ ageMs: 25 * 60 * 60 * 1000 })} cityName="Warszawa" />)
+    expect(screen.getByText(/dane sprzed 25 h/)).toBeInTheDocument()
+  })
+})
+
 describe('scheduleNeedsAttention', () => {
   it('is false for a fresh, ready schedule', () => {
     expect(scheduleNeedsAttention(block({}), false)).toBe(false)
   })
 
-  it('is true while loading, when failed, when stale (>= 1 h) and on a fetch error', () => {
+  it('is true while loading, when failed, when stale (>= 24 h) and on a fetch error', () => {
     expect(scheduleNeedsAttention(block({ state: 'loading', ageMs: null, loadedAt: null }), false)).toBe(true)
     expect(scheduleNeedsAttention(block({ state: 'failed' }), false)).toBe(true)
-    expect(scheduleNeedsAttention(block({ ageMs: 60 * 60 * 1000 }), false)).toBe(true)
-    expect(scheduleNeedsAttention(block({ ageMs: 60 * 60 * 1000 - 1 }), false)).toBe(false)
+    expect(scheduleNeedsAttention(block({ ageMs: 24 * 60 * 60 * 1000 }), false)).toBe(true)
     expect(scheduleNeedsAttention(block({}), true)).toBe(true)
+  })
+
+  it('does not nag about a static timetable that is merely hours old (it changes about once a day)', () => {
+    expect(scheduleNeedsAttention(block({ ageMs: 24 * 60 * 60 * 1000 - 1 }), false)).toBe(false)
+    expect(scheduleNeedsAttention(block({ ageMs: 3 * 60 * 60 * 1000 + 44 * 60 * 1000 }), false)).toBe(false)
   })
 })

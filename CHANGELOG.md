@@ -6,6 +6,23 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Dodane
+
+- Własne ekrany błędu i „Nie znaleziono strony”: po nieudanym wczytaniu strony są przyciski
+  „Spróbuj ponownie” i „Wróć do Pulpitu”, a nawigacja aplikacji zostaje na miejscu. Treści
+  błędu nie widać — pokazujemy tylko polski komunikat.
+- Szkielet zamiast pustego ekranu na stronach Linie, Mapa i Linia oraz przy wyborze miasta na
+  `/city`, `/lines` i `/map` (wcześniej przez kilka sekund widać było sam napis „Wybieram miasto…”).
+- `robots.txt` (wyszukiwarki omijają `/api/`) i `sitemap.xml` ze stacjami, ekranami miast
+  i listami linii. Nie wysyła zapytań do PKP.
+
+### Zmienione
+
+- Ekran Linie: pomarańczowe „dane sprzed N h” pojawia się dopiero po dobie bez odświeżenia
+  rozkładu albo przy nieudanym odświeżeniu (rozkład zmienia się raz dziennie), a blok stanu
+  rozkładu nie powtarza się już u góry i na dole strony.
+- Wybór miasta jest ukryty, dopóki w aplikacji jest jedno miasto.
+
 ## [1.2.0] — 2026-10-07
 
 ### Dodane
