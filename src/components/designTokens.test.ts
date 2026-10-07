@@ -209,6 +209,13 @@ describe('design tokens', () => {
     expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(prefers-reduced-motion: no-preference\)/)
   })
 
+  it('menu entries (.enter-pop) never scale: a scaled panel shrinks its 44 px touch targets while it opens (e2e touch-targets measured 43.2 px)', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const rules = [...css.matchAll(/\.enter-pop\s*\{([^}]*)\}/g)].map((match) => match[1]).join(' ')
+    expect(rules).toContain('translate')
+    expect(rules).not.toMatch(/scale/)
+  })
+
   it('both Pulpit cards carry the card-press class (one press feel)', () => {
     for (const file of ['components/StationCard.tsx', 'components/TransitStopCard.tsx']) {
       expect(readFileSync(join(SRC, file), 'utf8'), file).toContain('card-press')

@@ -57,7 +57,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   przy świeżych danych i pojazdach z pozycją na żywo, miękka poświata przy opóźnionych
   pociągach (status zawsze jest też napisany) oraz ugięcie karty Pulpitu pod palcem.
 - Wszystkie efekty wyłączają się przy ustawieniu systemu „ogranicz ruch”, a przy „ogranicz
-  przezroczystość” paski i arkusze mają pełne tło.
+  przezroczystość” paski i arkusze mają pełne tło. Przejścia między ekranami są na razie tylko
+  w przeglądarkach z silnikiem Chromium (Chrome, Edge, Samsung Internet); w Safari ich nie ma.
 
 ### Zmienione
 

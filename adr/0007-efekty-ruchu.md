@@ -31,8 +31,10 @@ Najpierw platforma, biblioteki tylko tam, gdzie platforma nie sięga:
   bibliotekę leniwie: pierwszy pomiar z importem statycznym pogorszył LCP strony przystanku o
   100–260 ms (Lighthouse 85 → 82), więc liczba jest do tego czasu zwykłym tekstem o tych samych
   wymiarach, a biblioteki dociągają się po pierwszym malowaniu.
-- Pod `prefers-reduced-motion` żaden `ViewTransition` nie jest montowany (przeglądarka nie dostaje
-  `startViewTransition`), a pulsy, `@starting-style`, ugięcia i animacja nagłówka nie istnieją.
+- Przejścia widoku działają tylko w silnikach Chromium i bez `prefers-reduced-motion`: `viewTransitionGate`
+  zasłania `document.startViewTransition` akcesorem zwracającym `undefined` w pozostałych przypadkach (React woła to API
+  także przy wszystkich właściwościach `'none'`, a WebKit z Playwrighta wieszał stronę przy każdej nawigacji). Pulsy,
+  `@starting-style`, ugięcia i animacja nagłówka są w całości pod `prefers-reduced-motion: no-preference`.
 
 ## Dlaczego nie samo natywnie
 
@@ -54,8 +56,8 @@ Najpierw platforma, biblioteki tylko tam, gdzie platforma nie sięga:
 - Zagnieżdżony `ViewTransition` nie dostaje wejścia/wyjścia, gdy otacza go węzeł DOM, który sam się
   montuje: opakowanie siedzi na korzeniu `PageShell`. Duplikat `view-transition-name` przerywa całe
   przejście, więc nazwy dostają tylko kafelki Pulpitu i nagłówki tablic (nie wyniki wyszukiwania).
-- Safari przed 26 nie ma `animation-timeline`, a część `view-transition-class` zachowuje się inaczej:
-  w obu przypadkach efekt po prostu się nie pokazuje, treść jest pełna.
+- Safari na razie nie dostaje przejść widoku (bramka wyżej) i przed 26 nie ma `animation-timeline`: efekt się
+  nie pokazuje, treść jest pełna. Odblokowanie po click-QA na prawdziwym iPhonie.
 - Dwie nowe zależności do aktualizacji (Dependabot). `@number-flow/react` rejestruje element
   niestandardowy, którego jsdom nie ma — testy używają zastępnika w `vitest.setup.ts`.
 

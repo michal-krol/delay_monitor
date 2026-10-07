@@ -46,13 +46,20 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
 - **A duplicate `view-transition-name` aborts the whole transition.** One name per id on screen: only Pulpit cards
   and board headings carry `PlaceTitle`, never search results (they sit beside the cards). Names must be valid CSS
   identifiers — GTFS ids contain `:` — hence `placeTransitionName()`.
+- **View transitions run only in Chromium engines and without `prefers-reduced-motion`**, enforced by
+  `src/lib/viewTransitionGate.ts` (installed in `AppChrome`): it shadows `document.startViewTransition` with an accessor
+  that is `undefined` elsewhere (preference read per access). Why not via `<ViewTransition>` props: React still calls
+  `startViewTransition` when every prop is `'none'`, and Playwright's WebKit crashes the page on that call (8 mobile-safari
+  e2e failures); mounting/unmounting the boundaries by engine would reshape the tree after hydration. Safari is
+  unlocked after real-iPhone click-QA — delete the `userAgentData` condition then.
 - **State changes only animate inside `startTransition`** (tab switches); plain `setState` does not start a transition.
 - **Never hand-write `-webkit-backdrop-filter` in `globals.css`.** With a hand-written twin the build emitted ONLY the
   prefixed property and Chromium rendered no blur (also true for `.glass` before PR6). Write `backdrop-filter` alone
   (guard: `designTokens.test.ts`).
 - **Everything that moves sits under `@media (prefers-reduced-motion: no-preference)`** (pulses, `:active` scale,
-  `@starting-style`, scroll-driven header title); transitions are not mounted at all under `reduce`
-  (`useReducedMotion()`), so the browser never calls `startViewTransition` (`e2e/motion.spec.ts` asserts zero).
+  `@starting-style`, scroll-driven header title); under `reduce` the gate hides `startViewTransition`, so the browser
+  never calls it (`e2e/motion.spec.ts` asserts zero). Menu entries (`.enter-pop`) never `scale`: a scaled panel shrinks
+  its 44 px touch targets while opening.
 - **No new element in flow above the board on phones** (`e2e/boards-mobile.spec.ts`). The header title swap
   (`useHeaderTitle`, scroll-driven, `@supports (animation-timeline: scroll())`) was chosen over a collapsing hero
   for exactly that reason. The page only scrolls when content exceeds the viewport — e2e uses a 375×520 viewport.

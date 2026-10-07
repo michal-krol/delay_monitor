@@ -568,11 +568,10 @@ details[open] > summary .disclosure-chevron,
     opacity: 1;
     transition: opacity var(--duration-base) var(--ease-out);
   }
+  /* Bez `scale`: panel się nie kurczy, więc jego cele dotyku mają 44 px także w trakcie wejścia. */
   .enter-pop {
-    transform-origin: top right;
     transition:
       opacity var(--duration-fast) var(--ease-out),
-      scale var(--duration-fast) var(--ease-out),
       translate var(--duration-fast) var(--ease-out);
   }
   .enter-fade {
@@ -588,7 +587,6 @@ details[open] > summary .disclosure-chevron,
     }
     .enter-pop {
       opacity: 0;
-      scale: 0.97;
       translate: 0 -4px;
     }
     .enter-fade {
