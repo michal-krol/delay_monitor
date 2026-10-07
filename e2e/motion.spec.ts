@@ -46,6 +46,12 @@ async function resetTransitions(page: Page): Promise<void> {
   })
 }
 
+async function expectNoBlockingViolations(page: Page): Promise<void> {
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+  expect(blocking, blocking.map((v) => `${v.id}: ${v.help} ${v.nodes[0]?.html.slice(0, 120)}`).join('\n')).toEqual([])
+}
+
 async function stationReady(page: Page): Promise<void> {
   await page.goto(STATION)
   await expect(page.getByRole('tablist', { name: 'Kierunek' })).toBeVisible({ timeout: READY })
@@ -159,9 +165,7 @@ test.describe('glass surfaces stay accessible', () => {
       await page.addInitScript((value) => window.localStorage.setItem('theme', value), theme)
       await stationReady(page)
       await showBoardContext(page)
-      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
-      const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
-      expect(blocking, blocking.map((v) => `${v.id}: ${v.help} ${v.nodes[0]?.html.slice(0, 120)}`).join('\n')).toEqual([])
+      await expectNoBlockingViolations(page)
     })
 
     test(`axe: search dialog over the board (${theme})`, async ({ page }) => {
@@ -173,9 +177,7 @@ test.describe('glass surfaces stay accessible', () => {
         if (!(await dialog.isVisible())) await page.getByRole('button', { name: 'Szukaj' }).first().click()
         await expect(dialog).toBeVisible({ timeout: 2_000 })
       }).toPass({ timeout: READY })
-      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
-      const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
-      expect(blocking, blocking.map((v) => `${v.id}: ${v.help} ${v.nodes[0]?.html.slice(0, 120)}`).join('\n')).toEqual([])
+      await expectNoBlockingViolations(page)
     })
   }
 })

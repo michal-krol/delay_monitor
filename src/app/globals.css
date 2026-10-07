@@ -615,29 +615,25 @@ details[open] > summary .disclosure-chevron,
   }
 }
 /* Do przodu: stara treść ucieka w lewo, nowa wjeżdża z prawej. Wstecz: odwrotnie. */
-::view-transition-old(.nav-forward) {
-  --vt-offset: -24px;
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back) {
   animation:
     var(--duration-fast) ease-in both vt-fade reverse,
     var(--duration-slow) ease-in-out both vt-slide reverse;
 }
-::view-transition-new(.nav-forward) {
-  --vt-offset: 24px;
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back) {
   animation:
     var(--duration-base) ease-out var(--duration-fast) both vt-fade,
     var(--duration-slow) ease-in-out both vt-slide;
 }
-::view-transition-old(.nav-back) {
-  --vt-offset: 24px;
-  animation:
-    var(--duration-fast) ease-in both vt-fade reverse,
-    var(--duration-slow) ease-in-out both vt-slide reverse;
-}
+::view-transition-old(.nav-forward),
 ::view-transition-new(.nav-back) {
   --vt-offset: -24px;
-  animation:
-    var(--duration-base) ease-out var(--duration-fast) both vt-fade,
-    var(--duration-slow) ease-in-out both vt-slide;
+}
+::view-transition-new(.nav-forward),
+::view-transition-old(.nav-back) {
+  --vt-offset: 24px;
 }
 /* Zakładka paska: sam krzyżowy zanik, bez ruchu. */
 ::view-transition-old(.nav-tab) {

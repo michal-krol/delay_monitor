@@ -48,13 +48,7 @@ export function AnimatedNumber({ value, prefix = '', suffix = '', className }: P
   return (
     <span className={className}>
       <span className="sr-only">{text}</span>
-      <Suspense
-        fallback={
-          <span aria-hidden="true" data-number-fallback className="number-fallback">
-            {text}
-          </span>
-        }
-      >
+      <Suspense fallback={<PlainDigits value={value} prefix={prefix} suffix={suffix} />}>
         <NumberFlow aria-hidden="true" value={value} prefix={prefix} suffix={suffix} locales="pl-PL" format={{ useGrouping: false }} />
       </Suspense>
     </span>
