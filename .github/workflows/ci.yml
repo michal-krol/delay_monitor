@@ -38,10 +38,22 @@ jobs:
           TZ: UTC
 
   # Osobny job świadomie: `quality` ma zostać bez przeglądarki i bez sieci
-  # (AGENTS.md #6). `e2e` stawia realny build w trybie mock i klika po UI
-  # na desktopie, mobile i WebKit. Patrz AGENTS.md #16.
-  e2e:
+  # (AGENTS.md #6). `e2e-tests` stawia realny build w trybie mock i klika po UI;
+  # jeden runner na projekt Playwrighta (desktop, mobile, WebKit), równolegle —
+  # pojedynczy job trwał ~10 min, a 3 projekty szły jeden po drugim.
+  # Build robi się w każdym jobie osobno (`webServer` w playwright.config.ts):
+  # wspólny artefakt `.next` kosztowałby upload+download porównywalny z buildem,
+  # a joby i tak idą równolegle. Patrz AGENTS.md #16.
+  e2e-tests:
+    name: e2e-${{ matrix.project }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { project: desktop-chromium, browser: chromium }
+          - { project: mobile-chromium, browser: chromium }
+          - { project: mobile-safari, browser: webkit }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -56,15 +68,28 @@ jobs:
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ steps.pw.outputs.v }}
-      - run: npx playwright install --with-deps chromium webkit
+          key: pw-${{ runner.os }}-${{ steps.pw.outputs.v }}-${{ matrix.browser }}
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
         if: steps.pw-cache.outputs.cache-hit != 'true'
-      - run: npx playwright install-deps chromium webkit
+      - run: npx playwright install-deps ${{ matrix.browser }}
         if: steps.pw-cache.outputs.cache-hit == 'true'
-      - run: npm run e2e
+      - run: npm run e2e -- --project=${{ matrix.project }}
+        env:
+          E2E_WORKERS: 4
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 7
+
+  # Wymagany check ruleset „branch-protection" nazywa się dokładnie `e2e` —
+  # ten job zbiera wynik macierzy pod starą nazwą (nie zmieniać bez ruleset).
+  # `always()`: bez tego padnięta macierz oznaczałaby pominięty job, a pominięty
+  # check wymagany przez ruleset przechodzi.
+  e2e:
+    needs: e2e-tests
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.e2e-tests.result }}" = success
