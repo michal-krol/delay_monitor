@@ -15,6 +15,11 @@
     "ask": ["Bash(gh pr merge*)"]
   },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-size.mjs\"" }]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
