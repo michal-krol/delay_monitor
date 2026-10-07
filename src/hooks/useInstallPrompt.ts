@@ -9,6 +9,16 @@ type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void> }
 /** `native` = systemowe okno instalacji (Chromium), `ios` = ręczna instrukcja, `null` = nic nie pokazujemy. */
 export type InstallMode = 'native' | 'ios' | null
 
+// Chromium potrafi wysłać `beforeinstallprompt` zanim React zhydruje i uruchomi efekt — zdarzenie nie jest
+// ponawiane, więc łapiemy je od załadowania modułu i oddajemy hookowi.
+let earlyPrompt: BeforeInstallPromptEvent | null = null
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault()
+    earlyPrompt = event as BeforeInstallPromptEvent
+  })
+}
+
 function isStandalone(): boolean {
   // `?.`: jsdom (testy powłoki) nie ma `matchMedia`.
   return window.matchMedia?.('(display-mode: standalone)').matches === true || (navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -25,6 +35,7 @@ export function useInstallPrompt() {
   const dismiss = useCallback(() => {
     writeInstallDismissed(window.localStorage, Date.now())
     deferred.current = null
+    earlyPrompt = null
     setMode(null)
   }, [])
 
@@ -41,18 +52,17 @@ export function useInstallPrompt() {
       deferred.current = event as BeforeInstallPromptEvent
       setMode('native')
     }
-    function onInstalled(): void {
-      writeInstallDismissed(window.localStorage, Date.now())
-      deferred.current = null
-      setMode(null)
+    if (earlyPrompt !== null) {
+      deferred.current = earlyPrompt
+      setMode('native')
     }
     window.addEventListener('beforeinstallprompt', onPrompt)
-    window.addEventListener('appinstalled', onInstalled)
+    window.addEventListener('appinstalled', dismiss)
     return () => {
       window.removeEventListener('beforeinstallprompt', onPrompt)
-      window.removeEventListener('appinstalled', onInstalled)
+      window.removeEventListener('appinstalled', dismiss)
     }
-  }, [])
+  }, [dismiss])
 
   const install = useCallback(async () => {
     const event = deferred.current
@@ -60,9 +70,11 @@ export function useInstallPrompt() {
     deferred.current = null // zdarzenie jest jednorazowe
     try {
       await event.prompt()
-    } finally {
-      // Zaakceptowane → `appinstalled`; odrzucone → też nie nagabujemy ponownie.
+      // Zaakceptowane → też `appinstalled`; odrzucone → nie nagabujemy ponownie.
       dismiss()
+    } catch {
+      // `prompt()` odrzucone (zdarzenie zużyte): bez zapamiętywania — przy następnym zdarzeniu przycisk wróci.
+      setMode(null)
     }
   }, [dismiss])
 

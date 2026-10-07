@@ -89,6 +89,16 @@ describe('InstallPrompt', () => {
     expect(screen.queryByTestId('install-prompt')).toBeNull()
   })
 
+  it('a rejected prompt() does not crash and does not store a dismissal', async () => {
+    mockEnv()
+    render(<InstallPrompt />)
+    const { prompt } = fireBeforeInstallPrompt()
+    prompt.mockRejectedValueOnce(new Error('used'))
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Zainstaluj aplikację' })))
+    expect(screen.queryByTestId('install-prompt')).toBeNull()
+    expect(window.localStorage.getItem(INSTALL_DISMISSED_KEY)).toBeNull()
+  })
+
   it('appinstalled hides the prompt', () => {
     mockEnv()
     render(<InstallPrompt />)

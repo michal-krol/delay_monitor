@@ -28,6 +28,6 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Pin: „Przypnij do Pulpitu” / „Odepnij z Pulpitu” (star icon, `ui-icons.md`).
 - Navigation: „Wróć do {where}”, „Pokaż {what}”, „Zamknij {what}” (× buttons carry the object).
 - Refresh is the data-age button, not a „Odśwież” button. In installed (standalone) mode it adds the visible hint „· dotknij, by odświeżyć”.
-- Install (once, `InstallPrompt`): button „Zainstaluj aplikację” (Chromium); iOS hint „Zainstaluj aplikację: Udostępnij → Do ekranu początkowego”; close = „Zamknij podpowiedź instalacji”.
+- Install (once, `InstallPrompt`): button „Zainstaluj aplikację” (Chromium); iOS hint „Zainstaluj aplikację: Udostępnij → Do ekranu początkowego”; lead-in for the button „Aplikacja zawsze pod ręką.”; close = „Zamknij podpowiedź instalacji”.
 
 When a new string needs a word not listed here, add it here in the same PR.

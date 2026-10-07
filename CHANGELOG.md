@@ -18,7 +18,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 - Po powrocie do aplikacji dane odświeżają się od razu, gdy zwykły termin odpytywania już minął
   (zawieszona aplikacja na iPhonie). Nie zwiększa to liczby zapytań do PKP ponad zwykły rytm.
-- Pociągnięcie w dół na mapie nie przeładowuje już strony (Android).
+- Pełnoekranowa mapa wyłącza gest „pociągnij, by odświeżyć” przeglądarki (Android; do sprawdzenia na urządzeniu).
 - Decyzja o braku service workera i powiadomień push: `adr/0008-pwa-bez-service-workera.md`.
 
 ## [1.2.0] — 2026-10-07
