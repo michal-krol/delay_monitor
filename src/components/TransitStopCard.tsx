@@ -54,12 +54,14 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onRemo
   const groupPath = `/city/${city}/stop/${encodeStopIdForPathSegment(board?.groupId ?? stopId)}`
   const href = member ? `${groupPath}?przystanek=${encodeURIComponent(stopId)}` : groupPath
 
+  const title = <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">{name}</h2>
+
   return (
     <article className="glass card-press group relative isolate w-full overflow-hidden rounded-2xl border border-surface-border p-5">
       <div className="flex items-center justify-between gap-2">
-        <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>
-          <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">{name}</h2>
-        </PlaceTitle>
+        {/* Nazwę przejścia ma tylko kafelek zespołu: przypięty pojedynczy przystanek tej samej grupy dałby duplikat
+            `view-transition-name`, który przerywa całe przejście. */}
+        {member ? title : <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>{title}</PlaceTitle>}
         <IconButton label={`Odepnij z Pulpitu: ${name}`} onClick={onRemove} className="z-10">
           <StarIcon size={ICON_SIZE.button} filled />
         </IconButton>

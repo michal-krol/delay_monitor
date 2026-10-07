@@ -42,9 +42,12 @@ export function useRowAnimation<T extends HTMLElement>(): RefCallback<T> {
       if (element === null || reduced) return
       let cancelled = false
       let controller: { disable: () => void } | undefined
-      void import('@formkit/auto-animate').then(({ default: autoAnimate }) => {
-        if (!cancelled) controller = autoAnimate(element, rowPlugin)
-      })
+      // Animacja jest opcjonalna: nieudane pobranie kawałka (404 po wdrożeniu, brak sieci) nie może kończyć się nieobsłużonym odrzuceniem.
+      void import('@formkit/auto-animate')
+        .then(({ default: autoAnimate }) => {
+          if (!cancelled) controller = autoAnimate(element, rowPlugin)
+        })
+        .catch(() => {})
       return () => {
         cancelled = true
         controller?.disable()

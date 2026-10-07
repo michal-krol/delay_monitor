@@ -69,6 +69,8 @@ const ROW_TINT: Partial<Record<RealizationStatus, string>> = {
  * rozwinięcie jest czysto klienckie i nie kosztuje ani jednego zapytania.
  */
 const COLLAPSED_ROWS = 10
+/** Powyżej tylu widocznych wierszy minuty opóźnienia są zwykłym tekstem (patrz `DelayBadge` `animated`). */
+const MAX_ANIMATED_ROWS = 40
 
 /** Stabilny klucz wiersza -- ten sam przejazd między snapshotami. */
 function rowKey(row: BoardApiRow): string {
@@ -215,6 +217,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                 now={now}
                 onOpen={openDetails}
                 delayChanged={changedDelays.has(rowKey(row))}
+                animateNumbers={visibleRows.length <= MAX_ANIMATED_ROWS}
               />
             ))}
           </tbody>
@@ -244,6 +247,8 @@ type RowProps = {
   onOpen: (row: BoardApiRow) => void
   /** Opóźnienie zmieniło się w tym odświeżeniu — wiersz raz błyska (patrz `useChangedDelays`). */
   delayChanged: boolean
+  /** Minuty opóźnienia z toczącymi się cyframi (`false` na długiej tablicy, patrz `MAX_ANIMATED_ROWS`). */
+  animateNumbers: boolean
 }
 
 /** Pasek akcentu po lewej stronie wiersza (makieta §12) -- pozwala skanować listę wzrokiem bez czytania wartości. */
@@ -307,7 +312,7 @@ function TimePair({ row, now }: { row: BoardApiRow; now: number }) {
   )
 }
 
-function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
+function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }: RowProps) {
   // Pociąg, którego planowy czas już minął — cały wiersz wizualnie
   // przygaszony (łącznie z przewoźnikiem i plakietką statusu), żeby
   // odróżnić go od nadchodzących, bez zmiany danych. Wyjątek: pociąg
@@ -384,6 +389,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
           direction={direction === 'arrivals' ? 'arrival' : 'departure'}
           estimatedDelayMinutes={row.estimatedDelayMinutes}
           predictedDelayMinutes={row.predictedDelayMinutes ?? null}
+          animated={animateNumbers}
         />
         {/* W komórce statusu, nie przy strzałce: karta na telefonie chowa komórkę strzałki. */}
         {row.hasDisruption === true && (

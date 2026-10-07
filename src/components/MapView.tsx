@@ -410,10 +410,10 @@ export function MapView({
         </button>
       </div>
 
-      {/* Portal do `document.body`: `.glass`/`.card-hover` (AsideCard) używają
-          `backdrop-filter`, co tworzy containing block dla `position: fixed`
-          potomków -- bez portalu overlay byłby przycięty do karty mapy, nie
-          pokrywał viewportu. */}
+      {/* Portal do `document.body`: `.card-hover` (AsideCard) ma `transform`, co tworzy
+          containing block dla `position: fixed` potomków (tak samo `backdrop-filter`
+          na `glass-chrome*`) -- bez portalu overlay byłby przycięty do karty mapy,
+          nie pokrywał viewportu. */}
       {expanded &&
         createPortal(
           <div className="fixed inset-0 z-50">

@@ -1,4 +1,4 @@
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
+import { REDUCED_MOTION } from '@/hooks/useMediaQuery'
 
 /**
  * Silnik Chromium (Chrome, Edge, Samsung Internet) ma `navigator.userAgentData`; Safari i Firefox nie. Powód
@@ -28,10 +28,14 @@ export function installViewTransitionGate(): void {
   const current = document.startViewTransition
   if (typeof current !== 'function') return
   installed = true
-  const bound = current.bind(document)
+  let wrapped = current.bind(document)
   Object.defineProperty(document, 'startViewTransition', {
     configurable: true,
-    get: () => (viewTransitionsAllowed() ? bound : undefined),
+    get: () => (viewTransitionsAllowed() ? wrapped : undefined),
+    // Późniejsze przypisanie (rozszerzenie, skrypt analityczny) nie może rzucać — zastępuje opakowaną funkcję, a bramka dalej ją chroni.
+    set: (value: unknown) => {
+      if (typeof value === 'function') wrapped = value.bind(document)
+    },
   })
 }
 

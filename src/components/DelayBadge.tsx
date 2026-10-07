@@ -33,6 +33,11 @@ type Props = {
    * Zmienia wyłącznie wygląd: etykieta, tooltip i znaczenie są te same.
    */
   variant?: 'pill' | 'text'
+  /**
+   * `false` — minuty jako zwykły tekst, bez toczących się cyfr (element niestandardowy na wiersz nie jest za darmo;
+   * `BoardTable` wyłącza je na długich tablicach). Domyślnie `true`.
+   */
+  animated?: boolean
 }
 
 /** Wyeksportowane, żeby legenda statusów (`BoardTable.tsx`) mogła reużyć te same etykiety zamiast duplikować je osobno. */
@@ -92,6 +97,7 @@ export function DelayBadge({
   estimatedDelayMinutes = null,
   predictedDelayMinutes = null,
   variant = 'pill',
+  animated = true,
 }: Props) {
   const hasEstimate = status === 'enRoute' && estimatedDelayMinutes !== null
   const hasPrediction = status === 'notStarted' && predictedDelayMinutes !== null && predictedDelayMinutes >= 1
@@ -122,7 +128,7 @@ export function DelayBadge({
       }
       title={hasEstimate ? ESTIMATE_TOOLTIP : hasPrediction ? PREDICTION_TOOLTIP : undefined}
     >
-      {typeof content === 'string' ? content : <AnimatedNumber prefix={content.prefix} value={content.value} suffix=" min" />}
+      {typeof content === 'string' ? content : animated ? <AnimatedNumber prefix={content.prefix} value={content.value} suffix=" min" /> : `${content.prefix}${content.value} min`}
     </span>
   )
 }

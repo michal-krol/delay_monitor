@@ -65,6 +65,18 @@ describe('view transition gate', () => {
     expect(document.startViewTransition).toBeUndefined()
   })
 
+  it('lets later code replace startViewTransition (extensions, test recorders) without throwing, and still gates the replacement', () => {
+    stubEngine({ native: vi.fn(), userAgentData: true })
+    installViewTransitionGate()
+    const replacement = vi.fn(() => 'replaced')
+    expect(() => {
+      document.startViewTransition = replacement as unknown as typeof document.startViewTransition
+    }).not.toThrow()
+    expect(document.startViewTransition(() => {})).toBe('replaced')
+    reduced = true
+    expect(document.startViewTransition).toBeUndefined()
+  })
+
   it('wraps only once: a second install does not stack gates', () => {
     const native = vi.fn()
     stubEngine({ native, userAgentData: true })

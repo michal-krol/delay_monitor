@@ -17,3 +17,12 @@ describe('placeTransitionName', () => {
     expect(placeTransitionName('pkp', '1001')).not.toBe(placeTransitionName('gtfs', '1001'))
   })
 })
+
+describe('transition type constants', () => {
+  it('are frozen: a consumer that mutates the array it was handed must not change every later navigation', async () => {
+    const { NAV_BACK_TYPES, NAV_TAB_TYPES, NAV_FORWARD_OPTIONS } = await import('./navTransition')
+    expect(Object.isFrozen(NAV_BACK_TYPES)).toBe(true)
+    expect(Object.isFrozen(NAV_TAB_TYPES)).toBe(true)
+    expect(Object.isFrozen(NAV_FORWARD_OPTIONS.transitionTypes)).toBe(true)
+  })
+})

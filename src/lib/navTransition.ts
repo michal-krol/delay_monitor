@@ -9,10 +9,10 @@ export const NAV_BACK = 'nav-back'
 export const NAV_TAB = 'nav-tab'
 
 /** Drugi argument `router.push` dla nawigacji „w głąb”. */
-export const NAV_FORWARD_OPTIONS = { transitionTypes: [NAV_FORWARD] }
+export const NAV_FORWARD_OPTIONS = { transitionTypes: Object.freeze([NAV_FORWARD]) as string[] }
 /** Stałe tablice dla `<Link transitionTypes>` — bez nowej tablicy przy każdym renderze. */
-export const NAV_BACK_TYPES = [NAV_BACK]
-export const NAV_TAB_TYPES = [NAV_TAB]
+export const NAV_BACK_TYPES = Object.freeze([NAV_BACK]) as string[]
+export const NAV_TAB_TYPES = Object.freeze([NAV_TAB]) as string[]
 
 /**
  * Nazwa współdzielonego elementu (tytuł karty Pulpitu ↔ tytuł tablicy). Musi być poprawnym identyfikatorem
