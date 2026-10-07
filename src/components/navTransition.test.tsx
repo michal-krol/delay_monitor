@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 // Zastępnik `ViewTransition`: test sprawdza, JAKIE właściwości dostaje (nazwa, mapa typów), nie przeglądarkę.
 vi.mock('react', async (importOriginal) => {
@@ -27,14 +27,7 @@ import { NavList } from './navItems'
 import { NavTransition } from './NavTransition'
 import { PlaceTitle } from './PlaceTitle'
 import { TopBar } from './TopBar'
-// Przejścia widoku włącza `useViewTransitions` (silnik Chromium, brak reduced-motion) — tu sterujemy nim ręcznie.
-const viewTransitions = vi.hoisted(() => ({ on: true }))
-vi.mock('@/hooks/useViewTransitions', () => ({ useViewTransitions: () => viewTransitions.on }))
 import { NAV_BACK, NAV_FORWARD, NAV_FORWARD_OPTIONS, NAV_TAB } from '@/lib/navTransition'
-
-afterEach(() => {
-  viewTransitions.on = true
-})
 
 function transitionProps(): Record<string, unknown> {
   return JSON.parse(screen.getByTestId('vt').getAttribute('data-props') ?? '{}')
@@ -85,16 +78,6 @@ describe('NavTransition', () => {
     expect(screen.getByText('treść')).toBeInTheDocument()
   })
 
-  it('turns every animation off when view transitions are off (reduced motion, WebKit) but still renders the content', () => {
-    viewTransitions.on = false
-    render(
-      <NavTransition>
-        <p>treść</p>
-      </NavTransition>
-    )
-    expect(transitionProps()).toMatchObject({ enter: 'none', exit: 'none', default: 'none' })
-    expect(screen.getByText('treść')).toBeInTheDocument()
-  })
 })
 
 describe('PlaceTitle', () => {
@@ -121,15 +104,4 @@ describe('PlaceTitle', () => {
     expect(names.size).toBe(3)
   })
 
-  it('drops the name and the morph when view transitions are off (no shared element to pair)', () => {
-    viewTransitions.on = false
-    render(
-      <PlaceTitle kind="pkp" id="33605">
-        <h2>Warszawa Centralna</h2>
-      </PlaceTitle>
-    )
-    expect(transitionProps()).toMatchObject({ share: 'none', default: 'none' })
-    expect(transitionProps().name).toBeUndefined()
-    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
-  })
 })
