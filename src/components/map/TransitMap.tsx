@@ -648,7 +648,7 @@ export function TransitMap({
   return (
     <div className="absolute inset-0">
       {/* Region z nazwą to canvas MapLibre (`Map.Title` wyżej) — drugi, zagnieżdżony byłby szumem dla czytnika. */}
-      <div ref={containerRef} className="h-full w-full" />
+      <div ref={containerRef} data-map-root="" className="h-full w-full" />
     </div>
   )
 }

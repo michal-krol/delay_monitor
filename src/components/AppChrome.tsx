@@ -6,6 +6,7 @@ import { BottomNav } from './BottomNav'
 import { MobileHeader } from './MobileHeader'
 import { activeItemFromPath } from './navItems'
 import { OfflineBanner } from './OfflineBanner'
+import { InstallPrompt } from './InstallPrompt'
 import { isSearchShortcut } from './searchShortcut'
 import { SearchDialog } from './SearchDialog'
 import { Sidebar } from './Sidebar'
@@ -45,6 +46,7 @@ export function AppChrome() {
       <Sidebar activeItem={activeItemFromPath(pathname)} onSearch={openSearch} />
       <BottomNav />
       <OfflineBanner />
+      <InstallPrompt />
       <SearchDialog open={searchOpen} onClose={closeSearch} />
     </>
   )

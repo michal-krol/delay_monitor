@@ -6,6 +6,21 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Dodane
+
+- Instalacja jako aplikacja: jednorazowa podpowiedź „Zainstaluj aplikację” (Android i
+  komputer) albo instrukcja „Udostępnij → Do ekranu początkowego” (iPhone, iPad); zamknięta
+  lub zainstalowana nie wraca. Manifest ma kategorie, skrót „Odjazdy”, ikony skrótów i zrzuty
+  ekranu do okna instalacji. Na iOS tryb aplikacji z przezroczystym paskiem stanu.
+- W trybie aplikacji wiek danych podpowiada „dotknij, by odświeżyć”.
+
+### Zmienione
+
+- Po powrocie do aplikacji dane odświeżają się od razu, gdy zwykły termin odpytywania już minął
+  (zawieszona aplikacja na iPhonie). Nie zwiększa to liczby zapytań do PKP ponad zwykły rytm.
+- Pociągnięcie w dół na mapie nie przeładowuje już strony (Android).
+- Decyzja o braku service workera i powiadomień push: `adr/0008-pwa-bez-service-workera.md`.
+
 ## [1.2.0] — 2026-10-07
 
 ### Dodane

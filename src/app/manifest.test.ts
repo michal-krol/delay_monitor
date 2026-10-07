@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import manifest from './manifest'
 import { generateImageMetadata } from './icon'
@@ -42,12 +44,29 @@ describe('manifest PWA', () => {
     expect(m.theme_color).toBe(THEME_BG.light)
   })
 
-  it('ma skróty dokładnie do Pulpitu, Mapy i Linii', () => {
-    expect((m.shortcuts ?? []).map((s) => s.url)).toEqual(['/', '/map', '/lines'])
+  it('ma skróty do Pulpitu, Odjazdów, Mapy i Linii (Android pokazuje najwyżej 4), każdy z ikoną PNG', () => {
+    const shortcuts = m.shortcuts ?? []
+    expect(shortcuts.map((s) => s.url)).toEqual(['/', '/city', '/map', '/lines'])
+    expect(shortcuts.length).toBeLessThanOrEqual(4)
+    for (const s of shortcuts) expect(s.icons?.map((i) => i.src), s.name).toEqual(['/icon/192'])
+  })
+
+  it('jest w kategoriach podróże i transport', () => {
+    expect(m.categories).toEqual(['travel', 'transportation'])
+  })
+
+  it('ma zrzuty dla okna instalacji: co najmniej 2 wąskie i 1 szeroki, pliki istnieją w public/', () => {
+    const shots = m.screenshots ?? []
+    expect(shots.filter((s) => s.form_factor === 'narrow').length).toBeGreaterThanOrEqual(2)
+    expect(shots.filter((s) => s.form_factor === 'wide').length).toBeGreaterThanOrEqual(1)
+    for (const s of shots) {
+      expect(s.type, s.src).toBe('image/png')
+      expect(existsSync(join(process.cwd(), 'public', s.src)), s.src).toBe(true)
+    }
   })
 
   it('używa wyłącznie względnych adresów z tego samego origin', () => {
-    const urls = [m.start_url, m.scope, ...(m.shortcuts ?? []).map((s) => s.url), ...(m.icons ?? []).map((i) => i.src)]
+    const urls = [m.start_url, m.scope, ...(m.shortcuts ?? []).map((s) => s.url), ...(m.icons ?? []).map((i) => i.src), ...(m.screenshots ?? []).map((s) => s.src)]
     for (const url of urls) expect(url, String(url)).toMatch(/^\/(?!\/)/)
   })
 })
