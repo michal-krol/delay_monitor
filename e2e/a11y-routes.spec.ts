@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 // PR5: axe na każdej trasie aplikacji × oba motywy (kontrast na szkle i tokenach statusu
 // różni się między jasnym a ciemnym). Blokujemy tylko serious/critical, WCAG 2 A/AA — jak `a11y.spec.ts`.
@@ -42,7 +42,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page).toHaveTitle(/.+/)
       await expect(page.locator('html')).toHaveClass(new RegExp(theme))
 
-      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+      const { violations } = await scanA11y(page)
       const blocking = violations.filter((v) => BLOCKING.includes(v.impact ?? ''))
       expect(blocking, blocking.map((v) => `${v.id}: ${v.help} (${v.nodes.length}) ${v.nodes[0]?.html.slice(0, 120)}`).join('\n')).toEqual([])
     })

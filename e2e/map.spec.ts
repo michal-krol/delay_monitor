@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 import { showBoardContext } from './helpers/info'
 
 // Mock „Centrum" (zespół 1001) = 4 przystanki (AGENTS.md #13, patrz gtfs-stop-member.spec.ts).
@@ -135,7 +135,7 @@ test('a11y: przystanek miejski z mapą bez naruszeń serious/critical', async ({
   await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
@@ -146,7 +146,7 @@ test('a11y: przystanek miejski z mapą w trybie ciemnym bez naruszeń serious/cr
   await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
@@ -158,7 +158,7 @@ test('a11y: powiększona mapa (dialog) bez naruszeń serious/critical', async ({
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
   await expect(page.getByRole('dialog').locator('.maplibregl-marker').first()).toBeVisible()
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
@@ -187,7 +187,7 @@ test('linia: mapa trasy rysuje piny przystanków i pojazdy, klik pinu wybiera pr
 test('a11y: strona linii z mapą trasy bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(LINE_20)
   await expect(page.getByRole('region', { name: 'Mapa trasy linii 20' })).toBeVisible({ timeout: READY })
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
@@ -228,7 +228,7 @@ test('połączenie: mapa nie pokazuje zmyślonej pozycji dla pociągu, który je
 test('a11y: strona połączenia z mapą trasy bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(TRAIN_104)
   await expect(page.getByRole('heading', { name: 'Mapa trasy' })).toBeVisible({ timeout: READY })
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
@@ -247,7 +247,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await page.goto(path)
       if (path === STATION_BOARD) await showBoardContext(page)
       await expect(page.getByRole('region', { name: new RegExp(`^${ready}`) }).locator('.maplibregl-marker').first()).toBeAttached({ timeout: READY })
-      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+      const { violations } = await scanA11y(page)
       const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
       expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
     })
@@ -285,7 +285,7 @@ async function moreItem(page: Page, name: string): Promise<Locator> {
 }
 
 async function expectNoBlockingA11y(page: Page): Promise<void> {
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 }

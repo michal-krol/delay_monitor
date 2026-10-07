@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 import { showBoardContext } from './helpers/info'
 
 // PR6: przejścia widoku, ruch i szkło. Sprawdzamy w prawdziwym Chromium (WebKit w Playwright nie ma
@@ -47,7 +47,7 @@ async function resetTransitions(page: Page): Promise<void> {
 }
 
 async function expectNoBlockingViolations(page: Page): Promise<void> {
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help} ${v.nodes[0]?.html.slice(0, 120)}`).join('\n')).toEqual([])
 }

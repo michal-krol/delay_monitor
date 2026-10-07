@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 // Mock feed: fixtures/gtfs/warszawa/vehicles.json ma 2 pozycje na kursach
 // linii 20 (`20-wd-0-1`/`20-wd-0-2`), side_number 3801 / 3802. AGENTS.md #13.
@@ -35,7 +35,7 @@ test('a11y: strona linii z markerami pojazdów bez naruszeń serious/critical', 
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
   await expect(page.getByTitle(/^Pojazd 380\d/).first()).toBeVisible({ timeout: READY })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })

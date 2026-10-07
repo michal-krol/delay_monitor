@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 import { openSearch } from './helpers/search'
 
 // Telefon (poniżej `sm`; mobile-chromium/mobile-safari): nawigacja = dolny pasek zakładek
@@ -85,7 +85,7 @@ test('a11y: otwarte okno wyszukiwania bez naruszeń serious/critical', async ({ 
   await page.goto('/')
   await openSearch(page, testInfo.project.name)
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })

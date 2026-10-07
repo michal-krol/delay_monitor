@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 // PWA bez service workera: manifest + ikony wystarczą do instalowalności (ADR / PR2 mobile-shell).
 test('manifest: 200, display standalone, ikony PNG odpowiadają 200', async ({ page, request }) => {
@@ -65,7 +65,7 @@ test('offline: baner „Brak połączenia" nad dolnym paskiem, bez naruszeń axe
 
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme })
-    const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+    const { violations } = await scanA11y(page)
     const blocking = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
     expect(blocking, `${colorScheme}: ${blocking.map((v) => `${v.id}: ${v.help}`).join('\n')}`).toEqual([])
   }
