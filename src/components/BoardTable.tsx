@@ -13,6 +13,8 @@ import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { formatClockTime } from '@/lib/format'
 import { realizedTime, rowCountdown } from './boardTime'
+import { useRowAnimation } from '@/hooks/useRowAnimation'
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -67,6 +69,8 @@ const ROW_TINT: Partial<Record<RealizationStatus, string>> = {
  * rozwinięcie jest czysto klienckie i nie kosztuje ani jednego zapytania.
  */
 const COLLAPSED_ROWS = 10
+/** Powyżej tylu widocznych wierszy minuty opóźnienia są zwykłym tekstem (patrz `DelayBadge` `animated`). */
+const MAX_ANIMATED_ROWS = 40
 
 /** Stabilny klucz wiersza -- ten sam przejazd między snapshotami. */
 function rowKey(row: BoardApiRow): string {
@@ -136,6 +140,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const changedDelays = useChangedDelays(rows)
+  const rowsRef = useRowAnimation<HTMLTableSectionElement>()
 
   const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED_ROWS)
   const hiddenCount = rows.length - visibleRows.length
@@ -143,7 +148,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   function openDetails(row: BoardApiRow): void {
     // encodeURIComponent, nie URLSearchParams (form-encoding zamieniłoby
     // spacje na `+`) -- ta sama konwencja co /station/[stationId] w page.tsx.
-    router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`)
+    router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`, NAV_FORWARD_OPTIONS)
   }
 
   const emptyMessage = direction === 'departures' ? 'Brak odjazdów w najbliższych godzinach' : 'Brak przyjazdów w najbliższych godzinach'
@@ -180,7 +185,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
               <th scope="col" className="py-2 pr-1"><span className="sr-only">Szczegóły</span></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={rowsRef}>
             {visibleRows.length === 0 && loading && (
               <>
                 <tr>
@@ -212,6 +217,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                 now={now}
                 onOpen={openDetails}
                 delayChanged={changedDelays.has(rowKey(row))}
+                animateNumbers={visibleRows.length <= MAX_ANIMATED_ROWS}
               />
             ))}
           </tbody>
@@ -241,6 +247,8 @@ type RowProps = {
   onOpen: (row: BoardApiRow) => void
   /** Opóźnienie zmieniło się w tym odświeżeniu — wiersz raz błyska (patrz `useChangedDelays`). */
   delayChanged: boolean
+  /** Minuty opóźnienia z toczącymi się cyframi (`false` na długiej tablicy, patrz `MAX_ANIMATED_ROWS`). */
+  animateNumbers: boolean
 }
 
 /** Pasek akcentu po lewej stronie wiersza (makieta §12) -- pozwala skanować listę wzrokiem bez czytania wartości. */
@@ -304,7 +312,7 @@ function TimePair({ row, now }: { row: BoardApiRow; now: number }) {
   )
 }
 
-function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
+function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }: RowProps) {
   // Pociąg, którego planowy czas już minął — cały wiersz wizualnie
   // przygaszony (łącznie z przewoźnikiem i plakietką statusu), żeby
   // odróżnić go od nadchodzących, bez zmiany danych. Wyjątek: pociąg
@@ -327,6 +335,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
     // przez prawdziwy <button> na etykiecie pociągu.
     <tr
       data-past={isPast || undefined}
+      data-status={row.status}
       className={`group border-b border-black/5 transition dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${isPast ? 'opacity-50' : ''} ${canOpenDetails ? 'cursor-pointer' : ''} ${delayChanged ? 'delay-changed' : ''}`}
       // borderLeftColor działa wyłącznie w układzie kartowym (poniżej `sm`,
       // patrz `.board-table` w globals.css) -- na desktopie wiersz nie ma
@@ -380,6 +389,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged }: RowProps) {
           direction={direction === 'arrivals' ? 'arrival' : 'departure'}
           estimatedDelayMinutes={row.estimatedDelayMinutes}
           predictedDelayMinutes={row.predictedDelayMinutes ?? null}
+          animated={animateNumbers}
         />
         {/* W komórce statusu, nie przy strzałce: karta na telefonie chowa komórkę strzałki. */}
         {row.hasDisruption === true && (

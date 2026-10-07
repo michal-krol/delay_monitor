@@ -137,7 +137,7 @@ describe('PanelFrame inside the bottom sheet', () => {
         </PanelFrame>
       </BottomSheet>
     )
-    expect(screen.getByRole('dialog', { name: 'A' })).not.toHaveClass('glass-strong')
+    expect(screen.getByRole('dialog', { name: 'A' })).not.toHaveClass('glass-chrome-strong')
     expect(screen.getByLabelText('Treść A')).toHaveAttribute('data-sheet-scroll')
     unmount()
 
@@ -146,7 +146,7 @@ describe('PanelFrame inside the bottom sheet', () => {
         treść
       </PanelFrame>
     )
-    expect(screen.getByRole('dialog', { name: 'B' })).toHaveClass('glass-strong')
+    expect(screen.getByRole('dialog', { name: 'B' })).toHaveClass('glass-chrome-strong')
     expect(screen.getByLabelText('Treść B')).not.toHaveAttribute('data-sheet-scroll')
   })
 })

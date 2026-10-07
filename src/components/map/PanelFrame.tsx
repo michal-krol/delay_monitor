@@ -72,7 +72,7 @@ export function PanelFrame({
       role="dialog"
       aria-modal="false"
       aria-labelledby={headingId}
-      className={`flex flex-col overflow-hidden ${inSheet ? 'min-h-0 flex-1' : 'glass-strong max-h-full rounded-2xl shadow-xl'}`}
+      className={`flex flex-col overflow-hidden ${inSheet ? 'min-h-0 flex-1' : 'glass-chrome-strong border border-surface-border enter-pop max-h-full rounded-2xl shadow-xl'}`}
     >
       <header className={`flex items-start gap-3 border-b border-surface-border ${inSheet ? 'px-4 pb-4' : 'p-4'}`}>
         {leading}

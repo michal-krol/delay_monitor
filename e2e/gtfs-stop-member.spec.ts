@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { showBoardContext, showLineTimetable } from './helpers/info'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 // Mock „Centrum" (zespół 1001) = 4 przystanki z RÓŻNYMI liniami: 100101→20,
 // 100102→128/N16, 100103→S2, 100104 (peron 04, wheelchair=2). AGENTS.md #13.
@@ -96,7 +96,7 @@ test('a11y: szczegóły przystanku miejskiego bez naruszeń serious/critical', a
   await page.goto(CENTRUM)
   await expect(page.getByText('Przystanki w zespole', { exact: false })).toBeVisible({ timeout: READY })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })

@@ -45,6 +45,20 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   z logo, nazwą miejsca, ikoną rodzaju transportu i miastem oraz tytuł strony z nazwą zamiast
   samego „Monitor opóźnień”. Nazwy pochodzą wyłącznie z naszych danych (słownik stacji,
   rozkład) — nigdy z adresu; nieznany lub niepoprawny identyfikator daje kartę ogólną.
+- Płynne przejścia między ekranami: wejście w stację z Pulpitu „przenosi” nazwę z karty do
+  nagłówka tablicy, głębsze ekrany wjeżdżają z prawej, powrót odjeżdża w prawo, a zakładki
+  dolnego paska i przełączenie Odjazdy ↔ Przyjazdy przenikają się. Pasek u góry i dolny
+  stoją w miejscu.
+- Na telefonie, gdy przewijasz tablicę stacji lub przystanku, nagłówek zamienia nazwę aplikacji
+  na nazwę miejsca (bez przesuwania treści).
+- Liczby opóźnień i kafelki statystyk „toczą się” przy zmianie wartości, a wiersze tablicy
+  i listy odjazdów płynnie się pojawiają i przesuwają.
+- Drobne sygnały żywych danych: poświata pod aktywną zakładką dolnego paska, pulsująca kropka
+  przy świeżych danych i pojazdach z pozycją na żywo, miękka poświata przy opóźnionych
+  pociągach (status zawsze jest też napisany) oraz ugięcie karty Pulpitu pod palcem.
+- Wszystkie efekty wyłączają się przy ustawieniu systemu „ogranicz ruch”, a przy „ogranicz
+  przezroczystość” paski i arkusze mają pełne tło. Przejścia między ekranami są na razie tylko
+  w przeglądarkach z silnikiem Chromium (Chrome, Edge, Samsung Internet); w Safari ich nie ma.
 
 ### Zmienione
 
@@ -99,6 +113,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   trasie od razu pokazuje jego rozkład.
 - Mapa na telefonie: chipy „Aktywne filtry”, komunikat „Skopiowano link…” i komunikaty
   o problemach z danymi jadą nad górną krawędzią panelu, zamiast chować się pod nim.
+- Rozmycie tła (szkło) jest tylko na pływających elementach: paski, menu i kontrolki mapy,
+  pastylka offline i arkusze. Karty z treścią są prawie kryjące i bez rozmycia.
 
 ### Naprawione
 
@@ -127,6 +143,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Przycisk zmiany kierunku na stronie linii podaje czytnikowi ekranu wybrany kierunek
   („Centrum do Dworzec Centralny zmień kierunek”), a nie tylko „Zmień kierunek”.
   Strzałka „skąd → dokąd” w nagłówku połączenia jest odczytywana jako „do”.
+- Rozmycie tła na paskach i kartach nie działało w Chrome (build gubił właściwość bez
+  prefiksu). Teraz działa, ale tylko tam, gdzie ma działać.
+- Plakietka „opóźniony” bez znanej liczby minut pokazuje samo słowo zamiast „+null min”.
 
 ## [1.1.0] — 2026-10-01
 

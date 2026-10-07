@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 // PR4: tablice „najpierw odjazdy” na telefonie — pierwszy odjazd bez przewijania, przyklejony
 // pasek zakładek, arkusz „Info” z tym samym kontekstem co prawa kolumna.
@@ -135,7 +135,7 @@ test('„Info” otwiera arkusz z kontekstem stacji, Escape zamyka i oddaje foku
   await expect(sheet.getByText('Odjazdy dzisiaj')).toBeAttached()
   await expect(page.locator('.bottom-sheet')).toHaveAttribute('data-snap', 'half')
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 
@@ -157,7 +157,7 @@ test('„Info” przystanku: mapa, natężenie i linie w arkuszu; × zamyka', as
 test('a11y: przystanek na telefonie (chipy, przyklejony pasek) bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(STOP)
   await expect(page.getByRole('tab', { name: 'Najbliższe odjazdy' })).toBeVisible({ timeout: READY })
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })

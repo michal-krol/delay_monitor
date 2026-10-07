@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 const READY = 45_000
 
@@ -33,7 +33,7 @@ test('a11y: strona linii z widocznym banerem utrudnienia bez naruszeń serious/c
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
   await expect(page.getByText('Utrudnienia w kursowaniu linii 20')).toBeVisible({ timeout: READY })
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })

@@ -404,16 +404,16 @@ export function MapView({
           type="button"
           onClick={() => setExpanded(true)}
           aria-label="Powiększ mapę"
-          className="touch-44 glass absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
+          className="touch-44 glass-chrome border border-surface-border shadow-md absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
         >
           <ExpandIcon size={ICON_SIZE.button} />
         </button>
       </div>
 
-      {/* Portal do `document.body`: `.glass`/`.card-hover` (AsideCard) używają
-          `backdrop-filter`, co tworzy containing block dla `position: fixed`
-          potomków -- bez portalu overlay byłby przycięty do karty mapy, nie
-          pokrywał viewportu. */}
+      {/* Portal do `document.body`: `.card-hover` (AsideCard) ma `transform`, co tworzy
+          containing block dla `position: fixed` potomków (tak samo `backdrop-filter`
+          na `glass-chrome*`) -- bez portalu overlay byłby przycięty do karty mapy,
+          nie pokrywał viewportu. */}
       {expanded &&
         createPortal(
           <div className="fixed inset-0 z-50">
@@ -427,7 +427,7 @@ export function MapView({
               <div ref={fullscreenContainerRef} className="h-full w-full" />
               {/* Tło na opakowaniu, nie na przycisku: tło i hover `IconButton` to ta sama
                   właściwość, więc na przycisku jedno kasowałoby drugie. */}
-              <div className="absolute right-3 top-3 rounded-full bg-surface-strong shadow-md backdrop-blur-xl">
+              <div className="absolute right-3 top-3 rounded-full glass-chrome-strong shadow-md">
                 <IconButton ref={closeButtonRef} label="Zamknij powiększoną mapę" onClick={() => setExpanded(false)}>
                   <CloseIcon size={ICON_SIZE.button} />
                 </IconButton>

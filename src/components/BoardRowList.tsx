@@ -3,6 +3,7 @@ import { CarrierLogo } from './CarrierLogo'
 import { AlertCircleIcon, ArrowRightIcon, ICON_SIZE } from './icons'
 import { formatClockTime } from '@/lib/format'
 import { rowCountdown } from './boardTime'
+import { useRowAnimation } from '@/hooks/useRowAnimation'
 import type { BoardApiRow } from '@/hooks/useBoard'
 
 type Props = {
@@ -17,8 +18,9 @@ type Props = {
 
 /** Wydzielone ze `StationCard` — skrócona lista połączeń na kafelku Pulpitu. */
 export function BoardRowList({ rows, now, loading, showEmpty, emptyMessage }: Props) {
+  const listRef = useRowAnimation<HTMLUListElement>()
   return (
-    <ul className="mt-4 divide-y divide-black/5 dark:divide-white/5">
+    <ul ref={listRef} className="mt-4 divide-y divide-black/5 dark:divide-white/5">
       {loading && (
         <>
           <li className="sr-only">Wczytywanie…</li>

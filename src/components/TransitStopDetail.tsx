@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react'
+import { startTransition, useEffect, useId, useMemo, useState, type CSSProperties } from 'react'
 import { useTheme } from 'next-themes'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
@@ -26,6 +26,9 @@ import { TransitDepartureList } from './TransitDepartureList'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from './icons'
 import { PageTitle } from './PageTitle'
+import { PlaceTitle } from './PlaceTitle'
+import { TabCrossfade } from './TabCrossfade'
+import { useHeaderTitle } from './headerTitle'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { IconButton } from './IconButton'
 import { StatTile } from './StatTile'
@@ -82,6 +85,8 @@ export function TransitStopDetail({
   const [lineFilter, setLineFilter] = useState<string | null>(null)
   const [requestedMember, setRequestedMember] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<StopTab>('departures')
+  // `startTransition`: dopiero zmiana stanu w przejściu uruchamia crossfade (`TabCrossfade`).
+  const selectTab = (tab: StopTab): void => startTransition(() => setActiveTab(tab))
   // Kontekst w kolumnie (`wide`) albo w arkuszu „Info” — jedno miejsce naraz, patrz `useBoardContext`.
   const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
   const tabIdBase = useId()
@@ -141,6 +146,8 @@ export function TransitStopDetail({
   const memberIndex = Math.max(0, memberIds.indexOf(effMember))
   const activeMember = effMember !== null ? members.find((m) => m.id === effMember) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
+  // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
+  useHeaderTitle(embedded ? null : stopName)
   // Widok całego zespołu (kilka przystanków, żaden niewybrany) mówi „zespół"; jeden
   // przystanek — wybrany albo jedyny w zespole — mówi „przystanek".
   const wholeGroup = activeMember === null && members.length > 1
@@ -272,9 +279,17 @@ export function TransitStopDetail({
           <div className="flex flex-wrap items-start justify-between gap-3 max-sm:flex-nowrap">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <PageTitle as={embedded ? 'h2' : 'h1'} className="max-sm:text-xl">
-                  {stopName}
-                </PageTitle>
+                {embedded ? (
+                  <PageTitle as="h2" className="max-sm:text-xl">
+                    {stopName}
+                  </PageTitle>
+                ) : (
+                  <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>
+                    <PageTitle as="h1" className="max-sm:text-xl">
+                      {stopName}
+                    </PageTitle>
+                  </PlaceTitle>
+                )}
                 {board?.wheelchairNote != null && (
                   <span className="text-warning-text">
                     <AccessibleIcon
@@ -429,7 +444,7 @@ export function TransitStopDetail({
               <div
                 role="tablist"
                 aria-label="Widok przystanku"
-                onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => setActiveTab(STOP_TABS[index].key))}
+                onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => selectTab(STOP_TABS[index].key))}
                 className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 max-sm:-my-1 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:py-1"
               >
                 {STOP_TABS.map((tab) => (
@@ -441,7 +456,7 @@ export function TransitStopDetail({
                     aria-controls={viewPanelId}
                     aria-selected={activeTab === tab.key}
                     tabIndex={activeTab === tab.key ? 0 : -1}
-                    onClick={() => setActiveTab(tab.key)}
+                    onClick={() => selectTab(tab.key)}
                     className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition max-sm:min-h-11 ${
                       activeTab === tab.key ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
                     }`}
@@ -492,6 +507,7 @@ export function TransitStopDetail({
           </div>
 
           <div role="tabpanel" id={viewPanelId} aria-labelledby={viewTabId(activeTab)}>
+            <TabCrossfade id={activeTab} name="stop-panel">
             {(activeTab === 'departures' || activeTab === 'schedule') && (
               <TransitDepartureList
                 departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
@@ -544,6 +560,7 @@ export function TransitStopDetail({
               ) : (
                 <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla {scopeGenitive}.</p>
               ))}
+            </TabCrossfade>
           </div>
         </section>
       </div>

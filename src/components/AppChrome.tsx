@@ -9,6 +9,10 @@ import { OfflineBanner } from './OfflineBanner'
 import { isSearchShortcut } from './searchShortcut'
 import { SearchDialog } from './SearchDialog'
 import { Sidebar } from './Sidebar'
+import { installViewTransitionGate } from '@/lib/viewTransitionGate'
+
+// Przed pierwszą nawigacją: przejścia widoku tylko w Chromium i bez reduced-motion (`viewTransitionGate.ts`).
+installViewTransitionGate()
 
 /**
  * Cała powłoka aplikacji renderowana raz w `(app)/layout.tsx`, a nie osobno w każdej stronie —

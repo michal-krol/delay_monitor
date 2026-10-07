@@ -66,6 +66,11 @@ describe('design tokens', () => {
     expect(offenders(/from ['"]lucide/, (file) => file === 'components/icons.tsx')).toEqual([])
   })
 
+  it('motion libraries have one importer each: AnimatedNumber (number-flow) and useRowAnimation (auto-animate), .claude/rules/ui-motion.md', () => {
+    expect(offenders(/from ['"]@number-flow/, (file) => file === 'components/AnimatedNumber.tsx')).toEqual([])
+    expect(offenders(/from ['"]@formkit\/auto-animate/, (file) => file === 'hooks/useRowAnimation.ts')).toEqual([])
+  })
+
   it('ACCENT_GRADIENT (favicon and app icon routes, no CSS there) mirrors --accent-gradient in globals.css', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     expect(css.match(/--accent-gradient:\s*([^;]+);/)?.[1].trim()).toBe(ACCENT_GRADIENT)
@@ -140,6 +145,81 @@ describe('design tokens', () => {
     const before = css.slice(0, rule!.index)
     expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(prefers-reduced-motion: reduce\)\s*\{\s*$/)
     expect(offenders(/motion-reduce:animate-none/)).toEqual([])
+  })
+
+  it('blur comes only from the glass-chrome utilities in globals.css (no backdrop-blur-* classes)', () => {
+    expect(offenders(/backdrop-blur/)).toEqual([])
+  })
+
+  it('globals.css writes backdrop-filter unprefixed only: with a hand-written -webkit- twin the build kept ONLY the prefixed one and Chromium rendered no blur', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    expect(css).not.toContain('-webkit-backdrop-filter')
+  })
+
+  it('content cards (.glass, .glass-strong) carry no backdrop-filter — blur over a flat page is invisible and costs GPU', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    for (const name of ['glass', 'glass-strong']) {
+      const body = css.match(new RegExp(`@utility ${name} \\{([^}]*)\\}`))?.[1]
+      expect(body, name).toBeDefined()
+      expect(body, name).not.toContain('backdrop-filter')
+    }
+  })
+
+  it('glass-chrome falls back to solid under prefers-reduced-transparency', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const block = css.match(/@media \(prefers-reduced-transparency: reduce\)[^{]*\{([\s\S]*?\n\})/)?.[1] ?? ''
+    expect(block).toContain('.glass-chrome')
+    expect(block).toContain('.glass-chrome-strong')
+    expect(block).toContain('backdrop-filter: none')
+    expect(block).toContain('var(--sheet-surface)')
+  })
+
+  it('floating chrome (map controls, menus, offline pill, nav bars) uses glass-chrome, not the content-card glass', () => {
+    const contentGlass = /(^|[\s"'`])glass(-strong)?(?![-\w])/
+    const chromeFiles = (file: string): boolean =>
+      !(file.startsWith('components/map/') || ['components/OfflineBanner.tsx', 'components/MobileHeader.tsx', 'components/BottomNav.tsx'].includes(file))
+    // Mapa: kontrolki, menu i panele; tekst komentarzy pomijamy (linie zaczynające się od `//`, `*`, `{/*`).
+    const hits = offenders(contentGlass, chromeFiles).filter((hit) => !/:\d+\s+(\/\/|\*|\{\/\*)/.test(hit))
+    expect(hits).toEqual([])
+  })
+
+  it('the sheet panel is near-opaque, not fully transparent (axe contrast over the map canvas)', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const panel = css.match(/\.bottom-sheet__panel \{([^}]*)\}/)?.[1] ?? ''
+    expect(panel).toMatch(/color-mix\(in srgb, var\(--sheet-surface\) (9\d)%/)
+  })
+
+  it('pulses, entry transitions and card press only exist under prefers-reduced-motion: no-preference', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    for (const rule of ['animation: livePulse', '@starting-style', '.card-press:has(> [data-card-open]:active)']) {
+      const index = css.indexOf(rule)
+      expect(index, rule).toBeGreaterThan(-1)
+      const before = css.slice(0, index)
+      expect(before.slice(before.lastIndexOf('@media')), rule).toMatch(/^@media \(prefers-reduced-motion: no-preference\)\s*\{/)
+    }
+  })
+
+  it('the header title swap is scroll-driven progressive enhancement: hidden by default, animated only with support and motion allowed', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    expect(css).toMatch(/\.header-title-context\s*\{\s*display:\s*none/)
+    const index = css.indexOf('animation-timeline: scroll(root)')
+    expect(index).toBeGreaterThan(-1)
+    const before = css.slice(0, index)
+    expect(before.slice(before.lastIndexOf('@supports'))).toMatch(/^@supports \(animation-timeline: scroll\(\)\)/)
+    expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(prefers-reduced-motion: no-preference\)/)
+  })
+
+  it('menu entries (.enter-pop) never scale: a scaled panel shrinks its 44 px touch targets while it opens (e2e touch-targets measured 43.2 px)', () => {
+    const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+    const rules = [...css.matchAll(/\.enter-pop\s*\{([^}]*)\}/g)].map((match) => match[1]).join(' ')
+    expect(rules).toContain('translate')
+    expect(rules).not.toMatch(/scale/)
+  })
+
+  it('both Pulpit cards carry the card-press class (one press feel)', () => {
+    for (const file of ['components/StationCard.tsx', 'components/TransitStopCard.tsx']) {
+      expect(readFileSync(join(SRC, file), 'utf8'), file).toContain('card-press')
+    }
   })
 
   it('globals.css kills the grey tap flash and defines the own press state', () => {

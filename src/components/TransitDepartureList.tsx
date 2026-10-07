@@ -3,6 +3,8 @@ import { countdownLabel } from '@/lib/countdown'
 import { LineBadge } from './LineBadge'
 import { OnRequestBadge } from './OnRequestBadge'
 import { LINE_KIND_LABEL } from './transitMode'
+import { LiveDot } from './LiveDot'
+import { useRowAnimation } from '@/hooks/useRowAnimation'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
 
@@ -114,7 +116,8 @@ function DepartureRow({
               title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
               className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300"
             >
-              {departure.vehicle.stopsAway === 0 ? 'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
+              {departure.vehicle.ageSec <= 60 && <LiveDot />}
+              {departure.vehicle.stopsAway === 0 ?'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
               <span className="sr-only">
                 , {departure.vehicle.ageSec > 60 ? `pozycja sprzed ${Math.round(departure.vehicle.ageSec / 60)} min` : 'pozycja na żywo'}
               </span>
@@ -145,6 +148,7 @@ export function TransitDepartureList({
   now,
   highlightFirst = false,
 }: Props) {
+  const listRef = useRowAnimation<HTMLUListElement>()
   if (loading) {
     return (
       <ul className="mt-3 space-y-2" aria-hidden="true">
@@ -192,7 +196,7 @@ export function TransitDepartureList({
       )}
 
       {listed.length > 0 && (
-        <ul data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
+        <ul ref={listRef} data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
           {listed.map((departure, index) => (
             <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showStopCode={showStopCode} now={now} />
           ))}

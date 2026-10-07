@@ -1,6 +1,22 @@
 import { afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
+import { configure } from '@testing-library/react'
 import { clearPollingCache } from './src/hooks/pollingCache'
+
+// `AnimatedNumber` (@number-flow/react) trzyma w swoim elemencie zapasowy <span> z tym samym napisem co
+// węzeł `sr-only` — bez wykluczenia każde `getByText('+3 min')` trafiałoby w dwa elementy.
+configure({ defaultIgnore: 'script, style, number-flow-react span, [data-number-fallback]' })
+
+// jsdom nie ma zarejestrowanego elementu niestandardowego, więc każda ZMIANA wartości (`rerender` z innym
+// opóźnieniem) rzuca w bibliotece `this.el.willUpdate is not a function`. Zastępnik zachowuje kształt DOM
+// (element + zapasowy <span>), wartość animowanej liczby i jej napis jako zwykły tekst.
+vi.mock('@number-flow/react', async () => {
+  const { createElement } = await import('react')
+  return {
+    default: ({ value, prefix = '', suffix = '', ...rest }: { value: number; prefix?: string; suffix?: string }) =>
+      createElement('number-flow-react', rest, createElement('span', null, `${prefix}${value}${suffix}`)),
+  }
+})
 
 // Cache `usePolling` to stan modułu -- każdy test zaczyna od pustego.
 afterEach(() => clearPollingCache())

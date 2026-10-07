@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { SM_UP, useMediaQuery } from './useMediaQuery'
+import { SM_UP, useMediaQuery, useReducedMotion } from './useMediaQuery'
 
 const original = window.matchMedia
 
@@ -39,5 +39,20 @@ describe('useMediaQuery', () => {
     window.matchMedia = undefined as unknown as typeof window.matchMedia
     expect(renderHook(() => useMediaQuery(SM_UP, true)).result.current).toBe(true)
     expect(renderHook(() => useMediaQuery(SM_UP, false)).result.current).toBe(false)
+  })
+})
+
+describe('useReducedMotion', () => {
+  it('follows prefers-reduced-motion changes', () => {
+    const set = stubMedia(false)
+    const { result } = renderHook(() => useReducedMotion())
+    expect(result.current).toBe(false)
+    act(() => set(true))
+    expect(result.current).toBe(true)
+  })
+
+  it('is false without matchMedia (no motion preference to respect)', () => {
+    window.matchMedia = undefined as unknown as typeof window.matchMedia
+    expect(renderHook(() => useReducedMotion()).result.current).toBe(false)
   })
 })

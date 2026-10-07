@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { pinnedKey, type PinnedItem } from '@/hooks/usePinned'
 import { jsonResponse } from '@/test-utils/http'
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -60,7 +61,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Pokaż pełną tablicę: Warszawa Centralna/ }))
-    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna')
+    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna', NAV_FORWARD_OPTIONS)
   })
 
   it('przekierowuje stary adres ?focus= na widok stacji, zachowując nazwę z przypiętych', () => {
@@ -137,7 +138,7 @@ describe('Page (Pulpit)', () => {
     await user.click(await screen.findByRole('option', { name: 'Kraków Główny' }))
 
     // encodeURIComponent (not form-encoding) — spaces become %20, same contract as the card click.
-    expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny')
+    expect(push).toHaveBeenCalledWith('/station/5136?name=Krak%C3%B3w%20G%C5%82%C3%B3wny', NAV_FORWARD_OPTIONS)
   })
 
   it('exactly one h1 on the empty Pulpit and on the Pulpit with pinned cards', () => {

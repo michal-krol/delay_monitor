@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { startTransition, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
@@ -12,6 +12,9 @@ import { PopularDestinations, StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
 import { PageTitle } from './PageTitle'
+import { PlaceTitle } from './PlaceTitle'
+import { TabCrossfade } from './TabCrossfade'
+import { useHeaderTitle } from './headerTitle'
 import { CloseIcon, StarIcon, ICON_SIZE } from './icons'
 import { IconButton } from './IconButton'
 import { onTablistKeyDown } from './tablistKeys'
@@ -76,6 +79,8 @@ function TabButton({
 
 export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
+  // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
+  useHeaderTitle(embedded ? null : stationName)
   const idBase = useId()
   const tabId = (d: Direction): string => `${idBase}-tab-${d}`
   const panelId = `${idBase}-panel`
@@ -108,8 +113,11 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
    * dodatkowy render i renderowanie odfiltrowanej tablicy przez jedną klatkę.
    */
   function switchDirection(next: Direction): void {
-    setDirection(next)
-    setDestinationFilter(null)
+    // `startTransition`: dopiero zmiana stanu w przejściu uruchamia crossfade (`TabCrossfade`).
+    startTransition(() => {
+      setDirection(next)
+      setDestinationFilter(null)
+    })
   }
 
   const allRows = useMemo(() => (snapshot ? snapshot[direction] : []), [snapshot, direction])
@@ -204,9 +212,18 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                 <StationThumb stationName={stationName} />
               </div>
               <div className="min-w-0">
-                <PageTitle as={embedded ? 'h2' : 'h1'} className="max-sm:text-xl">
-                  {stationName}
-                </PageTitle>
+                {/* Nazwany element przejścia z kafelka Pulpitu; osadzona tablica (ekran miasta) nie przychodzi z Pulpitu. */}
+                {embedded ? (
+                  <PageTitle as="h2" className="max-sm:text-xl">
+                    {stationName}
+                  </PageTitle>
+                ) : (
+                  <PlaceTitle kind="pkp" id={stationId}>
+                    <PageTitle as="h1" className="max-sm:text-xl">
+                      {stationName}
+                    </PageTitle>
+                  </PlaceTitle>
+                )}
                 {/* Przy błędzie konfiguracji NIE pokazujemy statusu danych --
                     „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API"
                     to dokładnie to mieszanie sygnałów, przed którym ostrzega
@@ -279,13 +296,15 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
               )}
 
               <div role="tabpanel" id={panelId} aria-labelledby={tabId(direction)}>
-                <BoardTable
-                  stationName={stationName}
-                  direction={direction}
-                  rows={rows}
-                  now={now}
-                  loading={loading}
-                />
+                <TabCrossfade id={direction} name="board-rows">
+                  <BoardTable
+                    stationName={stationName}
+                    direction={direction}
+                    rows={rows}
+                    now={now}
+                    loading={loading}
+                  />
+                </TabCrossfade>
               </div>
             </section>
           </>

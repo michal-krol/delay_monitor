@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import AxeBuilder from '@axe-core/playwright'
+import { scanA11y } from './helpers/axe'
 
 // Strona „Linie”: zwijane sekcje (natywne <details>), szukanie, „Ostatnio oglądane”.
 // Mock GTFS ma 11 linii (fixtures/gtfs/warszawa): metro M1/M2, tramwaj 20, kolej S2, autobusy 128/190 (zwykłe),
@@ -99,7 +99,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(page.getByRole('group', { name: 'Ostatnio oglądane' })).toBeVisible()
     await expandAll(page)
 
-    const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+    const { violations } = await scanA11y(page)
     const blocking = violations.filter((v) => BLOCKING.includes(v.impact ?? ''))
     expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
   })
@@ -111,7 +111,7 @@ test('a11y: wyniki szukania w trybie ciemnym bez naruszeń serious/critical', as
   await page.getByLabel('Szukaj linii').fill('d')
   await expect(page.getByRole('heading', { level: 2, name: /^Wyniki/ })).toBeVisible()
 
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => BLOCKING.includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })

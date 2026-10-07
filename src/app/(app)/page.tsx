@@ -1,5 +1,6 @@
 'use client'
 
+import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { usePinned } from '@/hooks/usePinned'
@@ -34,7 +35,7 @@ function PulpitPage() {
   const focusedStationId = rawFocus && STATION_ID_PATTERN.test(rawFocus) ? rawFocus : null
 
   function goToBoard(station: StationOption): void {
-    router.push(`/station/${station.id}?name=${encodeURIComponent(station.name)}`)
+    router.push(`/station/${station.id}?name=${encodeURIComponent(station.name)}`, NAV_FORWARD_OPTIONS)
   }
 
   /**

@@ -1,4 +1,5 @@
 import type { RealizationStatus } from '@/lib/board/realization'
+import { AnimatedNumber } from './AnimatedNumber'
 
 type Props = {
   status: RealizationStatus
@@ -32,6 +33,11 @@ type Props = {
    * Zmienia wyłącznie wygląd: etykieta, tooltip i znaczenie są te same.
    */
   variant?: 'pill' | 'text'
+  /**
+   * `false` — minuty jako zwykły tekst, bez toczących się cyfr (element niestandardowy na wiersz nie jest za darmo;
+   * `BoardTable` wyłącza je na długich tablicach). Domyślnie `true`.
+   */
+  animated?: boolean
 }
 
 /** Wyeksportowane, żeby legenda statusów (`BoardTable.tsx`) mogła reużyć te same etykiety zamiast duplikować je osobno. */
@@ -91,23 +97,29 @@ export function DelayBadge({
   estimatedDelayMinutes = null,
   predictedDelayMinutes = null,
   variant = 'pill',
+  animated = true,
 }: Props) {
   const hasEstimate = status === 'enRoute' && estimatedDelayMinutes !== null
   const hasPrediction = status === 'notStarted' && predictedDelayMinutes !== null && predictedDelayMinutes >= 1
   const notStartedLabel = direction === 'arrival' ? ARRIVAL_NOT_STARTED_LABEL : LABELS.notStarted
-  const text = hasEstimate
+  // Tylko prawdziwa liczba minut toczy się (`AnimatedNumber`); brak liczby to zawsze zwykły tekst — nieznane
+  // nie może wyglądać jak „+0” (#7), więc „opóźniony” bez minut zostaje samym słowem.
+  const content: string | { prefix: string; value: number } = hasEstimate
     ? estimatedDelayMinutes >= 1
-      ? `w trasie, ~+${estimatedDelayMinutes} min`
+      ? { prefix: 'w trasie, ~+', value: estimatedDelayMinutes }
       : 'w trasie, punktualnie'
     : status === 'delayed'
-      ? `+${delayMinutes} min`
+      ? delayMinutes === null
+        ? LABELS.delayed
+        : { prefix: '+', value: delayMinutes }
       : status === 'notStarted'
         ? hasPrediction
-          ? `${notStartedLabel} · prognoza +${predictedDelayMinutes} min`
+          ? { prefix: `${notStartedLabel} · prognoza +`, value: predictedDelayMinutes }
           : notStartedLabel
         : LABELS[status]
   return (
     <span
+      data-testid="delay-badge"
       className={variant === 'text' ? 'text-sm font-semibold' : 'rounded-full px-2.5 py-0.5 text-sm font-semibold'}
       style={
         variant === 'text'
@@ -116,7 +128,7 @@ export function DelayBadge({
       }
       title={hasEstimate ? ESTIMATE_TOOLTIP : hasPrediction ? PREDICTION_TOOLTIP : undefined}
     >
-      {text}
+      {typeof content === 'string' ? content : animated ? <AnimatedNumber prefix={content.prefix} value={content.value} suffix=" min" /> : `${content.prefix}${content.value} min`}
     </span>
   )
 }
