@@ -1,7 +1,9 @@
 import type { MetadataRoute } from 'next'
 import { APP_DESCRIPTION, APP_NAME, THEME_BG } from '@/lib/siteMeta'
 
-// Kolory = `--bg-base` motywu jasnego (`THEME_BG`, patrz `viewport` w layout.tsx). Ikony generuje
+const shortcutIcon = (name: string) => ({ src: `/icon/shortcut-${name}`, sizes: '192x192', type: 'image/png' })
+
+// Kolory =`--bg-base` motywu jasnego (`THEME_BG`, patrz `viewport` w layout.tsx). Ikony generuje
 // app/icon.tsx (generateImageMetadata: id 192, 512, maskable-192, maskable-512 → /icon/<id>). Bez
 // service workera — instalowalność bez trybu offline.
 export default function manifest(): MetadataRoute.Manifest {
@@ -23,10 +25,12 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/icon/maskable-192', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
       { src: '/icon/maskable-512', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
+    // Każdy skrót ma własną ikonę 192×192 (glif pojęcia z `icons.tsx`, id `shortcut-*` w app/icon.tsx).
     shortcuts: [
-      { name: 'Pulpit', url: '/' },
-      { name: 'Mapa', url: '/map' },
-      { name: 'Linie', url: '/lines' },
+      { name: 'Pulpit', url: '/', icons: [shortcutIcon('pulpit')] },
+      { name: 'Odjazdy', url: '/city', icons: [shortcutIcon('odjazdy')] },
+      { name: 'Mapa', url: '/map', icons: [shortcutIcon('mapa')] },
+      { name: 'Linie', url: '/lines', icons: [shortcutIcon('linie')] },
     ],
   }
 }

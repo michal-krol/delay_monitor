@@ -6,6 +6,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Zmienione
+
+- Skróty w menu ikony zainstalowanej aplikacji (Pulpit, Odjazdy, Mapa, Linie) mają własne
+  ikony — te same znaki co w dolnym pasku nawigacji — zamiast wspólnego logo aplikacji.
+
 ## [1.2.0] — 2026-10-07
 
 ### Dodane

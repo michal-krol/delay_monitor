@@ -17,6 +17,18 @@ test('manifest: 200, display standalone, ikony PNG odpowiadają 200', async ({ p
     expect(iconResponse.headers()['content-type'], icon.src).toContain('image/png')
   }
 
+  const shortcuts = manifest.shortcuts as { name: string; icons?: { src: string; sizes: string }[] }[]
+  expect(shortcuts.map((s) => s.name)).toEqual(['Pulpit', 'Odjazdy', 'Mapa', 'Linie'])
+  const shortcutSrcs = shortcuts.map((s) => s.icons?.[0]?.src)
+  expect(new Set(shortcutSrcs).size, 'każdy skrót ma własną ikonę').toBe(shortcuts.length)
+  for (const shortcut of shortcuts) {
+    expect(shortcut.icons?.[0]?.sizes, shortcut.name).toBe('192x192')
+    const src = shortcut.icons![0].src
+    const iconResponse = await request.get(src)
+    expect(iconResponse.status(), src).toBe(200)
+    expect(iconResponse.headers()['content-type'], src).toContain('image/png')
+  }
+
   await page.goto('/')
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', /manifest\.webmanifest/)
 })
