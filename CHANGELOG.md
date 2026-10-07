@@ -6,6 +6,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+## [1.2.0] — 2026-10-07
+
 ### Dodane
 
 - Dolny pasek nawigacji na telefonie: „Pulpit”, „Odjazdy”, „Linie” i „Mapa” zawsze pod
@@ -690,7 +692,8 @@ Pierwsza wersja funkcjonalna.
 - Tryb jasny i ciemny.
 - Wdrożenie na Railway i bramka jakości w GitHub Actions.
 
-[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.1.0...HEAD
+[Niewydane]: https://github.com/michal-krol/delay_monitor/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/michal-krol/delay_monitor/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/michal-krol/delay_monitor/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/michal-krol/delay_monitor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/michal-krol/delay_monitor/compare/v1.0.0...v1.0.1
