@@ -289,9 +289,9 @@ details[open] > summary .disclosure-chevron,
   flex-direction: column;
   height: 90%;
   pointer-events: auto;
-  /* Szkło arkusza: prawie kryjące (94%), żeby axe i czytelność nie zależały od kafelków mapy pod spodem. */
+  /* Szkło arkusza: prawie kryjące (94%), żeby axe i czytelność nie zależały od kafelków mapy pod spodem. Bez rozmycia — przy 94% krycia
+     nie byłoby widać, a kosztowało (INP otwarcia arkusza „Info”, pomiar PR 6). */
   background-color: color-mix(in srgb, var(--sheet-surface) 94%, transparent);
-  backdrop-filter: blur(14px) saturate(160%);
   border-top: 1px solid var(--surface-border);
   border-radius: 1rem 1rem 0 0;
   box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
@@ -350,11 +350,11 @@ details[open] > summary .disclosure-chevron,
    względem nieprzezroczystego `body` (patrz `color-scheme` wyżej) — nie wolno schodzić z alfy poniżej ~0,6. */
 @utility glass-chrome {
   background-color: var(--sidebar-bg);
-  backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(12px);
 }
 @utility glass-chrome-strong {
   background-color: color-mix(in srgb, var(--sheet-surface) 88%, transparent);
-  backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(16px);
 }
 /* Prośba o mniej przezroczystości albo tryb wysokiego kontrastu: pełne tło, bez rozmycia. Zwykła reguła
    (poza warstwami) bije utility Tailwinda. */
@@ -495,6 +495,16 @@ details[open] > summary .disclosure-chevron,
 }
 [data-active] > .nav-halo {
   box-shadow: 0 0 14px 3px rgba(56, 189, 248, 0.45);
+}
+
+/* Zapasowy napis liczby, zanim załaduje się biblioteka toczących się cyfr (`AnimatedNumber`): te same wymiary co jej element
+   (`line-height: 1`, pionowy margines maski), żeby podmiana nie przesunęła układu (CLS). */
+.number-fallback {
+  display: inline-block;
+  padding-block: 0.25em;
+  font-kerning: none;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 /* Kropka „dane są świeże” (`LiveDot`): kolor akcentu, nie zieleń statusu (#13). */

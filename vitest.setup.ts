@@ -5,7 +5,7 @@ import { clearPollingCache } from './src/hooks/pollingCache'
 
 // `AnimatedNumber` (@number-flow/react) trzyma w swoim elemencie zapasowy <span> z tym samym napisem co
 // węzeł `sr-only` — bez wykluczenia każde `getByText('+3 min')` trafiałoby w dwa elementy.
-configure({ defaultIgnore: 'script, style, number-flow-react span' })
+configure({ defaultIgnore: 'script, style, number-flow-react span, [data-number-fallback]' })
 
 // jsdom nie ma zarejestrowanego elementu niestandardowego, więc każda ZMIANA wartości (`rerender` z innym
 // opóźnieniem) rzuca w bibliotece `this.el.willUpdate is not a function`. Zastępnik zachowuje kształt DOM

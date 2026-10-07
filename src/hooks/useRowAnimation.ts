@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, type RefCallback } from 'react'
-import autoAnimate from '@formkit/auto-animate'
 import { useReducedMotion } from './useMediaQuery'
 
 const DURATION_MS = 160
@@ -32,15 +31,24 @@ export function rowPlugin(el: Element, action: 'add' | 'remove' | 'remain', oldC
 
 /**
  * Ref dla listy/`tbody`: dodawane, znikające i przesuwane wiersze animują się (`@formkit/auto-animate`, jedyny
- * importer). Pod `prefers-reduced-motion` nie robi nic; zmiana preferencji w locie podmienia ref i odpina animację.
+ * importer). Biblioteka ładuje się leniwie po pierwszym malowaniu (nie obciąża LCP); element, który zniknął
+ * przed jej załadowaniem, nie dostaje animacji. Pod `prefers-reduced-motion` nie robi nic; zmiana preferencji
+ * w locie podmienia ref i odpina animację.
  */
 export function useRowAnimation<T extends HTMLElement>(): RefCallback<T> {
   const reduced = useReducedMotion()
   return useCallback<RefCallback<T>>(
     (element) => {
       if (element === null || reduced) return
-      const controller = autoAnimate(element, rowPlugin)
-      return () => controller.disable()
+      let cancelled = false
+      let controller: { disable: () => void } | undefined
+      void import('@formkit/auto-animate').then(({ default: autoAnimate }) => {
+        if (!cancelled) controller = autoAnimate(element, rowPlugin)
+      })
+      return () => {
+        cancelled = true
+        controller?.disable()
+      }
     },
     [reduced]
   )
