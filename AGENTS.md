@@ -118,6 +118,8 @@ Cost ≈ context size × turns (measured 2026-10-03: 83% of context tokens were 
 - New topic or merged PR → handoff, then `/clear` or a new session. One PR per session.
 - Big outputs never stay in context: CI logs via `gh run view --log-failed | tail -200`;
   browser checks via `read_page`/`get_page_text`, screenshots only when layout matters.
+- A hook (`.claude/hooks/session-size.mjs`) warns past 150 turns or 300k context: finish the
+  step, handoff, `/clear`. Measured 2026-10-07: 63% of calls were >400k, one session 744k/334 turns.
 - Long automated runs (subagent-driven plans, many tasks): start with `/autocompact 300k` and
   keep progress in the plan file (see "Compact instructions" below).
 - One fact lives in one file; others link to it (duplicated facts drift — `gtfs.md` did).
