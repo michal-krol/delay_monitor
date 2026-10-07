@@ -46,8 +46,8 @@ Najpierw platforma, biblioteki tylko tam, gdzie platforma nie sięga:
 ## Konsekwencje
 
 - Pomiar (`next build --webpack`, suma `.next/static/chunks/**/*.js`): przed 2 424 584 B
-  (720 953 B gzip), po 2 460 105 B (732 810 B gzip): +35,5 kB surowo, +11,9 kB gzip, w tym obie
-  biblioteki i cały kod PR6.
+  (720 953 B gzip), po 2 462 822 B (733 722 B gzip): +38,2 kB surowo, +12,8 kB gzip, w tym obie
+  biblioteki (leniwe kawałki) i cały kod PR6.
 - Lighthouse mobile (3 przebiegi, mediana) i INP (Pixel 7, procesor 4× wolniej) nie są gorsze niż
   przed zmianą; liczby w opisie PR. Pomiar wykrył też, że wcześniej **żadne szkło nie renderowało się
   w Chromium**: ręcznie dopisany `-webkit-backdrop-filter` sprawiał, że build zostawiał wyłącznie
