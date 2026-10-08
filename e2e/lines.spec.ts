@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page } from './helpers/test'
 import { scanA11y } from './helpers/axe'
 
 // Strona „Linie”: zwijane sekcje (natywne <details>), szukanie, „Ostatnio oglądane”.
