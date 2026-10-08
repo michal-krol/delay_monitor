@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { StationStatsCards } from './StationStatsCards'
 import { BottomSheet } from './BottomSheet'
 import type { StationStats } from '@/lib/board/stationStats'
@@ -99,5 +99,24 @@ describe('StationStatsCards', () => {
     expect(screen.getByTestId('station-stats')).toHaveAttribute('data-variant', 'tiles')
     expect(screen.getByText('brak danych')).toBeInTheDocument()
     expect(screen.getByText('dziś, opóźnienie do 5 min')).toBeInTheDocument()
+  })
+})
+
+describe('StationStatsCards all-unknown (phone vs wide)', () => {
+  const unknown = { departuresToday: null, arrivalsToday: null, averageDelayMinutes: null, averageDelaySample: 0, punctualityPct: null, punctualitySample: 0, punctualityThresholdMinutes: 5 }
+  const original = window.matchMedia
+  afterEach(() => {
+    window.matchMedia = original
+  })
+
+  it('wide: still four tiles saying „brak danych”, never an empty area (#7)', () => {
+    render(<StationStatsCards stats={unknown} />)
+    expect(screen.getAllByText('brak danych').length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('phone: one line instead of four tiles', () => {
+    window.matchMedia = (() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia
+    render(<StationStatsCards stats={unknown} />)
+    expect(screen.getByText('Statystyki dnia: brak danych')).toBeInTheDocument()
   })
 })

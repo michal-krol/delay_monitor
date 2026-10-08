@@ -1,6 +1,7 @@
 import type { StationStats } from '@/lib/board/stationStats'
 import { ArrivalIcon, DepartureIcon, HourglassIcon, TargetIcon, ICON_SIZE } from './icons'
 import { pluralPl } from '@/lib/plural'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { useInSheet } from './BottomSheet'
 import { StatTile } from './StatTile'
 
@@ -44,6 +45,7 @@ function realizationHint(loading: boolean, sample: number, ready: string): strin
 export function StationStatsCards({ stats, loading = false }: { stats: StationStats | undefined; loading?: boolean }) {
   // Nad tablicą na telefonie pigułki (pierwszy odjazd ma być widoczny bez przewijania); w arkuszu „Info” kafelki.
   const pills = !useInSheet()
+  const wide = useMediaQuery(SM_UP, true)
   // Snapshotu jeszcze nie ma (zimny start pollera) -- kafelki i tak muszą
   // zająć swoje miejsce w kompozycji, żeby układ nie skakał, gdy dane dojdą.
   const safe: StationStats = stats ?? {
@@ -62,9 +64,9 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
   // Telefon, wszystko nieznane: jedna linia zamiast czterech „brak danych” (#7: nieznane ≠ 0).
   const allUnknown =
     !loading && safe.departuresToday === null && safe.arrivalsToday === null && safe.averageDelayMinutes === null && safe.punctualityPct === null
-  if (pills && stats !== undefined && allUnknown) {
+  if (pills && !wide && stats !== undefined && allUnknown) {
     return (
-      <p data-testid="station-stats" data-variant="unknown" className="text-xs text-text-muted sm:hidden">
+      <p data-testid="station-stats" data-variant="unknown" className="text-xs text-text-muted">
         Statystyki dnia: brak danych
       </p>
     )

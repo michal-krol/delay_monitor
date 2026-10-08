@@ -76,7 +76,7 @@ function TabButton({
       aria-selected={active}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium transition max-sm:min-h-10 max-sm:px-2 ${
+      className={`rounded-full px-4 py-1.5 text-sm font-medium transition max-sm:min-h-10 max-sm:px-2 touch-44 relative ${
         active ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
       }`}
       // Ten sam akcent co zakładki przystanku (TransitStopDetail) — stacja wygląda jak przystanek.
