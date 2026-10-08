@@ -174,6 +174,12 @@
     --bottom-nav-h: 0px;
   }
 }
+/* Tryb aplikacji nie ma przycisku odświeżania, a gest „pociągnij w dół" na pełnoekranowej mapie (Android)
+   przeładowałby całą stronę w trakcie przesuwania mapy. Strona nie przewija się (stała wysokość), więc nic
+   nie tracimy; Pulpit, tablice i mapki osadzone w stronach zostają z systemowym zachowaniem. */
+html:has([data-map-view]) {
+  overscroll-behavior-y: none;
+}
 html {
   scroll-padding-top: var(--header-h);
   scroll-padding-bottom: var(--bottom-nav-h);

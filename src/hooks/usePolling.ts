@@ -118,8 +118,12 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
     let paused = false
     let ladderIndex = 0
     let inFlight = false
+    // Termin zaplanowanego tiku (ms epoch). Zawieszona aplikacja (iOS standalone) może nie odpalić
+    // timera mimo minionego terminu — po powrocie `onVisibilityChange` nadrabia to jednym zapytaniem.
+    let dueAt: number | null = null
 
     function schedule(delayMs: number): void {
+      dueAt = Date.now() + delayMs
       timer = setTimeout(() => void tick(true), delayMs)
     }
 
@@ -132,6 +136,7 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
         return
       }
       paused = false
+      dueAt = null
 
       const opts = optionsRef.current
       inFlight = true
@@ -172,7 +177,11 @@ export function usePolling<T>(key: string | null, fetcher: (ctx: PollingContext)
     }
 
     function onVisibilityChange(): void {
-      if (!document.hidden && paused) {
+      if (document.hidden) return
+      // Wstrzymany tik albo przeterminowany timer: jedno zapytanie teraz. Nigdy częściej niż zwykły rytm
+      // (po tiku `dueAt` leży w przyszłości), więc koszt dla budżetu PKP (AGENTS.md #3) się nie zmienia.
+      const overdue = dueAt !== null && Date.now() >= dueAt && !inFlight
+      if (paused || overdue) {
         paused = false
         clearTimeout(timer)
         void tick(true)

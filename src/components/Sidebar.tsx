@@ -45,7 +45,7 @@ export function Sidebar({ activeItem, onSearch }: Props) {
       // Przypięty do okna: własna wysokość ekranu i własny scroll, żeby przy
       // długiej liście połączeń nawigacja i „Diagnostyka" (`mt-auto`, na dole)
       // nie odjeżdżały z widoku razem z treścią głównej kolumny.
-      className="glass-chrome hidden shrink-0 flex-col gap-6 self-start sticky top-0 h-dvh overflow-y-auto border-r p-4 transition-[width] duration-200 sm:flex"
+      className="glass-chrome hidden shrink-0 flex-col gap-6 self-start sticky top-0 h-dvh overflow-y-auto border-r p-4 pt-[max(1rem,env(safe-area-inset-top))] transition-[width] duration-200 sm:flex"
       style={{
         width: collapsed ? '76px' : '252px',
         viewTransitionName: 'site-sidebar',
