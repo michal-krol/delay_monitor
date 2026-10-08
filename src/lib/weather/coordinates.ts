@@ -66,3 +66,8 @@ export async function getStationName(stationId: string): Promise<string | null> 
   const all = await loadCoordinates()
   return Object.hasOwn(all, stationId) ? all[stationId].name : null
 }
+
+/** ID wszystkich stacji słownika (mapa sitemap) — ten sam plik, zero zapytań do PKP (#3). Błąd wczytania rzuca, jak wyżej (#7). */
+export async function getAllStationIds(): Promise<string[]> {
+  return Object.keys(await loadCoordinates())
+}

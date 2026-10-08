@@ -234,20 +234,61 @@ describe('CityLinesPage', () => {
       expect(within(footer).getByText(/Dane rozkładowe: ZTM/)).toBeInTheDocument()
     })
 
-    it('a stale schedule adds a warning on top, the footer stays calm', async () => {
-      stubFetch({ ...LINES, schedule: { ...READY, ageMs: 3 * 60 * 60 * 1000 } })
+    it('a schedule a few hours old is normal: no warning on top, the plain footer line stays', async () => {
+      stubFetch({ ...LINES, schedule: { ...READY, ageMs: (3 * 60 + 44) * 60 * 1000 } })
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
-      expect(screen.getAllByText(/dane sprzed 3 h/)).toHaveLength(1)
-      expect(within(screen.getByTestId('lines-footer')).queryByText(/dane sprzed/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
+      expect(screen.getAllByText(/Rozkład jazdy — Warszawa/)).toHaveLength(1)
+      expect(within(screen.getByTestId('lines-footer')).getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()
+    })
+
+    it('a day-old schedule warns on top and the status block is NOT repeated in the footer', async () => {
+      stubFetch({ ...LINES, schedule: { ...READY, ageMs: 26 * 60 * 60 * 1000 } })
+      render(<CityLinesPage />)
+      await screen.findByRole('link', { name: /Linia M1/ })
+      expect(screen.getAllByText(/dane sprzed 26 h/)).toHaveLength(1)
+      expect(screen.getAllByText(/Rozkład jazdy — Warszawa/)).toHaveLength(1)
+      expect(screen.getAllByText(/Aktualizacja: /)).toHaveLength(1)
+      const footer = screen.getByTestId('lines-footer')
+      expect(within(footer).queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
+      expect(within(footer).getByText(/Dane rozkładowe: ZTM/)).toBeInTheDocument()
+    })
+
+    it('a failed refresh warns on top once, footer keeps only the attribution', async () => {
+      stubFetch({ ...LINES, schedule: { ...READY, state: 'failed', ageMs: 2 * 60 * 60 * 1000 } })
+      render(<CityLinesPage />)
+      await screen.findByRole('link', { name: /Linia M1/ })
+      expect(screen.getAllByText(/odświeżanie nie powiodło się/)).toHaveLength(1)
+      expect(screen.getAllByText(/Rozkład jazdy — Warszawa/)).toHaveLength(1)
+      expect(within(screen.getByTestId('lines-footer')).queryByText(/Rozkład jazdy/)).not.toBeInTheDocument()
     })
   })
 
-  it('renders the city picker in the top bar (line-browser navigation target)', async () => {
+  it('hides the city picker while only one city exists', async () => {
     stubFetch()
     render(<CityLinesPage />)
     await screen.findByRole('link', { name: /Linia M1/ })
-    expect(screen.getByRole('combobox', { name: /miasto/i })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /miasto/i })).not.toBeInTheDocument()
+  })
+
+  it('renders the city picker in the top bar once there is more than one city (line-browser navigation target)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.startsWith('/api/gtfs/lines')
+          ? jsonResponse(LINES)
+          : jsonResponse({
+              cities: [
+                { id: 'warszawa', name: 'Warszawa', railStations: [] },
+                { id: 'krakow', name: 'Kraków', railStations: [] },
+              ],
+            })
+      )
+    )
+    render(<CityLinesPage />)
+    await screen.findByRole('link', { name: /Linia M1/ })
+    expect(await screen.findByRole('combobox', { name: /miasto/i })).toBeInTheDocument()
   })
 
   it('keeps retrying past the first ladder while the schedule is still loading (never gives up)', async () => {

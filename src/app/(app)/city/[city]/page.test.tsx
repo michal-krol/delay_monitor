@@ -74,11 +74,28 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('CityPage', () => {
-  it('shows the city picker, the stat tiles and one unified search', async () => {
+  it('shows the stat tiles and one unified search, but no city picker while only one city exists', async () => {
     render(<CityPage />)
     expect(await screen.findByRole('combobox', { name: /szukaj/i })).toBeInTheDocument()
-    expect(await screen.findByRole('option', { name: 'Warszawa' })).toBeInTheDocument()
     expect(await screen.findByText('stacje kolejowe')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Miasto' })).not.toBeInTheDocument()
+  })
+
+  it('shows the city picker once the registry has several cities', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        jsonResponse({
+          cities: [
+            { id: 'warszawa', name: 'Warszawa', hasTransit: true, railStations: [{ id: '33605', name: 'Warszawa Centralna' }] },
+            { id: 'krakow', name: 'Kraków', hasTransit: true, railStations: [] },
+          ],
+        })
+      )
+    )
+    render(<CityPage />)
+    expect(await screen.findByRole('option', { name: 'Warszawa' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Miasto' })).toBeInTheDocument()
   })
 
   it('navigates with ?station= when a rail result is picked, ?stop= for a transit result', async () => {

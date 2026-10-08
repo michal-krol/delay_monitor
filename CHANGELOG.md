@@ -8,6 +8,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Dodane
 
+- Własne ekrany błędu i „Nie znaleziono strony”: po nieudanym wczytaniu strony są przyciski
+  „Spróbuj ponownie” i „Wróć do Pulpitu”, a nawigacja aplikacji zostaje na miejscu. Treści
+  błędu nie widać — pokazujemy tylko polski komunikat.
+- Szkielet zamiast pustego ekranu na stronach Linie, Mapa i Linia oraz przy wyborze miasta na
+  `/city`, `/lines` i `/map` (wcześniej przez kilka sekund widać było sam napis „Wybieram miasto…”).
+- `robots.txt` (wyszukiwarki omijają `/api/`) i `sitemap.xml` ze stacjami, ekranami miast
+  i listami linii. Nie wysyła zapytań do PKP.
 - Instalacja jako aplikacja: jednorazowa podpowiedź „Zainstaluj aplikację” (Android i
   komputer) albo instrukcja „Udostępnij → Do ekranu początkowego” (iPhone, iPad); zamknięta
   lub zainstalowana nie wraca. Manifest ma kategorie, skrót „Odjazdy” i zrzuty
@@ -16,6 +23,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Ekran Linie: pomarańczowe „dane sprzed N h” pojawia się dopiero po dobie bez odświeżenia
+  rozkładu albo przy nieudanym odświeżeniu (rozkład zmienia się raz dziennie), a blok stanu
+  rozkładu nie powtarza się już u góry i na dole strony.
+- Wybór miasta jest ukryty, dopóki w aplikacji jest jedno miasto.
 - Po powrocie do aplikacji dane odświeżają się od razu, gdy zwykły termin odpytywania już minął
   (zawieszona aplikacja na iPhonie). Nie zwiększa to liczby zapytań do PKP ponad zwykły rytm.
 - Pełnoekranowa mapa wyłącza gest „pociągnij, by odświeżyć” przeglądarki (Android; do sprawdzenia na urządzeniu).

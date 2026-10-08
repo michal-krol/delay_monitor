@@ -103,6 +103,12 @@ describe('CityMapPage', () => {
     expect(() => render(<CityMapPage />)).toThrow('NEXT_NOT_FOUND')
   })
 
+  it('has no city picker while the registry holds a single city', async () => {
+    render(<CityMapPage />)
+    await screen.findByText('Warszawa · pozycje pojazdów: 13 s temu')
+    expect(screen.queryByRole('combobox', { name: 'Miasto' })).not.toBeInTheDocument()
+  })
+
   it('shows the freshness of vehicle positions in the header, in three distinct states', () => {
     const { rerender } = render(<CityMapPage />)
     expect(screen.getByText('Warszawa · pozycje pojazdów: 13 s temu')).toBeInTheDocument()
