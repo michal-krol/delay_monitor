@@ -103,8 +103,9 @@ test.describe('PR5: cele dotyku na telefonie', () => {
     await page.getByRole('button', { name: /Filtry/ }).click()
     const rows = page.getByRole('checkbox').locator('xpath=ancestor::label[1]')
     await expect(rows.first()).toBeVisible({ timeout: READY })
-    for (let i = 0; i < (await rows.count()); i++) expect(await hitHeight(rows.nth(i))).toBeGreaterThanOrEqual(44)
-    expect(await hitHeight(page.getByRole('button', { name: 'Pokaż wszystko' }))).toBeGreaterThanOrEqual(44)
+    // Math.round: 44 px rows measured mid-layout come out as 43.99998 (subpixel noise, seen 2026-10-07/08).
+    for (let i = 0; i < (await rows.count()); i++) expect(Math.round(await hitHeight(rows.nth(i)))).toBeGreaterThanOrEqual(44)
+    expect(Math.round(await hitHeight(page.getByRole('button', { name: 'Pokaż wszystko' })))).toBeGreaterThanOrEqual(44)
   })
 
   test('strona linii: pigułka kierunku i przystanek na osi mają >= 44 px', async ({ page }) => {
