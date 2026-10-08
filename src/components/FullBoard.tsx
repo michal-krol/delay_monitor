@@ -11,8 +11,7 @@ import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoS
 import { PopularDestinations, StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
 import { StationThumb } from './StationThumb'
-import { PageTitle } from './PageTitle'
-import { PlaceTitle } from './PlaceTitle'
+import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
 import { CloseIcon, StarIcon, ICON_SIZE } from './icons'
@@ -213,17 +212,9 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
               </div>
               <div className="min-w-0">
                 {/* Nazwany element przejścia z kafelka Pulpitu; osadzona tablica (ekran miasta) nie przychodzi z Pulpitu. */}
-                {embedded ? (
-                  <PageTitle as="h2" className="max-sm:text-xl">
-                    {stationName}
-                  </PageTitle>
-                ) : (
-                  <PlaceTitle kind="pkp" id={stationId}>
-                    <PageTitle as="h1" className="max-sm:text-xl">
-                      {stationName}
-                    </PageTitle>
-                  </PlaceTitle>
-                )}
+                <BoardHeading embedded={embedded} kind="pkp" id={stationId}>
+                  {stationName}
+                </BoardHeading>
                 {/* Przy błędzie konfiguracji NIE pokazujemy statusu danych --
                     „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API"
                     to dokładnie to mieszanie sygnałów, przed którym ostrzega

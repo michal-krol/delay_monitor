@@ -25,8 +25,7 @@ import { stopDisplayName, stopsWithLines } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
 import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from './icons'
-import { PageTitle } from './PageTitle'
-import { PlaceTitle } from './PlaceTitle'
+import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
@@ -279,17 +278,9 @@ export function TransitStopDetail({
           <div className="flex flex-wrap items-start justify-between gap-3 max-sm:flex-nowrap">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                {embedded ? (
-                  <PageTitle as="h2" className="max-sm:text-xl">
-                    {stopName}
-                  </PageTitle>
-                ) : (
-                  <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>
-                    <PageTitle as="h1" className="max-sm:text-xl">
-                      {stopName}
-                    </PageTitle>
-                  </PlaceTitle>
-                )}
+                <BoardHeading embedded={embedded} kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>
+                  {stopName}
+                </BoardHeading>
                 {board?.wheelchairNote != null && (
                   <span className="text-warning-text">
                     <AccessibleIcon
