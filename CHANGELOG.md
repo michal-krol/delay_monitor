@@ -32,7 +32,6 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   danych chip nie pokazuje temperatury.
 - Ekran miasta na telefonie: pod wyszukiwarką „Ostatnio oglądane”, statystyki miasta zwinięte do
   jednej linii „Statystyki”. Nagłówek mapy zajmuje mniej miejsca.
-
 - Ekran Linie: pomarańczowe „dane sprzed N h” pojawia się dopiero po dobie bez odświeżenia
   rozkładu albo przy nieudanym odświeżeniu (rozkład zmienia się raz dziennie), a blok stanu
   rozkładu nie powtarza się już u góry i na dole strony.
