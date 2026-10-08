@@ -19,6 +19,9 @@ const manrope = localFont({
 export const metadata: Metadata = {
   title: APP_NAME,
   description: APP_DESCRIPTION,
+  // iOS „Do ekranu początkowego": tryb aplikacji bez paska Safari. `black-translucent` rysuje treść pod
+  // paskiem stanu — odstęp daje `env(safe-area-inset-top)` w `--header-h` / `Sidebar` (globals.css).
+  appleWebApp: { capable: true, title: 'Opóźnienia', statusBarStyle: 'black-translucent' },
 }
 
 // Kolory paska przeglądarki = `--bg-base` każdego motywu (`THEME_BG`). Metki z `media` idą za motywem

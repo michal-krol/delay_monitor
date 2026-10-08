@@ -15,6 +15,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   `/city`, `/lines` i `/map` (wcześniej przez kilka sekund widać było sam napis „Wybieram miasto…”).
 - `robots.txt` (wyszukiwarki omijają `/api/`) i `sitemap.xml` ze stacjami, ekranami miast
   i listami linii. Nie wysyła zapytań do PKP.
+- Instalacja jako aplikacja: jednorazowa podpowiedź „Zainstaluj aplikację” (Android i
+  komputer) albo instrukcja „Udostępnij → Do ekranu początkowego” (iPhone, iPad); zamknięta
+  lub zainstalowana nie wraca. Manifest ma kategorie, skrót „Odjazdy” i zrzuty
+  ekranu do okna instalacji. Na iOS tryb aplikacji z przezroczystym paskiem stanu.
+- W trybie aplikacji wiek danych podpowiada „dotknij, by odświeżyć”.
 
 ### Zmienione
 
@@ -22,6 +27,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   rozkładu albo przy nieudanym odświeżeniu (rozkład zmienia się raz dziennie), a blok stanu
   rozkładu nie powtarza się już u góry i na dole strony.
 - Wybór miasta jest ukryty, dopóki w aplikacji jest jedno miasto.
+- Po powrocie do aplikacji dane odświeżają się od razu, gdy zwykły termin odpytywania już minął
+  (zawieszona aplikacja na iPhonie). Nie zwiększa to liczby zapytań do PKP ponad zwykły rytm.
+- Pełnoekranowa mapa wyłącza gest „pociągnij, by odświeżyć” przeglądarki (Android; do sprawdzenia na urządzeniu).
+- Decyzja o braku service workera i powiadomień push: `adr/0008-pwa-bez-service-workera.md`.
+- Skróty w menu ikony zainstalowanej aplikacji (Pulpit, Odjazdy, Mapa, Linie) mają własne
+  ikony — te same znaki co w dolnym pasku nawigacji — zamiast wspólnego logo aplikacji.
 
 ## [1.2.0] — 2026-10-07
 
