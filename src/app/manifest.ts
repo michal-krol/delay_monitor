@@ -1,11 +1,11 @@
 import type { MetadataRoute } from 'next'
 import { APP_DESCRIPTION, APP_NAME, THEME_BG } from '@/lib/siteMeta'
 
+const shortcutIcon = (name: string) => ({ src: `/icon/shortcut-${name}`, sizes: '192x192', type: 'image/png' })
+
 // Kolory = `--bg-base` motywu jasnego (`THEME_BG`, patrz `viewport` w layout.tsx). Ikony generuje
 // app/icon.tsx (generateImageMetadata: id 192, 512, maskable-192, maskable-512 → /icon/<id>). Bez
 // service workera — instalowalność bez trybu offline.
-// Skróty dzielą ikonę aplikacji (Android wymaga PNG; osobne glify na skrót = osobne zadanie).
-const SHORTCUT_ICONS = [{ src: '/icon/192', sizes: '192x192', type: 'image/png' }]
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -27,11 +27,12 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/icon/maskable-512', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
     categories: ['travel', 'transportation'],
+    // Każdy skrót ma własną ikonę 192×192 (glif pojęcia z `icons.tsx`, id `shortcut-*` w app/icon.tsx).
     shortcuts: [
-      { name: 'Pulpit', url: '/', icons: SHORTCUT_ICONS },
-      { name: 'Odjazdy', url: '/city', icons: SHORTCUT_ICONS },
-      { name: 'Mapa', url: '/map', icons: SHORTCUT_ICONS },
-      { name: 'Linie', url: '/lines', icons: SHORTCUT_ICONS },
+      { name: 'Pulpit', url: '/', icons: [shortcutIcon('pulpit')] },
+      { name: 'Odjazdy', url: '/city', icons: [shortcutIcon('odjazdy')] },
+      { name: 'Mapa', url: '/map', icons: [shortcutIcon('mapa')] },
+      { name: 'Linie', url: '/lines', icons: [shortcutIcon('linie')] },
     ],
     // Zrzuty do okna instalacji Androida/Chrome (generowane z trybu mock, `public/screenshots/`).
     screenshots: [

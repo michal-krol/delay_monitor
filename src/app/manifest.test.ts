@@ -44,11 +44,27 @@ describe('manifest PWA', () => {
     expect(m.theme_color).toBe(THEME_BG.light)
   })
 
-  it('ma skróty do Pulpitu, Odjazdów, Mapy i Linii (Android pokazuje najwyżej 4), każdy z ikoną PNG', () => {
-    const shortcuts = m.shortcuts ?? []
-    expect(shortcuts.map((s) => s.url)).toEqual(['/', '/city', '/map', '/lines'])
-    expect(shortcuts.length).toBeLessThanOrEqual(4)
-    for (const s of shortcuts) expect(s.icons?.map((i) => i.src), s.name).toEqual(['/icon/192'])
+  it('ma skróty dokładnie do Pulpitu, Odjazdów, Mapy i Linii (Android pokazuje najwyżej 4)', () => {
+    expect((m.shortcuts ?? []).length).toBeLessThanOrEqual(4)
+    expect((m.shortcuts ?? []).map((s) => s.url)).toEqual(['/', '/city', '/map', '/lines'])
+  })
+
+  it('każdy skrót ma własną ikonę 192×192, istniejącą w generateImageMetadata', () => {
+    const generated = generateImageMetadata()
+    const srcs = (m.shortcuts ?? []).map((s) => s.icons ?? [])
+    expect(srcs.map((icons) => icons.map((i) => i.src))).toEqual([
+      ['/icon/shortcut-pulpit'],
+      ['/icon/shortcut-odjazdy'],
+      ['/icon/shortcut-mapa'],
+      ['/icon/shortcut-linie'],
+    ])
+    for (const icon of srcs.flat()) {
+      const entry = generated.find((g) => `/icon/${g.id}` === icon.src)
+      expect(entry, icon.src).toBeDefined()
+      expect(`${entry!.size.width}x${entry!.size.height}`, icon.src).toBe('192x192')
+      expect(icon.sizes, icon.src).toBe('192x192')
+      expect(icon.type, icon.src).toBe('image/png')
+    }
   })
 
   it('jest w kategoriach podróże i transport', () => {
@@ -66,7 +82,13 @@ describe('manifest PWA', () => {
   })
 
   it('używa wyłącznie względnych adresów z tego samego origin', () => {
-    const urls = [m.start_url, m.scope, ...(m.shortcuts ?? []).map((s) => s.url), ...(m.icons ?? []).map((i) => i.src), ...(m.screenshots ?? []).map((s) => s.src)]
+    const urls = [
+      m.start_url,
+      m.scope,
+      ...(m.shortcuts ?? []).flatMap((s) => [s.url, ...(s.icons ?? []).map((i) => i.src)]),
+      ...(m.icons ?? []).map((i) => i.src),
+      ...(m.screenshots ?? []).map((s) => s.src),
+    ]
     for (const url of urls) expect(url, String(url)).toMatch(/^\/(?!\/)/)
   })
 })
