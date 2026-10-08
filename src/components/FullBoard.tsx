@@ -1,12 +1,16 @@
 'use client'
 
 import { startTransition, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import Link from 'next/link'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
-import { BoardTable, StatusLegend } from './BoardTable'
+import { BoardTable, StatusLegend, StatusLegendList } from './BoardTable'
+import { ActionGrid } from './ActionGrid'
+import { AsideCard } from './aside'
+import { ShareButton } from './ShareButton'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { PopularDestinations, StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
@@ -15,8 +19,9 @@ import { PageTitle } from './PageTitle'
 import { PlaceTitle } from './PlaceTitle'
 import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
-import { CloseIcon, StarIcon, ICON_SIZE } from './icons'
-import { IconButton } from './IconButton'
+import { ArrowLeftIcon, CloseIcon, StarIcon, ICON_SIZE } from './icons'
+import { ICON_BUTTON_CLASS, IconButton } from './IconButton'
+import { NAV_BACK_TYPES } from '@/lib/navTransition'
 import { onTablistKeyDown } from './tablistKeys'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
@@ -34,6 +39,11 @@ type Props = {
    * strona nadrzędna (`TopBar`), nie tablica.
    */
   embedded?: boolean
+  /**
+   * Telefon: ← i „Udostępnij” w karcie stacji zamiast osobnego wiersza `TopBar` (strona chowa go
+   * `hideOnPhone`) — nazwa stoi raz, a pierwszy odjazd jest ~60 px wyżej. Tylko gdy `!embedded`.
+   */
+  phoneBack?: { href: string; label: string }
 }
 
 export type Direction = 'departures' | 'arrivals'
@@ -66,7 +76,7 @@ function TabButton({
       aria-selected={active}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium transition max-sm:min-h-11 ${
+      className={`rounded-full px-4 py-1.5 text-sm font-medium transition max-sm:min-h-10 max-sm:px-2 ${
         active ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
       }`}
       // Ten sam akcent co zakładki przystanku (TransitStopDetail) — stacja wygląda jak przystanek.
@@ -77,7 +87,7 @@ function TabButton({
   )
 }
 
-export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embedded = false }: Props) {
+export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embedded = false, phoneBack }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
   // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
   useHeaderTitle(embedded ? null : stationName)
@@ -200,26 +210,31 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   )
 
   return (
-    <div className="grid items-start gap-5 max-sm:gap-3 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+    <div className="grid items-start gap-5 max-sm:gap-2 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       {/* Na telefonie odjazdy pierwsze: zwarty nagłówek, KPI jako pigułki, kontekst w arkuszu „Info”. */}
-      <div className="flex min-w-0 flex-col gap-5 max-sm:gap-3">
-        <section className="glass rounded-2xl p-5 max-sm:p-4">
+      <div className="flex min-w-0 flex-col gap-5 max-sm:gap-2">
+        <section className="glass relative rounded-2xl p-5 max-sm:p-3">
           {configError && <ConfigErrorBanner />}
 
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4 max-sm:flex-nowrap max-sm:items-center max-sm:gap-2">
+            <div className="flex min-w-0 items-center gap-4 max-sm:gap-2">
+              {phoneBack !== undefined && !wide && (
+                <Link href={phoneBack.href} transitionTypes={NAV_BACK_TYPES} aria-label={phoneBack.label} className={`${ICON_BUTTON_CLASS} h-11 w-11`}>
+                  <ArrowLeftIcon size={ICON_SIZE.button} />
+                </Link>
+              )}
               <div className="shrink-0 max-sm:hidden">
                 <StationThumb stationName={stationName} />
               </div>
               <div className="min-w-0">
                 {/* Nazwany element przejścia z kafelka Pulpitu; osadzona tablica (ekran miasta) nie przychodzi z Pulpitu. */}
                 {embedded ? (
-                  <PageTitle as="h2" className="max-sm:text-xl">
+                  <PageTitle as="h2" className="max-sm:line-clamp-2 max-sm:text-lg max-sm:leading-tight">
                     {stationName}
                   </PageTitle>
                 ) : (
                   <PlaceTitle kind="pkp" id={stationId}>
-                    <PageTitle as="h1" className="max-sm:text-xl">
+                    <PageTitle as="h1" className="max-sm:line-clamp-2 max-sm:text-lg max-sm:leading-tight">
                       {stationName}
                     </PageTitle>
                   </PlaceTitle>
@@ -236,10 +251,11 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}>
+            <div className="flex shrink-0 items-center gap-2">
+              <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} className="max-sm:h-11 max-sm:w-11">
                 <StarIcon size={ICON_SIZE.button} filled={isPinned} />
               </IconButton>
+              {phoneBack !== undefined && !wide && <ShareButton iconOnly />}
             </div>
           </div>
         </section>
@@ -256,15 +272,16 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
             <section className="glass rounded-2xl p-5 max-sm:p-4">
               {/* Na telefonie pasek przykleja się pod nagłówkiem aplikacji: zakładki, legenda i „Info”
                   zostają pod ręką przy przewijaniu długiej tablicy. Nieprzezroczysty, bo wiersze jadą pod nim. */}
-              <div
-                data-testid="board-tabs-bar"
-                className={`flex flex-wrap items-center justify-between gap-3 max-sm:gap-2 ${STICKY_TABS_BAR}`}
+              <ActionGrid
+                cols={3}
+                testId="board-tabs-bar"
+                className={`sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 ${STICKY_TABS_BAR}`}
               >
                 <div
                   role="tablist"
                   aria-label="Kierunek"
                   onKeyDown={(event) => onTablistKeyDown(event, DIRECTIONS.indexOf(direction), (index) => switchDirection(DIRECTIONS[index]))}
-                  className="inline-flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/5"
+                  className="grid grid-cols-2 gap-1 rounded-full bg-black/5 p-1 max-sm:col-span-2 sm:inline-flex dark:bg-white/5"
                 >
                   <TabButton id={tabId('departures')} panelId={panelId} active={direction === 'departures'} onClick={() => switchDirection('departures')}>
                     Odjazdy
@@ -273,25 +290,26 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                     Przyjazdy
                   </TabButton>
                 </div>
-                <StatusLegend />
+                {wide && <StatusLegend />}
 
                 {destinationFilter !== null && (
                   <button
                     type="button"
                     onClick={() => setDestinationFilter(null)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground max-sm:order-2 max-sm:col-span-3 max-sm:justify-center"
                   >
                     Kierunek: {destinationFilter}
                     <CloseIcon size={ICON_SIZE.chip} />
                   </button>
                 )}
-                <div className="ml-auto">
+                <div className="max-sm:[&>button]:w-full sm:ml-auto">
                   <InfoButton open={infoOpen} onClick={toggleInfo} />
                 </div>
-              </div>
+              </ActionGrid>
 
-              {/* Poniżej `xl` kierunki są filtrami nad tablicą (ten sam stan co karta w kolumnie od `xl`). */}
-              {direction === 'departures' && (
+              {/* Od `sm` do `xl` kierunki są filtrami nad tablicą (ten sam stan co karta w kolumnie od `xl`).
+                  Na telefonie filtr jest w arkuszu „Info” (lista kierunków) — chipy kosztowały ~55 px nad pierwszym odjazdem. */}
+              {direction === 'departures' && wide && (
                 <PopularDestinations variant="chips" insights={snapshot?.insights} loading={false} onSelect={setDestinationFilter} selected={destinationFilter} />
               )}
 
@@ -320,6 +338,9 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
         <InfoSheet title="Informacje o stacji" onClose={closeInfo}>
           <StationStatsCards stats={snapshot?.stats} loading={loading} />
           {aside}
+          <AsideCard title="Legenda statusów">
+            <StatusLegendList />
+          </AsideCard>
         </InfoSheet>
       )}
     </div>

@@ -17,7 +17,6 @@ import { zonedHour } from '@/lib/pkp/time'
 import { AlertBanner } from './AlertBanner'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
-import { CityWeatherCard } from './CityWeatherCard'
 import { LineBadge } from './LineBadge'
 import { MapView } from './MapView'
 import { ScheduleStatus } from './ScheduleStatus'
@@ -119,7 +118,7 @@ export function TransitStopDetail({
   // Jedno zapytanie na obie zakładki odjazdowe — „Pełny rozkład" pokazuje całą
   // listę do `SCHEDULE_FETCH_LIMIT`, „Najbliższe" tnie ją do podglądu niżej.
   const { data, error, loading, failed } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effMember)
-  // Nazwa miasta z `/api/cities` — jeden wspólny hook z `CityWeatherCard`,
+  // Nazwa miasta z `/api/cities` — jeden wspólny hook z `WeatherChip`,
   // `TransitStopCard` i stroną miasta (Task 9). Fallback do slugu, dopóki
   // lista się nie wczyta / gdy fetch zawiedzie.
   const { cities: cityEntries } = useCities()
@@ -220,8 +219,6 @@ export function TransitStopDetail({
 
   const asideCards = (
     <>
-      <CityWeatherCard city={city} />
-
       {mapPins.length > 0 && (
         <AsideCard title="Mapa" className="card-hover">
           <MapView pins={mapPins} onPinClick={setMemberChoice} ariaLabel={members.length > 1 ? `Mapa zespołu przystanków ${stopName}` : `Mapa przystanku ${stopName}`} dark={resolvedTheme === 'dark'} />
@@ -415,7 +412,7 @@ export function TransitStopDetail({
           </section>
         )}
 
-        <div className="grid gap-3 max-sm:flex max-sm:flex-wrap max-sm:gap-1.5 sm:grid-cols-3">
+        <div className="grid gap-3 max-sm:grid-cols-2 max-sm:gap-1.5 sm:grid-cols-3">
           {/* Telefon: liczbę linii widać w filtrze linii poniżej — pigułki mieszczą się w jednym rzędzie. */}
           <div className="contents max-sm:hidden">
             <StatTile uppercaseLabel label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />

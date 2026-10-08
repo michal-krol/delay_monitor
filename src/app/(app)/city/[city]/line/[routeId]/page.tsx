@@ -15,7 +15,6 @@ import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
-import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon, VehicleHeadingIcon, ICON_SIZE } from '@/components/icons'
 import { LINE_KIND_LABEL, MODE_LABEL, darkRingClass, lineColor } from '@/components/transitMode'
 import { pluralPl } from '@/lib/plural'
@@ -177,8 +176,6 @@ export default function LineDetailPage() {
         </AsideCard>
       )}
 
-      <CityWeatherCard city={city} />
-
       {showVehicles && direction !== undefined && (
         <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
           {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
@@ -211,6 +208,7 @@ export default function LineDetailPage() {
   return (
     <PageShell aside={asideContent}>
       <TopBar
+        city={city}
         backLabel="Wróć do linii"
         backHref={`/city/${city}/lines`}
         crumbs={[

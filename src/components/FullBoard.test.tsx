@@ -495,6 +495,16 @@ describe('FullBoard', () => {
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
+  it('on a wide screen the status legend sits next to the direction tabs, not in the table header', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+    await screen.findByText('EIC 1')
+
+    const legend = screen.getByRole('button', { name: 'Legenda statusów' })
+    expect(within(screen.getByRole('table')).queryByRole('button', { name: 'Legenda statusów' })).toBeNull()
+    expect(within(screen.getByTestId('board-tabs-bar')).getByRole('button', { name: 'Legenda statusów' })).toBe(legend)
+  })
+
   describe('na telefonie (PR4)', () => {
     const WITH_INSIGHTS = {
       ...SNAPSHOT,
@@ -535,26 +545,37 @@ describe('FullBoard', () => {
       expect(screen.getAllByText('Natężenie ruchu dzisiaj')).toHaveLength(1)
     })
 
-    it('a popular-destination chip above the table filters the board and writes ?direction=', async () => {
+    it('the popular-destination chips are not above the table on a phone; the Info sheet list filters the board and writes ?direction=', async () => {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
       const user = userEvent.setup()
       render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
       await screen.findByText('EIC 1')
+      expect(screen.queryByRole('group', { name: 'Najpopularniejsze kierunki' })).not.toBeInTheDocument()
 
-      const chips = screen.getByRole('group', { name: 'Najpopularniejsze kierunki' })
-      await user.click(within(chips).getByRole('button', { name: 'Kraków' }))
-      expect(within(chips).getByRole('button', { name: 'Kraków' })).toHaveAttribute('aria-pressed', 'true')
+      await user.click(screen.getByRole('button', { name: 'Info' }))
+      const sheet = screen.getByRole('dialog', { name: 'Informacje o stacji' })
+      await user.click(within(sheet).getByRole('button', { name: /Kraków/ }))
       await waitFor(() => expect(new URLSearchParams(window.location.search).get('direction')).toBe('Kraków'))
     })
 
-    it('the status legend sits next to the direction tabs, not in the (phone-hidden) table header', async () => {
+    it('the status legend is in the Info sheet, not as a „?” orphan next to the tabs', async () => {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
       render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
       await screen.findByText('EIC 1')
+      expect(screen.queryByRole('button', { name: 'Legenda statusów' })).not.toBeInTheDocument()
 
-      const legend = screen.getByRole('button', { name: 'Legenda statusów' })
-      expect(within(screen.getByRole('table')).queryByRole('button', { name: 'Legenda statusów' })).toBeNull()
-      expect(within(screen.getByTestId('board-tabs-bar')).getByRole('button', { name: 'Legenda statusów' })).toBe(legend)
+      await user.click(screen.getByRole('button', { name: 'Info' }))
+      const sheet = screen.getByRole('dialog', { name: 'Informacje o stacji' })
+      expect(within(sheet).getByRole('heading', { name: 'Legenda statusów' })).toBeInTheDocument()
+    })
+
+    it('puts ← and „Udostępnij” in the station card when the page asks for it (name once)', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Pulpitu' }} />)
+      await screen.findByText('EIC 1')
+      expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
+      expect(screen.getByRole('button', { name: 'Udostępnij' })).toBeInTheDocument()
     })
   })
 })

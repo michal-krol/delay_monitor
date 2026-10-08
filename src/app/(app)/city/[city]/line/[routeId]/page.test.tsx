@@ -232,7 +232,7 @@ describe('LineDetailPage', () => {
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(screen.getByRole('heading', { name: 'Linia 20' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Pogoda dziś — Warszawa' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Pogoda:/ })).toBeInTheDocument()
     expect(screen.getByText(/Rozkład jazdy linii 20/)).toBeInTheDocument()
     expect(screen.getByText(/Aktualizacja:/)).toBeInTheDocument()
   })
@@ -312,10 +312,10 @@ describe('LineDetailPage', () => {
     expect(await screen.findByText('Wczytywanie rozkładu…')).toBeInTheDocument()
   })
 
-  it('keeps the weather card in the right column even before the line loads', async () => {
+  it('keeps the weather chip in the top bar even before the line loads', async () => {
     stubFetch({ ...LINE, line: null, schedule: { ...LINE.schedule, state: 'loading' } })
     render(<LineDetailPage />)
-    expect(await screen.findByRole('heading', { name: 'Pogoda dziś — Warszawa' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Pogoda:/ })).toBeInTheDocument()
     // Karta „Linia X" zależy od danych linii — jej brak podczas ładowania jest w porządku.
     expect(screen.queryByRole('heading', { name: /^Linia / })).not.toBeInTheDocument()
   })

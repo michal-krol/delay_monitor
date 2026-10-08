@@ -13,6 +13,11 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - **Unknown value** = „brak danych” (a number we could not compute, `null`); **still loading** =
   „Wczytywanie…” (+ skeleton, `ui-states.md`); **nothing there** = „Brak …” + the thing
   („Brak odjazdów…”, „Brak zgłoszonych utrudnień…”). Three different states, three different words.
+- **Weather** = „Pogoda” (chip in the city top bar, `WeatherChip`; details title „Pogoda dziś — {miasto}”).
+  The chip name carries the state („Pogoda: 18°C, Bezchmurnie” / „Pogoda: wczytywanie…” / „Pogoda: nie
+  udało się pobrać” / „Pogoda: brak danych lokalizacyjnych”); without a value there is no temperature (#7).
+- **City stats** = „Statystyki” (collapsed line on phones); all four phone KPIs unknown = one line
+  „Statystyki dnia: brak danych”.
 - „nie podano” = the source gave no value for an optional field (platform, track) — not an error.
 - Data age: „Aktualizacja {N} s temu”; stale after a failed refresh: „Nie udało się odświeżyć · dane z {HH:mm}”.
 

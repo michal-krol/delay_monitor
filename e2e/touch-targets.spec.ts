@@ -12,7 +12,7 @@ async function afterSize(el: Locator) {
   })
 }
 
-test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44, a wygląd 36 px', async ({ page }) => {
+test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44; wygląd 36 px, na telefonie 44 (siatka kontrolek karty)', async ({ page }, testInfo) => {
   await page.goto('/station/33605?name=Warszawa%20Centralna')
   const pin = page.getByRole('button', { name: 'Przypnij do Pulpitu' })
   await expect(pin).toBeVisible()
@@ -20,7 +20,7 @@ test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44, a w
   expect(w).toBeGreaterThanOrEqual(44)
   expect(h).toBeGreaterThanOrEqual(44)
   const box = await pin.boundingBox()
-  expect(box?.width).toBe(36)
+  expect(box?.width).toBe(testInfo.project.name === 'desktop-chromium' ? 36 : 44)
 })
 
 test('„Szukaj" w nagłówku (mobile) ma obszar trafienia >= 44×44', async ({ page }, testInfo) => {

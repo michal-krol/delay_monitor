@@ -18,8 +18,8 @@ vi.mock('next/navigation', () => ({
 }))
 
 // Karty prawej kolumny mają własne testy i własne zapytania — tu sprawdzamy tylko, że strona je montuje.
-vi.mock('@/components/CityWeatherCard', () => ({
-  CityWeatherCard: ({ city }: { city: string }) => <div data-testid="weather-card">{city}</div>,
+vi.mock('@/components/WeatherChip', () => ({
+  WeatherChip: ({ city }: { city: string }) => <div data-testid="weather-chip">{city}</div>,
 }))
 vi.mock('@/components/CityTransitWidget', () => ({
   CityTransitWidget: ({ city, cityName }: { city: string; cityName: string }) => (
@@ -89,11 +89,11 @@ describe('CityLinesPage', () => {
     expect(screen.getAllByTestId('line-section')).toHaveLength(3)
   })
 
-  it('mounts the weather card and the transit widget in the aside', async () => {
+  it('mounts the weather chip in the top bar and the transit widget in the aside', async () => {
     stubFetch()
     render(<CityLinesPage />)
     await screen.findByRole('link', { name: /Linia M1/ })
-    expect(screen.getByTestId('weather-card')).toHaveTextContent('warszawa')
+    expect(screen.getByTestId('weather-chip')).toHaveTextContent('warszawa')
     expect(screen.getByTestId('transit-widget')).toHaveTextContent('warszawa/Warszawa')
   })
 

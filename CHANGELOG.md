@@ -6,6 +6,18 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Zmienione
+
+- Ekran stacji na telefonie: pierwszy odjazd jest wyżej (z ok. 470 do najwyżej 340 px od góry
+  ekranu 375×812). Nazwa stacji występuje raz, a „←”, gwiazdka i „Udostępnij” są w jej karcie;
+  wskaźniki dnia to cztery równe kafelki w jednym rzędzie; zakładki „Odjazdy/Przyjazdy” i „Info”
+  stoją w jednej siatce. Legenda statusów i filtr najpopularniejszych kierunków są w arkuszu „Info”.
+- Pogoda na ekranach miasta (Odjazdy, Linie, linia, przystanek) to chip z ikoną i temperaturą
+  w górnym pasku; dotknięcie otwiera szczegóły (arkusz na telefonie, dymek na komputerze). Bez
+  danych chip nie pokazuje temperatury.
+- Ekran miasta na telefonie: pod wyszukiwarką „Ostatnio oglądane”, statystyki miasta zwinięte do
+  jednej linii „Statystyki”. Nagłówek mapy zajmuje mniej miejsca.
+
 ## [1.2.0] — 2026-10-07
 
 ### Dodane

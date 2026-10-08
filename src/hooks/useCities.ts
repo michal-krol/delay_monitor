@@ -32,7 +32,7 @@ function parseCities(body: unknown): CityEntry[] | null {
 
 /**
  * `/api/cities` odpytywane raz na całą stronę, nie raz na komponent —
- * `CityWeatherCard`, `TransitStopDetail`, `TransitStopCard` i strona miasta
+ * `WeatherChip`, `TransitStopDetail`, `TransitStopCard` i strona miasta
  * (Task 9) renderują się razem, więc bez tej pary modułowych zmiennych każdy
  * z nich robiłby własny fetch tego samego, niezmiennego w ramach wizyty
  * rejestru miast. Zerowane na porażkę (nie zapamiętujemy błędu), żeby kolejny

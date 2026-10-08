@@ -9,8 +9,8 @@ import { CityTransitWidget } from '@/components/CityTransitWidget'
 import { StationSearch, type StationOption } from '@/components/StationSearch'
 import { FullBoard } from '@/components/FullBoard'
 import { TransitStopDetail } from '@/components/TransitStopDetail'
-import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { PageShell } from '@/components/aside'
+import { RecentPlaces } from '@/components/RecentPlaces'
 import { ArrowLeftIcon, ICON_SIZE } from '@/components/icons'
 import { ShareButton } from '@/components/ShareButton'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
@@ -69,18 +69,12 @@ export default function CityPage() {
 
   return (
     <PageShell
-      aside={
-        !hasSelection ? (
-          <>
-            <CityWeatherCard city={city} />
-            <CityTransitWidget city={city} cityName={cityName} />
-          </>
-        ) : undefined
-      }
+      aside={!hasSelection ? <CityTransitWidget city={city} cityName={cityName} /> : undefined}
     >
       {/* Z wybraną stacją/przystankiem nagłówek na telefonie jest zwarty (tytuł dla czytnika),
           żeby pierwszy odjazd tablicy zmieścił się na ekranie — jak na mapie. */}
       <TopBar
+        city={city}
         compact={hasSelection}
         title={`Odjazdy i przyjazdy — ${cityName}`}
         subtitle="Stacje kolejowe i przystanki komunikacji miejskiej"
@@ -111,6 +105,9 @@ export default function CityPage() {
           onSelect={pick}
         />
       </div>
+
+      {/* Pod wyszukiwarką zamiast pustki: ostatnio oglądane (dane już są, zero zapytań). */}
+      {!hasSelection && <RecentPlaces limit={4} />}
 
       {hasSelection && (
         <section className="flex flex-col gap-4">

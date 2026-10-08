@@ -41,10 +41,11 @@ export default function Page() {
       {/* Jedyna droga tutaj to wyszukiwarka na Pulpicie (`goToBoard`) i stary
           `?focus=` (też z Pulpitu) — rodzic jednoznaczny, w przeciwieństwie
           do `/connection/...`, więc ← to link. */}
-      <TopBar backLabel="Wróć do Pulpitu" backHref="/" crumbs={[{ label: 'Pulpit', href: '/' }, { label: stationName }]} share />
+      <TopBar backLabel="Wróć do Pulpitu" backHref="/" crumbs={[{ label: 'Pulpit', href: '/' }, { label: stationName }]} share hideOnPhone />
       <FullBoard
         stationId={stationId}
         stationName={stationName}
+        phoneBack={{ href: '/', label: 'Wróć do Pulpitu' }}
         isPinned={isPinned(key)}
         onTogglePin={() => (isPinned(key) ? removePinned(key) : addPinned(pinnedItem))}
       />

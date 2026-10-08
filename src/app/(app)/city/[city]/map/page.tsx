@@ -483,7 +483,7 @@ export default function CityMapPage() {
   return (
     // Wysokość = ekran bez nagłówka i dolnego paska (od `sm` obie zmienne to 0): strona się nie przewija.
     <div className="flex h-[calc(100dvh-var(--header-h)-var(--bottom-nav-h))] min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="px-4 py-2 sm:px-8 sm:py-5">
+      <div className="px-4 py-1 sm:px-8 sm:py-5">
         <TopBar
           compact
           title="Mapa transportu"
