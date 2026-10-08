@@ -21,6 +21,12 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - „nie podano” = the source gave no value for an optional field (platform, track) — not an error.
 - Data age: „Aktualizacja {N} s temu”; stale after a failed refresh: „Nie udało się odświeżyć · dane z {HH:mm}”.
 
+## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)
+
+- Render error: title „Nie udało się wczytać tej strony” (`global-error`: „…aplikacji”), actions
+  „Spróbuj ponownie” + „Wróć do Pulpitu”. Never print `error.message`/`digest` (#4).
+- 404: „Nie znaleziono strony” + „Wróć do Pulpitu”.
+
 ## Place words (`gtfs.md`)
 
 - PKP: „stacja”. GTFS: bare name („Centrum”) = „zespół przystanków”; one stop = „przystanek {nr}”

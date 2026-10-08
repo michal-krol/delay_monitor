@@ -71,3 +71,16 @@ describe('getMapRailStations', () => {
     ])
   })
 })
+
+describe('getAllStationIds', () => {
+  it('lists every station of the static dictionary, including city-fallback and failed ones (a board exists for each)', async () => {
+    readFile.mockResolvedValueOnce(
+      JSON.stringify({
+        ...FIXTURE,
+        '273': { name: 'Szczecin Główny', lat: 53.4, lon: 14.5, source: 'city-fallback' },
+      })
+    )
+    const { getAllStationIds } = await import('./coordinates')
+    expect((await getAllStationIds()).sort()).toEqual(['273', '33605', '999999'])
+  })
+})

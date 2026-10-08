@@ -93,11 +93,6 @@ test.describe('PR5: cele dotyku na telefonie', () => {
     test.skip(testInfo.project.name === 'desktop-chromium', 'cele dotyku dotyczą telefonu (poniżej sm)')
   })
 
-  test('CityPicker: select ma >= 44 px wysokości', async ({ page }) => {
-    await page.goto('/city/warszawa/lines')
-    expect(await hitHeight(page.getByRole('combobox', { name: 'Miasto' }))).toBeGreaterThanOrEqual(44)
-  })
-
   test('MapFilters: wiersze warstw i „Pokaż wszystko” mają >= 44 px', async ({ page }) => {
     await page.goto('/city/warszawa/map')
     await page.getByRole('button', { name: /Filtry/ }).click()

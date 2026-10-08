@@ -48,6 +48,8 @@ export default function CityLinesPage() {
     isLoading: (json) => json.lines === null,
   })
   const failed = error !== null
+  // Ostrzeżenie (wczytywanie, wiek danych, błąd) idzie na górę; wtedy stopka NIE powtarza bloku stanu rozkładu.
+  const attention = data !== null && scheduleNeedsAttention(data.schedule, failed)
 
   const cityName = useMemo(() => cities.find((option) => option.id === city)?.name ?? city, [cities, city])
 
@@ -75,7 +77,7 @@ export default function CityLinesPage() {
       />
 
       {/* Góra: tylko gdy coś jest nie tak (wczytywanie, wiek danych, błąd); zwykła linijka jest w stopce. */}
-      {data !== null && scheduleNeedsAttention(data.schedule, failed) && (
+      {data !== null && attention && (
         <ScheduleStatus schedule={data.schedule} cityName={cityName} error={failed} />
       )}
 
@@ -111,7 +113,7 @@ export default function CityLinesPage() {
 
       {data !== null && data.schedule.state !== 'loading' && (
         <footer data-testid="lines-footer">
-          <ScheduleStatus schedule={data.schedule} cityName={cityName} quiet />
+          {!attention && <ScheduleStatus schedule={data.schedule} cityName={cityName} quiet />}
           <AttributionFooter attribution={data.attribution} />
         </footer>
       )}
