@@ -46,6 +46,14 @@ const DETAIL_PAGES = [
 for (const { name, path, back } of DETAIL_PAGES) {
   test(`jeden górny rząd: ${name}`, async ({ page }, testInfo) => {
     await page.goto(path)
+    // Stacja na telefonie: ← i „Udostępnij” są w karcie (nazwa raz), pasek ze ścieżką jest schowany.
+    if (name === 'stacja' && testInfo.project.name !== 'desktop-chromium') {
+      await expect(page.getByRole('link', { name: back, exact: true })).toBeVisible({ timeout: 45_000 })
+      await expect(page.getByRole('navigation', { name: 'Ścieżka nawigacji' })).toHaveCount(0)
+      const overflowPhone = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      expect(overflowPhone).toBeLessThanOrEqual(0)
+      return
+    }
     const nav = page.getByRole('navigation', { name: 'Ścieżka nawigacji' })
     await expect(nav).toBeVisible({ timeout: 45_000 })
     await expect(page.getByRole('navigation', { name: 'Ścieżka nawigacji' })).toHaveCount(1)

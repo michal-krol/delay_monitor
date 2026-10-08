@@ -1,6 +1,7 @@
 import type { StationStats } from '@/lib/board/stationStats'
 import { ArrivalIcon, DepartureIcon, HourglassIcon, TargetIcon, ICON_SIZE } from './icons'
 import { pluralPl } from '@/lib/plural'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { useInSheet } from './BottomSheet'
 import { StatTile } from './StatTile'
 
@@ -44,6 +45,7 @@ function realizationHint(loading: boolean, sample: number, ready: string): strin
 export function StationStatsCards({ stats, loading = false }: { stats: StationStats | undefined; loading?: boolean }) {
   // Nad tablicą na telefonie pigułki (pierwszy odjazd ma być widoczny bez przewijania); w arkuszu „Info” kafelki.
   const pills = !useInSheet()
+  const wide = useMediaQuery(SM_UP, true)
   // Snapshotu jeszcze nie ma (zimny start pollera) -- kafelki i tak muszą
   // zająć swoje miejsce w kompozycji, żeby układ nie skakał, gdy dane dojdą.
   const safe: StationStats = stats ?? {
@@ -59,12 +61,23 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
   const departures = countValue(safe.departuresToday, loading)
   const arrivals = countValue(safe.arrivalsToday, loading)
 
+  // Telefon, wszystko nieznane: jedna linia zamiast czterech „brak danych” (#7: nieznane ≠ 0).
+  const allUnknown =
+    !loading && safe.departuresToday === null && safe.arrivalsToday === null && safe.averageDelayMinutes === null && safe.punctualityPct === null
+  if (pills && !wide && stats !== undefined && allUnknown) {
+    return (
+      <p data-testid="station-stats" data-variant="unknown" className="text-xs text-text-muted">
+        Statystyki dnia: brak danych
+      </p>
+    )
+  }
+
   return (
     // Kolumny od szerokości KONTENERA, nie okna: w FullBoard przy oknie 1280 px kafelki mają
     // ~565 px, a `xl:grid-cols-4` ściskało je do 143 px („Punktualność” ucięta). 1 → 2 → 4,
     // nigdy 3 (auto-fill dałby sierotę 3+1).
     <div className="@container" data-testid="station-stats" data-variant={pills ? 'pills' : 'tiles'}>
-      <div className={`grid grid-cols-1 gap-3 @md:grid-cols-2 @5xl:grid-cols-4 ${pills ? 'max-sm:flex max-sm:flex-wrap max-sm:gap-1.5' : ''}`}>
+      <div className={`grid grid-cols-1 gap-3 @md:grid-cols-2 @5xl:grid-cols-4 ${pills ? 'max-sm:grid-cols-4 max-sm:gap-1' : ''}`}>
         <StatTile
           pills={pills}
           icon={<DepartureIcon size={ICON_SIZE.tile} />}

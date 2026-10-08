@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { showBoardContext, showLineTimetable } from './helpers/info'
+import { showLineTimetable } from './helpers/info'
 import { scanA11y } from './helpers/axe'
 
 // Mock „Centrum" (zespół 1001) = 4 przystanki z RÓŻNYMI liniami: 100101→20,
@@ -33,9 +33,8 @@ test('przystanek miejski: przełącznik przystanków zespołu', async ({ page })
   // Po tytule tagu: `getByText(/^0\d$/)` trafiał dotąd w oś „00” wykresu w prawej kolumnie, nie w tag (PR4).
   await expect(page.getByTitle(/^Odjazd z przystanku 0\d$/).first()).toBeVisible({ timeout: READY })
 
-  // Widżet pogody w kontekście miasta obecny na każdym ekranie GTFS (#5 / to ważne); telefon: w „Info”.
-  await showBoardContext(page)
-  await expect(page.getByRole('heading', { name: /Pogoda dziś/ })).toBeVisible()
+  // Pogoda w kontekście miasta obecna na każdym ekranie GTFS (#5 / to ważne): chip w górnym pasku.
+  await expect(page.getByRole('button', { name: /^Pogoda:/ })).toBeVisible()
 })
 
 test('przystanek miejski: deep-link przystanku od razu go podświetla', async ({ page }) => {

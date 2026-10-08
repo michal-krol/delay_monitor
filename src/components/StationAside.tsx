@@ -151,7 +151,7 @@ function StationDisruptions({ messages }: { messages: string[] }) {
  * dokładnie `next`, `react`, `react-dom` i `zod`, i tak ma zostać. Biblioteka
  * wykresów dla dwudziestu czterech prostokątów byłaby absurdem.
  */
-const WEATHER_ICONS: Record<WeatherIconKey, (props: { size?: number; className?: string }) => React.ReactNode> = {
+export const WEATHER_ICONS: Record<WeatherIconKey, (props: { size?: number; className?: string }) => React.ReactNode> = {
   sun: SunIcon,
   cloud: CloudIcon,
   fog: FogIcon,
@@ -296,8 +296,8 @@ export function StationAside({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Poniżej `xl` te kierunki są filtrami nad tablicą (`FullBoard`) — tu tylko w prawej kolumnie. */}
-      <AsideCard title="Najpopularniejsze kierunki" className="hidden xl:block">
+      {/* Od `sm` do `xl` te kierunki są filtrami nad tablicą (`FullBoard`) — tu w prawej kolumnie i w arkuszu „Info” na telefonie. */}
+      <AsideCard title="Najpopularniejsze kierunki" className="hidden max-sm:block xl:block">
         <PopularDestinations insights={insights} loading={loading} onSelect={onDestinationFilter} selected={destinationFilter} />
       </AsideCard>
       <AsideCard title="Utrudnienia na tej stacji">

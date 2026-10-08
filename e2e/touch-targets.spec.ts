@@ -12,7 +12,7 @@ async function afterSize(el: Locator) {
   })
 }
 
-test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44, a wygląd 36 px', async ({ page }) => {
+test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44; wygląd 36 px, na telefonie 44 (siatka kontrolek karty)', async ({ page }, testInfo) => {
   await page.goto('/station/33605?name=Warszawa%20Centralna')
   const pin = page.getByRole('button', { name: 'Przypnij do Pulpitu' })
   await expect(pin).toBeVisible()
@@ -20,7 +20,7 @@ test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44, a w
   expect(w).toBeGreaterThanOrEqual(44)
   expect(h).toBeGreaterThanOrEqual(44)
   const box = await pin.boundingBox()
-  expect(box?.width).toBe(36)
+  expect(box?.width).toBe(testInfo.project.name === 'desktop-chromium' ? 36 : 44)
 })
 
 test('„Szukaj" w nagłówku (mobile) ma obszar trafienia >= 44×44', async ({ page }, testInfo) => {
@@ -98,8 +98,9 @@ test.describe('PR5: cele dotyku na telefonie', () => {
     await page.getByRole('button', { name: /Filtry/ }).click()
     const rows = page.getByRole('checkbox').locator('xpath=ancestor::label[1]')
     await expect(rows.first()).toBeVisible({ timeout: READY })
-    for (let i = 0; i < (await rows.count()); i++) expect(await hitHeight(rows.nth(i))).toBeGreaterThanOrEqual(44)
-    expect(await hitHeight(page.getByRole('button', { name: 'Pokaż wszystko' }))).toBeGreaterThanOrEqual(44)
+    // Math.round: 44 px rows measured mid-layout come out as 43.99998 (subpixel noise, seen 2026-10-07/08).
+    for (let i = 0; i < (await rows.count()); i++) expect(Math.round(await hitHeight(rows.nth(i)))).toBeGreaterThanOrEqual(44)
+    expect(Math.round(await hitHeight(page.getByRole('button', { name: 'Pokaż wszystko' })))).toBeGreaterThanOrEqual(44)
   })
 
   test('strona linii: pigułka kierunku i przystanek na osi mają >= 44 px', async ({ page }) => {

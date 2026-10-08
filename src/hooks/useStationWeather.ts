@@ -49,7 +49,7 @@ export function useStationWeather(stationId: string): UseStationWeatherResult {
     setResult({ status: 'loading' })
 
     // Pusty identyfikator = obiekt nadrzędny jeszcze się nie wczytał (np.
-    // CityWeatherCard czeka na /api/cities). Nie bijemy w API z `stationId=`.
+    // WeatherChip czeka na /api/cities). Nie bijemy w API z `stationId=`.
     if (stationId === '') return
 
     fetch(`/api/weather?stationId=${stationId}`)

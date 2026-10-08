@@ -35,7 +35,7 @@ type Props = {
  */
 export function TransitStopCard({ city, stopId, stopName, member = false, onRemove, onGroupResolved }: Props) {
   const { data, loading, failed } = useTransitBoard(city, [stopId], 3, member ? stopId : null)
-  // Ten sam wspólny hook `/api/cities` co `CityWeatherCard`/`TransitStopDetail`/
+  // Ten sam wspólny hook `/api/cities` co `WeatherChip`/`TransitStopDetail`/
   // strona miasta (Task 9).
   const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city

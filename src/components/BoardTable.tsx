@@ -29,10 +29,9 @@ const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
 /** Kolejność wpisów w legendzie -- ta sama co w `resolveStopStatus()`, nie kolejność zależna od `Object.keys`. */
 const STATUS_ORDER: RealizationStatus[] = ['onTime', 'delayed', 'cancelled', 'unknown', 'notStarted', 'enRoute']
 
-/** Legenda statusów („?”) — przy zakładkach Odjazdy/Przyjazdy (`FullBoard`), bo nagłówek tabeli na telefonie jest ukryty. */
-export function StatusLegend() {
+/** Treść legendy statusów — w dymku „?” (`StatusLegend`) i w arkuszu „Info” na telefonie. */
+export function StatusLegendList() {
   return (
-    <InfoTooltip label="Legenda statusów">
       <ul className="flex flex-col gap-2">
         {STATUS_ORDER.map((status) => (
           <li key={status} className="flex gap-2">
@@ -52,6 +51,14 @@ export function StatusLegend() {
           </li>
         ))}
       </ul>
+  )
+}
+
+/** Legenda statusów („?”) — przy zakładkach Odjazdy/Przyjazdy (`FullBoard`), bo nagłówek tabeli na telefonie jest ukryty. Na telefonie jest w arkuszu „Info”. */
+export function StatusLegend() {
+  return (
+    <InfoTooltip label="Legenda statusów">
+      <StatusLegendList />
     </InfoTooltip>
   )
 }

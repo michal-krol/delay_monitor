@@ -32,7 +32,7 @@ export function InfoButton({ open, onClick }: { open: boolean; onClick: () => vo
       onClick={onClick}
       aria-haspopup="dialog"
       aria-expanded={open}
-      className="press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:text-foreground sm:hidden"
+      className="press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:text-foreground sm:hidden"
     >
       <InfoIcon size={ICON_SIZE.button} />
       Info
@@ -50,11 +50,11 @@ export function InfoButton({ open, onClick }: { open: boolean; onClick: () => vo
  * przewijanie strony. Renderowany tylko na telefonie (`useBoardContext`); od `sm` treść stoi w kolumnie.
  * Semantyka okna, „×” i Escape należą do `PanelFrame` (reguła z `maps.md`).
  */
-export function InfoSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function InfoSheet({ title, onClose, closeLabel = 'Zamknij informacje', children }: { title: string; onClose: () => void; closeLabel?: string; children: ReactNode }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-[var(--header-h)] bottom-[var(--bottom-nav-h)] z-40">
       <BottomSheet initialSnap="half">
-        <PanelFrame title={title} closeLabel="Zamknij informacje" onClose={onClose}>
+        <PanelFrame title={title} closeLabel={closeLabel} onClose={onClose}>
           <div className="flex flex-col gap-4">{children}</div>
         </PanelFrame>
       </BottomSheet>

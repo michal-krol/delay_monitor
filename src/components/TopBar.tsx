@@ -9,6 +9,7 @@ import { ICON_BUTTON_CLASS, ICON_BUTTON_MD_SIZE, IconButton } from './IconButton
 import { PageTitle } from './PageTitle'
 import { ShareButton } from './ShareButton'
 import { ThemeToggle } from './ThemeToggle'
+import { WeatherChip } from './WeatherChip'
 
 type HeaderVariant = {
   title: string
@@ -18,6 +19,7 @@ type HeaderVariant = {
   /** Poniżej `sm` jeden niski rząd: tytuł tylko dla czytnika (nazwa jest w dolnym pasku), mniejszy podtytuł. */
   compact?: boolean
   backLabel?: never
+  hideOnPhone?: never
   backHref?: never
   onBack?: never
   crumbs?: never
@@ -41,13 +43,18 @@ type BackVariant = {
   crumbs: BreadcrumbItem[]
   /** „Udostępnij” obok przełącznika motywu. Pominięte tam, gdzie nie ma sensu wysyłać strony dalej. */
   share?: boolean
+  /** Telefon: karta treści ma własne ←/„Udostępnij” (stacja) — pasek chowa się, żeby nazwa nie występowała dwa razy. */
+  hideOnPhone?: boolean
   title?: never
   subtitle?: never
   actions?: never
   compact?: never
 } & ({ backHref: string; onBack?: never } | { onBack: () => void; backHref?: never })
 
-type Props = HeaderVariant | BackVariant
+type Props = (HeaderVariant | BackVariant) & {
+  /** Ekran komunikacji miejskiej: chip pogody miasta przed pozostałymi akcjami (`WeatherChip`). */
+  city?: string
+}
 
 export function TopBar(props: Props) {
   const back = props.backLabel === undefined ? null : props
@@ -55,7 +62,7 @@ export function TopBar(props: Props) {
   return (
     // Wariant nagłówka zawija rząd (kontrolki schodzą pod tytuł na wąskim ekranie
     // zamiast wychodzić poza stronę); wariant z ← zostaje w jednym rzędzie.
-    <div className={`relative flex items-center justify-between gap-4 ${back === null ? (props.compact ? 'flex-nowrap sm:flex-wrap sm:gap-y-2' : 'flex-wrap gap-y-2') : ''}`}>
+    <div className={`relative flex items-center justify-between gap-4 ${back?.hideOnPhone === true ? 'max-sm:hidden' : ''} ${back === null ? (props.compact ? 'flex-nowrap sm:flex-wrap sm:gap-y-2' : 'flex-wrap gap-y-2') : ''}`}>
       {back !== null ? (
         <div className="flex min-w-0 items-center gap-3">
           {back.backHref !== undefined ? (
@@ -72,13 +79,14 @@ export function TopBar(props: Props) {
       ) : (
         <div className="min-w-0">
           <PageTitle className={props.compact ? 'max-sm:sr-only' : ''}>{props.title}</PageTitle>
-          <p className={`text-text-muted ${props.compact ? 'text-xs sm:mt-0.5 sm:text-sm' : 'mt-0.5 text-sm'}`}>{props.subtitle}</p>
+          <p className={`text-text-muted ${props.compact ? 'truncate text-xs sm:mt-0.5 sm:text-sm' : 'mt-0.5 text-sm'}`}>{props.subtitle}</p>
         </div>
       )}
 
       {/* Z tytułem grupa (Udostępnij + wybór miasta + motyw) może się zawinąć — na 375 px bywa szersza niż
           wiersz i wystawała poza stronę (e2e headings.spec, WebKit na Linuksie). Z „wstecz” skraca się breadcrumb. */}
       <div className={`flex items-center gap-2 ${back === null ? 'ml-auto min-w-0 flex-wrap justify-end' : 'shrink-0'}`}>
+        {props.city !== undefined && <WeatherChip city={props.city} />}
         {back === null ? props.actions : back.share === true && <ShareButton />}
         {/* Poniżej `sm` przełącznik motywu jest w `MobileHeader` — jeden na ekran. */}
         <span className="hidden sm:contents">

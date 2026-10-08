@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { scanA11y } from './helpers/axe'
+import { showBoardContext } from './helpers/info'
 
 // PR4: tablice „najpierw odjazdy” na telefonie — pierwszy odjazd bez przewijania, przyklejony
 // pasek zakładek, arkusz „Info” z tym samym kontekstem co prawa kolumna.
@@ -52,13 +53,17 @@ test('375×667: najbliższy odjazd przystanku „Centrum” widać bez przewijan
   await expectAboveNav(page, first)
 })
 
-test('ekran miasta na telefonie: najpierw wyszukiwarka, kafelki statystyk pod nią', async ({ page }) => {
+test('ekran miasta na telefonie: najpierw wyszukiwarka, statystyki zwinięte do linii pod nią, rozwijane dotknięciem', async ({ page }) => {
   await page.goto('/city/warszawa')
   const search = page.getByRole('combobox', { name: /Szukaj stacji kolejowej lub przystanku/ })
+  const summary = page.getByText('Statystyki', { exact: true })
   const tile = page.getByText('przystanki miejskie', { exact: true })
   await expect(search).toBeVisible({ timeout: READY })
+  await expect(summary).toBeVisible()
+  await expect(tile).toBeHidden()
+  expect((await search.boundingBox())!.y).toBeLessThan((await summary.boundingBox())!.y)
+  await summary.click()
   await expect(tile).toBeVisible()
-  expect((await search.boundingBox())!.y).toBeLessThan((await tile.boundingBox())!.y)
 })
 
 test('pasek zakładek przystanku zostaje pod nagłówkiem po przewinięciu o 600 px', async ({ page }) => {
@@ -110,14 +115,33 @@ test('ikona utrudnienia widoczna w karcie pociągu na telefonie (109)', async ({
   await expect(page.getByRole('img', { name: 'Utrudnienie na trasie' }).first()).toBeVisible()
 })
 
-test('chip najpopularniejszego kierunku filtruje tablicę i ustawia ?direction=', async ({ page }) => {
+test('kierunek z arkusza „Info” filtruje tablicę i ustawia ?direction= (chipów nad tablicą na telefonie nie ma)', async ({ page }) => {
   await firstBoardTime(page, STATION)
-  const chips = page.getByRole('group', { name: 'Najpopularniejsze kierunki' })
-  const chip = chips.getByRole('button').first()
-  const name = (await chip.textContent())!.trim()
-  await chip.click()
-  await expect(chip).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: 'Najpopularniejsze kierunki' })).toHaveCount(0)
+  await showBoardContext(page)
+  const sheet = page.getByRole('dialog', { name: 'Informacje o stacji' })
+  const destination = sheet.getByRole('button', { pressed: false }).filter({ hasText: /połącz/ }).first()
+  const name = (await destination.locator('span').first().textContent())!.trim()
+  await destination.click()
+  await expect(sheet.getByRole('button', { pressed: true }).filter({ hasText: name })).toBeVisible()
   await expect.poll(() => new URL(page.url()).searchParams.get('direction')).toBe(name)
+})
+
+test('375×812: pierwszy wiersz tablicy stacji najwyżej 340 px od góry (było ~470)', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  const time = await firstBoardTime(page, STATION)
+  expect((await time.boundingBox())!.y).toBeLessThanOrEqual(340)
+})
+
+test('karta stacji na telefonie: nazwa raz, ← i „Udostępnij” w karcie, zakładki i Info w jednej siatce', async ({ page }) => {
+  await firstBoardTime(page, STATION)
+  await expect(page.getByRole('heading', { name: 'Warszawa Centralna' })).toHaveCount(1)
+  await expect(page.getByRole('link', { name: 'Wróć do Pulpitu' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Udostępnij' })).toBeVisible()
+  const tabs = (await page.getByRole('tablist', { name: 'Kierunek' }).boundingBox())!
+  const info = (await page.getByRole('button', { name: 'Info' }).boundingBox())!
+  expect(Math.abs(tabs.y - info.y), 'zakładki i Info w jednym rzędzie').toBeLessThanOrEqual(6)
+  expect(info.height).toBeGreaterThanOrEqual(44)
 })
 
 test('„Info” otwiera arkusz z kontekstem stacji, Escape zamyka i oddaje fokus', async ({ page }) => {

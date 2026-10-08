@@ -29,6 +29,7 @@ export default function TransitStopPage() {
       {/* „Odjazdy / Przyjazdy", nie „Linie": ta strona wraca do `/city/{city}` —
           ← i pierwszy element ścieżki wskazują ten sam rodzic. */}
       <TopBar
+        city={city}
         backLabel="Wróć do odjazdów"
         backHref={`/city/${city}`}
         crumbs={[{ label: 'Odjazdy / Przyjazdy', href: `/city/${city}` }, { label: resolvedName ?? initialName ?? stopId }]}

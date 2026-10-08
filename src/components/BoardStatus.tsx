@@ -97,7 +97,7 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
           type="button"
           onClick={onRefresh}
           title={`Ostatnia aktualizacja: ${formatLastUpdated(fetchedAt)}`}
-          className="inline-flex items-center rounded-full underline decoration-dotted underline-offset-2 transition hover:text-foreground max-sm:min-h-11"
+          className="inline-flex items-center rounded-full underline decoration-dotted underline-offset-2 transition hover:text-foreground touch-44 relative"
         >
           Aktualizacja {formatAgo(ageMs / 1000)}
           {' '}

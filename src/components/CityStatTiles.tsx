@@ -1,5 +1,6 @@
 import type { CityStats } from '@/lib/gtfs/query'
-import { LayersIcon, ListIcon, StopIcon, TrainIcon, ICON_SIZE } from './icons'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
+import { DisclosureIcon, LayersIcon, ListIcon, StopIcon, TrainIcon, ICON_SIZE } from './icons'
 
 type Props = {
   stats: CityStats | null
@@ -36,19 +37,32 @@ const num = (value: number | null | undefined): string =>
 
 /**
  * Pasek kafelków pod nagłówkiem ekranu miasta — wizualne podsumowanie zamiast
- * linijki tekstu. Fakty rozkładowe, nie „na czas".
+ * linijki tekstu. Fakty rozkładowe, nie „na czas". Na telefonie to ciekawostka: zwinięta
+ * do jednej linii „Statystyki” (kafelki istnieją w DOM tylko od `sm` albo po rozwinięciu).
  */
 export function CityStatTiles({ stats, loading, railStationCount }: Props) {
   const modes = loading ? null : (stats?.modeCount ?? null)
   const trips = loading ? null : (stats?.tripsToday ?? null)
   const groups = loading ? null : (stats?.stopGroupCount ?? null)
+  const wide = useMediaQuery(SM_UP, true)
 
-  return (
+  const tiles = (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Tile icon={<StopIcon size={ICON_SIZE.tile} />} value={num(groups)} label="przystanki miejskie" />
       <Tile icon={<TrainIcon size={ICON_SIZE.tile} />} value={num(railStationCount)} label="stacje kolejowe" />
       <Tile icon={<LayersIcon size={ICON_SIZE.tile} />} value={num(modes)} label="środki transportu" />
       <Tile icon={<ListIcon size={ICON_SIZE.tile} />} value={num(trips)} label="połączenia dziś" />
     </div>
+  )
+  if (wide) return tiles
+
+  return (
+    <details className="glass rounded-2xl">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
+        Statystyki
+        <DisclosureIcon size={ICON_SIZE.button} className="ml-auto text-text-muted" />
+      </summary>
+      <div className="px-3.5 pb-3.5">{tiles}</div>
+    </details>
   )
 }

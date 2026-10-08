@@ -12,7 +12,6 @@ import { LineGrid, LineResults, RecentLines } from '@/components/LineGrid'
 import { SEARCH_INPUT_CLASS } from '@/components/StationSearch'
 import { ScheduleStatus, scheduleNeedsAttention } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
-import { CityWeatherCard } from '@/components/CityWeatherCard'
 import { CityTransitWidget } from '@/components/CityTransitWidget'
 import { MODE_ORDER } from '@/components/transitMode'
 import { PageShell } from '@/components/aside'
@@ -68,14 +67,10 @@ export default function CityLinesPage() {
 
   return (
     <PageShell
-      aside={
-        <>
-          <CityWeatherCard city={city} />
-          <CityTransitWidget city={city} cityName={cityName} />
-        </>
-      }
+      aside={<CityTransitWidget city={city} cityName={cityName} />}
     >
       <TopBar
+        city={city}
         title={`Linie — ${cityName}`}
         subtitle="Metro, tramwaje, autobusy i kolej miejska"
         actions={<CityPicker cities={cities} current={city} hrefFor={(id) => `/city/${id}/lines`} />}

@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test'
-import { showBoardContext } from './helpers/info'
 
 // GTFS mock parsuje się raz przy starcie serwera (~kilkanaście s) — strony
 // same ponawiają, więc czekamy z zapasem na pierwszą treść z rozkładu.
@@ -14,6 +13,9 @@ test('ekran miasta: deep-link ?stop= renderuje osadzoną tablicę, „wróć" j�
 
   await page.getByRole('button', { name: /Wróć do wyszukiwania/ }).click()
   await expect(page).toHaveURL(/\/city\/warszawa$/)
+  // Telefon: statystyki zwinięte do linii „Statystyki”.
+  const summary = page.getByText('Statystyki', { exact: true })
+  if (await summary.isVisible()) await summary.click()
   await expect(page.getByText('przystanki miejskie')).toBeVisible()
 })
 
@@ -47,8 +49,7 @@ test('linia: przełącznik kierunku odwraca początek i koniec trasy', async ({ 
   }).toPass({ timeout: 5_000 })
 })
 
-// Karta pogody żyje w PageAside (od `xl` po prawej, niżej pod treścią) albo
-// w asideie osadzonym w gridzie (przystanek) — widoczna na każdym viewporcie.
+// Pogoda = chip w górnym pasku (`TopBar` z `city`), dotknięcie otwiera szczegóły — widoczny na każdym viewporcie.
 const WEATHER_VIEWS = [
   { name: 'ekran miasta', path: '/city/warszawa' },
   { name: 'przeglądarka linii', path: '/city/warszawa/lines' },
@@ -59,8 +60,9 @@ const WEATHER_VIEWS = [
 for (const view of WEATHER_VIEWS) {
   test(`pogoda w kontekście miasta obecna na każdym ekranie GTFS: ${view.name}`, async ({ page }) => {
     await page.goto(view.path)
-    // Przystanek na telefonie: pogoda w arkuszu „Info” (PR4); inne ekrany — nic do otwarcia.
-    if (view.path.includes('/stop/')) await showBoardContext(page)
-    await expect(page.getByRole('heading', { name: /Pogoda dziś/ })).toBeVisible({ timeout: READY })
+    const chip = page.getByRole('button', { name: /^Pogoda:/ })
+    await expect(chip).toBeVisible({ timeout: READY })
+    await chip.click()
+    await expect(page.getByRole('region', { name: /Pogoda dziś/ }).or(page.getByRole('dialog', { name: /Pogoda dziś/ }))).toBeVisible()
   })
 }

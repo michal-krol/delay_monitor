@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CityStatTiles } from './CityStatTiles'
 import type { CityStats } from '@/lib/gtfs/query'
 
@@ -36,5 +36,27 @@ describe('CityStatTiles', () => {
     render(<CityStatTiles stats={stats} loading={false} railStationCount={null} />)
     // stacje kolejowe nieznane (/api/cities zawiodło lub railStationsUnknown) — „—", nie 0.
     expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  describe('na telefonie (poniżej sm)', () => {
+    const original = window.matchMedia
+    beforeEach(() => {
+      window.matchMedia = (() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia
+    })
+    afterEach(() => {
+      window.matchMedia = original
+    })
+
+    it('zwija statystyki do jednej linii „Statystyki” (domyślnie zamknięte)', () => {
+      render(<CityStatTiles stats={stats} loading={false} railStationCount={7} />)
+      // `<details>` zamknięte: treść w DOM, ale niewidoczna dla użytkownika.
+      expect(screen.getByText('Statystyki')).toBeVisible()
+      expect(screen.getByText('przystanki miejskie')).not.toBeVisible()
+    })
+
+    it('nieznane liczby dalej jako „—”, nie 0', () => {
+      render(<CityStatTiles stats={null} loading railStationCount={null} />)
+      expect(screen.getAllByText('—')).toHaveLength(4)
+    })
   })
 })
