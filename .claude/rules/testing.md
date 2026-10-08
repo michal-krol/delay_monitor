@@ -120,7 +120,7 @@ Check response shape in the public schema, don't guess from fixtures (no key, no
 
 `npm run e2e` = versioned UI regression suite (`@playwright/test`), mock mode, zero network:
 server via `webServer` without a PKP key, `GTFS_DATA_SOURCE=mock`. Locally on UI changes + in
-CI (separate `e2e` job, outside the fast `quality` job).
+CI (outside the fast `quality` job: one `e2e-<project>` matrix job per Playwright project, aggregated by the job named `e2e` — the name the ruleset requires, do not rename).
 
 - Projects: `desktop-chromium`, `mobile-chromium` (`Pixel 7`), `mobile-safari`
   (`iPhone 15`). New viewport = entry in `playwright.config.ts`.
@@ -136,4 +136,10 @@ CI (separate `e2e` job, outside the fast `quality` job).
 - Locally `retries: 1` (as in CI): under full load 2 tests failed per run and passed on retry;
   now they show as "flaky". Missing browsers after a Playwright bump → the config prints
   `npx playwright install chromium webkit` and exits.
+- **During UI work** run only `E2E_PORT=<free> npm run e2e -- --project=mobile-chromium e2e/<touched>.spec.ts`
+  (the cheapest project, ~1/3 of the suite); the full 3-project run is CI's job, locally only before a risky push.
+- Specs that render a map import `test` from `e2e/helpers/test.ts`: it caches OpenFreeMap style/tile responses
+  per worker (real tiles, fetched once per worker instead of once per test). A test that blocks tiles
+  with its own `page.route` still wins. Measured 2026-10-07: map.spec on mobile-chromium, 1 worker, 83 s → 77 s;
+  per-test cost is CPU (software WebGL), not network — tests alone take ~1 s, the 5 s ones are sheet animations.
 - `ponytail:` visual snapshots (`toHaveScreenshot`) skipped until a real visual regression.

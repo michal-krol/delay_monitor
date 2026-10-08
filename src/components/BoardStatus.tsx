@@ -102,6 +102,11 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
           Aktualizacja {formatAgo(ageMs / 1000)}
           {' '}
           <span className="sr-only">— odśwież teraz</span>
+          {/* Tryb aplikacji: brak odświeżania przeglądarki i brak podpowiedzi `title` na dotyk — przycisk mówi sam. */}
+          <span aria-hidden="true" className="hidden [@media(display-mode:standalone)]:inline">
+            {' '}
+            · dotknij, by odświeżyć
+          </span>
         </button>
       ) : (
         <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>

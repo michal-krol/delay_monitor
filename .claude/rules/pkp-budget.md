@@ -27,7 +27,7 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
 - **Outside the poller cycle, count separately:**
   - `/api/train` — synchronous fetch when clicking a train not yet seen, plus a background
     refresh while the connection page stays open (`usePolling`, every 5 min on a visible tab
-    only; a tick that fell due while the tab was hidden fires once on return; no fetch on window
+    only; a tick that fell due while the tab was hidden, or whose timer is overdue on return (suspended standalone app), fires once on return — never above the normal cadence, since the next due time is reset after each tick; no fetch on window
     focus; a failed background refresh retries after 5 min — the 90 s response cache makes a
     tighter poll pointless anyway). Layered caches
     (`createTtlCache()`): 90 s response cache (route.ts), 24 h route cache inside

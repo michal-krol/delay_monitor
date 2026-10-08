@@ -6,6 +6,14 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Dodane
+
+- Instalacja jako aplikacja: jednorazowa podpowiedź „Zainstaluj aplikację” (Android i
+  komputer) albo instrukcja „Udostępnij → Do ekranu początkowego” (iPhone, iPad); zamknięta
+  lub zainstalowana nie wraca. Manifest ma kategorie, skrót „Odjazdy” i zrzuty
+  ekranu do okna instalacji. Na iOS tryb aplikacji z przezroczystym paskiem stanu.
+- W trybie aplikacji wiek danych podpowiada „dotknij, by odświeżyć”.
+
 ### Zmienione
 
 - Ekran stacji na telefonie: pierwszy odjazd jest wyżej (z ok. 470 do najwyżej 340 px od góry
@@ -17,6 +25,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   danych chip nie pokazuje temperatury.
 - Ekran miasta na telefonie: pod wyszukiwarką „Ostatnio oglądane”, statystyki miasta zwinięte do
   jednej linii „Statystyki”. Nagłówek mapy zajmuje mniej miejsca.
+- Po powrocie do aplikacji dane odświeżają się od razu, gdy zwykły termin odpytywania już minął
+  (zawieszona aplikacja na iPhonie). Nie zwiększa to liczby zapytań do PKP ponad zwykły rytm.
+- Pełnoekranowa mapa wyłącza gest „pociągnij, by odświeżyć” przeglądarki (Android; do sprawdzenia na urządzeniu).
+- Decyzja o braku service workera i powiadomień push: `adr/0008-pwa-bez-service-workera.md`.
+- Skróty w menu ikony zainstalowanej aplikacji (Pulpit, Odjazdy, Mapa, Linie) mają własne
+  ikony — te same znaki co w dolnym pasku nawigacji — zamiast wspólnego logo aplikacji.
 
 ## [1.2.0] — 2026-10-07
 

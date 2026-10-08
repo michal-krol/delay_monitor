@@ -28,6 +28,8 @@ export default defineConfig({
   // (np. mapa na mobile-safari), powtórka zawsze zielona. Test, który przechodzi
   // dopiero w powtórce, reporter oznacza jako „flaky" — nie znika z widoku.
   retries: 1,
+  // CI: domyślnie połowa rdzeni (2 na runnerze 4-vCPU); `E2E_WORKERS` pozwala to zmierzyć bez commita.
+  workers: process.env.E2E_WORKERS ? Number(process.env.E2E_WORKERS) : undefined,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
   use: {
     baseURL,
