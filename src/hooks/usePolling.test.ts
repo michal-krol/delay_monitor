@@ -120,6 +120,26 @@ describe('usePolling', () => {
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
   })
 
+  it('fetches on return to the tab when the refresh timer is overdue (suspended standalone app), not before', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true })
+    renderHook(() => usePolling('k-overdue', fetcher, { refreshMs: 30_000 }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+
+    // Powrót przed terminem (przełączanie kart): zero zapytań ponad zwykły rytm.
+    vi.setSystemTime(Date.now() + 10_000)
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    // Zawieszona aplikacja: zegar systemowy poszedł naprzód, timer nie odpalił.
+    vi.setSystemTime(Date.now() + 60_000)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
+
+    // Kolejny powrót zaraz potem nie powtarza zapytania (rytm liczy się od nowa).
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
   it('does nothing on visibilitychange when no tick was paused', async () => {
     const fetcher = vi.fn().mockResolvedValue({ ok: true })
     renderHook(() => usePolling('k', fetcher, { refreshMs: 30_000 }))

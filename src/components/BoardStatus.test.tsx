@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BoardStatus } from './BoardStatus'
 import type { BoardApiResponse } from '@/hooks/useBoard'
@@ -78,6 +78,13 @@ describe('BoardStatus', () => {
     expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
     expect(screen.queryByText(/odświeżanie ograniczone/)).not.toBeInTheDocument()
     expect(screen.queryByText(/API nie odpowiada/)).not.toBeInTheDocument()
+  })
+
+  it('carries a hint for installed (standalone) mode inside the refresh button, hidden from assistive tech (the sr-only text already says it)', () => {
+    render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} lastSuccessAt={NOW - 40_000} data={makeData()} error={false} onRefresh={vi.fn()} />)
+    const hint = within(screen.getByRole('button', { name: /odśwież teraz/ })).getByText('· dotknij, by odświeżyć')
+    expect(hint).toHaveAttribute('aria-hidden', 'true')
+    expect(hint.className).toContain('display-mode:standalone')
   })
 
   it('turns the data age into a refresh-now button when given onRefresh', () => {
