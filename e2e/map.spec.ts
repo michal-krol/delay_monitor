@@ -398,14 +398,26 @@ test('mapa transportu: wybór linii filtruje pojazdy — chip i URL, „×" wrac
 })
 
 test('mapa transportu: tryb linii — panel z przebiegiem, zmiana kierunku w URL-u, „×" kończy tryb', async ({ page }) => {
+  // Telefon: przy „peek” „Zmień kierunek” leży tuż pod krawędzią arkusza (Pixel 7: 3 px). Klik Playwrighta
+  // przewijał wtedy kontener scroll-snap, a przeglądarka płynnie dociągała arkusz do „full” (~460 px) w trakcie
+  // kliku — na obciążonym CI cel nie stawał się „stable” (timeout na „×”, dev po PR #141/#142). Ruch arkusza
+  // testuje blok „arkusz na telefonie”; tu bez animacji, a arkusz podnosi uchwyt, jak zrobiłby to użytkownik.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await openMap(page)
   await (await lineSearch(page)).fill('20')
   await page.getByRole('option', { name: /^Linia 20/ }).click()
   const panel = page.getByRole('dialog', { name: 'Linia 20' })
   await expect(panel).toBeVisible()
   await expect(panel.getByRole('list').getByRole('button').first()).toBeVisible({ timeout: READY })
+  const handle = page.getByRole('button', { name: /^Zmień wysokość panelu/ })
+  if (await handle.isVisible()) {
+    await handle.click()
+    await handle.click()
+    await expect(page.locator('.bottom-sheet')).toHaveAttribute('data-snap', 'full')
+  }
   const switchDirection = panel.getByRole('button', { name: 'Zmień kierunek' })
   if (await switchDirection.isVisible()) {
+    await expect(switchDirection).toBeInViewport({ ratio: 1 })
     await switchDirection.click()
     await expect(page).toHaveURL(/[?&]dir=1/)
   }
