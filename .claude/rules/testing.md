@@ -142,4 +142,8 @@ CI (outside the fast `quality` job: one `e2e-<project>` matrix job per Playwrigh
   per worker (real tiles, fetched once per worker instead of once per test). A test that blocks tiles
   with its own `page.route` still wins. Measured 2026-10-07: map.spec on mobile-chromium, 1 worker, 83 s → 77 s;
   per-test cost is CPU (software WebGL), not network — tests alone take ~1 s, the 5 s ones are sheet animations.
+- CI mobile-chromium (Pixel 7, DPR 2.625) is the outlier: transport-map tests took 15–30 s there even when green
+  (dev at PR #140), and anything added tipped them past 30 s — a timeout mid-click with no "intercepts pointer
+  events" in the log, the cause of the dev failures from PR #141 to #148. `openMap()` marks them `test.slow()`
+  on that project. Don't chase such a timeout with sheet/handle workarounds; check the test's CI duration first.
 - `ponytail:` visual snapshots (`toHaveScreenshot`) skipped until a real visual regression.

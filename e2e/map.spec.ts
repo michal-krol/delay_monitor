@@ -265,6 +265,10 @@ const CITY_MAP = '/city/warszawa/map'
 const MAP_NAME = 'Mapa transportu — Warszawa'
 
 async function openMap(page: Page, path = CITY_MAP): Promise<Locator> {
+  // mobile-chromium w CI (Pixel 7, DPR 2,625, programowy WebGL) rysuje prawdziwe kafelki ~5× wolniej niż lokalnie:
+  // testy mapy transportu szły tam 15–30 s już na zielonym dev (PR #140: tryb linii 22 s, arkusz 29,6 s), więc
+  // każdy dodatkowy krok przebijał domyślne 30 s — w połowie kliku, bez żadnego elementu zasłaniającego cel.
+  test.slow(test.info().project.name === 'mobile-chromium', 'mapa transportu: kafelki w programowym WebGL przy DPR 2,625')
   await page.goto(path)
   const map = page.getByRole('region', { name: MAP_NAME })
   await expect(map).toBeVisible({ timeout: READY })
