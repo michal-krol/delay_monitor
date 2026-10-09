@@ -39,18 +39,13 @@ describe('InfoSheet', () => {
     expect(dialogStubs.close).not.toHaveBeenCalled()
   })
 
-  it('Escape (native `cancel`) is taken over: default prevented, onClose called', () => {
+  it('closes on Escape and on a tap on the backdrop (mechanics: useModalDialog.test.tsx)', () => {
     const onClose = mountSheet()
-    const cancel = new Event('cancel', { cancelable: true })
-    fireEvent(screen.getByRole('dialog'), cancel)
-    expect(cancel.defaultPrevented).toBe(true)
+    fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }))
     expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  it('a native close that skipped `cancel` (no user activation) still reaches onClose', () => {
-    const onClose = mountSheet()
-    fireEvent(screen.getByRole('dialog'), new Event('close'))
-    expect(onClose).toHaveBeenCalledTimes(1)
+    fireEvent.pointerDown(screen.getByRole('dialog'))
+    fireEvent.click(screen.getByRole('dialog'))
+    expect(onClose).toHaveBeenCalledTimes(2)
   })
 
   it('a drag that starts in the content and ends on the backdrop does not close', () => {
@@ -58,31 +53,6 @@ describe('InfoSheet', () => {
     fireEvent.pointerDown(screen.getByText('Pogoda'))
     fireEvent.click(screen.getByRole('dialog'))
     expect(onClose).not.toHaveBeenCalled()
-  })
-
-  it('a tap on the backdrop (the <dialog> itself) closes; a tap inside the content does not', () => {
-    const onClose = mountSheet()
-    fireEvent.pointerDown(screen.getByText('Pogoda'))
-    fireEvent.click(screen.getByText('Pogoda'))
-    expect(onClose).not.toHaveBeenCalled()
-    fireEvent.pointerDown(screen.getByRole('dialog'))
-    fireEvent.click(screen.getByRole('dialog'))
-    expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  it('returns focus to the opener when unmounted', () => {
-    const opener = document.createElement('button')
-    document.body.append(opener)
-    opener.focus()
-    const { unmount } = render(
-      <InfoSheet title="Informacje o stacji" onClose={vi.fn()}>
-        <p>Pogoda</p>
-      </InfoSheet>
-    )
-    expect(opener).not.toHaveFocus()
-    unmount()
-    expect(opener).toHaveFocus()
-    opener.remove()
   })
 })
 
