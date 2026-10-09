@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { StationStatsCards } from './StationStatsCards'
-import { BottomSheet } from './BottomSheet'
 import type { StationStats } from '@/lib/board/stationStats'
 
 function stats(overrides: Partial<StationStats> = {}): StationStats {
@@ -81,42 +80,13 @@ describe('StationStatsCards', () => {
     expect(screen.getByText('Średnie opóźnienie')).toBeInTheDocument()
     expect(screen.getByText('Punktualność')).toBeInTheDocument()
   })
-
-  // Na telefonie kafelki nad tablicą są pigułkami (bez podpisu); w arkuszu „Info” pełnymi kafelkami.
-  it('renders pills on the board and full tiles inside the Info sheet, with the same three states', () => {
-    const noDelay = stats({ averageDelayMinutes: null, averageDelaySample: 0 })
-    const { unmount } = render(<StationStatsCards stats={noDelay} />)
-    expect(screen.getByTestId('station-stats')).toHaveAttribute('data-variant', 'pills')
-    expect(screen.getByText('brak danych')).toBeInTheDocument()
-    unmount()
-
-    window.HTMLElement.prototype.scrollTo = () => {}
-    render(
-      <BottomSheet>
-        <StationStatsCards stats={noDelay} />
-      </BottomSheet>
-    )
-    expect(screen.getByTestId('station-stats')).toHaveAttribute('data-variant', 'tiles')
-    expect(screen.getByText('brak danych')).toBeInTheDocument()
-    expect(screen.getByText('dziś, opóźnienie do 5 min')).toBeInTheDocument()
-  })
 })
 
-describe('StationStatsCards all-unknown (phone vs wide)', () => {
+describe('StationStatsCards all-unknown', () => {
   const unknown = { departuresToday: null, arrivalsToday: null, averageDelayMinutes: null, averageDelaySample: 0, punctualityPct: null, punctualitySample: 0, punctualityThresholdMinutes: 5 }
-  const original = window.matchMedia
-  afterEach(() => {
-    window.matchMedia = original
-  })
 
-  it('wide: still four tiles saying „brak danych”, never an empty area (#7)', () => {
+  it('still four tiles saying „brak danych”, never an empty area (#7)', () => {
     render(<StationStatsCards stats={unknown} />)
     expect(screen.getAllByText('brak danych').length).toBeGreaterThanOrEqual(4)
-  })
-
-  it('phone: one line instead of four tiles', () => {
-    window.matchMedia = (() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia
-    render(<StationStatsCards stats={unknown} />)
-    expect(screen.getByText('Statystyki dnia: brak danych')).toBeInTheDocument()
   })
 })

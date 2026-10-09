@@ -46,7 +46,7 @@ const DETAIL_PAGES = [
 for (const { name, path, back } of DETAIL_PAGES) {
   test(`jeden górny rząd: ${name}`, async ({ page }, testInfo) => {
     await page.goto(path)
-    // Stacja na telefonie: ← i „Udostępnij” są w karcie (nazwa raz), pasek ze ścieżką jest schowany.
+    // Stacja na telefonie: ← nazwa ★ ⋮ w karcie (nazwa raz), pasek ze ścieżką jest schowany.
     if (name === 'stacja' && testInfo.project.name !== 'desktop-chromium') {
       await expect(page.getByRole('link', { name: back, exact: true })).toBeVisible({ timeout: 45_000 })
       await expect(page.getByRole('navigation', { name: 'Ścieżka nawigacji' })).toHaveCount(0)
@@ -79,11 +79,12 @@ for (const { name, path, back } of DETAIL_PAGES) {
 // Komunikat „Nie udało się skopiować — link w pasku adresu” nie może poszerzyć
 // wiersza (375 px): wymuszamy porażkę schowka i brak natywnego arkusza.
 const SHARE_PAGES = [
-  { name: 'stacja', path: '/station/33605?name=Warszawa%20Centralna' },
-  { name: 'ekran miasta z przystankiem', path: '/city/warszawa?stop=1001&name=Centrum' },
+  // Stacja na telefonie: „Udostępnij” jest w menu „Więcej” górnego rzędu karty.
+  { name: 'stacja', path: '/station/33605?name=Warszawa%20Centralna', menu: true },
+  { name: 'ekran miasta z przystankiem', path: '/city/warszawa?stop=1001&name=Centrum', menu: false },
 ]
 
-for (const { name, path } of SHARE_PAGES) {
+for (const { name, path, menu } of SHARE_PAGES) {
   test(`porażka kopiowania linku nie przepełnia strony: ${name}`, async ({ page }) => {
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
@@ -96,6 +97,7 @@ for (const { name, path } of SHARE_PAGES) {
     await page.goto(path)
     // Sama strona (nie wąski viewport) nie może się przewijać poziomo — przed i po kliknięciu.
     const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    if (menu) await page.getByRole('button', { name: 'Więcej' }).click({ timeout: 45_000 })
     await expect(page.getByRole('button', { name: 'Udostępnij', exact: true })).toBeVisible({ timeout: 45_000 })
     expect(await overflow()).toBeLessThanOrEqual(0)
 

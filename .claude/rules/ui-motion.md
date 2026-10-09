@@ -63,5 +63,7 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
 - **No new element in flow above the board on phones** (`e2e/boards-mobile.spec.ts`). The header title swap
   (`useHeaderTitle`, scroll-driven, `@supports (animation-timeline: scroll())`) was chosen over a collapsing hero
   for exactly that reason. The page only scrolls when content exceeds the viewport — e2e uses a 375×520 viewport.
+  A swap into a freed slot is fine: the station's direction select took the removed KPI pills' place (no disruption
+  banner above the board — user decision 2026-10-09).
 - Live dot (`LiveDot`) uses the accent colour, never the status green (#13), and only while data is fresh and the
   last fetch succeeded (#7).

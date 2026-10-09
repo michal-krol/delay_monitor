@@ -24,9 +24,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 ### Zmienione
 
 - Ekran stacji na telefonie: pierwszy odjazd jest wyżej (z ok. 470 do najwyżej 340 px od góry
-  ekranu 375×812). Nazwa stacji występuje raz, a „←”, gwiazdka i „Udostępnij” są w jej karcie;
-  wskaźniki dnia to cztery równe kafelki w jednym rzędzie; zakładki „Odjazdy/Przyjazdy” i „Info”
-  stoją w jednej siatce. Legenda statusów i filtr najpopularniejszych kierunków są w arkuszu „Info”.
+  ekranu 375×812). Górny rząd to „←”, nazwa stacji (raz), gwiazdka i menu „Więcej” z „Udostępnij”
+  i „Informacje o stacji”. Wskaźniki dnia nie stoją nad tablicą — są w arkuszu „Info”, a w ich
+  miejscu jest jeden wybór kierunku („Wszystkie kierunki”; na przyjazdach „Skąd”), zbudowany
+  z pociągów na tablicy, bez dodatkowych zapytań do PKP. Zakładki „Odjazdy/Przyjazdy” i „Info”
+  stoją w jednej siatce; legenda statusów jest w arkuszu „Info”. Komputer bez zmian.
 - Pogoda na ekranach miasta (Odjazdy, Linie, linia, przystanek) to chip z ikoną i temperaturą
   w górnym pasku; dotknięcie otwiera szczegóły (arkusz na telefonie, dymek na komputerze). Bez
   danych chip nie pokazuje temperatury.

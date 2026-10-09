@@ -16,12 +16,13 @@ export const STICKY_TABS_BAR =
  * tylko w arkuszu „Info”. Jedno miejsce naraz — ukryta klasą kopia montowałaby drugą mapę MapLibre
  * i dublowała tekst (`ui-states.md`). W SSR „szeroko”; do hydracji kolumnę na telefonie chowa CSS.
  */
-export function useBoardContext(): { wide: boolean; infoOpen: boolean; toggleInfo: () => void; closeInfo: () => void } {
+export function useBoardContext(): { wide: boolean; infoOpen: boolean; toggleInfo: () => void; openInfo: () => void; closeInfo: () => void } {
   const wide = useMediaQuery(SM_UP, true)
   const [infoOpen, setInfoOpen] = useState(false)
   const toggleInfo = useCallback(() => setInfoOpen((open) => !open), [])
+  const openInfo = useCallback(() => setInfoOpen(true), [])
   const closeInfo = useCallback(() => setInfoOpen(false), [])
-  return { wide, infoOpen: infoOpen && !wide, toggleInfo, closeInfo }
+  return { wide, infoOpen: infoOpen && !wide, toggleInfo, openInfo, closeInfo }
 }
 
 /** Przycisk „Info” w pasku zakładek tablicy — tylko telefon (od `sm` kontekst stoi w prawej kolumnie). */

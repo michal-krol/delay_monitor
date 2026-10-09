@@ -11,8 +11,6 @@ type Props = {
   value: string
   unit?: string
   hint?: string
-  /** W pigułce bez jednostki — „Odjazdy dzisiaj 2” mówi wszystko, a dwa rzędy pigułek zamiast trzech. */
-  hideUnitInPill?: boolean
   /** Etykieta kafelka WIELKIMI LITERAMI (podsumowanie przystanku); w pigułce zawsze zwykła. */
   uppercaseLabel?: boolean
   /** `false` — zawsze kafelek (arkusz „Info”, gdzie jest miejsce na podpis metody). */
@@ -25,7 +23,7 @@ type Props = {
  * bez ikony i podpisu; cztery równe w rzędzie), żeby pierwszy odjazd mieścił się na ekranie; od `sm` kafelek. Używa jej
  * `StationStatsCards` (stacja) i podsumowanie przystanku (`TransitStopDetail`).
  */
-export function StatTile({ icon, accent, label, value, unit, hint, hideUnitInPill = false, uppercaseLabel = false, pills = true, className = '' }: Props) {
+export function StatTile({ icon, accent, label, value, unit, hint, uppercaseLabel = false, pills = true, className = '' }: Props) {
   // Tylko cyfry się toczą; „brak danych” i „—” zostają tekstem, więc nieznane nigdy nie staje się „0” (#7).
   const number = parseDisplayNumber(value)
   return (
@@ -46,7 +44,7 @@ export function StatTile({ icon, accent, label, value, unit, hint, hideUnitInPil
           <span className={`font-heading text-2xl font-extrabold tracking-tight text-foreground tabular-nums ${pills ? 'max-sm:text-lg' : ''} ${pills && number === null ? 'max-sm:text-xs max-sm:leading-6' : ''}`}>{number === null ? value : <AnimatedNumber prefix={number.prefix} value={number.value} suffix={number.suffix} />}</span>
           {/* Spacja jest znakiem treści, nie tylko odstępem: `ml-1` daje
               margines wizualny, ale czytnik ekranu przeczytałby „2pociągi". */}
-          {unit !== undefined && <span className={`ml-1 text-sm text-text-secondary ${pills ? (hideUnitInPill ? 'max-sm:hidden' : 'max-sm:text-xs') : ''}`}> {unit}</span>}
+          {unit !== undefined && <span className={`ml-1 text-sm text-text-secondary ${pills ? 'max-sm:text-xs' : ''}`}> {unit}</span>}
         </span>
         {hint !== undefined && <span className={`block text-xs ${uppercaseLabel ? 'text-text-secondary' : 'text-text-muted'} ${pills ? 'max-sm:hidden' : ''}`}>{hint}</span>}
       </span>
