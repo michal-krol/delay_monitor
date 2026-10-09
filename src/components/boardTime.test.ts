@@ -56,6 +56,10 @@ describe('timeNote — podpis pod godziną („Prognoza · za 7 min”)', () => 
     expect(timeNote({ ...base, status: 'cancelled' }, NOW)).toBeNull()
   })
 
+  it('a cancelled train is never labelled a forecast, even with a predicted time (PR #144 review)', () => {
+    expect(timeNote({ ...base, status: 'cancelled', predictedAt: '2026-10-02T14:00:00+02:00' }, NOW)).toBeNull()
+  })
+
   it('counts across midnight on timestamps, not HH:mm strings', () => {
     const lateNow = new Date('2026-10-02T23:55:00+02:00').getTime()
     expect(timeNote({ ...base, plannedAt: '2026-10-02T23:58:00+02:00', predictedAt: '2026-10-03T00:02:00+02:00' }, lateNow)).toBe(
