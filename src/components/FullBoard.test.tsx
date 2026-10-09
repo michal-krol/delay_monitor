@@ -588,6 +588,11 @@ describe('FullBoard', () => {
       await user.click(within(menu).getByRole('button', { name: 'Informacje o stacji' }))
       expect(screen.queryByRole('list', { name: 'Więcej' })).not.toBeInTheDocument()
       expect(screen.getByRole('dialog', { name: 'Informacje o stacji' })).toBeInTheDocument()
+
+      // Arkusz w połowie zostawia górny rząd widoczny — ta sama pozycja menu nie może go zamknąć.
+      await user.click(screen.getByRole('button', { name: 'Więcej' }))
+      await user.click(within(screen.getByRole('list', { name: 'Więcej' })).getByRole('button', { name: 'Informacje o stacji' }))
+      expect(screen.getByRole('dialog', { name: 'Informacje o stacji' })).toBeInTheDocument()
     })
 
     it('no KPI tiles above the board on a phone — they stay in the Info sheet', async () => {

@@ -5,6 +5,7 @@ import { useShareUrl } from '@/hooks/useShareUrl'
 import { InfoIcon, MoreIcon, ShareIcon, ICON_SIZE } from './icons'
 import { ICON_BUTTON_CLASS } from './IconButton'
 import { rowClass } from './map/MapPanels'
+import { ShareStatusMessage } from './ShareButton'
 
 /** Telefon: „Udostępnij” i wejście do arkusza „Info” pod „Więcej” w górnym rzędzie tablicy (← nazwa ★ ⋮). */
 export function BoardMoreMenu({ infoLabel, onInfo }: { infoLabel: string; onInfo: () => void }) {
@@ -19,12 +20,7 @@ export function BoardMoreMenu({ infoLabel, onInfo }: { infoLabel: string; onInfo
 
   return (
     <div ref={rootRef}>
-      {status !== 'idle' && (
-        // Pod kartą (jej `relative`), jak w `ShareButton` — długi komunikat nie poszerza rzędu na 375 px.
-        <span role="status" className="absolute top-full right-0 mt-1 max-w-full text-right text-sm text-text-secondary">
-          {status === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
-        </span>
-      )}
+      <ShareStatusMessage status={status} />
       <div className="relative">
         <button ref={buttonRef} type="button" aria-expanded={open} aria-controls={panelId} aria-label="Więcej" onClick={toggle} className={`${ICON_BUTTON_CLASS} h-11 w-11`}>
           <MoreIcon size={ICON_SIZE.button} />

@@ -97,7 +97,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
   /** Filtr kierunku z prawej kolumny — nazwa stacji końcowej albo `null`. */
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null)
   // Kontekst w kolumnie (`wide`) albo w arkuszu „Info” — jedno miejsce naraz, patrz `useBoardContext`.
-  const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
+  const { wide, infoOpen, toggleInfo, openInfo, closeInfo } = useBoardContext()
   const { data, error, lastSuccessAt, refresh } = useBoard([stationId])
   const weather = useStationWeather(stationId)
   const snapshot = data?.snapshots[0] ?? null
@@ -247,7 +247,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
               <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} className="max-sm:h-11 max-sm:w-11">
                 <StarIcon size={ICON_SIZE.button} filled={isPinned} />
               </IconButton>
-              {phoneBack !== undefined && !wide && <BoardMoreMenu infoLabel="Informacje o stacji" onInfo={toggleInfo} />}
+              {phoneBack !== undefined && !wide && <BoardMoreMenu infoLabel="Informacje o stacji" onInfo={openInfo} />}
             </div>
           </div>
         </section>

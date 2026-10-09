@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { DirectionSelect, headsignOptions } from './DirectionSelect'
 
 describe('headsignOptions', () => {
-  it('lists each headsign once, in Polish alphabetical order, skipping rows without one', () => {
-    const rows = [{ headsign: 'Łódź Fabryczna' }, { headsign: 'Kraków Główny' }, { headsign: null }, { headsign: 'Kraków Główny' }, { headsign: 'Lublin' }]
+  it('lists each headsign once, in Polish alphabetical order, skipping rows without one or with an empty name (the „all” value)', () => {
+    const rows = [{ headsign: 'Łódź Fabryczna' }, { headsign: 'Kraków Główny' }, { headsign: null }, { headsign: '' }, { headsign: 'Kraków Główny' }, { headsign: 'Lublin' }]
     expect(headsignOptions(rows, null)).toEqual(['Kraków Główny', 'Lublin', 'Łódź Fabryczna'])
   })
 

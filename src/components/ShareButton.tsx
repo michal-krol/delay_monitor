@@ -1,7 +1,19 @@
 'use client'
 
-import { useShareUrl } from '@/hooks/useShareUrl'
+import { useShareUrl, type ShareStatus } from '@/hooks/useShareUrl'
 import { ShareIcon, ICON_SIZE } from './icons'
+
+/** Komunikat po „Udostępnij” — jeden dla `ShareButton` i menu „Więcej” (`BoardMoreMenu`). */
+export function ShareStatusMessage({ status }: { status: ShareStatus }) {
+  if (status === 'idle') return null
+  return (
+    // Pod rzędem `TopBar` / kartą stacji (ich `relative`), nie w grupie `shrink-0` obok przycisków —
+    // na 375 px długi komunikat poszerzałby wiersz. `role="status"` zostaje, więc jest zapowiadany.
+    <span role="status" className="absolute top-full right-0 mt-1 max-w-full text-right text-sm text-text-secondary">
+      {status === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
+    </span>
+  )
+}
 
 /**
  * Jeden przycisk „Udostępnij” w całej appce (pasek górny stron szczegółowych
@@ -12,13 +24,7 @@ export function ShareButton() {
   const { share, status } = useShareUrl()
   return (
     <>
-      {status !== 'idle' && (
-        // Pod rzędem `TopBar` (jego `relative`), nie w grupie `shrink-0` obok przycisków —
-        // na 375 px długi komunikat poszerzałby wiersz. `role="status"` zostaje, więc jest zapowiadany.
-        <span role="status" className="absolute top-full right-0 mt-1 max-w-full text-right text-sm text-text-secondary">
-          {status === 'copied' ? 'Skopiowano link' : 'Nie udało się skopiować — link w pasku adresu'}
-        </span>
-      )}
+      <ShareStatusMessage status={status} />
       <button
         type="button"
         onClick={() => void share()}

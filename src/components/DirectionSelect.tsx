@@ -1,8 +1,8 @@
 import type { Direction } from './FullBoard'
 
-/** Nazwy stacji z wierszy tablicy, każda raz, alfabetycznie po polsku; wybrana zostaje, nawet gdy żaden wiersz jej nie ma (link z `?direction=`). */
+/** Nazwy stacji z wierszy tablicy, każda raz, alfabetycznie po polsku (pusta nazwa pominięta — `''` znaczy „wszystkie”); wybrana zostaje, nawet gdy żaden wiersz jej nie ma (link z `?direction=`). */
 export function headsignOptions(rows: readonly { headsign: string | null }[], selected: string | null): string[] {
-  const names = new Set(rows.flatMap((row) => (row.headsign === null ? [] : [row.headsign])))
+  const names = new Set(rows.flatMap((row) => (row.headsign ? [row.headsign] : [])))
   if (selected !== null) names.add(selected)
   return [...names].sort((a, b) => a.localeCompare(b, 'pl'))
 }
