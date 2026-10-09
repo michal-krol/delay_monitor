@@ -15,11 +15,11 @@ describe('StatTile', () => {
     expect(screen.getByTestId('stat-tile')).not.toHaveClass('max-sm:rounded-2xl')
   })
 
-  it('hides the icon and the hint in the pill, the unit only when asked', () => {
-    render(<StatTile label="Odjazdy" value="2" unit="pociągi" hideUnitInPill icon={<svg data-testid="ico" />} accent="red" hint="wg rozkładu" />)
+  it('hides the icon and the hint in the pill, keeps a smaller unit', () => {
+    render(<StatTile label="Odjazdy" value="2" unit="pociągi" icon={<svg data-testid="ico" />} accent="red" hint="wg rozkładu" />)
     expect(screen.getByTestId('stat-tile-icon')).toHaveClass('max-sm:hidden')
     expect(screen.getByText('wg rozkładu')).toHaveClass('max-sm:hidden')
-    expect(screen.getByText('pociągi')).toHaveClass('max-sm:hidden')
+    expect(screen.getByText('pociągi')).toHaveClass('max-sm:text-xs')
   })
 
   it('works without an icon (stop summary): no empty icon slot', () => {

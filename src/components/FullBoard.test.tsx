@@ -505,6 +505,15 @@ describe('FullBoard', () => {
     expect(within(screen.getByTestId('board-tabs-bar')).getByRole('button', { name: 'Legenda statusów' })).toBe(legend)
   })
 
+  it('wide screen keeps the desktop top: KPI tiles, no direction select, no „Więcej” menu', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Pulpitu' }} />)
+    await screen.findByText('EIC 1')
+    expect(screen.getByTestId('station-stats')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Kierunek' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Więcej' })).not.toBeInTheDocument()
+  })
+
   describe('na telefonie (PR4)', () => {
     const WITH_INSIGHTS = {
       ...SNAPSHOT,

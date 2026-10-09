@@ -308,7 +308,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
               </ActionGrid>
 
               {/* Od `sm` do `xl` kierunki są filtrami nad tablicą (ten sam stan co karta w kolumnie od `xl`).
-                  Na telefonie filtr jest w arkuszu „Info” (lista kierunków) — chipy kosztowały ~55 px nad pierwszym odjazdem. */}
+                  Na telefonie filtr to `DirectionSelect` w miejscu kafelków KPI (plus lista w arkuszu „Info”) — chipy kosztowały ~55 px. */}
               {direction === 'departures' && wide && (
                 <PopularDestinations variant="chips" insights={snapshot?.insights} loading={false} onSelect={setDestinationFilter} selected={destinationFilter} />
               )}
