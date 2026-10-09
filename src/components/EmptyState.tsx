@@ -9,7 +9,7 @@ export function EmptyState() {
       </div>
       <AppTitle />
       <p className="-mt-2 text-sm text-text-muted">
-        Wyszukaj stację i przypnij ją do Pulpitu, żeby śledzić opóźnienia.
+        Przyciskiem „Dodaj” przypnij stację lub przystanek, żeby śledzić odjazdy.
       </p>
     </div>
   )

@@ -50,7 +50,8 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Pin: „Przypnij do Pulpitu” / „Odepnij z Pulpitu” (star icon, `ui-icons.md`).
 - Pulpit: „Dodaj” = pin through the search dialog (header „Szukaj” still opens the board); „Edytuj ulubione” ↔
   „Gotowe”; „W górę: {name}” / „W dół: {name}”. Confirmations: „Przypięto do Pulpitu: {name}”, „{name} jest już na
-  Pulpicie”, „Odpięto z Pulpitu: {name}” + „Cofnij” (until „Gotowe”, no timer).
+  Pulpicie”, „Odpięto z Pulpitu: {name}” + „Cofnij” (until „Gotowe”, no timer); a result that cannot be
+  pinned: „Nie udało się przypiąć: {name}” (the failed-action pattern above).
 - Navigation: „Wróć do {where}”, „Pokaż {what}”, „Zamknij {what}” (× buttons carry the object).
 - Refresh is the data-age button, not a „Odśwież” button. In installed (standalone) mode it adds the visible hint „· dotknij, by odświeżyć”.
 - Install (once, `InstallPrompt`): button „Zainstaluj aplikację” (Chromium); iOS hint „Zainstaluj aplikację: Udostępnij → Do ekranu początkowego”; lead-in for the button „Aplikacja zawsze pod ręką.”; close = „Zamknij podpowiedź instalacji”.

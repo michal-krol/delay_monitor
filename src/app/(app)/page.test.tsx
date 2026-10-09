@@ -127,7 +127,7 @@ describe('Page (Pulpit)', () => {
 
     expect(screen.getByRole('button', { name: 'Dodaj' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edytuj ulubione' })).not.toBeInTheDocument()
-    expect(screen.getByText(/Wyszukaj stację/)).toBeInTheDocument()
+    expect(screen.getByText(/przypnij stację lub przystanek/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
 
@@ -135,7 +135,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
-    expect(screen.queryByText(/Wyszukaj stację/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/przypnij stację lub przystanek/)).not.toBeInTheDocument()
   })
 
   it('„Dodaj" otwiera okno w trybie przypinania; wybór przypina stację i potwierdza, bez nawigacji', async () => {
@@ -172,6 +172,18 @@ describe('Page (Pulpit)', () => {
     await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
 
     expect(screen.getByRole('status')).toHaveTextContent('Warszawa Centralna jest już na Pulpicie')
+    expect(screen.getAllByRole('article')).toHaveLength(1)
+  })
+
+  it('wynik, którego nie da się zapisać (zły format id), nie przypina i mówi „Nie udało się przypiąć"', async () => {
+    pickOption = { id: '5136&x=1', name: 'Kraków Główny', kind: 'rail' }
+    const user = userEvent.setup()
+    render(<Page />)
+
+    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
+    await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
+
+    expect(screen.getByRole('status')).toHaveTextContent('Nie udało się przypiąć: Kraków Główny')
     expect(screen.getAllByRole('article')).toHaveLength(1)
   })
 
@@ -218,10 +230,48 @@ describe('Page (Pulpit)', () => {
     await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
     await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Warszawa Centralna' }))
 
-    expect(screen.getByText(/Wyszukaj stację/)).toBeInTheDocument()
+    expect(screen.getByText(/przypnij stację lub przystanek/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gotowe' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cofnij' }))
     expect(screen.getByRole('list', { name: 'Kolejność przypiętych' })).toHaveTextContent('Warszawa Centralna')
+  })
+
+  it('„Cofnij" po odpięciu ostatniego wpisu oddaje fokus „Gotowe", nie <body> (przycisk montuje się na nowo)', async () => {
+    const user = userEvent.setup()
+    render(<Page />)
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Warszawa Centralna' }))
+    await user.click(screen.getByRole('button', { name: 'Cofnij' }))
+
+    expect(screen.getByRole('button', { name: 'Gotowe' })).toHaveFocus()
+  })
+
+  it('pierwsze przypięcie z pustego Pulpitu zostawia fokus na „Dodaj", nie na <body>', async () => {
+    initialPinned = []
+    const user = userEvent.setup()
+    render(<Page />)
+
+    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
+    await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
+
+    expect(screen.getByRole('heading', { name: 'Kraków Główny' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dodaj' })).toHaveFocus()
+  })
+
+  it('otwarcie „Dodaj" w edycji nie kasuje „Cofnij"', async () => {
+    const user = userEvent.setup()
+    initialPinned = [
+      { kind: 'pkp', id: '33605', name: 'Warszawa Centralna' },
+      { kind: 'pkp', id: '80416', name: 'Kraków Główny' },
+    ]
+    render(<Page />)
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Kraków Główny' }))
+    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
+
+    expect(screen.getByRole('button', { name: 'Cofnij' })).toBeInTheDocument()
   })
 
   it('„W górę" w edycji zmienia kolejność kart po wyjściu z edycji', async () => {
@@ -278,7 +328,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     const recentHeading = screen.getByRole('heading', { name: 'Ostatnio oglądane' })
-    const emptyStateText = screen.getByText(/Wyszukaj stację/)
+    const emptyStateText = screen.getByText(/przypnij stację lub przystanek/)
 
     expect(recentHeading).toBeInTheDocument()
     expect(emptyStateText).toBeInTheDocument()

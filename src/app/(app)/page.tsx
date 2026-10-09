@@ -43,6 +43,16 @@ function PulpitPage() {
   const [notice, setNotice] = useState<Notice | null>(null)
   const undoRef = useRef<HTMLButtonElement>(null)
   const editRef = useRef<HTMLButtonElement>(null)
+  const addRef = useRef<HTMLButtonElement>(null)
+  // Przyciski Pulpitu stoją w stanie pustym i w wierszu `Dashboard` — przejście między nimi montuje je na nowo,
+  // więc fokus ustawiamy dopiero po renderze, na przycisku, który już jest w DOM.
+  const focusAfterRender = useRef<'add' | 'edit' | null>(null)
+
+  useEffect(() => {
+    if (focusAfterRender.current === null) return
+    ;(focusAfterRender.current === 'add' ? addRef : editRef).current?.focus()
+    focusAfterRender.current = null
+  })
 
   // Kliknięty przycisk odpięcia znika razem z wierszem — fokus przechodzi na „Cofnij", zamiast wypaść na `<body>`.
   useEffect(() => {
@@ -51,6 +61,7 @@ function PulpitPage() {
 
   function pin(option: StationOption, city: string | null): void {
     const pinnedItem = pinnedItemFromOption(option, city)
+    focusAfterRender.current = 'add'
     if (pinnedItem === null) {
       setNotice({ text: `Nie udało się przypiąć: ${option.name}` })
     } else if (isPinned(pinnedKey(pinnedItem))) {
@@ -71,7 +82,7 @@ function PulpitPage() {
   function undo(): void {
     if (notice?.undo !== undefined) addPinned(notice.undo.pinnedItem, notice.undo.index)
     setNotice(null)
-    editRef.current?.focus()
+    focusAfterRender.current = 'edit'
   }
 
   // „Cofnij" żyje do końca trybu edycji (bez limitu czasu — WCAG 2.2.1); każda nowa akcja zastępuje komunikat.
@@ -115,14 +126,8 @@ function PulpitPage() {
   // Jedna grupa: na telefonie oba przyciski schodzą razem pod plakietkę świeżości, nie pojedynczo.
   const actions = (
     <div className="flex gap-2">
-      <button
-        type="button"
-        onClick={() => {
-          setNotice(null)
-          setAdding(true)
-        }}
-        className={PULPIT_BUTTON_CLASS}
-      >
+      {/* Bez czyszczenia komunikatu: „Cofnij” z edycji przetrwa otwarcie i zamknięcie okna bez wyboru. */}
+      <button ref={addRef} type="button" onClick={() => setAdding(true)} className={PULPIT_BUTTON_CLASS}>
         Dodaj
       </button>
       {(editing || pinnedItems.length > 0) && (
