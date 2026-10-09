@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { stubDialogMethods } from '@/test-utils/dialog'
-import { InfoSheet, InfoSection } from './InfoSheet'
+import { InfoButton, InfoSheet, InfoSection } from './InfoSheet'
 
 let dialogStubs: ReturnType<typeof stubDialogMethods>
 
@@ -29,6 +29,7 @@ describe('InfoSheet', () => {
     expect(dialog).not.toHaveAttribute('aria-modal')
     expect(screen.getByRole('heading', { name: 'Informacje o stacji' })).toHaveFocus()
     expect(screen.getByText('Pogoda')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Informacje o stacji' })).not.toBeInTheDocument()
   })
 
   it('× calls onClose directly — no dependence on the native `close` event (the parent unmounts the sheet)', () => {
@@ -46,10 +47,25 @@ describe('InfoSheet', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('a native close that skipped `cancel` (no user activation) still reaches onClose', () => {
+    const onClose = mountSheet()
+    fireEvent(screen.getByRole('dialog'), new Event('close'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('a drag that starts in the content and ends on the backdrop does not close', () => {
+    const onClose = mountSheet()
+    fireEvent.pointerDown(screen.getByText('Pogoda'))
+    fireEvent.click(screen.getByRole('dialog'))
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('a tap on the backdrop (the <dialog> itself) closes; a tap inside the content does not', () => {
     const onClose = mountSheet()
+    fireEvent.pointerDown(screen.getByText('Pogoda'))
     fireEvent.click(screen.getByText('Pogoda'))
     expect(onClose).not.toHaveBeenCalled()
+    fireEvent.pointerDown(screen.getByRole('dialog'))
     fireEvent.click(screen.getByRole('dialog'))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
@@ -94,10 +110,24 @@ describe('InfoSection', () => {
     )
     expect(screen.getByText('Brak utrudnień')).toBeInTheDocument()
     expect(screen.queryByText('Mapa MapLibre')).not.toBeInTheDocument()
-    // eslint-disable-next-line testing-library/no-node-access -- `<details>` nie ma roli w jsdom
-    const details = screen.getByText('Mapa').closest('details')!
-    details.open = true
-    fireEvent(details, new Event('toggle'))
-    expect(screen.getByText('Mapa MapLibre')).toBeInTheDocument()
+    // Wzorzec disclosure (WAI): nagłówek zostaje nagłówkiem, w nim przycisk z `aria-expanded`.
+    const toggle = within(screen.getByRole('heading', { name: 'Mapa' })).getByRole('button', { name: 'Mapa' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Mapa MapLibre')).toBeVisible()
+    // Zwinięcie nie niszczy mapy — ponowne otwarcie nie stawia MapLibre od zera.
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText('Mapa MapLibre')).not.toBeVisible()
+  })
+})
+
+describe('InfoButton', () => {
+  it('focuses itself on click (Safari does not), so the sheet can return focus to it', () => {
+    render(<InfoButton open={false} onClick={vi.fn()} />)
+    const button = screen.getByRole('button', { name: 'Info' })
+    fireEvent.click(button)
+    expect(button).toHaveFocus()
   })
 })

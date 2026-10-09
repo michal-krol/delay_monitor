@@ -250,7 +250,7 @@ test('„Info” = modalny arkusz: kolejność sekcji, blokada tła i przewijani
   const sheet = page.getByRole('dialog', { name: 'Informacje o stacji' })
   await expect(sheet).toBeVisible()
   // Brief §8: utrudnienia → statystyki (zwinięte) → pogoda → mapa (zwinięta, gdy znamy lokalizację) → legenda.
-  await expect(sheet.locator('summary', { hasText: 'Mapa' })).toBeVisible({ timeout: READY })
+  await expect(sheet.getByRole('button', { name: 'Mapa', exact: true })).toBeVisible({ timeout: READY })
   expect(await sheet.getByRole('heading', { level: 3 }).allTextContents()).toEqual([
     'Utrudnienia na tej stacji',
     'Statystyki stacji dzisiaj',
@@ -259,8 +259,8 @@ test('„Info” = modalny arkusz: kolejność sekcji, blokada tła i przewijani
     'Legenda statusów',
   ])
   await expect(sheet.getByText('Odjazdy dzisiaj')).toHaveCount(0)
-  await expect(page.locator('.maplibregl-map')).toHaveCount(0)
-  await sheet.locator('summary', { hasText: 'Statystyki stacji dzisiaj' }).click()
+  await expect(page.getByRole('region', { name: /^Mapa stacji/ })).toHaveCount(0)
+  await sheet.getByRole('button', { name: 'Statystyki stacji dzisiaj' }).click()
   await expect(sheet.getByText('Odjazdy dzisiaj')).toBeVisible()
 
   // Modal: arkusz nad dolnym paskiem, tło zablokowane (punkt nad zakładkami trafia w dialog), strona nie przewija się.
@@ -284,12 +284,15 @@ test('„Info” = modalny arkusz: kolejność sekcji, blokada tła i przewijani
   expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe('hidden')
 })
 
-test('„Info” przystanku: mapa, natężenie i linie w arkuszu; × zamyka', async ({ page }) => {
+test('„Info” przystanku: linie, natężenie, mapa (w tej kolejności); × zamyka', async ({ page }) => {
   await page.goto(STOP)
   await page.getByRole('button', { name: 'Info' }).click()
   const sheet = page.getByRole('dialog', { name: 'Informacje o przystanku' })
   await expect(sheet.getByRole('heading', { name: 'Natężenie ruchu dziś' })).toBeAttached({ timeout: READY })
   await expect(sheet.getByRole('heading', { name: 'Linie w tym zespole' })).toBeAttached()
+  // Brief §8: linie → natężenie (zwinięte) → mapa (zwinięta, leniwa) — mapa na końcu.
+  await expect(sheet.getByRole('button', { name: 'Mapa', exact: true })).toBeVisible({ timeout: READY })
+  expect(await sheet.getByRole('heading', { level: 3 }).allTextContents()).toEqual(['Linie w tym zespole', 'Natężenie ruchu dziś', 'Mapa'])
   await sheet.getByRole('button', { name: 'Zamknij informacje' }).click()
   await expect(sheet).toHaveCount(0)
 })

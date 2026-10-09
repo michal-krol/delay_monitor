@@ -64,7 +64,12 @@ export function WeatherChip({ city }: { city: string }) {
         aria-haspopup="dialog"
         aria-expanded={expanded}
         aria-controls={wide ? panelId : undefined}
-        onClick={() => (wide ? toggle() : setSheetOpen((open) => !open))}
+        onClick={(event) => {
+          // Safari nie fokusuje przycisku po kliknięciu — arkusz pogody oddaje fokus temu, co miało go przy otwarciu.
+          event.currentTarget.focus()
+          if (wide) toggle()
+          else setSheetOpen((open) => !open)
+        }}
         className={`press touch-44 relative inline-flex h-9 items-center gap-1.5 rounded-full border border-surface-border px-3 text-sm font-medium transition hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10 ${ready === null ? 'text-text-muted' : 'text-foreground'}`}
       >
         <Icon size={ICON_SIZE.button} />

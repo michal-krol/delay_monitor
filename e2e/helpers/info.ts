@@ -35,8 +35,8 @@ export async function showBoardContext(page: Page): Promise<void> {
 export async function showBoardMap(page: Page): Promise<void> {
   await showBoardContext(page)
   if ((page.viewportSize()?.width ?? 1280) >= 640) return
-  const summary = page.getByRole('dialog', { name: /^Informacje o / }).locator('summary', { hasText: 'Mapa' })
+  const toggle = page.getByRole('dialog', { name: /^Informacje o / }).getByRole('button', { name: 'Mapa', exact: true })
   // Sekcja mapy pojawia się dopiero, gdy znamy lokalizację (stacja: po odpowiedzi pogody).
-  await expect(summary).toBeVisible({ timeout: 45_000 })
-  if ((await summary.locator('..').getAttribute('open')) === null) await summary.click()
+  await expect(toggle).toBeVisible({ timeout: 45_000 })
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
 }

@@ -309,7 +309,7 @@ describe('TransitStopDetail', () => {
     expect(screen.getAllByText('Natężenie ruchu dziś')).toHaveLength(1)
   })
 
-  it('„Info” opens a sheet with the stop context (map, traffic, lines) and × closes it', async () => {
+  it('„Info” opens a sheet with the stop context (lines, traffic; map last when pinned) and × closes it', async () => {
     stubMatchMedia(false)
     stubDialogMethods()
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))

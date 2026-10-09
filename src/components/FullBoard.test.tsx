@@ -526,12 +526,9 @@ describe('FullBoard', () => {
       stubMatchMedia(false)
     })
 
-    /** Rozwija zwijaną sekcję arkusza (`InfoSection`); jsdom nie przełącza `<details>` klikiem w `summary`. */
+    /** Rozwija zwijaną sekcję arkusza (`InfoSection`, przycisk w nagłówku). */
     function openSection(sheet: HTMLElement, title: string): void {
-      // eslint-disable-next-line testing-library/no-node-access -- `<details>` nie ma roli w jsdom
-      const details = within(sheet).getByRole('heading', { name: title }).closest('details')!
-      details.open = true
-      fireEvent(details, new Event('toggle'))
+      fireEvent.click(within(sheet).getByRole('button', { name: title }))
     }
 
     it('„Info” opens a sheet with the station context (same components as the aside) and × closes it', async () => {

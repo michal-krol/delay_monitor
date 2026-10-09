@@ -295,12 +295,7 @@ describe('StationAside', () => {
       expect(screen.queryByRole('region', { name: 'Mapa stacji Warszawa Centralna' })).not.toBeInTheDocument()
       expect(screen.getByText('Brak zgłoszonych utrudnień dla tej stacji.')).toBeInTheDocument()
 
-      const open = (title: string) => {
-        // eslint-disable-next-line testing-library/no-node-access -- `<details>` nie ma roli w jsdom
-        const details = screen.getByRole('heading', { name: title }).closest('details')!
-        details.open = true
-        fireEvent(details, new Event('toggle'))
-      }
+      const open = (title: string) => fireEvent.click(screen.getByRole('button', { name: title }))
       open('Statystyki stacji dzisiaj')
       expect(screen.getByTestId('station-stats')).toBeInTheDocument()
       expect(screen.getByText('Natężenie ruchu')).toBeInTheDocument()

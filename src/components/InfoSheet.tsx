@@ -4,6 +4,7 @@ import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import { AsideCard } from './aside'
 import { IconButton } from './IconButton'
 import { CloseIcon, DisclosureIcon, InfoIcon, ICON_SIZE } from './icons'
+import { FOCUS_RING, HOVER } from './interaction'
 
 /**
  * Pasek zakładek tablicy na telefonie: przyklejony pod nagłówkiem aplikacji, nieprzezroczysty (wiersze
@@ -31,7 +32,11 @@ export function InfoButton({ open, onClick }: { open: boolean; onClick: () => vo
   return (
     <button
       type="button"
-      onClick={onClick}
+      // Safari nie fokusuje przycisku po kliknięciu — bez tego arkusz nie miałby dokąd oddać fokusu.
+      onClick={(event) => {
+        event.currentTarget.focus()
+        onClick()
+      }}
       aria-haspopup="dialog"
       aria-expanded={open}
       className="press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-surface-border px-3 text-sm font-medium text-text-secondary transition hover:text-foreground sm:hidden"
@@ -64,6 +69,7 @@ export function InfoSheet({ title, onClose, closeLabel = 'Zamknij informacje', c
   const [bodyRef, bodyTabIndex] = useScrollableFocus<HTMLDivElement>()
 
   const openerRef = useRef<HTMLElement | null>(null)
+  const pressedBackdropRef = useRef(false)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -84,14 +90,20 @@ export function InfoSheet({ title, onClose, closeLabel = 'Zamknij informacje', c
       ref={dialogRef}
       aria-labelledby={headingId}
       // Escape: przejmujemy `cancel` i zamykamy przez rodzica (odmontowanie zdejmuje dialog z top layer). Nie
-      // polegamy na zdarzeniu `close` — wbudowana przeglądarka aplikacji Claude go nie wysłała (2026-10-09).
+      // polegamy na samym zdarzeniu `close` — wbudowana przeglądarka aplikacji Claude go nie wysłała (2026-10-09);
+      // `onClose` zostaje na wypadek zamknięcia bez `cancel` (Escape bez aktywacji użytkownika). Wywołania idempotentne.
       onCancel={(event) => {
         event.preventDefault()
         onClose()
       }}
-      // Tło (`::backdrop`) zgłasza klik na samym `<dialog>`; treść wypełnia go całego, więc to tylko tło.
+      onClose={onClose}
+      // Tło (`::backdrop`) zgłasza klik na samym `<dialog>`; treść wypełnia go całego, więc to tylko tło. Przeciągnięcie
+      // z treści na tło też daje klik na dialogu (wspólny przodek), stąd warunek na miejsce wciśnięcia.
+      onPointerDown={(event) => {
+        pressedBackdropRef.current = event.target === event.currentTarget
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget && pressedBackdropRef.current) onClose()
       }}
       className="info-sheet m-0 mt-auto max-h-[88dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl bg-[var(--sheet-surface)] p-0 text-foreground shadow-2xl backdrop:bg-black/50 open:flex"
       style={{ overscrollBehavior: 'contain' }}
@@ -107,7 +119,6 @@ export function InfoSheet({ title, onClose, closeLabel = 'Zamknij informacje', c
       <div
         ref={bodyRef}
         tabIndex={bodyTabIndex}
-        aria-label={title}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         <InInfoSheetContext.Provider value={true}>
@@ -120,21 +131,39 @@ export function InfoSheet({ title, onClose, closeLabel = 'Zamknij informacje', c
 
 /**
  * Sekcja kontekstu tablicy: poza arkuszem zwykła karta (`AsideCard`, prawa kolumna od `sm`);
- * w arkuszu `collapsible` = natywne `<details>`, domyślnie zwinięte, a treść montuje się dopiero
- * po rozwinięciu — mapa MapLibre nie startuje, dopóki ktoś jej nie otworzy (brief §8), i dostaje
- * od razu widoczny kontener (bez `resize`). Zwinięcie odmontowuje treść.
+ * w arkuszu `collapsible` = wzorzec disclosure (WAI: `h3` z przyciskiem `aria-expanded`, nie `<summary>`,
+ * które część czytników spłaszcza do przycisku i gubi nagłówek), domyślnie zwinięta. Treść montuje się
+ * przy pierwszym rozwinięciu — mapa MapLibre nie startuje, dopóki ktoś jej nie otworzy (brief §8) —
+ * a zwinięcie tylko ją chowa (`hidden`), bez stawiania mapy od zera.
  */
 export function InfoSection({ title, collapsible = false, className, children }: { title: string; collapsible?: boolean; className?: string; children: ReactNode }) {
   const inSheet = useInInfoSheet()
   const [open, setOpen] = useState(false)
+  const [opened, setOpened] = useState(false)
+  const bodyId = useId()
   if (!inSheet || !collapsible) return <AsideCard title={title} className={className}>{children}</AsideCard>
   return (
-    <details className="glass rounded-2xl" onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-2.5 outline-none hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-white/5 [&::-webkit-details-marker]:hidden">
-        <h3 className="font-heading flex-1 text-sm font-bold tracking-tight text-foreground">{title}</h3>
-        <DisclosureIcon size={ICON_SIZE.button} className="text-text-muted" />
-      </summary>
-      <div className="px-4 pb-4">{open && children}</div>
-    </details>
+    <section className="glass rounded-2xl">
+      <h3 className="font-heading text-sm font-bold tracking-tight text-foreground">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={opened ? bodyId : undefined}
+          onClick={() => {
+            setOpen(!open)
+            setOpened(true)
+          }}
+          className={`flex min-h-11 w-full items-center gap-2 rounded-2xl px-4 py-2.5 text-left ${HOVER} ${FOCUS_RING}`}
+        >
+          <span className="flex-1">{title}</span>
+          <DisclosureIcon size={ICON_SIZE.button} className="text-text-muted" />
+        </button>
+      </h3>
+      {opened && (
+        <div id={bodyId} hidden={!open} className="px-4 pb-4">
+          {children}
+        </div>
+      )}
+    </section>
   )
 }

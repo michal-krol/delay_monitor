@@ -134,8 +134,9 @@ the panel scrolls the container. Rules:
   (`src/components/InfoSheet.tsx`) is a native modal `<dialog>` from the bottom (`adr/0009-modalne-info.md`):
   no gestures to pass through, so background inert + scroll lock. Close paths (×, Escape via `cancel`,
   backdrop) call `onClose` directly — never rely on the `close` event (the Claude in-app browser
-  never fired it). Content adapts through `useInInfoSheet()`; `InfoSection collapsible` = `<details>`
-  mounting its content only when open (the board map is lazy). Never put `BottomSheet`/`PanelFrame` in it.
+  never fired it; `SearchDialog` uses the same `cancel` path). Content adapts through `useInInfoSheet()`;
+  `InfoSection collapsible` = WAI disclosure (`h3` > button `aria-expanded`, not `<summary>`), content
+  mounted on first open and only hidden on collapse (the board map is lazy, never re-created). Never put `BottomSheet`/`PanelFrame` in it.
 - `MapView`'s enlarged map portals into the nearest `<dialog>` (else `body`): outside a modal dialog
   everything is inert. `dialog.info-sheet` keeps `translate: none` (entry is a keyframe animation) —
   a `translate` makes the dialog the containing block of the `fixed` overlay.
