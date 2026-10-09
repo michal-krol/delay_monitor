@@ -1,8 +1,9 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
-import { BottomSheet } from './BottomSheet'
-import { PanelFrame } from './map/PanelFrame'
-import { InfoIcon, ICON_SIZE } from './icons'
+import { useScrollableFocus } from '@/hooks/useScrollableFocus'
+import { AsideCard } from './aside'
+import { IconButton } from './IconButton'
+import { CloseIcon, DisclosureIcon, InfoIcon, ICON_SIZE } from './icons'
 
 /**
  * Pasek zakładek tablicy na telefonie: przyklejony pod nagłówkiem aplikacji, nieprzezroczysty (wiersze
@@ -41,24 +42,99 @@ export function InfoButton({ open, onClick }: { open: boolean; onClick: () => vo
   )
 }
 
+const InInfoSheetContext = createContext(false)
+
+/** Treść wie, że leży w modalnym arkuszu „Info” (telefon): sekcje zwijane, kolejność briefu §8. */
+export function useInInfoSheet(): boolean {
+  return useContext(InInfoSheetContext)
+}
+
 /**
- * Arkusz „Info” tablicy stacji/przystanku na telefonie: kontekst z prawej kolumny (kafelki,
- * pogoda, wykres, mapa) w tych samych komponentach, nad tablicą zamiast pod nią.
- *
- * `BottomSheet` jest `absolute inset-0` w pozycjonowanym rodzicu; na mapie rodzicem jest obszar
- * mapy, tu strona się przewija, więc host jest `fixed` między nagłówkiem a dolnym paskiem
- * (`--header-h`/`--bottom-nav-h`), z `pointer-events-none` — przezroczysta część przepuszcza
- * przewijanie strony. Renderowany tylko na telefonie (`useBoardContext`); od `sm` treść stoi w kolumnie.
- * Semantyka okna, „×” i Escape należą do `PanelFrame` (reguła z `maps.md`).
+ * Arkusz „Info” na telefonie (tablica stacji/przystanku, pogoda z `WeatherChip`): natywny modalny
+ * `<dialog>` od dołu, nad dolnym paskiem. `showModal` daje `inert` tła i pułapkę fokusu; Escape
+ * (`cancel`), „×” i tło wołają `onClose`, rodzic odmontowuje arkusz; `body:has(dialog[open])` w `globals.css` blokuje przewijanie
+ * strony. Bez przeciągania — „×”, Escape i tap w tło zamykają. Mapa transportu zostaje przy
+ * niemodalnym `BottomSheet` (przepuszcza gesty do MapLibre) — `adr/0009-modalne-info.md`.
+ * Renderowany tylko na telefonie i tylko otwarty (montowanie = otwarcie).
  */
 export function InfoSheet({ title, onClose, closeLabel = 'Zamknij informacje', children }: { title: string; onClose: () => void; closeLabel?: string; children: ReactNode }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const headingId = useId()
+  const [bodyRef, bodyTabIndex] = useScrollableFocus<HTMLDivElement>()
+
+  const openerRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (dialog === null) return
+    // Raz: drugi przebieg efektu (StrictMode) widziałby już fokus na nagłówku.
+    openerRef.current ??= document.activeElement instanceof HTMLElement ? document.activeElement : null
+    if (!dialog.open) dialog.showModal()
+    headingRef.current?.focus({ preventScroll: true })
+    return () => {
+      // Zamknięcie = odmontowanie bez `close()`, więc natywny zwrot fokusu nie zadziała — oddajemy go sami.
+      const opener = openerRef.current
+      if (opener !== null && opener.isConnected) opener.focus({ preventScroll: true })
+    }
+  }, [])
+
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-[var(--header-h)] bottom-[var(--bottom-nav-h)] z-40">
-      <BottomSheet initialSnap="half">
-        <PanelFrame title={title} closeLabel={closeLabel} onClose={onClose}>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={headingId}
+      // Escape: przejmujemy `cancel` i zamykamy przez rodzica (odmontowanie zdejmuje dialog z top layer). Nie
+      // polegamy na zdarzeniu `close` — wbudowana przeglądarka aplikacji Claude go nie wysłała (2026-10-09).
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+      // Tło (`::backdrop`) zgłasza klik na samym `<dialog>`; treść wypełnia go całego, więc to tylko tło.
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+      className="info-sheet m-0 mt-auto max-h-[88dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl bg-[var(--sheet-surface)] p-0 text-foreground shadow-2xl backdrop:bg-black/50 open:flex"
+      style={{ overscrollBehavior: 'contain' }}
+    >
+      <header className="flex items-center gap-3 border-b border-surface-border px-4 py-3">
+        <h2 ref={headingRef} id={headingId} tabIndex={-1} className="font-heading min-w-0 flex-1 text-lg font-bold leading-tight outline-none">
+          {title}
+        </h2>
+        <IconButton label={closeLabel} onClick={onClose} size="lg">
+          <CloseIcon size={ICON_SIZE.button} />
+        </IconButton>
+      </header>
+      <div
+        ref={bodyRef}
+        tabIndex={bodyTabIndex}
+        aria-label={title}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+      >
+        <InInfoSheetContext.Provider value={true}>
           <div className="flex flex-col gap-4">{children}</div>
-        </PanelFrame>
-      </BottomSheet>
-    </div>
+        </InInfoSheetContext.Provider>
+      </div>
+    </dialog>
+  )
+}
+
+/**
+ * Sekcja kontekstu tablicy: poza arkuszem zwykła karta (`AsideCard`, prawa kolumna od `sm`);
+ * w arkuszu `collapsible` = natywne `<details>`, domyślnie zwinięte, a treść montuje się dopiero
+ * po rozwinięciu — mapa MapLibre nie startuje, dopóki ktoś jej nie otworzy (brief §8), i dostaje
+ * od razu widoczny kontener (bez `resize`). Zwinięcie odmontowuje treść.
+ */
+export function InfoSection({ title, collapsible = false, className, children }: { title: string; collapsible?: boolean; className?: string; children: ReactNode }) {
+  const inSheet = useInInfoSheet()
+  const [open, setOpen] = useState(false)
+  if (!inSheet || !collapsible) return <AsideCard title={title} className={className}>{children}</AsideCard>
+  return (
+    <details className="glass rounded-2xl" onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-2.5 outline-none hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-white/5 [&::-webkit-details-marker]:hidden">
+        <h3 className="font-heading flex-1 text-sm font-bold tracking-tight text-foreground">{title}</h3>
+        <DisclosureIcon size={ICON_SIZE.button} className="text-text-muted" />
+      </summary>
+      <div className="px-4 pb-4">{open && children}</div>
+    </details>
   )
 }

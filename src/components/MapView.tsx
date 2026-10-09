@@ -322,6 +322,8 @@ export function MapView({
   const containerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(false)
+  // Gdzie portalować powiększenie: otwarty modalny `<dialog>` przodka albo `body` (komentarz przy portalu).
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const expandButtonRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -402,7 +404,10 @@ export function MapView({
         <button
           ref={expandButtonRef}
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={() => {
+            setPortalTarget(containerRef.current?.closest('dialog') ?? document.body)
+            setExpanded(true)
+          }}
           aria-label="Powiększ mapę"
           className="touch-44 glass-chrome border border-surface-border shadow-md absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-foreground transition hover:bg-[var(--surface-strong)]"
         >
@@ -413,8 +418,10 @@ export function MapView({
       {/* Portal do `document.body`: `.card-hover` (AsideCard) ma `transform`, co tworzy
           containing block dla `position: fixed` potomków (tak samo `backdrop-filter`
           na `glass-chrome*`) -- bez portalu overlay byłby przycięty do karty mapy,
-          nie pokrywał viewportu. */}
+          nie pokrywał viewportu. W modalnym arkuszu „Info” (`<dialog>`) portal idzie do
+          dialogu: wszystko poza nim jest `inert`, więc mapa w `body` byłaby martwa. */}
       {expanded &&
+        portalTarget !== null &&
         createPortal(
           <div className="fixed inset-0 z-50">
             <div
@@ -434,7 +441,7 @@ export function MapView({
               </div>
             </div>
           </div>,
-          document.body
+          portalTarget
         )}
     </>
   )

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { PopularDestinations, StationAside } from './StationAside'
+import { InfoSheet } from './InfoSheet'
+import { stubDialogMethods } from '@/test-utils/dialog'
 import type { StationInsights } from '@/lib/board/stationStats'
 import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
 
@@ -52,6 +54,7 @@ function renderAside(overrides: Partial<React.ComponentProps<typeof StationAside
     stationName: 'Warszawa Centralna',
     stationId: '33605',
     mapPreview: [],
+    stats: undefined,
     ...overrides,
   }
   render(<StationAside {...props} />)
@@ -248,6 +251,61 @@ describe('StationAside', () => {
     it('nie renderuje karty mapy bez znanej lokalizacji', () => {
       renderAside({ weather: { status: 'unavailable' } })
       expect(screen.queryByRole('region', { name: /Mapa stacji/ })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('w arkuszu „Info” (telefon)', () => {
+    function renderInSheet() {
+      stubDialogMethods()
+      render(
+        <InfoSheet title="Informacje o stacji" onClose={vi.fn()}>
+          <StationAside
+            insights={INSIGHTS}
+            disruptionMessages={[]}
+            destinationFilter={null}
+            onDestinationFilter={vi.fn()}
+            loading={false}
+            currentHour={8}
+            weather={READY_WEATHER}
+            stationName="Warszawa Centralna"
+            stationId="33605"
+            mapPreview={[]}
+            stats={undefined}
+          />
+        </InfoSheet>
+      )
+    }
+
+    it('kolejność briefu §8: utrudnienia → statystyki → pogoda → mapa → legenda; bez listy kierunków (filtr jest nad tablicą)', () => {
+      renderInSheet()
+      expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+        'Utrudnienia na tej stacji',
+        'Statystyki stacji dzisiaj',
+        'Pogoda dziś — Warszawa Centralna',
+        'Mapa',
+        'Legenda statusów',
+      ])
+      expect(screen.queryByText('Najpopularniejsze kierunki')).not.toBeInTheDocument()
+      expect(screen.queryByText('Kraków Główny')).not.toBeInTheDocument()
+    })
+
+    it('statystyki (KPI + natężenie) i mapa zwinięte; mapa montuje się dopiero po rozwinięciu sekcji', () => {
+      renderInSheet()
+      expect(screen.queryByTestId('station-stats')).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Mapa stacji Warszawa Centralna' })).not.toBeInTheDocument()
+      expect(screen.getByText('Brak zgłoszonych utrudnień dla tej stacji.')).toBeInTheDocument()
+
+      const open = (title: string) => {
+        // eslint-disable-next-line testing-library/no-node-access -- `<details>` nie ma roli w jsdom
+        const details = screen.getByRole('heading', { name: title }).closest('details')!
+        details.open = true
+        fireEvent(details, new Event('toggle'))
+      }
+      open('Statystyki stacji dzisiaj')
+      expect(screen.getByTestId('station-stats')).toBeInTheDocument()
+      expect(screen.getByText('Natężenie ruchu')).toBeInTheDocument()
+      open('Mapa')
+      expect(screen.getByRole('region', { name: 'Mapa stacji Warszawa Centralna' })).toBeInTheDocument()
     })
   })
 })

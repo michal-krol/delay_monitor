@@ -5,6 +5,7 @@ paths:
   - "src/lib/board/mapPosition.ts"
   - "src/components/StationThumb*"
   - "src/components/BottomSheet*"
+  - "src/components/InfoSheet*"
   - "public/maplibre-*"
   - "src/app/globals.css"
   - "e2e/map.spec.ts"
@@ -119,7 +120,7 @@ the panel scrolls the container. Rules:
   add a second dialog/close to the sheet.
 - Content adapts through `useInSheet()` (context from `BottomSheet`), not props: `PanelFrame`
   drops its glass card and marks its body `data-sheet-scroll`, `AlertBanner` collapses into
-  „Komunikaty (n)”. PR4's „Info” sheet gets the same for free.
+  „Komunikaty (n)”.
 - Map controls rise above the sheet only while something in them is expanded
   (`has-[[aria-expanded=true]]:z-30`); a new dropdown there needs `aria-expanded` on its trigger.
 - Inner scrolling (`[data-sheet-scroll]` = `PanelFrame` body) is locked below `full`, otherwise
@@ -129,11 +130,15 @@ the panel scrolls the container. Rules:
 - Things that must stay visible over the open sheet (filter chips, `role=status` messages) go in
   the `above` slot: it rides on the panel's top edge and scrolls with it. At `full` only about
   one row fits (~55 px on iPhone 15) — put the most important item last (nearest the edge).
-- Board pages (PR4) use `InfoSheet` (`src/components/InfoSheet.tsx`): the sheet needs a
-  positioned parent, and a board page scrolls, so the host is `fixed` between `--header-h` and
-  `--bottom-nav-h`, `pointer-events-none`, `sm:hidden`, opening at `half`. Its content is the
-  same aside components as desktop (one implementation); `useInSheet()` switches e.g.
-  `StationStatsCards` from phone pills back to full tiles.
+- Board pages' „Info” and the `WeatherChip` sheet are NOT this sheet: `InfoSheet`
+  (`src/components/InfoSheet.tsx`) is a native modal `<dialog>` from the bottom (`adr/0009-modalne-info.md`):
+  no gestures to pass through, so background inert + scroll lock. Close paths (×, Escape via `cancel`,
+  backdrop) call `onClose` directly — never rely on the `close` event (the Claude in-app browser
+  never fired it). Content adapts through `useInInfoSheet()`; `InfoSection collapsible` = `<details>`
+  mounting its content only when open (the board map is lazy). Never put `BottomSheet`/`PanelFrame` in it.
+- `MapView`'s enlarged map portals into the nearest `<dialog>` (else `body`): outside a modal dialog
+  everything is inert. `dialog.info-sheet` keeps `translate: none` (entry is a keyframe animation) —
+  a `translate` makes the dialog the containing block of the `fixed` overlay.
 - Gestures are verified in e2e only on mobile-chromium (CDP touch); WebKit in Playwright has
   no touch API — iOS momentum/drag needs click-QA on a real iPhone (staging).
 - Inline maps (`MapView` without `rich`) use `cooperativeGestures` with Polish strings so they

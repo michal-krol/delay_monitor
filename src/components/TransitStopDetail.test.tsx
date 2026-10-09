@@ -6,6 +6,7 @@ import { TransitStopDetail } from './TransitStopDetail'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 import { stubMatchMedia } from '@/test-utils/media'
+import { stubDialogMethods } from '@/test-utils/dialog'
 
 let search = ''
 const push = vi.fn()
@@ -298,7 +299,7 @@ describe('TransitStopDetail', () => {
 
   it('on a phone the stop context renders once — in the Info sheet, not also in a hidden aside', async () => {
     stubMatchMedia(false)
-    window.HTMLElement.prototype.scrollTo = () => {}
+    stubDialogMethods()
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.queryByText('Natężenie ruchu dziś')).not.toBeInTheDocument()
@@ -310,14 +311,14 @@ describe('TransitStopDetail', () => {
 
   it('„Info” opens a sheet with the stop context (map, traffic, lines) and × closes it', async () => {
     stubMatchMedia(false)
-    window.HTMLElement.prototype.scrollTo = () => {}
+    stubDialogMethods()
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ cities: [] })))
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     const info = screen.getByRole('button', { name: 'Info' })
     await userEvent.click(info)
     const sheet = screen.getByRole('dialog', { name: 'Informacje o przystanku' })
-    expect(within(sheet).getByText('Natężenie ruchu dziś')).toBeInTheDocument()
-    expect(within(sheet).getByText('Linie na tym przystanku')).toBeInTheDocument()
+    // Brief §8: linie → natężenie (zwinięte) → mapa (zwinięta, leniwa).
+    expect(within(sheet).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Linie na tym przystanku', 'Natężenie ruchu dziś'])
     await userEvent.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
     expect(screen.queryByRole('dialog', { name: 'Informacje o przystanku' })).not.toBeInTheDocument()
   })

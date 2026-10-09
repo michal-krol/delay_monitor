@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard } from './FullBoard'
 import { jsonResponse } from '@/test-utils/http'
 import { stubMatchMedia } from '@/test-utils/media'
+import { stubDialogMethods } from '@/test-utils/dialog'
 import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 // Szczegóły połączenia mają teraz własną trasę (`/connection/...`) — klik w
@@ -521,9 +522,17 @@ describe('FullBoard', () => {
     }
     // Telefon: `useMediaQuery(SM_UP)` = false (bez atrapy jsdom = „szeroko”); sprząta `unstubAllGlobals`.
     beforeEach(() => {
-      window.HTMLElement.prototype.scrollTo = () => {}
+      stubDialogMethods()
       stubMatchMedia(false)
     })
+
+    /** Rozwija zwijaną sekcję arkusza (`InfoSection`); jsdom nie przełącza `<details>` klikiem w `summary`. */
+    function openSection(sheet: HTMLElement, title: string): void {
+      // eslint-disable-next-line testing-library/no-node-access -- `<details>` nie ma roli w jsdom
+      const details = within(sheet).getByRole('heading', { name: title }).closest('details')!
+      details.open = true
+      fireEvent(details, new Event('toggle'))
+    }
 
     it('„Info” opens a sheet with the station context (same components as the aside) and × closes it', async () => {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
@@ -535,7 +544,9 @@ describe('FullBoard', () => {
       expect(info).toHaveAttribute('aria-expanded', 'false')
       await user.click(info)
       const sheet = screen.getByRole('dialog', { name: 'Informacje o stacji' })
-      expect(within(sheet).getByText('Natężenie ruchu dzisiaj')).toBeInTheDocument()
+      expect(within(sheet).getByText('Utrudnienia na tej stacji')).toBeInTheDocument()
+      openSection(sheet, 'Statystyki stacji dzisiaj')
+      expect(within(sheet).getByText('Natężenie ruchu')).toBeInTheDocument()
       expect(within(sheet).getByText('Odjazdy dzisiaj')).toBeInTheDocument()
       expect(info).toHaveAttribute('aria-expanded', 'true')
 
@@ -548,13 +559,13 @@ describe('FullBoard', () => {
       const user = userEvent.setup()
       render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
       await screen.findByText('EIC 1')
-      expect(screen.queryByText('Natężenie ruchu dzisiaj')).not.toBeInTheDocument()
+      expect(screen.queryByText('Utrudnienia na tej stacji')).not.toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'Info' }))
-      expect(screen.getAllByText('Natężenie ruchu dzisiaj')).toHaveLength(1)
+      expect(screen.getAllByText('Utrudnienia na tej stacji')).toHaveLength(1)
     })
 
-    it('the popular-destination chips are not above the table on a phone; the Info sheet list filters the board and writes ?direction=', async () => {
+    it('no popular-destination chips above the table nor a list in the Info sheet on a phone — the direction select is the one filter', async () => {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [WITH_INSIGHTS], budget: undefined, status: 'ok' })))
       const user = userEvent.setup()
       render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
@@ -563,8 +574,8 @@ describe('FullBoard', () => {
 
       await user.click(screen.getByRole('button', { name: 'Info' }))
       const sheet = screen.getByRole('dialog', { name: 'Informacje o stacji' })
-      await user.click(within(sheet).getByRole('button', { name: /Kraków/ }))
-      await waitFor(() => expect(new URLSearchParams(window.location.search).get('direction')).toBe('Kraków'))
+      expect(within(sheet).queryByText('Najpopularniejsze kierunki')).not.toBeInTheDocument()
+      expect(within(sheet).queryByRole('button', { name: /Kraków/ })).not.toBeInTheDocument()
     })
 
     it('the status legend is in the Info sheet, not as a „?” orphan next to the tabs', async () => {
@@ -597,11 +608,6 @@ describe('FullBoard', () => {
       await user.click(within(menu).getByRole('button', { name: 'Informacje o stacji' }))
       expect(screen.queryByRole('list', { name: 'Więcej' })).not.toBeInTheDocument()
       expect(screen.getByRole('dialog', { name: 'Informacje o stacji' })).toBeInTheDocument()
-
-      // Arkusz w połowie zostawia górny rząd widoczny — ta sama pozycja menu nie może go zamknąć.
-      await user.click(screen.getByRole('button', { name: 'Więcej' }))
-      await user.click(within(screen.getByRole('list', { name: 'Więcej' })).getByRole('button', { name: 'Informacje o stacji' }))
-      expect(screen.getByRole('dialog', { name: 'Informacje o stacji' })).toBeInTheDocument()
     })
 
     it('no KPI tiles above the board on a phone — they stay in the Info sheet', async () => {
@@ -612,7 +618,9 @@ describe('FullBoard', () => {
       expect(screen.queryByTestId('station-stats')).not.toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'Info' }))
-      expect(within(screen.getByRole('dialog', { name: 'Informacje o stacji' })).getByTestId('station-stats')).toBeInTheDocument()
+      const sheet = screen.getByRole('dialog', { name: 'Informacje o stacji' })
+      openSection(sheet, 'Statystyki stacji dzisiaj')
+      expect(within(sheet).getByTestId('station-stats')).toBeInTheDocument()
     })
 
     it('one direction select („Wszystkie kierunki”) built from the rows filters the board and writes ?direction=', async () => {

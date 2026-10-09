@@ -7,9 +7,8 @@ import { useStationWeather } from '@/hooks/useStationWeather'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
-import { BoardTable, StatusLegend, StatusLegendList } from './BoardTable'
+import { BoardTable, StatusLegend } from './BoardTable'
 import { ActionGrid } from './ActionGrid'
-import { AsideCard } from './aside'
 import { BoardMoreMenu } from './BoardMoreMenu'
 import { DirectionSelect } from './DirectionSelect'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
@@ -206,6 +205,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
       stationName={stationName}
       stationId={stationId}
       mapPreview={mapPreview}
+      stats={snapshot?.stats}
     />
   )
 
@@ -333,14 +333,10 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
         <aside className="max-sm:hidden xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">{aside}</aside>
       )}
 
-      {/* Telefon: te same komponenty co prawa kolumna (jedna implementacja), plus pełne kafelki KPI. */}
+      {/* Telefon: te same komponenty co prawa kolumna (jedna implementacja), w układzie arkusza (`useInInfoSheet`). */}
       {!configError && infoOpen && (
         <InfoSheet title="Informacje o stacji" onClose={closeInfo}>
-          <StationStatsCards stats={snapshot?.stats} loading={loading} />
           {aside}
-          <AsideCard title="Legenda statusów">
-            <StatusLegendList />
-          </AsideCard>
         </InfoSheet>
       )}
     </div>

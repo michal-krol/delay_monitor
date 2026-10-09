@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useTheme } from 'next-themes'
-import type { StationInsights } from '@/lib/board/stationStats'
+import type { StationInsights, StationStats } from '@/lib/board/stationStats'
 import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
 import { MapView } from './MapView'
 import {
@@ -23,6 +23,9 @@ import { compassDirection, describeWeatherCode, type WeatherIconKey } from '@/li
 import { pluralPl } from '@/lib/plural'
 import { formatClockTime } from '@/lib/format'
 import { AsideCard, EmptyHint, HourlyTraffic } from './aside'
+import { InfoSection, useInInfoSheet } from './InfoSheet'
+import { StationStatsCards } from './StationStatsCards'
+import { StatusLegendList } from './BoardTable'
 
 /**
  * Prawa kolumna kontekstowa widoku stacji.
@@ -271,6 +274,8 @@ type Props = {
   stationId: string
   /** 2 najbliższe odjazdy, gotowe linijki („18:12 → Kutno") — do popupu powiększonej mapy (`MapView.tsx`). Puste = brak podglądu, nie błąd. */
   mapPreview: string[]
+  /** Kafelki KPI — tylko w arkuszu „Info” (od `sm` stoją nad tablicą w `FullBoard`). */
+  stats?: StationStats
 }
 
 export function StationAside({
@@ -284,8 +289,10 @@ export function StationAside({
   stationName,
   stationId,
   mapPreview,
+  stats,
 }: Props) {
   const { resolvedTheme } = useTheme()
+  const inSheet = useInInfoSheet()
   const mapPins = useMemo(
     () =>
       weather.status === 'ready'
@@ -294,31 +301,64 @@ export function StationAside({
     [weather, stationId, stationName, mapPreview]
   )
 
+  const disruptions = (
+    <InfoSection title="Utrudnienia na tej stacji">
+      <StationDisruptions messages={disruptionMessages} />
+    </InfoSection>
+  )
+  const traffic = (
+    <HourlyTraffic
+      hourly={insights?.hourlyTraffic ?? null}
+      loading={loading}
+      currentHour={currentHour}
+      emptyLabel="Rozkład na dziś nie zawiera odjazdów z tej stacji."
+    />
+  )
+  const weatherCard = (
+    <InfoSection title={`Pogoda dziś — ${stationName}`}>
+      <WeatherCard weather={weather} />
+    </InfoSection>
+  )
+  const map = mapPins.length > 0 && (
+    <InfoSection title="Mapa" collapsible>
+      <MapView pins={mapPins} ariaLabel={`Mapa stacji ${stationName}`} dark={resolvedTheme === 'dark'} />
+    </InfoSection>
+  )
+
+  // Telefon, arkusz „Info” (brief §8): utrudnienia → statystyki (zwinięte) → pogoda → mapa (leniwa) → legenda.
+  // Bez listy kierunków — ten sam filtr to `DirectionSelect` nad tablicą (decyzja 2026-10-09).
+  if (inSheet) {
+    return (
+      <>
+        {disruptions}
+        <InfoSection title="Statystyki stacji dzisiaj" collapsible>
+          <div className="flex flex-col gap-4">
+            <StationStatsCards stats={stats} loading={loading} />
+            <div>
+              <h4 className="mb-2 text-xs font-medium text-text-muted">Natężenie ruchu</h4>
+              {traffic}
+            </div>
+          </div>
+        </InfoSection>
+        {weatherCard}
+        {map}
+        <InfoSection title="Legenda statusów" collapsible>
+          <StatusLegendList />
+        </InfoSection>
+      </>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Od `sm` do `xl` te kierunki są filtrami nad tablicą (`FullBoard`) — tu w prawej kolumnie i w arkuszu „Info” na telefonie. */}
-      <AsideCard title="Najpopularniejsze kierunki" className="hidden max-sm:block xl:block">
+      {/* Od `sm` do `xl` te kierunki są filtrami nad tablicą (`FullBoard`) — tu tylko w prawej kolumnie od `xl`. */}
+      <AsideCard title="Najpopularniejsze kierunki" className="hidden xl:block">
         <PopularDestinations insights={insights} loading={loading} onSelect={onDestinationFilter} selected={destinationFilter} />
       </AsideCard>
-      <AsideCard title="Utrudnienia na tej stacji">
-        <StationDisruptions messages={disruptionMessages} />
-      </AsideCard>
-      <AsideCard title="Natężenie ruchu dzisiaj">
-        <HourlyTraffic
-          hourly={insights?.hourlyTraffic ?? null}
-          loading={loading}
-          currentHour={currentHour}
-          emptyLabel="Rozkład na dziś nie zawiera odjazdów z tej stacji."
-        />
-      </AsideCard>
-      <AsideCard title={`Pogoda dziś — ${stationName}`}>
-        <WeatherCard weather={weather} />
-      </AsideCard>
-      {mapPins.length > 0 && (
-        <AsideCard title="Mapa">
-          <MapView pins={mapPins} ariaLabel={`Mapa stacji ${stationName}`} dark={resolvedTheme === 'dark'} />
-        </AsideCard>
-      )}
+      {disruptions}
+      <AsideCard title="Natężenie ruchu dzisiaj">{traffic}</AsideCard>
+      {weatherCard}
+      {map}
     </div>
   )
 }

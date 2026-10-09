@@ -34,6 +34,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   przewoźnika tylko na komputerze. Przy powiększonym tekście karta dokłada rzędy zamiast
   ściskać kierunek. Godzina przewidywana jest podpisana „Prognoza” (np. „Prognoza · za 7 min”),
   także na komputerze — godzina potwierdzona nie ma podpisu, mówi o niej status.
+- Arkusz „Info” stacji i przystanku na telefonie (oraz szczegóły pogody z chipa) wysuwa się od dołu
+  nad całą aplikacją, także nad dolnym paskiem: strona pod spodem się nie przewija ani nie reaguje,
+  zamyka go „×”, Escape albo dotknięcie tła, a fokus wraca na przycisk, który go otworzył.
+  Kolejność: utrudnienia, statystyki (zwinięte), pogoda, mapa (wczytuje się dopiero po
+  rozwinięciu), legenda statusów; na przystanku: linie, natężenie ruchu, mapa. Lista
+  „Najpopularniejsze kierunki” zniknęła z arkusza — kierunek wybiera się nad tablicą.
 - Pogoda na ekranach miasta (Odjazdy, Linie, linia, przystanek) to chip z ikoną i temperaturą
   w górnym pasku; dotknięcie otwiera szczegóły (arkusz na telefonie, dymek na komputerze). Bez
   danych chip nie pokazuje temperatury.

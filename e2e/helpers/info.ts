@@ -27,3 +27,16 @@ export async function showBoardContext(page: Page): Promise<void> {
     await expect(page.getByRole('dialog', { name: /^Informacje o / })).toBeVisible({ timeout: 2_000 })
   }).toPass({ timeout: 45_000 })
 }
+
+/**
+ * Mapa stacji/przystanku: od `sm` w prawej kolumnie; na telefonie w arkuszu „Info” w zwiniętej sekcji
+ * „Mapa”, montowana dopiero po rozwinięciu (PR5) — otwiera arkusz i rozwija sekcję.
+ */
+export async function showBoardMap(page: Page): Promise<void> {
+  await showBoardContext(page)
+  if ((page.viewportSize()?.width ?? 1280) >= 640) return
+  const summary = page.getByRole('dialog', { name: /^Informacje o / }).locator('summary', { hasText: 'Mapa' })
+  // Sekcja mapy pojawia się dopiero, gdy znamy lokalizację (stacja: po odpowiedzi pogody).
+  await expect(summary).toBeVisible({ timeout: 45_000 })
+  if ((await summary.locator('..').getAttribute('open')) === null) await summary.click()
+}
