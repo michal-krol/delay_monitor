@@ -5,6 +5,7 @@ import { pluralPl } from '@/lib/plural'
 import { ArrowRightIcon, DisclosureIcon, ICON_SIZE } from './icons'
 import { LineBadge } from './LineBadge'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, LINE_KIND_LABEL, MODE_ICON, MODE_ORDER, darkRingClass, lineColor } from './transitMode'
+import { FOCUS_RING, HOVER } from './interaction'
 
 /** Nagłówki sekcji (liczba mnoga) — `MODE_LABEL` to liczba pojedyncza („tramwaj”) i służy gdzie indziej. */
 const SECTION_LABEL: Record<GtfsMode, string> = {
@@ -27,8 +28,6 @@ export function splitEndStops(longName: string): [string, string] | null {
 /** Nazwa dostępnościowa linku: „Linia N: A – B” (pełna nazwa, bo wizualnie kierunek jest przycięty). */
 const lineName = (entry: LineListEntry) => (entry.longName === '' ? `Linia ${entry.line}` : `Linia ${entry.line}: ${entry.longName}`)
 
-const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
-const HOVER = 'hover:bg-black/5 dark:hover:bg-white/5'
 const SUMMARY_RESET = 'list-none [&::-webkit-details-marker]:hidden'
 
 /** „A → B” ze strzałką kierunku z `icons.tsx` (dekoracyjna — nazwa linku niesie pełny kierunek); bez separatora cała nazwa. */

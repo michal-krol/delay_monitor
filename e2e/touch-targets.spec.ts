@@ -1,5 +1,5 @@
 import { test, expect, type Locator } from '@playwright/test'
-import { showBoardContext, showLineTimetable } from './helpers/info'
+import { showBoardMap, showLineTimetable } from './helpers/info'
 
 // Niewidoczny obszar trafienia 44×44 (`touch-44`, WCAG 2.5.5) — wygląd bez zmian,
 // więc mierzymy `::after`, nie sam przycisk. Decyzja właściciela 2026-09-29.
@@ -45,7 +45,7 @@ test('zakładki dolnego paska (mobile) mają pole >= 44×44', async ({ page }, t
 
 test('„Powiększ mapę" zostaje w rogu mapy i ma obszar trafienia >= 44×44', async ({ page }) => {
   await page.goto('/city/warszawa/stop/1001')
-  await showBoardContext(page) // telefon: mapa w arkuszu „Info” (PR4)
+  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
   await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   const btn = page.getByRole('button', { name: 'Powiększ mapę' })
   const { w, h } = await afterSize(btn)

@@ -115,16 +115,13 @@ test('ikona utrudnienia widoczna w karcie pociągu na telefonie (109)', async ({
   await expect(page.getByRole('img', { name: 'Utrudnienie na trasie' }).first()).toBeVisible()
 })
 
-test('kierunek z arkusza „Info” filtruje tablicę i ustawia ?direction= (chipów nad tablicą na telefonie nie ma)', async ({ page }) => {
+test('arkusz „Info” bez listy kierunków (jeden filtr: selektor nad tablicą; chipów nad tablicą też nie ma)', async ({ page }) => {
   await firstBoardTime(page, STATION)
   await expect(page.getByRole('group', { name: 'Najpopularniejsze kierunki' })).toHaveCount(0)
   await showBoardContext(page)
   const sheet = page.getByRole('dialog', { name: 'Informacje o stacji' })
-  const destination = sheet.getByRole('button', { pressed: false }).filter({ hasText: /połącz/ }).first()
-  const name = (await destination.locator('span').first().textContent())!.trim()
-  await destination.click()
-  await expect(sheet.getByRole('button', { pressed: true }).filter({ hasText: name })).toBeVisible()
-  await expect.poll(() => new URL(page.url()).searchParams.get('direction')).toBe(name)
+  await expect(sheet.getByRole('heading', { name: 'Utrudnienia na tej stacji' })).toBeVisible()
+  await expect(sheet.getByText('Najpopularniejsze kierunki')).toHaveCount(0)
 })
 
 test('375×812: pierwszy wiersz tablicy stacji najwyżej 340 px od góry (było ~470)', async ({ page }) => {
@@ -244,7 +241,7 @@ test('zakładki i Info w jednej siatce', async ({ page }) => {
   expect(info.height).toBeGreaterThanOrEqual(44)
 })
 
-test('„Info” otwiera arkusz z kontekstem stacji, Escape zamyka i oddaje fokus', async ({ page }) => {
+test('„Info” = modalny arkusz: kolejność sekcji, blokada tła i przewijania, Escape zamyka i oddaje fokus', async ({ page }) => {
   await firstBoardTime(page, STATION)
   const info = page.getByRole('button', { name: 'Info' })
   // Klawiaturą: Safari nie fokusuje przycisku po kliknięciu, więc fokus nie miałby dokąd wrócić.
@@ -252,28 +249,50 @@ test('„Info” otwiera arkusz z kontekstem stacji, Escape zamyka i oddaje foku
   await page.keyboard.press('Enter')
   const sheet = page.getByRole('dialog', { name: 'Informacje o stacji' })
   await expect(sheet).toBeVisible()
-  // Te same karty co prawa kolumna na desktopie (jedna implementacja: `StationAside`).
-  for (const heading of ['Natężenie ruchu dzisiaj', 'Utrudnienia na tej stacji']) {
-    await expect(sheet.getByRole('heading', { name: heading })).toBeAttached()
-  }
-  await expect(sheet.getByText('Odjazdy dzisiaj')).toBeAttached()
-  await expect(page.locator('.bottom-sheet')).toHaveAttribute('data-snap', 'half')
+  // Brief §8: utrudnienia → statystyki (zwinięte) → pogoda → mapa (zwinięta, gdy znamy lokalizację) → legenda.
+  await expect(sheet.getByRole('button', { name: 'Mapa', exact: true })).toBeVisible({ timeout: READY })
+  expect(await sheet.getByRole('heading', { level: 3 }).allTextContents()).toEqual([
+    'Utrudnienia na tej stacji',
+    'Statystyki stacji dzisiaj',
+    'Pogoda dziś — Warszawa Centralna',
+    'Mapa',
+    'Legenda statusów',
+  ])
+  await expect(sheet.getByText('Odjazdy dzisiaj')).toHaveCount(0)
+  await expect(page.getByRole('region', { name: /^Mapa stacji/ })).toHaveCount(0)
+  await sheet.getByRole('button', { name: 'Statystyki stacji dzisiaj' }).click()
+  await expect(sheet.getByText('Odjazdy dzisiaj')).toBeVisible()
+
+  // Modal: arkusz nad dolnym paskiem, tło zablokowane (punkt nad zakładkami trafia w dialog), strona nie przewija się.
+  // Tło jest `inert` pod modalem — lokatory CSS, nie role (drzewo dostępności go nie pokazuje).
+  const nav = (await page.locator('nav[aria-label="Nawigacja główna"]').boundingBox())!
+  const box = (await sheet.boundingBox())!
+  expect(box.y + box.height).toBeGreaterThan(nav.y)
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe('hidden')
+  const tab = (await page.locator('[role="tab"]', { hasText: 'Odjazdy' }).boundingBox())!
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('dialog') !== null, [tab.x + 5, tab.y + 5])).toBe(true)
 
   const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 
   await page.keyboard.press('Escape')
-  await expect(sheet).toHaveCount(0)
+  // Odmontowany, nie tylko ukryty (zamknięty `<dialog>` w DOM-ie też nie ma roli) — i stan przycisku nadąża.
+  await expect(page.getByRole('dialog', { name: 'Informacje o stacji', includeHidden: true })).toHaveCount(0)
+  await expect(info).toHaveAttribute('aria-expanded', 'false')
   await expect(info).toBeFocused()
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe('hidden')
 })
 
-test('„Info” przystanku: mapa, natężenie i linie w arkuszu; × zamyka', async ({ page }) => {
+test('„Info” przystanku: linie, natężenie, mapa (w tej kolejności); × zamyka', async ({ page }) => {
   await page.goto(STOP)
   await page.getByRole('button', { name: 'Info' }).click()
   const sheet = page.getByRole('dialog', { name: 'Informacje o przystanku' })
   await expect(sheet.getByRole('heading', { name: 'Natężenie ruchu dziś' })).toBeAttached({ timeout: READY })
   await expect(sheet.getByRole('heading', { name: 'Linie w tym zespole' })).toBeAttached()
+  // Brief §8: linie → natężenie (zwinięte) → mapa (zwinięta, leniwa) — mapa na końcu.
+  await expect(sheet.getByRole('button', { name: 'Mapa', exact: true })).toBeVisible({ timeout: READY })
+  expect(await sheet.getByRole('heading', { level: 3 }).allTextContents()).toEqual(['Linie w tym zespole', 'Natężenie ruchu dziś', 'Mapa'])
   await sheet.getByRole('button', { name: 'Zamknij informacje' }).click()
   await expect(sheet).toHaveCount(0)
 })

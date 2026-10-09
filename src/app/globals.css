@@ -203,9 +203,16 @@ html {
   }
 }
 
-/* Otwarte okno wyszukiwania (`<dialog>` modalny) blokuje przewijanie strony pod spodem. */
+/* Otwarte okno modalne (`<dialog>`: wyszukiwanie, arkusz „Info”) blokuje przewijanie strony pod spodem. */
 body:has(dialog[open]) {
   overflow: hidden;
+}
+
+/* Arkusz „Info” (`InfoSheet`): przyklejony do dołu. `translate: none` nadpisuje wejście dialogów niżej —
+   `translate` ≠ none robi z dialogu containing block dla `position: fixed`, a powiększona mapa
+   (`MapView`, portal do dialogu) ma pokryć cały ekran. Wjazd od dołu to animacja, nie stan. */
+dialog.info-sheet[open] {
+  translate: none;
 }
 
 @theme inline {
@@ -582,6 +589,9 @@ details[open] > summary .disclosure-chevron,
   }
   .enter-fade {
     transition: opacity var(--duration-base) var(--ease-out);
+  }
+  dialog.info-sheet[open] {
+    animation: info-sheet-in var(--duration-base) var(--ease-out);
   }
   @starting-style {
     dialog[open] {
@@ -960,4 +970,10 @@ body {
     "Noto Sans",
     Arial,
     sans-serif;
+}
+
+@keyframes info-sheet-in {
+  from {
+    translate: 0 100%;
+  }
 }

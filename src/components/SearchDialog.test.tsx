@@ -182,6 +182,16 @@ describe('SearchDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('Escape (native `cancel`) calls onClose directly — same close path as InfoSheet, no reliance on `close`', () => {
+    stubFetch()
+    const onClose = vi.fn()
+    render(<SearchDialog open onClose={onClose} />)
+    const cancel = new Event('cancel', { cancelable: true })
+    screen.getByRole('dialog').dispatchEvent(cancel)
+    expect(cancel.defaultPrevented).toBe(true)
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('closes on a click on the backdrop (the dialog element itself) but not on its content', async () => {
     stubFetch()
     const onClose = vi.fn()

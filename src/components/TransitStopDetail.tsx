@@ -27,7 +27,7 @@ import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from 
 import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
-import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
+import { InfoButton, InfoSection, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { IconButton } from './IconButton'
 import { StatTile } from './StatTile'
 import { onTablistKeyDown } from './tablistKeys'
@@ -216,53 +216,65 @@ export function TransitStopDetail({
     [members, stopName, board]
   )
 
-  const asideCards = (
-    <>
-      {mapPins.length > 0 && (
-        <AsideCard title="Mapa" className="card-hover">
-          <MapView pins={mapPins} onPinClick={setMemberChoice} ariaLabel={members.length > 1 ? `Mapa zespołu przystanków ${stopName}` : `Mapa przystanku ${stopName}`} dark={resolvedTheme === 'dark'} />
-        </AsideCard>
-      )}
-
-      <AsideCard title="Natężenie ruchu dziś" className="card-hover">
-        <HourlyTraffic
-          hourly={summary?.hourly ?? null}
-          loading={loading}
-          currentHour={zonedHour(now, getCity(city)?.timezone ?? 'Europe/Warsaw')}
-          emptyLabel={`Rozkład na dziś nie zawiera odjazdów z ${scopeGenitive}.`}
-          unknownLabel={board !== null && board.summary === null ? 'Brak rozkładu na dziś.' : undefined}
-        />
-      </AsideCard>
-
-      <AsideCard title={wholeGroup ? 'Linie w tym zespole' : 'Linie na tym przystanku'} className="card-hover">
-        {linesByMode.length === 0 ? (
-          <p className="text-xs text-text-muted">—</p>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {linesByMode.map(([mode, lines]) => (
-              <div key={mode}>
-                <div className="mb-1 text-xs text-text-muted">{MODE_LABEL[mode]}</div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {lines.map((line) => (
-                    <span key={line.routeId} className="inline-flex items-center gap-1">
-                      <LineBadge
-                        line={line.line}
-                        mode={line.mode}
-                        kind={line.kind}
-                        size="sm"
-                        href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
-                      />
-                      {LINE_KIND_LABEL[line.kind] !== '' && (
-                        <span className="text-xs text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
+  const mapCard = mapPins.length > 0 && (
+    <InfoSection title="Mapa" collapsible className="card-hover">
+      <MapView pins={mapPins} onPinClick={setMemberChoice} ariaLabel={members.length > 1 ? `Mapa zespołu przystanków ${stopName}` : `Mapa przystanku ${stopName}`} dark={resolvedTheme === 'dark'} />
+    </InfoSection>
+  )
+  const trafficCard = (
+    <InfoSection title="Natężenie ruchu dziś" collapsible className="card-hover">
+      <HourlyTraffic
+        hourly={summary?.hourly ?? null}
+        loading={loading}
+        currentHour={zonedHour(now, getCity(city)?.timezone ?? 'Europe/Warsaw')}
+        emptyLabel={`Rozkład na dziś nie zawiera odjazdów z ${scopeGenitive}.`}
+        unknownLabel={board !== null && board.summary === null ? 'Brak rozkładu na dziś.' : undefined}
+      />
+    </InfoSection>
+  )
+  const linesCard = (
+    <AsideCard title={wholeGroup ? 'Linie w tym zespole' : 'Linie na tym przystanku'} className="card-hover">
+      {linesByMode.length === 0 ? (
+        <p className="text-xs text-text-muted">—</p>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {linesByMode.map(([mode, lines]) => (
+            <div key={mode}>
+              <div className="mb-1 text-xs text-text-muted">{MODE_LABEL[mode]}</div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {lines.map((line) => (
+                  <span key={line.routeId} className="inline-flex items-center gap-1">
+                    <LineBadge
+                      line={line.line}
+                      mode={line.mode}
+                      kind={line.kind}
+                      size="sm"
+                      href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
+                    />
+                    {LINE_KIND_LABEL[line.kind] !== '' && (
+                      <span className="text-xs text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
+                    )}
+                  </span>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </AsideCard>
+            </div>
+          ))}
+        </div>
+      )}
+    </AsideCard>
+  )
+  // Telefon (arkusz „Info”, brief §8): linie → natężenie (zwinięte) → mapa (zwinięta, montowana po rozwinięciu).
+  const asideCards = wide ? (
+    <>
+      {mapCard}
+      {trafficCard}
+      {linesCard}
+    </>
+  ) : (
+    <>
+      {linesCard}
+      {trafficCard}
+      {mapCard}
     </>
   )
 

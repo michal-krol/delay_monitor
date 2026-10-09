@@ -65,10 +65,15 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   return (
-    // Klawiatura: Escape obsługuje natywny dialog (`close` → onClose); ten onClick to tylko klik myszą/palcem.
+    // Klawiatura: Escape = `cancel` → onClose wprost (jak `InfoSheet`; `close` bywa niewysyłane), `close` zostaje
+    // zapasem dla zamknięcia bez `cancel`. Ten onClick to tylko klik myszą/palcem.
     <dialog
       ref={ref}
       aria-label="Szukaj stacji lub przystanku"
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
       onClose={onClose}
       onClick={handleClick}
       className="m-0 max-h-dvh w-full max-w-none overflow-y-auto rounded-b-2xl text-foreground shadow-2xl backdrop:bg-black/50 sm:mx-auto sm:mt-[12vh] sm:max-h-[76dvh] sm:max-w-xl sm:rounded-2xl"
