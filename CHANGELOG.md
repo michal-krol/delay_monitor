@@ -20,9 +20,18 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   lub zainstalowana nie wraca. Manifest ma kategorie, skrót „Odjazdy” i zrzuty
   ekranu do okna instalacji. Na iOS tryb aplikacji z przezroczystym paskiem stanu.
 - W trybie aplikacji wiek danych podpowiada „dotknij, by odświeżyć”.
+- Pulpit: przycisk „Dodaj” otwiera wyszukiwarkę, w której wybór stacji albo przystanku od razu
+  przypina go do Pulpitu i potwierdza („Przypięto do Pulpitu: …”). Ikona „Szukaj” w nagłówku
+  dalej otwiera tablicę.
+- Pulpit: „Edytuj ulubione” — kolejność zmienia się przyciskami „W górę” i „W dół” (działają
+  z klawiatury), a odpięcie można cofnąć przyciskiem „Cofnij” do zamknięcia edycji („Gotowe”).
 
 ### Zmienione
 
+- Pulpit: stacje kolejowe i przystanki miejskie stoją w jednej, wybranej przez Ciebie kolejności
+  (wcześniej najpierw wszystkie stacje, potem przystanki). Karty nie mają już gwiazdki — odpina
+  się w „Edytuj ulubione”. Pole „Dodaj stację…”, które wbrew nazwie otwierało tablicę, zastąpił
+  przycisk „Dodaj”.
 - Ekran stacji na telefonie: pierwszy odjazd jest wyżej (z ok. 470 do najwyżej 340 px od góry
   ekranu 375×812). Górny rząd to „←”, nazwa stacji (raz), gwiazdka i menu „Więcej” z „Udostępnij”
   i „Informacje o stacji”. Wskaźniki dnia nie stoją nad tablicą — są w arkuszu „Info”, a w ich

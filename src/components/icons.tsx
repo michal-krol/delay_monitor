@@ -10,6 +10,7 @@
  * - widok listy (np. „Lista” na mapie, liczba połączeń) `ListIcon` · menu „Więcej” (akcje schowane na telefonie) `MoreIcon`
  * - odjazd `DepartureIcon` · przyjazd `ArrivalIcon` · data `CalendarIcon`
  * - kierunek jazdy („skąd → dokąd”) `ArrowRightIcon` · otwórz/dalej `ChevronRightIcon` · wstecz `ArrowLeftIcon`
+ * - kolejność listy („W górę” / „W dół”) `ArrowUpIcon` / `ArrowDownIcon`
  * - rozwiń/zwiń `DisclosureIcon` (otwarte = obrót 180°, klasa `disclosure-chevron`)
  * - kolej (tryb, stacja) `TrainIcon` · pozycja pojazdu `VehiclePositionIcon` · kierunek jazdy pojazdu `VehicleHeadingIcon`
  * - utrudnienie `AlertCircleIcon` · objaśnienie „?” `HelpCircleIcon` · informacja `InfoIcon`
@@ -19,11 +20,13 @@
 import { createElement as createReactElement } from 'react'
 import {
   Accessibility,
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowRightFromLine,
   ArrowRightLeft,
   ArrowRightToLine,
+  ArrowUp,
   Building,
   BusFront,
   Calendar,
@@ -155,6 +158,9 @@ export const CloseIcon = /* @__PURE__ */ lucideIcon(X)
 export const ExpandIcon = /* @__PURE__ */ lucideIcon(Maximize)
 /** Wstecz. */
 export const ArrowLeftIcon = /* @__PURE__ */ lucideIcon(ArrowLeft)
+/** Kolejność listy („W górę” / „W dół” w edycji Pulpitu) — nie kierunek jazdy. */
+export const ArrowUpIcon = /* @__PURE__ */ lucideIcon(ArrowUp)
+export const ArrowDownIcon = /* @__PURE__ */ lucideIcon(ArrowDown)
 export const CalendarIcon = /* @__PURE__ */ lucideIcon(Calendar)
 /** Kolej jako tryb lub stacja — nie pozycja pociągu (to `VehiclePositionIcon`). */
 export const TrainIcon = /* @__PURE__ */ lucideIcon(TrainFront)

@@ -125,6 +125,8 @@ test('pola input i select mają font >= 16 px na telefonie', async ({ page }, te
   const FIELDS = 'input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea'
   for (const path of ['/', '/city/warszawa', '/city/warszawa/lines', '/city/warszawa/map']) {
     await page.goto(path)
+    // Pulpit nie ma już pola w treści — pole „Dodaj" żyje w oknie wyszukiwania.
+    if (path === '/') await page.getByRole('button', { name: 'Dodaj' }).click()
     await expect(page.locator(FIELDS).first()).toBeAttached({ timeout: READY })
     const small = await page.locator(FIELDS).evaluateAll((nodes) =>
       nodes.map((n) => ({ n: (n as HTMLElement).getAttribute('aria-label') ?? n.tagName, px: parseFloat(getComputedStyle(n).fontSize) })).filter((f) => f.px < 16),

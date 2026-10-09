@@ -26,7 +26,7 @@ describe('StationCard', () => {
       ],
     })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText('Warszawa Centralna')).toBeInTheDocument()
     expect(screen.getByText('+5 min')).toBeInTheDocument()
@@ -39,7 +39,7 @@ describe('StationCard', () => {
       ],
     })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText('IC')).toBeInTheDocument()
     // Kafelek na dashboardzie ma pokazywać wyłącznie skrót — pełna nazwa
@@ -63,7 +63,7 @@ describe('StationCard', () => {
       ],
     })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument()
   })
@@ -77,7 +77,7 @@ describe('StationCard', () => {
       ],
     })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText(expectedTime)).toBeInTheDocument()
   })
@@ -89,7 +89,7 @@ describe('StationCard', () => {
       ],
     })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText('Peron/Tor: 4/2')).toBeInTheDocument()
   })
@@ -101,7 +101,7 @@ describe('StationCard', () => {
       ],
     })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText('Peron/Tor: —')).toBeInTheDocument()
   })
@@ -111,7 +111,7 @@ describe('StationCard', () => {
     const future = { scheduleId: '2', orderId: '2', operatingDate: '2026-08-01', trainNumber: '2', trainLabel: 'FUTURE2', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 10 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
     const snapshot = makeSnapshot({ departures: [past, future] })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     const list = screen.getByRole('list')
     expect(list).toHaveTextContent('FUTURE2')
@@ -122,7 +122,7 @@ describe('StationCard', () => {
     const past = { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'PAST1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() - 2 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
     const snapshot = makeSnapshot({ departures: [past] })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.queryByText('PAST1')).not.toBeInTheDocument()
     expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
@@ -145,7 +145,7 @@ describe('StationCard', () => {
     for (const [count, expected] of cases) {
       const snapshot = makeSnapshot({ departures: Array.from({ length: count }, () => departure('delayed')) })
       const { unmount } = render(
-        <StationCard stationId="5100" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />
+        <StationCard stationId="5100" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />
       )
       expect(screen.getByText(expected)).toBeInTheDocument()
       unmount()
@@ -153,7 +153,7 @@ describe('StationCard', () => {
   })
 
   it('keeps the station name as a heading rather than swallowing it into the button', () => {
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Pokaż pełną tablicę: Warszawa Centralna' })).toBeInTheDocument()
@@ -163,34 +163,21 @@ describe('StationCard', () => {
     const onExpand = vi.fn()
     const user = userEvent.setup()
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={onExpand} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={onExpand} />)
     await user.click(screen.getByRole('button', { name: 'Pokaż pełną tablicę: Warszawa Centralna' }))
 
     expect(onExpand).toHaveBeenCalledWith({ id: '5100', name: 'Warszawa Centralna' })
   })
 
-  it('removes the station from pinnedItems without also expanding it', async () => {
-    const onRemove = vi.fn()
-    const onExpand = vi.fn()
-    const user = userEvent.setup()
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={onExpand} onRemove={onRemove} />)
-    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Warszawa Centralna' }))
-
-    expect(onRemove).toHaveBeenCalledTimes(1)
-    // Przycisk usuwania leży na nakładce rozwijającej tablicę — klik w niego
-    // nie może dodatkowo otwierać stacji.
-    expect(onExpand).not.toHaveBeenCalled()
-  })
 
   it('shows a loading message when there is no snapshot yet', () => {
-    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={false} onExpand={vi.fn()} />)
     expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
   })
 
   it('shows the empty-station message instead of an error when there are no departures', () => {
     const snapshot = makeSnapshot({ stationName: 'X', departures: [] })
-    render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
     expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
   })
 
@@ -202,7 +189,7 @@ describe('StationCard', () => {
         { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1', estimatedDelayMinutes: null },
       ],
     })
-    render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={true} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={true} configError={false} onExpand={vi.fn()} />)
 
     // Ostatni dobry snapshot zostaje na ekranie — błąd odświeżenia nie
     // zastępuje danych czerwonym komunikatem, tylko wiekiem danych (#7).
@@ -212,13 +199,13 @@ describe('StationCard', () => {
   })
 
   it('error without snapshot shows error', () => {
-    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={true} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={true} configError={false} onExpand={vi.fn()} />)
 
     expect(screen.getByText('Nie udało się pobrać danych')).toBeInTheDocument()
   })
 
   it('renders a config error banner instead of the card when configError is true', () => {
-    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={true} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={true} onExpand={vi.fn()} />)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
@@ -231,7 +218,7 @@ describe('StationCard', () => {
     })
 
     const { container } = render(
-      <StationCard stationId="1" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />
+      <StationCard stationId="1" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />
     )
 
     // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container

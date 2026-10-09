@@ -1,8 +1,7 @@
 'use client'
 
 import { ConfigErrorBanner } from './ConfigErrorBanner'
-import { IconButton } from './IconButton'
-import { StarIcon, TrainIcon, ICON_SIZE } from './icons'
+import { TrainIcon } from './icons'
 import { BoardRowList } from './BoardRowList'
 import { PlaceTitle } from './PlaceTitle'
 import { pluralPl } from '@/lib/plural'
@@ -20,10 +19,9 @@ type Props = {
   error: boolean
   configError: boolean
   onExpand: (station: StationOption) => void
-  onRemove: () => void
 }
 
-export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand, onRemove }: Props) {
+export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand }: Props) {
   const now = useSnapshotNow(snapshot)
 
   // Kafelek dashboardu pokazuje tylko nadchodzące połączenia — pociągi, które
@@ -93,12 +91,6 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
               {delayedCount} {pluralPl(delayedCount, 'opóźniony', 'opóźnione', 'opóźnionych')}
             </span>
           )}
-          {/* Odpięcie tą samą pełną gwiazdką co na stronie stacji (PR 7b): przypięte =
-              pełna, klik odpina. z-10 stawia przycisk nad nakładką rozwijającą tablicę,
-              która w drzewie stoi później i domyślnie przykryłaby go w całości. */}
-          <IconButton label={`Odepnij z Pulpitu: ${stationName}`} onClick={onRemove} className="z-10">
-            <StarIcon size={ICON_SIZE.button} filled />
-          </IconButton>
         </div>
       </div>
 

@@ -4,10 +4,10 @@ import { test, expect } from '@playwright/test'
 const STATION = { id: '33605', name: 'Warszawa Centralna' }
 const boardUrl = `/station/${STATION.id}?name=${encodeURIComponent(STATION.name)}`
 
-test('pulpit: pusty stan z wyszukiwarką stacji', async ({ page }) => {
+test('pulpit: pusty stan z przyciskiem „Dodaj"', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Pulpit' })).toBeVisible()
-  await expect(page.getByRole('combobox')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Dodaj' })).toBeVisible()
 })
 
 test('tablica stacji: powłoka renderuje się natychmiast, bez czekania na dane', async ({ page }) => {

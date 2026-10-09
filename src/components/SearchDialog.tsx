@@ -31,7 +31,17 @@ export function resolveSearchCity(pathname: string, contextCity: string | null, 
  * dla telefonu i desktopu. Zawartość montuje się tylko przy otwarciu — świeże pole, zero fetchy,
  * gdy zamknięte.
  */
-export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+type Props = {
+  open: boolean
+  onClose: () => void
+  /**
+   * Tryb „Dodaj" (Pulpit): wybór oddaje wynik i miasto wyszukiwania zamiast otwierać tablicę. Bez
+   * „Ostatnio oglądanych" — to linki, które by nawigowały zamiast przypinać.
+   */
+  onPick?: (option: StationOption, city: string | null) => void
+}
+
+export function SearchDialog({ open, onClose, onPick }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const pathname = usePathname()
   const lastPathname = useRef(pathname)
@@ -69,7 +79,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
     // zapasem dla zamknięcia bez `cancel`. Ten onClick to tylko klik myszą/palcem.
     <dialog
       ref={ref}
-      aria-label="Szukaj stacji lub przystanku"
+      aria-label={onPick === undefined ? 'Szukaj stacji lub przystanku' : 'Przypnij do Pulpitu'}
       onCancel={(event) => {
         event.preventDefault()
         onClose()
@@ -79,12 +89,12 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       className="m-0 max-h-dvh w-full max-w-none overflow-y-auto rounded-b-2xl text-foreground shadow-2xl backdrop:bg-black/50 sm:mx-auto sm:mt-[12vh] sm:max-h-[76dvh] sm:max-w-xl sm:rounded-2xl"
       style={{ background: 'var(--bg-gradient)', backgroundColor: 'var(--bg-base)', overscrollBehavior: 'contain' }}
     >
-      {open && <SearchDialogBody onClose={onClose} />}
+      {open && <SearchDialogBody onClose={onClose} onPick={onPick} />}
     </dialog>
   )
 }
 
-function SearchDialogBody({ onClose }: { onClose: () => void }) {
+function SearchDialogBody({ onClose, onPick }: Pick<Props, 'onClose' | 'onPick'>) {
   const router = useRouter()
   const root = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
@@ -93,6 +103,11 @@ function SearchDialogBody({ onClose }: { onClose: () => void }) {
   const city = resolveSearchCity(pathname, contextCity, state === 'ready' ? cities : null)
 
   function select(option: StationOption): void {
+    if (onPick !== undefined) {
+      onPick(option, city)
+      onClose()
+      return
+    }
     const name = encodeURIComponent(option.name)
     if (option.kind === 'transit' && city !== null) {
       router.push(`/city/${city}/stop/${encodeStopIdForPathSegment(option.id)}?name=${name}`, NAV_FORWARD_OPTIONS)
@@ -116,7 +131,7 @@ function SearchDialogBody({ onClose }: { onClose: () => void }) {
             autoFocus
             placeholder="Szukaj stacji lub przystanku…"
             endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`}
-            idle={<RecentPlaces limit={8} headingLevel="h3" onCleared={focusInput} />}
+            idle={onPick === undefined ? <RecentPlaces limit={8} headingLevel="h3" onCleared={focusInput} /> : undefined}
             onSelect={select}
           />
         ) : (

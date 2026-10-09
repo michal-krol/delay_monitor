@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { pinnedKey, usePinned, type PinnedItem } from './usePinned'
+import { pinnedItemFromOption, pinnedKey, usePinned, type PinnedItem } from './usePinned'
 
 const V1_KEY = 'pkp.favourites.v1'
 const V2_KEY = 'monitor.favourites.v2'
@@ -96,6 +96,45 @@ describe('usePinned', () => {
     // Usunięcie ostatniego wpisu utrwala pusty klucz v2 — kolejny odczyt nie
     // wskrzesza starych danych.
     expect(readV2()).toEqual([])
+  })
+
+  it('moves a pinned item up and down and persists the new order', async () => {
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => result.current.addPinned(WAW))
+    act(() => result.current.addPinned(KRK))
+    act(() => result.current.addPinned(METRO))
+
+    act(() => result.current.movePinned(pinnedKey(METRO), -1))
+    expect(result.current.pinnedItems).toEqual([WAW, METRO, KRK])
+    act(() => result.current.movePinned(pinnedKey(WAW), 1))
+    expect(result.current.pinnedItems).toEqual([METRO, WAW, KRK])
+    expect(readV2()).toEqual([METRO, WAW, KRK])
+  })
+
+  it('leaves the order unchanged when moving past either end or an unknown key', async () => {
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => result.current.addPinned(WAW))
+    act(() => result.current.addPinned(KRK))
+
+    act(() => result.current.movePinned(pinnedKey(WAW), -1))
+    act(() => result.current.movePinned(pinnedKey(KRK), 1))
+    act(() => result.current.movePinned('pkp:999', 1))
+    expect(result.current.pinnedItems).toEqual([WAW, KRK])
+  })
+
+  it('re-inserts a removed item at its old position (undo)', async () => {
+    const { result } = renderHook(() => usePinned())
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => result.current.addPinned(WAW))
+    act(() => result.current.addPinned(KRK))
+    act(() => result.current.addPinned(METRO))
+
+    act(() => result.current.removePinned(pinnedKey(KRK)))
+    act(() => result.current.addPinned(KRK, 1))
+    expect(result.current.pinnedItems).toEqual([WAW, KRK, METRO])
+    expect(readV2()).toEqual([WAW, KRK, METRO])
   })
 })
 
@@ -222,5 +261,34 @@ describe('usePinned — wrogie wejście z localStorage', () => {
     act(() => result.current.replacePinned(pinnedKey(legacy), group))
 
     expect(result.current.pinnedItems).toEqual([group])
+  })
+})
+
+describe('pinnedItemFromOption — wynik wyszukiwania → przypięcie („Dodaj")', () => {
+  it('rail result → pkp station', () => {
+    expect(pinnedItemFromOption({ id: '33605', name: 'Warszawa Centralna', kind: 'rail' }, 'warszawa')).toEqual({
+      kind: 'pkp',
+      id: '33605',
+      name: 'Warszawa Centralna',
+    })
+  })
+
+  it('result without kind (PKP-only endpoint) → pkp station', () => {
+    expect(pinnedItemFromOption({ id: '33605', name: 'Warszawa Centralna' }, null)?.kind).toBe('pkp')
+  })
+
+  it('transit result → whole stop group of the searched city', () => {
+    expect(pinnedItemFromOption({ id: '7014', name: 'Świętokrzyska', kind: 'transit' }, 'warszawa')).toEqual({
+      kind: 'gtfs',
+      city: 'warszawa',
+      id: '7014',
+      name: 'Świętokrzyska',
+    })
+  })
+
+  it('rejects ids that would be dropped on the next read (same patterns as the storage schema)', () => {
+    expect(pinnedItemFromOption({ id: '5100&x=1', name: 'X', kind: 'rail' }, null)).toBeNull()
+    expect(pinnedItemFromOption({ id: '7014', name: 'X', kind: 'transit' }, null)).toBeNull()
+    expect(pinnedItemFromOption({ id: '7014', name: 'X', kind: 'transit' }, 'Warszawa!')).toBeNull()
   })
 })
