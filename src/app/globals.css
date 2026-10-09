@@ -860,13 +860,13 @@ details[open] > summary .disclosure-chevron,
 
   /* Szkielet wczytywania i pusty stan (wiersze bez `data-status`) to nie karta: jedna komórka `colSpan`
      wpadała w wąską kolumnę godziny, a wiersz „Wczytywanie…” (sr-only) rysował pustą ramkę. */
-  .board-table tr:not([data-status]) {
+  .board-table tbody tr:not([data-status]) {
     display: block;
     margin: 0;
     padding: 0;
     border: 0;
   }
-  .board-table tr:not([data-status]) td {
+  .board-table tbody tr:not([data-status]) td {
     display: block;
   }
 
@@ -917,7 +917,9 @@ details[open] > summary .disclosure-chevron,
 
   /* Progi w `em`, nie px: przy powiększonym tekście kontener (`@container` w `BoardTable`) „węższy",
      więc karta sama dokłada rzędy zamiast ściskać kierunek. */
-  @container (min-width: 26em) {
+  /* 32em: obok kierunku dopiero gdy zostaje mu ~150 px przy najdłuższej plakietce
+     („jeszcze nie wyjechał · prognoza +34 min”, ~250 px). */
+  @container (min-width: 32em) {
     .board-table tr {
       grid-template-areas:
         "time direction status"

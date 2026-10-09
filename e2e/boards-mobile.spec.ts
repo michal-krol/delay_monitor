@@ -148,8 +148,19 @@ test('karta wiersza 375 px: godzina po lewej, status pod kierunkiem, pociąg i �
   expect(Math.abs(train.y - platform.y), 'pociąg i peron w jednym rzędzie').toBeLessThanOrEqual(4)
   expect(train.y).toBeGreaterThanOrEqual(status.y + status.height - 1)
   await expect(row.locator('td[data-cell="platform"]')).toContainText(/Peron/)
-  // Widoczny tekst komórki (innerText pomija `display: none`): kategoria + numer, bez linii przewoźnika.
-  expect((await row.locator('td[data-cell="train"]').innerText()).trim().split('\n')).toHaveLength(2)
+})
+
+test('przewoźnik tylko w tabeli (1024 px), podpisy „Peron/tor” tylko w karcie (375 px)', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 812 })
+  await firstBoardTime(page, STATION)
+  const row = page.locator('.board-table tbody tr[data-status]').first()
+  const lines = (await row.locator('td[data-cell="train"]').innerText()).trim().split('\n')
+  const carrier = row.getByText(lines[lines.length - 1]!, { exact: true })
+  await expect(carrier).toBeVisible()
+  await expect(row.locator('td[data-cell="platform"]')).not.toContainText(/Peron/, { useInnerText: true })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await expect(carrier).toBeHidden()
+  await expect(row.locator('td[data-cell="platform"]')).toContainText(/Peron/)
 })
 
 test('karta wiersza przy szerszym telefonie (600 px): status obok kierunku', async ({ page }) => {
@@ -158,6 +169,28 @@ test('karta wiersza przy szerszym telefonie (600 px): status obok kierunku', asy
   const { direction, status } = await firstRowBoxes(page)
   expect(status.x).toBeGreaterThanOrEqual(direction.x + direction.width - 1)
   expect(status.y).toBeLessThan(direction.y + direction.height)
+})
+
+test('karta wiersza 400–600 px: kierunek ma co najmniej 120 px, także obok długiej plakietki', async ({ page }) => {
+  await firstBoardTime(page, STATION)
+  for (const width of [400, 480, 520, 600]) {
+    await page.setViewportSize({ width, height: 812 })
+    const widths = await page
+      .locator('.board-table tbody tr[data-status] td[data-cell="direction"]')
+      .evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width))
+    expect(Math.min(...widths), `${width} px`).toBeGreaterThanOrEqual(120)
+  }
+})
+
+test('wczytywanie na telefonie: szkielet na pełną szerokość tablicy, bez pustej ramki karty nad nim', async ({ page }) => {
+  await page.route('**/api/board**', () => {}) // bez odpowiedzi: tablica zostaje w stanie wczytywania
+  await page.goto(STATION)
+  const skeleton = page.getByTestId('skeleton-row').first()
+  await expect(skeleton).toBeVisible({ timeout: READY })
+  const table = (await page.locator('.board-table').boundingBox())!
+  expect((await skeleton.locator('div').boundingBox())!.width).toBeGreaterThanOrEqual(table.width - 2)
+  const loadingRow = page.locator('.board-table tbody tr').first()
+  expect((await loadingRow.boundingBox())?.height ?? 0, 'wiersz „Wczytywanie…” nie rysuje karty').toBeLessThanOrEqual(2)
 })
 
 test('karta wiersza przy tekście 200 %: peron w osobnym rzędzie pod pociągiem, bez przewijania w bok', async ({ page }) => {
