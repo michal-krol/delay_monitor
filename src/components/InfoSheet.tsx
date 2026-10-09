@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useId, useRef, useState, type ReactNode } from 'react'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
+import { useModalDialog } from '@/hooks/useModalDialog'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import { AsideCard } from './aside'
 import { IconButton } from './IconButton'
@@ -56,55 +57,23 @@ export function useInInfoSheet(): boolean {
 
 /**
  * Arkusz „Info” na telefonie (tablica stacji/przystanku, pogoda z `WeatherChip`): natywny modalny
- * `<dialog>` od dołu, nad dolnym paskiem. `showModal` daje `inert` tła i pułapkę fokusu; Escape
- * (`cancel`), „×” i tło wołają `onClose`, rodzic odmontowuje arkusz; `body:has(dialog[open])` w `globals.css` blokuje przewijanie
+ * `<dialog>` od dołu, nad dolnym paskiem (`useModalDialog`: `showModal`, Escape, tło, zwrot fokusu); „×”
+ * też woła `onClose`, rodzic odmontowuje arkusz; `body:has(dialog[open])` w `globals.css` blokuje przewijanie
  * strony. Bez przeciągania — „×”, Escape i tap w tło zamykają. Mapa transportu zostaje przy
  * niemodalnym `BottomSheet` (przepuszcza gesty do MapLibre) — `adr/0009-modalne-info.md`.
  * Renderowany tylko na telefonie i tylko otwarty (montowanie = otwarcie).
  */
 export function InfoSheet({ title, onClose, closeLabel = 'Zamknij informacje', children }: { title: string; onClose: () => void; closeLabel?: string; children: ReactNode }) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const headingId = useId()
   const [bodyRef, bodyTabIndex] = useScrollableFocus<HTMLDivElement>()
-
-  const openerRef = useRef<HTMLElement | null>(null)
-  const pressedBackdropRef = useRef(false)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (dialog === null) return
-    // Raz: drugi przebieg efektu (StrictMode) widziałby już fokus na nagłówku.
-    openerRef.current ??= document.activeElement instanceof HTMLElement ? document.activeElement : null
-    if (!dialog.open) dialog.showModal()
-    headingRef.current?.focus({ preventScroll: true })
-    return () => {
-      // Zamknięcie = odmontowanie bez `close()`, więc natywny zwrot fokusu nie zadziała — oddajemy go sami.
-      const opener = openerRef.current
-      if (opener !== null && opener.isConnected) opener.focus({ preventScroll: true })
-    }
-  }, [])
+  const { ref, dialogProps } = useModalDialog({ onClose, onOpen: () => headingRef.current?.focus({ preventScroll: true }) })
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={ref}
       aria-labelledby={headingId}
-      // Escape: przejmujemy `cancel` i zamykamy przez rodzica (odmontowanie zdejmuje dialog z top layer). Nie
-      // polegamy na samym zdarzeniu `close` — wbudowana przeglądarka aplikacji Claude go nie wysłała (2026-10-09);
-      // `onClose` zostaje na wypadek zamknięcia bez `cancel` (Escape bez aktywacji użytkownika). Wywołania idempotentne.
-      onCancel={(event) => {
-        event.preventDefault()
-        onClose()
-      }}
-      onClose={onClose}
-      // Tło (`::backdrop`) zgłasza klik na samym `<dialog>`; treść wypełnia go całego, więc to tylko tło. Przeciągnięcie
-      // z treści na tło też daje klik na dialogu (wspólny przodek), stąd warunek na miejsce wciśnięcia.
-      onPointerDown={(event) => {
-        pressedBackdropRef.current = event.target === event.currentTarget
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget && pressedBackdropRef.current) onClose()
-      }}
+      {...dialogProps}
       className="info-sheet m-0 mt-auto max-h-[88dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl bg-[var(--sheet-surface)] p-0 text-foreground shadow-2xl backdrop:bg-black/50 open:flex"
       style={{ overscrollBehavior: 'contain' }}
     >

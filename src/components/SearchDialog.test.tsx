@@ -86,13 +86,6 @@ describe('SearchDialog', () => {
     expect(dialog.showModal).not.toHaveBeenCalled()
   })
 
-  it('closes the native dialog when `open` turns false', () => {
-    stubFetch()
-    const { rerender } = render(<SearchDialog open onClose={vi.fn()} />)
-    rerender(<SearchDialog open={false} onClose={vi.fn()} />)
-    expect(dialog.close).toHaveBeenCalled()
-  })
-
   it('queries all rail stations of the resolved city', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const fetchMock = stubFetch()
@@ -173,22 +166,11 @@ describe('SearchDialog', () => {
     expect(input).toHaveFocus()
   })
 
-  it('calls onClose when the native dialog fires `close` (Escape)', async () => {
+  it('closes on Escape (native `cancel`; mechanics: useModalDialog.test.tsx)', () => {
     stubFetch()
     const onClose = vi.fn()
     render(<SearchDialog open onClose={onClose} />)
-    const dialogElement = screen.getByRole('dialog')
-    dialogElement.dispatchEvent(new Event('close'))
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  it('Escape (native `cancel`) calls onClose directly — same close path as InfoSheet, no reliance on `close`', () => {
-    stubFetch()
-    const onClose = vi.fn()
-    render(<SearchDialog open onClose={onClose} />)
-    const cancel = new Event('cancel', { cancelable: true })
-    screen.getByRole('dialog').dispatchEvent(cancel)
-    expect(cancel.defaultPrevented).toBe(true)
+    screen.getByRole('dialog').dispatchEvent(new Event('cancel', { cancelable: true }))
     expect(onClose).toHaveBeenCalled()
   })
 
@@ -200,6 +182,17 @@ describe('SearchDialog', () => {
     await user.click(await screen.findByRole('combobox'))
     expect(onClose).not.toHaveBeenCalled()
     await user.click(screen.getByRole('dialog'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes on a click on a link to the current page (the route does not change)', async () => {
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
+    stubFetch()
+    const onClose = vi.fn()
+    render(<SearchDialog open onClose={onClose} />)
+    const link = await screen.findByRole('link', { name: 'Stacja 1' })
+    link.addEventListener('click', (event) => event.preventDefault())
+    link.click()
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

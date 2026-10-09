@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, type MouseEvent } from 'react'
+import { useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCities, type CityEntry } from '@/hooks/useCities'
 import { useCityContext } from '@/hooks/useCityContext'
+import { useModalDialog } from '@/hooks/useModalDialog'
 import { defaultCityId } from '@/lib/cityDefault'
 import { CITY_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
 import { CloseIcon, ICON_SIZE } from './icons'
@@ -32,23 +33,20 @@ export function resolveSearchCity(pathname: string, contextCity: string | null, 
  * gdy zamknięte.
  */
 export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null)
   const pathname = usePathname()
   const lastPathname = useRef(pathname)
-
-  useEffect(() => {
-    const dialog = ref.current
-    if (dialog === null) return
-    if (open && !dialog.open) {
-      dialog.showModal()
-      // Pole, które zdążyło się zamontować razem z dialogiem, dostaje fokus dopiero teraz — `autoFocus`
-      // Reacta zadziałał, gdy dialog był jeszcze ukryty. Pole montowane później (miasto z `/api/cities`)
-      // ma już własny `autoFocus`.
-      dialog.querySelector<HTMLElement>('[role="combobox"]')?.focus()
-    } else if (!open && dialog.open) {
-      dialog.close()
-    }
-  }, [open])
+  const { ref, dialogProps } = useModalDialog({
+    open,
+    onClose,
+    // Pole, które zdążyło się zamontować razem z dialogiem, dostaje fokus dopiero teraz — `autoFocus`
+    // Reacta zadziałał, gdy dialog był jeszcze ukryty. Pole montowane później (miasto z `/api/cities`)
+    // ma już własny `autoFocus`.
+    onOpen: (dialog) => dialog.querySelector<HTMLElement>('[role="combobox"]')?.focus(),
+    // Klik w tło zamyka bez sprawdzania, gdzie zaczęło się wciśnięcie (inaczej niż `InfoSheet`).
+    requireBackdropPress: false,
+    // Link do bieżącej strony nie zmienia adresu, więc zamykamy na klik w niego.
+    closeOnClick: (target) => target.closest('a') !== null,
+  })
 
   // Wybór wyniku, tap w „Ostatnio oglądane" czy przycisk wstecz — każda zmiana adresu zamyka okno.
   useEffect(() => {
@@ -57,25 +55,11 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
     onClose()
   }, [pathname, onClose])
 
-  function handleClick(event: MouseEvent<HTMLDialogElement>): void {
-    const target = event.target as Element
-    // Tło (`::backdrop`) zgłasza klik na samym `<dialog>`; link do bieżącej strony nie zmienia adresu,
-    // więc też zamykamy tutaj.
-    if (target === event.currentTarget || target.closest('a') !== null) onClose()
-  }
-
   return (
-    // Klawiatura: Escape = `cancel` → onClose wprost (jak `InfoSheet`; `close` bywa niewysyłane), `close` zostaje
-    // zapasem dla zamknięcia bez `cancel`. Ten onClick to tylko klik myszą/palcem.
     <dialog
       ref={ref}
       aria-label="Szukaj stacji lub przystanku"
-      onCancel={(event) => {
-        event.preventDefault()
-        onClose()
-      }}
-      onClose={onClose}
-      onClick={handleClick}
+      {...dialogProps}
       className="m-0 max-h-dvh w-full max-w-none overflow-y-auto rounded-b-2xl text-foreground shadow-2xl backdrop:bg-black/50 sm:mx-auto sm:mt-[12vh] sm:max-h-[76dvh] sm:max-w-xl sm:rounded-2xl"
       style={{ background: 'var(--bg-gradient)', backgroundColor: 'var(--bg-base)', overscrollBehavior: 'contain' }}
     >
