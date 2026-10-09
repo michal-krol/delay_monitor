@@ -29,6 +29,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   miejscu jest jeden wybór kierunku („Wszystkie kierunki”; na przyjazdach „Skąd”), zbudowany
   z pociągów na tablicy, bez dodatkowych zapytań do PKP. Zakładki „Odjazdy/Przyjazdy” i „Info”
   stoją w jednej siatce; legenda statusów jest w arkuszu „Info”. Komputer bez zmian.
+- Wiersz tablicy stacji na telefonie: godzina po lewej, obok kierunek ze statusem pod spodem
+  (na szerszym ekranie obok), niżej pociąg i „Peron 2 · tor 4” w jednym rzędzie; nazwa
+  przewoźnika tylko na komputerze. Przy powiększonym tekście karta dokłada rzędy zamiast
+  ściskać kierunek. Godzina przewidywana jest podpisana „Prognoza” (np. „Prognoza · za 7 min”),
+  także na komputerze — godzina potwierdzona nie ma podpisu, mówi o niej status.
 - Pogoda na ekranach miasta (Odjazdy, Linie, linia, przystanek) to chip z ikoną i temperaturą
   w górnym pasku; dotknięcie otwiera szczegóły (arkusz na telefonie, dymek na komputerze). Bez
   danych chip nie pokazuje temperatury.
@@ -44,6 +49,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Decyzja o braku service workera i powiadomień push: `adr/0008-pwa-bez-service-workera.md`.
 - Skróty w menu ikony zainstalowanej aplikacji (Pulpit, Odjazdy, Mapa, Linie) mają własne
   ikony — te same znaki co w dolnym pasku nawigacji — zamiast wspólnego logo aplikacji.
+
+### Naprawione
+
+- Wczytywanie tablicy stacji na telefonie: szkielet ma pełną szerokość karty i nie ma już nad nim
+  pustej ramki.
 
 ## [1.2.0] — 2026-10-07
 

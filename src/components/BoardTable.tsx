@@ -12,7 +12,7 @@ import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { formatClockTime } from '@/lib/format'
-import { realizedTime, rowCountdown } from './boardTime'
+import { realizedTime, timeNote } from './boardTime'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
 import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
@@ -263,7 +263,10 @@ function accentColor(status: RealizationStatus): string {
   return TOKENS[status].bg
 }
 
-/** Peron i tor, każde ze swoim własnym „nie podano" (makieta §10). */
+/**
+ * Peron i tor, każde ze swoim własnym „nie podano" (makieta §10). W karcie na telefonie nagłówek
+ * kolumny jest ukryty, więc jedna linia „Peron 2 · tor 4” z podpisami; w tabeli (`sm:`) dwie linie bez nich.
+ */
 function PlatformTrack({ row }: { row: BoardApiRow }) {
   const platform = row.platform
   const track = row.track ?? null
@@ -271,13 +274,25 @@ function PlatformTrack({ row }: { row: BoardApiRow }) {
   if (platform === null && track === null) {
     // „Nie podano" to nie to samo co „—" przy znanym peronie i nieznanym torze
     // -- rozróżnienie wprost wymagane przez makietę §10.
-    return <span className="text-xs text-text-muted">nie podano</span>
+    return (
+      <span className="text-xs text-text-muted">
+        <span className="sm:hidden">Peron i tor: </span>
+        <span className="whitespace-nowrap">nie podano</span>
+      </span>
+    )
   }
 
   return (
     <span className="block tabular-nums">
-      <span className="block font-semibold text-foreground">{platform ?? '—'}</span>
-      <span className="block text-xs text-text-muted">{track ?? '—'}</span>
+      <span className="sm:block">
+        <span className="text-text-muted sm:hidden">Peron </span>
+        <span className="font-semibold text-foreground">{platform ?? '—'}</span>
+      </span>
+      <span className="text-text-muted sm:hidden"> · </span>
+      <span className="text-xs text-text-muted sm:block">
+        <span className="sm:hidden">tor </span>
+        <span>{track ?? '—'}</span>
+      </span>
     </span>
   )
 }
@@ -288,7 +303,8 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
       <CategoryBadge category={row.category} categoryName={row.categoryName} />
       <span className="min-w-0">
         <span className="block truncate font-semibold text-foreground">{row.trainLabel}</span>
-        <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
+        {/* Przewoźnik tylko w tabeli: karta na telefonie trzyma pociąg i peron w jednym rzędzie. */}
+        <span className="hidden min-w-0 items-center gap-1 text-xs text-text-muted sm:flex">
           <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
           <span className="min-w-0 truncate">{row.carrierName ?? (row.carrier || '—')}</span>
         </span>
@@ -299,7 +315,7 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
 
 function TimePair({ row, now }: { row: BoardApiRow; now: number }) {
   const realized = realizedTime(row)
-  const countdown = rowCountdown(row, now)
+  const note = timeNote(row, now)
 
   return (
     <span className="block tabular-nums">
@@ -314,7 +330,7 @@ function TimePair({ row, now }: { row: BoardApiRow; now: number }) {
           {formatClockTime(realized.at)}
         </span>
       )}
-      {countdown !== null && <span className="block text-xs font-semibold text-text-secondary">{countdown}</span>}
+      {note !== null && <span className="block text-xs font-semibold whitespace-normal text-text-secondary">{note}</span>}
     </span>
   )
 }

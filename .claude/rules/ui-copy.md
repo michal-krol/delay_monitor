@@ -19,6 +19,10 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - **City stats** = „Statystyki” (collapsed line on phones); all four phone KPIs unknown = one line
   „Statystyki dnia: brak danych”.
 - „nie podano” = the source gave no value for an optional field (platform, track) — not an error.
+  Phone card (no column header): „Peron 2 · tor 4”, both missing „Peron i tor: nie podano”.
+- „Prognoza” = a PKP predicted time, under the time column („Prognoza · za 7 min”, `timeNote()` in
+  `boardTime.ts`). A confirmed time gets no label (the status badge says it); never „Punktualnie”
+  for an unconfirmed train (#2).
 - Data age: „Aktualizacja {N} s temu”; stale after a failed refresh: „Nie udało się odświeżyć · dane z {HH:mm}”.
 
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)

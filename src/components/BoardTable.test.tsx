@@ -117,6 +117,12 @@ describe('BoardTable — peron i tor', () => {
     expect(screen.getByText('4')).toBeInTheDocument()
     expect(screen.queryByText('2/4')).not.toBeInTheDocument()
   })
+
+  it('labels platform and track in the phone card, where the column header is hidden', () => {
+    renderTable([row({ platform: '2', track: '4' })])
+
+    expect(cell('platform')).toHaveTextContent('Peron 2 · tor 4')
+  })
 })
 
 describe('BoardTable — kierunek i „przez"', () => {
@@ -216,7 +222,7 @@ describe('BoardTable — odliczanie „za N min”', () => {
 
   it('counts to the forecast, not the plan, when the train is late (no new delay logic, AGENTS #2)', () => {
     renderTable([row({ predictedAt: PREDICTED, predictedDelayMinutes: 4, status: 'enRoute' })])
-    expect(screen.getByText('za 34 min')).toBeInTheDocument()
+    expect(within(cell('time')).getByText('Prognoza · za 34 min')).toBeInTheDocument()
   })
 
   it('never counts down to a cancelled train', () => {
