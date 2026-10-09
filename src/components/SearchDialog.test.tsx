@@ -154,6 +154,30 @@ describe('SearchDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('add mode: picking a result hands it to onPick with the city instead of navigating', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    stubFetch({ stations: [{ id: '1001', name: 'Centrum', kind: 'transit', mode: 'bus' }] })
+    const onClose = vi.fn()
+    const onPick = vi.fn()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<SearchDialog open onClose={onClose} onPick={onPick} />)
+    expect(screen.getByRole('dialog', { name: 'Przypnij do Pulpitu' })).toBeInTheDocument()
+    await user.type(await screen.findByRole('combobox'), 'cent')
+    await vi.advanceTimersByTimeAsync(300)
+    await user.click(await screen.findByRole('option', { name: 'Centrum' }))
+    expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ id: '1001', kind: 'transit' }), 'warszawa')
+    expect(push).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('add mode hides recent places (they are links that would navigate away)', async () => {
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
+    stubFetch()
+    render(<SearchDialog open onClose={vi.fn()} onPick={vi.fn()} />)
+    expect(await screen.findByRole('combobox')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Ostatnio oglądane' })).not.toBeInTheDocument()
+  })
+
   it('shows recent places from storage while the query is empty', async () => {
     window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
     stubFetch()

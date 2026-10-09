@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopCard } from './TransitStopCard'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
@@ -24,7 +23,7 @@ describe('TransitStopCard', () => {
       loading: false,
       failed: false,
     })
-    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" />)
 
     expect(screen.getByRole('heading', { name: 'Świętokrzyska' })).toBeInTheDocument()
     expect(screen.getByText(/Rozkład — warszawa/)).toBeInTheDocument()
@@ -60,26 +59,19 @@ describe('TransitStopCard', () => {
       failed: false,
     })
     useTransitBoard.mockReturnValue(board([{ id: '100101', lines: [line] }]))
-    const { unmount } = render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" onRemove={vi.fn()} />)
+    const { unmount } = render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
     expect(screen.queryByTitle('Odjazd z przystanku 01')).not.toBeInTheDocument()
     unmount()
 
     useTransitBoard.mockReturnValue(board([{ id: '100101', lines: [line] }, { id: '100102', lines: [line] }]))
-    render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
     expect(screen.getByTitle('Odjazd z przystanku 01')).toBeInTheDocument()
   })
 
-  it('calls onRemove without following the card link', async () => {
-    useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
-    const onRemove = vi.fn()
-    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={onRemove} />)
-    await userEvent.click(screen.getByRole('button', { name: /Odepnij z Pulpitu/ }))
-    expect(onRemove).toHaveBeenCalledTimes(1)
-  })
 
   it('shows an explicit error when the schedule could not load', () => {
     useTransitBoard.mockReturnValue({ data: null, error: 'network', loading: false, failed: true })
-    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" />)
     expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
   })
 
@@ -90,7 +82,7 @@ describe('TransitStopCard', () => {
       loading: false,
       failed: true,
     })
-    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" />)
     expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
     expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
   })
@@ -102,7 +94,7 @@ describe('TransitStopCard', () => {
       loading: true,
       failed: false,
     })
-    const { container } = render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    const { container } = render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" />)
     expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
     expect(screen.queryByText('Brak odjazdów w rozkładzie')).not.toBeInTheDocument()
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
@@ -120,7 +112,7 @@ describe('TransitStopCard', () => {
       loading: false,
       failed: false,
     })
-    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" />)
     expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
     expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
   })
@@ -128,7 +120,7 @@ describe('TransitStopCard', () => {
   it("shows the city's display name, not the slug, once /api/cities resolves", async () => {
     useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
     vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [] }] })))
-    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="7014M" stopName="Świętokrzyska" />)
     expect(await screen.findByText('Rozkład — Warszawa')).toBeInTheDocument()
   })
 
@@ -146,7 +138,7 @@ describe('TransitStopCard', () => {
 
   it('a pinned single stop fetches only that stop and is named with its number', () => {
     useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
-    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member />)
     expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, '100102')
     expect(screen.getByRole('heading', { name: 'Centrum 02' })).toBeInTheDocument()
     expect(screen.queryByText('Odjazd z przystanku')).not.toBeInTheDocument()
@@ -156,7 +148,7 @@ describe('TransitStopCard', () => {
   it('a pinned group shows all its stops with numbers and links to the group', () => {
     useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
     // Wpis sprzed flagi `member`: `id` to przystanek ze starego deep-linku, ale znaczy cały zespół.
-    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" />)
     expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, null)
     expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
     expect(screen.getByText('Odjazd z przystanku')).toBeInTheDocument()
@@ -174,23 +166,23 @@ describe('TransitStopCard', () => {
     it('reports the real group id once the board is loaded (the pin is rewritten to it)', () => {
       useTransitBoard.mockReturnValue(board('1001'))
       const onGroupResolved = vi.fn()
-      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum" onRemove={vi.fn()} onGroupResolved={onGroupResolved} />)
+      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum" onGroupResolved={onGroupResolved} />)
       expect(onGroupResolved).toHaveBeenCalledWith('1001')
     })
 
     it('stays quiet when the pin already is the group, or is a single member (member: true)', () => {
       const onGroupResolved = vi.fn()
       useTransitBoard.mockReturnValue(board('1001'))
-      const { unmount } = render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" onRemove={vi.fn()} onGroupResolved={onGroupResolved} />)
+      const { unmount } = render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" onGroupResolved={onGroupResolved} />)
       unmount()
-      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum 01" member onRemove={vi.fn()} onGroupResolved={onGroupResolved} />)
+      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum 01" member onGroupResolved={onGroupResolved} />)
       expect(onGroupResolved).not.toHaveBeenCalled()
     })
 
     it('stays quiet while the board is loading (unknown group is not a reason to rewrite)', () => {
       useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
       const onGroupResolved = vi.fn()
-      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum" onRemove={vi.fn()} onGroupResolved={onGroupResolved} />)
+      render(<TransitStopCard city="warszawa" stopId="100101" stopName="Centrum" onGroupResolved={onGroupResolved} />)
       expect(onGroupResolved).not.toHaveBeenCalled()
     })
   })

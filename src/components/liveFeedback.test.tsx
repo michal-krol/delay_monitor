@@ -118,7 +118,7 @@ describe('delayed row glow', () => {
 
 describe('Pulpit card press', () => {
   it('lets the card dip while its open overlay is pressed', () => {
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={vi.fn()} />)
     expect(screen.getByRole('article')).toHaveClass('card-press')
     expect(screen.getByRole('button', { name: /Pokaż pełną tablicę/ })).toHaveAttribute('data-card-open')
   })

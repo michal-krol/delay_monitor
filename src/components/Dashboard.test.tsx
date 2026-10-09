@@ -165,25 +165,53 @@ describe('Dashboard', () => {
     expect(krakowCard).toHaveTextContent('KM')
   })
 
-  it('reports which station the remove button belongs to', async () => {
-    const fetchMock = vi.fn().mockImplementation(() =>
-      jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok', throttled: false })
-    )
-    vi.stubGlobal('fetch', fetchMock)
+  it('cards carry no unpin star — unpinning lives in edit mode only', () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' })))
+
+    render(<Dashboard pinnedItems={PINNED_ITEMS} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    expect(screen.queryByRole('button', { name: /Odepnij z Pulpitu/ })).not.toBeInTheDocument()
+  })
+
+  it('renders PKP and city cards in one shared pinned order, not grouped by kind', () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' })))
+    const mixed: PinnedItem[] = [PINNED_ITEMS[0], { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }, PINNED_ITEMS[1]]
+
+    render(<Dashboard pinnedItems={mixed} onExpand={vi.fn()} onRemove={vi.fn()} />)
+
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)
+    expect(headings).toEqual(['Warszawa Centralna', 'Świętokrzyska', 'Kraków Główny'])
+  })
+
+  it('edit mode lists every pin with up, down and unpin buttons naming the item', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' })))
     const onRemove = vi.fn()
+    const onMove = vi.fn()
     const user = userEvent.setup()
 
-    render(
-      <Dashboard
-        pinnedItems={PINNED_ITEMS}
-        onExpand={vi.fn()}
-        onRemove={onRemove}
-      />
-    )
+    render(<Dashboard pinnedItems={PINNED_ITEMS} onExpand={vi.fn()} onRemove={onRemove} editing onMove={onMove} />)
 
+    const list = screen.getByRole('list', { name: 'Kolejność przypiętych' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'W górę: Kraków Główny' }))
+    expect(onMove).toHaveBeenCalledWith('pkp:5136', -1)
+    await user.click(screen.getByRole('button', { name: 'W dół: Warszawa Centralna' }))
+    expect(onMove).toHaveBeenCalledWith('pkp:5100', 1)
     await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Kraków Główny' }))
-
     expect(onRemove).toHaveBeenCalledWith('pkp:5136')
+  })
+
+  it('edit mode marks moves past the ends as unavailable but keeps the buttons focusable', () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' })))
+
+    render(<Dashboard pinnedItems={PINNED_ITEMS} onExpand={vi.fn()} onRemove={vi.fn()} editing onMove={vi.fn()} />)
+
+    // aria-disabled, nie `disabled`: przycisk, który właśnie dojechał na kraniec, nie gubi fokusu.
+    expect(screen.getByRole('button', { name: 'W górę: Warszawa Centralna' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'W dół: Kraków Główny' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'W dół: Warszawa Centralna' })).not.toHaveAttribute('aria-disabled')
   })
 
   it('renders a transit stop card for a gtfs pinned item alongside station cards (Pulpit is above cities)', async () => {

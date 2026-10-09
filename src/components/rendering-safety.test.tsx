@@ -79,7 +79,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
           error={false}
           configError={false}
           onExpand={vi.fn()}
-          onRemove={vi.fn()}
+         
         />
       )
 
@@ -244,7 +244,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
         error={false}
         configError={false}
         onExpand={vi.fn()}
-        onRemove={vi.fn()}
+       
       />
     )
 

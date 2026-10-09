@@ -8,8 +8,6 @@ import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { TransitDepartureList } from './TransitDepartureList'
 import { stopsWithLines } from './stopName'
-import { IconButton } from './IconButton'
-import { StarIcon, ICON_SIZE } from './icons'
 import { PlaceTitle } from './PlaceTitle'
 
 type Props = {
@@ -18,7 +16,6 @@ type Props = {
   stopName: string
   /** Przypięty jeden przystanek zespołu (`stopName` ma już numer, „Centrum 02"); brak = cały zespół. */
   member?: boolean
-  onRemove: () => void
   /**
    * Stary wpis zespołu zapisany pod id przystanku (deep-link, pin z mapy sprzed flagi `member`):
    * po wczytaniu tablicy zgłasza prawdziwe id zespołu, żeby Pulpit przepisał wpis i gwiazdka na
@@ -33,7 +30,7 @@ type Props = {
  * ma opóźnień. Każda karta odpytuje swój przystanek osobno (GTFS nie ma limitu
  * zapytań; Pulpit trzyma kilka przypięć, nie kilkadziesiąt).
  */
-export function TransitStopCard({ city, stopId, stopName, member = false, onRemove, onGroupResolved }: Props) {
+export function TransitStopCard({ city, stopId, stopName, member = false, onGroupResolved }: Props) {
   const { data, loading, failed } = useTransitBoard(city, [stopId], 3, member ? stopId : null)
   // Ten sam wspólny hook `/api/cities` co `WeatherChip`/`TransitStopDetail`/
   // strona miasta (Task 9).
@@ -62,9 +59,6 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onRemo
         {/* Nazwę przejścia ma tylko kafelek zespołu: przypięty pojedynczy przystanek tej samej grupy dałby duplikat
             `view-transition-name`, który przerywa całe przejście. */}
         {member ? title : <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>{title}</PlaceTitle>}
-        <IconButton label={`Odepnij z Pulpitu: ${name}`} onClick={onRemove} className="z-10">
-          <StarIcon size={ICON_SIZE.button} filled />
-        </IconButton>
       </div>
 
       <p className="mt-0.5 text-xs text-text-muted">Rozkład — {cityName}</p>

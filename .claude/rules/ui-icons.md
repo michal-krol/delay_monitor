@@ -29,6 +29,7 @@ Why: `adr/0006-ikony-lucide.md`.
   - departure `DepartureIcon`, arrival `ArrivalIcon` (not a clock)
   - travel direction „A → B" `ArrowRightIcon` (with `label="do"` when it is the only link
     between two names read aloud); open/next `ChevronRightIcon`; back `ArrowLeftIcon`
+  - list order („W górę” / „W dół”, Pulpit edit mode) `ArrowUpIcon` / `ArrowDownIcon` — not a travel direction
   - expand/collapse `DisclosureIcon`: the `disclosure-chevron` class in `globals.css` turns it
     180° inside the `<summary>` of an open `<details>` or under `aria-expanded="true"` — no
     per-site rotate or `group-open:` classes; sidebar collapse is a panel, not a disclosure,

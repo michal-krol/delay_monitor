@@ -27,13 +27,13 @@ function board(groupId: string) {
 describe('TransitStopCard shared title', () => {
   it('a pinned stop group owns the shared name', () => {
     useTransitBoard.mockReturnValue(board('1001'))
-    render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
     expect(screen.getByTestId('place-title')).toHaveAttribute('data-id', 'warszawa:1001')
   })
 
   it('a pinned SINGLE stop of the same group does not (its group card already has the name)', () => {
     useTransitBoard.mockReturnValue(board('1001'))
-    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member onRemove={vi.fn()} />)
+    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member />)
     expect(screen.queryByTestId('place-title')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Centrum 02' })).toBeInTheDocument()
   })

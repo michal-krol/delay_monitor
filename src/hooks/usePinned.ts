@@ -27,6 +27,21 @@ export function pinnedKey(pinnedItem: PinnedItem): string {
   return `gtfs:${pinnedItem.city}:${pinnedItem.id}${pinnedItem.member === true ? ':przystanek' : ''}`
 }
 
+/**
+ * Wynik wyszukiwarki → przypięcie („Dodaj" na Pulpicie). Przystanek miejski = cały zespół miasta, w którym
+ * szukano. Te same wzorce co schemat odczytu: wpis, którego kolejny odczyt by nie przyjął, nie powstaje.
+ */
+export function pinnedItemFromOption(
+  option: { id: string; name: string; kind?: 'rail' | 'transit' },
+  city: string | null
+): PinnedItem | null {
+  if (option.kind === 'transit') {
+    if (city === null || !CITY_ID_PATTERN.test(city) || !GTFS_STOP_ID_PATTERN.test(option.id)) return null
+    return { kind: 'gtfs', city, id: option.id, name: option.name }
+  }
+  return STATION_ID_PATTERN.test(option.id) ? { kind: 'pkp', id: option.id, name: option.name } : null
+}
+
 const V2_KEY = 'monitor.favourites.v2' // prefiks `pkp.` przestał być prawdziwy
 
 /**
@@ -95,11 +110,26 @@ export function usePinned() {
     setLoaded(true)
   }, [])
 
-  function addPinned(pinnedItem: PinnedItem): void {
+  /** Na koniec listy; `index` = powrót na dawne miejsce („Cofnij" po odpięciu). */
+  function addPinned(pinnedItem: PinnedItem, index?: number): void {
     const key = pinnedKey(pinnedItem)
     setPinnedItems((current) => {
       if (current.some((item) => pinnedKey(item) === key)) return current
-      const next = [...current, pinnedItem]
+      const next = [...current]
+      next.splice(index ?? current.length, 0, pinnedItem)
+      writeStorage(next)
+      return next
+    })
+  }
+
+  /** O jedno miejsce w górę (-1) albo w dół (1); na krańcu listy nic się nie dzieje. */
+  function movePinned(key: string, delta: -1 | 1): void {
+    setPinnedItems((current) => {
+      const from = current.findIndex((item) => pinnedKey(item) === key)
+      const to = from + delta
+      if (from === -1 || to < 0 || to >= current.length) return current
+      const next = [...current]
+      ;[next[from], next[to]] = [next[to], next[from]]
       writeStorage(next)
       return next
     })
@@ -133,5 +163,5 @@ export function usePinned() {
     return pinnedItems.some((item) => pinnedKey(item) === key)
   }
 
-  return { pinnedItems, loaded, addPinned, removePinned, replacePinned, isPinned }
+  return { pinnedItems, loaded, addPinned, removePinned, movePinned, replacePinned, isPinned }
 }
