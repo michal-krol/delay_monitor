@@ -133,6 +133,41 @@ test('375×812: pierwszy wiersz tablicy stacji najwyżej 340 px od góry (było 
   expect((await time.boundingBox())!.y).toBeLessThanOrEqual(340)
 })
 
+/** Ramki komórek pierwszego wiersza tablicy (karta na telefonie). */
+async function firstRowBoxes(page: Page) {
+  const row = page.locator('.board-table tbody tr[data-status]').first()
+  const box = async (cell: string) => (await row.locator(`td[data-cell="${cell}"]`).boundingBox())!
+  return { row, time: await box('time'), direction: await box('direction'), status: await box('status'), train: await box('train'), platform: await box('platform') }
+}
+
+test('karta wiersza 375 px: godzina po lewej, status pod kierunkiem, pociąg i „Peron · tor” w jednym rzędzie, bez przewoźnika', async ({ page }) => {
+  await firstBoardTime(page, STATION)
+  const { row, time, direction, status, train, platform } = await firstRowBoxes(page)
+  expect(time.x + time.width).toBeLessThanOrEqual(direction.x)
+  expect(status.y).toBeGreaterThanOrEqual(direction.y + direction.height - 1)
+  expect(Math.abs(train.y - platform.y), 'pociąg i peron w jednym rzędzie').toBeLessThanOrEqual(4)
+  expect(train.y).toBeGreaterThanOrEqual(status.y + status.height - 1)
+  await expect(row.locator('td[data-cell="platform"]')).toContainText(/Peron/)
+  // Widoczny tekst komórki (innerText pomija `display: none`): kategoria + numer, bez linii przewoźnika.
+  expect((await row.locator('td[data-cell="train"]').innerText()).trim().split('\n')).toHaveLength(2)
+})
+
+test('karta wiersza przy szerszym telefonie (600 px): status obok kierunku', async ({ page }) => {
+  await page.setViewportSize({ width: 600, height: 812 })
+  await firstBoardTime(page, STATION)
+  const { direction, status } = await firstRowBoxes(page)
+  expect(status.x).toBeGreaterThanOrEqual(direction.x + direction.width - 1)
+  expect(status.y).toBeLessThan(direction.y + direction.height)
+})
+
+test('karta wiersza przy tekście 200 %: peron w osobnym rzędzie pod pociągiem, bez przewijania w bok', async ({ page }) => {
+  await firstBoardTime(page, STATION)
+  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+  const { train, platform } = await firstRowBoxes(page)
+  expect(platform.y).toBeGreaterThanOrEqual(train.y + train.height - 1)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
 test('karta stacji na telefonie: ← nazwa ★ ⋮ w jednym rzędzie, bez okruszków i KPI; „Udostępnij” w „Więcej”', async ({ page }) => {
   await firstBoardTime(page, STATION)
   const heading = page.getByRole('heading', { name: 'Warszawa Centralna' })

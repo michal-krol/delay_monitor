@@ -26,3 +26,12 @@ export function expectedAt(row: RealizationFields & Pick<BoardApiRow, 'plannedAt
 export function rowCountdown(row: RealizationFields & Pick<BoardApiRow, 'plannedAt' | 'status'>, now: number): string | null {
   return row.status === 'cancelled' ? null : countdownLabel(now, expectedAt(row))
 }
+
+/**
+ * Podpis pod godzinami wiersza tablicy: „Prognoza · za 7 min”, „Prognoza”, „za 7 min” albo `null`.
+ * Prognoza nazwana wprost, żeby nie udawała faktu; faktu nie podpisujemy — mówi o nim plakietka statusu.
+ */
+export function timeNote(row: RealizationFields & Pick<BoardApiRow, 'plannedAt' | 'status'>, now: number): string | null {
+  const parts = [realizedTime(row)?.kind === 'forecast' ? 'Prognoza' : null, rowCountdown(row, now)].filter((part) => part !== null)
+  return parts.length > 0 ? parts.join(' · ') : null
+}

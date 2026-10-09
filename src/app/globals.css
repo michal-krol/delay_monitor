@@ -814,8 +814,9 @@ details[open] > summary .disclosure-chevron,
    kartowego drzewa obok tabeli dublowałoby każdy napis w DOM: czytnik ekranu
    przeczytałby całą tablicę dwa razy, a każde zapytanie testowe trafiałoby na
    dwa elementy. Zamiast tego jeden `<table>` przestaje być tabelą poniżej
-   `sm`: nagłówki znikają, wiersz staje się siatką 2x3, komórki układają się
-   w kartę. Rola `row`/`cell` zostaje dla czytników, wygląd jest kartowy.
+   `sm`: nagłówki znikają, wiersz staje się siatką, komórki układają się
+   w kartę: godzina po lewej przez całą wysokość, obok kierunek ze statusem,
+   niżej pociąg i peron · tor. Rola `row`/`cell` zostaje dla czytników, wygląd jest kartowy.
 
    `sm` = 40rem, ta sama wartość co domyślny breakpoint Tailwinda -- warianty
    `sm:` w komponentach i ten media query MUSZĄ przełączać się w tym samym
@@ -839,20 +840,34 @@ details[open] > summary .disclosure-chevron,
     white-space: nowrap;
   }
 
+  /* Wąsko (telefon 375 px): status pod kierunkiem — obok spychał go do „Bydgos…". */
   .board-table tr {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    /* Stała kolumna godziny: każdy wiersz to osobna siatka, a „auto” rozjeżdżało kierunki między kartami. */
+    grid-template-columns: 4.25rem minmax(0, 1fr) auto;
     grid-template-areas:
-      "time  direction platform"
-      "train train     train"
-      "status status    status";
-    gap: 0.25rem 0.75rem;
+      "time direction direction"
+      "time status    status"
+      "time train     platform";
+    gap: 0.25rem 0.5rem;
     align-items: start;
     margin-bottom: 0.5rem;
     padding: 0.75rem;
     border: 1px solid var(--surface-border);
     border-left-width: 3px;
     border-radius: 0.75rem;
+  }
+
+  /* Szkielet wczytywania i pusty stan (wiersze bez `data-status`) to nie karta: jedna komórka `colSpan`
+     wpadała w wąską kolumnę godziny, a wiersz „Wczytywanie…” (sr-only) rysował pustą ramkę. */
+  .board-table tr:not([data-status]) {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .board-table tr:not([data-status]) td {
+    display: block;
   }
 
   .board-table td {
@@ -871,6 +886,8 @@ details[open] > summary .disclosure-chevron,
        w karcie rolę tę przejmuje lewa krawędź całego wiersza. */
     box-shadow: none !important;
     padding-left: 0 !important;
+    /* Podpis „Prognoza · za 7 min” łamie się w wąskiej kolumnie zamiast ją rozpychać. */
+    white-space: normal;
   }
   .board-table td[data-cell="train"] {
     grid-area: train;
@@ -882,6 +899,8 @@ details[open] > summary .disclosure-chevron,
     grid-area: platform;
     justify-self: end;
     text-align: right;
+    /* „Peron i tor: nie podano” w dwóch liniach, zamiast ściskać pociąg do „REG…”. */
+    max-width: 6rem;
   }
   .board-table td[data-cell="status"] {
     grid-area: status;
@@ -894,6 +913,35 @@ details[open] > summary .disclosure-chevron,
   /* Strzałka „szczegóły" nie niesie treści -- w karcie klika się cały wiersz. */
   .board-table td[data-cell="chevron"] {
     display: none;
+  }
+
+  /* Progi w `em`, nie px: przy powiększonym tekście kontener (`@container` w `BoardTable`) „węższy",
+     więc karta sama dokłada rzędy zamiast ściskać kierunek. */
+  @container (min-width: 26em) {
+    .board-table tr {
+      grid-template-areas:
+        "time direction status"
+        "time train     platform";
+    }
+    .board-table td[data-cell="status"] {
+      justify-self: end;
+      margin-top: 0;
+    }
+  }
+  @container (max-width: 17.999em) {
+    .board-table tr {
+      grid-template-columns: 4.25rem minmax(0, 1fr);
+      grid-template-areas:
+        "time direction"
+        "time status"
+        "time train"
+        "time platform";
+    }
+    .board-table td[data-cell="platform"] {
+      justify-self: start;
+      text-align: left;
+      max-width: none;
+    }
   }
 }
 
