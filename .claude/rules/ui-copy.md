@@ -34,6 +34,13 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - ★ Never „słupek” for a stop (a calque; chart bars are „słupki” in comments only).
 - Phone-only chrome is „Info” (button + sheet title „Informacje o stacji/przystanku”).
 
+## Filters
+
+- Board direction select (phones): departures „Kierunek” / „Wszystkie kierunki”; arrivals (headsign =
+  origin) „Skąd” / „Wszystkie stacje początkowe”. Desktop chip: „Kierunek: {name}”.
+- Overflow menu ⋮ = „Więcej” (button and list name); its entries name the thing („Udostępnij”,
+  „Informacje o stacji”).
+
 ## Action verbs
 
 - Pin: „Przypnij do Pulpitu” / „Odepnij z Pulpitu” (star icon, `ui-icons.md`).

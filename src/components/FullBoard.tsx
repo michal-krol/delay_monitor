@@ -10,7 +10,8 @@ import { BoardStatus } from './BoardStatus'
 import { BoardTable, StatusLegend, StatusLegendList } from './BoardTable'
 import { ActionGrid } from './ActionGrid'
 import { AsideCard } from './aside'
-import { ShareButton } from './ShareButton'
+import { BoardMoreMenu } from './BoardMoreMenu'
+import { DirectionSelect } from './DirectionSelect'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { PopularDestinations, StationAside } from './StationAside'
 import { StationStatsCards } from './StationStatsCards'
@@ -39,8 +40,8 @@ type Props = {
    */
   embedded?: boolean
   /**
-   * Telefon: ← i „Udostępnij” w karcie stacji zamiast osobnego wiersza `TopBar` (strona chowa go
-   * `hideOnPhone`) — nazwa stoi raz, a pierwszy odjazd jest ~60 px wyżej. Tylko gdy `!embedded`.
+   * Telefon: górny rząd karty to ← nazwa ★ ⋮ („Więcej”: „Udostępnij”, „Informacje o stacji”) zamiast osobnego
+   * wiersza `TopBar` (strona chowa go `hideOnPhone`) — nazwa (h1, `PlaceTitle`) stoi raz. Tylko gdy `!embedded`.
    */
   phoneBack?: { href: string; label: string }
 }
@@ -210,7 +211,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
 
   return (
     <div className="grid items-start gap-5 max-sm:gap-2 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
-      {/* Na telefonie odjazdy pierwsze: zwarty nagłówek, KPI jako pigułki, kontekst w arkuszu „Info”. */}
+      {/* Na telefonie odjazdy pierwsze: zwarty nagłówek, selektor kierunku, kontekst i KPI w arkuszu „Info”. */}
       <div className="flex min-w-0 flex-col gap-5 max-sm:gap-2">
         <section className="glass relative rounded-2xl p-5 max-sm:p-3">
           {configError && <ConfigErrorBanner />}
@@ -246,7 +247,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
               <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} className="max-sm:h-11 max-sm:w-11">
                 <StarIcon size={ICON_SIZE.button} filled={isPinned} />
               </IconButton>
-              {phoneBack !== undefined && !wide && <ShareButton iconOnly />}
+              {phoneBack !== undefined && !wide && <BoardMoreMenu infoLabel="Informacje o stacji" onInfo={toggleInfo} />}
             </div>
           </div>
         </section>
@@ -258,7 +259,14 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
             "sprawdź klucz API" nie sąsiadował z wyglądającą na działającą tabelą. */}
         {!configError && (
           <>
-            <StationStatsCards stats={snapshot?.stats} loading={loading} />
+            {/* Telefon: kafelki tylko w arkuszu „Info”; w ich miejscu jeden selektor kierunku (bez dokładania wysokości). */}
+            {wide ? (
+              <div className="max-sm:hidden">
+                <StationStatsCards stats={snapshot?.stats} loading={loading} />
+              </div>
+            ) : (
+              <DirectionSelect direction={direction} rows={allRows} value={destinationFilter} onChange={setDestinationFilter} />
+            )}
 
             <section className="glass rounded-2xl p-5 max-sm:p-4">
               {/* Na telefonie pasek przykleja się pod nagłówkiem aplikacji: zakładki, legenda i „Info”
@@ -283,11 +291,12 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
                 </div>
                 {wide && <StatusLegend />}
 
-                {destinationFilter !== null && (
+                {/* Telefon: wybrany kierunek pokazuje selektor nad tablicą. */}
+                {destinationFilter !== null && wide && (
                   <button
                     type="button"
                     onClick={() => setDestinationFilter(null)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground max-sm:order-2 max-sm:col-span-3 max-sm:justify-center"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground"
                   >
                     Kierunek: {destinationFilter}
                     <CloseIcon size={ICON_SIZE.chip} />

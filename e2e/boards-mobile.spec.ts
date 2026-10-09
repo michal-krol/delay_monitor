@@ -133,11 +133,43 @@ test('375×812: pierwszy wiersz tablicy stacji najwyżej 340 px od góry (było 
   expect((await time.boundingBox())!.y).toBeLessThanOrEqual(340)
 })
 
-test('karta stacji na telefonie: nazwa raz, ← i „Udostępnij” w karcie, zakładki i Info w jednej siatce', async ({ page }) => {
+test('karta stacji na telefonie: ← nazwa ★ ⋮ w jednym rzędzie, bez okruszków i KPI; „Udostępnij” w „Więcej”', async ({ page }) => {
   await firstBoardTime(page, STATION)
-  await expect(page.getByRole('heading', { name: 'Warszawa Centralna' })).toHaveCount(1)
-  await expect(page.getByRole('link', { name: 'Wróć do Pulpitu' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Udostępnij' })).toBeVisible()
+  const heading = page.getByRole('heading', { name: 'Warszawa Centralna' })
+  await expect(heading).toHaveCount(1)
+  await expect(page.getByRole('navigation', { name: 'Ścieżka nawigacji' })).toHaveCount(0)
+  await expect(page.getByTestId('station-stats')).toHaveCount(0)
+  const row = [page.getByRole('link', { name: 'Wróć do Pulpitu' }), heading, page.getByRole('button', { name: 'Przypnij do Pulpitu' }), page.getByRole('button', { name: 'Więcej' })]
+  const boxes = await Promise.all(row.map((locator) => locator.boundingBox()))
+  for (const box of boxes) expect(Math.abs(box!.y + box!.height / 2 - (boxes[0]!.y + boxes[0]!.height / 2)), 'jeden górny rząd').toBeLessThanOrEqual(12)
+  await page.getByRole('button', { name: 'Więcej' }).click()
+  const menu = page.getByRole('list', { name: 'Więcej' })
+  await expect(menu.getByRole('button', { name: 'Udostępnij' })).toBeVisible()
+  await menu.getByRole('button', { name: 'Informacje o stacji' }).click()
+  await expect(page.getByRole('dialog', { name: 'Informacje o stacji' })).toBeVisible()
+})
+
+test('selektor kierunku w miejscu KPI: między kartą stacji a zakładkami, filtruje i ustawia ?direction=', async ({ page }) => {
+  await firstBoardTime(page, STATION)
+  const select = page.getByRole('combobox', { name: 'Kierunek' })
+  await expect(select).toHaveValue('')
+  const tabs = (await page.getByTestId('board-tabs-bar').boundingBox())!
+  const selectBox = (await select.boundingBox())!
+  expect(selectBox.y + selectBox.height).toBeLessThanOrEqual(tabs.y)
+  expect(selectBox.height).toBeGreaterThanOrEqual(44)
+  const name = (await select.locator('option').nth(1).textContent())!.trim()
+  await select.selectOption(name)
+  await expect.poll(() => new URL(page.url()).searchParams.get('direction')).toBe(name)
+  // Filtr działa po przerenderowaniu — czekamy, aż każdy wiersz ma wybrany kierunek.
+  await expect(async () => {
+    const headsigns = await page.locator('td[data-cell="direction"]').allTextContents()
+    expect(headsigns.length).toBeGreaterThan(0)
+    for (const text of headsigns) expect(text).toContain(name)
+  }).toPass({ timeout: 5_000 })
+})
+
+test('zakładki i Info w jednej siatce', async ({ page }) => {
+  await firstBoardTime(page, STATION)
   const tabs = (await page.getByRole('tablist', { name: 'Kierunek' }).boundingBox())!
   const info = (await page.getByRole('button', { name: 'Info' }).boundingBox())!
   expect(Math.abs(tabs.y - info.y), 'zakładki i Info w jednym rzędzie').toBeLessThanOrEqual(6)

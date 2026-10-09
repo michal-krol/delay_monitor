@@ -1,12 +1,10 @@
 import type { StationStats } from '@/lib/board/stationStats'
 import { ArrivalIcon, DepartureIcon, HourglassIcon, TargetIcon, ICON_SIZE } from './icons'
 import { pluralPl } from '@/lib/plural'
-import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
-import { useInSheet } from './BottomSheet'
 import { StatTile } from './StatTile'
 
 /**
- * Cztery kafelki KPI nad tablicą.
+ * Cztery kafelki KPI: nad tablicą od `sm`, na telefonie w arkuszu „Info” (`FullBoard`).
  *
  * Każda liczba tu jest **naszym** wskaźnikiem policzonym z danych operacyjnych
  * PKP, nie oficjalną statystyką przewoźnika — makieta §4 wprost przed tym
@@ -28,11 +26,11 @@ const LOADING = '—'
  * pierwszych dwóch w jeden komunikat to dokładnie ten błąd, przed którym
  * ostrzega AGENTS.md #7 („brak wyników" ≠ „nie udało się sprawdzić").
  */
-function countValue(count: number | null, loading: boolean): { value: string; unit?: string; hint: string; hideUnitInPill?: boolean } {
+function countValue(count: number | null, loading: boolean): { value: string; unit?: string; hint: string } {
   if (loading) return { value: LOADING, hint: 'wczytywanie rozkładu…' }
   if (count === null) return { value: NO_DATA, hint: 'nie udało się pobrać rozkładu' }
   // „2 pociągów" jest po polsku błędne -- odmiana idzie przez wspólny `pluralPl`.
-  return { value: String(count), unit: pluralPl(count, 'pociąg', 'pociągi', 'pociągów'), hint: 'wg rozkładu na dziś', hideUnitInPill: true }
+  return { value: String(count), unit: pluralPl(count, 'pociąg', 'pociągi', 'pociągów'), hint: 'wg rozkładu na dziś' }
 }
 
 /** Podpis dla wskaźnika liczonego z realizacji — patrz `countValue` co do trzech stanów. */
@@ -43,9 +41,6 @@ function realizationHint(loading: boolean, sample: number, ready: string): strin
 }
 
 export function StationStatsCards({ stats, loading = false }: { stats: StationStats | undefined; loading?: boolean }) {
-  // Nad tablicą na telefonie pigułki (pierwszy odjazd ma być widoczny bez przewijania); w arkuszu „Info” kafelki.
-  const pills = !useInSheet()
-  const wide = useMediaQuery(SM_UP, true)
   // Snapshotu jeszcze nie ma (zimny start pollera) -- kafelki i tak muszą
   // zająć swoje miejsce w kompozycji, żeby układ nie skakał, gdy dane dojdą.
   const safe: StationStats = stats ?? {
@@ -61,39 +56,28 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
   const departures = countValue(safe.departuresToday, loading)
   const arrivals = countValue(safe.arrivalsToday, loading)
 
-  // Telefon, wszystko nieznane: jedna linia zamiast czterech „brak danych” (#7: nieznane ≠ 0).
-  const allUnknown =
-    !loading && safe.departuresToday === null && safe.arrivalsToday === null && safe.averageDelayMinutes === null && safe.punctualityPct === null
-  if (pills && !wide && stats !== undefined && allUnknown) {
-    return (
-      <p data-testid="station-stats" data-variant="unknown" className="text-xs text-text-muted">
-        Statystyki dnia: brak danych
-      </p>
-    )
-  }
-
   return (
     // Kolumny od szerokości KONTENERA, nie okna: w FullBoard przy oknie 1280 px kafelki mają
     // ~565 px, a `xl:grid-cols-4` ściskało je do 143 px („Punktualność” ucięta). 1 → 2 → 4,
     // nigdy 3 (auto-fill dałby sierotę 3+1).
-    <div className="@container" data-testid="station-stats" data-variant={pills ? 'pills' : 'tiles'}>
-      <div className={`grid grid-cols-1 gap-3 @md:grid-cols-2 @5xl:grid-cols-4 ${pills ? 'max-sm:grid-cols-4 max-sm:gap-1' : ''}`}>
+    <div className="@container" data-testid="station-stats">
+      <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @5xl:grid-cols-4">
         <StatTile
-          pills={pills}
+          pills={false}
           icon={<DepartureIcon size={ICON_SIZE.tile} />}
           accent="var(--status-notStarted-bg)"
           label="Odjazdy dzisiaj"
           {...departures}
         />
         <StatTile
-          pills={pills}
+          pills={false}
           icon={<ArrivalIcon size={ICON_SIZE.tile} />}
           accent="var(--status-onTime-bg)"
           label="Przyjazdy dzisiaj"
           {...arrivals}
         />
         <StatTile
-          pills={pills}
+          pills={false}
           icon={<HourglassIcon size={ICON_SIZE.tile} />}
           accent="var(--status-delayed-bg)"
           label="Średnie opóźnienie"
@@ -102,7 +86,7 @@ export function StationStatsCards({ stats, loading = false }: { stats: StationSt
           hint={realizationHint(loading, safe.averageDelaySample, `z ${safe.averageDelaySample} potwierdzonych dziś przejazdów`)}
         />
         <StatTile
-          pills={pills}
+          pills={false}
           icon={<TargetIcon size={ICON_SIZE.tile} />}
           accent="var(--status-enRoute-bg)"
           label="Punktualność"

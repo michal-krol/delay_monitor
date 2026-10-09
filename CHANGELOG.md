@@ -23,6 +23,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Tablica stacji na telefonie: górny rząd to „←”, nazwa stacji, gwiazdka i menu „Więcej” z
+  „Udostępnij” i „Informacje o stacji”. Wskaźniki dnia nie stoją już nad tablicą — są w arkuszu
+  „Info”, a w ich miejscu jest jeden wybór kierunku („Wszystkie kierunki”; na przyjazdach „Skąd”),
+  zbudowany z pociągów na tablicy, bez dodatkowych zapytań do PKP. Komputer bez zmian.
 - Ekran stacji na telefonie: pierwszy odjazd jest wyżej (z ok. 470 do najwyżej 340 px od góry
   ekranu 375×812). Nazwa stacji występuje raz, a „←”, gwiazdka i „Udostępnij” są w jej karcie;
   wskaźniki dnia to cztery równe kafelki w jednym rzędzie; zakładki „Odjazdy/Przyjazdy” i „Info”

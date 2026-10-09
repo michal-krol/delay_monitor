@@ -570,12 +570,50 @@ describe('FullBoard', () => {
       expect(within(sheet).getByRole('heading', { name: 'Legenda statusów' })).toBeInTheDocument()
     })
 
-    it('puts ← and „Udostępnij” in the station card when the page asks for it (name once)', async () => {
+    it('top row is ← name ★ ⋮: „Więcej” holds „Udostępnij” and „Informacje o stacji” (opens the sheet); name once', async () => {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
       render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Pulpitu' }} />)
       await screen.findByText('EIC 1')
       expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
-      expect(screen.getByRole('button', { name: 'Udostępnij' })).toBeInTheDocument()
+      expect(screen.getAllByRole('heading', { name: 'Warszawa Centralna' })).toHaveLength(1)
+      expect(screen.getByRole('button', { name: 'Przypnij do Pulpitu' })).toBeInTheDocument()
+      // „Udostępnij” nie stoi już osobno w karcie — jest w menu.
+      expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
+
+      const more = screen.getByRole('button', { name: 'Więcej' })
+      await user.click(more)
+      const menu = screen.getByRole('list', { name: 'Więcej' })
+      expect(within(menu).getByRole('button', { name: 'Udostępnij' })).toBeInTheDocument()
+      await user.click(within(menu).getByRole('button', { name: 'Informacje o stacji' }))
+      expect(screen.queryByRole('list', { name: 'Więcej' })).not.toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Informacje o stacji' })).toBeInTheDocument()
+    })
+
+    it('no KPI tiles above the board on a phone — they stay in the Info sheet', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+      expect(screen.queryByTestId('station-stats')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Info' }))
+      expect(within(screen.getByRole('dialog', { name: 'Informacje o stacji' })).getByTestId('station-stats')).toBeInTheDocument()
+    })
+
+    it('one direction select („Wszystkie kierunki”) built from the rows filters the board and writes ?direction=', async () => {
+      const twoWays = { ...SNAPSHOT, departures: [SNAPSHOT.departures[0], { ...SNAPSHOT.departures[0], orderId: '2', trainLabel: 'IC 2', headsign: 'Gdynia Główna' }] }
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [twoWays], budget: undefined, status: 'ok' })))
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('IC 2')
+      const select = screen.getByRole('combobox', { name: 'Kierunek' })
+      expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Wszystkie kierunki', 'Gdynia Główna', 'Kraków'])
+
+      await user.selectOptions(select, 'Kraków')
+      await waitFor(() => expect(screen.queryByText('IC 2')).not.toBeInTheDocument())
+      expect(screen.getByText('EIC 1')).toBeInTheDocument()
+      await waitFor(() => expect(new URLSearchParams(window.location.search).get('direction')).toBe('Kraków'))
     })
   })
 })
