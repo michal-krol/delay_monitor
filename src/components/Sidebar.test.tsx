@@ -24,7 +24,7 @@ describe('Sidebar', () => {
     vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.2.3')
     vi.stubEnv('NEXT_PUBLIC_APP_BRANCH', 'main')
 
-    render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
+    render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
 
     expect(screen.getByText('v1.2.3 · prod')).toBeInTheDocument()
   })
@@ -32,19 +32,19 @@ describe('Sidebar', () => {
   it('pokazuje "dev" bez zmian, i nieznaną gałąź tak jak jest', () => {
     vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.2.3')
     vi.stubEnv('NEXT_PUBLIC_APP_BRANCH', 'dev')
-    const { unmount } = render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
+    const { unmount } = render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
     expect(screen.getByText('v1.2.3 · dev')).toBeInTheDocument()
     unmount()
 
     vi.stubEnv('NEXT_PUBLIC_APP_BRANCH', 'claude/some-feature')
-    render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
+    render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
     expect(screen.getByText('v1.2.3 · claude/some-feature')).toBeInTheDocument()
   })
 
   it('chowa wersję/środowisko razem z nazwą aplikacji, gdy sidebar jest zwinięty', () => {
     vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.2.3')
     vi.stubEnv('NEXT_PUBLIC_APP_BRANCH', 'dev')
-    render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
+    render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
 
     fireEvent.click(screen.getByRole('button', { name: /zwiń|rozwiń/i }))
 
@@ -52,14 +52,14 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Monitor opóźnień')).not.toBeInTheDocument()
   })
 
-  it('renderuje aktywny link do Pulpitu', () => {
-    render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
-    expect(screen.getByRole('link', { name: 'Pulpit' })).toBeInTheDocument()
+  it('renderuje aktywny link do Startu', () => {
+    render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
+    expect(screen.getByRole('link', { name: 'Start' })).toBeInTheDocument()
   })
 
   it('podświetla bieżącą pozycję przez aria-current', () => {
-    render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
-    expect(screen.getByRole('link', { name: 'Pulpit' })).toHaveAttribute('aria-current', 'page')
+    render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
+    expect(screen.getByRole('link', { name: 'Start' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('„Odjazdy / Przyjazdy" prowadzi na /city (trasa dobiera domyślne miasto)', () => {
@@ -84,10 +84,10 @@ describe('Sidebar', () => {
   })
 
   it('nawigacja ma dokładnie 4 linki i żadnych nieaktywnych placeholderów', () => {
-    const { container } = render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
+    const { container } = render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
     const links = screen.getAllByRole('link')
     expect(links).toHaveLength(4)
-    for (const [index, name] of ['Pulpit', 'Odjazdy / Przyjazdy', 'Linie', 'Mapa'].entries()) {
+    for (const [index, name] of ['Start', 'Odjazdy / Przyjazdy', 'Linie', 'Mapa'].entries()) {
       expect(links[index]).toHaveAccessibleName(name)
     }
     // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- brak jakiegokolwiek elementu z aria-disabled
@@ -99,7 +99,7 @@ describe('Sidebar', () => {
 
   it('przycisk „Szukaj" wywołuje onSearch i zapowiada skróty klawiszowe', () => {
     const onSearch = vi.fn()
-    render(<Sidebar activeItem="pulpit" onSearch={onSearch} />)
+    render(<Sidebar activeItem="start" onSearch={onSearch} />)
     const button = screen.getByRole('button', { name: /Szukaj/ })
     expect(button).toHaveAttribute('aria-keyshortcuts', 'Control+K Meta+K /')
     fireEvent.click(button)
@@ -107,7 +107,7 @@ describe('Sidebar', () => {
   })
 
   it('zwinięty sidebar zostawia przycisk „Szukaj" tylko jako ikonę z nazwą', () => {
-    render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
+    render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /zwiń|rozwiń/i }))
     const button = screen.getByRole('button', { name: 'Szukaj' })
     expect(button).toHaveAttribute('aria-label', 'Szukaj')
@@ -115,7 +115,7 @@ describe('Sidebar', () => {
   })
 
   it('przycisk zwijania przełącza szerokość sidebara', async () => {
-    const { container } = render(<Sidebar activeItem="pulpit" onSearch={vi.fn()} />)
+    const { container } = render(<Sidebar activeItem="start" onSearch={vi.fn()} />)
     const toggle = screen.getByRole('button', { name: /zwiń|rozwiń/i })
     // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- potrzebujemy węzła <aside>, żeby sprawdzić atrybut data-collapsed (getByRole('complementary') dałby ten sam element, ale nie atrybut wprost)
     const aside = container.querySelector('aside')

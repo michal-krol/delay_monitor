@@ -33,15 +33,15 @@ afterEach(() => {
 const sidebar = () => within(screen.getByRole('complementary'))
 
 describe('AppChrome sidebar', () => {
-  it('marks "Pulpit" as the current page only on the root path', () => {
+  it('marks "Start" as the current page only on the root path', () => {
     render(<AppChrome />)
-    expect(sidebar().getByRole('link', { name: 'Pulpit' })).toHaveAttribute('aria-current', 'page')
+    expect(sidebar().getByRole('link', { name: 'Start' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('marks nothing as current on a station or connection page', () => {
     usePathname.mockReturnValue('/station/33605')
     render(<AppChrome />)
-    expect(sidebar().getByRole('link', { name: 'Pulpit' })).not.toHaveAttribute('aria-current')
+    expect(sidebar().getByRole('link', { name: 'Start' })).not.toHaveAttribute('aria-current')
   })
 
   it('marks "Odjazdy / Przyjazdy" on a city page, "Linie" on a line page', () => {
@@ -110,13 +110,34 @@ describe('AppChrome search', () => {
     expect(dialog.showModal).not.toHaveBeenCalled()
   })
 
-  it('opens from the header and the sidebar buttons', async () => {
+  it('opens from the bottom-nav and the sidebar buttons — the same single dialog', async () => {
     const user = userEvent.setup()
     render(<AppChrome />)
-    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Szukaj' }))
+    const bottomNav = within(screen.getByRole('navigation', { name: 'Nawigacja główna' }))
+    await user.click(bottomNav.getByRole('button', { name: 'Szukaj' }))
     expect(dialog.showModal).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
     act(() => (screen.getByRole('dialog') as HTMLDialogElement).close())
     await user.click(sidebar().getByRole('button', { name: /Szukaj/ }))
     expect(dialog.showModal).toHaveBeenCalledTimes(2)
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+  })
+
+  it('the mobile header has no „Szukaj" button (one search action on a phone), the sidebar has exactly one', () => {
+    render(<AppChrome />)
+    expect(within(screen.getByRole('banner')).queryByRole('button', { name: 'Szukaj' })).toBeNull()
+    expect(sidebar().getAllByRole('button', { name: /Szukaj/ })).toHaveLength(1)
+  })
+
+  it('Ctrl+K and „/" open the same dialog the bottom-nav button does', async () => {
+    render(<AppChrome />)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }))
+    expect(await screen.findAllByRole('dialog')).toHaveLength(1)
+    expect(dialog.showModal).toHaveBeenCalledTimes(1)
+    act(() => (screen.getByRole('dialog') as HTMLDialogElement).close())
+    fireEvent.keyDown(document.body, { key: '/' })
+    await screen.findByRole('combobox')
+    expect(dialog.showModal).toHaveBeenCalledTimes(2)
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
   })
 })

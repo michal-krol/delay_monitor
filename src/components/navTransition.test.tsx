@@ -51,14 +51,14 @@ describe('navigation transition types', () => {
   })
 
   it('bottom-nav tabs and sidebar items crossfade (nav-tab), they are not forward/back', () => {
-    render(<BottomNav />)
-    for (const link of within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getAllByRole('link')) {
-      expect(link).toHaveAttribute('data-types', 'nav-tab')
-    }
+    render(<BottomNav onSearch={() => {}} />)
+    const links = within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getAllByRole('link')
+    expect(links).toHaveLength(3) // „Szukaj" to przycisk-akcja, nie nawigacja
+    for (const link of links) expect(link).toHaveAttribute('data-types', 'nav-tab')
   })
 
   it('sidebar nav list links also carry nav-tab', () => {
-    render(<NavList activeItem="pulpit" />)
+    render(<NavList activeItem="start" />)
     for (const link of screen.getAllByRole('link')) expect(link).toHaveAttribute('data-types', 'nav-tab')
   })
 })
