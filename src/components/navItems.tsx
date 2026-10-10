@@ -9,8 +9,6 @@ type NavItem = {
   key: ActiveItem
   href: string
   label: string
-  /** Krótka etykieta pod ikoną w dolnym pasku zakładek (`BottomNav`). */
-  shortLabel: string
   icon: typeof HomeIcon
 }
 
@@ -23,10 +21,10 @@ type NavItem = {
  * jedno źródło pozycji.
  */
 export const NAV_ITEMS: NavItem[] = [
-  { key: 'start', href: '/', label: 'Start', shortLabel: 'Start', icon: HomeIcon },
-  { key: 'odjazdy', href: '/city', label: 'Odjazdy / Przyjazdy', shortLabel: 'Odjazdy', icon: DeparturesBoardIcon },
-  { key: 'linie', href: '/lines', label: 'Linie', shortLabel: 'Linie', icon: RouteIcon },
-  { key: 'mapa', href: '/map', label: 'Mapa', shortLabel: 'Mapa', icon: MapIcon },
+  { key: 'start', href: '/', label: 'Start', icon: HomeIcon },
+  { key: 'odjazdy', href: '/city', label: 'Odjazdy / Przyjazdy', icon: DeparturesBoardIcon },
+  { key: 'linie', href: '/lines', label: 'Linie', icon: RouteIcon },
+  { key: 'mapa', href: '/map', label: 'Mapa', icon: MapIcon },
 ]
 
 type MobileNavItem = {

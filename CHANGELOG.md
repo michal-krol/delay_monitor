@@ -9,7 +9,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 ### Dodane
 
 - Własne ekrany błędu i „Nie znaleziono strony”: po nieudanym wczytaniu strony są przyciski
-  „Spróbuj ponownie” i „Wróć do Pulpitu”, a nawigacja aplikacji zostaje na miejscu. Treści
+  „Spróbuj ponownie” i „Wróć do Startu”, a nawigacja aplikacji zostaje na miejscu. Treści
   błędu nie widać — pokazujemy tylko polski komunikat.
 - Szkielet zamiast pustego ekranu na stronach Linie, Mapa i Linia oraz przy wyborze miasta na
   `/city`, `/lines` i `/map` (wcześniej przez kilka sekund widać było sam napis „Wybieram miasto…”).

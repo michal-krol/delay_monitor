@@ -44,6 +44,7 @@ export function MapCard({
   following = false,
   onToggleFollow,
   pinned,
+  pinsLoaded = true,
   onTogglePin,
   onNearby,
   alertLines = [],
@@ -60,6 +61,8 @@ export function MapCard({
   onToggleFollow?: () => void
   /** Stacja/przystanek jest w przypiętych (Pulpit). `undefined` = brak przełącznika. */
   pinned?: boolean
+  /** Przypięcia wczytane (`usePinned().loaded`) — przed tym gwiazdka nie „puka” (`PinStar`). */
+  pinsLoaded?: boolean
   onTogglePin?: () => void
   /** „Co jest w pobliżu?" — dostępna z klawiatury alternatywa dla prawego kliku. */
   onNearby?: () => void
@@ -83,7 +86,7 @@ export function MapCard({
         pinned !== undefined &&
         onTogglePin !== undefined && (
           <IconButton label={pinned ? 'Odepnij ze Startu' : 'Przypnij do Startu'} onClick={onTogglePin} pressed={pinned} size="lg">
-            <PinStar pinned={pinned} size={ICON_SIZE.button} />
+            <PinStar pinned={pinned} settled={pinsLoaded} size={ICON_SIZE.button} />
           </IconButton>
         )
       }

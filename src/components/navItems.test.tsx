@@ -71,13 +71,12 @@ describe('NAV_ITEMS (desktop)', () => {
 
   it('has an active Mapa entry pointing at /map', () => {
     const item = NAV_ITEMS.find((i) => i.label === 'Mapa')
-    expect(item).toEqual({ key: 'mapa', href: '/map', label: 'Mapa', shortLabel: 'Mapa', icon: expect.any(Function) })
+    expect(item).toEqual({ key: 'mapa', href: '/map', label: 'Mapa', icon: expect.any(Function) })
   })
 
   it('names the first entry „Start" and keeps „Odjazdy / Przyjazdy" on /city', () => {
     expect(NAV_ITEMS[0]).toMatchObject({ key: 'start', href: '/', label: 'Start' })
     expect(NAV_ITEMS.find((i) => i.key === 'odjazdy')).toMatchObject({ href: '/city', label: 'Odjazdy / Przyjazdy' })
-    expect(NAV_ITEMS.map((i) => i.shortLabel)).toEqual(['Start', 'Odjazdy', 'Linie', 'Mapa'])
   })
 
   it('has exactly 4 entries (no disabled placeholders)', () => {

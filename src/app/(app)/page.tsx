@@ -91,7 +91,7 @@ function PulpitPage() {
       setNotice({ text: `${pinnedItem.name} jest już na Starcie` })
     } else {
       addPinned(pinnedItem)
-      setNotice({ text: `Przypięto do Startu:${pinnedItem.name}` })
+      setNotice({ text: `Przypięto do Startu: ${pinnedItem.name}` })
     }
   }
 
@@ -99,7 +99,7 @@ function PulpitPage() {
     const index = pinnedItems.findIndex((pinnedItem) => pinnedKey(pinnedItem) === key)
     if (index === -1) return
     removePinned(key)
-    setNotice({ text: `Odpięto ze Startu:${pinnedItems[index].name}`, undo: { pinnedItem: pinnedItems[index], index } })
+    setNotice({ text: `Odpięto ze Startu: ${pinnedItems[index].name}`, undo: { pinnedItem: pinnedItems[index], index } })
   }
 
   function undo(): void {

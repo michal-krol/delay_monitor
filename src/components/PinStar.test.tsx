@@ -32,4 +32,13 @@ describe('PinStar', () => {
     rerender(<PinStar pinned={false} size={16} />)
     expect(star()).not.toHaveAttribute('data-pop')
   })
+
+  it('no pop when pinned flips false->true while the pins are still loading (localStorage hydration)', () => {
+    const { rerender } = render(<PinStar pinned={false} settled={false} size={16} />)
+    rerender(<PinStar pinned settled size={16} />)
+    expect(star()).not.toHaveAttribute('data-pop')
+    rerender(<PinStar pinned={false} settled size={16} />)
+    rerender(<PinStar pinned settled size={16} />)
+    expect(star()).toHaveAttribute('data-pop')
+  })
 })

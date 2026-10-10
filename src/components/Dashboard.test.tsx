@@ -195,7 +195,7 @@ describe('Dashboard', () => {
     expect(onMove).toHaveBeenCalledWith('pkp:5136', -1)
     await user.click(screen.getByRole('button', { name: 'W dół: Warszawa Centralna' }))
     expect(onMove).toHaveBeenCalledWith('pkp:5100', 1)
-    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu:Kraków Główny' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu: Kraków Główny' }))
     expect(onRemove).toHaveBeenCalledWith('pkp:5136')
   })
 

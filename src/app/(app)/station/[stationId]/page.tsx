@@ -30,7 +30,7 @@ export default function Page() {
   }
 
   const searchParams = useSearchParams()
-  const { isPinned, addPinned, removePinned } = usePinned()
+  const { isPinned, addPinned, removePinned, loaded: pinsLoaded } = usePinned()
   const stationName = searchParams.get('name') ?? stationId
 
   const pinnedItem: PinnedItem = { kind: 'pkp', id: stationId, name: stationName }
@@ -47,6 +47,7 @@ export default function Page() {
         stationName={stationName}
         phoneBack={{ href: '/', label: 'Wróć do Startu' }}
         isPinned={isPinned(key)}
+        pinsLoaded={pinsLoaded}
         onTogglePin={() => (isPinned(key) ? removePinned(key) : addPinned(pinnedItem))}
       />
     </PageShell>

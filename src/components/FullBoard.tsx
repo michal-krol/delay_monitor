@@ -32,6 +32,8 @@ type Props = {
   stationId: string
   stationName: string
   isPinned: boolean
+  /** Przypięcia wczytane z `localStorage` (`usePinned().loaded`) — przed tym gwiazdka nie „puka” (`PinStar`). */
+  pinsLoaded?: boolean
   onTogglePin: () => void
   /**
    * Osadzone pod wyszukiwarką na ekranie miasta, które ma już własny h1 —
@@ -87,7 +89,7 @@ function TabButton({
   )
 }
 
-export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embedded = false, phoneBack }: Props) {
+export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true, onTogglePin, embedded = false, phoneBack }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
   // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
   useHeaderTitle(embedded ? null : stationName)
@@ -246,7 +248,7 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
 
             <div className="flex shrink-0 items-center gap-2">
               <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij ze Startu' : 'Przypnij do Startu'} className="max-sm:h-11 max-sm:w-11">
-                <PinStar pinned={isPinned} size={ICON_SIZE.button} />
+                <PinStar pinned={isPinned} settled={pinsLoaded} size={ICON_SIZE.button} />
               </IconButton>
               {phoneBack !== undefined && !wide && <BoardMoreMenu infoLabel="Informacje o stacji" onInfo={openInfo} />}
             </div>

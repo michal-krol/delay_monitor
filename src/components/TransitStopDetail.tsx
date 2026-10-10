@@ -123,7 +123,7 @@ export function TransitStopDetail({
   // lista się nie wczyta / gdy fetch zawiedzie.
   const { cities: cityEntries } = useCities()
   const cityName = cityEntries.find((entry) => entry.id === city)?.name ?? city
-  const { isPinned, addPinned, removePinned } = usePinned()
+  const { isPinned, addPinned, removePinned, loaded: pinsLoaded } = usePinned()
   const now = useSnapshotNow(data)
 
   const board = data?.stops[0] ?? null
@@ -336,7 +336,7 @@ export function TransitStopDetail({
                 // (deep-link z linii zaznacza przystanek dopiero po niej) — przypięcie zapisałoby zły zakres.
                 disabled={board === null}
               >
-                <PinStar pinned={pinned} size={ICON_SIZE.button} />
+                <PinStar pinned={pinned} settled={pinsLoaded} size={ICON_SIZE.button} />
               </IconButton>
             </div>
           </div>
