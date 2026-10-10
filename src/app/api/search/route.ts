@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { client } from '@/lib/board/instance'
-import { getCity } from '@/lib/gtfs/cities'
+import { getCity, type CityFeed } from '@/lib/gtfs/cities'
 import { getGtfsPoller } from '@/lib/gtfs/instance'
 import { groupCentroid, groupLines, searchStops, stopGroup, type GtfsLine } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -10,6 +10,11 @@ import { getStationCoordinates } from '@/lib/weather/coordinates'
 const MAX_SUGGESTIONS = 10
 const MAX_QUERY_LENGTH = 100
 const MIN_QUERY_LENGTH = 3
+
+type SearchSources = {
+  rail: 'ready' | 'failed'
+  transit: 'ready' | 'loading' | 'failed' | 'disabled'
+}
 
 type SearchOption = {
   id: string
@@ -29,32 +34,44 @@ type SearchOption = {
  * `{ stations }` (kształt, którego `StationSearch` już oczekuje).
  *
  * Identyfikator GTFS nigdy nie trafia do wychodzącego URL-a — jest kluczem do
- * naszej `Map`. `city` MUSI być sprawdzone wobec rejestru: wybiera feed. Bez
- * echa wartości wejściowej w błędach (AGENTS.md #4).
+ * naszej `Map`. `city` jest opcjonalne: brak = wyszukiwanie tylko stacji PKP z
+ * całej Polski (jak `rail=all`), komunikacja miejska wyłączona. Podane `city`
+ * MUSI być sprawdzone wobec rejestru (wybiera feed) — puste, niepoprawne lub
+ * nieznane to 400, bez echa wartości wejściowej (AGENTS.md #4).
+ *
+ * `sources` mówi klientowi, które źródło zawiodło lub jeszcze się wczytuje
+ * (addytywnie — `stations` i `loading` znaczą to, co dawniej). Zero nowych
+ * wywołań upstream: stan GTFS to odczyt z pamięci pollera.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const cityId = searchParams.get('city') ?? ''
+  const cityParam = searchParams.get('city')
   const query = (searchParams.get('q') ?? '').trim()
   // Mapa transportu pokazuje kolej z całej Polski — tam szukamy stacji bez filtra prefiksu miasta.
-  const allRail = searchParams.get('rail') === 'all'
+  const allRailParam = searchParams.get('rail') === 'all'
 
-  if (!CITY_ID_PATTERN.test(cityId) || getCity(cityId) === null) {
-    return NextResponse.json({ error: 'Nieznane miasto' }, { status: 400 })
+  let city: CityFeed | null = null
+  if (cityParam !== null) {
+    city = CITY_ID_PATTERN.test(cityParam) ? getCity(cityParam) : null
+    if (city === null) {
+      return NextResponse.json({ error: 'Nieznane miasto' }, { status: 400 })
+    }
   }
-  const city = getCity(cityId)!
+  const allRail = allRailParam || city === null
 
   if (query.length < MIN_QUERY_LENGTH || query.length > MAX_QUERY_LENGTH) {
-    return NextResponse.json({ stations: [] })
+    const sources: SearchSources = { rail: 'ready', transit: city === null ? 'disabled' : 'ready' }
+    return NextResponse.json({ stations: [], sources })
   }
 
   const results: SearchOption[] = []
+  let railState: SearchSources['rail'] = 'ready'
 
   // ── stacje kolejowe (prefiks nazwy miasta) ──────────────────────────────
   try {
     const stations = await client.searchStations(query)
     for (const station of stations) {
-      if (allRail || station.name.startsWith(city.railStationPrefix)) {
+      if (allRail || (city !== null && station.name.startsWith(city.railStationPrefix))) {
         // Brak/awaria pliku współrzędnych nie wywala wyszukiwarki — wynik bez pozycji.
         const coords = await getStationCoordinates(station.id).catch(() => null)
         results.push({ id: station.id, name: station.name, kind: 'rail', mode: 'rail', ...coords })
@@ -62,12 +79,19 @@ export async function GET(request: Request) {
     }
   } catch {
     // Awaria słownika stacji nie wywala wyszukiwarki — miejskie mogą się udać.
+    // Zapisujemy ją w `sources`, żeby klient nie pokazał „Brak wyników” przy awarii.
+    railState = 'failed'
   }
 
-  // ── zespoły przystankowe komunikacji miejskiej ─────────────────────────
-  const poller = getGtfsPoller(cityId)
+  // ── zespoły przystankowe komunikacji miejskiej (tylko z podanym miastem) ─
+  const poller = city === null ? null : getGtfsPoller(city.id)
   poller?.ensureLoaded()
   const schedule = poller?.getSchedule() ?? null
+  let transitState: SearchSources['transit'] = 'disabled'
+  if (city !== null) {
+    transitState =
+      schedule !== null ? 'ready' : poller?.getView().state === 'failed' ? 'failed' : 'loading'
+  }
   if (schedule !== null) {
     for (const hit of searchStops(schedule, query, MAX_SUGGESTIONS)) {
       const modes = stopGroup(schedule, hit.id)?.modes ?? []
@@ -92,6 +116,11 @@ export async function GET(request: Request) {
   })
 
   // `loading` mówi wyszukiwarce, żeby ponowiła — rozkład miejski jeszcze się
-  // wczytuje, więc same stacje kolejowe to niepełny wynik.
-  return NextResponse.json({ stations: results.slice(0, MAX_SUGGESTIONS), loading: schedule === null })
+  // wczytuje, więc same stacje kolejowe to niepełny wynik. Bez miasta nie ma
+  // czego wczytywać (`false`).
+  return NextResponse.json({
+    stations: results.slice(0, MAX_SUGGESTIONS),
+    loading: city !== null && schedule === null,
+    sources: { rail: railState, transit: transitState } satisfies SearchSources,
+  })
 }
