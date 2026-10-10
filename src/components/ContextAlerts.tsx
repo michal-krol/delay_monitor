@@ -71,7 +71,7 @@ function AlertCard({ alert, onShowMap }: { alert: AlertRecord; onShowMap?: (aler
           <span className="min-w-0 flex-1">
             {alert.routes.length > 0 && (
               <span className="mb-1 flex flex-wrap gap-1">
-                {alert.routes.map((route) => (
+                {[...new Set(alert.routes)].map((route) => (
                   <span key={route} className="rounded border border-surface-border bg-surface-strong px-1.5 text-xs font-semibold text-foreground">
                     {route}
                   </span>
@@ -80,7 +80,7 @@ function AlertCard({ alert, onShowMap }: { alert: AlertRecord; onShowMap?: (aler
             )}
             <span className="block font-medium text-foreground [overflow-wrap:anywhere]">{alert.title || 'Utrudnienie'}</span>
             {preview !== '' && (
-              <span className="mt-1 line-clamp-3 block whitespace-pre-line text-text-secondary [overflow-wrap:anywhere] group-open:hidden">{preview}</span>
+              <span aria-hidden="true" className="mt-1 line-clamp-3 block whitespace-pre-line text-text-secondary [overflow-wrap:anywhere] group-open:hidden">{preview}</span>
             )}
           </span>
           <span className="inline-flex shrink-0 items-center gap-0.5 pt-0.5 text-xs font-medium text-primary-text">

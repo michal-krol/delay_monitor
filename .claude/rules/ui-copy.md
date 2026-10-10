@@ -20,7 +20,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   „Statystyki dnia: brak danych”.
 - **Context alerts** (`ContextAlerts`, GTFS only): loading „Wczytywanie komunikatów…”; ready and none „Brak komunikatów
   dla tego kontekstu”; failed with nothing to show „Nie udało się wczytać komunikatów”; failed with the last list
-  „Nie udało się odświeżyć. Pokazujemy ostatnie dane”. Card: „Rozwiń komunikat” / „Zwiń komunikat”, link „Źródło komunikatu”.
+  „Nie udało się odświeżyć. Pokazujemy ostatnie dane”. Card: „Rozwiń komunikat” / „Zwiń komunikat”, link „Źródło komunikatu”, optional „Na mapie” (only when the consumer can resolve the line).
   No dates, severity or location (the feed has none); the tab count is `dedupeAlerts()` length, never `0` while unknown.
 - „nie podano” = the source gave no value for an optional field (platform, track) — not an error.
   Phone card (no column header): „Peron 2 · tor 4”, both missing „Peron i tor: nie podano”.

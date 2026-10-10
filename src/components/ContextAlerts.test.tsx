@@ -277,3 +277,13 @@ describe('ContextAlerts "Na mapie"', () => {
     for (const b of buttons) expect(b).toHaveAttribute('type', 'button')
   })
 })
+
+describe('ContextAlerts repeated line numbers', () => {
+  it('renders each line number once even when the feed repeats it', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<ContextAlerts alerts={[alert({ routes: ['20', '20'] })]} state="ready" scopeLabel="Zakres" />)
+    expect(screen.getAllByText('20')).toHaveLength(1)
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+})
