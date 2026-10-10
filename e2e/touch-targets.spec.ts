@@ -105,6 +105,19 @@ test.describe('PR5: cele dotyku na telefonie', () => {
     expect(await hitHeight(stop)).toBeGreaterThanOrEqual(44)
   })
 
+  test('/search: pole, „Wyczyść" i wiersze wyników mają >= 44 px', async ({ page }) => {
+    await page.goto('/search?q=Centr')
+    await page.waitForLoadState('networkidle')
+    const main = page.getByRole('main')
+    const row = main.getByRole('button', { name: /^Warszawa Centralna, Stacja kolejowa PKP/ })
+    await expect(row).toBeVisible({ timeout: READY })
+    expect(Math.round(await hitHeight(main.getByRole('searchbox', { name: 'Stacja, przystanek lub linia' })))).toBeGreaterThanOrEqual(44)
+    expect(Math.round(await hitHeight(main.getByRole('button', { name: 'Wyczyść' })))).toBeGreaterThanOrEqual(44)
+    const rows = main.locator('section').getByRole('button')
+    await expect(rows.first()).toBeVisible()
+    for (let i = 0; i < (await rows.count()); i++) expect(Math.round(await hitHeight(rows.nth(i)))).toBeGreaterThanOrEqual(44)
+  })
+
   test('„Wróć do wyszukiwania” ma >= 44 px', async ({ page }) => {
     await page.goto('/city/warszawa?station=33605&name=Warszawa%20Centralna')
     const back = page.getByRole('button', { name: 'Wróć do wyszukiwania' })
@@ -116,7 +129,7 @@ test.describe('PR5: cele dotyku na telefonie', () => {
 test('pola input i select mają font >= 16 px na telefonie', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === 'desktop-chromium', 'iOS zoomuje pole tylko na telefonie')
   const FIELDS = 'input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea'
-  for (const path of ['/', '/city/warszawa', '/city/warszawa/lines', '/city/warszawa/map']) {
+  for (const path of ['/', '/city/warszawa', '/city/warszawa/lines', '/city/warszawa/map', '/search']) {
     await page.goto(path)
     // Pulpit nie ma już pola w treści — pole „Dodaj" żyje w oknie wyszukiwania.
     if (path === '/') await page.getByRole('button', { name: 'Dodaj' }).click()

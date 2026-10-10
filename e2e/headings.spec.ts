@@ -23,6 +23,8 @@ const PAGES: { name: string; path: string; pinnedItems?: unknown[] }[] = [
   { name: 'przystanek', path: '/city/warszawa/stop/100101' },
   { name: 'połączenie', path: `/connection/2026/104/${warsawToday()}` },
   { name: 'mapa', path: '/city/warszawa/map' },
+  { name: 'szukaj', path: '/search' },
+  { name: 'szukaj z frazą', path: '/search?q=Centr' },
 ]
 
 for (const { name, path, pinnedItems } of PAGES) {
