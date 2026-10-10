@@ -1120,6 +1120,30 @@ details[open] > summary .disclosure-chevron,
     align-items: center;
     justify-content: flex-end;
   }
+
+  /* Próg w `em`: przy powiększonym tekście (≥ ~140 % na telefonie 375 px) godzina i kierunek nie mieszczą się
+     obok siebie — kierunek zostałby z ~70 px. Karta układa się wtedy w jedną kolumnę, godzina pod kierunkiem. */
+  @container (max-width: 15em) {
+    .board-table tr {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "direction direction"
+        "time      time"
+        "train     train"
+        "status    status"
+        "platform  chevron";
+    }
+    .board-table td[data-cell="time"] {
+      justify-self: start;
+      text-align: left;
+    }
+    .board-table td[data-cell="time"] > span > span:first-child {
+      justify-content: flex-start;
+    }
+    .board-table td[data-cell="platform"] {
+      margin-right: 0;
+    }
+  }
 }
 
 body {

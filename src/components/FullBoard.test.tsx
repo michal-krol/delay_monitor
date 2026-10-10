@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from 'react'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -449,6 +450,21 @@ describe('FullBoard', () => {
     expect(window.location.search).toBe(before)
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+    expect(await screen.findByText('TLK 2')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Przyjazdy' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: /Kierunek: Gdynia/ })).toBeInTheDocument()
+  })
+
+  // Dev (StrictMode) odpala efekty dwa razy; efekt zapisu między nimi nadpisywał URL, więc link `?tab=arrivals` się gubił.
+  it('a deep link to the arrivals tab survives StrictMode double effects', async () => {
+    window.history.pushState({}, '', '/?tab=arrivals&direction=Gdynia')
+    stubApi()
+
+    render(
+      <StrictMode>
+        <FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />
+      </StrictMode>
+    )
     expect(await screen.findByText('TLK 2')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Przyjazdy' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('button', { name: /Kierunek: Gdynia/ })).toBeInTheDocument()

@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { startTransition, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
@@ -211,7 +211,12 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
   // wzorzec i uzasadnienie w page.tsx). Nieprawidłowy/uszkodzony parametr jest
   // po prostu ignorowany. Szczegóły połączenia mają teraz własną trasę
   // (`/connection/...`) z własnym adresem — nie ma już czego odtwarzać tutaj.
+  // `restoredRef`: StrictMode (dev) odpala efekty dwa razy, a między nimi efekt zapisu poniżej nadpisuje URL stanem
+  // domyślnym — drugie czytanie widziałoby już `tab=departures` i gubiło link. Stan z pierwszego przebiegu zostaje.
+  const restoredRef = useRef(false)
   useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
     const tab = readUrlParam('tab')
     if (tab === 'departures' || tab === 'arrivals') {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- odtworzenie stanu z URL-a, dostępnego tylko po zamontowaniu
