@@ -771,6 +771,20 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await scrollEnded()
     await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek')
   })
+
+  // Regresja z 912a815: `overscroll-contain` na treści `PanelFrame` (poniżej `full` ma `overflow-y: hidden`) urywał
+  // łańcuch przewijania w Chromium — przeciągnięcie za treść karty nie podnosiło arkusza, działał tylko uchwyt i nagłówek.
+  test('dotyk: przeciągnięcie za treść karty (nie uchwyt) podnosi arkusz', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'dotyk przez CDP tylko w Chromium')
+    await openMap(page)
+    const card = await openStopCard(page, 'Centrum')
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    const body = (await card.getByLabel('Szczegóły').boundingBox())!
+    const scrollEnded = await armScrollEnd(page, '.bottom-sheet')
+    await touchDrag(page, { x: body.x + body.width / 2, y: body.y + 16 }, 0, -250)
+    await scrollEnded()
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'half')
+  })
 })
 
 // PR3: mała mapa w treści strony ma `cooperativeGestures` — jeden palec przewija stronę, nie mapę.

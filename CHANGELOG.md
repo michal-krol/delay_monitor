@@ -91,6 +91,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 - Wczytywanie tablicy stacji na telefonie: szkielet ma pełną szerokość karty i nie ma już nad nim
   pustej ramki.
+- Mapa transportu na telefonie (Android/Chrome): przeciągnięcie karty w dolnym panelu za jej treść
+  znów podnosi panel — wcześniej działał tylko uchwyt i nagłówek karty.
 
 ## [1.2.0] — 2026-10-07
 
