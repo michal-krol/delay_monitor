@@ -38,6 +38,15 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - ★ Never „słupek” for a stop (a calque; chart bars are „słupki” in comments only).
 - Phone-only chrome is „Info” (button + sheet title „Informacje o stacji/przystanku”).
 
+## Search (`UnifiedSearch`, `/search`, desktop dialog)
+
+- Field label and placeholder: „Stacja, przystanek lub linia”; groups „Stacje kolejowe”, „Przystanki”, „Linie”.
+- Row context: PKP „Stacja kolejowa PKP”; stop group „Zespół przystanków · {miasto}”; line „{Metro|Tramwaj|Autobus|Kolej miejska} · {miasto}”
+  — GTFS rail is „Kolej miejska”, never „Stacja kolejowa PKP” (#13: it never opens a PKP connection).
+- States: 1–2 characters „Wpisz co najmniej 3 znaki, aby znaleźć miejsca” (lines still listed); loading „Szukam…”; a failed source
+  „Nie udało się wczytać {stacji kolejowych|przystanków|linii}” + „Spróbuj ponownie”; healthy zero results „Brak wyników dla tej frazy”
+  — never shown when any source failed. Cap hint „Pokazano pierwsze 8 — doprecyzuj frazę”; offline „Brak połączenia — wyniki mogą być nieaktualne”.
+
 ## Filters
 
 - Board direction select (phones): departures „Kierunek” / „Wszystkie kierunki”; arrivals (headsign =
