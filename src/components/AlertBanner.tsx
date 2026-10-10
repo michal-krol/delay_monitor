@@ -39,17 +39,37 @@ export function alertDateRange(body: string): string | null {
  * kartę. Natywne `<details>`: rozwijanie z klawiatury i stan dla czytnika
  * ekranu za darmo. Link do źródła zostaje widoczny także w formie zwiniętej.
  */
+/**
+ * Wspólne z `ContextAlerts`. `https://` jako obrona w głębi: `alerts.ts` już ucina schemat przy granicy Zod,
+ * ale `AlertRecord` mógłby trafić tu inną ścieżką niż `parseAlertFeed`. `''` = brak linku.
+ */
+export function safeAlertLink(link: string): string {
+  return link.startsWith('https://') ? link : ''
+}
+
+const BODY_TEXT = 'whitespace-pre-line text-text-secondary [overflow-wrap:anywhere]'
+
+/** Plain text (nigdy HTML). `bounded`: baner — przewija się w `max-h-80`; bez: treść płynie w scrollu strony. */
+export function AlertBody({ body, bounded }: { body: string; bounded: boolean }) {
+  return bounded ? <BoundedBody body={body} /> : <p className={`${BODY_TEXT} mx-3 mb-2 pl-6`}>{body}</p>
+}
+
 /** Długi komunikat przewija się w `max-h-80`; fokusowalny z klawiatury tylko wtedy, gdy faktycznie się przewija. */
-function AlertBody({ body }: { body: string }) {
+function BoundedBody({ body }: { body: string }) {
   const [ref, tabIndex] = useScrollableFocus<HTMLParagraphElement>()
   return (
-    <p
-      ref={ref}
-      tabIndex={tabIndex}
-      className="mx-3 mb-2 max-h-80 overflow-y-auto whitespace-pre-line pl-6 text-text-secondary [overflow-wrap:anywhere]"
-    >
+    <p ref={ref} tabIndex={tabIndex} className={`${BODY_TEXT} mx-3 mb-2 max-h-80 overflow-y-auto pl-6`}>
       {body}
     </p>
+  )
+}
+
+/** Link do źródła; `href` MA przejść przez `safeAlertLink` (wołający pomija render dla `''`). */
+export function AlertSourceLink({ href, label, className = 'mb-3 ml-9 inline-block text-xs font-medium text-warning-text underline' }: { href: string; label: string; className?: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+      {label}
+    </a>
   )
 }
 
@@ -81,11 +101,7 @@ function AlertList({ alerts }: { alerts: AlertRecord[] }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {alerts.map((alert) => {
-        // `alerts.ts` już ucina schemat do `https://` przy granicy Zod — ten
-        // sam sprawdzian tutaj to obrona w głębi (podobnie jak w plakietkach kolor
-        // pochodzi z `lineColor()`, nigdy z feedu — `route_color` nie trafia do CSS),
-        // na wypadek gdyby `AlertRecord` trafił do banera z innej ścieżki niż `parseAlertFeed`.
-        const safeLink = alert.link.startsWith('https://') ? alert.link : ''
+        const safeLink = safeAlertLink(alert.link)
         const dates = alertDateRange(alert.body)
         return (
           <div
@@ -105,18 +121,9 @@ function AlertList({ alerts }: { alerts: AlertRecord[] }) {
                   <DisclosureIcon size={ICON_SIZE.chip} />
                 </span>
               </summary>
-              {alert.body !== '' && <AlertBody body={alert.body} />}
+              {alert.body !== '' && <AlertBody body={alert.body} bounded />}
             </details>
-            {safeLink !== '' && (
-              <a
-                href={safeLink}
-                target="_blank"
-                rel="noreferrer"
-                className="mb-3 ml-9 inline-block text-xs font-medium text-warning-text underline"
-              >
-                Szczegóły na wtp.waw.pl
-              </a>
-            )}
+            {safeLink !== '' && <AlertSourceLink href={safeLink} label="Szczegóły na wtp.waw.pl" />}
           </div>
         )
       })}

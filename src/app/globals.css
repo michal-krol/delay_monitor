@@ -781,6 +781,20 @@ details[open] > summary .disclosure-chevron,
   }
 }
 
+/* Treść otwartej karty komunikatu (`ContextAlerts`): sam fade ~200 ms. `<details>` nie przechodzi przez
+   `display:none`, więc `@starting-style` tu nie zadziała — animacja startuje przy dopasowaniu `[open]`.
+   Bez ruchu (reduced-motion) treść jest po prostu widoczna. */
+@media (prefers-reduced-motion: no-preference) {
+  details[open] > .alert-body-enter {
+    animation: alert-body-in var(--duration-base) var(--ease-out);
+  }
+}
+@keyframes alert-body-in {
+  from {
+    opacity: 0;
+  }
+}
+
 /* Przejścia widoku (PR 6; `<ViewTransition>` z Reacta, typy w `src/lib/navTransition.ts`). Przeglądarki bez
    View Transitions API po prostu nie animują. Czasy z tokenów ruchu (zerowe przy reduced-motion);
    dodatkowo pas bezpieczeństwa niżej gasi ruch także tam, gdzie klasa przejścia mimo wszystko zadziała. */
