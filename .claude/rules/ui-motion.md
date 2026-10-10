@@ -60,11 +60,12 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
   `@starting-style`, scroll-driven header title); under `reduce` the gate hides `startViewTransition`, so the browser
   never calls it (`e2e/motion.spec.ts` asserts zero). Menu entries (`.enter-pop`) never `scale`: a scaled panel shrinks
   its 44 px touch targets while opening.
-- **No new element in flow above the board on phones** (`e2e/boards-mobile.spec.ts`). The header title swap
+- **Nothing decorative in flow above the board on phones** (`e2e/boards-mobile.spec.ts`). The header title swap
   (`useHeaderTitle`, scroll-driven, `@supports (animation-timeline: scroll())`) was chosen over a collapsing hero
   for exactly that reason. The page only scrolls when content exceeds the viewport — e2e uses a 375×520 viewport.
-  A swap into a freed slot is fine: the station's direction select took the removed KPI pills' place (no disruption
-  banner above the board — user decision 2026-10-09).
+  Two functional rows are allowed above the tabs (D2, 2026-10-10, replaces the 2026-10-09 „no disruption banner”
+  decision): the „Na mapie” row and, only when the station has disruptions, the compact notice that opens Info.
+  The first-two-departures budget (375×812) is measured without the notice (`00-start-here.md` §Odbiór).
 - Live dot (`LiveDot`) uses the accent colour, never the status green (#13), and only while data is fresh and the
   last fetch succeeded (#7). It pulses ONCE when it mounts (`animation … 1`), then stays a static dot; never an
   infinite loop (00-start-here: no radar waves). It is not proof of freshness — the text beside it is.
