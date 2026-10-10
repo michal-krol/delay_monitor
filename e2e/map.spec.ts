@@ -574,39 +574,6 @@ async function touchDrag(page: Page, from: { x: number; y: number }, dx: number,
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
 }
 
-/**
- * Śledzi `scroll`/`scrollend` kontenera od teraz i zwraca funkcję czekającą, aż przewijanie po gestie dojedzie do
- * końca: kontener ruszył z miejsca uzbrojenia, a ostatni `scroll` nie jest późniejszy niż ostatni `scrollend`
- * (puszczenie palca + animacja dociągania do punktu). Uzbrajać PRZED gestem, wołać zaraz po nim.
- * `data-snap` arkusza to stan pochodny: ustala się dopiero po `SETTLE_MS` ciszy w zdarzeniach `scroll`, a na
- * obciążonym runnerze (programowy WebGL) klatki przewijania dzieli kilkaset ms do kilku sekund — domyślne 5 s
- * `expect` liczone od puszczenia palca bywa wtedy za mało, choć arkusz dojeżdża do właściwego punktu. Czekamy
- * więc na koniec ruchu (budżet = limit testu), a dopiero potem sprawdzamy stan, który zdąży się ustalić w
- * zwykłym czasie `expect`. Warunek na stanie (nie na znaczniku czasu puszczenia) nie gubi `scrollend`, który
- * przyszedł zanim test zdążył zapytać, a spóźnione zdarzenie po wcześniejszym `scrollTo` (montowanie) go nie spełnia.
- */
-async function armScrollEnd(page: Page, selector: string): Promise<() => Promise<void>> {
-  type Probe = { __sheetScroll?: { start: number; lastScroll: number; lastEnd: number; el: Element } }
-  await page.evaluate((sel) => {
-    const el = document.querySelector(sel)!
-    const probe = { start: el.scrollTop, lastScroll: 0, lastEnd: 0, el }
-    ;(window as unknown as Probe).__sheetScroll = probe
-    el.addEventListener('scroll', () => (probe.lastScroll = performance.now()))
-    el.addEventListener('scrollend', () => (probe.lastEnd = performance.now()))
-  }, selector)
-  return () =>
-    page
-      .waitForFunction(
-        () => {
-          const p = (window as unknown as Probe).__sheetScroll!
-          return Math.abs(p.el.scrollTop - p.start) > 50 && p.lastEnd >= p.lastScroll
-        },
-        undefined,
-        { timeout: 0 }
-      )
-      .then(() => undefined)
-}
-
 // PR3: na telefonie karty mapy leżą w arkuszu od dołu z trzema punktami (BottomSheet.tsx).
 test.describe('mapa transportu: arkusz na telefonie', () => {
   test.beforeEach(({}, testInfo) => {
@@ -745,6 +712,21 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await expect(body).toHaveCSS('overflow-y', 'auto')
   })
 
+  // Panel z krótką treścią (nic do przewinięcia w środku) też ma dać się podnieść dotykiem: `overscroll-behavior: contain`
+  // na jego treści urywało łańcuch przewijania i przeciągnięcie nie docierało do arkusza (Chromium). „W pobliżu” otwiera
+  // się też długim przyciśnięciem mapy — na obciążonej maszynie robi to nawet wolny gest z testu poniżej.
+  test('dotyk: arkusz „W pobliżu” (krótka treść) da się przeciągnąć', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'dotyk przez CDP tylko w Chromium')
+    const map = await openMap(page)
+    const card = await openStopCard(page, 'Centrum')
+    await card.getByRole('button', { name: 'Co jest w pobliżu?' }).click()
+    await expect(page.getByRole('dialog', { name: 'W pobliżu' })).toBeVisible()
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    const box = (await map.boundingBox())!
+    await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
+    await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek', { timeout: READY })
+  })
+
   test('dotyk: mapa nad arkuszem przesuwa się, przeciągnięcie arkusza zmienia punkt', async ({ page, browserName }) => {
     test.skip(browserName !== 'chromium', 'dotyk przez CDP tylko w Chromium')
     const map = await openMap(page)
@@ -758,10 +740,12 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await expect.poll(() => new URL(page.url()).searchParams.get('at')).not.toBe(at)
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
 
-    const scrollEnded = await armScrollEnd(page, '.bottom-sheet')
     await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
-    await scrollEnded()
-    await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek')
+    // `touchDrag` wraca, zanim strona obsłuży gest: na obciążonej maszynie (programowy WebGL) ramki przewijania dzielą
+    // sekundy. Czekamy na stan pochodny arkusza (`data-snap`, ustala się po ciszy w `scroll`), nie na `scrollend` —
+    // Chromium po dotykowym przewijaniu z `scroll-snap` bywa go nie wysłać (zmierzone: `scroll` dojechał do „half”,
+    // `data-snap="half"`, a `scrollend` nie przyszedł w 12 s), więc czekanie na niego wisiało do limitu testu.
+    await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek', { timeout: READY })
   })
 })
 

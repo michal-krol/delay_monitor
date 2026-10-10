@@ -142,5 +142,11 @@ the panel scrolls the container. Rules:
   a `translate` makes the dialog the containing block of the `fixed` overlay.
 - Gestures are verified in e2e only on mobile-chromium (CDP touch); WebKit in Playwright has
   no touch API — iOS momentum/drag needs click-QA on a real iPhone (staging).
+- Touch-drag e2e traps (flake `map.spec` "mapa nad arkuszem przesuwa", fixed 2026-10-10): `touchDrag` returns before the
+  page handles the gesture (seconds under software WebGL), so wait on `data-snap` with `READY` — never on `scrollend`
+  (Chromium sometimes sends none after a touch scroll with `scroll-snap`; the app avoids it too, `SETTLE_MS`). A slow first
+  drag on the map can trip the 500 ms long-press (`TransitMap.tsx`) and open „W pobliżu”, replacing the sheet: every panel
+  must stay draggable, so below `full` `[data-sheet-scroll]` carries `overscroll-behavior: auto` (with `contain` on a body
+  with nothing to scroll, Chromium ends the scroll chain there and the sheet never moves).
 - Inline maps (`MapView` without `rich`) use `cooperativeGestures` with Polish strings so they
   don't trap page scroll; the enlarged dialog map keeps normal gestures.
