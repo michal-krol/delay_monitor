@@ -174,11 +174,14 @@ export function TransitDepartureList({
   const listRef = useRowAnimation<HTMLUListElement>()
   if (loading) {
     return (
-      <ul className="mt-3 space-y-2" aria-hidden="true">
-        {Array.from({ length: skeletonRows }, (_, i) => (
-          <li key={i} className="h-10 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
-        ))}
-      </ul>
+      <>
+        <span className="sr-only">Wczytywanie…</span>
+        <ul className="mt-3 space-y-2" aria-hidden="true">
+          {Array.from({ length: skeletonRows }, (_, i) => (
+            <li key={i} className="h-10 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
+          ))}
+        </ul>
+      </>
     )
   }
 

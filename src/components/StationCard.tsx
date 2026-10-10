@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { ChevronRightIcon, ICON_SIZE } from './icons'
 import { BoardRowList } from './BoardRowList'
+import { isPastRow } from './boardTime'
 import { PlaceTitle } from './PlaceTitle'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
@@ -27,7 +28,8 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
   // Kafelek dashboardu pokazuje tylko nadchodzące połączenia — pociągi, które
   // już odjechały (mieszczące się w oknie 5 minut wstecz z transform.ts),
   // zostają wyłącznie w pełnej tablicy (FullBoard), gdzie są przygaszone.
-  const departures = (snapshot?.departures.filter((row) => new Date(row.plannedAt).getTime() >= now) ?? []).slice(0, CARD_ROWS)
+  // Spóźniony, który jeszcze nie wyjechał, zostaje — ta sama reguła co na tablicy.
+  const departures = (snapshot?.departures.filter((row) => !isPastRow(row, now)) ?? []).slice(0, CARD_ROWS)
 
   if (configError) {
     return <ConfigErrorBanner />

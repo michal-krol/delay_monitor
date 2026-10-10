@@ -28,17 +28,24 @@ export default function Page() {
 
 const PULPIT_SUBTITLE = 'Przypięte stacje i przystanki z najbliższymi odjazdami'
 
-/** Pulpit przed odczytem przypiętych z `localStorage`: nagłówek i dwie karty-szkielety zamiast pustego ekranu. */
+/** Dwie karty-szkielety Pulpitu przed odczytem przypiętych z `localStorage` — zamiast pustego ekranu. */
+function SkeletonCards() {
+  return (
+    <div aria-busy="true" data-testid="pulpit-skeleton" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-5">
+      <span className="sr-only">Wczytywanie…</span>
+      {[0, 1].map((i) => (
+        <div key={i} aria-hidden="true" className="h-48 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
+      ))}
+    </div>
+  )
+}
+
+/** Fallback granicy `Suspense` (trafia do HTML-a z prerenderu). */
 function PulpitSkeleton() {
   return (
     <PageShell aside={<NetworkStatsCard />}>
       <TopBar title="Pulpit" subtitle={PULPIT_SUBTITLE} />
-      <div aria-busy="true" data-testid="pulpit-skeleton" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-5">
-        <span className="sr-only">Wczytywanie…</span>
-        {[0, 1].map((i) => (
-          <div key={i} aria-hidden="true" className="h-48 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
-        ))}
-      </div>
+      <SkeletonCards />
     </PageShell>
   )
 }
@@ -129,7 +136,16 @@ function PulpitPage() {
     router.replace(`/station/${focusedStationId}${query}`)
   }, [focusedStationId, loaded, pinnedItems, router])
 
-  if (!loaded) return <PulpitSkeleton />
+  // Ten sam korzeń co niżej (`PageShell`): po wczytaniu podmienia się treść, a nagłówek, przejście i karta statystyk
+  // nie montują się od nowa.
+  if (!loaded) {
+    return (
+      <PageShell aside={<NetworkStatsCard />}>
+        <TopBar title="Pulpit" subtitle={PULPIT_SUBTITLE} />
+        <SkeletonCards />
+      </PageShell>
+    )
+  }
   // Przekierowanie leci w efekcie wyżej; przez tę jedną klatkę nie ma po co
   // pokazywać pulpitu, który zaraz zniknie.
   if (focusedStationId !== null) return null

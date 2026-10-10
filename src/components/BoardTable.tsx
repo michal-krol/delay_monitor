@@ -12,6 +12,7 @@ import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
 import { TimePair, connectionHref } from './TimePair'
+import { isPastRow } from './boardTime'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
 import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
@@ -317,8 +318,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }:
   // jeszcze nieodjeżdżający (`enRoute`/`notStarted`) nie jest „miniony"
   // mimo planu w przeszłości — jest opóźniony i wciąż go czekamy
   // (patrz `rowAnchorMs` w transform.ts) — pełne krycie.
-  const isPast =
-    new Date(row.plannedAt).getTime() < now && row.status !== 'enRoute' && row.status !== 'notStarted'
+  const isPast = isPastRow(row, now)
   // operatingDate bywa puste, gdy API nie podało go dla tego
   // przejazdu (patrz board/transform.ts) — bez niego /api/train
   // i tak odrzuci zapytanie, więc wiersz lepiej nie robić klikalnym.

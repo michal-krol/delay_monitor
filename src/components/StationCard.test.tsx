@@ -90,6 +90,15 @@ describe('StationCard', () => {
     expect(list).not.toHaveTextContent('PAST1')
   })
 
+  it('keeps a late train that has not left yet (plan passed, notStarted/enRoute) — same rule as the board', () => {
+    const late = departure({ trainLabel: 'LATE1', status: 'notStarted', delayMinutes: null, plannedAt: new Date(Date.now() - 3 * 60000).toISOString() })
+    const gone = departure({ orderId: '2', trainNumber: '2', trainLabel: 'GONE2', plannedAt: new Date(Date.now() - 2 * 60000).toISOString() })
+    renderCard(makeSnapshot({ departures: [late, gone] }))
+    const list = screen.getByRole('list')
+    expect(list).toHaveTextContent('LATE1')
+    expect(list).not.toHaveTextContent('GONE2')
+  })
+
   it('shows the empty message rather than backfilling with a past departure', () => {
     renderCard(makeSnapshot({ departures: [departure({ trainLabel: 'PAST1', plannedAt: new Date(Date.now() - 2 * 60000).toISOString() })] }))
     expect(screen.queryByText(/PAST1/)).not.toBeInTheDocument()
