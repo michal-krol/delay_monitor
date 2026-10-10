@@ -13,7 +13,7 @@ export function MobileHeader() {
   const contextTitle = useContextTitle()
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between gap-2 glass-chrome border-b px-4 sm:hidden"
+      className="sticky top-0 z-30 flex items-center justify-between gap-2 glass-chrome border-b px-(--page-gutter) sm:hidden"
       style={{
         height: 'var(--header-h)',
         // Kotwica: pasek stoi w miejscu podczas przesunięcia treści (`globals.css`, „View transitions”).
