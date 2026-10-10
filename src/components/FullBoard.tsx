@@ -21,7 +21,6 @@ import { useHeaderTitle } from './headerTitle'
 import { AlertCircleIcon, ArrowLeftIcon, ChevronRightIcon, CloseIcon, MapIcon, ICON_SIZE } from './icons'
 import { PinStar } from './PinStar'
 import { ICON_BUTTON_CLASS, IconButton } from './IconButton'
-import { FOCUS_RING } from './interaction'
 import { MAP_ZOOM, formatAt } from './map/mapData'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useCityContext } from '@/hooks/useCityContext'
@@ -93,23 +92,27 @@ function TabButton({
 }
 
 /** Co „Na mapie” może zrobić: jeszcze nie wiadomo / nie ma lokalizacji / jest link. Czysta decyzja, bez DOM. */
-export type StationMapLink = { state: 'loading' } | { state: 'unavailable' } | { state: 'ready'; href: string; lat: number; lon: number }
+export type StationMapLink = { state: 'loading' } | { state: 'failed' } | { state: 'unavailable' } | { state: 'ready'; href: string; lat: number; lon: number }
 
 /**
  * Link „Na mapie” z statycznej listy stacji kolei (`useRailStations`, 0 PKP — AGENTS.md #3), nie z pogody.
  * Znane miasto → mapa miasta, inaczej `/map` (przekierowanie gubi dziś `?at=` — naprawia osobny PR).
- * Lista się wczytuje (`null` bez błędu) = „jeszcze nie wiadomo”; błąd albo brak stacji na liście = brak lokalizacji.
+ * Lista się wczytuje (`null` bez błędu) = „jeszcze nie wiadomo”; błąd listy = „nie udało się”; stacji nie ma na liście = brak lokalizacji.
  */
 export function stationMapLink(rail: { stations: MapRailStation[] | null; error: boolean }, stationId: string, city: string | null): StationMapLink {
   const station = rail.stations?.find((s) => s.id === stationId)
-  if (station === undefined) return rail.stations === null && !rail.error ? { state: 'loading' } : { state: 'unavailable' }
+  if (station === undefined) {
+    if (rail.stations !== null) return { state: 'unavailable' }
+    return rail.error ? { state: 'failed' } : { state: 'loading' }
+  }
   const at = formatAt({ lat: station.lat, lon: station.lon, zoom: MAP_ZOOM.stops })
   return { state: 'ready', href: `${city === null ? '' : `/city/${city}`}/map?at=${at}`, lat: station.lat, lon: station.lon }
 }
 
 /** Telefon: rząd w karcie nagłówka. Ładowanie = nic (ani sterowanie, ani „wyłączony” napis); brak lokalizacji = zwykły tekst, nie kontrolka. */
 function StationMapRow({ link }: { link: StationMapLink }) {
-  if (link.state === 'loading') return null
+  // Ładowanie: puste miejsce o wysokości rzędu, żeby po wczytaniu listy tablica nie zjechała w dół.
+  if (link.state === 'loading') return <div className="mt-2 min-h-11" aria-hidden="true" />
   return (
     <div className="mt-2">
       {link.state === 'ready' ? (
@@ -118,7 +121,7 @@ function StationMapRow({ link }: { link: StationMapLink }) {
           Na mapie
         </Link>
       ) : (
-        <p className="text-sm text-text-secondary">Brak lokalizacji stacji</p>
+        <p className="text-sm text-text-secondary">{link.state === 'failed' ? 'Nie udało się wczytać lokalizacji stacji' : 'Brak lokalizacji stacji'}</p>
       )}
     </div>
   )
@@ -136,7 +139,7 @@ function DisruptionNotice({ count, open, onOpen }: { count: number; open: boolea
       }}
       aria-haspopup="dialog"
       aria-expanded={open}
-      className={`press flex min-h-11 w-full items-center gap-2 rounded-xl border border-warning-text bg-surface-strong px-3 text-left text-sm font-medium text-warning-text ${FOCUS_RING}`}
+      className={`press flex min-h-11 w-full items-center gap-2 rounded-xl border border-warning-text bg-surface-strong px-3 text-left text-sm font-medium text-warning-text focus-visible:outline-2 focus-visible:outline-primary-text`}
     >
       <AlertCircleIcon size={ICON_SIZE.button} />
       <span className="min-w-0 flex-1">{`${count} ${pluralPl(count, 'utrudnienie', 'utrudnienia', 'utrudnień')} na stacji`}</span>

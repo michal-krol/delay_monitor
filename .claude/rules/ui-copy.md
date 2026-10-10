@@ -25,10 +25,10 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   „Przew.” (forecast), „Plan” (neither, or a cancelled row) — and a small „Plan HH:mm” line under it for
   fact/forecast, even when equal; the countdown rides on that line („Plan 14:48 · za 18 min”, or alone
   when the dominant time already is the plan). Never „Punktualnie” for an unconfirmed train (#2).
-- PKP status pill on the board (`DelayBadge detailed`): „Opóźnienie +12 min”, „odwołany”, „punktualnie”,
+- PKP status pill on the board (`DelayBadge detailed`; the legend keeps the short `LABELS` „opóźniony”, „brak danych”): „Opóźnienie +12 min”, „odwołany”, „punktualnie”,
   and for an unknown status „Brak danych o realizacji” (not the legend word „brak danych”).
 - Station board phone chrome: „Na mapie” (link from `useRailStations` coordinates; without them the plain
-  text „Brak lokalizacji stacji”, never a dead control); disruption notice above the tabs „{n}
+  text „Brak lokalizacji stacji”, a failed list „Nie udało się wczytać lokalizacji stacji”, never a dead control); disruption notice above the tabs „{n}
   utrudnienie|utrudnienia|utrudnień na stacji” (opens Info; only when there are messages — an unknown list
   is no notice, #7).
 - Data age: „Aktualizacja {N} s temu”; stale after a failed refresh: „Nie udało się odświeżyć · dane z {HH:mm}”.

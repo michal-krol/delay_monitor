@@ -491,8 +491,11 @@ describe('FullBoard', () => {
       expect(stationMapLink({ stations: null, error: false }, '5100', 'warszawa')).toEqual({ state: 'loading' })
     })
 
-    it('unavailable: failed list, or a station missing from it', () => {
-      expect(stationMapLink({ stations: null, error: true }, '5100', 'warszawa')).toEqual({ state: 'unavailable' })
+    it('failed: the list could not be fetched — not the same as „Brak lokalizacji”', () => {
+      expect(stationMapLink({ stations: null, error: true }, '5100', 'warszawa')).toEqual({ state: 'failed' })
+    })
+
+    it('unavailable: a station missing from a loaded list', () => {
       expect(stationMapLink({ stations: STATIONS, error: false }, '9999', 'warszawa')).toEqual({ state: 'unavailable' })
     })
 
@@ -786,7 +789,7 @@ describe('FullBoard', () => {
         expect(screen.queryByRole('link', { name: 'Na mapie' })).not.toBeInTheDocument()
       })
 
-      it('a failed station list reads the same way, and while loading nothing clickable or textual appears', async () => {
+      it('a failed station list says so (not „Brak lokalizacji”), and while loading nothing clickable or textual appears', async () => {
         stubApi({ stations: () => new Promise<Response>(() => {}) })
         const { unmount } = render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
         await screen.findByText('EIC 1')
@@ -796,7 +799,8 @@ describe('FullBoard', () => {
 
         stubApi({ stations: () => Promise.resolve(new Response('', { status: 500 })) })
         render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
-        expect(await screen.findByText('Brak lokalizacji stacji')).toBeInTheDocument()
+        expect(await screen.findByText('Nie udało się wczytać lokalizacji stacji')).toBeInTheDocument()
+        expect(screen.queryByText('Brak lokalizacji stacji')).not.toBeInTheDocument()
       })
 
       it('Na mapie works when weather fails', async () => {

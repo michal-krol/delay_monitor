@@ -21,7 +21,7 @@ export function TimePair({ row, now, compact = false }: { row: BoardApiRow; now:
         >
           {formatClockTime(at)}
         </span>
-        <span className="text-xs font-semibold text-text-secondary">{label}</span>
+        <span className="text-xs font-semibold text-text-secondary">{label === 'Przew.' ? <abbr title="Przewidywana">Przew.</abbr> : label}</span>
       </span>
       {below !== '' && <span className="block text-sm whitespace-normal text-text-muted">{below}</span>}
     </span>

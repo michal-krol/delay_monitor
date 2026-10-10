@@ -385,7 +385,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }:
       </td>
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
         {canOpenDetails && (
-          <span className="inline-flex transition group-hover:translate-x-0.5 group-hover:text-foreground">
+          <span className="inline-flex transition motion-safe:group-hover:translate-x-0.5 group-hover:text-foreground">
             <ChevronRightIcon size={ICON_SIZE.inline} />
           </span>
         )}
