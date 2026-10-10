@@ -24,7 +24,7 @@ data age, not a white screen. Error banner only for a configuration error (401).
   three sub-requests separately — one failing degrades only that one.
 - Schedule-only data (#10): „PKP nie podaje dziś danych o ruchu", not an error state.
 - GTFS: always „rozkład", **never** „na czas" (#13).
-- Data age on the PKP board/Pulpit („Aktualizacja … temu”, `BoardStatus` with `onRefresh`) is
+- Data age on the PKP board/Start („Aktualizacja … temu”, `BoardStatus` with `onRefresh`) is
   a button: `usePolling().refresh()` refetches now (no-op while a fetch is in flight, the
   refresh clock restarts). `/api/board` reads the poller snapshot — zero PKP cost (#3).
 - Phone controls sit in ONE equal-width grid, `ActionGrid` (`src/components/ActionGrid.tsx`, ≥ 44 px

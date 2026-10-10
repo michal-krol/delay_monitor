@@ -28,7 +28,7 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
   swapped wholesale.
 - **Page transitions:** `NavTransition` (in `PageShell`), `PlaceTitle`, `TabCrossfade`; constants and
   `placeTransitionName()` in `src/lib/navTransition.ts`. Direction is chosen by OUR code: deeper =
-  `NAV_FORWARD_OPTIONS` (`router.push`) / `NAV_FORWARD_TYPES` (`<Link>`, Pulpit cards), parent = `NAV_BACK_TYPES` (`<Link>`), bottom nav/sidebar =
+  `NAV_FORWARD_OPTIONS` (`router.push`) / `NAV_FORWARD_TYPES` (`<Link>`, Start cards), parent = `NAV_BACK_TYPES` (`<Link>`), bottom nav/sidebar =
   `NAV_TAB_TYPES`. `router.back()`/browser back carry no type and do not slide.
 - **Glass:** `glass-chrome` / `glass-chrome-strong` only on floating chrome (header, bottom nav, sidebar, map
   controls and menus, offline pill; sheet panels are 94 % `--sheet-surface` with NO blur — invisible at that opacity and
@@ -43,7 +43,7 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
   `<div>` that itself mounts, it silently does nothing (no pseudo-elements, no `startViewTransition`). So
   `NavTransition` wraps the root of `PageShell`, not `<main>`. Check in a real browser: `document.getAnimations()`
   must list `::view-transition-new(_t_…)`.
-- **A duplicate `view-transition-name` aborts the whole transition.** One name per id on screen: only Pulpit cards
+- **A duplicate `view-transition-name` aborts the whole transition.** One name per id on screen: only Start cards
   and board headings carry `PlaceTitle`, never search results (they sit beside the cards). Names must be valid CSS
   identifiers — GTFS ids contain `:` — hence `placeTransitionName()`.
 - **View transitions run only in Chromium engines and without `prefers-reduced-motion`**, enforced by
@@ -66,4 +66,10 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
   A swap into a freed slot is fine: the station's direction select took the removed KPI pills' place (no disruption
   banner above the board — user decision 2026-10-09).
 - Live dot (`LiveDot`) uses the accent colour, never the status green (#13), and only while data is fresh and the
-  last fetch succeeded (#7).
+  last fetch succeeded (#7). It pulses ONCE when it mounts (`animation … 1`), then stays a static dot; never an
+  infinite loop (00-start-here: no radar waves). It is not proof of freshness — the text beside it is.
+- Active bottom-nav tab = `.nav-pill` soft pastille + `--nav-active-text` label (no glow). Pin toggles use `PinStar`:
+  the glyph pops once (1→1.12→1, `--ease-spring`) only when `pinned` flips false→true after mount, never on
+  first render or on a polling rerender.
+- Shared interaction classes (`.segment`, `.chip-filter`, `.btn-primary`, `page-title`, `time-dominant`) and the
+  `--primary*` tokens are defined once in `globals.css` (F0, `adr/0011`); screens consume them, do not re-style.
