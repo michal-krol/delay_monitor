@@ -125,7 +125,9 @@ the panel scrolls the container. Rules:
   (`has-[[aria-expanded=true]]:z-30`); a new dropdown there needs `aria-expanded` on its trigger.
 - Inner scrolling (`[data-sheet-scroll]` = `PanelFrame` body) is locked below `full`, otherwise
   a drag scrolls the content instead of lifting the sheet. New scrollable panel content must
-  use the `PanelFrame` body or carry `data-sheet-scroll`.
+  use the `PanelFrame` body or carry `data-sheet-scroll`. The same rule resets
+  `overscroll-behavior: auto`: Chromium ends the scroll chain at an `overscroll-contain` box even
+  when it is `overflow: hidden`, so a drag on the card body never lifted the sheet (912a815).
 - A new object remounts the sheet (`key`) so it opens at `initialSnap` (default `peek`).
 - Things that must stay visible over the open sheet (filter chips, `role=status` messages) go in
   the `above` slot: it rides on the panel's top edge and scrolls with it. At `full` only about

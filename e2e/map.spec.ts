@@ -779,7 +779,7 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await openMap(page)
     const card = await openStopCard(page, 'Centrum')
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
-    const body = (await card.getByLabel('Szczegóły').boundingBox())!
+    const body = (await card.getByLabel('Szczegóły', { exact: true }).boundingBox())!
     const scrollEnded = await armScrollEnd(page, '.bottom-sheet')
     await touchDrag(page, { x: body.x + body.width / 2, y: body.y + 16 }, 0, -250)
     await scrollEnded()
