@@ -32,7 +32,7 @@ type MobileNavItem = {
   href: string
   label: string
   icon: typeof HomeIcon
-  /** `action` = przycisk wołający `onSearch` (nie nawigacja); `href` to docelowa trasa `/search` (PR 2). */
+  /** `action` = przycisk wołający `onSearch` (nie nawigacja); `href` to docelowa trasa `/search` (`src/app/(app)/search`). */
   kind: 'link' | 'action'
 }
 
@@ -65,7 +65,7 @@ export function activeItemFromPath(pathname: string): ActiveItem | undefined {
 
 /**
  * Zakładka dolnego paska telefonu dla adresu. Tablice, połączenia, przystanki i miasto to
- * „Start" (tam się do nich wchodzi); `/search` jest rozpoznawane już teraz, trasa dojdzie w PR 2.
+ * „Start" (tam się do nich wchodzi); `/search` jest rozpoznawane już teraz, trasa `/search` istnieje.
  */
 export function mobileActiveItemFromPath(pathname: string): MobileActiveItem | undefined {
   if (pathname === '/search') return 'search'

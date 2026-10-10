@@ -17,6 +17,7 @@ export function CityPicker({
   current,
   hrefFor = (id) => `/city/${id}`,
   compact = false,
+  replace = false,
 }: {
   cities: CityOption[]
   current: string
@@ -24,6 +25,8 @@ export function CityPicker({
   hrefFor?: (id: string) => string
   /** Poniżej `sm` etykieta „Miasto” tylko dla czytnika (oszczędza miejsce nad mapą). */
   compact?: boolean
+  /** `router.replace` zamiast `push` — gdy zmiana miasta nie ma dodawać wpisu w historii (`/search`). */
+  replace?: boolean
 }) {
   const router = useRouter()
   const { setCity } = useCityContext()
@@ -37,7 +40,8 @@ export function CityPicker({
   function choose(nextId: string): void {
     if (nextId === current) return
     setCity(nextId)
-    router.push(hrefFor(nextId))
+    if (replace) router.replace(hrefFor(nextId))
+    else router.push(hrefFor(nextId))
   }
 
   return (

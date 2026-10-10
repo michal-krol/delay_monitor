@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { BottomNav } from './BottomNav'
 import { MobileHeader } from './MobileHeader'
 import { activeItemFromPath } from './navItems'
@@ -10,6 +10,8 @@ import { InstallPrompt } from './InstallPrompt'
 import { isSearchShortcut } from './searchShortcut'
 import { SearchDialog } from './SearchDialog'
 import { Sidebar } from './Sidebar'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
+import { NAV_TAB_TYPES } from '@/lib/navTransition'
 import { installViewTransitionGate } from '@/lib/viewTransitionGate'
 
 // Przed pierwszą nawigacją: przejścia widoku tylko w Chromium i bez reduced-motion (`viewTransitionGate.ts`).
@@ -23,10 +25,20 @@ installViewTransitionGate()
  */
 export function AppChrome() {
   const pathname = usePathname()
+  const router = useRouter()
+  const wide = useMediaQuery(SM_UP, true)
   const [searchOpen, setSearchOpen] = useState(false)
-  // Jedna akcja „Szukaj" dla wszystkich wejść. PR 2 (trasa `/search`) rozgałęzi ją tu: poniżej `SM_UP` nawigacja
-  // na `/search`, od `sm` nadal to okno.
-  const openSearch = useCallback(() => setSearchOpen(true), [])
+  // Jedna akcja „Szukaj" dla wszystkich wejść (dolny pasek, pasek boczny, Ctrl/Cmd+K, „/"): na `/search` fokus
+  // w polu, poniżej `SM_UP` trasa `/search` (jak zakładka), od `sm` okno.
+  const openSearch = useCallback(() => {
+    if (pathname === '/search') {
+      document.querySelector<HTMLElement>('main input[type="search"]')?.focus()
+    } else if (wide) {
+      setSearchOpen(true)
+    } else {
+      router.push('/search', { transitionTypes: NAV_TAB_TYPES })
+    }
+  }, [pathname, wide, router])
   const closeSearch = useCallback(() => setSearchOpen(false), [])
 
   useEffect(() => {
@@ -36,11 +48,11 @@ export function AppChrome() {
       // Otwarte okno: Ctrl/Cmd+K nadal nie może trafić do przeglądarki (pasek adresu); „/" w polu to zwykły znak
       // (isSearchShortcut go odrzuca), więc tu zostaje tylko odebranie skrótu.
       event.preventDefault()
-      if (!searchOpen) setSearchOpen(true)
+      if (!searchOpen) openSearch()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [searchOpen])
+  }, [searchOpen, openSearch])
 
   return (
     <>
