@@ -485,8 +485,11 @@ details[open] > summary .disclosure-chevron,
   background-color: var(--text-muted);
   opacity: 0.6;
 }
+/* `overscroll-behavior: auto` zdejmuje `overscroll-contain` z treści `PanelFrame`: Chromium urywa na nim łańcuch
+   przewijania mimo `overflow: hidden`, więc przeciągnięcie za treść karty nie podnosiło arkusza (912a815). */
 .bottom-sheet:not([data-snap='full']) [data-sheet-scroll] {
   overflow-y: hidden;
+  overscroll-behavior: auto;
 }
 
 /* Karta treści: prawie kryjąca, BEZ `backdrop-filter` (PR 6). Pływające paski, menu i kontrolki mapy: `glass-chrome*` niżej. */

@@ -563,15 +563,23 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
  * Przeciągnięcie jednym palcem przez CDP (`Input.dispatchTouchEvent`) — prawdziwe wejście
  * dotykowe w Chromium, z przewijaniem i dociąganiem do punktów scroll-snap. Tylko Chromium:
  * WebKit w Playwright nie ma API dotyku (gest na iOS = click-QA na urządzeniu).
+ *
+ * Palec zatrzymuje się przed puszczeniem (zerowa prędkość), a czasy zdarzeń są jawne (`timestamp`), nie zegarowe:
+ * puszczenie w ruchu startuje fling, którego headless Chromium nie animuje — przewijanie staje w miejscu palca,
+ * bez dociągnięcia do punktu i bez `scrollend` (flaky „dotyk: mapa nad arkuszem…”, 3/8 przy szybkim puszczeniu).
+ * Z zegarem ściennym prędkość zależała od obciążenia runnera; z jawnymi czasami gest jest zawsze ten sam.
  */
 async function touchDrag(page: Page, from: { x: number; y: number }, dx: number, dy: number): Promise<void> {
   const cdp = await page.context().newCDPSession(page)
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] })
-  for (let i = 1; i <= 10; i++) {
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (dx * i) / 10, y: from.y + (dy * i) / 10 }] })
-    await page.waitForTimeout(8)
-  }
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  const start = Date.now() / 1000
+  const touch = (type: string, ms: number, touchPoints: { x: number; y: number }[]) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints, timestamp: start + ms / 1000 })
+  const to = { x: from.x + dx, y: from.y + dy }
+  await touch('touchStart', 0, [from])
+  for (let i = 1; i <= 10; i++) await touch('touchMove', i * 16, [{ x: from.x + (dx * i) / 10, y: from.y + (dy * i) / 10 }])
+  // Bez ruchu dłużej niż horyzont prędkości Chromium (100 ms) — puszczenie bez flinga.
+  for (let i = 1; i <= 3; i++) await touch('touchMove', 160 + i * 60, [to])
+  await touch('touchEnd', 400, [])
 }
 
 /**
@@ -762,6 +770,20 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
     await scrollEnded()
     await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek')
+  })
+
+  // Regresja z 912a815: `overscroll-contain` na treści `PanelFrame` (poniżej `full` ma `overflow-y: hidden`) urywał
+  // łańcuch przewijania w Chromium — przeciągnięcie za treść karty nie podnosiło arkusza, działał tylko uchwyt i nagłówek.
+  test('dotyk: przeciągnięcie za treść karty (nie uchwyt) podnosi arkusz', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'dotyk przez CDP tylko w Chromium')
+    await openMap(page)
+    const card = await openStopCard(page, 'Centrum')
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
+    const body = (await card.getByLabel('Szczegóły', { exact: true }).boundingBox())!
+    const scrollEnded = await armScrollEnd(page, '.bottom-sheet')
+    await touchDrag(page, { x: body.x + body.width / 2, y: body.y + 16 }, 0, -250)
+    await scrollEnded()
+    await expect(sheet(page)).toHaveAttribute('data-snap', 'half')
   })
 })
 
