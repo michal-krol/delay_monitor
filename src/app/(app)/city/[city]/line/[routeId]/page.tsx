@@ -36,6 +36,8 @@ type LineResponse = {
   line: LineDetail | null
   /** `null` = feed alertów jeszcze nie odpowiedział (nieznane); `isLineLoading` ponawia do skutku. */
   alerts: import('@/lib/gtfs/alerts').AlertRecord[] | null
+  /** Stan feedu komunikatów (`toContextAlertsState`); tylko typ — konsumuje go dopiero ekran linii (PR7). */
+  alertFeed?: import('@/lib/gtfs/alertView').AlertFeedStatus | null
   attribution: string[]
 }
 
