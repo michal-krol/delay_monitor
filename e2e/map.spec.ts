@@ -574,6 +574,39 @@ async function touchDrag(page: Page, from: { x: number; y: number }, dx: number,
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
 }
 
+/**
+ * Śledzi `scroll`/`scrollend` kontenera od teraz i zwraca funkcję czekającą, aż przewijanie po gestie dojedzie do
+ * końca: kontener ruszył z miejsca uzbrojenia, a ostatni `scroll` nie jest późniejszy niż ostatni `scrollend`
+ * (puszczenie palca + animacja dociągania do punktu). Uzbrajać PRZED gestem, wołać zaraz po nim.
+ * `data-snap` arkusza to stan pochodny: ustala się dopiero po `SETTLE_MS` ciszy w zdarzeniach `scroll`, a na
+ * obciążonym runnerze (programowy WebGL) klatki przewijania dzieli kilkaset ms do kilku sekund — domyślne 5 s
+ * `expect` liczone od puszczenia palca bywa wtedy za mało, choć arkusz dojeżdża do właściwego punktu. Czekamy
+ * więc na koniec ruchu (budżet = limit testu), a dopiero potem sprawdzamy stan, który zdąży się ustalić w
+ * zwykłym czasie `expect`. Warunek na stanie (nie na znaczniku czasu puszczenia) nie gubi `scrollend`, który
+ * przyszedł zanim test zdążył zapytać, a spóźnione zdarzenie po wcześniejszym `scrollTo` (montowanie) go nie spełnia.
+ */
+async function armScrollEnd(page: Page, selector: string): Promise<() => Promise<void>> {
+  type Probe = { __sheetScroll?: { start: number; lastScroll: number; lastEnd: number; el: Element } }
+  await page.evaluate((sel) => {
+    const el = document.querySelector(sel)!
+    const probe = { start: el.scrollTop, lastScroll: 0, lastEnd: 0, el }
+    ;(window as unknown as Probe).__sheetScroll = probe
+    el.addEventListener('scroll', () => (probe.lastScroll = performance.now()))
+    el.addEventListener('scrollend', () => (probe.lastEnd = performance.now()))
+  }, selector)
+  return () =>
+    page
+      .waitForFunction(
+        () => {
+          const p = (window as unknown as Probe).__sheetScroll!
+          return Math.abs(p.el.scrollTop - p.start) > 50 && p.lastEnd >= p.lastScroll
+        },
+        undefined,
+        { timeout: 0 }
+      )
+      .then(() => undefined)
+}
+
 // PR3: na telefonie karty mapy leżą w arkuszu od dołu z trzema punktami (BottomSheet.tsx).
 test.describe('mapa transportu: arkusz na telefonie', () => {
   test.beforeEach(({}, testInfo) => {
@@ -725,7 +758,9 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await expect.poll(() => new URL(page.url()).searchParams.get('at')).not.toBe(at)
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
 
+    const scrollEnded = await armScrollEnd(page, '.bottom-sheet')
     await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
+    await scrollEnded()
     await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek')
   })
 })
