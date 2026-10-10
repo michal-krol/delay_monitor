@@ -72,17 +72,19 @@ describe('BoardTable — godzina: PLAN / PROGNOZA / FAKT', () => {
   it('shows the confirmed actual time under the plan', () => {
     renderTable([row({ actualAt: ACTUAL, delayMinutes: 3, status: 'delayed' })])
 
-    expect(screen.getByText(shown(PLANNED))).toBeInTheDocument()
+    // Fakt jest godziną dominującą ("Faktycznie"), plan zostaje w małej linii.
     expect(screen.getByText(shown(ACTUAL))).toBeInTheDocument()
+    expect(screen.getByText('Faktycznie')).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`^Plan ${shown(PLANNED)}`))).toBeInTheDocument()
     expect(screen.getByText('+3 min')).toBeInTheDocument()
   })
 
   it('marks a prediction as a prediction instead of passing it off as a fact', () => {
     renderTable([row({ predictedAt: PREDICTED, status: 'enRoute' })])
 
-    const predicted = screen.getByText(shown(PREDICTED))
-    expect(predicted).toHaveClass('italic')
-    expect(predicted).toHaveAttribute('title', expect.stringContaining('przewidywana'))
+    expect(screen.getByText(shown(PREDICTED))).toBeInTheDocument()
+    expect(screen.getByText('Przew.')).toBeInTheDocument()
+    expect(screen.queryByText('Faktycznie')).not.toBeInTheDocument()
   })
 
   it('never shows an unconfirmed actual time as a fact', () => {
@@ -222,7 +224,7 @@ describe('BoardTable — odliczanie „za N min”', () => {
 
   it('counts to the forecast, not the plan, when the train is late (no new delay logic, AGENTS #2)', () => {
     renderTable([row({ predictedAt: PREDICTED, predictedDelayMinutes: 4, status: 'enRoute' })])
-    expect(within(cell('time')).getByText('Prognoza · za 34 min')).toBeInTheDocument()
+    expect(within(cell('time')).getByText(`Plan ${shown(PLANNED)} · za 34 min`)).toBeInTheDocument()
   })
 
   it('never counts down to a cancelled train', () => {
