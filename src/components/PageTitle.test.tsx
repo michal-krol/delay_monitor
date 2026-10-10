@@ -12,6 +12,6 @@ describe('PageTitle', () => {
   it('renders an h2 with the same look when as="h2"', () => {
     render(<PageTitle as="h2">Stacja</PageTitle>)
     const heading = screen.getByRole('heading', { level: 2, name: 'Stacja' })
-    expect(heading).toHaveClass('text-2xl', 'font-extrabold')
+    expect(heading).toHaveClass('page-title')
   })
 })

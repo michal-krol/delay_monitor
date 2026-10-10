@@ -23,7 +23,7 @@ export function PageAside({ children }: { children: ReactNode }) {
       ref={scrollRef}
       tabIndex={tabIndex}
       aria-label="Panel kontekstowy"
-      className="flex flex-col gap-4 px-4 pb-5 sm:px-8 sm:pb-7 xl:sticky xl:top-0 xl:w-aside xl:shrink-0 xl:self-start xl:max-h-dvh xl:overflow-y-auto xl:px-0 xl:py-7 xl:pr-8"
+      className="flex flex-col gap-4 px-(--page-gutter) pb-5 sm:px-8 sm:pb-7 xl:sticky xl:top-0 xl:w-aside xl:shrink-0 xl:self-start xl:max-h-dvh xl:overflow-y-auto xl:px-0 xl:py-7 xl:pr-8"
     >
       {children}
     </aside>
@@ -47,7 +47,7 @@ export function PageShell({ children, aside }: { children: ReactNode; aside?: Re
     <NavTransition>
       {/* Kolumna na węższych ekranach (aside pod treścią), wiersz od `xl`. */}
       <div className="flex min-w-0 flex-1 flex-col xl:flex-row">
-        <main className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">{children}</main>
+        <main className="flex min-w-0 flex-1 flex-col gap-5 px-(--page-gutter) py-5 sm:px-8 sm:py-7">{children}</main>
         {aside !== undefined && <PageAside>{aside}</PageAside>}
       </div>
     </NavTransition>

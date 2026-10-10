@@ -41,10 +41,10 @@ function boardRow(overrides: Partial<BoardApiRow> = {}): BoardApiRow {
   }
 }
 
-describe('bottom nav halo', () => {
+describe('bottom nav pastille', () => {
   afterEach(() => vi.clearAllMocks())
 
-  it('marks only the active tab for the halo (data-active)', () => {
+  it('marks only the active tab for the pastille (data-active)', () => {
     usePathname.mockReturnValue('/map')
     render(<BottomNav />)
     const links = within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getAllByRole('link')

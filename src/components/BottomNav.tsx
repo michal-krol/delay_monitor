@@ -43,7 +43,7 @@ export function BottomNav() {
                     : undefined
                 }
               >
-                <span className="nav-halo">
+                <span className="nav-pill">
                   <Icon size={ICON_SIZE.tile} />
                 </span>
                 <span>{item.shortLabel}</span>

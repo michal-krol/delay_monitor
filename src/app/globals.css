@@ -41,8 +41,19 @@
      rgb(239,241,250)) — poniżej progu WCAG AA 4,5:1, a to token setek etykiet.
      #5b6878 daje 5,04:1 i nadal jest wyraźnie ciszsze od --text-secondary. */
   --text-muted: #5b6878;
-  --nav-active-bg: linear-gradient(90deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.14));
-  --nav-active-text: #1d4ed8;
+  /* Kolor główny (F0, D5): nasycony błękit na aktywne segmenty, przyciski główne i pastylkę nawigacji.
+     `--primary` to WYPEŁNIENIE (biały tekst, ≥ 4,5:1); `--primary-text` to błękit jako TEKST na tle strony/karty/
+     `--primary-soft`. Kontrasty liczy `designTokens.test.ts` z tych wartości. Gradient akcentu zostaje dla logo i ikon. */
+  --primary: #1d4ed8;
+  --primary-fg: #ffffff;
+  --primary-soft: #dbeafe;
+  --primary-text: #1d4ed8;
+  --nav-active-bg: var(--primary-soft);
+  --nav-active-text: var(--primary-text);
+
+  /* Wymiary wspólne dla ekranów: karta 16 px, margines strony 16 px (12 px od ~320 px), cel dotyku 44 px. */
+  --page-gutter: 1rem;
+  --control-min: 2.75rem;
 
   /* Tekstowe warianty statusów -- patrz komentarz przy tokenach pigułki niżej. */
   --status-onTime-text: #166534;
@@ -80,8 +91,13 @@
   /* jw. — na ciemnym tle karty (rgb(11,18,32)) #64748b dawało tylko 3,94:1.
      #7a8798 daje 5,12:1, wciąż wyraźnie poniżej --text-secondary (7,30:1). */
   --text-muted: #7a8798;
-  --nav-active-bg: linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.1));
-  --nav-active-text: #f1f5f9;
+  /* Ciemny: wypełnienie jaśniejsze niż w jasnym (≥ 3:1 względem tła), tekst jeszcze jaśniejszy. */
+  --primary: #2563eb;
+  --primary-fg: #ffffff;
+  --primary-soft: rgba(96, 165, 250, 0.18);
+  --primary-text: #93c5fd;
+  --nav-active-bg: var(--primary-soft);
+  --nav-active-text: var(--primary-text);
 
   --status-onTime-text: #4ade80;
   --status-delayed-text: #fb923c;
@@ -174,6 +190,11 @@
     --bottom-nav-h: 0px;
   }
 }
+@media (max-width: 21rem) {
+  :root {
+    --page-gutter: 0.75rem;
+  }
+}
 /* Tryb aplikacji nie ma przycisku odświeżania, a gest „pociągnij w dół" na pełnoekranowej mapie (Android)
    przeładowałby całą stronę w trakcie przesuwania mapy. Strona nie przewija się (stała wysokość), więc nic
    nie tracimy; Pulpit, tablice i mapki osadzone w stronach zostają z systemowym zachowaniem. */
@@ -224,6 +245,12 @@ dialog.info-sheet[open] {
   --color-surface-border: var(--surface-border);
   --color-error-text: var(--error-text);
   --color-warning-text: var(--warning-text);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-text: var(--primary-text);
+  /* Klucz motywu zamiast zmiennej w `:root` (`--radius-card: var(--radius-card)` byłoby cykliczne): daje `rounded-card`. */
+  --radius-card: 1rem;
   /* Jedna szerokość prawej kolumny (PageAside, tablice, karta mapy) — właściciel
      2026-09-29: 320 px przy 1280, 380 px od ok. 1520. */
   --spacing-aside: clamp(20rem, 25vw, 23.75rem);
@@ -243,6 +270,124 @@ dialog.info-sheet[open] {
     width: max(100%, 44px);
     height: max(100%, 44px);
     transform: translate(-50%, -50%);
+  }
+}
+
+/* === Wspólne klasy interakcji (F0) ===
+   Fundament dla kolejnych ekranów (nie przestylowują pojedynczych widoków): tytuł strony, dominujący czas,
+   cel dotyku 44 px, segment / chip filtra / przycisk główny. Kolejne PR-y dopisują własne bloki pod spodem.
+   Klasy komponentów siedzą w `@layer components`, żeby utility Tailwinda (`w-full`, `px-3`) mogły je nadpisać.
+   Stan aktywny to wypełnienie lub obrys, nigdy sam kolor (kontrast statusu nie może być jedynym sygnałem). */
+@utility page-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  line-height: 1.875rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+@utility time-dominant {
+  font-size: 1.5rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+@utility control-44 {
+  min-height: var(--control-min);
+  min-width: var(--control-min);
+}
+
+@layer components {
+  .segment {
+    display: inline-flex;
+    overflow: hidden;
+    border: 1px solid var(--surface-border);
+    border-radius: 0.75rem;
+    background-color: var(--surface-strong);
+  }
+  .segment-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--control-min);
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .segment-item:is([aria-selected="true"], [aria-pressed="true"], [data-active]) {
+    background-color: var(--primary);
+    color: var(--primary-fg);
+  }
+  /* Obrys wewnątrz (kontener ma `overflow: hidden`); na wypełnionym elemencie jasny, na pozostałych w kolorze tekstu głównego. */
+  .segment-item:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: -4px;
+  }
+  .segment-item:is([aria-selected="true"], [aria-pressed="true"], [data-active]):focus-visible {
+    outline-color: var(--primary-fg);
+  }
+
+  .chip-filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--control-min);
+    padding-inline: 1rem;
+    border: 1px solid var(--surface-border);
+    border-radius: 9999px;
+    background-color: var(--surface-strong);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+  .chip-filter:is([aria-pressed="true"], [data-active]) {
+    border-color: var(--primary);
+    background-color: var(--primary-soft);
+    color: var(--primary-text);
+  }
+  .chip-filter:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 2px;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--control-min);
+    padding-inline: 1.25rem;
+    /* Przezroczysta ramka widoczna w `forced-colors` (tło jest wtedy nadpisywane). */
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    background-color: var(--primary);
+    font-weight: 600;
+    color: var(--primary-fg);
+  }
+  /* Hover tylko tam, gdzie istnieje (po dotyku przycisk nie zostaje ciemniejszy). */
+  @media (hover: hover) {
+    .btn-primary:hover {
+      background-color: color-mix(in srgb, var(--primary) 88%, black);
+    }
+  }
+  .btn-primary:active {
+    background-color: color-mix(in srgb, var(--primary) 76%, black);
+  }
+  .btn-primary:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 2px;
+  }
+
+  /* Tryb wysokiego kontrastu zastępuje tła kolorami systemowymi: aktywny element musi mieć własny obrys. */
+  @media (forced-colors: active) {
+    .segment-item:is([aria-selected="true"], [aria-pressed="true"], [data-active]) {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
+    .chip-filter:is([aria-pressed="true"], [data-active]) {
+      outline: 2px solid Highlight;
+      outline-offset: 0;
+    }
   }
 }
 
@@ -499,15 +644,21 @@ details[open] > summary .disclosure-chevron,
 /* Żywy feedback (PR 6). Wszystko, co się rusza, siedzi pod `prefers-reduced-motion: no-preference`;
    bez ruchu zostaje statyczny stan (kolor, poświata) — informacja zawsze jest też w tekście obok. */
 
-/* Halo aktywnej zakładki dolnego paska: miękka poświata pod ikoną. */
-.nav-halo {
+/* Pastylka aktywnej zakładki dolnego paska: ikona leży w jasnoniebieskim owalu (kształt, nie sama poświata). */
+.nav-pill {
   display: grid;
   place-items: center;
+  width: 4rem;
+  height: 2rem;
   border-radius: 9999px;
-  transition: box-shadow var(--duration-base) var(--ease-out);
 }
-[data-active] > .nav-halo {
-  box-shadow: 0 0 14px 3px rgba(56, 189, 248, 0.45);
+[data-active] > .nav-pill {
+  background-color: var(--primary-soft);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nav-pill {
+    transition: background-color var(--duration-base) var(--ease-out);
+  }
 }
 
 /* Zapasowy napis liczby, zanim załaduje się biblioteka toczących się cyfr (`AnimatedNumber`): te same wymiary co jej element
@@ -540,9 +691,28 @@ details[open] > summary .disclosure-chevron,
     box-shadow: 0 0 0 7px transparent;
   }
 }
+/* Jeden puls po pojawieniu się kropki, potem statyczna (puls w pętli to szum, a informację niesie napis obok). */
 @media (prefers-reduced-motion: no-preference) {
   .live-dot {
-    animation: livePulse 2.2s ease-out infinite;
+    animation: livePulse 2.2s ease-out 1;
+  }
+}
+
+/* Gwiazdka przypięcia (`PinStar`): jedno „sprężynkowanie” glifu, tylko gdy `data-pop` (przypięcie false → true). */
+@keyframes star-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .star-pop[data-pop] {
+    animation: star-pop var(--duration-base) var(--ease-spring);
   }
 }
 

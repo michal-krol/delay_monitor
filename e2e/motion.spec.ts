@@ -134,11 +134,16 @@ test.describe('reduced motion', () => {
 })
 
 test.describe('motion allowed: live feedback', () => {
-  test('the live dot pulses while the data is fresh', async ({ page }) => {
+  test('the live dot pulses once while the data is fresh', async ({ page }) => {
     await stationReady(page)
     const dot = page.getByTestId('live-dot').first()
     await expect(dot).toBeAttached({ timeout: READY })
-    expect(await dot.evaluate((element) => getComputedStyle(element).animationName)).toBe('livePulse')
+    // Nazwa i liczba iteracji to właściwości obliczone, niezależne od tego, czy puls już się skończył.
+    const style = await dot.evaluate((element) => {
+      const computed = getComputedStyle(element)
+      return { name: computed.animationName, iterations: computed.animationIterationCount }
+    })
+    expect(style).toEqual({ name: 'livePulse', iterations: '1' })
   })
 
   test('phone: the header swaps the app name for the board name after scrolling', async ({ page }) => {
