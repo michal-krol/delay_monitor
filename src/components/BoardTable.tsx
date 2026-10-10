@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { DelayBadge, LABELS, STATUS_TEXT, TOKENS } from './DelayBadge'
+import { DelayBadge, LABELS, TOKENS } from './DelayBadge'
 import { CarrierLogo } from './CarrierLogo'
 import { CategoryBadge } from './CategoryBadge'
 import { InfoTooltip } from './InfoTooltip'
@@ -11,8 +11,7 @@ import { AlertCircleIcon, ChevronRightIcon, ICON_SIZE } from './icons'
 import type { Direction } from './FullBoard'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import type { RealizationStatus } from '@/lib/board/realization'
-import { formatClockTime } from '@/lib/format'
-import { realizedTime, timeNote } from './boardTime'
+import { TimePair, connectionHref } from './TimePair'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
 import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
@@ -153,9 +152,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   const hiddenCount = rows.length - visibleRows.length
 
   function openDetails(row: BoardApiRow): void {
-    // encodeURIComponent, nie URLSearchParams (form-encoding zamieniłoby
-    // spacje na `+`) -- ta sama konwencja co /station/[stationId] w page.tsx.
-    router.push(`/connection/${row.scheduleId}/${row.orderId}/${row.operatingDate}?train=${encodeURIComponent(row.trainLabel)}`, NAV_FORWARD_OPTIONS)
+    router.push(connectionHref(row), NAV_FORWARD_OPTIONS)
   }
 
   const emptyMessage = direction === 'departures' ? 'Brak odjazdów w najbliższych godzinach' : 'Brak przyjazdów w najbliższych godzinach'
@@ -309,28 +306,6 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
           <span className="min-w-0 truncate">{row.carrierName ?? (row.carrier || '—')}</span>
         </span>
       </span>
-    </span>
-  )
-}
-
-function TimePair({ row, now }: { row: BoardApiRow; now: number }) {
-  const realized = realizedTime(row)
-  const note = timeNote(row, now)
-
-  return (
-    <span className="block tabular-nums">
-      {/* PLAN -- zawsze, niezależnie od tego, co wiemy o realizacji. */}
-      <span className="block text-base font-semibold text-foreground">{formatClockTime(row.plannedAt)}</span>
-      {realized !== null && (
-        <span
-          className={`block text-sm font-medium ${realized.kind === 'forecast' ? 'italic' : ''}`}
-          style={{ color: STATUS_TEXT[row.status] }}
-          title={realized.kind === 'forecast' ? 'Godzina przewidywana — przystanek nie jest jeszcze potwierdzony.' : 'Godzina faktyczna — przejazd potwierdzony.'}
-        >
-          {formatClockTime(realized.at)}
-        </span>
-      )}
-      {note !== null && <span className="block text-xs font-semibold whitespace-normal text-text-secondary">{note}</span>}
     </span>
   )
 }

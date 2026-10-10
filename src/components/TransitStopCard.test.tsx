@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopCard } from './TransitStopCard'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
@@ -27,7 +27,7 @@ describe('TransitStopCard', () => {
 
     expect(screen.getByRole('heading', { name: 'Świętokrzyska' })).toBeInTheDocument()
     expect(screen.getByText(/Rozkład — warszawa/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Pokaż przystanek/ })).toHaveAttribute(
+    expect(within(screen.getByRole('heading')).getByRole('link')).toHaveAttribute(
       'href',
       '/city/warszawa/stop/7014M'
     )
@@ -139,20 +139,37 @@ describe('TransitStopCard', () => {
   it('a pinned single stop fetches only that stop and is named with its number', () => {
     useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
     render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member />)
-    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, '100102')
+    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 2, '100102')
     expect(screen.getByRole('heading', { name: 'Centrum 02' })).toBeInTheDocument()
     expect(screen.queryByText('Odjazd z przystanku')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Pokaż przystanek/ })).toHaveAttribute('href', '/city/warszawa/stop/1001?przystanek=100102')
+    expect(within(screen.getByRole('heading')).getByRole('link')).toHaveAttribute('href', '/city/warszawa/stop/1001?przystanek=100102')
   })
 
   it('a pinned group shows all its stops with numbers and links to the group', () => {
     useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
     // Wpis sprzed flagi `member`: `id` to przystanek ze starego deep-linku, ale znaczy cały zespół.
     render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" />)
-    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, null)
+    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 2, null)
     expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
     expect(screen.getByText('Odjazd z przystanku')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Pokaż przystanek/ })).toHaveAttribute('href', '/city/warszawa/stop/1001')
+    expect(within(screen.getByRole('heading')).getByRole('link')).toHaveAttribute('href', '/city/warszawa/stop/1001')
+  })
+
+  it('each departure links to its line page; „wg rozkładu” stays visible, never „na czas” or a delay (#13)', () => {
+    useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
+    // Odjazd za ponad godzinę: bez odliczania, ale dopisek „wg rozkładu” zostaje.
+    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" />)
+    const list = screen.getByTestId('departure-list')
+    expect(within(list).getByRole('link')).toHaveAttribute('href', '/city/warszawa/line/20')
+    expect(list).toHaveTextContent('wg rozkładu')
+    expect(list).not.toHaveTextContent(/na czas|punktualnie|opóźn/i)
+  })
+
+  it('no full-card overlay: the only links are the heading and the departures', () => {
+    useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
+    render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" />)
+    expect(screen.getAllByRole('link')).toHaveLength(2)
+    expect(screen.queryByRole('link', { name: /Pokaż przystanek/ })).toBeNull()
   })
 
   describe('legacy group pin saved under a member stop id', () => {

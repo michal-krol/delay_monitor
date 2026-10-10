@@ -32,6 +32,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   (wcześniej najpierw wszystkie stacje, potem przystanki). Karty nie mają już gwiazdki — odpina
   się w „Edytuj ulubione”. Pole „Dodaj stację…”, które wbrew nazwie otwierało tablicę, zastąpił
   przycisk „Dodaj”.
+- Pulpit: nowe karty. Każda pokazuje dwa najbliższe odjazdy; kolejowe tak jak wiersz tablicy
+  stacji — duża godzina planu, pod nią prognoza albo fakt, podpis „Prognoza · za N min” i status
+  przy konkretnym pociągu; miejskie z „wg rozkładu” także dla odjazdów za ponad godzinę.
+  Nazwa w nagłówku prowadzi do tablicy, odjazd kolejowy do szczegółów połączenia, a miejski
+  do strony linii. Karty nie mają już poświaty ani rysunku pociągu w tle, a licznik
+  „N opóźnionych” zniknął — status jest przy kursie, którego dotyczy. Przed wczytaniem
+  przypiętych widać szkielet Pulpitu zamiast pustego ekranu.
 - Ekran stacji na telefonie: pierwszy odjazd jest wyżej (z ok. 470 do najwyżej 340 px od góry
   ekranu 375×812). Górny rząd to „←”, nazwa stacji (raz), gwiazdka i menu „Więcej” z „Udostępnij”
   i „Informacje o stacji”. Wskaźniki dnia nie stoją nad tablicą — są w arkuszu „Info”, a w ich

@@ -70,3 +70,19 @@ test('odpięcie w edycji: fokus na „Cofnij", które przywraca wpis na dawne mi
   await page.getByRole('button', { name: 'Gotowe' }).click()
   await expect(cardHeadings(page)).toHaveText(['Warszawa Centralna', 'Centrum'], { timeout: 45_000 })
 })
+
+// Pulpit-karty (PR2): nagłówek i każdy z dwóch kursów to osobne linki, bez nakładki na całą kartę.
+test('karty: nagłówek prowadzi do tablicy, kurs PKP do połączenia, kurs miejski do linii', async ({ page }) => {
+  await seed(page, PINNED)
+  await page.goto('/')
+  const [rail, city] = [page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Warszawa Centralna' }) }), page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Centrum' }) })]
+  await expect(rail.getByRole('heading').getByRole('link')).toHaveAttribute('href', '/station/33605?name=Warszawa%20Centralna')
+  await expect(rail.getByRole('listitem').getByRole('link')).toHaveCount(2)
+  await expect(rail.getByRole('listitem').getByRole('link').first()).toHaveAttribute('href', /^\/connection\//)
+  await expect(city.getByTestId('departure-list').getByRole('link').first()).toHaveAttribute('href', /^\/city\/warszawa\/line\//, { timeout: 45_000 })
+  await expect(city.getByTestId('departure-list')).toContainText('wg rozkładu')
+  await expect(page.getByRole('main').getByRole('button', { name: /Pokaż/ })).toHaveCount(0)
+
+  await rail.getByRole('listitem').getByRole('link').first().click()
+  await expect(page).toHaveURL(/\/connection\//)
+})

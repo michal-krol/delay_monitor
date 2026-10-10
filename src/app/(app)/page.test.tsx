@@ -5,7 +5,6 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { pinnedKey, type PinnedItem } from '@/hooks/usePinned'
-import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -21,6 +20,7 @@ vi.mock('next/navigation', () => ({
 // uses real `useState` so `removePinned` triggers a real re-render within
 // a test, the same reactivity a stateful `usePinned()` gives the real page.
 let initialPinned: PinnedItem[] = []
+let pinnedLoaded = true
 
 vi.mock('@/hooks/usePinned', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/usePinned')>()),
@@ -28,7 +28,7 @@ vi.mock('@/hooks/usePinned', async (importOriginal) => ({
     const [pinnedItems, setPinnedItems] = useState(initialPinned)
     return {
       pinnedItems,
-      loaded: true,
+      loaded: pinnedLoaded,
       addPinned: (item: PinnedItem, index?: number) =>
         setPinnedItems((current) => {
           const next = [...current]
@@ -85,15 +85,23 @@ describe('Page (Pulpit)', () => {
     replace.mockClear()
     searchParamsSeed = ''
     initialPinned = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
+    pinnedLoaded = true
     pickOption = { id: '5136', name: 'Kraków Główny', kind: 'rail' }
     window.localStorage.clear()
   })
 
-  it('klik w kartę stacji otwiera pełny widok stacji, z nazwą w adresie', async () => {
+  it('nagłówek karty stacji to link do pełnego widoku stacji, z nazwą w adresie', () => {
     render(<Page />)
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /Pokaż pełną tablicę: Warszawa Centralna/ }))
-    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Centralna', NAV_FORWARD_OPTIONS)
+    const heading = screen.getByRole('heading', { name: 'Warszawa Centralna' })
+    expect(within(heading).getByRole('link')).toHaveAttribute('href', '/station/33605?name=Warszawa%20Centralna')
+  })
+
+  it('przed odczytem przypiętych pokazuje szkielet Pulpitu, nie pusty ekran ani zachętę do przypinania', () => {
+    pinnedLoaded = false
+    render(<Page />)
+    expect(screen.getByTestId('pulpit-skeleton')).toHaveAttribute('aria-busy', 'true')
+    expect(within(screen.getByTestId('pulpit-skeleton')).getByText('Wczytywanie…')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dodaj' })).toBeNull()
   })
 
   it('przekierowuje stary adres ?focus= na widok stacji, zachowując nazwę z przypiętych', () => {

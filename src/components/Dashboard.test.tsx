@@ -53,7 +53,6 @@ describe('Dashboard', () => {
     render(
       <Dashboard
         pinnedItems={PINNED_ITEMS}
-        onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
@@ -78,7 +77,6 @@ describe('Dashboard', () => {
     render(
       <Dashboard
         pinnedItems={PINNED_ITEMS}
-        onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
@@ -109,12 +107,11 @@ describe('Dashboard', () => {
     render(
       <Dashboard
         pinnedItems={PINNED_ITEMS}
-        onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
 
-    expect(await screen.findByText('IC')).toBeInTheDocument()
+    expect(await screen.findByText('Kraków')).toBeInTheDocument()
     expect(screen.getByText('Kraków Główny')).toBeInTheDocument()
     expect(screen.getAllByText('Wczytywanie…')).toHaveLength(1)
   })
@@ -151,24 +148,23 @@ describe('Dashboard', () => {
     render(
       <Dashboard
         pinnedItems={PINNED_ITEMS}
-        onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
 
-    expect(await screen.findByText('IC')).toBeInTheDocument()
+    expect(await screen.findByText('Kraków')).toBeInTheDocument()
 
     const warsawCard = findCardByHeading('Warszawa Centralna')
     const krakowCard = findCardByHeading('Kraków Główny')
 
-    expect(warsawCard).toHaveTextContent('IC')
-    expect(krakowCard).toHaveTextContent('KM')
+    expect(warsawCard).toHaveTextContent('Kraków')
+    expect(krakowCard).toHaveTextContent('Katowice')
   })
 
   it('cards carry no unpin star — unpinning lives in edit mode only', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' })))
 
-    render(<Dashboard pinnedItems={PINNED_ITEMS} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<Dashboard pinnedItems={PINNED_ITEMS} onRemove={vi.fn()} />)
 
     expect(screen.queryByRole('button', { name: /Odepnij z Pulpitu/ })).not.toBeInTheDocument()
   })
@@ -177,7 +173,7 @@ describe('Dashboard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' })))
     const mixed: PinnedItem[] = [PINNED_ITEMS[0], { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }, PINNED_ITEMS[1]]
 
-    render(<Dashboard pinnedItems={mixed} onExpand={vi.fn()} onRemove={vi.fn()} />)
+    render(<Dashboard pinnedItems={mixed} onRemove={vi.fn()} />)
 
     const headings = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)
     expect(headings).toEqual(['Warszawa Centralna', 'Świętokrzyska', 'Kraków Główny'])
@@ -189,7 +185,7 @@ describe('Dashboard', () => {
     const onMove = vi.fn()
     const user = userEvent.setup()
 
-    render(<Dashboard pinnedItems={PINNED_ITEMS} onExpand={vi.fn()} onRemove={onRemove} editing onMove={onMove} />)
+    render(<Dashboard pinnedItems={PINNED_ITEMS} onRemove={onRemove} editing onMove={onMove} />)
 
     const list = screen.getByRole('list', { name: 'Kolejność przypiętych' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(2)
@@ -206,7 +202,7 @@ describe('Dashboard', () => {
   it('edit mode marks moves past the ends as unavailable but keeps the buttons focusable', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' })))
 
-    render(<Dashboard pinnedItems={PINNED_ITEMS} onExpand={vi.fn()} onRemove={vi.fn()} editing onMove={vi.fn()} />)
+    render(<Dashboard pinnedItems={PINNED_ITEMS} onRemove={vi.fn()} editing onMove={vi.fn()} />)
 
     // aria-disabled, nie `disabled`: przycisk, który właśnie dojechał na kraniec, nie gubi fokusu.
     expect(screen.getByRole('button', { name: 'W górę: Warszawa Centralna' })).toHaveAttribute('aria-disabled', 'true')
@@ -221,7 +217,6 @@ describe('Dashboard', () => {
     render(
       <Dashboard
         pinnedItems={[...PINNED_ITEMS, { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }]}
-        onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
@@ -260,11 +255,10 @@ describe('Dashboard', () => {
     const { rerender } = render(
       <Dashboard
         pinnedItems={PINNED_ITEMS}
-        onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
-    expect(await screen.findByText('IC')).toBeInTheDocument()
+    expect(await screen.findByText('Kraków')).toBeInTheDocument()
 
     // Warszawa usunieta z przypiętych; odpowiedz w pamieci wciaz zawiera obie
     // stacje, bo nowy fetch jeszcze nie wrocil (`useBoard` trzyma poprzednie dane
@@ -272,14 +266,13 @@ describe('Dashboard', () => {
     rerender(
       <Dashboard
         pinnedItems={[PINNED_ITEMS[1]]}
-        onExpand={vi.fn()}
         onRemove={vi.fn()}
       />
     )
 
     const krakowCard = findCardByHeading('Kraków Główny')
-    expect(krakowCard).toHaveTextContent('KM')
-    expect(screen.queryByText('IC')).not.toBeInTheDocument()
+    expect(krakowCard).toHaveTextContent('Katowice')
+    expect(screen.queryByText('Kraków')).not.toBeInTheDocument()
   })
 
 
@@ -294,7 +287,7 @@ describe('Dashboard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' })))
     const legacy: PinnedItem = { kind: 'gtfs', city: 'warszawa', id: '100101', name: 'Centrum' }
     const onNormalize = vi.fn()
-    render(<Dashboard pinnedItems={[legacy]} onExpand={vi.fn()} onRemove={vi.fn()} onNormalize={onNormalize} />)
+    render(<Dashboard pinnedItems={[legacy]} onRemove={vi.fn()} onNormalize={onNormalize} />)
     expect(onNormalize).toHaveBeenCalledWith('gtfs:warszawa:100101', { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' })
   })
 })

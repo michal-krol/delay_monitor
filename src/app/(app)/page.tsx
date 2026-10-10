@@ -1,6 +1,5 @@
 'use client'
 
-import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { pinnedItemFromOption, pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
@@ -17,13 +16,30 @@ import { STATION_ID_PATTERN } from '@/lib/validation'
 // `/` nie ma dynamicznego segmentu, więc build próbuje ją prerenderować
 // statycznie -- useSearchParams() wymaga wtedy granicy <Suspense> (inaczej
 // błąd "missing-suspense-with-csr-bailout"), inaczej niż na /station/[stationId],
-// gdzie sam dynamiczny segment już wyklucza prerender. Fallback `null` to
-// dokładnie to, co strona i tak pokazywała wcześniej przez `!loaded`.
+// gdzie sam dynamiczny segment już wyklucza prerender. Fallback trafia do HTML-a
+// z prerenderu, więc to ten sam szkielet co przy `!loaded` — nie pusty ekran (#7).
 export default function Page() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PulpitSkeleton />}>
       <PulpitPage />
     </Suspense>
+  )
+}
+
+const PULPIT_SUBTITLE = 'Przypięte stacje i przystanki z najbliższymi odjazdami'
+
+/** Pulpit przed odczytem przypiętych z `localStorage`: nagłówek i dwie karty-szkielety zamiast pustego ekranu. */
+function PulpitSkeleton() {
+  return (
+    <PageShell aside={<NetworkStatsCard />}>
+      <TopBar title="Pulpit" subtitle={PULPIT_SUBTITLE} />
+      <div aria-busy="true" data-testid="pulpit-skeleton" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-5">
+        <span className="sr-only">Wczytywanie…</span>
+        {[0, 1].map((i) => (
+          <div key={i} aria-hidden="true" className="h-48 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
+        ))}
+      </div>
+    </PageShell>
   )
 }
 
@@ -94,10 +110,6 @@ function PulpitPage() {
   const rawFocus = searchParams.get('focus')
   const focusedStationId = rawFocus && STATION_ID_PATTERN.test(rawFocus) ? rawFocus : null
 
-  function goToBoard(station: StationOption): void {
-    router.push(`/station/${station.id}?name=${encodeURIComponent(station.name)}`, NAV_FORWARD_OPTIONS)
-  }
-
   /**
    * `?focus=` to stary adres rozwiniętej stacji na pulpicie. Widok stacji jest
    * teraz jeden — pełna strona `/station/{id}` z kafelkami KPI i prawą kolumną
@@ -117,7 +129,7 @@ function PulpitPage() {
     router.replace(`/station/${focusedStationId}${query}`)
   }, [focusedStationId, loaded, pinnedItems, router])
 
-  if (!loaded) return null
+  if (!loaded) return <PulpitSkeleton />
   // Przekierowanie leci w efekcie wyżej; przez tę jedną klatkę nie ma po co
   // pokazywać pulpitu, który zaraz zniknie.
   if (focusedStationId !== null) return null
@@ -140,7 +152,7 @@ function PulpitPage() {
 
   return (
     <PageShell aside={<NetworkStatsCard />}>
-      <TopBar title="Pulpit" subtitle="Przypięte stacje i przystanki z najbliższymi odjazdami" />
+      <TopBar title="Pulpit" subtitle={PULPIT_SUBTITLE} />
       <RecentPlaces limit={4} />
 
       {/* Zawsze w DOM: region `status` ogłasza zmianę treści, nie swoje pojawienie się. */}
@@ -163,7 +175,6 @@ function PulpitPage() {
       ) : (
         <Dashboard
           pinnedItems={pinnedItems}
-          onExpand={goToBoard}
           onRemove={unpin}
           onMove={movePinned}
           onNormalize={replacePinned}

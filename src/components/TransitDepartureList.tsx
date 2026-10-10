@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
+import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { countdownLabel } from '@/lib/countdown'
 import { LineBadge } from './LineBadge'
 import { OnRequestBadge } from './OnRequestBadge'
@@ -21,6 +23,10 @@ type Props = {
   now?: number
   /** Wyróżnij pierwszy odjazd osobnym blokiem nad listą (tylko zakładka „Najbliższe odjazdy"). */
   highlightFirst?: boolean
+  /** `card` (Pulpit): cały wiersz linkuje do linii (wymaga `city`), „wg rozkładu” widoczne także bez odliczania. */
+  variant?: 'board' | 'card'
+  /** Ile wierszy szkieletu przy wczytywaniu (karta Pulpitu pokazuje mniej kursów). */
+  skeletonRows?: number
 }
 
 /**
@@ -57,19 +63,23 @@ const clock = (iso: string) => iso.slice(11, 16)
  */
 function DepartureRow({
   departure,
-  index,
   city,
   showStopCode,
   now,
+  variant,
 }: {
   departure: DepartureWithVehicle
-  index: number
   city?: string
   showStopCode: boolean
   now?: number
+  variant: 'board' | 'card'
 }) {
   // Odliczanie tylko w obrębie godziny, z dopiskiem „wg rozkładu”: to plan, nie pomiar (#13).
   const countdown = now !== undefined ? countdownLabel(now, departure.plannedAt) : null
+  const lineHref = city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined
+  // Karta: link na cały wiersz, więc plakietka linii nie może być drugim (zagnieżdżonym) linkiem.
+  const rowHref = variant === 'card' ? lineHref : undefined
+  const scheduleNote = countdown !== null ? `${countdown} · wg rozkładu` : variant === 'card' ? 'wg rozkładu' : null
   const tag = stopTagOf(departure, showStopCode)
   const stopCode = tag?.code ?? null
   const hasStopTag = tag !== null
@@ -82,11 +92,9 @@ function DepartureRow({
     departure.frequencyBased ||
     departure.onRequest ||
     platform !== null
-  return (
-    <li
-      key={`${departure.tripId}-${departure.stopId}-${index}`}
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5"
-    >
+  const rowClass = 'flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5'
+  const cells = (
+    <>
       <time
         dateTime={departure.plannedAt}
         className="w-12 shrink-0 font-semibold tabular-nums text-foreground"
@@ -98,7 +106,7 @@ function DepartureRow({
         kind={departure.lineKind}
         mode={departure.mode}
         size="sm"
-        href={city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined}
+        href={rowHref === undefined ? lineHref : undefined}
       />
       <span data-testid="departure-headsign" className="min-w-0 flex-1 truncate text-sm text-foreground">
         {departure.headsign ?? '—'}
@@ -131,11 +139,24 @@ function DepartureRow({
           {platform !== null && <span className="shrink-0 text-xs text-text-secondary">peron {platform}</span>}
         </div>
       )}
-      {countdown !== null && (
+      {scheduleNote !== null && (
         // Wąska lista: osobna linia pod godziną (wcięta jak oznaczenia), szeroka: na końcu wiersza.
-        <span className="order-last basis-full pl-15 text-xs font-semibold tabular-nums text-text-secondary @xl:order-none @xl:basis-auto @xl:pl-0">{`${countdown} · wg rozkładu`}</span>
+        <span className="order-last basis-full pl-15 text-xs font-semibold tabular-nums text-text-secondary @xl:order-none @xl:basis-auto @xl:pl-0">{scheduleNote}</span>
       )}
+    </>
+  )
+  return rowHref !== undefined ? (
+    <li>
+      <Link
+        href={rowHref}
+        transitionTypes={NAV_FORWARD_TYPES}
+        className={`${rowClass} -mx-2 rounded-lg px-2 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/[0.06]`}
+      >
+        {cells}
+      </Link>
     </li>
+  ) : (
+    <li className={rowClass}>{cells}</li>
   )
 }
 
@@ -147,12 +168,14 @@ export function TransitDepartureList({
   showStopCode = false,
   now,
   highlightFirst = false,
+  variant = 'board',
+  skeletonRows = 3,
 }: Props) {
   const listRef = useRowAnimation<HTMLUListElement>()
   if (loading) {
     return (
       <ul className="mt-3 space-y-2" aria-hidden="true">
-        {[0, 1, 2].map((i) => (
+        {Array.from({ length: skeletonRows }, (_, i) => (
           <li key={i} className="h-10 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
         ))}
       </ul>
@@ -198,7 +221,7 @@ export function TransitDepartureList({
       {listed.length > 0 && (
         <ul ref={listRef} data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
           {listed.map((departure, index) => (
-            <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} index={index} city={city} showStopCode={showStopCode} now={now} />
+            <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} />
           ))}
         </ul>
       )}

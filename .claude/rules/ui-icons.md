@@ -13,7 +13,7 @@ Why: `adr/0006-ikony-lucide.md`.
   `no-restricted-imports` + `designTokens.test.ts`). `lucide-react` is not used: it exports
   no icon nodes, and the map needs them outside React. Never paste an SVG path into a
   component; add a named export to `icons.tsx` instead (inline `<svg>` outside it is limited
-  to charts and the station-card art, guarded by `designTokens.test.ts`).
+  to charts, guarded by `designTokens.test.ts`).
 - **Outside React** (hand-built DOM in `MapView`, MapLibre images): `iconElement()` (lucide
   `createElement` = `createElementNS`, never innerHTML, #4) and `VEHICLE_HEADING_POLYGON`
   (`arrowImage()` rasterises it for the `vehicles-arrows` SDF layer).

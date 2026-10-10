@@ -1,16 +1,17 @@
 'use client'
 
+import Link from 'next/link'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
-import { TrainIcon } from './icons'
+import { ChevronRightIcon, ICON_SIZE } from './icons'
 import { BoardRowList } from './BoardRowList'
 import { PlaceTitle } from './PlaceTitle'
-import { pluralPl } from '@/lib/plural'
-import type { StationOption } from './StationSearch'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { formatClockTime } from '@/lib/format'
-import type { CSSProperties } from 'react'
-import { GLOW_COLOR, BORDER_COLOR, statusTint } from './realizationColors'
+import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
+
+/** Ile kursów pokazuje karta Pulpitu — reszta jest na tablicy stacji. */
+export const CARD_ROWS = 2
 
 type Props = {
   stationId: string
@@ -18,81 +19,36 @@ type Props = {
   snapshot: BoardApiSnapshot | null
   error: boolean
   configError: boolean
-  onExpand: (station: StationOption) => void
 }
 
-export function StationCard({ stationId, stationName, snapshot, error, configError, onExpand }: Props) {
+export function StationCard({ stationId, stationName, snapshot, error, configError }: Props) {
   const now = useSnapshotNow(snapshot)
 
   // Kafelek dashboardu pokazuje tylko nadchodzące połączenia — pociągi, które
   // już odjechały (mieszczące się w oknie 5 minut wstecz z transform.ts),
   // zostają wyłącznie w pełnej tablicy (FullBoard), gdzie są przygaszone.
-  const departures = (snapshot?.departures.filter((row) => new Date(row.plannedAt).getTime() >= now) ?? []).slice(0, 3)
-  const delayedCount = snapshot?.departures.filter((row) => row.status === 'delayed').length ?? 0
-  const leadStatus = departures[0]?.status ?? 'unknown'
+  const departures = (snapshot?.departures.filter((row) => new Date(row.plannedAt).getTime() >= now) ?? []).slice(0, CARD_ROWS)
 
   if (configError) {
     return <ConfigErrorBanner />
   }
 
-  // Cała kafelka jest klikalna, ale przyciskiem jest wyłącznie przezroczysta
-  // nakładka. Gdyby <button> obejmował treść, byłby to niepoprawny HTML
-  // (przycisk przyjmuje tylko phrasing content), nagłówek zniknąłby z nawigacji
-  // po nagłówkach, a czytnik ekranu przeczytałby całą zawartość karty jako
-  // nazwę przycisku.
+  // Nagłówek i wiersze to osobne, prawdziwe linki — żadnej nakładki na całą kartę (zagnieżdżone cele dotyku).
   return (
-    <article
-      data-status={leadStatus}
-      className="glow-ring card-hover card-press group relative isolate w-full overflow-hidden rounded-2xl border p-5 text-left transition duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
-      style={
-        {
-          borderColor: BORDER_COLOR[leadStatus],
-          '--glow-color': GLOW_COLOR[leadStatus],
-        } as CSSProperties
-      }
-    >
-      {/* Dekoracja z makiety (tor + wyblakły pociąg, poświata w rogu) — czysto
-          wizualna, stąd na samym początku drzewa (leży pod resztą treści bez
-          z-index) i pointer-events-none, żeby nie przechwytywała kliknięć
-          należących do przycisku "pokaż pełną tablicę" niżej. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-2xl"
-        style={{
-          WebkitMaskImage: 'linear-gradient(180deg, transparent 0%, transparent 42%, #000 68%)',
-          maskImage: 'linear-gradient(180deg, transparent 0%, transparent 42%, #000 68%)',
-        }}
-      >
-        <div
-          className="absolute -right-8 -bottom-8 h-40 w-40 rounded-full blur-[32px]"
-          style={{ background: statusTint(leadStatus, 30) }}
-        />
-        <svg width="200" height="150" viewBox="0 0 200 150" className="absolute -right-4 -bottom-3">
-          <line x1="4" y1="120" x2="112" y2="72" style={{ stroke: statusTint(leadStatus, 26) }} strokeWidth="3" strokeLinecap="round" />
-          <line x1="20" y1="130" x2="122" y2="86" style={{ stroke: statusTint(leadStatus, 16) }} strokeWidth="3" strokeLinecap="round" />
-          <line x1="38" y1="139" x2="132" y2="100" style={{ stroke: statusTint(leadStatus, 9) }} strokeWidth="3" strokeLinecap="round" />
-          {/* Ten sam `TrainIcon` (jedno źródło ikon), powiększony do ~88 px; cienki obrys przez CSS `stroke-width` (bije atrybut). */}
-          <g transform="translate(80,4) scale(3.667)" style={{ color: statusTint(leadStatus, 65) }}>
-            <TrainIcon size={24} className="[stroke-width:0.42]" />
-          </g>
-        </svg>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <PlaceTitle kind="pkp" id={stationId}>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">{stationName}</h2>
-        </PlaceTitle>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {delayedCount > 0 && (
-            /* Ten sam bursztynowy chip co „Utrudnienie" w panelu szczegółów
-               (`ConnectionDetails`) — jedno miękkie ostrzeżenie w całej apce,
-               nie dwa lekko różne odcienie na ciemnym tle. */
-            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-              {delayedCount} {pluralPl(delayedCount, 'opóźniony', 'opóźnione', 'opóźnionych')}
-            </span>
-          )}
-        </div>
-      </div>
+    <article className="glass card-press w-full rounded-2xl border border-surface-border p-5 max-sm:p-4">
+      <PlaceTitle kind="pkp" id={stationId}>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">
+          <Link
+            href={`/station/${stationId}?name=${encodeURIComponent(stationName)}`}
+            transitionTypes={NAV_FORWARD_TYPES}
+            data-card-open
+            className="-mx-1 flex min-h-11 items-center justify-between gap-2 rounded-lg px-1 hover:underline focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+          >
+            <span className="min-w-0 truncate">{stationName}</span>
+            <ChevronRightIcon size={ICON_SIZE.button} className="shrink-0 text-text-muted" />
+          </Link>
+        </h2>
+      </PlaceTitle>
 
       {error && !snapshot && (
         <p aria-live="polite" className="mt-1 text-xs text-error-text">
@@ -114,14 +70,6 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         loading={!snapshot && !error}
         showEmpty={snapshot !== null && departures.length === 0}
         emptyMessage="Brak odjazdów w najbliższych godzinach"
-      />
-
-      <button
-        type="button"
-        onClick={() => onExpand({ id: stationId, name: stationName })}
-        aria-label={`Pokaż pełną tablicę: ${stationName}`}
-        data-card-open
-        className="absolute inset-0 rounded-2xl focus:outline-none"
       />
     </article>
   )
