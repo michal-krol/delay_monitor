@@ -2,7 +2,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { FullBoard } from './FullBoard'
+import { FullBoard, stationMapLink } from './FullBoard'
 import { jsonResponse } from '@/test-utils/http'
 import { stubMatchMedia } from '@/test-utils/media'
 import { stubDialogMethods } from '@/test-utils/dialog'
@@ -15,8 +15,13 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }))
 
+// Wybrane miasto (`localStorage` + stan modułu) — w testach ustawiane wprost; „Na mapie” linkuje do mapy tego miasta.
+const cityMock = vi.hoisted(() => ({ city: null as string | null }))
+vi.mock('@/hooks/useCityContext', () => ({ useCityContext: () => ({ city: cityMock.city, loaded: true }) }))
+
 beforeEach(() => {
   push.mockClear()
+  cityMock.city = null
 })
 
 afterEach(() => {
@@ -63,6 +68,23 @@ const SNAPSHOT = {
   ],
   fetchedAt: new Date().toISOString(),
   ageMs: 1000,
+}
+
+const RAIL_STATIONS = [{ id: '5100', name: 'Warszawa Centralna', lat: 52.22977, lon: 21.01178, tier: 1 as const }]
+const boardOf = (snapshot: unknown) => () => jsonResponse({ snapshots: [snapshot], budget: undefined, status: 'ok' })
+const failing = () => Promise.reject(new Error('down'))
+
+/** `fetch` rozdzielony po adresie: tablica, lista stacji kolei (statyczna, 0 PKP) i pogoda — każde może zawieść osobno. */
+function stubApi(handlers: { board?: () => Promise<Response>; stations?: () => Promise<Response>; weather?: () => Promise<Response> } = {}): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/rail-stations/list')) return (handlers.stations ?? (() => jsonResponse({ stations: RAIL_STATIONS })))()
+      if (url.includes('/api/weather')) return (handlers.weather ?? (() => jsonResponse({ available: false, reason: 'no-location' })))()
+      return (handlers.board ?? boardOf(SNAPSHOT))()
+    })
+  )
 }
 
 describe('FullBoard', () => {
@@ -403,22 +425,70 @@ describe('FullBoard', () => {
     expect(screen.queryByText('EIC 1')).not.toBeInTheDocument()
   })
 
-  it('writes the tab to the URL, and clears it when the board closes', async () => {
+  it('writes the tab to the URL as the user switches', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
     const user = userEvent.setup()
 
-    const { unmount } = render(
-      <FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />
-    )
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await user.click(await screen.findByRole('tab', { name: 'Przyjazdy' }))
     // The URL is written from a useEffect, not the click handler.
     await waitFor(() => expect(window.location.search).toContain('tab=arrivals'))
+  })
 
-    // Odmontowanie tablicy (odpowiednik wyjścia ze strony) musi
-    // wyczyścić `tab` -- inaczej kolejna, inna stacja odziedziczyłaby zakładkę
-    // sprzed zamknięcia.
+  // Wstecz z `/connection/…` wraca do wpisu historii, w którego URL-u `tab`/`direction` już są (`replaceState`
+  // przy każdej zmianie). Sprzątanie przy odmontowaniu wycinałoby je dopiero z następnej strony (np. `?tab=` przystanku).
+  it('tab and direction are restored from the URL after remount and unmount leaves the URL untouched', async () => {
+    window.history.pushState({}, '', '/?tab=arrivals&direction=Gdynia&keep=1')
+    stubApi()
+
+    const { unmount } = render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+    await screen.findByText('TLK 2')
+    const before = window.location.search
+    expect(new URLSearchParams(before).get('keep')).toBe('1')
     unmount()
-    expect(window.location.search).not.toContain('tab=')
+    expect(window.location.search).toBe(before)
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+    expect(await screen.findByText('TLK 2')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Przyjazdy' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: /Kierunek: Gdynia/ })).toBeInTheDocument()
+  })
+
+  it('failed refresh keeps the last snapshot rows and shows data age', async () => {
+    let calls = 0
+    stubApi({ board: () => (calls++ === 0 ? jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' }) : Promise.reject(new Error('down'))) })
+    const user = userEvent.setup()
+
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+    await screen.findByText('EIC 1')
+    await user.click(await screen.findByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ }))
+
+    expect(await screen.findByText('Nie udało się odświeżyć')).toBeInTheDocument()
+    expect(screen.getByText('EIC 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })).toBeInTheDocument()
+  })
+
+  describe('stationMapLink', () => {
+    const STATIONS = [{ id: '5100', name: 'Warszawa Centralna', lat: 52.22977, lon: 21.01178, tier: 1 as const }]
+
+    it('loading: no list and no error yet — nothing to link to or to complain about', () => {
+      expect(stationMapLink({ stations: null, error: false }, '5100', 'warszawa')).toEqual({ state: 'loading' })
+    })
+
+    it('unavailable: failed list, or a station missing from it', () => {
+      expect(stationMapLink({ stations: null, error: true }, '5100', 'warszawa')).toEqual({ state: 'unavailable' })
+      expect(stationMapLink({ stations: STATIONS, error: false }, '9999', 'warszawa')).toEqual({ state: 'unavailable' })
+    })
+
+    it('ready: city map when the city is known, else /map; at = lat,lon,zoom 14', () => {
+      expect(stationMapLink({ stations: STATIONS, error: false }, '5100', 'warszawa')).toEqual({
+        state: 'ready',
+        href: '/city/warszawa/map?at=52.22977,21.01178,14.0',
+        lat: 52.22977,
+        lon: 21.01178,
+      })
+      expect(stationMapLink({ stations: STATIONS, error: false }, '5100', null)).toMatchObject({ state: 'ready', href: '/map?at=52.22977,21.01178,14.0' })
+    })
   })
 
   it('shows a disruption indicator on a row flagged hasDisruption, not on a plain row', async () => {
@@ -633,6 +703,148 @@ describe('FullBoard', () => {
       await waitFor(() => expect(screen.queryByText('IC 2')).not.toBeInTheDocument())
       expect(screen.getByText('EIC 1')).toBeInTheDocument()
       await waitFor(() => expect(new URLSearchParams(window.location.search).get('direction')).toBe('Kraków'))
+    })
+
+    describe('powiadomienie o utrudnieniach (D2)', () => {
+      const DISRUPTED = { ...SNAPSHOT, disruptionMessages: ['Zamknięty peron 2', 'Autobus zastępczy do Łodzi'] }
+
+      it('FullBoard: disruption notice sits before the tabs and opens Info', async () => {
+        stubApi({ board: boardOf(DISRUPTED) })
+        const user = userEvent.setup()
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        await screen.findByText('EIC 1')
+
+        const notice = screen.getByRole('button', { name: '2 utrudnienia na stacji' })
+        expect(notice).toHaveAttribute('aria-haspopup', 'dialog')
+        // Przed paskiem zakładek w DOM (spec 02: komunikat nad przełącznikiem Odjazdy/Przyjazdy).
+        expect(notice.compareDocumentPosition(screen.getByRole('tablist', { name: 'Kierunek' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+        await user.click(notice)
+        const sheet = screen.getByRole('dialog', { name: 'Informacje o stacji' })
+        expect(within(sheet).getByText('Zamknięty peron 2')).toBeInTheDocument()
+        expect(within(sheet).getByText('Autobus zastępczy do Łodzi')).toBeInTheDocument()
+
+        await user.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
+        expect(notice).toHaveFocus()
+      })
+
+      it('the notice counts with Polish plural forms', async () => {
+        stubApi({ board: boardOf({ ...SNAPSHOT, disruptionMessages: ['a'] }) })
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        expect(await screen.findByRole('button', { name: '1 utrudnienie na stacji' })).toBeInTheDocument()
+      })
+
+      it('no notice when there are 0 messages / snapshot is null', async () => {
+        stubApi({ board: boardOf({ ...SNAPSHOT, disruptionMessages: [] }) })
+        const { unmount } = render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        await screen.findByText('EIC 1')
+        expect(screen.queryByRole('button', { name: /utrudni.* na stacji/ })).not.toBeInTheDocument()
+        unmount()
+
+        // Brak snapshotu (pierwsze pobranie nie wróciło): nic do pokazania.
+        stubApi({ board: () => new Promise<Response>(() => {}) })
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        expect(await screen.findByRole('tab', { name: 'Odjazdy' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /utrudni.* na stacji/ })).not.toBeInTheDocument()
+      })
+    })
+
+    describe('„Na mapie” (współrzędne z listy stacji kolei, bez pogody)', () => {
+      it('Na mapie links with at=lat,lon,zoom to the city map when the city is known', async () => {
+        cityMock.city = 'warszawa'
+        stubApi()
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        expect(await screen.findByRole('link', { name: 'Na mapie' })).toHaveAttribute('href', '/city/warszawa/map?at=52.22977,21.01178,14.0')
+      })
+
+      it('without a known city it links to /map?at=…', async () => {
+        stubApi()
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        expect(await screen.findByRole('link', { name: 'Na mapie' })).toHaveAttribute('href', '/map?at=52.22977,21.01178,14.0')
+      })
+
+      it('Na mapie: station without coordinates says "Brak lokalizacji stacji" and is not a link', async () => {
+        stubApi({ stations: () => jsonResponse({ stations: [{ ...RAIL_STATIONS[0], id: '9999' }] }) })
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        expect(await screen.findByText('Brak lokalizacji stacji')).toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Na mapie' })).not.toBeInTheDocument()
+      })
+
+      it('a failed station list reads the same way, and while loading nothing clickable or textual appears', async () => {
+        stubApi({ stations: () => new Promise<Response>(() => {}) })
+        const { unmount } = render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        await screen.findByText('EIC 1')
+        expect(screen.queryByRole('link', { name: 'Na mapie' })).not.toBeInTheDocument()
+        expect(screen.queryByText('Brak lokalizacji stacji')).not.toBeInTheDocument()
+        unmount()
+
+        stubApi({ stations: () => Promise.resolve(new Response('', { status: 500 })) })
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        expect(await screen.findByText('Brak lokalizacji stacji')).toBeInTheDocument()
+      })
+
+      it('Na mapie works when weather fails', async () => {
+        stubApi({ weather: failing })
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        expect(await screen.findByRole('link', { name: 'Na mapie' })).toBeInTheDocument()
+      })
+
+      it('the link is the row under the header card name row, before the notice and the tabs', async () => {
+        stubApi({ board: boardOf({ ...SNAPSHOT, disruptionMessages: ['x'] }) })
+        render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+        const link = await screen.findByRole('link', { name: 'Na mapie' })
+        const notice = await screen.findByRole('button', { name: '1 utrudnienie na stacji' })
+        expect(screen.getByRole('heading', { name: 'Warszawa Centralna' }).compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(link.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      })
+    })
+
+    it('order inside the glass section: tabs → direction select → data age → rows; the data age renders once', async () => {
+      stubApi()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+      const tabs = screen.getByRole('tablist', { name: 'Kierunek' })
+      const select = screen.getByRole('combobox', { name: 'Kierunek' })
+      const age = screen.getAllByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })
+      expect(age).toHaveLength(1)
+      const precedes = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+      expect(precedes(tabs, select)).toBe(true)
+      expect(precedes(select, age[0])).toBe(true)
+      expect(precedes(age[0], screen.getByRole('table'))).toBe(true)
+    })
+  })
+
+  describe('wspólne klasy interakcji (F0)', () => {
+    it('direction tabs use .segment / .segment-item, driven by aria-selected, without the old gradient', async () => {
+      stubApi()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+      expect(screen.getByRole('tablist', { name: 'Kierunek' })).toHaveClass('segment')
+      for (const name of ['Odjazdy', 'Przyjazdy']) {
+        const tab = screen.getByRole('tab', { name })
+        expect(tab).toHaveClass('segment-item')
+        expect(tab).not.toHaveAttribute('style')
+        expect(tab).not.toHaveClass('text-white')
+      }
+    })
+
+    it('popular-destination chips and the „Kierunek: …” clear chip use .chip-filter', async () => {
+      const withInsights = { ...SNAPSHOT, insights: { topDestinations: [{ stationId: '80416', name: 'Kraków', count: 12 }], hourlyTraffic: Array.from({ length: 24 }, () => 1) } }
+      stubApi({ board: boardOf(withInsights) })
+      const user = userEvent.setup()
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
+      await screen.findByText('EIC 1')
+
+      const chip = within(screen.getByRole('group', { name: 'Najpopularniejsze kierunki' })).getByRole('button', { name: 'Kraków' })
+      expect(chip).toHaveClass('chip-filter')
+      expect(chip).toHaveAttribute('aria-pressed', 'false')
+      await user.click(chip)
+      expect(chip).toHaveAttribute('aria-pressed', 'true')
+      expect(chip).not.toHaveAttribute('style')
+
+      const clear = screen.getByRole('button', { name: /Kierunek: Kraków/ })
+      expect(clear).toHaveClass('chip-filter')
+      expect(clear).toHaveAttribute('data-active')
     })
   })
 })
