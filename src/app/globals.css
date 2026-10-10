@@ -995,8 +995,9 @@ details[open] > summary .disclosure-chevron,
    przeczytałby całą tablicę dwa razy, a każde zapytanie testowe trafiałoby na
    dwa elementy. Zamiast tego jeden `<table>` przestaje być tabelą poniżej
    `sm`: nagłówki znikają, wiersz staje się siatką, komórki układają się
-   w kartę: godzina po lewej przez całą wysokość, obok kierunek ze statusem,
-   niżej pociąg i peron · tor. Rola `row`/`cell` zostaje dla czytników, wygląd jest kartowy.
+   w kartę (D1, PR4): po lewej kierunek, pociąg i status, po prawej godzina użyteczna (wyrównana
+   do prawej, nie ściskana przez długi kierunek), pod spodem przez całą szerokość linia z peronem · torem
+   i strzałką. Rola `row`/`cell` zostaje dla czytników, wygląd jest kartowy.
 
    `sm` = 40rem, ta sama wartość co domyślny breakpoint Tailwinda -- warianty
    `sm:` w komponentach i ten media query MUSZĄ przełączać się w tym samym
@@ -1020,15 +1021,16 @@ details[open] > summary .disclosure-chevron,
     white-space: nowrap;
   }
 
-  /* Wąsko (telefon 375 px): status pod kierunkiem — obok spychał go do „Bydgos…". */
   .board-table tr {
     display: grid;
-    /* Stała kolumna godziny: każdy wiersz to osobna siatka, a „auto” rozjeżdżało kierunki między kartami. */
-    grid-template-columns: 4.25rem minmax(0, 1fr) auto;
+    /* Kolumna godziny ma sufit (55 %): bez niego `auto` brała całą szerokość przy powiększonym tekście
+       i zgniatała kierunek do zera. Kierunek (`minmax(0, 1fr)`) zawija się, nie spycha godziny. */
+    grid-template-columns: minmax(0, 1fr) fit-content(55%);
     grid-template-areas:
-      "time direction direction"
-      "time status    status"
-      "time train     platform";
+      "direction time"
+      "train     time"
+      "status    time"
+      "platform  chevron";
     gap: 0.25rem 0.5rem;
     align-items: start;
     margin-bottom: 0.5rem;
@@ -1066,8 +1068,15 @@ details[open] > summary .disclosure-chevron,
        w karcie rolę tę przejmuje lewa krawędź całego wiersza. */
     box-shadow: none !important;
     padding-left: 0 !important;
-    /* Podpis „Prognoza · za 7 min” łamie się w wąskiej kolumnie zamiast ją rozpychać. */
+    /* Dolna linia („Plan 14:30 · za 18 min”) łamie się w wąskiej kolumnie zamiast ją rozpychać. */
     white-space: normal;
+    justify-self: end;
+    text-align: right;
+  }
+  /* Godzina + etykieta („14:42 Przew.”): do prawej, a przy powiększonym tekście etykieta schodzi niżej. */
+  .board-table td[data-cell="time"] > span > span:first-child {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
   .board-table td[data-cell="train"] {
     grid-area: train;
@@ -1075,55 +1084,41 @@ details[open] > summary .disclosure-chevron,
   .board-table td[data-cell="direction"] {
     grid-area: direction;
   }
+  /* Długi kierunek: do 2 linii (nie jedna ucięta „Bydgos…”), a „przez …” zostaje jedną linią. */
+  .board-table td[data-cell="direction"] > span:first-child {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  /* Dolny rząd karty: peron · tor z linią u góry, strzałka po prawej. Dwie komórki, jedna linia:
+     peron wchodzi pod kolumnę godziny (ujemny margines nad odstępem między kolumnami). */
+  .board-table td[data-cell="platform"],
+  .board-table td[data-cell="chevron"] {
+    border-top: 1px solid var(--surface-border);
+    padding-top: 0.5rem;
+    margin-top: 0.25rem;
+    align-self: stretch;
+  }
   .board-table td[data-cell="platform"] {
     grid-area: platform;
-    justify-self: end;
-    text-align: right;
-    /* „Peron i tor: nie podano” w dwóch liniach, zamiast ściskać pociąg do „REG…”. */
-    max-width: 6rem;
+    margin-right: -0.5rem;
   }
   .board-table td[data-cell="status"] {
     grid-area: status;
-    /* Osobny wiersz na dole karty, wyrównany do lewej -- plakietka statusu to
-       najważniejsza informacja monitora, a dzieląc górny wiersz z „Kierunkiem"
-       spychała jego treść do „Bydgos…". */
+    /* Pod pociągiem, wyrównany do lewej -- plakietka statusu to najważniejsza informacja monitora. */
     justify-self: start;
     margin-top: 0.15rem;
   }
-  /* Strzałka „szczegóły" nie niesie treści -- w karcie klika się cały wiersz. */
+  /* Strzałka „szczegóły” widoczna w dolnym rzędzie: wiadomo, że karta prowadzi dalej (klika się cały wiersz). */
   .board-table td[data-cell="chevron"] {
-    display: none;
-  }
-
-  /* Progi w `em`, nie px: przy powiększonym tekście kontener (`@container` w `BoardTable`) „węższy",
-     więc karta sama dokłada rzędy zamiast ściskać kierunek. */
-  /* 32em: obok kierunku dopiero gdy zostaje mu ~150 px przy najdłuższej plakietce
-     („jeszcze nie wyjechał · prognoza +34 min”, ~250 px). */
-  @container (min-width: 32em) {
-    .board-table tr {
-      grid-template-areas:
-        "time direction status"
-        "time train     platform";
-    }
-    .board-table td[data-cell="status"] {
-      justify-self: end;
-      margin-top: 0;
-    }
-  }
-  @container (max-width: 17.999em) {
-    .board-table tr {
-      grid-template-columns: 4.25rem minmax(0, 1fr);
-      grid-template-areas:
-        "time direction"
-        "time status"
-        "time train"
-        "time platform";
-    }
-    .board-table td[data-cell="platform"] {
-      justify-self: start;
-      text-align: left;
-      max-width: none;
-    }
+    grid-area: chevron;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
   }
 }
 

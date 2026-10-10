@@ -65,18 +65,18 @@ describe('BoardTable — godzina: PLAN / PROGNOZA / FAKT', () => {
     renderTable([row()])
 
     expect(screen.getByText(shown(PLANNED))).toBeInTheDocument()
-    // Powtórzenie planu w drugiej linii udawałoby pomiar, którego nie ma.
+    expect(screen.getByText('Plan', { selector: 'span' })).toBeInTheDocument()
+    // Duża godzina to plan; w małej linii tylko licznik, bez powtórzenia planu.
     expect(screen.getAllByText(shown(PLANNED))).toHaveLength(1)
   })
 
-  it('shows the confirmed actual time under the plan', () => {
+  it('confirmed time shows Faktycznie with the plan line', () => {
     renderTable([row({ actualAt: ACTUAL, delayMinutes: 3, status: 'delayed' })])
 
-    // Fakt jest godziną dominującą ("Faktycznie"), plan zostaje w małej linii.
     expect(screen.getByText(shown(ACTUAL))).toBeInTheDocument()
     expect(screen.getByText('Faktycznie')).toBeInTheDocument()
     expect(screen.getByText(new RegExp(`^Plan ${shown(PLANNED)}`))).toBeInTheDocument()
-    expect(screen.getByText('+3 min')).toBeInTheDocument()
+    expect(screen.getByText('Opóźnienie +3 min')).toBeInTheDocument()
   })
 
   it('marks a prediction as a prediction instead of passing it off as a fact', () => {
@@ -87,13 +87,28 @@ describe('BoardTable — godzina: PLAN / PROGNOZA / FAKT', () => {
     expect(screen.queryByText('Faktycznie')).not.toBeInTheDocument()
   })
 
-  it('never shows an unconfirmed actual time as a fact', () => {
-    // PKP wpisuje w `actualAt` kopię planu dla pociągu, który jeszcze nie
-    // wyjechał (AGENTS.md #2). Bez potwierdzenia (`delayMinutes === null`)
-    // ta wartość nie może trafić do wiersza jako godzina faktyczna.
+  it('actualAt equal to plan without confirmation is not shown as Faktycznie (AGENTS #2)', () => {
+    // PKP wpisuje w `actualAt` kopię planu dla pociągu, który jeszcze nie wyjechał.
     renderTable([row({ actualAt: PLANNED, delayMinutes: null, status: 'notStarted' })])
 
+    expect(screen.queryByText('Faktycznie')).not.toBeInTheDocument()
     expect(screen.getAllByText(shown(PLANNED))).toHaveLength(1)
+  })
+
+  it('row without realization says "Brak danych o realizacji" only for status unknown and never "punktualnie"', () => {
+    renderTable([row({ trainNumber: '1', trainLabel: 'IC 1', status: 'unknown' }), row({ trainNumber: '2', trainLabel: 'IC 2', status: 'notStarted' })])
+
+    expect(screen.getAllByText('Brak danych o realizacji')).toHaveLength(1)
+    expect(within(screen.getAllByRole('row')[1]).getByText('Brak danych o realizacji')).toBeInTheDocument()
+    expect(screen.queryByText(/punktualnie/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/na czas/i)).not.toBeInTheDocument()
+  })
+
+  it('cancelled row has no countdown', () => {
+    renderTable([row({ status: 'cancelled' })])
+
+    expect(screen.queryByText(/za \d+ min/)).not.toBeInTheDocument()
+    expect(within(cell('status')).getByText('odwołany')).toBeInTheDocument()
   })
 
   it('plakietka niewyruszonego pociągu z prognozą pokazuje spodziewane spóźnienie', () => {
@@ -104,12 +119,20 @@ describe('BoardTable — godzina: PLAN / PROGNOZA / FAKT', () => {
 })
 
 describe('BoardTable — peron i tor', () => {
-  it('distinguishes "not given at all" from a known platform with an unknown track', () => {
-    renderTable([row({ platform: null, track: null }), row({ trainNumber: '2', platform: '2', track: null })])
+  it('platform null shows "Peron —", track null shows "Tor —"', () => {
+    const { unmount } = renderTable([row({ platform: null, track: '4' })])
+    expect(cell('platform')).toHaveTextContent('Peron — · Tor 4')
+    unmount()
 
-    expect(screen.getByText('nie podano')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
-    expect(screen.getByText('—')).toBeInTheDocument()
+    renderTable([row({ platform: '2', track: null })])
+    expect(cell('platform')).toHaveTextContent('Peron 2 · Tor —')
+  })
+
+  it('both null shows "Peron — · Tor —", not "nie podano"', () => {
+    renderTable([row({ platform: null, track: null })])
+
+    expect(cell('platform')).toHaveTextContent('Peron — · Tor —')
+    expect(screen.queryByText(/nie podano/)).not.toBeInTheDocument()
   })
 
   it('shows platform and track as two separate values', () => {
@@ -123,7 +146,7 @@ describe('BoardTable — peron i tor', () => {
   it('labels platform and track in the phone card, where the column header is hidden', () => {
     renderTable([row({ platform: '2', track: '4' })])
 
-    expect(cell('platform')).toHaveTextContent('Peron 2 · tor 4')
+    expect(cell('platform')).toHaveTextContent('Peron 2 · Tor 4')
   })
 })
 
