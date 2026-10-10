@@ -72,6 +72,16 @@ describe('BoardRowList', () => {
     expect(screen.getByText(/IC 110 · peron: nie podano/)).toBeInTheDocument()
   })
 
+  it('shows the short carrier code with its logo, never the full legal name; a generic label when the code is empty', () => {
+    renderRows([{ ...ROW, carrierName: '„PKP Intercity” Spółka Akcyjna' }, { ...ROW, orderId: '110', trainNumber: '110', carrier: '' }])
+    expect(screen.getByText(/IC · IC 109/)).toBeInTheDocument()
+    expect(screen.getByText(/Nieznany przewoźnik · IC 109/)).toBeInTheDocument()
+    expect(screen.queryByText(/Spółka Akcyjna/)).toBeNull()
+    // Logo dekoracyjne (kod stoi obok jako tekst) — pusty alt.
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(document.querySelector('img[src="/carriers/pkp-ic.svg"]')).toHaveAttribute('alt', '')
+  })
+
   it('each row links to its connection', () => {
     renderRows([ROW])
     expect(screen.getByRole('link')).toHaveAttribute('href', '/connection/2026/109/2026-10-01?train=IC%20109')

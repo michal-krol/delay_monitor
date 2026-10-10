@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { CarrierLogo } from './CarrierLogo'
 import { DelayBadge } from './DelayBadge'
 import { AlertCircleIcon, ICON_SIZE } from './icons'
 import { timeNote } from './boardTime'
@@ -35,8 +36,12 @@ function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
           predictedDelayMinutes={row.predictedDelayMinutes ?? null}
         />
       </span>
+      {/* Sam skrót przewoźnika (na prośbę usera): pełna nazwa prawna jest na karcie zawsze za długa. */}
       <span className="col-span-2 min-w-0 truncate text-xs text-text-muted">
-        {row.trainLabel} · {row.platform !== null ? `peron ${row.platform}` : 'peron: nie podano'}
+        <span className="mr-1 inline-block align-[-2px]">
+          <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
+        </span>
+        {row.carrier || 'Nieznany przewoźnik'} · {row.trainLabel} · {row.platform !== null ? `peron ${row.platform}` : 'peron: nie podano'}
         {row.hasDisruption === true && (
           <span className="ml-1 text-warning-text">
             <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" className="inline align-[-2px]" />
