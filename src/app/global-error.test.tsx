@@ -16,7 +16,7 @@ describe('global-error.tsx', () => {
   it('has Polish copy with a retry button and a link to the Pulpit, no raw error text', () => {
     expect(html).toContain('Nie udało się wczytać aplikacji')
     expect(html).toContain('Spróbuj ponownie')
-    expect(html).toMatch(/<a [^>]*href="\/"[^>]*>Wróć do Pulpitu<\/a>/)
+    expect(html).toMatch(/<a [^>]*href="\/"[^>]*>Wróć do Startu<\/a>/)
     expect(html).not.toMatch(/SECRET-STACK|d1/)
   })
 

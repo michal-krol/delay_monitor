@@ -77,8 +77,8 @@ test.describe('view transitions (motion allowed)', () => {
   test('the back arrow starts a nav-back transition', async ({ page }) => {
     await stationReady(page)
     await resetTransitions(page)
-    await page.getByRole('link', { name: 'Wróć do Pulpitu' }).click()
-    await expect(page.getByRole('heading', { name: 'Pulpit' })).toBeVisible({ timeout: READY })
+    await page.getByRole('link', { name: 'Wróć do Startu' }).click()
+    await expect(page.getByRole('heading', { name: 'Start' })).toBeVisible({ timeout: READY })
     await expect.poll(async () => (await transitions(page)).map((entry) => entry.types.join())).toContain('nav-back')
   })
 
@@ -107,8 +107,8 @@ test.describe('reduced motion', () => {
     await page.waitForTimeout(500)
     await page.getByRole('tab', { name: 'Przyjazdy' }).click()
     await expect(page.getByRole('tab', { name: 'Przyjazdy' })).toHaveAttribute('aria-selected', 'true')
-    await page.getByRole('link', { name: 'Wróć do Pulpitu' }).click()
-    await expect(page.getByRole('heading', { name: 'Pulpit' })).toBeVisible({ timeout: READY })
+    await page.getByRole('link', { name: 'Wróć do Startu' }).click()
+    await expect(page.getByRole('heading', { name: 'Start' })).toBeVisible({ timeout: READY })
     await page.waitForTimeout(500)
     expect(await transitions(page)).toEqual([])
   })

@@ -29,7 +29,7 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ['travel', 'transportation'],
     // Każdy skrót ma własną ikonę 192×192 (glif pojęcia z `icons.tsx`, id `shortcut-*` w app/icon.tsx).
     shortcuts: [
-      { name: 'Pulpit', url: '/', icons: [shortcutIcon('pulpit')] },
+      { name: 'Start', url: '/', icons: [shortcutIcon('pulpit')] },
       { name: 'Odjazdy', url: '/city', icons: [shortcutIcon('odjazdy')] },
       { name: 'Mapa', url: '/map', icons: [shortcutIcon('mapa')] },
       { name: 'Linie', url: '/lines', icons: [shortcutIcon('linie')] },

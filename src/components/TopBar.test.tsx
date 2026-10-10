@@ -4,18 +4,18 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { TopBar } from './TopBar'
 
-const CRUMBS = [{ label: 'Pulpit', href: '/' }, { label: 'Warszawa Centralna' }]
+const CRUMBS = [{ label: 'Start', href: '/' }, { label: 'Warszawa Centralna' }]
 
 describe('TopBar', () => {
   it('wariant nagłówka pokazuje tytuł jako h1 i podtytuł', () => {
-    render(<TopBar title="Pulpit" subtitle="Przypięte stacje" />)
-    expect(screen.getByRole('heading', { level: 1, name: 'Pulpit' })).toBeInTheDocument()
+    render(<TopBar title="Start" subtitle="Przypięte stacje" />)
+    expect(screen.getByRole('heading', { level: 1, name: 'Start' })).toBeInTheDocument()
     expect(screen.getByText('Przypięte stacje')).toBeInTheDocument()
   })
 
   it('wariant powrotu z backHref: ← jest linkiem do rodzica o nazwie z backLabel', () => {
-    render(<TopBar backLabel="Wróć do Pulpitu" backHref="/" crumbs={CRUMBS} />)
-    expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
+    render(<TopBar backLabel="Wróć do Startu" backHref="/" crumbs={CRUMBS} />)
+    expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
   })
 
   it('wariant powrotu z onBack: ← jest przyciskiem i wywołuje onBack po kliknięciu', async () => {
@@ -29,9 +29,9 @@ describe('TopBar', () => {
   })
 
   it('wariant powrotu: ścieżka w jednym rzędzie, ostatni element to bieżąca strona', () => {
-    render(<TopBar backLabel="Wróć do Pulpitu" backHref="/" crumbs={CRUMBS} />)
+    render(<TopBar backLabel="Wróć do Startu" backHref="/" crumbs={CRUMBS} />)
     const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
-    expect(within(nav).getByRole('link', { name: 'Pulpit' })).toHaveAttribute('href', '/')
+    expect(within(nav).getByRole('link', { name: 'Start' })).toHaveAttribute('href', '/')
     expect(within(nav).getByText('Warszawa Centralna')).toHaveAttribute('aria-current', 'page')
     // Jeden rząd: żadnego nagłówka (h1 należy do karty treści strony).
     expect(screen.queryByRole('heading')).not.toBeInTheDocument()
@@ -52,7 +52,7 @@ describe('TopBar', () => {
     // service workera, kluczy VAPID i trwałego zapisu subskrypcji, których ta
     // aplikacja świadomie nie ma (AGENTS.md #5) -- martwy przycisk był gorszy
     // niż jego brak.
-    render(<TopBar title="Pulpit" subtitle="x" />)
+    render(<TopBar title="Start" subtitle="x" />)
     expect(screen.queryByRole('button', { name: /powiadomienia/i })).not.toBeInTheDocument()
   })
 })

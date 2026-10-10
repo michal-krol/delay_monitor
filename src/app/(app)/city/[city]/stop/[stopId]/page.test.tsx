@@ -63,7 +63,7 @@ describe('TransitStopPage', () => {
 
   it('pins the stop to the Pulpit as a gtfs pinned item carrying its city', async () => {
     render(<TransitStopPage />)
-    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Startu/ }))
     const stored = JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')
     expect(stored).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }])
   })

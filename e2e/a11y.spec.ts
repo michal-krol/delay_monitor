@@ -6,7 +6,7 @@ import { scanA11y } from './helpers/axe'
 const BLOCKING = ['serious', 'critical']
 
 const VIEWS = [
-  { name: 'pulpit', path: '/', ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: 'Pulpit' }) },
+  { name: 'pulpit', path: '/', ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: 'Start' }) },
   {
     name: 'tablica stacji',
     path: '/station/33605?name=Warszawa%20Centralna',

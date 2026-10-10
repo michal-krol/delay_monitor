@@ -130,6 +130,13 @@ describe('design tokens', () => {
     expect(offenders(/[>'"`]\s*[Ss]łupek|słupka?\s+(przystank|nr)/)).toEqual([])
   })
 
+  it('UI copy: user-visible text says „Start", never „Pulpit"', () => {
+    // Identyfikatory (`PulpitPage`, `PULPIT_SUBTITLE`, `'pulpit'`) nie pasują do słowa z granicami; komentarze
+    // (`//`, `*`, `{/*`, także w środku linii) odpadają, bo przed słowem nie może być `//` ani `/*`.
+    const pattern = /^(?!\s*(?:\/\/|\*|\/\*|\{\/\*))(?:(?!\/\/|\/\*).)*\bPulp(?:it[a-z]*|icie)\b/
+    expect(offenders(pattern, (file) => file.startsWith('app/api/'))).toEqual([])
+  })
+
   it('card-hover lifts only where hover exists (a tap must not leave a card stuck raised)', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     const rule = css.match(/\.card-hover:hover\s*\{/)

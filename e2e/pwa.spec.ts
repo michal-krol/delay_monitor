@@ -18,7 +18,7 @@ test('manifest: 200, display standalone, ikony PNG odpowiadają 200', async ({ p
   }
 
   const shortcuts = manifest.shortcuts as { name: string; icons?: { src: string; sizes: string }[] }[]
-  expect(shortcuts.map((s) => s.name)).toEqual(['Pulpit', 'Odjazdy', 'Mapa', 'Linie'])
+  expect(shortcuts.map((s) => s.name)).toEqual(['Start', 'Odjazdy', 'Mapa', 'Linie'])
   const shortcutSrcs = shortcuts.map((s) => s.icons?.[0]?.src)
   expect(new Set(shortcutSrcs).size, 'każdy skrót ma własną ikonę').toBe(shortcuts.length)
   for (const shortcut of shortcuts) {
@@ -89,7 +89,7 @@ test('offline: baner „Brak połączenia" nad dolnym paskiem, bez naruszeń axe
 test('manifest: kategorie, skróty z ikonami i zrzuty do okna instalacji odpowiadają 200', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json()
   expect(manifest.categories).toEqual(['travel', 'transportation'])
-  expect((manifest.shortcuts as { name: string; url: string }[]).map((s) => `${s.name} ${s.url}`)).toEqual(['Pulpit /', 'Odjazdy /city', 'Mapa /map', 'Linie /lines'])
+  expect((manifest.shortcuts as { name: string; url: string }[]).map((s) => `${s.name} ${s.url}`)).toEqual(['Start /', 'Odjazdy /city', 'Mapa /map', 'Linie /lines'])
   const shots = manifest.screenshots as { src: string; form_factor: string }[]
   expect(shots.filter((s) => s.form_factor === 'narrow').length).toBeGreaterThanOrEqual(2)
   expect(shots.filter((s) => s.form_factor === 'wide').length).toBeGreaterThanOrEqual(1)

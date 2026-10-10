@@ -23,8 +23,8 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page).toHaveTitle(/.+/)
       await expectNoBlockingViolations(page)
 
-      await page.getByRole('link', { name: 'Wróć do Pulpitu' }).click()
-      await expect(page.getByRole('heading', { name: 'Pulpit' })).toBeVisible()
+      await page.getByRole('link', { name: 'Wróć do Startu' }).click()
+      await expect(page.getByRole('heading', { name: 'Start' })).toBeVisible()
     })
 
     test('zły identyfikator stacji (notFound() ze strony): ten sam komunikat w ramce z nawigacją, noindex, bez naruszeń axe', async ({ page }) => {
@@ -54,7 +54,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByRole('heading', { level: 1, name: 'Nie udało się wczytać tej strony' })).toBeVisible({ timeout: 45_000 })
     await expect(page.getByText('SEKRETNY-KOMUNIKAT-BLEDU')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Spróbuj ponownie' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
+    await expect(page.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
     await expectNoBlockingViolations(page)
   })
 }

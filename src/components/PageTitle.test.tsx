@@ -5,8 +5,8 @@ import { PageTitle } from './PageTitle'
 
 describe('PageTitle', () => {
   it('renders an h1 by default', () => {
-    render(<PageTitle>Pulpit</PageTitle>)
-    expect(screen.getByRole('heading', { level: 1, name: 'Pulpit' })).toBeInTheDocument()
+    render(<PageTitle>Start</PageTitle>)
+    expect(screen.getByRole('heading', { level: 1, name: 'Start' })).toBeInTheDocument()
   })
 
   it('renders an h2 with the same look when as="h2"', () => {

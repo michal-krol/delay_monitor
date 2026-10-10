@@ -21,7 +21,7 @@ async function openConnection(page: Page): Promise<void> {
 }
 
 const ROUTES: { name: string; go: (page: Page) => Promise<void>; ready: (page: Page) => ReturnType<Page['locator']> }[] = [
-  { name: 'pulpit', go: (p) => p.goto('/').then(() => undefined), ready: (p) => p.getByRole('heading', { name: 'Pulpit' }) },
+  { name: 'pulpit', go: (p) => p.goto('/').then(() => undefined), ready: (p) => p.getByRole('heading', { name: 'Start' }) },
   { name: 'tablica stacji', go: (p) => p.goto(STATION).then(() => undefined), ready: (p) => p.getByRole('tablist', { name: 'Kierunek' }) },
   { name: 'szczegóły połączenia', go: openConnection, ready: (p) => p.getByRole('heading', { level: 1 }) },
   { name: 'ekran miasta', go: (p) => p.goto('/city/warszawa').then(() => undefined), ready: (p) => p.getByRole('heading', { name: /Odjazdy i przyjazdy/ }) },

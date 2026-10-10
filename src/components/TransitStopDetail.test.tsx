@@ -127,7 +127,7 @@ describe('TransitStopDetail', () => {
   it('has no share button of its own (TopBar owns it); title is h1 standalone, h2 embedded', () => {
     const { rerender } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Przypnij do Pulpitu/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Przypnij do Startu/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Świętokrzyska' })).toBeInTheDocument()
 
     rerender(<TransitStopDetail city="warszawa" stopId="7014M" embedded />)
@@ -424,7 +424,7 @@ describe('TransitStopDetail', () => {
 
   it('pins as a gtfs pinned item carrying the city', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Startu/ }))
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
       { kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' },
     ])
@@ -433,14 +433,14 @@ describe('TransitStopDetail', () => {
   it('cannot pin before the board says whether a group or one stop is shown', () => {
     useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
     render(<TransitStopDetail city="warszawa" stopId="100102" initialName="Centrum" />)
-    expect(screen.getByRole('button', { name: /Przypnij do Pulpitu/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Przypnij do Startu/ })).toBeDisabled()
   })
 
   it('pins the selected stop of a group with its number', async () => {
     useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [groupBoard], attribution: [] }, error: null, loading: false, failed: false })
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     await userEvent.click(screen.getByRole('tab', { name: /^Centrum 02/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Startu/ }))
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
       { kind: 'gtfs', city: 'warszawa', id: '100102', name: 'Centrum 02', member: true },
     ])
@@ -449,7 +449,7 @@ describe('TransitStopDetail', () => {
   it('pins the whole group, not the stop from the link, when the group is shown', async () => {
     useTransitBoard.mockReturnValue({ data: { city: 'warszawa', schedule: { state: 'ready' }, stops: [{ ...groupBoard, stopId: '100102' }], attribution: [] }, error: null, loading: false, failed: false })
     render(<TransitStopDetail city="warszawa" stopId="100102" />)
-    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Pulpitu/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Przypnij do Startu/ }))
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
       { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' },
     ])

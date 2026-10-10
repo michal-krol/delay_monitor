@@ -23,7 +23,8 @@ import { ScheduleStatus } from './ScheduleStatus'
 import { stopDisplayName, stopsWithLines } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, AlertCircleIcon, CheckIcon, StarIcon, ICON_SIZE } from './icons'
+import { AccessibleIcon, AlertCircleIcon, CheckIcon, ICON_SIZE } from './icons'
+import { PinStar } from './PinStar'
 import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
@@ -329,13 +330,13 @@ export function TransitStopDetail({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <IconButton
-                label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'}
+                label={pinned ? 'Odepnij ze Startu' : 'Przypnij do Startu'}
                 onClick={() => (pinned ? removePinned(key) : addPinned(pinnedItem))}
                 // Do pierwszej odpowiedzi nie wiadomo, czy widać zespół, czy jeden przystanek
                 // (deep-link z linii zaznacza przystanek dopiero po niej) — przypięcie zapisałoby zły zakres.
                 disabled={board === null}
               >
-                <StarIcon size={ICON_SIZE.button} filled={pinned} />
+                <PinStar pinned={pinned} size={ICON_SIZE.button} />
               </IconButton>
             </div>
           </div>

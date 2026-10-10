@@ -204,7 +204,7 @@ test('karta stacji na telefonie: ← nazwa ★ ⋮ w jednym rzędzie, bez okrusz
   await expect(heading).toHaveCount(1)
   await expect(page.getByRole('navigation', { name: 'Ścieżka nawigacji' })).toHaveCount(0)
   await expect(page.getByTestId('station-stats')).toHaveCount(0)
-  const row = [page.getByRole('link', { name: 'Wróć do Pulpitu' }), heading, page.getByRole('button', { name: 'Przypnij do Pulpitu' }), page.getByRole('button', { name: 'Więcej' })]
+  const row = [page.getByRole('link', { name: 'Wróć do Startu' }), heading, page.getByRole('button', { name: 'Przypnij do Startu' }), page.getByRole('button', { name: 'Więcej' })]
   const boxes = await Promise.all(row.map((locator) => locator.boundingBox()))
   for (const box of boxes) expect(Math.abs(box!.y + box!.height / 2 - (boxes[0]!.y + boxes[0]!.height / 2)), 'jeden górny rząd').toBeLessThanOrEqual(12)
   await page.getByRole('button', { name: 'Więcej' }).click()

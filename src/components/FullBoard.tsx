@@ -18,7 +18,8 @@ import { StationThumb } from './StationThumb'
 import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
-import { ArrowLeftIcon, CloseIcon, StarIcon, ICON_SIZE } from './icons'
+import { ArrowLeftIcon, CloseIcon, ICON_SIZE } from './icons'
+import { PinStar } from './PinStar'
 import { ICON_BUTTON_CLASS, IconButton } from './IconButton'
 import { NAV_BACK_TYPES } from '@/lib/navTransition'
 import { onTablistKeyDown } from './tablistKeys'
@@ -244,8 +245,8 @@ export function FullBoard({ stationId, stationName, isPinned, onTogglePin, embed
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} className="max-sm:h-11 max-sm:w-11">
-                <StarIcon size={ICON_SIZE.button} filled={isPinned} />
+              <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij ze Startu' : 'Przypnij do Startu'} className="max-sm:h-11 max-sm:w-11">
+                <PinStar pinned={isPinned} size={ICON_SIZE.button} />
               </IconButton>
               {phoneBack !== undefined && !wide && <BoardMoreMenu infoLabel="Informacje o stacji" onInfo={openInfo} />}
             </div>

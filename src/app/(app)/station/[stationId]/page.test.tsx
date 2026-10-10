@@ -73,7 +73,7 @@ describe('Page (/station/[stationId])', () => {
 
     render(<Page />)
 
-    expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
     const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
     expect(within(nav).getByText('Warszawa Centralna')).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('button', { name: 'Udostępnij' })).toBeInTheDocument()

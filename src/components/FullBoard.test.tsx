@@ -331,7 +331,7 @@ describe('FullBoard', () => {
     const user = userEvent.setup()
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={onTogglePin} />)
-    await user.click(screen.getByRole('button', { name: 'Przypnij do Pulpitu' }))
+    await user.click(screen.getByRole('button', { name: 'Przypnij do Startu' }))
 
     expect(onTogglePin).toHaveBeenCalled()
   })
@@ -508,7 +508,7 @@ describe('FullBoard', () => {
 
   it('wide screen keeps the desktop top: KPI tiles, no direction select, no „Więcej” menu', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Pulpitu' }} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Startu' }} />)
     await screen.findByText('EIC 1')
     expect(screen.getByTestId('station-stats')).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Kierunek' })).not.toBeInTheDocument()
@@ -590,11 +590,11 @@ describe('FullBoard', () => {
     it('top row is ← name ★ ⋮: „Więcej” holds „Udostępnij” and „Informacje o stacji” (opens the sheet); name once', async () => {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
       const user = userEvent.setup()
-      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Pulpitu' }} />)
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Startu' }} />)
       await screen.findByText('EIC 1')
-      expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
+      expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
       expect(screen.getAllByRole('heading', { name: 'Warszawa Centralna' })).toHaveLength(1)
-      expect(screen.getByRole('button', { name: 'Przypnij do Pulpitu' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Przypnij do Startu' })).toBeInTheDocument()
       // „Udostępnij” nie stoi już osobno w karcie — jest w menu.
       expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
 

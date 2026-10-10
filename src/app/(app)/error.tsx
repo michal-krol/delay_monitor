@@ -23,7 +23,7 @@ export default function AppError({ error, retry }: { error: Error & { digest?: s
             Spróbuj ponownie
           </button>
           <Link href="/" className={STATUS_ACTION_CLASS}>
-            Wróć do Pulpitu
+            Wróć do Startu
           </Link>
         </>
       }

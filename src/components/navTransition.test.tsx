@@ -40,9 +40,9 @@ describe('navigation transition types', () => {
   })
 
   it('the back arrow and the parent breadcrumb slide back', () => {
-    render(<TopBar backLabel="Wróć do Pulpitu" backHref="/" crumbs={[{ label: 'Pulpit', href: '/' }, { label: 'Kraków Główny' }]} />)
-    expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('data-types', 'nav-back')
-    expect(screen.getByRole('link', { name: 'Pulpit' })).toHaveAttribute('data-types', 'nav-back')
+    render(<TopBar backLabel="Wróć do Startu" backHref="/" crumbs={[{ label: 'Start', href: '/' }, { label: 'Kraków Główny' }]} />)
+    expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('data-types', 'nav-back')
+    expect(screen.getByRole('link', { name: 'Start' })).toHaveAttribute('data-types', 'nav-back')
   })
 
   it('a breadcrumb alone marks parent links as back', () => {

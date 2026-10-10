@@ -55,7 +55,7 @@ let pickOption: { id: string; name: string; kind?: 'rail' | 'transit' } = { id: 
 vi.mock('@/components/SearchDialog', () => ({
   SearchDialog: ({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick?: (option: typeof pickOption, city: string | null) => void }) =>
     open ? (
-      <div role="dialog" aria-label={onPick ? 'Przypnij do Pulpitu' : 'Szukaj stacji lub przystanku'}>
+      <div role="dialog" aria-label={onPick ? 'Przypnij do Startu' : 'Szukaj stacji lub przystanku'}>
         <button
           type="button"
           onClick={() => {
@@ -151,11 +151,11 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     await user.click(screen.getByRole('button', { name: 'Dodaj' }))
-    const dialog = screen.getByRole('dialog', { name: 'Przypnij do Pulpitu' })
+    const dialog = screen.getByRole('dialog', { name: 'Przypnij do Startu' })
     await user.click(within(dialog).getByRole('button', { name: 'wybierz wynik' }))
 
     expect(screen.getByRole('heading', { name: 'Kraków Główny' })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Przypięto do Pulpitu: Kraków Główny')
+    expect(screen.getByRole('status')).toHaveTextContent('Przypięto do Startu:Kraków Główny')
     expect(push).not.toHaveBeenCalled()
   })
 
@@ -167,11 +167,11 @@ describe('Page (Pulpit)', () => {
     await user.click(screen.getByRole('button', { name: 'Dodaj' }))
     await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
 
-    expect(screen.getByRole('status')).toHaveTextContent('Przypięto do Pulpitu: Świętokrzyska')
+    expect(screen.getByRole('status')).toHaveTextContent('Przypięto do Startu:Świętokrzyska')
     expect(screen.getAllByRole('article')).toHaveLength(2)
   })
 
-  it('„Dodaj" już przypiętej stacji mówi, że jest na Pulpicie, i nie dubluje karty', async () => {
+  it('„Dodaj" już przypiętej stacji mówi, że jest na Starcie, i nie dubluje karty', async () => {
     pickOption = { id: '33605', name: 'Warszawa Centralna', kind: 'rail' }
     const user = userEvent.setup()
     render(<Page />)
@@ -179,7 +179,7 @@ describe('Page (Pulpit)', () => {
     await user.click(screen.getByRole('button', { name: 'Dodaj' }))
     await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
 
-    expect(screen.getByRole('status')).toHaveTextContent('Warszawa Centralna jest już na Pulpicie')
+    expect(screen.getByRole('status')).toHaveTextContent('Warszawa Centralna jest już na Starcie')
     expect(screen.getAllByRole('article')).toHaveLength(1)
   })
 
@@ -205,8 +205,8 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
-    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Kraków Główny' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Odpięto z Pulpitu: Kraków Główny')
+    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu:Kraków Główny' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Odpięto ze Startu:Kraków Główny')
 
     await user.click(screen.getByRole('button', { name: 'Cofnij' }))
     const order = screen.getAllByRole('button', { name: /^W górę: / }).map((button) => button.getAttribute('aria-label'))
@@ -223,7 +223,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
-    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Kraków Główny' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu:Kraków Główny' }))
     await user.click(screen.getByRole('button', { name: 'Gotowe' }))
 
     expect(screen.queryByRole('button', { name: 'Cofnij' })).not.toBeInTheDocument()
@@ -236,7 +236,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
-    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Warszawa Centralna' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu:Warszawa Centralna' }))
 
     expect(screen.getByText(/przypnij stację lub przystanek/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gotowe' })).toBeInTheDocument()
@@ -249,7 +249,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
-    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Warszawa Centralna' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu:Warszawa Centralna' }))
     await user.click(screen.getByRole('button', { name: 'Cofnij' }))
 
     expect(screen.getByRole('button', { name: 'Gotowe' })).toHaveFocus()
@@ -276,7 +276,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
-    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Kraków Główny' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu:Kraków Główny' }))
     await user.click(screen.getByRole('button', { name: 'Dodaj' }))
 
     expect(screen.getByRole('button', { name: 'Cofnij' })).toBeInTheDocument()

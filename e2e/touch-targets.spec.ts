@@ -14,7 +14,7 @@ async function afterSize(el: Locator) {
 
 test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44; wygląd 36 px, na telefonie 44 (siatka kontrolek karty)', async ({ page }, testInfo) => {
   await page.goto('/station/33605?name=Warszawa%20Centralna')
-  const pin = page.getByRole('button', { name: 'Przypnij do Pulpitu' })
+  const pin = page.getByRole('button', { name: 'Przypnij do Startu' })
   await expect(pin).toBeVisible()
   const { w, h } = await afterSize(pin)
   expect(w).toBeGreaterThanOrEqual(44)
@@ -57,9 +57,9 @@ test('minuty w rozkładzie linii mają >= 24×24 px (WCAG 2.5.8)', async ({ page
   expect(box?.height).toBeGreaterThanOrEqual(24)
 })
 
-test('link „Wróć do Pulpitu” w TopBarze ma obszar trafienia >= 44×44', async ({ page }) => {
+test('link „Wróć do Startu” w TopBarze ma obszar trafienia >= 44×44', async ({ page }) => {
   await page.goto('/station/33605?name=Warszawa%20Centralna')
-  const { w, h } = await afterSize(page.getByRole('link', { name: 'Wróć do Pulpitu' }))
+  const { w, h } = await afterSize(page.getByRole('link', { name: 'Wróć do Startu' }))
   expect(w).toBeGreaterThanOrEqual(44)
   expect(h).toBeGreaterThanOrEqual(44)
 })

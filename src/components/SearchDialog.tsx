@@ -79,7 +79,7 @@ export function SearchDialog({ open, onClose, onPick }: Props) {
     // zapasem dla zamknięcia bez `cancel`. Ten onClick to tylko klik myszą/palcem.
     <dialog
       ref={ref}
-      aria-label={onPick === undefined ? 'Szukaj stacji lub przystanku' : 'Przypnij do Pulpitu'}
+      aria-label={onPick === undefined ? 'Szukaj stacji lub przystanku' : 'Przypnij do Startu'}
       onCancel={(event) => {
         event.preventDefault()
         onClose()
