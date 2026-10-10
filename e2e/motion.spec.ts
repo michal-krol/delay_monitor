@@ -10,7 +10,10 @@ const PINNED = [{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]
 
 type Recorded = { types: string[]; pseudo?: string[] }
 
+const SAFARI_GATE = 'mobile-safari: document.startViewTransition is undefined'
+
 test.beforeEach(async ({ page, browserName }) => {
+  if (test.info().title === SAFARI_GATE) return // jedyny test tego pliku dla WebKit: bez rejestratora przejść
   test.skip(browserName !== 'chromium', 'View Transitions i scroll-driven animations: tylko Chromium')
   await page.addInitScript((pinned) => {
     window.localStorage.setItem('monitor.favourites.v2', JSON.stringify(pinned))
@@ -94,6 +97,50 @@ test.describe('view transitions (motion allowed)', () => {
   })
 })
 
+test(SAFARI_GATE, async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-safari', 'bramka silnika: tylko WebKit (iPhone)')
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: READY })
+  await page.waitForLoadState('networkidle')
+  // Bramka (`viewTransitionGate.ts`) siedzi w AppChrome; po hydracji API ma być niewidoczne dla Reacta.
+  expect(await page.evaluate(() => typeof document.startViewTransition)).toBe('undefined')
+})
+
+test('shell stays put during navigation (header and bottom nav keep their boxes, no transform)', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) >= 640, 'dolny pasek i nagłówek telefonu')
+  await page.goto('/')
+  const nav = page.getByRole('navigation', { name: 'Nawigacja główna' })
+  await expect(nav).toBeVisible({ timeout: READY })
+  await page.waitForLoadState('networkidle')
+  // Próbkujemy co klatkę od przed kliknięciem do chwili po zakończeniu przejścia: wszystkie próbki muszą być równe.
+  await page.evaluate(() => {
+    const samples = new Set<string>()
+    const w = window as unknown as { __shell: Set<string>; __shellStop: boolean }
+    w.__shell = samples
+    w.__shellStop = false
+    const box = (element: Element | null) => {
+      if (element === null) return 'missing'
+      const r = element.getBoundingClientRect()
+      return [r.x, r.y, r.width, r.height, getComputedStyle(element).transform].join()
+    }
+    const tick = () => {
+      samples.add(`${box(document.querySelector('header'))}|${box(document.querySelector('nav[aria-label="Nawigacja główna"]'))}`)
+      if (!w.__shellStop) requestAnimationFrame(tick)
+    }
+    tick()
+  })
+  await nav.getByRole('link', { name: 'Linie' }).click()
+  await expect(page).toHaveURL(/\/lines/, { timeout: READY })
+  await expect(page.getByTestId('line-section').first()).toBeVisible({ timeout: READY })
+  await page.waitForTimeout(600)
+  const samples = await page.evaluate(() => {
+    const w = window as unknown as { __shell: Set<string>; __shellStop: boolean }
+    w.__shellStop = true
+    return [...w.__shell]
+  })
+  expect(samples).toHaveLength(1)
+})
+
 test.describe('reduced motion', () => {
   test.use({ reducedMotion: 'reduce' })
 
@@ -144,6 +191,19 @@ test.describe('motion allowed: live feedback', () => {
       return { name: computed.animationName, iterations: computed.animationIterationCount }
     })
     expect(style).toEqual({ name: 'livePulse', iterations: '1' })
+  })
+
+  test('reduced motion toggled mid-session removes the live-dot animation', async ({ page }) => {
+    await stationReady(page)
+    const dot = page.getByTestId('live-dot').first()
+    await expect(dot).toBeAttached({ timeout: READY })
+    const animationName = () => dot.evaluate((element) => getComputedStyle(element).animationName)
+    expect(await animationName()).toBe('livePulse')
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await expect.poll(animationName).toBe('none')
+    // Media query działa na żywo, bez przeładowania: powrót preferencji przywraca puls.
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await expect.poll(animationName).toBe('livePulse')
   })
 
   test('phone: the header swaps the app name for the board name after scrolling', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { scanA11y } from './helpers/axe'
 
 // PWA bez service workera: manifest + ikony wystarczą do instalowalności (ADR / PR2 mobile-shell).
@@ -46,6 +46,68 @@ test('theme-color idzie za ręcznie wybranym motywem, nie tylko za systemowym', 
 
   await page.getByRole('button', { name: 'Przełącz na tryb jasny' }).filter({ visible: true }).click()
   for (const meta of await themeColors.all()) await expect(meta).toHaveAttribute('content', '#eef0f8')
+})
+
+// Matryca motywu (next-themes: klucz `theme` w localStorage, klasa `dark` na <html>, domyślnie „system”).
+test.describe('motyw: system a ręczny wybór', () => {
+  const DARK = /(^|\s)dark(\s|$)/
+  const STATION = '/station/33605?name=Warszawa%20Centralna'
+
+  async function open(page: Page, colorScheme: 'light' | 'dark', path = '/') {
+    await page.emulateMedia({ colorScheme })
+    await page.goto(path)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.waitForLoadState('networkidle') // klik przed hydracją przepada bez śladu
+  }
+  // Na telefonie i komputerze przełącznik jest w innym nagłówku — klikamy widoczny.
+  const toggle = (page: Page, name: 'Przełącz na tryb jasny' | 'Przełącz na tryb ciemny') =>
+    page.getByRole('button', { name }).filter({ visible: true })
+
+  test('system ciemny bez ręcznego wyboru → <html class="dark">; system jasny → bez klasy', async ({ page }) => {
+    await open(page, 'dark')
+    await expect(page.locator('html')).toHaveClass(DARK)
+    await open(page, 'light')
+    await expect(page.locator('html')).not.toHaveClass(DARK)
+  })
+
+  test('ręcznie jasny przy systemie ciemnym zostaje jasny po przeładowaniu i po Wstecz', async ({ page }) => {
+    await open(page, 'dark')
+    await toggle(page, 'Przełącz na tryb jasny').click()
+    await expect(page.locator('html')).not.toHaveClass(DARK)
+    expect(await page.evaluate(() => window.localStorage.getItem('theme'))).toBe('light')
+
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.locator('html')).not.toHaveClass(DARK)
+
+    await page.goto(STATION)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.goBack()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.locator('html')).not.toHaveClass(DARK)
+  })
+
+  test('zmiana motywu systemu bez ręcznego wyboru przełącza interfejs w locie', async ({ page }) => {
+    await open(page, 'light')
+    await expect(page.locator('html')).not.toHaveClass(DARK)
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await expect(page.locator('html')).toHaveClass(DARK)
+    await page.emulateMedia({ colorScheme: 'light' })
+    await expect(page.locator('html')).not.toHaveClass(DARK)
+  })
+
+  test('zmiana motywu systemu przy ręcznym wyborze nic nie zmienia', async ({ page }) => {
+    await open(page, 'light')
+    await toggle(page, 'Przełącz na tryb ciemny').click()
+    await expect(page.locator('html')).toHaveClass(DARK)
+    // System ciemny, potem znów jasny: gdyby wybór nie był ręczny, UI wróciłby do jasnego.
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.emulateMedia({ colorScheme: 'light' })
+    // Dajemy zdarzeniu `change` chwilę; ręczny „ciemny” musi przetrwać.
+    await page.waitForTimeout(500)
+    await expect(page.locator('html')).toHaveClass(DARK)
+    expect(await page.evaluate(() => window.localStorage.getItem('theme'))).toBe('dark')
+  })
 })
 
 test('strona główna nie zgłasza błędów CSP w konsoli', async ({ page }) => {

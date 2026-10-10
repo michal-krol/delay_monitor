@@ -32,6 +32,12 @@ describe('ThemeColorSync', () => {
     expect(contents()).toEqual([THEME_BG.dark, THEME_BG.dark])
   })
 
+  it('forced light on a dark system: every theme-color meta gets the light --bg-base', () => {
+    useThemeMock.mockReturnValue({ resolvedTheme: 'light' })
+    render(<ThemeColorSync />)
+    expect(contents()).toEqual([THEME_BG.light, THEME_BG.light])
+  })
+
   it('follows a later switch back to light', () => {
     useThemeMock.mockReturnValue({ resolvedTheme: 'dark' })
     const { rerender } = render(<ThemeColorSync />)

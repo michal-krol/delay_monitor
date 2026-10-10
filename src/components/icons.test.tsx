@@ -3,6 +3,7 @@ import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { HomeIcon, TrainIcon, ArrowRightIcon, ShareIcon, InfoIcon, PauseIcon } from './icons'
 import * as icons from './icons'
+import { MOBILE_NAV_ITEMS } from './navItems'
 
 describe('icons', () => {
   it('renderuje się jako <svg> z domyślnym rozmiarem 18 i dziedziczonym kolorem', () => {
@@ -71,6 +72,29 @@ describe('icons — arkusz (PR 7b: jeden styl, jedno pojęcie = jedna ikona)', (
       expect(svg, name).not.toHaveAttribute('aria-hidden')
       unmount()
     }
+  })
+
+  it('każda ikona ma obrys 2, zaokrąglone końce i kolor z tekstu', () => {
+    for (const [name, Icon] of all) {
+      const { container, unmount } = render(<Icon />)
+      const svg = container.querySelector('svg')
+      expect(svg, name).toHaveAttribute('stroke-width', '2')
+      expect(svg, name).toHaveAttribute('stroke-linecap', 'round')
+      expect(svg, name).toHaveAttribute('stroke', 'currentColor')
+      unmount()
+    }
+  })
+
+  it('słownik: Start/Mapa/Szukaj/Linie w nawigacji to osobne, nazwane ikony', () => {
+    const byKey = Object.fromEntries(MOBILE_NAV_ITEMS.map((item) => [item.key, item.icon]))
+    expect(byKey).toEqual({ start: icons.HomeIcon, map: icons.MapIcon, search: icons.SearchIcon, lines: icons.RouteIcon })
+    expect(new Set(Object.values(byKey)).size).toBe(4)
+  })
+
+  it('słownik: lokalizacja użytkownika (LocateIcon) to nie „celność” (TargetIcon)', () => {
+    expect(icons.LocateIcon).not.toBe(icons.TargetIcon)
+    const draw = (Icon: (props: icons.IconProps) => React.ReactNode) => render(<Icon />).container.querySelector('svg')?.innerHTML
+    expect(draw(icons.LocateIcon)).not.toBe(draw(icons.TargetIcon))
   })
 
   it('MetroIcon to własny piktogram: koło + „M” (bez oficjalnego logo metra)', () => {
