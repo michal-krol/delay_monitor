@@ -18,11 +18,19 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   udało się pobrać” / „Pogoda: brak danych lokalizacyjnych”); without a value there is no temperature (#7).
 - **City stats** = „Statystyki” (collapsed line on phones); all four phone KPIs unknown = one line
   „Statystyki dnia: brak danych”.
-- „nie podano” = the source gave no value for an optional field (platform, track) — not an error.
-  Phone card (no column header): „Peron 2 · tor 4”, both missing „Peron i tor: nie podano”.
-- „Prognoza” = a PKP predicted time, under the time column („Prognoza · za 7 min”, `timeNote()` in
-  `boardTime.ts`). A confirmed time gets no label (the status badge says it); never „Punktualnie”
-  for an unconfirmed train (#2).
+- Missing platform/track on a PKP row = „—” per value, never 0 and never „nie podano”: phone card
+  „Peron 2 · Tor 4”, „Peron — · Tor 4”, „Peron — · Tor —”; desktop cells show „—” lines.
+- **PKP time column** (D1, `timePresentation()` in `boardTime.ts`, one source for the board and Start cards):
+  the dominant time is the useful one with its source named next to it — „Faktycznie” (confirmed),
+  „Przew.” (forecast), „Plan” (neither, or a cancelled row) — and a small „Plan HH:mm” line under it for
+  fact/forecast, even when equal; the countdown rides on that line („Plan 14:48 · za 18 min”, or alone
+  when the dominant time already is the plan). Never „Punktualnie” for an unconfirmed train (#2).
+- PKP status pill on the board (`DelayBadge detailed`; the legend keeps the short `LABELS` „opóźniony”, „brak danych”): „Opóźnienie +12 min”, „odwołany”, „punktualnie”,
+  and for an unknown status „Brak danych o realizacji” (not the legend word „brak danych”).
+- Station board phone chrome: „Na mapie” (link from `useRailStations` coordinates; without them the plain
+  text „Brak lokalizacji stacji”, a failed list „Nie udało się wczytać lokalizacji stacji”, never a dead control); disruption notice above the tabs „{n}
+  utrudnienie|utrudnienia|utrudnień na stacji” (opens Info; only when there are messages — an unknown list
+  is no notice, #7).
 - Data age: „Aktualizacja {N} s temu”; stale after a failed refresh: „Nie udało się odświeżyć · dane z {HH:mm}”.
 
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)

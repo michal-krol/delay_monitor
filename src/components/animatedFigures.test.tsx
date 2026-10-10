@@ -116,6 +116,6 @@ describe('BoardTable limits animated numbers on long boards', () => {
     render(<BoardTable stationName="Kraków Główny" direction="departures" rows={rows} now={NOW} loading={false} />)
     await userEvent.click(screen.getByRole('button', { name: /Pokaż więcej połączeń/ }))
     expect(screen.queryAllByTestId('animated')).toHaveLength(0)
-    expect(screen.getAllByText('+5 min').length).toBeGreaterThan(40)
+    expect(screen.getAllByText('Opóźnienie +5 min').length).toBeGreaterThan(40)
   })
 })

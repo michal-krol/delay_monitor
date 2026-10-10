@@ -32,6 +32,13 @@ takes the realized time the board already shows (`realizedTime()`: fact, else fo
 plan) and `countdownLabel()` (`src/lib/countdown.ts`, the one countdown for PKP and GTFS) turns
 it into text. Cancelled rows never count down.
 
+What the time column shows (D1, 2026-10-10, reverses the earlier "plan big" decision): `timePresentation()`
+in the same file returns the dominant time (`fact` = confirmed `actualAt` + `delayMinutes` → „Faktycznie”,
+else `forecast` = `predictedAt` → „Przew.”, else `plan`; a cancelled row is always `plan`), the plan time
+for the small „Plan HH:mm” line (present for fact/forecast, even when equal) and the countdown. It only
+reads `realizedTime()`: an `actualAt` copied from the plan without a confirmed delay is still no fact (#2).
+Board (`TimePair`) and Start cards (`TimePair compact`) share it; PR5 (connection) and PR11 (Start) reuse it.
+
 ## #9 `/operations` and `/schedules` are not limited to "today"
 
 Verified live (Warszawa Zachodnia, 2026-08-28): one `/operations?stations=…&withPlanned=true`

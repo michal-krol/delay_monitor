@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { createElement } from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
@@ -7,6 +8,22 @@ import { InfoSheet } from './InfoSheet'
 import { stubDialogMethods } from '@/test-utils/dialog'
 import type { StationInsights } from '@/lib/board/stationStats'
 import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
+
+// Podgląd pinów przekazanych do mapy; sama mapa renderuje się naprawdę (jsdom nie ładuje MapLibre).
+const mapSpy = vi.hoisted(() => ({ pins: [] as { id: string; lat: number; lon: number }[] }))
+vi.mock('./MapView', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./MapView')>()
+  return {
+    ...actual,
+    MapView: (props: React.ComponentProps<typeof actual.MapView>) => {
+      mapSpy.pins = props.pins
+      return createElement(actual.MapView, props)
+    },
+  }
+})
+
+/** Lokalizacja stacji z listy stacji kolei (`useRailStations`), nie z pogody. */
+const LOCATION = { lat: 52.22977, lon: 21.01178 }
 
 const READY_WEATHER: UseStationWeatherResult = {
   status: 'ready',
@@ -51,6 +68,7 @@ function renderAside(overrides: Partial<React.ComponentProps<typeof StationAside
     loading: false,
     currentHour: 8,
     weather: READY_WEATHER,
+    location: LOCATION,
     stationName: 'Warszawa Centralna',
     stationId: '33605',
     mapPreview: [],
@@ -111,6 +129,7 @@ describe('StationAside', () => {
         stationId="33605"
         mapPreview={[]}
         weather={READY_WEATHER}
+        location={LOCATION}
       />
     )
     expect(screen.getAllByText('Wczytywanie rozkładu…')).toHaveLength(2)
@@ -129,6 +148,7 @@ describe('StationAside', () => {
         stationId="33605"
         mapPreview={[]}
         weather={READY_WEATHER}
+        location={LOCATION}
       />
     )
     expect(screen.getAllByText(/Nie udało się pobrać rozkładu/)).toHaveLength(2)
@@ -147,6 +167,7 @@ describe('StationAside', () => {
         stationId="33605"
         mapPreview={[]}
         weather={READY_WEATHER}
+        location={LOCATION}
       />
     )
     expect(screen.getByText('Brak zgłoszonych utrudnień dla tej stacji.')).toBeInTheDocument()
@@ -164,6 +185,7 @@ describe('StationAside', () => {
         stationId="33605"
         mapPreview={[]}
         weather={READY_WEATHER}
+        location={LOCATION}
       />
     )
     expect(screen.getByText('Awaria sieci trakcyjnej')).toBeInTheDocument()
@@ -207,6 +229,7 @@ describe('StationAside', () => {
         stationId="33605"
         mapPreview={[]}
           weather={{ status: 'error' }}
+          location={LOCATION}
         />
       )
       expect(screen.getByText('Nie udało się pobrać pogody.')).toBeInTheDocument()
@@ -243,14 +266,23 @@ describe('StationAside', () => {
   })
 
   describe('mapa stacji', () => {
-    it('pokazuje pin, gdy znamy lokalizację (ten sam fetch co pogoda)', () => {
-      renderAside({ weather: READY_WEATHER })
+    it('pokazuje pin, gdy znamy lokalizację stacji', () => {
+      renderAside()
       expect(screen.getByRole('region', { name: 'Mapa stacji Warszawa Centralna' })).toBeInTheDocument()
     })
 
     it('nie renderuje karty mapy bez znanej lokalizacji', () => {
-      renderAside({ weather: { status: 'unavailable' } })
+      renderAside({ location: null })
       expect(screen.queryByRole('region', { name: /Mapa stacji/ })).not.toBeInTheDocument()
+    })
+
+    it('StationAside: map pin uses the station location (useRailStations), not weather', () => {
+      // Pogoda zna INNY punkt, a w ogóle nie jest potrzebna: pin idzie z `location`.
+      renderAside({ weather: { ...READY_WEATHER, location: { lat: 1, lon: 2 } } })
+      expect(mapSpy.pins).toMatchObject([{ id: '33605', lat: LOCATION.lat, lon: LOCATION.lon }])
+
+      renderAside({ weather: { status: 'error' } })
+      expect(mapSpy.pins).toMatchObject([{ lat: LOCATION.lat, lon: LOCATION.lon }])
     })
   })
 
@@ -267,6 +299,7 @@ describe('StationAside', () => {
             loading={false}
             currentHour={8}
             weather={READY_WEATHER}
+            location={LOCATION}
             stationName="Warszawa Centralna"
             stationId="33605"
             mapPreview={[]}

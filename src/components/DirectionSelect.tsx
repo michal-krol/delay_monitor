@@ -8,7 +8,7 @@ export function headsignOptions(rows: readonly { headsign: string | null }[], se
 }
 
 /**
- * Telefon: jeden selektor kierunku zamiast rzędu chipów — opcje liczone z wierszy, które tablica już ma
+ * Telefon: jeden selektor kierunku (w sekcji tablicy, tuż pod zakładkami) zamiast rzędu chipów — opcje liczone z wierszy, które tablica już ma
  * (0 zapytań PKP, AGENTS.md #3). Na przyjazdach `headsign` to stacja początkowa, stąd „Skąd”.
  */
 export function DirectionSelect({
@@ -28,7 +28,7 @@ export function DirectionSelect({
       aria-label={arrivals ? 'Skąd' : 'Kierunek'}
       value={value ?? ''}
       onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
-      className="glass min-h-11 w-full rounded-2xl px-3 text-base font-medium text-foreground outline-none focus:ring-2 focus:ring-indigo-500"
+      className="min-h-11 w-full rounded-xl border border-surface-border bg-surface-strong px-3 text-base font-medium text-foreground outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-text"
     >
       <option value="">{arrivals ? 'Wszystkie stacje początkowe' : 'Wszystkie kierunki'}</option>
       {headsignOptions(rows, value).map((name) => (

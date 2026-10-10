@@ -33,6 +33,20 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Tablica stacji: duża godzina to ta użyteczna — „Faktycznie” (potwierdzona), „Przew.” (prognoza) albo „Plan”
+  — a pod nią mały „Plan GG:MM · za N min” (także gdy godziny są równe). Dotyczy tablicy i kart na Starcie.
+  Godzina skopiowana z planu bez potwierdzenia dalej nie jest faktem.
+- Tablica stacji na telefonie: karta wiersza z kierunkiem i godziną w jednym rzędzie, statusem „Opóźnienie +N min”,
+  „odwołany” albo „Brak danych o realizacji” (nigdy domyślnie „na czas”) oraz osobnym rzędem „Peron 2 · Tor 4”.
+  Brak peronu lub toru to „—” („Peron — · Tor —”), nie 0 i nie „nie podano”. Przy powiększonym tekście karta
+  układa się w jednej kolumnie.
+- Tablica stacji na telefonie: nad zakładkami jest „Na mapie” (pozycja ze statycznej listy stacji, bez pogody
+  i bez zapytań do PKP; bez współrzędnych: „Brak lokalizacji stacji”) oraz — gdy są utrudnienia — zwarty
+  komunikat „N utrudnień na stacji”, który otwiera „Info”. Zakładki Odjazdy/Przyjazdy i chipy kierunków używają
+  nowego koloru głównego; wybór kierunku i wiek danych są pod zakładkami.
+- Mapa w „Info” i kolumnie bocznej tablicy bierze położenie stacji z listy stacji, więc pokazuje się także,
+  gdy pogoda się nie wczyta.
+
 - Dolny pasek telefonu ma cztery cele: Start, Mapa, Szukaj, Linie. „Odjazdy” zostają w menu bocznym
   komputera. „Szukaj” jest jedną akcją (pasek, menu boczne, Ctrl/Cmd+K, „/”); nagłówek telefonu nie ma
   już drugiego przycisku wyszukiwania. Stacja, połączenie i przystanek podświetlają Start, linia — Linie.
@@ -89,6 +103,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Powrót z połączenia do tablicy stacji zachowuje zakładkę i filtr kierunku (tablica nie czyści już `tab`
+  i `direction` z adresu następnej strony); link z `?tab=` działa też w trybie deweloperskim.
 - Wczytywanie tablicy stacji na telefonie: szkielet ma pełną szerokość karty i nie ma już nad nim
   pustej ramki.
 

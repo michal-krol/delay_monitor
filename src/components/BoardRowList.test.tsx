@@ -46,10 +46,22 @@ describe('BoardRowList', () => {
     expect(screen.getByText('za 8 min')).toBeInTheDocument()
   })
 
-  it('names a forecast as „Prognoza” next to the countdown (timeNote, as on the board)', () => {
+  it('shows the forecast as the dominant time ("Przew.") with the plan and countdown below', () => {
     renderRows([{ ...ROW, predictedAt: '2026-10-01T12:05:00+02:00' }])
-    expect(screen.getByText('Prognoza · za 13 min')).toBeInTheDocument()
+    expect(screen.getByText('Przew.')).toBeInTheDocument()
     expect(screen.getByText(formatClockTime('2026-10-01T12:05:00+02:00'))).toBeInTheDocument()
+    expect(screen.getByText(`Plan ${formatClockTime(ROW.plannedAt)} · za 13 min`)).toBeInTheDocument()
+  })
+
+  it('shows a confirmed time as "Faktycznie" with the plan line', () => {
+    renderRows([{ ...ROW, actualAt: '2026-10-01T12:03:00+02:00', delayMinutes: 3, status: 'delayed' }])
+    expect(screen.getByText('Faktycznie')).toBeInTheDocument()
+    expect(screen.getByText(/^Plan \d\d:\d\d/)).toBeInTheDocument()
+  })
+
+  it('without realization: label "Plan" and the bare countdown', () => {
+    renderRows([ROW])
+    expect(screen.getByText('Plan')).toBeInTheDocument()
   })
 
   it('a cancelled train never counts down', () => {
@@ -65,11 +77,11 @@ describe('BoardRowList', () => {
     expect(screen.getByText('jeszcze nie wyjechał')).toBeInTheDocument()
   })
 
-  it('shows direction, train and platform; „nie podano” when the source has no platform', () => {
+  it('shows direction, train and platform; „peron —” when the source has no platform', () => {
     renderRows([ROW, { ...ROW, orderId: '110', trainNumber: '110', trainLabel: 'IC 110', platform: null }])
     expect(screen.getAllByText('Kraków Główny')).toHaveLength(2)
     expect(screen.getByText(/IC 109 · peron 3/)).toBeInTheDocument()
-    expect(screen.getByText(/IC 110 · peron: nie podano/)).toBeInTheDocument()
+    expect(screen.getByText(/IC 110 · peron —/)).toBeInTheDocument()
   })
 
   it('shows the short carrier code with its logo, never the full legal name; a generic label when the code is empty', () => {

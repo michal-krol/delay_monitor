@@ -1,30 +1,29 @@
 import { STATUS_TEXT } from './DelayBadge'
 import type { BoardApiRow } from '@/hooks/useBoard'
 import { formatClockTime } from '@/lib/format'
-import { realizedTime, timeNote } from './boardTime'
+import { timePresentation } from './boardTime'
 
 /**
- * Kolumna godziny wiersza PKP (tablica i karta Pulpitu): plan duży, pod nim fakt/prognoza w kolorze statusu,
- * na końcu `timeNote()`. `withNote={false}` — podpis rysuje wywołujący (karta: na całą szerokość wiersza).
+ * Kolumna godziny wiersza PKP (tablica i karta Pulpitu): godzina użyteczna (fakt / prognoza / plan) duża, z nazwanym
+ * źródłem, pod nią „Plan HH:mm · za N min”. Kolor statusu tylko przy fakcie i prognozie — o znaczeniu mówi podpis,
+ * nigdy sam kolor. `compact` = karty Pulpitu (mniejsza godzina, te same dane).
  */
-export function TimePair({ row, now, withNote = true }: { row: BoardApiRow; now: number; withNote?: boolean }) {
-  const realized = realizedTime(row)
-  const note = withNote ? timeNote(row, now) : null
+export function TimePair({ row, now, compact = false }: { row: BoardApiRow; now: number; compact?: boolean }) {
+  const { kind, at, label, planAt, countdown } = timePresentation(row, now)
+  const below = [planAt !== null ? `Plan ${formatClockTime(planAt)}` : null, countdown].filter((part) => part !== null).join(' · ')
 
   return (
     <span className="block tabular-nums">
-      {/* PLAN -- zawsze, niezależnie od tego, co wiemy o realizacji. */}
-      <span className="block text-base font-semibold text-foreground">{formatClockTime(row.plannedAt)}</span>
-      {realized !== null && (
+      <span className="flex items-baseline gap-1.5">
         <span
-          className={`block text-sm font-medium ${realized.kind === 'forecast' ? 'italic' : ''}`}
-          style={{ color: STATUS_TEXT[row.status] }}
-          title={realized.kind === 'forecast' ? 'Godzina przewidywana — przystanek nie jest jeszcze potwierdzony.' : 'Godzina faktyczna — przejazd potwierdzony.'}
+          className={`${compact ? 'text-base font-semibold' : 'time-dominant'} ${kind === 'plan' ? 'text-foreground' : ''}`}
+          style={kind === 'plan' ? undefined : { color: STATUS_TEXT[row.status] }}
         >
-          {formatClockTime(realized.at)}
+          {formatClockTime(at)}
         </span>
-      )}
-      {note !== null && <span className="block text-xs font-semibold whitespace-normal text-text-secondary">{note}</span>}
+        <span className="text-xs font-semibold text-text-secondary">{label === 'Przew.' ? <abbr title="Przewidywana">Przew.</abbr> : label}</span>
+      </span>
+      {below !== '' && <span className="block text-sm whitespace-normal text-text-muted">{below}</span>}
     </span>
   )
 }

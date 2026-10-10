@@ -31,9 +31,12 @@ data age, not a white screen. Error banner only for a configuration error (401).
   rows, `col-span-*` for wider items): the board's tabs + „Info” today. Don't hand-lay another row of
   buttons; the station card's top row on phones is ← name ★ ⋮ (`FullBoard` `phoneBack`; „Więcej” =
   `BoardMoreMenu`: „Udostępnij”, „Informacje o stacji”; the page's `TopBar` gets `hideOnPhone`), so the
-  name (h1, `PlaceTitle`) appears once. KPI tiles are not above the phone board — only in „Info”; their
-  slot holds the one direction filter, `DirectionSelect` (options from row headsigns, 0 PKP requests). Budget: first board row ≤ 340 px from the top
-  at 375×812 (`e2e/boards-mobile.spec.ts`); anything new above the board must pay for itself.
+  name (h1, `PlaceTitle`) appears once. KPI tiles are not above the phone board — only in „Info”. Phone order:
+  header card (+ „Na mapie” row) → disruption notice (only with messages) → sticky Odjazdy/Przyjazdy + „Info” →
+  `DirectionSelect` (options from row headsigns, 0 PKP requests) → data age (`BoardStatus`) → rows.
+  Budget (`e2e/boards-mobile.spec.ts`): at 375×812 the first two departures sit above the bottom bar with no
+  notice showing; anything new above the board must pay for itself. „Na mapie” = coordinates from
+  `useRailStations` (static list, 0 PKP, no weather); unknown location is text, not a control.
 - Trivia (weather, city stats, KPI tiles, direction chips, status legend) lives below or in sheets on phones:
   weather = `WeatherChip` in `TopBar` (`city` prop; sheet on phones, `useDropdown` popover from `sm`).
 - Phone layouts hide/compact things with responsive classes on ONE DOM (`max-sm:`), never a

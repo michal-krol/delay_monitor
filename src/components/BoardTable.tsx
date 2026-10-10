@@ -171,9 +171,9 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
                   dostępna powstaje ze sklejenia obu linii BEZ spacji
                   („Perontor"), bo `block` nie wprowadza odstępu do drzewa
                   dostępności. Widoczny podpis zostaje, nazwa jest zdaniem. */}
-              <th scope="col" aria-label={direction === 'departures' ? 'Odjazd — plan i faktycznie' : 'Przyjazd — plan i faktycznie'} className="py-2 pr-3 pl-3 font-medium text-text-muted">
+              <th scope="col" aria-label={direction === 'departures' ? 'Odjazd — czas i plan' : 'Przyjazd — czas i plan'} className="py-2 pr-3 pl-3 font-medium text-text-muted">
                 {direction === 'departures' ? 'Odjazd' : 'Przyjazd'}
-                <span className="block text-xs font-normal">plan · faktycznie</span>
+                <span className="block text-xs font-normal">czas · plan</span>
               </th>
               <th scope="col" className="py-2 pr-3 font-medium text-text-muted">Pociąg</th>
               <th scope="col" aria-label="Kierunek i przystanki pośrednie" className="py-2 pr-3 font-medium text-text-muted">
@@ -234,7 +234,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="chip-filter gap-1.5"
           >
             Pokaż więcej połączeń
             <span className="text-text-muted">({hiddenCount})</span>
@@ -262,34 +262,20 @@ function accentColor(status: RealizationStatus): string {
 }
 
 /**
- * Peron i tor, każde ze swoim własnym „nie podano" (makieta §10). W karcie na telefonie nagłówek
- * kolumny jest ukryty, więc jedna linia „Peron 2 · tor 4” z podpisami; w tabeli (`sm:`) dwie linie bez nich.
+ * Peron i tor, każdy niezależnie: brak wartości = „—”, nigdy 0 (#7). W karcie na telefonie nagłówek kolumny
+ * jest ukryty, więc jedna linia „Peron 2 · Tor 4” z podpisami; w tabeli (`sm:`) dwie linie bez nich.
  */
 function PlatformTrack({ row }: { row: BoardApiRow }) {
-  const platform = row.platform
-  const track = row.track ?? null
-
-  if (platform === null && track === null) {
-    // „Nie podano" to nie to samo co „—" przy znanym peronie i nieznanym torze
-    // -- rozróżnienie wprost wymagane przez makietę §10.
-    return (
-      <span className="text-xs text-text-muted">
-        <span className="sm:hidden">Peron i tor: </span>
-        <span className="whitespace-nowrap">nie podano</span>
-      </span>
-    )
-  }
-
   return (
     <span className="block tabular-nums">
       <span className="sm:block">
         <span className="text-text-muted sm:hidden">Peron </span>
-        <span className="font-semibold text-foreground">{platform ?? '—'}</span>
+        <span className="font-semibold text-foreground">{row.platform ?? '—'}</span>
       </span>
       <span className="text-text-muted sm:hidden"> · </span>
-      <span className="text-xs text-text-muted sm:block">
-        <span className="sm:hidden">tor </span>
-        <span>{track ?? '—'}</span>
+      <span className="text-text-muted sm:block sm:text-xs">
+        <span className="sm:hidden">Tor </span>
+        <span className="max-sm:font-semibold max-sm:text-foreground">{row.track ?? '—'}</span>
       </span>
     </span>
   )
@@ -301,7 +287,7 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
       <CategoryBadge category={row.category} categoryName={row.categoryName} />
       <span className="min-w-0">
         <span className="block truncate font-semibold text-foreground">{row.trainLabel}</span>
-        {/* Przewoźnik tylko w tabeli: karta na telefonie trzyma pociąg i peron w jednym rzędzie. */}
+        {/* Przewoźnik tylko w tabeli: karta na telefonie ma pod pociągiem tylko status, a peron w osobnym dolnym rzędzie. */}
         <span className="hidden min-w-0 items-center gap-1 text-xs text-text-muted sm:flex">
           <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
           <span className="min-w-0 truncate">{row.carrierName ?? (row.carrier || '—')}</span>
@@ -388,8 +374,9 @@ function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }:
           estimatedDelayMinutes={row.estimatedDelayMinutes}
           predictedDelayMinutes={row.predictedDelayMinutes ?? null}
           animated={animateNumbers}
+          detailed
         />
-        {/* W komórce statusu, nie przy strzałce: karta na telefonie chowa komórkę strzałki. */}
+        {/* W komórce statusu, nie w komórce strzałki: strzałka jest w osobnym rzędzie karty i nie niesie treści. */}
         {row.hasDisruption === true && (
           <span className="ml-1.5 inline-block align-middle text-warning-text">
             <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" />
@@ -398,7 +385,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }:
       </td>
       <td data-cell="chevron" className="py-2.5 pr-1 text-text-muted">
         {canOpenDetails && (
-          <span className="inline-flex transition group-hover:translate-x-0.5 group-hover:text-foreground">
+          <span className="inline-flex transition motion-safe:group-hover:translate-x-0.5 group-hover:text-foreground">
             <ChevronRightIcon size={ICON_SIZE.inline} />
           </span>
         )}
