@@ -122,7 +122,7 @@ export default function CityMapPage() {
   const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
   const { share, status: shareStatus } = useShareUrl()
-  const { pinnedItems, addPinned, removePinned, replacePinned, isPinned } = usePinned()
+  const { pinnedItems, loaded: pinsLoaded, addPinned, removePinned, replacePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
@@ -384,6 +384,7 @@ export default function CityMapPage() {
         following={following}
         onToggleFollow={() => setFollowId(following ? null : selection.id)}
         pinned={selectionPinned !== null ? isPinned(pinnedKey(selectionPinned)) : undefined}
+        pinsLoaded={pinsLoaded}
         onTogglePin={
           selectionPinned === null
             ? undefined

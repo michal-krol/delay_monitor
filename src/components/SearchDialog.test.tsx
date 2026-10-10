@@ -161,7 +161,7 @@ describe('SearchDialog', () => {
     const onPick = vi.fn()
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<SearchDialog open onClose={onClose} onPick={onPick} />)
-    expect(screen.getByRole('dialog', { name: 'Przypnij do Pulpitu' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Przypnij do Startu' })).toBeInTheDocument()
     await user.type(await screen.findByRole('combobox'), 'cent')
     await vi.advanceTimersByTimeAsync(300)
     await user.click(await screen.findByRole('option', { name: 'Centrum' }))

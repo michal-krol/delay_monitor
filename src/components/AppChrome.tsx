@@ -19,11 +19,13 @@ installViewTransitionGate()
  * Cała powłoka aplikacji renderowana raz w `(app)/layout.tsx`, a nie osobno w każdej stronie —
  * wcześniej pasek boczny montował się od nowa przy każdej nawigacji i migał zwijaniem/rozwijaniem
  * (stan z `useSidebarCollapsed` odczytywany od zera). Tu też żyje jedno okno wyszukiwania
- * (przycisk w nagłówku/pasku bocznym, Ctrl/Cmd+K, „/").
+ * (przycisk w dolnym pasku/pasku bocznym, Ctrl/Cmd+K, „/").
  */
 export function AppChrome() {
   const pathname = usePathname()
   const [searchOpen, setSearchOpen] = useState(false)
+  // Jedna akcja „Szukaj" dla wszystkich wejść. PR 2 (trasa `/search`) rozgałęzi ją tu: poniżej `SM_UP` nawigacja
+  // na `/search`, od `sm` nadal to okno.
   const openSearch = useCallback(() => setSearchOpen(true), [])
   const closeSearch = useCallback(() => setSearchOpen(false), [])
 
@@ -42,9 +44,9 @@ export function AppChrome() {
 
   return (
     <>
-      <MobileHeader onSearch={openSearch} />
+      <MobileHeader />
       <Sidebar activeItem={activeItemFromPath(pathname)} onSearch={openSearch} />
-      <BottomNav />
+      <BottomNav onSearch={openSearch} />
       <OfflineBanner />
       <InstallPrompt />
       <SearchDialog open={searchOpen} onClose={closeSearch} />

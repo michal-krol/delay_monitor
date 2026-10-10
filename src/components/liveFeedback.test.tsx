@@ -41,14 +41,15 @@ function boardRow(overrides: Partial<BoardApiRow> = {}): BoardApiRow {
   }
 }
 
-describe('bottom nav halo', () => {
+describe('bottom nav pastille', () => {
   afterEach(() => vi.clearAllMocks())
 
-  it('marks only the active tab for the halo (data-active)', () => {
+  it('marks only the active tab for the pastille (data-active)', () => {
     usePathname.mockReturnValue('/map')
-    render(<BottomNav />)
-    const links = within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getAllByRole('link')
-    expect(links.map((link) => link.hasAttribute('data-active'))).toEqual([false, false, false, true])
+    render(<BottomNav onSearch={() => {}} />)
+    const targets = within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getAllByRole('listitem')
+    // Start, Mapa, Szukaj (przycisk), Linie — pastylka tylko przy Mapie.
+    expect(targets.map((li) => li.firstElementChild?.hasAttribute('data-active'))).toEqual([false, true, false, false])
   })
 })
 

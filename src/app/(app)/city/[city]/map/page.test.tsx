@@ -290,12 +290,12 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Przypięte' }))
     fireEvent.click(screen.getByRole('button', { name: 'Warszawa Centralna' }))
     const card = await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
-    fireEvent.click(within(card).getByRole('button', { name: 'Odepnij z Pulpitu' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Odepnij ze Startu' }))
     await waitFor(() => expect(map().pinnedItems).toEqual([]))
 
     map().onSelect({ kind: 'stop', id: '100101' })
     const stopCard = await screen.findByRole('dialog', { name: 'Centrum 01' })
-    fireEvent.click(within(stopCard).getByRole('button', { name: 'Przypnij do Pulpitu' }))
+    fireEvent.click(within(stopCard).getByRole('button', { name: 'Przypnij do Startu' }))
     await waitFor(() => expect(map().pinnedItems).toMatchObject([{ lat: 52.23, lon: 21.01 }]))
     // Pin z mapy = jeden przystanek zespołu → przypięty z numerem (Pulpit pokaże „Centrum 01").
     expect(JSON.parse(window.localStorage.getItem('monitor.favourites.v2') ?? '[]')).toEqual([
@@ -310,7 +310,7 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Przypięte' }))
     fireEvent.click(screen.getByRole('button', { name: 'Centrum' }))
     const card = await screen.findByRole('dialog', { name: 'Centrum' })
-    expect(within(card).getByRole('button', { name: 'Odepnij z Pulpitu' })).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: 'Odepnij ze Startu' })).toBeInTheDocument()
   })
 
   it('opening a pinned single stop keeps the stop card (with its number) and a filled star', async () => {
@@ -320,7 +320,7 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Przypięte' }))
     fireEvent.click(screen.getByRole('button', { name: 'Centrum 01' }))
     const card = await screen.findByRole('dialog', { name: 'Centrum 01' })
-    expect(within(card).getByRole('button', { name: 'Odepnij z Pulpitu' })).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: 'Odepnij ze Startu' })).toBeInTheDocument()
   })
 
   it('right-click opens "nearby" with the closest places; a row opens its card', async () => {

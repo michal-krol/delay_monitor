@@ -130,6 +130,13 @@ describe('design tokens', () => {
     expect(offenders(/[>'"`]\s*[Ss]łupek|słupka?\s+(przystank|nr)/)).toEqual([])
   })
 
+  it('UI copy: user-visible text says „Start", never „Pulpit"', () => {
+    // Identyfikatory (`PulpitPage`, `PULPIT_SUBTITLE`, `'pulpit'`) nie pasują do słowa z granicami; komentarze
+    // (`//`, `*`, `{/*`, także w środku linii) odpadają, bo przed słowem nie może być `//` ani `/*`.
+    const pattern = /^(?!\s*(?:\/\/|\*|\/\*|\{\/\*))(?:(?!\/\/|\/\*).)*\bPulp(?:it[a-z]*|icie)\b/
+    expect(offenders(pattern, (file) => file.startsWith('app/api/'))).toEqual([])
+  })
+
   it('card-hover lifts only where hover exists (a tap must not leave a card stuck raised)', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     const rule = css.match(/\.card-hover:hover\s*\{/)
@@ -191,7 +198,7 @@ describe('design tokens', () => {
 
   it('pulses, entry transitions and card press only exist under prefers-reduced-motion: no-preference', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
-    for (const rule of ['animation: livePulse', '@starting-style', '.card-press:has([data-card-open]:active)']) {
+    for (const rule of ['animation: livePulse', 'animation: star-pop', '@starting-style', '.card-press:has([data-card-open]:active)']) {
       const index = css.indexOf(rule)
       expect(index, rule).toBeGreaterThan(-1)
       const before = css.slice(0, index)
@@ -226,5 +233,166 @@ describe('design tokens', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
     expect(css).toContain('-webkit-tap-highlight-color: transparent')
     expect(css).toMatch(/\.press:active\s*\{/)
+  })
+})
+
+/** Treść bloku `{ … }` zaczynającego się od `header` (z dopasowaniem nawiasów); `''` gdy brak. */
+function blockOf(css: string, header: string): string {
+  const start = css.indexOf(header)
+  if (start === -1) return ''
+  const open = css.indexOf('{', start)
+  let depth = 0
+  for (let i = open; i < css.length; i++) {
+    if (css[i] === '{') depth++
+    else if (css[i] === '}' && --depth === 0) return css.slice(open + 1, i)
+  }
+  return ''
+}
+
+/** Deklaracje `--token: wartość` ze WSZYSTKICH bloków `selector { … }` zaczynających się w kolumnie 0 (motyw jasny = `:root`, ciemny = `.dark`). */
+function themeTokens(css: string, selector: string): Record<string, string> {
+  const tokens: Record<string, string> = {}
+  for (const match of css.matchAll(new RegExp(`(?:^|\\n)${selector.replace('.', '\\.')} \\{`, 'g'))) {
+    // Przy kilku blokach `:root` czytamy ten, który zaczyna się w `match.index`.
+    const body = blockOf(css.slice(match.index), match[0].trimStart())
+    for (const decl of body.matchAll(/(--[\w-]+):\s*([^;]+);/g)) tokens[decl[1]] = decl[2].trim()
+  }
+  return tokens
+}
+
+type Rgba = [number, number, number, number]
+
+function parseColor(value: string): Rgba {
+  const hex = value.match(/^#([0-9a-f]{6})$/i)
+  if (hex) return [0, 2, 4].map((i) => parseInt(hex[1].slice(i, i + 2), 16)).concat(1) as Rgba
+  const rgba = value.match(/^rgba?\(([^)]+)\)$/)
+  if (!rgba) throw new Error(`unsupported colour: ${value}`)
+  const [r, g, b, a = 1] = rgba[1].split(',').map(Number)
+  return [r, g, b, a]
+}
+
+/** Alfa nałożona na nieprzezroczyste tło (jak robi to przeglądarka i axe). */
+function over(top: Rgba, bottom: Rgba): Rgba {
+  const [r, g, b, a] = top
+  return [0, 1, 2].map((i) => Math.round([r, g, b][i] * a + bottom[i] * (1 - a))).concat(1) as Rgba
+}
+
+function luminance([r, g, b]: Rgba): number {
+  const lin = (c: number): number => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+function contrast(a: Rgba, b: Rgba): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+describe('F0 foundation: primary colour, shared classes, motion', () => {
+  const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
+  const themes = { light: themeTokens(css, ':root'), dark: themeTokens(css, '.dark') }
+  const PRIMARY = ['--primary', '--primary-fg', '--primary-soft', '--primary-text']
+
+  function colours(theme: 'light' | 'dark') {
+    const t = themes[theme]
+    const base = parseColor(t['--bg-base'])
+    return {
+      base,
+      sheet: parseColor(t['--sheet-surface']),
+      primary: parseColor(t['--primary']),
+      fg: parseColor(t['--primary-fg']),
+      text: parseColor(t['--primary-text']),
+      soft: over(parseColor(t['--primary-soft']), base),
+    }
+  }
+
+  it('primary tokens exist in both themes (--primary, --primary-fg, --primary-soft, --primary-text)', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      for (const token of PRIMARY) expect(themes[theme][token], `${theme} ${token}`).toBeDefined()
+    }
+    expect(themes.light['--nav-active-bg']).toBe('var(--primary-soft)')
+    expect(themes.dark['--nav-active-bg']).toBe('var(--primary-soft)')
+    expect(themes.light['--nav-active-text']).toBe('var(--primary-text)')
+    expect(themes.dark['--nav-active-text']).toBe('var(--primary-text)')
+    // Logo i ikony nadal rysują się gradientem akcentu.
+    expect(themes.light['--accent-gradient']).toBeDefined()
+    expect(themes.light['--accent-solid']).toBeDefined()
+  })
+
+  it('primary-fg on primary is >= 4.5:1 in light and dark', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      const c = colours(theme)
+      expect(contrast(c.fg, c.primary), theme).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('primary-text on --bg-base, --sheet-surface and --primary-soft is >= 4.5:1 in both themes', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      const c = colours(theme)
+      expect(contrast(c.text, c.base), `${theme} on bg-base`).toBeGreaterThanOrEqual(4.5)
+      expect(contrast(c.text, c.sheet), `${theme} on sheet-surface`).toBeGreaterThanOrEqual(4.5)
+      expect(contrast(c.text, c.soft), `${theme} on primary-soft`).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('primary fill against --bg-base is >= 3:1 in both themes (active outline/non-text)', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      const c = colours(theme)
+      expect(contrast(c.primary, c.base), theme).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('card radius 16px, page gutter 16px (12px at 320px), 44px control floor are tokens', () => {
+    expect(css).toMatch(/@theme inline \{[^}]*--radius-card:\s*1rem;/)
+    expect(themes.light['--page-gutter']).toBe('1rem')
+    expect(css).toMatch(/@media \(max-width: 21rem\)\s*\{\s*:root\s*\{[^}]*--page-gutter:\s*0\.75rem;/)
+    expect(themes.light['--control-min']).toBe('2.75rem')
+    const theme = blockOf(css, '@theme inline')
+    for (const name of ['primary', 'primary-fg', 'primary-soft', 'primary-text']) {
+      expect(theme, name).toContain(`--color-${name}: var(--${name});`)
+    }
+  })
+
+  it('shared classes exist: segment, chip-filter, btn-primary, control-44, page-title, time-dominant, star-pop', () => {
+    expect(css).toContain('Wspólne klasy interakcji (F0)')
+    for (const utility of ['page-title', 'time-dominant', 'control-44']) expect(css, utility).toContain(`@utility ${utility} {`)
+    for (const rule of ['.segment', '.segment-item', '.chip-filter', '.btn-primary', '.star-pop']) {
+      expect(css, rule).toMatch(new RegExp(`${rule.replace('.', '\\.')}[\\s,:{\\[]`))
+    }
+    // 24/30 i 24/28 — wspólne wymiary tytułu strony i dominującego czasu.
+    expect(blockOf(css, '@utility page-title')).toMatch(/font-size:\s*1\.5rem[\s\S]*line-height:\s*1\.875rem[\s\S]*font-weight:\s*800/)
+    expect(blockOf(css, '@utility time-dominant')).toMatch(/font-size:\s*1\.5rem[\s\S]*line-height:\s*1\.75rem[\s\S]*tabular-nums/)
+    for (const rule of ['.segment-item', '.chip-filter', '.btn-primary']) {
+      expect(blockOf(css, `${rule} {`), rule).toContain('min-height: var(--control-min)')
+      expect(css, `${rule} focus`).toContain(`${rule}:focus-visible`)
+    }
+  })
+
+  it('active segment/chip keep a visible outline under forced-colors', () => {
+    const forced = blockOf(css, '@media (forced-colors: active) {')
+    expect(forced).toMatch(/\.segment-item[\s\S]*outline:\s*2px solid (Highlight|ButtonText)/)
+    expect(forced).toMatch(/\.chip-filter[\s\S]*outline:\s*2px solid (Highlight|ButtonText)/)
+  })
+
+  it('live-dot runs once (no infinite animation) and only under no-preference', () => {
+    const rule = css.match(/\.live-dot \{\s*animation:\s*([^;]+);/)?.[1] ?? ''
+    expect(rule).toMatch(/^livePulse 2\.2s ease-out 1$/)
+    expect(rule).not.toContain('infinite')
+    const before = css.slice(0, css.indexOf('animation: livePulse'))
+    expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(prefers-reduced-motion: no-preference\)/)
+  })
+
+  it('star-pop scales glyph 1 -> 1.12 -> 1 in --duration-base, only under no-preference', () => {
+    const frames = blockOf(css, '@keyframes star-pop')
+    expect([...frames.matchAll(/scale\(([\d.]+)\)/g)].map((m) => m[1])).toEqual(['1', '1.12', '1'])
+    const rule = css.match(/\.star-pop\[data-pop\] \{\s*animation:\s*([^;]+);/)?.[1] ?? ''
+    expect(rule).toBe('star-pop var(--duration-base) var(--ease-spring)')
+    const before = css.slice(0, css.indexOf('animation: star-pop'))
+    expect(before.slice(before.lastIndexOf('@media'))).toMatch(/^@media \(prefers-reduced-motion: no-preference\)/)
+  })
+
+  it('nav-pill replaces the nav-halo glow: soft primary pastille behind the active icon', () => {
+    expect(css).not.toContain('nav-halo')
+    expect(css).toMatch(/\[data-active\] > \.nav-pill \{\s*background(-color)?:\s*var\(--primary-soft\)/)
+    expect(readFileSync(join(SRC, 'components/BottomNav.tsx'), 'utf8')).toContain('nav-pill')
   })
 })

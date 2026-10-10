@@ -17,12 +17,12 @@ i [dokumentacji technicznej](#część-ii--dokumentacja-techniczna).
 Monitor opóźnień odpowiada na pytanie „czy i kiedy dojadę”. Łączy oficjalne dane
 o ruchu pociągów PKP Polskich Linii Kolejowych z rozkładami i pozycjami pojazdów
 komunikacji miejskiej oraz uzupełnia je o kontekst: utrudnienia, pogodę na stacji
-i położenie na mapie. Nie wymaga zakładania konta — przypięte do Pulpitu stacje zapamiętuje
+i położenie na mapie. Nie wymaga zakładania konta — przypięte do Startu stacje zapamiętuje
 przeglądarka.
 
 ## Główne możliwości
 
-### Pulpit
+### Start
 
 Strona startowa zbiera przypięte stacje. Każda karta pokazuje najbliższe odjazdy
 (godzina, przewoźnik, relacja, status) oraz liczbę opóźnionych pociągów. Obok
@@ -161,7 +161,7 @@ Decyzje architektoniczne są opisane w katalogu [`adr/`](adr/).
 ```
 src/
 ├── app/
-│   ├── (app)/            strony: Pulpit, station, connection, city, lines, map
+│   ├── (app)/            strony: Start, station, connection, city, lines, map
 │   └── api/              endpointy: board, train, stations, search, weather,
 │                         network-stats, rail-stations, cities, health, gtfs/*
 ├── components/           komponenty UI (mapa transportu w components/map/)

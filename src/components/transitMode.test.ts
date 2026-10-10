@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { LINE_PALETTE, lineColor } from './transitMode'
+import { OtherModeIcon, TrainIcon, BusIcon, TramIcon, MetroIcon } from './icons'
+import { LINE_PALETTE, MODE_ICON, lineColor } from './transitMode'
 
 /** Kontrast WCAG 2.x dwóch `#rrggbb`. */
 function luminance(hex: string): number {
@@ -45,6 +46,14 @@ describe('LINE_PALETTE — jeden kolor na kategorię linii', () => {
 
   it.each(Object.entries(LINE_PALETTE))('tekst na plakietce %s ma kontrast ≥ 4,5:1', (_category, { bg, fg }) => {
     expect(contrast(bg, fg)).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
+describe('MODE_ICON', () => {
+  it('maps each mode to its own icon and other never falls back to bus', () => {
+    expect(MODE_ICON).toEqual({ metro: MetroIcon, tram: TramIcon, bus: BusIcon, rail: TrainIcon, other: OtherModeIcon })
+    expect(new Set(Object.values(MODE_ICON)).size).toBe(Object.keys(MODE_ICON).length)
+    expect(MODE_ICON.other).not.toBe(MODE_ICON.bus)
   })
 })
 

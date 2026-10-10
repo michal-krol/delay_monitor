@@ -65,7 +65,7 @@ test('przystanek miejski: przypięty „Centrum 02" trafia na Pulpit z numerem',
   const stop02 = page.getByRole('tab', { name: /^Centrum 02/ })
   await stop02.click({ timeout: READY })
   await expect(stop02).toHaveAttribute('aria-selected', 'true')
-  await page.getByRole('button', { name: 'Przypnij do Pulpitu' }).click()
+  await page.getByRole('button', { name: 'Przypnij do Startu' }).click()
 
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Centrum 02', exact: true })).toBeVisible({ timeout: READY })

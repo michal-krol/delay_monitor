@@ -1,20 +1,19 @@
 'use client'
 
 import Link from 'next/link'
-import { AppLogo, ICON_SIZE, SearchIcon } from './icons'
-import { IconButton } from './IconButton'
+import { AppLogo } from './icons'
 import { ThemeToggle } from './ThemeToggle'
 import { useContextTitle } from './headerTitle'
 
 /**
- * Cienki nagłówek telefonu (poniżej `sm`): logo, wyszukiwarka, motyw. Nawigacja jest w dolnym
+ * Cienki nagłówek telefonu (poniżej `sm`): logo i motyw. Nawigacja i jedyna akcja „Szukaj" są w dolnym
  * pasku (`BottomNav`). Wysokość = `--header-h` (z uwzględnieniem wcięcia u góry ekranu).
  */
-export function MobileHeader({ onSearch }: { onSearch: () => void }) {
+export function MobileHeader() {
   const contextTitle = useContextTitle()
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between gap-2 glass-chrome border-b px-4 sm:hidden"
+      className="sticky top-0 z-30 flex items-center justify-between gap-2 glass-chrome border-b px-(--page-gutter) sm:hidden"
       style={{
         height: 'var(--header-h)',
         // Kotwica: pasek stoi w miejscu podczas przesunięcia treści (`globals.css`, „View transitions”).
@@ -38,9 +37,6 @@ export function MobileHeader({ onSearch }: { onSearch: () => void }) {
         </span>
       </Link>
       <div className="flex shrink-0 items-center gap-2">
-        <IconButton label="Szukaj" onClick={onSearch}>
-          <SearchIcon size={ICON_SIZE.button} />
-        </IconButton>
         <ThemeToggle />
       </div>
     </header>

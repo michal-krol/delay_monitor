@@ -6,7 +6,7 @@ const boardUrl = `/station/${STATION.id}?name=${encodeURIComponent(STATION.name)
 
 test('pulpit: pusty stan z przyciskiem „Dodaj"', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Pulpit' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Start' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Dodaj' })).toBeVisible()
 })
 

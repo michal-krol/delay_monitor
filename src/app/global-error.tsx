@@ -43,7 +43,7 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
                 href="/"
                 className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border px-4 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/5"
               >
-                Wróć do Pulpitu
+                Wróć do Startu
               </a>
             </div>
           </div>

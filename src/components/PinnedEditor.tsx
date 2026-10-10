@@ -57,7 +57,7 @@ export function PinnedEditor({ pinnedItems, onMove, onRemove }: Props) {
             </MoveButton>
             <button
               type="button"
-              aria-label={`Odepnij z Pulpitu: ${pinnedItem.name}`}
+              aria-label={`Odepnij ze Startu: ${pinnedItem.name}`}
               onClick={() => onRemove(key)}
               className={`${ICON_BUTTON_CLASS} ${ICON_BUTTON_MD_SIZE}`}
             >

@@ -18,7 +18,7 @@ describe('header title', () => {
   it('shows no context title until a board announces its name', () => {
     render(
       <HeaderTitleProvider>
-        <MobileHeader onSearch={() => {}} />
+        <MobileHeader />
       </HeaderTitleProvider>
     )
     expect(screen.queryByTestId('header-context-title')).not.toBeInTheDocument()
@@ -28,7 +28,7 @@ describe('header title', () => {
   it('renders the announced name next to the app name, hidden from assistive tech (the h1 owns the name)', () => {
     render(
       <HeaderTitleProvider>
-        <MobileHeader onSearch={() => {}} />
+        <MobileHeader />
         <Board name="Kraków Główny" />
       </HeaderTitleProvider>
     )
@@ -42,13 +42,13 @@ describe('header title', () => {
   it('clears the name when the board unmounts', () => {
     const view = render(
       <HeaderTitleProvider>
-        <MobileHeader onSearch={() => {}} />
+        <MobileHeader />
         <Board name="Kraków Główny" />
       </HeaderTitleProvider>
     )
     view.rerender(
       <HeaderTitleProvider>
-        <MobileHeader onSearch={() => {}} />
+        <MobileHeader />
       </HeaderTitleProvider>
     )
     expect(screen.queryByTestId('header-context-title')).not.toBeInTheDocument()
@@ -57,20 +57,20 @@ describe('header title', () => {
   it('follows a changing name and ignores null (embedded boards announce nothing)', () => {
     const view = render(
       <HeaderTitleProvider>
-        <MobileHeader onSearch={() => {}} />
+        <MobileHeader />
         <Board name="A" />
       </HeaderTitleProvider>
     )
     view.rerender(
       <HeaderTitleProvider>
-        <MobileHeader onSearch={() => {}} />
+        <MobileHeader />
         <Board name="B" />
       </HeaderTitleProvider>
     )
     expect(screen.getByTestId('header-context-title')).toHaveTextContent('B')
     view.rerender(
       <HeaderTitleProvider>
-        <MobileHeader onSearch={() => {}} />
+        <MobileHeader />
         <Board name={null} />
       </HeaderTitleProvider>
     )

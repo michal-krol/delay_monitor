@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { openSearch, SEARCH_DIALOG as DIALOG } from './helpers/search'
 
-// Globalne okno wyszukiwania (`SearchDialog`): przycisk „Szukaj" w nagłówku (telefon) albo w pasku
+// Globalne okno wyszukiwania (`SearchDialog`): przycisk „Szukaj" w dolnym pasku (telefon) albo w pasku
 // bocznym i skróty Ctrl/Cmd+K, „/" (desktop). Mock: stacja PKP „Warszawa Centralna" (33605)
 // i zespół GTFS „Centrum" (1001); `rail=all` zwraca obie grupy, „Centr" pasuje do obu.
 const READY = 45_000

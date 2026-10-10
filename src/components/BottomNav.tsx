@@ -4,15 +4,21 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { NAV_TAB_TYPES } from '@/lib/navTransition'
 import { ICON_SIZE } from './icons'
-import { activeItemFromPath, NAV_ITEMS } from './navItems'
+import { MOBILE_NAV_ITEMS, mobileActiveItemFromPath } from './navItems'
+
+// Wspólny wygląd linku i przycisku „Szukaj": aktywny stan niesie pastylka (`.nav-pill` przy `data-active`),
+// kolor i grubość napisu — grubszy napis to cue nie tylko kolorem.
+const TARGET_CLASS =
+  'press flex min-h-14 w-full flex-col items-center justify-center gap-0.5 text-xs font-medium text-text-secondary transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none focus-visible:ring-inset'
 
 /**
- * Dolny pasek zakładek na telefonie (poniżej `sm`; od `sm` jest pasek boczny).
- * Wysokość linku = `--bottom-nav-h` bez strefy bezpieczeństwa; ta dochodzi paddingiem,
+ * Dolny pasek telefonu (poniżej `sm`; od `sm` jest pasek boczny): Start, Mapa, Szukaj, Linie (ADR 0010).
+ * Start/Mapa/Linie to linki, „Szukaj" to przycisk otwierający wspólne okno wyszukiwania (`onSearch` z `AppChrome`).
+ * Wysokość celu = `--bottom-nav-h` bez strefy bezpieczeństwa; ta dochodzi paddingiem,
  * a treść strony rezerwuje całość w `(app)/layout.tsx`.
  */
-export function BottomNav() {
-  const activeItem = activeItemFromPath(usePathname())
+export function BottomNav({ onSearch }: { onSearch: () => void }) {
+  const activeItem = mobileActiveItemFromPath(usePathname())
 
   return (
     <nav
@@ -26,28 +32,34 @@ export function BottomNav() {
       }}
     >
       <ul className="grid grid-cols-4">
-        {NAV_ITEMS.map((item) => {
+        {MOBILE_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = item.key === activeItem
+          const common = {
+            'aria-current': isActive ? ('page' as const) : undefined,
+            'data-active': isActive || undefined,
+            className: TARGET_CLASS,
+            style: isActive ? { color: 'var(--nav-active-text)', fontWeight: 600 } : undefined,
+          }
+          const content = (
+            <>
+              <span className="nav-pill">
+                <Icon size={ICON_SIZE.tile} />
+              </span>
+              <span>{item.label}</span>
+            </>
+          )
           return (
             <li key={item.key}>
-              <Link
-                href={item.href}
-                transitionTypes={NAV_TAB_TYPES}
-                aria-current={isActive ? 'page' : undefined}
-                data-active={isActive || undefined}
-                className="press flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium text-text-secondary transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none focus-visible:ring-inset"
-                style={
-                  isActive
-                    ? { background: 'var(--nav-active-bg)', color: 'var(--nav-active-text)', fontWeight: 600 }
-                    : undefined
-                }
-              >
-                <span className="nav-halo">
-                  <Icon size={ICON_SIZE.tile} />
-                </span>
-                <span>{item.shortLabel}</span>
-              </Link>
+              {item.kind === 'action' ? (
+                <button type="button" onClick={onSearch} {...common}>
+                  {content}
+                </button>
+              ) : (
+                <Link href={item.href} transitionTypes={NAV_TAB_TYPES} {...common}>
+                  {content}
+                </Link>
+              )}
             </li>
           )
         })}

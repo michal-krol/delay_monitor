@@ -23,12 +23,12 @@ function cardHeadings(page: Page) {
 test('„Dodaj" przypina wybraną stację i potwierdza, zostając na Pulpicie', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Dodaj' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Przypnij do Pulpitu' })
+  const dialog = page.getByRole('dialog', { name: 'Przypnij do Startu' })
   await dialog.getByRole('combobox').fill('Centralna')
   // Rozkład miejski mocka parsuje się raz przy starcie — wyszukiwarka ponawia, dopóki nie jest gotowy.
   await dialog.getByRole('option', { name: /Warszawa Centralna/ }).first().click({ timeout: 45_000 })
 
-  await expect(page.getByRole('status').filter({ hasText: 'Przypięto do Pulpitu' })).toHaveText('Przypięto do Pulpitu: Warszawa Centralna')
+  await expect(page.getByRole('status').filter({ hasText: 'Przypięto do Startu' })).toHaveText('Przypięto do Startu: Warszawa Centralna')
   await expect(page).toHaveURL(/\/$/)
   await expect(cardHeadings(page)).toHaveText(['Warszawa Centralna'])
   expect(await page.evaluate(() => window.localStorage.getItem('monitor.favourites.v2'))).toContain('33605')
@@ -57,11 +57,11 @@ test('odpięcie w edycji: fokus na „Cofnij", które przywraca wpis na dawne mi
   await seed(page, PINNED)
   await page.goto('/')
   await page.getByRole('button', { name: 'Edytuj ulubione' }).click()
-  await page.getByRole('button', { name: 'Odepnij z Pulpitu: Warszawa Centralna' }).click()
+  await page.getByRole('button', { name: 'Odepnij ze Startu: Warszawa Centralna' }).click()
 
   const undo = page.getByRole('button', { name: 'Cofnij' })
   await expect(undo).toBeFocused()
-  await expect(page.getByRole('status').filter({ hasText: 'Odpięto' })).toHaveText('Odpięto z Pulpitu: Warszawa Centralna')
+  await expect(page.getByRole('status').filter({ hasText: 'Odpięto' })).toHaveText('Odpięto ze Startu: Warszawa Centralna')
   expect((await scanA11y(page)).violations).toEqual([])
 
   await page.keyboard.press('Enter')

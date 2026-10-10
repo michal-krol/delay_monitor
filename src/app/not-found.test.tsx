@@ -12,6 +12,6 @@ describe.each([
     render(<NotFound />)
     expect(screen.getByRole('heading', { level: 1, name: 'Nie znaleziono strony' })).toBeInTheDocument()
     expect(screen.getByText(/nie istnieje/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
   })
 })

@@ -38,7 +38,7 @@ export function MapLegend() {
           <li>Linie metra i kolei miejskiej — w kolorze linii (M1, M2 jak na plakietkach).</li>
           <li>Strzałka przy pojeździe — kierunek jazdy.</li>
           <li>Wyblakły pojazd — pozycja sprzed ponad 1,5 min.</li>
-          <li>Złota obwódka — przypięte do Pulpitu.</li>
+          <li>Złota obwódka — przypięte do Startu.</li>
           <li>Prawy klik lub przytrzymanie — co jest w pobliżu.</li>
         </ul>
       </div>

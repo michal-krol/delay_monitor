@@ -166,7 +166,7 @@ describe('Dashboard', () => {
 
     render(<Dashboard pinnedItems={PINNED_ITEMS} onRemove={vi.fn()} />)
 
-    expect(screen.queryByRole('button', { name: /Odepnij z Pulpitu/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Odepnij ze Startu/ })).not.toBeInTheDocument()
   })
 
   it('renders PKP and city cards in one shared pinned order, not grouped by kind', () => {
@@ -195,7 +195,7 @@ describe('Dashboard', () => {
     expect(onMove).toHaveBeenCalledWith('pkp:5136', -1)
     await user.click(screen.getByRole('button', { name: 'W dół: Warszawa Centralna' }))
     expect(onMove).toHaveBeenCalledWith('pkp:5100', 1)
-    await user.click(screen.getByRole('button', { name: 'Odepnij z Pulpitu: Kraków Główny' }))
+    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu: Kraków Główny' }))
     expect(onRemove).toHaveBeenCalledWith('pkp:5136')
   })
 

@@ -14,7 +14,7 @@ async function afterSize(el: Locator) {
 
 test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44; wygląd 36 px, na telefonie 44 (siatka kontrolek karty)', async ({ page }, testInfo) => {
   await page.goto('/station/33605?name=Warszawa%20Centralna')
-  const pin = page.getByRole('button', { name: 'Przypnij do Pulpitu' })
+  const pin = page.getByRole('button', { name: 'Przypnij do Startu' })
   await expect(pin).toBeVisible()
   const { w, h } = await afterSize(pin)
   expect(w).toBeGreaterThanOrEqual(44)
@@ -23,21 +23,14 @@ test('IconButton (przypnij na tablicy stacji) ma obszar trafienia >= 44×44; wyg
   expect(box?.width).toBe(testInfo.project.name === 'desktop-chromium' ? 36 : 44)
 })
 
-test('„Szukaj" w nagłówku (mobile) ma obszar trafienia >= 44×44', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name === 'desktop-chromium', 'nagłówek tylko poniżej sm')
-  await page.goto('/')
-  const { w, h } = await afterSize(page.getByRole('button', { name: 'Szukaj' }))
-  expect(w).toBeGreaterThanOrEqual(44)
-  expect(h).toBeGreaterThanOrEqual(44)
-})
-
-test('zakładki dolnego paska (mobile) mają pole >= 44×44', async ({ page }, testInfo) => {
+test('cele dolnego paska (mobile: Start, Mapa, Szukaj, Linie) mają pole >= 44×44', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === 'desktop-chromium', 'dolny pasek tylko poniżej sm')
   await page.goto('/')
-  const links = page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('link')
-  await expect(links).toHaveCount(4)
+  // Linki i przycisk „Szukaj" — pierwsze dziecko każdego <li> paska.
+  const targets = page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('listitem').locator('> *')
+  await expect(targets).toHaveCount(4)
   for (let i = 0; i < 4; i++) {
-    const box = await links.nth(i).boundingBox()
+    const box = await targets.nth(i).boundingBox()
     expect(box?.width).toBeGreaterThanOrEqual(44)
     expect(box?.height).toBeGreaterThanOrEqual(44)
   }
@@ -64,9 +57,9 @@ test('minuty w rozkładzie linii mają >= 24×24 px (WCAG 2.5.8)', async ({ page
   expect(box?.height).toBeGreaterThanOrEqual(24)
 })
 
-test('link „Wróć do Pulpitu” w TopBarze ma obszar trafienia >= 44×44', async ({ page }) => {
+test('link „Wróć do Startu” w TopBarze ma obszar trafienia >= 44×44', async ({ page }) => {
   await page.goto('/station/33605?name=Warszawa%20Centralna')
-  const { w, h } = await afterSize(page.getByRole('link', { name: 'Wróć do Pulpitu' }))
+  const { w, h } = await afterSize(page.getByRole('link', { name: 'Wróć do Startu' }))
   expect(w).toBeGreaterThanOrEqual(44)
   expect(h).toBeGreaterThanOrEqual(44)
 })

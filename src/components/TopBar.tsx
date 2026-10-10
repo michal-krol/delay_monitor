@@ -37,7 +37,7 @@ type HeaderVariant = {
  * `router.back()` wybrane przez wywołującego. Dokładnie jedno z dwóch.
  */
 type BackVariant = {
-  /** Nazwa dostępna przycisku ←, np. „Wróć do Pulpitu”. */
+  /** Nazwa dostępna przycisku ←, np. „Wróć do Startu”. */
   backLabel: string
   /** Ścieżka: rodzic(e) i bieżąca strona (ostatni element = `aria-current`). */
   crumbs: BreadcrumbItem[]

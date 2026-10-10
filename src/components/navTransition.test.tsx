@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 // Zastępnik `ViewTransition`: test sprawdza, JAKIE właściwości dostaje (nazwa, mapa typów), nie przeglądarkę.
@@ -20,12 +20,16 @@ vi.mock('next/link', async () => {
   }
 })
 vi.mock('next/navigation', () => ({ usePathname: () => '/', useRouter: () => ({ push: vi.fn(), back: vi.fn() }) }))
+const setTheme = vi.hoisted(() => vi.fn())
+const themeState = vi.hoisted(() => ({ resolvedTheme: 'light' }))
+vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: themeState.resolvedTheme, setTheme }) }))
 
 import { Breadcrumb } from './Breadcrumb'
 import { BottomNav } from './BottomNav'
 import { NavList } from './navItems'
 import { NavTransition } from './NavTransition'
 import { PlaceTitle } from './PlaceTitle'
+import { ThemeToggle } from './ThemeToggle'
 import { TopBar } from './TopBar'
 import { NAV_BACK, NAV_FORWARD, NAV_FORWARD_OPTIONS, NAV_TAB } from '@/lib/navTransition'
 
@@ -40,9 +44,9 @@ describe('navigation transition types', () => {
   })
 
   it('the back arrow and the parent breadcrumb slide back', () => {
-    render(<TopBar backLabel="Wróć do Pulpitu" backHref="/" crumbs={[{ label: 'Pulpit', href: '/' }, { label: 'Kraków Główny' }]} />)
-    expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('data-types', 'nav-back')
-    expect(screen.getByRole('link', { name: 'Pulpit' })).toHaveAttribute('data-types', 'nav-back')
+    render(<TopBar backLabel="Wróć do Startu" backHref="/" crumbs={[{ label: 'Start', href: '/' }, { label: 'Kraków Główny' }]} />)
+    expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('data-types', 'nav-back')
+    expect(screen.getByRole('link', { name: 'Start' })).toHaveAttribute('data-types', 'nav-back')
   })
 
   it('a breadcrumb alone marks parent links as back', () => {
@@ -51,14 +55,14 @@ describe('navigation transition types', () => {
   })
 
   it('bottom-nav tabs and sidebar items crossfade (nav-tab), they are not forward/back', () => {
-    render(<BottomNav />)
-    for (const link of within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getAllByRole('link')) {
-      expect(link).toHaveAttribute('data-types', 'nav-tab')
-    }
+    render(<BottomNav onSearch={() => {}} />)
+    const links = within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getAllByRole('link')
+    expect(links).toHaveLength(3) // „Szukaj" to przycisk-akcja, nie nawigacja
+    for (const link of links) expect(link).toHaveAttribute('data-types', 'nav-tab')
   })
 
   it('sidebar nav list links also carry nav-tab', () => {
-    render(<NavList activeItem="pulpit" />)
+    render(<NavList activeItem="start" />)
     for (const link of screen.getAllByRole('link')) expect(link).toHaveAttribute('data-types', 'nav-tab')
   })
 })
@@ -78,6 +82,47 @@ describe('NavTransition', () => {
     expect(screen.getByText('treść')).toBeInTheDocument()
   })
 
+  it('no transition type for browser back / router.back(): the untyped fallback is "none" and the ← button carries no types', () => {
+    const onBack = vi.fn()
+    render(
+      <NavTransition>
+        <TopBar backLabel="Wróć" onBack={onBack} crumbs={[{ label: 'Start', href: '/' }, { label: 'Połączenie' }]} />
+      </NavTransition>
+    )
+    const props = transitionProps()
+    // Przeglądarkowe „wstecz” nie niesie żadnego typu → `default`, a `default` to „none”.
+    expect(Object.keys(props.enter as object).sort()).toEqual(['default', 'nav-back', 'nav-forward', 'nav-tab'])
+    expect((props.enter as Record<string, string>).default).toBe('none')
+    expect((props.exit as Record<string, string>).default).toBe('none')
+    const back = screen.getByRole('button', { name: 'Wróć' })
+    expect(back).not.toHaveAttribute('data-types')
+    fireEvent.click(back)
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('theme change starts no transition: the toggle never calls startViewTransition and the boundary props stay put', () => {
+    const startViewTransition = vi.fn()
+    Object.defineProperty(document, 'startViewTransition', { configurable: true, value: startViewTransition })
+    try {
+      themeState.resolvedTheme = 'light'
+      const tree = () => (
+        <NavTransition>
+          <ThemeToggle />
+        </NavTransition>
+      )
+      const view = render(tree())
+      const before = transitionProps()
+      fireEvent.click(screen.getByRole('button', { name: 'Przełącz na tryb ciemny' }))
+      expect(setTheme).toHaveBeenCalledWith('dark')
+      themeState.resolvedTheme = 'dark'
+      view.rerender(tree())
+      expect(screen.getByRole('button', { name: 'Przełącz na tryb jasny' })).toBeInTheDocument()
+      expect(startViewTransition).not.toHaveBeenCalled()
+      expect(transitionProps()).toEqual(before)
+    } finally {
+      delete (document as { startViewTransition?: unknown }).startViewTransition
+    }
+  })
 })
 
 describe('PlaceTitle', () => {

@@ -5,13 +5,13 @@ import { PageTitle } from './PageTitle'
 
 describe('PageTitle', () => {
   it('renders an h1 by default', () => {
-    render(<PageTitle>Pulpit</PageTitle>)
-    expect(screen.getByRole('heading', { level: 1, name: 'Pulpit' })).toBeInTheDocument()
+    render(<PageTitle>Start</PageTitle>)
+    expect(screen.getByRole('heading', { level: 1, name: 'Start' })).toBeInTheDocument()
   })
 
   it('renders an h2 with the same look when as="h2"', () => {
     render(<PageTitle as="h2">Stacja</PageTitle>)
     const heading = screen.getByRole('heading', { level: 2, name: 'Stacja' })
-    expect(heading).toHaveClass('text-2xl', 'font-extrabold')
+    expect(heading).toHaveClass('page-title')
   })
 })

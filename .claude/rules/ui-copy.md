@@ -28,8 +28,8 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)
 
 - Render error: title „Nie udało się wczytać tej strony” (`global-error`: „…aplikacji”), actions
-  „Spróbuj ponownie” + „Wróć do Pulpitu”. Never print `error.message`/`digest` (#4).
-- 404: „Nie znaleziono strony” + „Wróć do Pulpitu”.
+  „Spróbuj ponownie” + „Wróć do Startu”. Never print `error.message`/`digest` (#4).
+- 404: „Nie znaleziono strony” + „Wróć do Startu”.
 
 ## Place words (`gtfs.md`)
 
@@ -47,10 +47,14 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 
 ## Action verbs
 
-- Pin: „Przypnij do Pulpitu” / „Odepnij z Pulpitu” (star icon, `ui-icons.md`).
-- Pulpit: „Dodaj” = pin through the search dialog (header „Szukaj” still opens the board); „Edytuj ulubione” ↔
-  „Gotowe”; „W górę: {name}” / „W dół: {name}”. Confirmations: „Przypięto do Pulpitu: {name}”, „{name} jest już na
-  Pulpicie”, „Odpięto z Pulpitu: {name}” + „Cofnij” (until „Gotowe”, no timer); a result that cannot be
+- The home screen is „Start” everywhere the user sees it (nav on phone and desktop, H1, breadcrumb, „Wróć do Startu”).
+  Never „Pulpit” in visible text (guard in `designTokens.test.ts`); code identifiers (`PulpitPage`) and `localStorage`
+  keys keep the old name. Decision 2026-10-10, `adr/0010`.
+- Pin: accessible name „Przypnij do Startu” / „Odepnij ze Startu” (star icon, `ui-icons.md`); when a button shows a
+  text label it is just „Przypnij” / „Odepnij”.
+- Start: „Dodaj” = pin through the search dialog; „Edytuj ulubione” ↔
+  „Gotowe”; „W górę: {name}” / „W dół: {name}”. Confirmations: „Przypięto do Startu: {name}”, „{name} jest już na
+  Starcie”, „Odpięto ze Startu: {name}” + „Cofnij” (until „Gotowe”, no timer); a result that cannot be
   pinned: „Nie udało się przypiąć: {name}” (the failed-action pattern above).
 - Navigation: „Wróć do {where}”, „Pokaż {what}”, „Zamknij {what}” (× buttons carry the object).
 - Refresh is the data-age button, not a „Odśwież” button. In installed (standalone) mode it adds the visible hint „· dotknij, by odświeżyć”.

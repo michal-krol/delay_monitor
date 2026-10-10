@@ -30,7 +30,7 @@ export default function CityPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setCity } = useCityContext()
-  const { isPinned, addPinned, removePinned } = usePinned()
+  const { isPinned, addPinned, removePinned, loaded: pinsLoaded } = usePinned()
   const { data: statsData } = useCityStats(city)
   const { state: citiesState, cities } = useCities()
 
@@ -126,6 +126,7 @@ export default function CityPage() {
               stationId={railId}
               stationName={railPinned.name}
               isPinned={isPinned(pinnedKey(railPinned))}
+              pinsLoaded={pinsLoaded}
               onTogglePin={() =>
                 isPinned(pinnedKey(railPinned))
                   ? removePinned(pinnedKey(railPinned))

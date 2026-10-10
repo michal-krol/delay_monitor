@@ -194,7 +194,7 @@ describe('MapCard — pinned items, nearby, disruptions', () => {
     const onTogglePin = vi.fn()
     const onNearby = vi.fn()
     render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} pinned={false} onTogglePin={onTogglePin} onNearby={onNearby} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Przypnij do Pulpitu' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Przypnij do Startu' }))
     expect(onTogglePin).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Co jest w pobliżu?' }))
     expect(onNearby).toHaveBeenCalled()
@@ -203,7 +203,7 @@ describe('MapCard — pinned items, nearby, disruptions', () => {
   it('shows the pressed star for a pinned item', () => {
     railStatus.mockReturnValue({ status: null, error: false })
     render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} pinned onTogglePin={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Odepnij z Pulpitu' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Odepnij ze Startu' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('flags a vehicle whose line has an active disruption', () => {

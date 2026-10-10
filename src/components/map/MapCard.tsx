@@ -3,7 +3,8 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertBanner } from '../AlertBanner'
-import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, StarIcon, ICON_SIZE } from '../icons'
+import { AlertCircleIcon, ArrowRightIcon, ChevronRightIcon, ICON_SIZE } from '../icons'
+import { PinStar } from '../PinStar'
 import { IconButton } from '../IconButton'
 import { DelayBadge } from '../DelayBadge'
 import { LineBadge } from '../LineBadge'
@@ -43,6 +44,7 @@ export function MapCard({
   following = false,
   onToggleFollow,
   pinned,
+  pinsLoaded = true,
   onTogglePin,
   onNearby,
   alertLines = [],
@@ -59,6 +61,8 @@ export function MapCard({
   onToggleFollow?: () => void
   /** Stacja/przystanek jest w przypiętych (Pulpit). `undefined` = brak przełącznika. */
   pinned?: boolean
+  /** Przypięcia wczytane (`usePinned().loaded`) — przed tym gwiazdka nie „puka” (`PinStar`). */
+  pinsLoaded?: boolean
   onTogglePin?: () => void
   /** „Co jest w pobliżu?" — dostępna z klawiatury alternatywa dla prawego kliku. */
   onNearby?: () => void
@@ -81,8 +85,8 @@ export function MapCard({
       actions={
         pinned !== undefined &&
         onTogglePin !== undefined && (
-          <IconButton label={pinned ? 'Odepnij z Pulpitu' : 'Przypnij do Pulpitu'} onClick={onTogglePin} pressed={pinned} size="lg">
-            <StarIcon size={ICON_SIZE.button} filled={pinned} />
+          <IconButton label={pinned ? 'Odepnij ze Startu' : 'Przypnij do Startu'} onClick={onTogglePin} pressed={pinned} size="lg">
+            <PinStar pinned={pinned} settled={pinsLoaded} size={ICON_SIZE.button} />
           </IconButton>
         )
       }

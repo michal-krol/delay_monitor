@@ -29,6 +29,26 @@ describe('useRowAnimation', () => {
     expect(autoAnimate.mock.calls[0]?.[1]).toBe(rowPlugin)
   })
 
+  it('no replay on a polling rerender with the same keys: one attach, no detach', async () => {
+    function Rows({ ids, tick }: { ids: string[]; tick: number }) {
+      const ref = useRowAnimation<HTMLUListElement>()
+      return (
+        <ul ref={ref} data-tick={tick}>
+          {ids.map((id) => (
+            <li key={id}>{id}</li>
+          ))}
+        </ul>
+      )
+    }
+    const view = render(<Rows ids={['a', 'b']} tick={1} />)
+    await waitFor(() => expect(autoAnimate).toHaveBeenCalledTimes(1))
+    view.rerender(<Rows ids={['a', 'b']} tick={2} />)
+    view.rerender(<Rows ids={['a', 'b']} tick={3} />)
+    await flush()
+    expect(autoAnimate).toHaveBeenCalledTimes(1)
+    expect(disable).not.toHaveBeenCalled()
+  })
+
   it('does nothing under reduced motion', async () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
     render(<List />)

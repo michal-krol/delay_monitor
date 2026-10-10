@@ -44,7 +44,7 @@ function SkeletonCards() {
 function PulpitSkeleton() {
   return (
     <PageShell aside={<NetworkStatsCard />}>
-      <TopBar title="Pulpit" subtitle={PULPIT_SUBTITLE} />
+      <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
       <SkeletonCards />
     </PageShell>
   )
@@ -88,10 +88,10 @@ function PulpitPage() {
     if (pinnedItem === null) {
       setNotice({ text: `Nie udało się przypiąć: ${option.name}` })
     } else if (isPinned(pinnedKey(pinnedItem))) {
-      setNotice({ text: `${pinnedItem.name} jest już na Pulpicie` })
+      setNotice({ text: `${pinnedItem.name} jest już na Starcie` })
     } else {
       addPinned(pinnedItem)
-      setNotice({ text: `Przypięto do Pulpitu: ${pinnedItem.name}` })
+      setNotice({ text: `Przypięto do Startu: ${pinnedItem.name}` })
     }
   }
 
@@ -99,7 +99,7 @@ function PulpitPage() {
     const index = pinnedItems.findIndex((pinnedItem) => pinnedKey(pinnedItem) === key)
     if (index === -1) return
     removePinned(key)
-    setNotice({ text: `Odpięto z Pulpitu: ${pinnedItems[index].name}`, undo: { pinnedItem: pinnedItems[index], index } })
+    setNotice({ text: `Odpięto ze Startu: ${pinnedItems[index].name}`, undo: { pinnedItem: pinnedItems[index], index } })
   }
 
   function undo(): void {
@@ -141,7 +141,7 @@ function PulpitPage() {
   if (!loaded) {
     return (
       <PageShell aside={<NetworkStatsCard />}>
-        <TopBar title="Pulpit" subtitle={PULPIT_SUBTITLE} />
+        <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
         <SkeletonCards />
       </PageShell>
     )
@@ -168,7 +168,7 @@ function PulpitPage() {
 
   return (
     <PageShell aside={<NetworkStatsCard />}>
-      <TopBar title="Pulpit" subtitle={PULPIT_SUBTITLE} />
+      <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
       <RecentPlaces limit={4} />
 
       {/* Zawsze w DOM: region `status` ogłasza zmianę treści, nie swoje pojawienie się. */}

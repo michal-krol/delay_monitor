@@ -27,9 +27,9 @@ describe('(app)/error.tsx', () => {
     expect(retry).toHaveBeenCalledTimes(1)
   })
 
-  it('"Wróć do Pulpitu" is a link to /', () => {
+  it('"Wróć do Startu" is a link to /', () => {
     render(<AppError error={new Error('x')} retry={() => {}} />)
-    expect(screen.getByRole('link', { name: 'Wróć do Pulpitu' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
   })
 
   it('logs the error for diagnostics (console only, not UI)', () => {

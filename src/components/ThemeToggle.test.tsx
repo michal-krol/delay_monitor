@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { renderToString } from 'react-dom/server'
 import { hydrateRoot } from 'react-dom/client'
-import { act } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -12,6 +12,20 @@ vi.mock('next-themes', () => ({
 
 afterEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('ThemeToggle accessible name', () => {
+  it.each([
+    ['dark', 'Przełącz na tryb jasny', 'light'],
+    ['light', 'Przełącz na tryb ciemny', 'dark'],
+  ])('when the theme is %s the name is the TARGET action and a click sets that theme', (resolvedTheme, name, target) => {
+    const setTheme = vi.fn()
+    useThemeMock.mockReset()
+    useThemeMock.mockReturnValue({ resolvedTheme, setTheme })
+    render(<ThemeToggle />)
+    fireEvent.click(screen.getByRole('button', { name }))
+    expect(setTheme).toHaveBeenCalledWith(target)
+  })
 })
 
 describe('ThemeToggle hydration', () => {

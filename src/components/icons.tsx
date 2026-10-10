@@ -6,7 +6,7 @@
  * Własne rysunki zostają tylko trzy: `MetroIcon` („M” w kole), `AppLogo`, logotypy przewoźników.
  *
  * Słownik — jedno pojęcie = jedna ikona:
- * - Pulpit `HomeIcon` · Odjazdy/Przyjazdy (nawigacja) `DeparturesBoardIcon` · Linie `RouteIcon` · Mapa `MapIcon`
+ * - Start `HomeIcon` · Mapa `MapIcon` · Szukaj `SearchIcon` · Linie `RouteIcon` · Odjazdy/Przyjazdy (nawigacja desktopowa) `DeparturesBoardIcon`
  * - widok listy (np. „Lista” na mapie, liczba połączeń) `ListIcon` · menu „Więcej” (akcje schowane na telefonie) `MoreIcon`
  * - odjazd `DepartureIcon` · przyjazd `ArrivalIcon` · data `CalendarIcon`
  * - kierunek jazdy („skąd → dokąd”) `ArrowRightIcon` · otwórz/dalej `ChevronRightIcon` · wstecz `ArrowLeftIcon`
@@ -14,7 +14,8 @@
  * - rozwiń/zwiń `DisclosureIcon` (otwarte = obrót 180°, klasa `disclosure-chevron`)
  * - kolej (tryb, stacja) `TrainIcon` · pozycja pojazdu `VehiclePositionIcon` · kierunek jazdy pojazdu `VehicleHeadingIcon`
  * - utrudnienie `AlertCircleIcon` · objaśnienie „?” `HelpCircleIcon` · informacja `InfoIcon`
- * - przypięte `StarIcon filled` (sama nosi `PIN_COLOR`) · szukaj `SearchIcon` · filtry `FilterIcon`
+ * - przypięte `StarIcon filled` (sama nosi `PIN_COLOR`; przełączniki przez `PinStar`) · filtry `FilterIcon`
+ * - lokalizacja użytkownika `LocateIcon` · celność (kafelek statystyk) `TargetIcon` — dwa różne pojęcia
  * - motyw jasny i pogoda „słonecznie” dzielą `SunIcon` (różne ekrany, świadomie)
  */
 import { createElement as createReactElement } from 'react'
@@ -53,6 +54,7 @@ import {
   List,
   ListClock,
   ListFilter,
+  Locate,
   Map as MapGlyph,
   Maximize,
   Moon,
@@ -158,7 +160,7 @@ export const CloseIcon = /* @__PURE__ */ lucideIcon(X)
 export const ExpandIcon = /* @__PURE__ */ lucideIcon(Maximize)
 /** Wstecz. */
 export const ArrowLeftIcon = /* @__PURE__ */ lucideIcon(ArrowLeft)
-/** Kolejność listy („W górę” / „W dół” w edycji Pulpitu) — nie kierunek jazdy. */
+/** Kolejność listy („W górę” / „W dół” w edycji Startu) — nie kierunek jazdy. */
 export const ArrowUpIcon = /* @__PURE__ */ lucideIcon(ArrowUp)
 export const ArrowDownIcon = /* @__PURE__ */ lucideIcon(ArrowDown)
 export const CalendarIcon = /* @__PURE__ */ lucideIcon(Calendar)
@@ -200,8 +202,10 @@ export const LayersIcon = /* @__PURE__ */ lucideIcon(Layers)
 export const CityIcon = /* @__PURE__ */ lucideIcon(Building)
 /** Średnie opóźnienie (klepsydra). */
 export const HourglassIcon = /* @__PURE__ */ lucideIcon(Hourglass)
-/** Punktualność (tarcza) — „wybrane” to `CheckIcon`. */
+/** Celność / punktualność (tarcza) — „wybrane” to `CheckIcon`, „gdzie jestem” to `LocateIcon`. */
 export const TargetIcon = /* @__PURE__ */ lucideIcon(Target)
+/** Lokalizacja użytkownika („Pokaż moją pozycję”) — nie celność (to `TargetIcon`). */
+export const LocateIcon = /* @__PURE__ */ lucideIcon(Locate)
 /** Czas podróży (stoper) — trasa to `RouteIcon`. */
 export const TimerIcon = /* @__PURE__ */ lucideIcon(Timer)
 /** Filtry warstw mapy. */

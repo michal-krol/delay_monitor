@@ -30,7 +30,7 @@ export default function Page() {
   }
 
   const searchParams = useSearchParams()
-  const { isPinned, addPinned, removePinned } = usePinned()
+  const { isPinned, addPinned, removePinned, loaded: pinsLoaded } = usePinned()
   const stationName = searchParams.get('name') ?? stationId
 
   const pinnedItem: PinnedItem = { kind: 'pkp', id: stationId, name: stationName }
@@ -38,15 +38,16 @@ export default function Page() {
 
   return (
     <PageShell>
-      {/* Jedyna droga tutaj to wyszukiwarka na Pulpicie (`goToBoard`) i stary
-          `?focus=` (też z Pulpitu) — rodzic jednoznaczny, w przeciwieństwie
+      {/* Jedyna droga tutaj to wyszukiwarka na Starcie (`goToBoard`) i stary
+          `?focus=` (też ze Startu) — rodzic jednoznaczny, w przeciwieństwie
           do `/connection/...`, więc ← to link. */}
-      <TopBar backLabel="Wróć do Pulpitu" backHref="/" crumbs={[{ label: 'Pulpit', href: '/' }, { label: stationName }]} share hideOnPhone />
+      <TopBar backLabel="Wróć do Startu" backHref="/" crumbs={[{ label: 'Start', href: '/' }, { label: stationName }]} share hideOnPhone />
       <FullBoard
         stationId={stationId}
         stationName={stationName}
-        phoneBack={{ href: '/', label: 'Wróć do Pulpitu' }}
+        phoneBack={{ href: '/', label: 'Wróć do Startu' }}
         isPinned={isPinned(key)}
+        pinsLoaded={pinsLoaded}
         onTogglePin={() => (isPinned(key) ? removePinned(key) : addPinned(pinnedItem))}
       />
     </PageShell>

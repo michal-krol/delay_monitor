@@ -37,7 +37,7 @@ for (const { name, path, pinnedItems } of PAGES) {
 }
 
 const DETAIL_PAGES = [
-  { name: 'stacja', path: '/station/33605?name=Warszawa%20Centralna%20z%20bardzo%20d%C5%82ug%C4%85%20nazw%C4%85%20testow%C4%85', back: 'Wróć do Pulpitu' },
+  { name: 'stacja', path: '/station/33605?name=Warszawa%20Centralna%20z%20bardzo%20d%C5%82ug%C4%85%20nazw%C4%85%20testow%C4%85', back: 'Wróć do Startu' },
   { name: 'przystanek', path: '/city/warszawa/stop/100101', back: 'Wróć do odjazdów' },
   { name: 'linia', path: '/city/warszawa/line/20', back: 'Wróć do linii' },
   { name: 'połączenie', path: `/connection/2026/104/${warsawToday()}`, back: 'Wróć do tablicy' },

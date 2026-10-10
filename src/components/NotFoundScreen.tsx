@@ -8,7 +8,7 @@ export function NotFoundScreen() {
       title="Nie znaleziono strony"
       actions={
         <Link href="/" className={STATUS_ACTION_CLASS}>
-          Wróć do Pulpitu
+          Wróć do Startu
         </Link>
       }
     >

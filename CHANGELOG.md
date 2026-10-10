@@ -9,7 +9,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 ### Dodane
 
 - Własne ekrany błędu i „Nie znaleziono strony”: po nieudanym wczytaniu strony są przyciski
-  „Spróbuj ponownie” i „Wróć do Pulpitu”, a nawigacja aplikacji zostaje na miejscu. Treści
+  „Spróbuj ponownie” i „Wróć do Startu”, a nawigacja aplikacji zostaje na miejscu. Treści
   błędu nie widać — pokazujemy tylko polski komunikat.
 - Szkielet zamiast pustego ekranu na stronach Linie, Mapa i Linia oraz przy wyborze miasta na
   `/city`, `/lines` i `/map` (wcześniej przez kilka sekund widać było sam napis „Wybieram miasto…”).
@@ -25,8 +25,23 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   dalej otwiera tablicę.
 - Pulpit: „Edytuj ulubione” — kolejność zmienia się przyciskami „W górę” i „W dół” (działają
   z klawiatury), a odpięcie można cofnąć przyciskiem „Cofnij” do zamknięcia edycji („Gotowe”).
+- Wspólny fundament wyglądu: kolor główny (nasycony niebieski) w obu motywach z policzonym kontrastem,
+  wspólne klasy aktywnego segmentu, chipa filtra i głównego przycisku, zaokrąglenie kart 16 px, margines
+  strony 16 px (12 px przy 320 px) oraz tytuł strony 24/30 px.
+- Gwiazdka przypięcia robi jedno krótkie „puknięcie” w chwili przypięcia (nie przy wczytaniu strony ani
+  odświeżeniu danych); przy ograniczonym ruchu nie animuje się wcale.
 
 ### Zmienione
+
+- Dolny pasek telefonu ma cztery cele: Start, Mapa, Szukaj, Linie. „Odjazdy” zostają w menu bocznym
+  komputera. „Szukaj” jest jedną akcją (pasek, menu boczne, Ctrl/Cmd+K, „/”); nagłówek telefonu nie ma
+  już drugiego przycisku wyszukiwania. Stacja, połączenie i przystanek podświetlają Start, linia — Linie.
+- „Pulpit” nazywa się teraz „Start” (menu, nagłówek strony, ścieżka, „Wróć do Startu”, „Przypnij do
+  Startu” / „Odepnij ze Startu”, potwierdzenia, skrót w ikonie aplikacji).
+- Aktywna zakładka dolnego paska to niebieska pastylka pod ikoną zamiast cyjanowej poświaty.
+- Kropka „dane są świeże” pulsuje jeden raz po pojawieniu się, a potem stoi nieruchomo.
+- Ikona „lokalizacja” (`LocateIcon`) jest osobna od ikony „celność” (`TargetIcon`); słownik ikon opisuje
+  nawigację telefonu i komputera.
 
 - Pulpit: stacje kolejowe i przystanki miejskie stoją w jednej, wybranej przez Ciebie kolejności
   (wcześniej najpierw wszystkie stacje, potem przystanki). Karty nie mają już gwiazdki — odpina

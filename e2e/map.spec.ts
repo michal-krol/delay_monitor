@@ -478,7 +478,7 @@ test('mapa transportu: gwiazdka w karcie przypina do Pulpitu, co widać potem w 
   await openMap(page)
   await page.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' }).fill('Centralna')
   await page.getByRole('option', { name: 'Warszawa Centralna' }).click()
-  await page.getByRole('dialog', { name: 'Warszawa Centralna' }).getByRole('button', { name: 'Przypnij do Pulpitu' }).click()
+  await page.getByRole('dialog', { name: 'Warszawa Centralna' }).getByRole('button', { name: 'Przypnij do Startu' }).click()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Przypięte' }).click()
   await expect(page.getByRole('list', { name: 'Przypięte' }).getByRole('button', { name: 'Warszawa Centralna' })).toBeVisible()
