@@ -28,7 +28,7 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
   swapped wholesale.
 - **Page transitions:** `NavTransition` (in `PageShell`), `PlaceTitle`, `TabCrossfade`; constants and
   `placeTransitionName()` in `src/lib/navTransition.ts`. Direction is chosen by OUR code: deeper =
-  `NAV_FORWARD_OPTIONS` (`router.push`), parent = `NAV_BACK_TYPES` (`<Link>`), bottom nav/sidebar =
+  `NAV_FORWARD_OPTIONS` (`router.push`) / `NAV_FORWARD_TYPES` (`<Link>`, Pulpit cards), parent = `NAV_BACK_TYPES` (`<Link>`), bottom nav/sidebar =
   `NAV_TAB_TYPES`. `router.back()`/browser back carry no type and do not slide.
 - **Glass:** `glass-chrome` / `glass-chrome-strong` only on floating chrome (header, bottom nav, sidebar, map
   controls and menus, offline pill; sheet panels are 94 % `--sheet-surface` with NO blur — invisible at that opacity and

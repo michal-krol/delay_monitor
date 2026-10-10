@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { BoardRowList } from './BoardRowList'
+import { formatClockTime } from '@/lib/format'
 import type { BoardApiRow } from '@/hooks/useBoard'
 
 const ROW: BoardApiRow = {
@@ -42,12 +43,59 @@ describe('BoardRowList', () => {
 
   it('counts down to the next departure on the Pulpit card', () => {
     renderRows([ROW])
-    expect(screen.getByText(/za 8 min/)).toBeInTheDocument()
+    expect(screen.getByText('za 8 min')).toBeInTheDocument()
   })
 
-  it('loading: skeleton rows instead of a text line, still announced as „Wczytywanie…” to screen readers', () => {
+  it('names a forecast as „Prognoza” next to the countdown (timeNote, as on the board)', () => {
+    renderRows([{ ...ROW, predictedAt: '2026-10-01T12:05:00+02:00' }])
+    expect(screen.getByText('Prognoza · za 13 min')).toBeInTheDocument()
+    expect(screen.getByText(formatClockTime('2026-10-01T12:05:00+02:00'))).toBeInTheDocument()
+  })
+
+  it('a cancelled train never counts down', () => {
+    renderRows([{ ...ROW, status: 'cancelled' }])
+    expect(screen.queryByText(/za \d+ min/)).toBeNull()
+    expect(screen.getByText('odwołany')).toBeInTheDocument()
+  })
+
+  it('an unconfirmed run is never „punktualnie” (#2): the status comes from the row, not from actualAt', () => {
+    // PKP kopiuje plan do `actualAt` przed odjazdem — bez `delayMinutes` to nie fakt.
+    renderRows([{ ...ROW, actualAt: ROW.plannedAt }])
+    expect(screen.queryByText(/punktualnie/i)).toBeNull()
+    expect(screen.getByText('jeszcze nie wyjechał')).toBeInTheDocument()
+  })
+
+  it('shows direction, train and platform; „nie podano” when the source has no platform', () => {
+    renderRows([ROW, { ...ROW, orderId: '110', trainNumber: '110', trainLabel: 'IC 110', platform: null }])
+    expect(screen.getAllByText('Kraków Główny')).toHaveLength(2)
+    expect(screen.getByText(/IC 109 · peron 3/)).toBeInTheDocument()
+    expect(screen.getByText(/IC 110 · peron: nie podano/)).toBeInTheDocument()
+  })
+
+  it('shows the short carrier code with its logo, never the full legal name; a generic label when the code is empty', () => {
+    renderRows([{ ...ROW, carrierName: '„PKP Intercity” Spółka Akcyjna' }, { ...ROW, orderId: '110', trainNumber: '110', carrier: '' }])
+    expect(screen.getByText(/IC · IC 109/)).toBeInTheDocument()
+    expect(screen.getByText(/Nieznany przewoźnik · IC 109/)).toBeInTheDocument()
+    expect(screen.queryByText(/Spółka Akcyjna/)).toBeNull()
+    // Logo dekoracyjne (kod stoi obok jako tekst) — pusty alt.
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(document.querySelector('img[src="/carriers/pkp-ic.svg"]')).toHaveAttribute('alt', '')
+  })
+
+  it('each row links to its connection', () => {
+    renderRows([ROW])
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/connection/2026/109/2026-10-01?train=IC%20109')
+  })
+
+  it('a row without an operating date is not a link (/api/train would reject it)', () => {
+    renderRows([{ ...ROW, operatingDate: '' }])
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.getByText('Kraków Główny')).toBeInTheDocument()
+  })
+
+  it('loading: two skeleton rows instead of a text line, still announced as „Wczytywanie…” to screen readers', () => {
     render(<BoardRowList rows={[]} now={NOW} loading showEmpty={false} emptyMessage="" />)
-    expect(screen.getAllByTestId('skeleton-row')).toHaveLength(3)
+    expect(screen.getAllByTestId('skeleton-row')).toHaveLength(2)
     expect(screen.getByText('Wczytywanie…')).toHaveClass('sr-only')
   })
 

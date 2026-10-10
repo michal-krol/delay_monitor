@@ -78,7 +78,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
           snapshot={snapshotWith(payload)}
           error={false}
           configError={false}
-          onExpand={vi.fn()}
+         
         />
       )
 
@@ -242,7 +242,7 @@ describe('dane z API nigdy nie są traktowane jak HTML', () => {
         snapshot={null}
         error={false}
         configError={false}
-        onExpand={vi.fn()}
+       
       />
     )
 

@@ -63,7 +63,7 @@ async function stationReady(page: Page): Promise<void> {
 test.describe('view transitions (motion allowed)', () => {
   test('Pulpit card → station starts a nav-forward transition and morphs the title', async ({ page }) => {
     await page.goto('/')
-    const card = page.getByRole('button', { name: /Pokaż pełną tablicę/ })
+    const card = page.getByRole('article').getByRole('heading', { name: 'Warszawa Centralna' }).getByRole('link')
     await expect(card).toBeVisible({ timeout: READY })
     await page.waitForTimeout(500)
     await card.click()
@@ -99,7 +99,7 @@ test.describe('reduced motion', () => {
 
   test('navigation and tab switch start no view transition at all', async ({ page }) => {
     await page.goto('/')
-    const card = page.getByRole('button', { name: /Pokaż pełną tablicę/ })
+    const card = page.getByRole('article').getByRole('heading', { name: 'Warszawa Centralna' }).getByRole('link')
     await expect(card).toBeVisible({ timeout: READY })
     await page.waitForTimeout(500)
     await card.click()

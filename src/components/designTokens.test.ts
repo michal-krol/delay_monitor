@@ -50,10 +50,10 @@ describe('design tokens', () => {
     expect(offenders(/borderColor: 'var\(--surface-border\)'/)).toEqual([])
   })
 
-  it('inline <svg> only in icons.tsx, except charts and the card background art (PR 7b)', () => {
+  it('inline <svg> only in icons.tsx, except charts (PR 7b; the station-card art left in PR2 Pulpit-karty)', () => {
     // Wykresy (DelayForecast: wykres + dwie próbki linii w legendzie; NetworkStatsCard: sparkline + pierścień)
-    // i dekoracyjne tło karty stacji to nie ikony.
-    const allowed: Record<string, number> = { 'components/DelayForecast.tsx': 3, 'components/NetworkStatsCard.tsx': 2, 'components/StationCard.tsx': 1 }
+    // to nie ikony.
+    const allowed: Record<string, number> = { 'components/DelayForecast.tsx': 3, 'components/NetworkStatsCard.tsx': 2 }
     const counts: Record<string, number> = {}
     for (const hit of offenders(/<svg\b/, (file) => file === 'components/icons.tsx')) {
       const file = hit.split(':')[0].replaceAll('\\', '/')
@@ -191,7 +191,7 @@ describe('design tokens', () => {
 
   it('pulses, entry transitions and card press only exist under prefers-reduced-motion: no-preference', () => {
     const css = readFileSync(join(SRC, 'app/globals.css'), 'utf8')
-    for (const rule of ['animation: livePulse', '@starting-style', '.card-press:has(> [data-card-open]:active)']) {
+    for (const rule of ['animation: livePulse', '@starting-style', '.card-press:has([data-card-open]:active)']) {
       const index = css.indexOf(rule)
       expect(index, rule).toBeGreaterThan(-1)
       const before = css.slice(0, index)

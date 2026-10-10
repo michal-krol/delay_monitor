@@ -36,3 +36,11 @@ export function timeNote(row: RealizationFields & Pick<BoardApiRow, 'plannedAt' 
   const parts = [realizedTime(row)?.kind === 'forecast' ? 'Prognoza' : null, rowCountdown(row, now)].filter((part) => part !== null)
   return parts.length > 0 ? parts.join(' · ') : null
 }
+
+/**
+ * Wiersz „minął”: plan w przeszłości, chyba że pociąg jeszcze nie wyjechał (`enRoute`/`notStarted` — spóźniony,
+ * wciąż go czekamy, patrz `rowAnchorMs` w transform.ts). Tablica go przygasza, karta Pulpitu pomija.
+ */
+export function isPastRow(row: Pick<BoardApiRow, 'plannedAt' | 'status'>, now: number): boolean {
+  return new Date(row.plannedAt).getTime() < now && row.status !== 'enRoute' && row.status !== 'notStarted'
+}

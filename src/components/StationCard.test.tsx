@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
 import { StationCard } from './StationCard'
 import { formatClockTime } from '@/lib/format'
-import type { BoardApiSnapshot } from '@/hooks/useBoard'
+import type { BoardApiRow, BoardApiSnapshot } from '@/hooks/useBoard'
 
 function makeSnapshot(overrides: Partial<BoardApiSnapshot> = {}): BoardApiSnapshot {
   return {
@@ -18,210 +17,122 @@ function makeSnapshot(overrides: Partial<BoardApiSnapshot> = {}): BoardApiSnapsh
   }
 }
 
+function departure(overrides: Partial<BoardApiRow> = {}): BoardApiRow {
+  return {
+    scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1',
+    carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków',
+    plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0,
+    status: 'onTime', platform: '1', estimatedDelayMinutes: null,
+    ...overrides,
+  }
+}
+
+function renderCard(snapshot: BoardApiSnapshot | null, props: { error?: boolean; configError?: boolean; stationName?: string } = {}) {
+  return render(
+    <StationCard stationId="5100" stationName={props.stationName ?? 'Warszawa Centralna'} snapshot={snapshot} error={props.error ?? false} configError={props.configError ?? false} />
+  )
+}
+
 describe('StationCard', () => {
-  it('shows the station name and up to 3 departures with delay text (not color-only)', () => {
-    const snapshot = makeSnapshot({
-      departures: [
-        { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1', estimatedDelayMinutes: null },
-      ],
-    })
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
-
-    expect(screen.getByText('Warszawa Centralna')).toBeInTheDocument()
+  it('shows the station name and the delay as text next to its departure (not color-only)', () => {
+    renderCard(makeSnapshot({ departures: [departure({ delayMinutes: 5, status: 'delayed' })] }))
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
     expect(screen.getByText('+5 min')).toBeInTheDocument()
   })
 
-  it('shows only the short carrier code (not the full legal name) next to the logo, on any viewport', () => {
-    const snapshot = makeSnapshot({
-      departures: [
-        { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: '„PKP Intercity” Spółka Akcyjna', category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1', estimatedDelayMinutes: null },
-      ],
-    })
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
-
-    expect(screen.getByText('IC')).toBeInTheDocument()
-    // Kafelek na dashboardzie ma pokazywać wyłącznie skrót — pełna nazwa
-    // prawna była mało przejrzysta w tak wąskim miejscu (zgłoszone przez usera).
-    expect(screen.queryByText('„PKP Intercity” Spółka Akcyjna')).not.toBeInTheDocument()
-
-    // Logo jest dekoracyjne: kod przewoźnika stoi obok jako tekst, więc
-    // opisowy alt kazałby czytnikowi ekranu przeczytać ją dwa razy. Pusty alt
-    // wyklucza obraz z drzewa dostępności, więc getByRole('img', ...) go nie
-    // znajdzie — document.querySelector jest tu jedyną opcją.
-    // eslint-disable-next-line testing-library/no-node-access
-    const logo = document.querySelector('img[src="/carriers/pkp-ic.svg"]')
-    expect(logo).not.toBeNull()
-    expect(logo).toHaveAttribute('alt', '')
+  it('the heading is a real link to the station board — no full-card overlay button', () => {
+    renderCard(null)
+    const heading = screen.getByRole('heading', { name: 'Warszawa Centralna' })
+    expect(within(heading).getByRole('link')).toHaveAttribute('href', '/station/5100?name=Warszawa%20Centralna')
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('falls back to a generic label when the carrier code is empty', () => {
-    const snapshot = makeSnapshot({
-      departures: [
-        { scheduleId: '26-1', orderId: '26-1', operatingDate: '2026-08-01', trainNumber: '26-1', trainLabel: '26-1', carrier: '', carrierName: null, category: '', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null, estimatedDelayMinutes: null },
-      ],
-    })
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
-
-    expect(screen.getByText('Nieznany przewoźnik')).toBeInTheDocument()
+  it('shows at most the 2 nearest upcoming departures', () => {
+    const rows = [1, 2, 3].map((n) => departure({ orderId: String(n), trainNumber: String(n), trainLabel: `EIC ${n}`, plannedAt: new Date(Date.now() + n * 10 * 60000).toISOString() }))
+    renderCard(makeSnapshot({ departures: rows }))
+    const list = screen.getByRole('list')
+    expect(list).toHaveTextContent('EIC 1')
+    expect(list).toHaveTextContent('EIC 2')
+    expect(list).not.toHaveTextContent('EIC 3')
   })
 
-  it('shows the departure time for each of the 3 nearest departures', () => {
+  it('shows the planned departure time large', () => {
     const plannedAt = new Date(Date.now() + 15 * 60000).toISOString()
-    const expectedTime = formatClockTime(plannedAt)
-    const snapshot = makeSnapshot({
-      departures: [
-        { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt, actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1', estimatedDelayMinutes: null },
-      ],
-    })
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
-
-    expect(screen.getByText(expectedTime)).toBeInTheDocument()
+    renderCard(makeSnapshot({ departures: [departure({ plannedAt })] }))
+    expect(screen.getByText(formatClockTime(plannedAt))).toBeInTheDocument()
   })
 
-  it('shows the platform/track on the tile', () => {
-    const snapshot = makeSnapshot({
-      departures: [
-        { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '4/2', estimatedDelayMinutes: null },
-      ],
-    })
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
-
-    expect(screen.getByText('Peron/Tor: 4/2')).toBeInTheDocument()
+  it('each departure links to its connection', () => {
+    renderCard(makeSnapshot({ departures: [departure()] }))
+    expect(within(screen.getByRole('list')).getByRole('link')).toHaveAttribute('href', '/connection/1/1/2026-08-01?train=EIC%201')
   })
 
-  it('shows a dash for the platform/track on the tile when unknown', () => {
-    const snapshot = makeSnapshot({
-      departures: [
-        { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: null, estimatedDelayMinutes: null },
-      ],
-    })
+  it('no glow and no decorative art: the card is a calm surface', () => {
+    const { container } = renderCard(makeSnapshot({ departures: [departure({ delayMinutes: 5, status: 'delayed' })] }))
+    // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
+    const article = container.querySelector('article')
+    expect(article).not.toHaveClass('glow-ring')
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(article?.querySelector(':scope > [aria-hidden="true"]')).toBeNull()
+  })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
-
-    expect(screen.getByText('Peron/Tor: —')).toBeInTheDocument()
+  it('no per-card „N opóźnionych” counter: status lives next to the departure it describes', () => {
+    renderCard(makeSnapshot({ departures: [departure({ delayMinutes: 5, status: 'delayed' })] }))
+    expect(screen.queryByText(/opóźnion/)).toBeNull()
   })
 
   it('excludes departures that already passed, keeping only upcoming ones (past ones stay in FullBoard only)', () => {
-    const past = { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'PAST1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() - 2 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
-    const future = { scheduleId: '2', orderId: '2', operatingDate: '2026-08-01', trainNumber: '2', trainLabel: 'FUTURE2', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 10 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
-    const snapshot = makeSnapshot({ departures: [past, future] })
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
-
+    const past = departure({ trainLabel: 'PAST1', plannedAt: new Date(Date.now() - 2 * 60000).toISOString() })
+    const future = departure({ orderId: '2', trainNumber: '2', trainLabel: 'FUTURE2', plannedAt: new Date(Date.now() + 10 * 60000).toISOString() })
+    renderCard(makeSnapshot({ departures: [past, future] }))
     const list = screen.getByRole('list')
     expect(list).toHaveTextContent('FUTURE2')
     expect(list).not.toHaveTextContent('PAST1')
   })
 
-  it('shows fewer than 3 upcoming departures rather than backfilling with a past one', () => {
-    const past = { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'PAST1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() - 2 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime' as const, platform: '1', estimatedDelayMinutes: null }
-    const snapshot = makeSnapshot({ departures: [past] })
+  it('keeps a late train that has not left yet (plan passed, notStarted/enRoute) — same rule as the board', () => {
+    const late = departure({ trainLabel: 'LATE1', status: 'notStarted', delayMinutes: null, plannedAt: new Date(Date.now() - 3 * 60000).toISOString() })
+    const gone = departure({ orderId: '2', trainNumber: '2', trainLabel: 'GONE2', plannedAt: new Date(Date.now() - 2 * 60000).toISOString() })
+    renderCard(makeSnapshot({ departures: [late, gone] }))
+    const list = screen.getByRole('list')
+    expect(list).toHaveTextContent('LATE1')
+    expect(list).not.toHaveTextContent('GONE2')
+  })
 
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
-
-    expect(screen.queryByText('PAST1')).not.toBeInTheDocument()
+  it('shows the empty message rather than backfilling with a past departure', () => {
+    renderCard(makeSnapshot({ departures: [departure({ trainLabel: 'PAST1', plannedAt: new Date(Date.now() - 2 * 60000).toISOString() })] }))
+    expect(screen.queryByText(/PAST1/)).not.toBeInTheDocument()
     expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
   })
 
-  it('inflects the delayed counter for Polish grammar', () => {
-    const departure = (status: 'delayed' | 'onTime') => ({
-      scheduleId: '1', orderId: '1', operatingDate: '2026-08-01',
-      trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków',
-      plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 5, status, platform: null,
-      estimatedDelayMinutes: null,
-    })
-
-    const cases: Array<[number, string]> = [
-      [1, '1 opóźniony'],
-      [2, '2 opóźnione'],
-      [5, '5 opóźnionych'],
-    ]
-
-    for (const [count, expected] of cases) {
-      const snapshot = makeSnapshot({ departures: Array.from({ length: count }, () => departure('delayed')) })
-      const { unmount } = render(
-        <StationCard stationId="5100" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />
-      )
-      expect(screen.getByText(expected)).toBeInTheDocument()
-      unmount()
-    }
-  })
-
-  it('keeps the station name as a heading rather than swallowing it into the button', () => {
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={vi.fn()} />)
-
-    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pokaż pełną tablicę: Warszawa Centralna' })).toBeInTheDocument()
-  })
-
-  it('calls onExpand with the station id and name when clicked', async () => {
-    const onExpand = vi.fn()
-    const user = userEvent.setup()
-
-    render(<StationCard stationId="5100" stationName="Warszawa Centralna" snapshot={null} error={false} configError={false} onExpand={onExpand} />)
-    await user.click(screen.getByRole('button', { name: 'Pokaż pełną tablicę: Warszawa Centralna' }))
-
-    expect(onExpand).toHaveBeenCalledWith({ id: '5100', name: 'Warszawa Centralna' })
-  })
-
-
-  it('shows a loading message when there is no snapshot yet', () => {
-    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={false} onExpand={vi.fn()} />)
+  it('shows a loading state when there is no snapshot yet', () => {
+    renderCard(null, { stationName: 'X' })
     expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
   })
 
   it('shows the empty-station message instead of an error when there are no departures', () => {
-    const snapshot = makeSnapshot({ stationName: 'X', departures: [] })
-    render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />)
+    renderCard(makeSnapshot({ stationName: 'X', departures: [] }), { stationName: 'X' })
     expect(screen.getByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
   })
 
-  it('snapshot + refresh error shows data age', () => {
+  it('snapshot + refresh error shows data age and keeps the rows', () => {
     const fetchedAt = new Date(Date.now() - 3 * 60000).toISOString()
-    const snapshot = makeSnapshot({
-      fetchedAt,
-      departures: [
-        { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: 'PKP Intercity', category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 0, status: 'onTime', platform: '1', estimatedDelayMinutes: null },
-      ],
-    })
-    render(<StationCard stationId="5100" stationName="X" snapshot={snapshot} error={true} configError={false} onExpand={vi.fn()} />)
-
+    renderCard(makeSnapshot({ fetchedAt, departures: [departure()] }), { error: true, stationName: 'X' })
     // Ostatni dobry snapshot zostaje na ekranie — błąd odświeżenia nie
     // zastępuje danych czerwonym komunikatem, tylko wiekiem danych (#7).
     expect(screen.queryByText('Nie udało się pobrać danych')).not.toBeInTheDocument()
     expect(screen.getByText(`Nie udało się odświeżyć · dane z ${formatClockTime(fetchedAt)}`)).toBeInTheDocument()
-    expect(screen.getByText('IC')).toBeInTheDocument()
+    expect(screen.getByText('Kraków')).toBeInTheDocument()
   })
 
   it('error without snapshot shows error', () => {
-    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={true} configError={false} onExpand={vi.fn()} />)
-
+    renderCard(null, { error: true, stationName: 'X' })
     expect(screen.getByText('Nie udało się pobrać danych')).toBeInTheDocument()
   })
 
   it('renders a config error banner instead of the card when configError is true', () => {
-    render(<StationCard stationId="5100" stationName="X" snapshot={null} error={false} configError={true} onExpand={vi.fn()} />)
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    renderCard(null, { configError: true, stationName: 'X' })
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
-  })
-
-  it('oznacza kartę statusem najbliższego odjazdu przez data-status, do kolorowania obwódki', () => {
-    const snapshot = makeSnapshot({
-      departures: [
-        { scheduleId: '1', orderId: '1', operatingDate: '2026-08-01', trainNumber: '1', trainLabel: 'EIC 1', carrier: 'IC', carrierName: null, category: 'EIC', categoryName: null, headsign: 'Kraków', plannedAt: new Date(Date.now() + 5 * 60000).toISOString(), actualAt: null, delayMinutes: 5, status: 'delayed', platform: '1', estimatedDelayMinutes: null },
-      ],
-    })
-
-    const { container } = render(
-      <StationCard stationId="1" stationName="X" snapshot={snapshot} error={false} configError={false} onExpand={vi.fn()} />
-    )
-
-    // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container
-    expect(container.querySelector('article')).toHaveAttribute('data-status', 'delayed')
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expectedAt, realizedTime, timeNote } from './boardTime'
+import { expectedAt, isPastRow, realizedTime, timeNote } from './boardTime'
 
 const PLANNED = '2026-10-02T14:00:00+02:00'
 
@@ -65,5 +65,19 @@ describe('timeNote — podpis pod godziną („Prognoza · za 7 min”)', () => 
     expect(timeNote({ ...base, plannedAt: '2026-10-02T23:58:00+02:00', predictedAt: '2026-10-03T00:02:00+02:00' }, lateNow)).toBe(
       'Prognoza · za 7 min'
     )
+  })
+})
+
+describe('isPastRow', () => {
+  const NOW = Date.parse('2026-10-01T12:10:00+02:00')
+  const PLAN = '2026-10-01T12:00:00+02:00'
+  it('a passed plan is past for confirmed or cancelled rows', () => {
+    for (const status of ['onTime', 'delayed', 'cancelled', 'unknown'] as const) expect(isPastRow({ plannedAt: PLAN, status }, NOW)).toBe(true)
+  })
+  it('a train that has not left yet is never past (still awaited)', () => {
+    for (const status of ['enRoute', 'notStarted'] as const) expect(isPastRow({ plannedAt: PLAN, status }, NOW)).toBe(false)
+  })
+  it('a future plan is not past', () => {
+    expect(isPastRow({ plannedAt: '2026-10-01T12:20:00+02:00', status: 'onTime' }, NOW)).toBe(false)
   })
 })

@@ -6,12 +6,10 @@ import { StationCard } from './StationCard'
 import { TransitStopCard } from './TransitStopCard'
 import { BoardStatus } from './BoardStatus'
 import { PinnedEditor } from './PinnedEditor'
-import type { StationOption } from './StationSearch'
 import { pinnedKey, type PinnedItem } from '@/hooks/usePinned'
 
 type Props = {
   pinnedItems: PinnedItem[]
-  onExpand: (station: StationOption) => void
   /** Odpięcie z trybu edycji (karty nie mają już gwiazdki). */
   onRemove: (key: string) => void
   /** Tryb „Edytuj ulubione": lista z ↑/↓ i odpinaniem zamiast kart. */
@@ -23,7 +21,7 @@ type Props = {
   onNormalize?: (oldKey: string, next: PinnedItem) => void
 }
 
-export function Dashboard({ pinnedItems, onExpand, onRemove, onNormalize, editing = false, onMove, actions }: Props) {
+export function Dashboard({ pinnedItems, onRemove, onNormalize, editing = false, onMove, actions }: Props) {
   // Pulpit jest ponad miastami: stacja PKP i przystanek miejski (dowolnego
   // miasta) wiszą obok siebie na jednej siatce, w jednej kolejności użytkownika.
   // Stacje idą przez wspólny `useBoard` (jedno zapytanie), przystanki miejskie
@@ -68,7 +66,6 @@ export function Dashboard({ pinnedItems, onExpand, onRemove, onNormalize, editin
                 snapshot={snapshotsById.get(pinnedItem.id) ?? null}
                 error={error !== null}
                 configError={data?.status === 'configError'}
-                onExpand={onExpand}
               />
             ) : (
               <TransitStopCard

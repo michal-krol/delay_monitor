@@ -557,12 +557,12 @@ details[open] > summary .disclosure-chevron,
   }
 }
 
-/* Karta Pulpitu ugina się, gdy wciśnięta jest jej przezroczysta nakładka (`data-card-open`). */
+/* Karta Pulpitu ugina się, gdy wciśnięty jest link jej nagłówka (`data-card-open`). */
 @media (prefers-reduced-motion: no-preference) {
   .card-press {
     transition-property: transform, box-shadow;
   }
-  .card-press:has(> [data-card-open]:active) {
+  .card-press:has([data-card-open]:active) {
     transform: scale(0.985);
   }
 }

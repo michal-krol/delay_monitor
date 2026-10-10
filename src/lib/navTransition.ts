@@ -11,6 +11,7 @@ export const NAV_TAB = 'nav-tab'
 /** Drugi argument `router.push` dla nawigacji „w głąb”. */
 export const NAV_FORWARD_OPTIONS = { transitionTypes: Object.freeze([NAV_FORWARD]) as string[] }
 /** Stałe tablice dla `<Link transitionTypes>` — bez nowej tablicy przy każdym renderze. */
+export const NAV_FORWARD_TYPES = NAV_FORWARD_OPTIONS.transitionTypes
 export const NAV_BACK_TYPES = Object.freeze([NAV_BACK]) as string[]
 export const NAV_TAB_TYPES = Object.freeze([NAV_TAB]) as string[]
 
