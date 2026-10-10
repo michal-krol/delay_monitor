@@ -47,8 +47,8 @@ export function ContextAlerts({ alerts, state, scopeLabel, stale = false, onShow
           Wczytywanie komunikatów…
         </p>
       )}
-      {failedWithoutData && <p className="text-sm text-text-secondary">Nie udało się wczytać komunikatów</p>}
-      {staleWarning && <p className="text-sm font-medium text-warning-text">Nie udało się odświeżyć. Pokazujemy ostatnie dane</p>}
+      {failedWithoutData && <p role="status" className="text-sm text-text-secondary">Nie udało się wczytać komunikatów</p>}
+      {staleWarning && <p role="status" className="text-sm font-medium text-warning-text">Nie udało się odświeżyć. Pokazujemy ostatnie dane</p>}
       {list !== null && !loading && !failedWithoutData && list.length === 0 && <p className="text-sm text-text-secondary">{EMPTY}</p>}
       {list !== null && !loading && !failedWithoutData && list.length > 0 && (
         <ul className="flex min-w-0 flex-col gap-2">
@@ -65,10 +65,10 @@ function AlertCard({ alert, onShowMap }: { alert: AlertRecord; onShowMap?: (aler
   const preview = firstParagraph(alert.body)
   const link = safeAlertLink(alert.link)
   return (
-    <li className="min-w-0 rounded-lg border border-surface-border bg-surface text-sm has-[details[open]]:border-primary has-[details[open]]:bg-primary-soft">
+    <li className="min-w-0 rounded-lg border border-surface-border bg-surface text-sm has-[details[open]]:border-primary has-[details[open]]:bg-[color-mix(in_srgb,var(--primary-soft),var(--surface))]">
       <details className="group">
-        <summary className="flex min-h-11 w-full cursor-pointer list-none items-start gap-2 p-3 [&::-webkit-details-marker]:hidden">
-          <span className="min-w-0 flex-1">
+        <summary className="flex min-h-11 w-full cursor-pointer list-none flex-wrap items-start gap-x-2 gap-y-1 p-3 [&::-webkit-details-marker]:hidden">
+          <span className="min-w-[10rem] flex-1">
             {alert.routes.length > 0 && (
               <span className="mb-1 flex flex-wrap gap-1">
                 {[...new Set(alert.routes)].map((route) => (
@@ -95,7 +95,7 @@ function AlertCard({ alert, onShowMap }: { alert: AlertRecord; onShowMap?: (aler
             <AlertSourceLink
               href={link}
               label="Źródło komunikatu"
-              className="mx-3 mb-2 inline-flex min-h-11 items-center pl-6 text-sm font-medium text-primary-text underline"
+              className="mx-3 mb-2 inline-flex min-h-11 items-center text-sm font-medium text-primary-text underline"
             />
           )}
         </div>
