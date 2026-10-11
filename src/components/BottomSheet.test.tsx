@@ -157,8 +157,11 @@ describe('BottomSheet CSS', () => {
     expect(css).toMatch(/\.bottom-sheet:not\(\[data-snap='full'\]\) \[data-sheet-scroll\]\s*\{\s*overflow-y: hidden/)
   })
 
-  // e2e „dotyk: przeciągnięcie za treść karty…”: `overscroll-contain` treści urywał łańcuch do arkusza.
+  // e2e „dotyk: przeciągnięcie za treść karty…”: `overscroll-contain` treści (`PanelFrame`) urywał łańcuch do arkusza.
+  // Deklaracja liczy się bez komentarzy, żeby wzmianka w komentarzu nie udawała reguły.
   it('lets a drag on the locked panel body chain to the sheet', () => {
-    expect(css).toMatch(/\.bottom-sheet:not\(\[data-snap='full'\]\) \[data-sheet-scroll\]\s*\{[^}]*overscroll-behavior: auto/)
+    const rule = css.match(/\.bottom-sheet:not\(\[data-snap='full'\]\) \[data-sheet-scroll\]\s*\{([^}]*)\}/)
+    expect(rule, 'rule for the locked panel body is missing').not.toBeNull()
+    expect(rule![1].replace(/\/\*[\s\S]*?\*\//g, '')).toMatch(/overscroll-behavior:\s*auto\s*;/)
   })
 })
