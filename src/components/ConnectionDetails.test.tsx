@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { ConnectionDetails } from './ConnectionDetails'
@@ -148,14 +148,16 @@ describe('ConnectionDetails', () => {
     // Strzałka „skąd → dokąd” w nagłówku niesie znaczenie — czytnik słyszy „Gdańsk Główny do …”.
     expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
     // Odjazd i przyjazd mają własne ikony ze słownika, nie zegar (to pojęcie „godzina”).
-    // eslint-disable-next-line testing-library/no-node-access -- ikona MetaItem jest dekoracyjna (aria-hidden), bez roli
-    const metaIcon = (label: string) => glyph(screen.getByText(label).parentElement?.previousElementSibling?.querySelector('svg'))
+    // Etykieta „Odjazd” jest też w kolumnie godziny wiersza (<span>) — pasek meta to <div>.
+    const metaIcon = (label: string) =>
+      // eslint-disable-next-line testing-library/no-node-access -- ikona MetaItem jest dekoracyjna (aria-hidden), bez roli
+      glyph(screen.getByText(label, { selector: 'div' }).parentElement?.previousElementSibling?.querySelector('svg'))
     expect(metaIcon('Odjazd')).toBe(iconGlyph(DepartureIcon))
     expect(metaIcon('Przyjazd (plan)')).toBe(iconGlyph(ArrivalIcon))
     expect(screen.getByText('+7 min')).toBeInTheDocument()
     // Peron i tor jako dwie osobne wartości, nie sklejone „3/1" -- jedna
     // bywa znana bez drugiej (makieta §10).
-    expect(screen.getByText(/peron 3 · tor 1/)).toBeInTheDocument()
+    expect(screen.getByText('Peron 3 · tor 1')).toBeInTheDocument()
   })
 
   it('shows the last data at once, without the loading skeleton, when the same connection is opened again', async () => {
@@ -456,7 +458,7 @@ describe('ConnectionDetails', () => {
     expect(screen.queryByText(new RegExp(actualTime))).not.toBeInTheDocument()
   })
 
-  it('shows a predicted arrival time in italics, with a caveat tooltip, when PKP projects one for an unconfirmed stop', async () => {
+  it('shows a predicted arrival time labelled "Przew." (not as a fact) when PKP projects one for an unconfirmed stop', async () => {
     const response = {
       ...RESPONSE,
       stops: [
@@ -474,12 +476,14 @@ describe('ConnectionDetails', () => {
     await waitForRoute()
 
     const predictedTime = formatClockTime('2026-08-01T22:01:30.000Z')
-    const predictedLabel = routeList().getByText(predictedTime)
-    expect(predictedLabel).toHaveClass('italic')
-    expect(predictedLabel).toHaveAttribute('title', expect.stringContaining('Przewidywana godzina'))
+    expect(routeList().getByText(predictedTime)).not.toHaveClass('italic')
+    expect(routeList().getByText('Przew.')).toHaveAttribute('title', 'Przewidywana')
+    // Plan zostaje jako mała linia pod prognozą.
+    expect(routeList().getByText(new RegExp(`Plan ${formatClockTime('2026-08-01T21:29:30.000Z')}`))).toBeInTheDocument()
+    expect(routeList().queryByText('Faktycznie')).not.toBeInTheDocument()
   })
 
-  it('shows a predicted departure time in italics, with a caveat tooltip, when PKP projects one for an unconfirmed stop', async () => {
+  it('shows a predicted departure time labelled "Przew." (not as a fact) when PKP projects one for an unconfirmed stop', async () => {
     const response = {
       ...RESPONSE,
       stops: [
@@ -499,13 +503,14 @@ describe('ConnectionDetails', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
     await waitForRoute()
 
-    const predictedTime = formatClockTime('2026-08-01T09:20:00.000Z')
-    const predictedLabel = routeList().getByText(predictedTime)
-    expect(predictedLabel).toHaveClass('italic')
-    expect(predictedLabel).toHaveAttribute('title', expect.stringContaining('Przewidywana godzina'))
+    const first = within(routeList().getAllByRole('listitem')[0])
+    expect(first.getByText(formatClockTime('2026-08-01T09:20:00.000Z'))).toBeInTheDocument()
+    expect(first.getByText('Przew.')).toHaveAttribute('title', 'Przewidywana')
+    expect(first.getByText(new RegExp(`Plan ${formatClockTime('2026-08-01T09:00:00.000Z')}`))).toBeInTheDocument()
+    expect(first.queryByText('Faktycznie')).not.toBeInTheDocument()
   })
 
-  it('shows no predicted-time addendum when the API omits the field, only the plain planned/actual time', async () => {
+  it('shows no forecast label when the API omits the prediction field, only the plain planned/actual time', async () => {
     // RESPONSE fixture nie ma w ogóle pola predictedArrival/predictedDeparture
     // (brakujący klucz, nie null) -- nie może wywalić renderu ani pokazać "Invalid Date".
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
@@ -513,8 +518,11 @@ describe('ConnectionDetails', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
     await waitForRoute()
 
-    expect(screen.queryByTitle(/Przewidywana godzina/)).not.toBeInTheDocument()
+    expect(routeList().queryByText('Przew.')).not.toBeInTheDocument()
     expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+    // Potwierdzony odjazd z Gdańska = fakt, niepotwierdzony przyjazd bez prognozy = plan.
+    expect(within(routeList().getAllByRole('listitem')[0]).getByText('Faktycznie')).toBeInTheDocument()
+    expect(within(routeList().getAllByRole('listitem')[1]).getByText('Plan')).toBeInTheDocument()
   })
 
   it('never shows fields PKP has no data for -- no empty rows, no fabricated values', async () => {
@@ -813,6 +821,96 @@ describe('ConnectionDetails', () => {
     expect(screen.queryByText('Udostępnij połączenie')).not.toBeInTheDocument()
   })
 
+  describe('route list', () => {
+    /** Trasa z `count` przystanków co 5 min od 09:00Z; potwierdzone do `confirmedUpTo` włącznie (bez opóźnienia). */
+    function longRoute(count: number, confirmedUpTo: number) {
+      return {
+        ...RESPONSE,
+        stops: Array.from({ length: count }, (_, index) => {
+          const planned = new Date(Date.UTC(2026, 7, 1, 9, index * 5)).toISOString()
+          const confirmed = index <= confirmedUpTo
+          return {
+            stationId: String(2000 + index),
+            stationName: `Przystanek ${index}`,
+            plannedArrival: index === 0 ? null : planned,
+            actualArrival: confirmed && index > 0 ? planned : null,
+            arrivalDelayMinutes: confirmed && index > 0 ? 0 : null,
+            plannedDeparture: index === count - 1 ? null : planned,
+            actualDeparture: confirmed && index < count - 1 ? planned : null,
+            departureDelayMinutes: confirmed && index < count - 1 ? 0 : null,
+            isCancelled: false,
+            isConfirmed: confirmed,
+            platform: null,
+            track: null,
+            hasTrainStarted: true,
+          }
+        }),
+      }
+    }
+
+    it('stop name links to its station (validated id, encoded name)', async () => {
+      const response = {
+        ...RESPONSE,
+        stops: [{ ...RESPONSE.stops[0], stationName: 'Gdańsk Główny/Test & Co' }, RESPONSE.stops[1]],
+      }
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      expect(routeList().getByRole('link', { name: /Gdańsk Główny\/Test & Co/ })).toHaveAttribute(
+        'href',
+        `/station/7500?name=${encodeURIComponent('Gdańsk Główny/Test & Co')}`
+      )
+    })
+
+    it('invalid station id renders plain text', async () => {
+      const response = { ...RESPONSE, stops: [{ ...RESPONSE.stops[0], stationId: '75 00/../x' }, RESPONSE.stops[1]] }
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(response)))
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      expect(routeList().getByText('Gdańsk Główny')).toBeInTheDocument()
+      expect(routeList().queryByRole('link', { name: /Gdańsk Główny/ })).not.toBeInTheDocument()
+      expect(routeList().getByRole('link', { name: /Warszawa Centralna/ })).toBeInTheDocument()
+    })
+
+    it('short route has no toggle', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      expect(screen.queryByRole('button', { name: /Pokaż całą trasę|Zwiń trasę/ })).not.toBeInTheDocument()
+    })
+
+    it("long route shows only the window and 'Pokaż całą trasę' (aria-expanded=false); expanding shows all, no refetch", async () => {
+      freezeClock('2026-08-01T09:22:00Z') // pociąg na przystanku 4 (09:20), przystanek 5 o 09:25
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse(longRoute(14, 4)))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      expect(routeList().getAllByRole('listitem')).toHaveLength(3)
+      expect(routeList().getByText('Przystanek 4')).toBeInTheDocument()
+      expect(routeList().getByText('Przystanek 6')).toBeInTheDocument()
+      expect(routeList().queryByText('Przystanek 3')).not.toBeInTheDocument()
+      expect(routeList().getByText('Pociąg jest tutaj')).toBeInTheDocument()
+      const toggle = screen.getByRole('button', { name: /Pokaż całą trasę/ })
+      expect(toggle).toHaveAttribute('aria-expanded', 'false')
+      const trainCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/train')).length
+      expect(trainCalls()).toBe(1)
+
+      fireEvent.click(toggle)
+
+      expect(routeList().getAllByRole('listitem')).toHaveLength(14)
+      expect(screen.getByRole('button', { name: 'Zwiń trasę' })).toHaveAttribute('aria-expanded', 'true')
+      expect(trainCalls()).toBe(1) // rozwinięcie to stan lokalny, zero zapytań (#3)
+    })
+  })
+
   describe('background refresh', () => {
     // Poza `/api/train` komponent bije jeszcze w `/api/weather` (pogoda punktu
     // startu) — te testy pilnują odpytywania samej trasy, więc liczą tylko
@@ -1067,6 +1165,42 @@ describe('ConnectionDetails', () => {
 
       expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
       expect(trainCalls(fetchMock)).toBe(3)
+    })
+
+    it('expanded state survives a background refresh and does not refetch', async () => {
+      startClock('2026-08-01T09:22:00Z')
+      const stops = Array.from({ length: 12 }, (_, index) => {
+        const planned = new Date(Date.UTC(2026, 7, 1, 9, index * 5)).toISOString()
+        const confirmed = index <= 4
+        return {
+          stationId: String(2000 + index),
+          stationName: `Przystanek ${index}`,
+          plannedArrival: planned,
+          actualArrival: confirmed ? planned : null,
+          arrivalDelayMinutes: confirmed ? 0 : null,
+          plannedDeparture: planned,
+          actualDeparture: confirmed ? planned : null,
+          departureDelayMinutes: confirmed ? 0 : null,
+          isCancelled: false,
+          isConfirmed: confirmed,
+          platform: null,
+          track: null,
+          hasTrainStarted: true,
+        }
+      })
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ ...RESPONSE, stops }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      renderDetails()
+      await vi.waitFor(() => expect(screen.getByRole('button', { name: /Pokaż całą trasę/ })).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Pokaż całą trasę/ }))
+      expect(routeList().getAllByRole('listitem')).toHaveLength(12)
+      expect(trainCalls(fetchMock)).toBe(1) // samo rozwinięcie nie pyta PKP
+
+      await vi.advanceTimersByTimeAsync(REFRESH_MS)
+      await vi.waitFor(() => expect(trainCalls(fetchMock)).toBe(2))
+      expect(screen.getByRole('button', { name: 'Zwiń trasę' })).toHaveAttribute('aria-expanded', 'true')
+      expect(routeList().getAllByRole('listitem')).toHaveLength(12)
     })
 
     it('stops refetching once the train has reached its final stop', async () => {

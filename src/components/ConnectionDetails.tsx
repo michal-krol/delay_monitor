@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useTheme } from 'next-themes'
-import { DelayBadge, STATUS_TEXT } from './DelayBadge'
+import { DelayBadge } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { PageTitle } from './PageTitle'
-import { AlertCircleIcon, ArrivalIcon, ArrowRightIcon, CalendarIcon, DisclosureIcon, DepartureIcon, InfoIcon, PauseIcon, TimerIcon, VehiclePositionIcon, ICON_SIZE } from './icons'
+import { TrainRouteList } from './TrainRouteList'
+import { AlertCircleIcon, ArrivalIcon, ArrowRightIcon, CalendarIcon, DepartureIcon, InfoIcon, TimerIcon, ICON_SIZE } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import { resolvePositionAnchor } from '@/lib/board/trainDetail'
 import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
@@ -51,24 +52,6 @@ type Props = {
 
 type Status = 'loading' | 'error' | 'ready'
 
-// Kolor znacznika/odcinka toru per status — te same pary kolor/token co
-// `DelayBadge` (src/app/globals.css, decyzja #1.1), żeby stepper i plakietka
-// obok nigdy nie mogły pokazać dwóch różnych kolorów dla tego samego statusu.
-/**
- * „peron 3 · tor 1", sam peron albo sam tor — puste, gdy nie znamy żadnego.
- *
- * Peron i tor są dwiema niezależnymi wartościami (jedna bywa znana bez
- * drugiej), więc nie sklejamy ich w „3/1" — z takiego zapisu nie da się
- * odczytać, której z nich brakuje. Jeden ciąg, nie trzy wyrażenia JSX obok
- * siebie: te renderują się jako osobne węzły tekstowe i rozbijają zarówno
- * zaznaczanie tekstu, jak i odczyt przez czytnik ekranu.
- */
-function formatPlatformTrack(platform: string | null, track: string | null): string {
-  return [platform !== null ? `peron ${platform}` : null, track !== null ? `tor ${track}` : null]
-    .filter((part) => part !== null)
-    .join(' · ')
-}
-
 /**
  * Pociąg, który dojechał do ostatniego przystanku (albo ma całą trasę
  * odwołaną), już się nie zmieni. Jedna implementacja (AGENTS.md: jedna
@@ -81,27 +64,6 @@ function isJourneyOver(stops: TrainDetailStopWithCoords[]): boolean {
   if (stops.length === 0) return false
   return stops[stops.length - 1].isConfirmed || stops.every((stop) => stop.isCancelled)
 }
-
-const STOP_COLOR: Record<RealizationStatus, string> = {
-  onTime: 'var(--status-onTime-bg)',
-  delayed: 'var(--status-delayed-bg)',
-  cancelled: 'var(--status-cancelled-bg)',
-  unknown: 'var(--status-unknown-bg)',
-  notStarted: 'var(--status-notStarted-bg)',
-  enRoute: 'var(--status-enRoute-bg)',
-}
-
-/** Ten sam wzorzec zastrzeżenia co `ESTIMATE_TOOLTIP` w `DelayBadge.tsx` — inne źródło (godzina wprost z PKP dla TEGO przystanku), ta sama ostrożność. */
-const PREDICTED_TIME_TOOLTIP =
-  'Przewidywana godzina na podstawie danych PKP dla tego przystanku — może się różnić od faktycznej.'
-
-/**
- * Próg, od którego postój dostaje własną plakietkę. Na żywym API (475 tras,
- * 8380 przystanków) 4880 z 7173 postojów trwa dokładnie minutę — plakietka bez
- * progu wisiałaby przy prawie każdym wierszu i przestałaby cokolwiek znaczyć.
- * Pokazujemy tylko postoje, przy których pasażer realnie ma co zrobić.
- */
-const NOTABLE_STOP_MINUTES = 3
 
 /** Odświeżanie samego odliczania „za ile" — bez żadnego zapytania do PKP (AGENTS.md #3). */
 const COUNTDOWN_TICK_MS = 30_000
@@ -223,6 +185,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const status: Status = data !== null ? 'ready' : error !== null ? 'error' : 'loading'
   const backgroundRefreshFailed = data !== null && error !== null
   const [now, setNow] = useState(() => Date.now())
+  // Skrót długiej trasy: stan LOKALNY (nie dotyka `usePolling`) — rozwinięcie, zwinięcie i odświeżenie w tle nie
+  // robią żadnego zapytania (#3), a rozwinięta lista przeżywa kolejne odpowiedzi.
+  const [routeExpanded, setRouteExpanded] = useState(false)
   // Pogoda punktu startu trasy — `stops[0]` to stacja początkowa (`stationId`
   // to identyfikator PKP, ten sam, którym kluczuje `/api/weather`). Pusty ciąg
   // przed odpowiedzią = hook nie bije w API (AGENTS.md #3).
@@ -266,7 +231,6 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // (`mapPosition.ts`), żeby oś i mapa nigdy nie pokazały dwóch różnych pozycji.
   const positionAnchor = resolvePositionAnchor(stops, data?.trainStatus ?? null, nowDate)
   const scheduleMode = positionAnchor.mode === 'schedule'
-  const staleProjection = positionAnchor.mode === 'stale'
   const currentStopIndex = positionAnchor.index
   const stopStatuses = stops.map((stop, index) =>
     resolveStopStatus({
@@ -497,199 +461,14 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               )}
               <section className="glass rounded-2xl p-5 sm:p-6">
                 <SectionHeading>Przebieg trasy</SectionHeading>
-                {/* Pionowy stepper: kolumna znacznika ma `flex-direction: column`, więc
-                    każdy wiersz sam rysuje swój odcinek „szyny" do następnego przystanku
-                    (kropka = status TEGO przystanku, odcinek pod nią = status NASTĘPNEGO —
-                    to on informuje, jak wygląda dalsza podróż tym odcinkiem trasy). */}
-                {/* `@container`, nie breakpoint okna: szerokość tego wiersza zależy od
-                    paska bocznego i prawej kolumny, nie od szerokości ekranu. Przy oknie
-                    1280 px lewa kolumna ma ~620 px, a przy 1024 px — ~710 px (prawa
-                    kolumna schodzi pod treść poniżej `xl`), więc breakpoint okna włączałby
-                    gęsty układ tam, gdzie jest CIAŚNIEJ. Zmierzone: przy 768 px nazwy
-                    stacji wychodziły poza wiersz. */}
-                <ol className="@container mt-4" aria-label="Przebieg trasy">
-                  {data.stops.map((stop, index) => {
-                    // Oparte na fakcie przyjazdu/odjazdu (planowym LUB faktycznym), nie
-                    // tylko planowym — pociąg bez dopasowanej trasy (patrz trainDetail.ts)
-                    // ma plannedArrival/plannedDeparture zawsze null, ale wciąż zna
-                    // faktyczne czasy i nie może przez to zniknąć z widoku.
-                    const hasDeparture = stop.plannedDeparture !== null || stop.actualDeparture !== null
-                    // `actualArrival`/`actualDeparture` bez `isConfirmed` nie dowodzi
-                    // realizacji (patrz AGENTS.md/realization.ts) — ta sama zasada
-                    // dotyczy wyboru CZASU DO WYŚWIETLENIA, nie tylko liczenia statusu.
-                    // Niepotwierdzony przystanek pokazuje więc zawsze plan, nigdy
-                    // surowe `actual` (które PKP bywa, że ustawia na wartość przesuniętą
-                    // o całą dobę dla przystanków daleko w przyszłości).
-                    const confirmedArrival = stop.isConfirmed && stop.actualArrival !== null ? stop.actualArrival : null
-                    const confirmedDeparture = stop.isConfirmed && stop.actualDeparture !== null ? stop.actualDeparture : null
-                    // Wiersz pokazuje jedną godzinę planową i pod nią jedną rzeczywistą:
-                    // odjazdową, bo to ona mówi, kiedy podróż stąd rusza dalej. Na
-                    // stacji końcowej odjazdu nie ma, więc zostaje przyjazd.
-                    // `?? null` przy `predicted*` — odpowiedź API zawsze niesie te pola,
-                    // ale ręczne literały w starszych testach mogą ich nie mieć wcale
-                    // (brakujący klucz to `undefined`, nie `null`).
-                    const plannedTime = formatTime(hasDeparture ? stop.plannedDeparture : stop.plannedArrival)
-                    const realized = hasDeparture
-                      ? (confirmedDeparture ?? stop.predictedDeparture ?? null)
-                      : (confirmedArrival ?? stop.predictedArrival ?? null)
-                    const realizedTime = formatTime(realized)
-                    const isPrediction =
-                      realized !== null && (hasDeparture ? confirmedDeparture === null : confirmedArrival === null)
-                    const isFirst = index === 0
-                    const isLast = index === data.stops.length - 1
-                    const isCurrent = index === currentStopIndex
-                    const thisStatus = stopStatuses[index]
-                    const nextStatus = stopStatuses[index + 1]
-                    // `?? null`/`?? []` — odpowiedź API zawsze niesie te pola, ale
-                    // ręczne literały w starszych testach mogą ich nie mieć wcale,
-                    // a `undefined !== null` przepuściłoby pustą plakietkę.
-                    const messages = stop.disruptionMessages ?? []
-                    const stopTypeName = stop.stopTypeName ?? null
-                    const stopMinutes = stop.stopMinutes ?? null
-                    const showStopMinutes = stopMinutes !== null && stopMinutes >= NOTABLE_STOP_MINUTES
-                    const hasBadges = isCurrent || showStopMinutes || stopTypeName !== null || messages.length > 0
-
-                    // Klucz z indeksem, nie sam `stationId`: pociąg z zawrotką mija tę
-                    // samą stację dwa razy (np. PODLASIAK: Szczecin Dąbie) — bez indeksu
-                    // React myli oba wiersze przy odświeżaniu danych w tle.
-                    return (
-                      <li key={`${stop.stationId}-${index}`} className="flex gap-3.5">
-                        <div className="flex flex-col items-center pt-2.5">
-                          {/* Halo z makiety na przystanku, na którym pociąg właśnie stoi —
-                              jedyne miejsce w widoku odpowiadające „tu jesteśmy teraz",
-                              więc jedyne, które je dostaje (jeden akcent, nie rozsypane efekty). */}
-                          <span
-                            className={`h-3 w-3 shrink-0 rounded-full ${isCurrent && !scheduleMode && !staleProjection ? 'breathe' : ''}`}
-                            style={{
-                              backgroundColor: STOP_COLOR[thisStatus],
-                              boxShadow: isCurrent
-                                ? '0 0 0 4px color-mix(in srgb, var(--status-enRoute-bg) 25%, transparent)'
-                                : undefined,
-                            }}
-                            aria-hidden="true"
-                          />
-                          {!isLast && (
-                            <span
-                              className="mt-1.5 w-0.5 flex-1"
-                              style={{ backgroundColor: STOP_COLOR[nextStatus] }}
-                              aria-hidden="true"
-                            />
-                          )}
-                        </div>
-
-                        <div className={`min-w-0 flex-1 ${isLast ? 'pb-0' : 'pb-4'}`}>
-                          <div
-                            className={`rounded-xl border px-2.5 py-1.5 ${isCurrent ? '' : 'border-transparent'}`}
-                            style={
-                              isCurrent
-                                ? {
-                                    borderColor: 'color-mix(in srgb, var(--status-enRoute-bg) 55%, transparent)',
-                                    // 10% przyciemniało wiersz na tyle, że tekst statusu spadał
-                                    // do 3,99:1 (zmierzone). 6% zostawia widoczne podświetlenie
-                                    // i nie zjada kontrastu — ciężar niesie ramka.
-                                    backgroundColor: 'color-mix(in srgb, var(--status-enRoute-bg) 6%, transparent)',
-                                  }
-                                : undefined
-                            }
-                          >
-                            <div className="grid grid-cols-[3.6rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 @lg:grid-cols-[3.6rem_minmax(0,1fr)_5rem_7rem]">
-                              <div className="tabular-nums">
-                                <div className="font-semibold text-foreground">{plannedTime ?? '—'}</div>
-                                {realizedTime !== null && realizedTime !== plannedTime && (
-                                  <div
-                                    className={`text-xs font-medium ${isPrediction ? 'italic' : ''}`}
-                                    style={{ color: STATUS_TEXT[thisStatus] }}
-                                    title={isPrediction ? PREDICTED_TIME_TOOLTIP : undefined}
-                                  >
-                                    {realizedTime}
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="min-w-0">
-                                <span className={`${isFirst || isLast ? 'font-semibold' : 'font-medium'} break-words text-foreground`}>
-                                  {stop.stationName}
-                                </span>
-                                {(isFirst || isLast) && (
-                                  <span className="ml-2 text-xs tracking-[0.1em] text-text-muted uppercase">
-                                    {isFirst ? 'odjazd' : 'przyjazd'}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Peron i tor są dwiema niezależnymi wartościami
-                                  (jedna bywa znana bez drugiej), więc każda ma
-                                  własną etykietę zamiast sklejenia „4/2".
-                                  Nic nie pokazujemy, gdy nie znamy żadnej. */}
-                              <div className="text-sm text-text-secondary tabular-nums">
-                                {formatPlatformTrack(stop.platform, stop.track)}
-                              </div>
-
-                              <div className="@lg:text-right">
-                                <DelayBadge
-                                  status={thisStatus}
-                                  delayMinutes={stopDelayMinutes(stop)}
-                                  // Ostatni przystanek to tylko przyjazd -> „jeszcze nie przyjechał";
-                                  // wszystkie wcześniejsze wiersz opisuje odjazdowo.
-                                  direction={isLast ? 'arrival' : 'departure'}
-                                  estimatedDelayMinutes={stop.estimatedDelayMinutes}
-                                  variant="text"
-                                />
-                              </div>
-                            </div>
-
-                            {hasBadges && (
-                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                {isCurrent && (
-                                  <span
-                                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
-                                    style={{
-                                      backgroundColor: 'var(--status-enRoute-bg)',
-                                      color: 'var(--status-enRoute-fg)',
-                                    }}
-                                  >
-                                    <VehiclePositionIcon size={ICON_SIZE.inline} />
-                                    {scheduleMode
-                                      ? 'Pociąg jest tutaj — wg rozkładu'
-                                      : staleProjection
-                                        ? 'Pociąg jest tutaj — szacowane z rozkładu'
-                                        : 'Pociąg jest tutaj'}
-                                  </span>
-                                )}
-                                {showStopMinutes && (
-                                  <span
-                                    className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary"
-                                  >
-                                    <PauseIcon size={ICON_SIZE.inline} />
-                                    Postój {stopMinutes} min
-                                  </span>
-                                )}
-                                {stopTypeName !== null && (
-                                  // Ograniczenie postoju („tylko dla wysiadających”), nie utrudnienie: neutralny
-                                  // chip jak „Postój”, bo amber + AlertCircle to wyłącznie „Utrudnienie” obok.
-                                  <span className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary">
-                                    <InfoIcon size={ICON_SIZE.inline} />
-                                    {stopTypeName}
-                                  </span>
-                                )}
-                                {messages.length > 0 && (
-                                  <details className="w-full">
-                                    <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                      <AlertCircleIcon size={ICON_SIZE.inline} />
-                                      Utrudnienie
-                                      <DisclosureIcon size={ICON_SIZE.chip} />
-                                    </summary>
-                                    <p className="mt-1.5 text-xs text-text-secondary">{messages.join(' ')}</p>
-                                  </details>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ol>
+                <TrainRouteList
+                  stops={data.stops}
+                  statuses={stopStatuses}
+                  anchor={positionAnchor}
+                  now={now}
+                  expanded={routeExpanded}
+                  onToggle={() => setRouteExpanded((value) => !value)}
+                />
               </section>
 
               {mapPins.length >= 2 && (
