@@ -321,10 +321,9 @@ function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }:
       data-past={isPast || undefined}
       data-status={row.status}
       className={`group border-b border-black/5 transition dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${isPast ? 'opacity-50' : ''} ${canOpenDetails ? 'cursor-pointer' : ''} ${delayChanged ? 'delay-changed' : ''}`}
-      // borderLeftColor działa wyłącznie w układzie kartowym (poniżej `sm`,
-      // patrz `.board-table` w globals.css) -- na desktopie wiersz nie ma
-      // ramki, a akcent rysuje `inset box-shadow` na komórce godziny.
-      style={{ borderLeftColor: accentColor(row.status), ...(!isPast ? { backgroundColor: ROW_TINT[row.status] } : {}) }}
+      // Na telefonie karta nie ma bocznego paska statusu (decyzja 2026-10-11: status niesie plakietka);
+      // akcent desktopowy rysuje `inset box-shadow` na komórce godziny.
+      style={!isPast ? { backgroundColor: ROW_TINT[row.status] } : undefined}
       onClick={canOpenDetails ? () => onOpen(row) : undefined}
     >
       <td data-cell="time" className="py-2.5 pr-3 pl-3 whitespace-nowrap" style={{ boxShadow: `inset 3px 0 0 0 ${accentColor(row.status)}` }}>
