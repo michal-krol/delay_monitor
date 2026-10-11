@@ -166,8 +166,15 @@ paths:
     „unknown". Also returns `alertFeed.{state,ageMs}`; `useCityStats` retries while
     `alerts == null` unless `alertFeed.state === 'failed'`. A `failed` feed re-polls every 5 min
     (visible tab only; a still-`loading` schedule keeps the 15 s ladder) via a result-driven
-    `refreshMs` in `usePolling`, so recovery shows and the stale age keeps growing. Not in
-    `useLineDetail`: the line response has no feed state and switching lines refetches anyway.
+    `refreshMs` in `usePolling`, so recovery shows and the stale age keeps growing.
+  - `/api/gtfs/line` and `/api/gtfs/board` (incl. the loading response) also return a top-level,
+    additive `alertFeed: AlertFeedStatus | null` (`alertView.ts`, from `peekAlertPoller(city)?.getView()`;
+    `null` = no poller). `alerts`/`stops[].alerts` keep the semantics above, so only `alertFeed`
+    tells „feed failed" from „ready, none for this context": project with `toContextAlertsState(feed,
+    alerts)` — never read the list length as success. `useLineDetail` exposes `alertsState`/`alertsStale`
+    and, like `useCityStats`, ends the fast ladder on a `failed` feed and retries every 5 min.
+    `dedupeAlerts()` (by id, never title) is the one count/list for tab badges. The feed carries NO
+    dates/severity/location: `ContextAlerts` shows none (the text-date hint in `AlertBanner` is legacy).
 
 Contract: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (network, no cost).
 `GTFS_DATA_SOURCE=mock` (default) keeps dev/test/CI zero-network. Fixtures in

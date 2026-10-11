@@ -2,6 +2,7 @@
 
 import { fetchJson, usePolling } from './usePolling'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
+import type { AlertFeedStatus } from '@/lib/gtfs/alertView'
 import type { GtfsDeparture, GtfsMode, ScheduleState } from '@/lib/gtfs/types'
 import type { GtfsLine, StopGroupMember, StopSummary } from '@/lib/gtfs/query'
 
@@ -51,6 +52,8 @@ export type TransitBoardResponse = {
     feedVersion: string | null
   }
   stops: (TransitStopBoard | null)[]
+  /** Stan feedu komunikatów (`toContextAlertsState`); `null`/brak = nieznany (stary payload albo brak pollera). */
+  alertFeed?: AlertFeedStatus | null
   attribution: string[]
 }
 
