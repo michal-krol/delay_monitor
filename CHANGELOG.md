@@ -74,6 +74,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Mapa na telefonie: panel „W pobliżu” (i każdy inny z krótką treścią) da się teraz podnieść i opuścić
+  przeciągnięciem — wcześniej palec na jego treści nie ruszał arkusza (Chromium).
 - Wczytywanie tablicy stacji na telefonie: szkielet ma pełną szerokość karty i nie ma już nad nim
   pustej ramki.
 

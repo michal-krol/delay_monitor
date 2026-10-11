@@ -732,20 +732,31 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     const map = await openMap(page)
     await openStopCard(page, 'Centrum')
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
-    // Kamera po wyborze przystanku dojeżdża animacją — czekamy, aż `?at=` się ustali.
-    await page.waitForTimeout(1500)
+    // Kamera po wyborze przystanku dojeżdża animacją — czekamy, aż `?at=` się ustali (dwa odczyty z przerwą bez zmiany).
+    const readAt = (): string | null => new URL(page.url()).searchParams.get('at')
+    await expect
+      .poll(async () => {
+        const before = readAt()
+        await page.waitForTimeout(500)
+        return readAt() === before
+      }, { timeout: READY })
+      .toBe(true)
     const box = (await map.boundingBox())!
-    const at = new URL(page.url()).searchParams.get('at')
+    const at = readAt()
     await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.45 }, 60, 120)
-    await expect.poll(() => new URL(page.url()).searchParams.get('at')).not.toBe(at)
+    // Pierwszy `touchmove` bywa spóźniony o sekundy (patrz niżej) — te czekania dostają ten sam budżet co końcowe.
+    await expect.poll(readAt, { timeout: READY }).not.toBe(at)
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
 
+    const startTop = await sheet(page).evaluate((el) => el.scrollTop)
     await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
     // `touchDrag` wraca, zanim strona obsłuży gest: na obciążonej maszynie (programowy WebGL) ramki przewijania dzielą
     // sekundy. Czekamy na stan pochodny arkusza (`data-snap`, ustala się po ciszy w `scroll`), nie na `scrollend` —
     // Chromium po dotykowym przewijaniu z `scroll-snap` bywa go nie wysłać (zmierzone: `scroll` dojechał do „half”,
     // `data-snap="half"`, a `scrollend` nie przyszedł w 12 s), więc czekanie na niego wisiało do limitu testu.
     await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek', { timeout: READY })
+    // Arkusz faktycznie się przesunął (nie tylko przełączył stan); dokładna pozycja zależy od dociągania, więc próg, nie punkt.
+    expect(await sheet(page).evaluate((el) => el.scrollTop)).toBeGreaterThan(startTop + 50)
   })
 })
 
