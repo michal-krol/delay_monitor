@@ -124,27 +124,62 @@ test('arkusz „Info” bez listy kierunków (jeden filtr: selektor nad tablicą
   await expect(sheet.getByText('Najpopularniejsze kierunki')).toHaveCount(0)
 })
 
-test('375×812: pierwszy wiersz tablicy stacji najwyżej 340 px od góry (było ~470)', async ({ page }) => {
+/** Karty tablicy (telefon): `tr[data-status]` pomija szkielet i pusty stan. */
+const boardRows = (page: Page): Locator => page.locator('.board-table tbody tr[data-status]')
+
+test('375×812: dwa pierwsze wiersze w całości nad dolnym paskiem, także z powiadomieniem o utrudnieniach (pierwszy ≤ 420 px)', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
-  const time = await firstBoardTime(page, STATION)
-  expect((await time.boundingBox())!.y).toBeLessThanOrEqual(340)
+  await firstBoardTime(page, STATION)
+  // Mock stacji 33605 ma jedno utrudnienie — powiadomienie stoi nad zakładkami.
+  await expect(page.getByRole('button', { name: /utrudnie.* na stacji/ })).toBeVisible()
+  const nav = await navTop(page)
+  for (const index of [0, 1]) {
+    const box = (await boardRows(page).nth(index).boundingBox())!
+    expect(box.y + box.height, `wiersz ${index + 1} schowany pod dolnym paskiem`).toBeLessThanOrEqual(nav)
+  }
+  expect((await boardRows(page).first().boundingBox())!.y).toBeLessThanOrEqual(420)
 })
 
-/** Ramki komórek pierwszego wiersza tablicy (karta na telefonie). */
+test('375×812: bez utrudnień nie ma powiadomienia, a pierwszy wiersz zaczyna się najwyżej 360 px od góry', async ({ page }) => {
+  await page.route('**/api/board**', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    for (const snapshot of body.snapshots ?? []) if (snapshot !== null) snapshot.disruptionMessages = []
+    await route.fulfill({ response, json: body })
+  })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await firstBoardTime(page, STATION)
+  await expect(page.getByRole('button', { name: /utrudnie.* na stacji/ })).toHaveCount(0)
+  expect((await boardRows(page).first().boundingBox())!.y).toBeLessThanOrEqual(360)
+})
+
+/**
+ * Ramki komórek pierwszego wiersza tablicy (karta na telefonie). Jeden odczyt w przeglądarce, nie pięć osobnych
+ * `boundingBox()`: wiersz wsuwa się/przesuwa przez 160 ms (`useRowAnimation`), a odczyty w różnych momentach
+ * widziałyby komórki w różnych klatkach animacji (przesunięcie rzędu 7 px pod obciążeniem).
+ */
 async function firstRowBoxes(page: Page) {
-  const row = page.locator('.board-table tbody tr[data-status]').first()
-  const box = async (cell: string) => (await row.locator(`td[data-cell="${cell}"]`).boundingBox())!
-  return { row, time: await box('time'), direction: await box('direction'), status: await box('status'), train: await box('train'), platform: await box('platform') }
+  const row = boardRows(page).first()
+  const boxes = await row.evaluate((tr) => {
+    const rect = (cell: string) => {
+      const { x, y, width, height } = tr.querySelector(`td[data-cell="${cell}"]`)!.getBoundingClientRect()
+      return { x, y, width, height }
+    }
+    return { time: rect('time'), direction: rect('direction'), status: rect('status'), train: rect('train'), platform: rect('platform') }
+  })
+  return { row, ...boxes }
 }
 
-test('karta wiersza 375 px: godzina po lewej, status pod kierunkiem, pociąg i „Peron · tor” w jednym rzędzie, bez przewoźnika', async ({ page }) => {
+test('karta wiersza 375 px: godzina po prawej od kierunku, status pod pociągiem, peron i tor w osobnym rzędzie, bez przewoźnika', async ({ page }) => {
   await firstBoardTime(page, STATION)
   const { row, time, direction, status, train, platform } = await firstRowBoxes(page)
-  expect(time.x + time.width).toBeLessThanOrEqual(direction.x)
-  expect(status.y).toBeGreaterThanOrEqual(direction.y + direction.height - 1)
-  expect(Math.abs(train.y - platform.y), 'pociąg i peron w jednym rzędzie').toBeLessThanOrEqual(4)
-  expect(train.y).toBeGreaterThanOrEqual(status.y + status.height - 1)
-  await expect(row.locator('td[data-cell="platform"]')).toContainText(/Peron/)
+  expect(time.x).toBeGreaterThanOrEqual(direction.x + direction.width - 1)
+  expect(train.y).toBeGreaterThanOrEqual(direction.y + direction.height - 1)
+  expect(status.y).toBeGreaterThanOrEqual(train.y + train.height - 1)
+  expect(platform.y).toBeGreaterThanOrEqual(status.y + status.height - 1)
+  await expect(row.locator('td[data-cell="platform"]')).toContainText(/Peron .* · Tor/)
+  // Przewoźnik jest tylko w tabeli: w karcie jego linia jest schowana (`hidden sm:flex`).
+  await expect(row.locator('td[data-cell="train"] .hidden')).toBeHidden()
 })
 
 test('przewoźnik tylko w tabeli (1024 px), podpisy „Peron/tor” tylko w karcie (375 px)', async ({ page }) => {
@@ -160,12 +195,12 @@ test('przewoźnik tylko w tabeli (1024 px), podpisy „Peron/tor” tylko w karc
   await expect(row.locator('td[data-cell="platform"]')).toContainText(/Peron/)
 })
 
-test('karta wiersza przy szerszym telefonie (600 px): status obok kierunku', async ({ page }) => {
+test('karta wiersza przy szerszym telefonie (600 px): ten sam układ — status pod pociągiem, godzina po prawej', async ({ page }) => {
   await page.setViewportSize({ width: 600, height: 812 })
   await firstBoardTime(page, STATION)
-  const { direction, status } = await firstRowBoxes(page)
-  expect(status.x).toBeGreaterThanOrEqual(direction.x + direction.width - 1)
-  expect(status.y).toBeLessThan(direction.y + direction.height)
+  const { time, direction, status, train } = await firstRowBoxes(page)
+  expect(time.x).toBeGreaterThanOrEqual(direction.x + direction.width - 1)
+  expect(status.y).toBeGreaterThanOrEqual(train.y + train.height - 1)
 })
 
 test('karta wiersza 400–600 px: kierunek ma co najmniej 120 px, także obok długiej plakietki', async ({ page }) => {
@@ -214,13 +249,13 @@ test('karta stacji na telefonie: ← nazwa ★ ⋮ w jednym rzędzie, bez okrusz
   await expect(page.getByRole('dialog', { name: 'Informacje o stacji' })).toBeVisible()
 })
 
-test('selektor kierunku w miejscu KPI: między kartą stacji a zakładkami, filtruje i ustawia ?direction=', async ({ page }) => {
+test('selektor kierunku pod paskiem zakładek: filtruje i ustawia ?direction=', async ({ page }) => {
   await firstBoardTime(page, STATION)
   const select = page.getByRole('combobox', { name: 'Kierunek' })
   await expect(select).toHaveValue('')
   const tabs = (await page.getByTestId('board-tabs-bar').boundingBox())!
   const selectBox = (await select.boundingBox())!
-  expect(selectBox.y + selectBox.height).toBeLessThanOrEqual(tabs.y)
+  expect(selectBox.y).toBeGreaterThanOrEqual(tabs.y + tabs.height - 1)
   expect(selectBox.height).toBeGreaterThanOrEqual(44)
   const name = (await select.locator('option').nth(1).textContent())!.trim()
   await select.selectOption(name)
@@ -303,4 +338,103 @@ test('a11y: przystanek na telefonie (chipy, przyklejony pasek) bez naruszeń ser
   const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+})
+
+// PR4 „Tablica stacji”: powiadomienie o utrudnieniach, „Na mapie”, podpisy godziny, kontrast w obu motywach.
+test.describe('tablica stacji na telefonie (PR4)', () => {
+  const NOTICE = /utrudnie.* na stacji/
+
+  test('powiadomienie o utrudnieniach: nad zakładkami, otwiera „Informacje o stacji” od utrudnień, Escape oddaje fokus', async ({ page }) => {
+    await firstBoardTime(page, STATION)
+    const notice = page.getByRole('button', { name: NOTICE })
+    await expect(notice).toBeVisible({ timeout: READY })
+    await expect(notice).toHaveAttribute('aria-haspopup', 'dialog')
+    const noticeBox = (await notice.boundingBox())!
+    const tabs = (await page.getByTestId('board-tabs-bar').boundingBox())!
+    expect(noticeBox.y + noticeBox.height, 'powiadomienie nad paskiem zakładek').toBeLessThanOrEqual(tabs.y)
+
+    const sheet = page.getByRole('dialog', { name: 'Informacje o stacji' })
+    // Klik przed hydracją przepada bez śladu (jak w `showBoardContext`).
+    await expect(async () => {
+      if ((await notice.getAttribute('aria-expanded')) !== 'true') await notice.click()
+      await expect(sheet).toBeVisible({ timeout: 2_000 })
+    }).toPass({ timeout: READY })
+    await expect(sheet.getByRole('heading', { level: 3 }).first()).toHaveText('Utrudnienia na tej stacji')
+
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Informacje o stacji', includeHidden: true })).toHaveCount(0)
+    await expect(notice).toBeFocused()
+  })
+
+  test('„Na mapie” to link do mapy z at=, działa też bez pogody', async ({ page }) => {
+    await page.route('**/api/weather**', (route) => route.abort())
+    await firstBoardTime(page, STATION)
+    const link = page.getByRole('link', { name: 'Na mapie' })
+    await expect(link).toBeVisible({ timeout: READY })
+    const href = (await link.getAttribute('href'))!
+    expect(href).toContain('at=')
+    expect(href).toContain('/map')
+    expect((await link.boundingBox())!.height, 'cel dotyku').toBeGreaterThanOrEqual(44)
+  })
+
+  test('stacja bez współrzędnych: tekst „Brak lokalizacji stacji” zamiast linku', async ({ page }) => {
+    await page.route('**/api/rail-stations/list**', (route) => route.fulfill({ json: { stations: [] } }))
+    await firstBoardTime(page, STATION)
+    await expect(page.getByText('Brak lokalizacji stacji')).toBeVisible({ timeout: READY })
+    await expect(page.getByRole('link', { name: 'Na mapie' })).toHaveCount(0)
+  })
+
+  test('320×640: długi kierunek zawija się, bez przewijania w bok, kierunek ma ≥ 100 px', async ({ page }) => {
+    await page.route('**/api/board**', async (route) => {
+      const response = await route.fetch()
+      const body = await response.json()
+      for (const snapshot of body.snapshots ?? []) {
+        if (snapshot === null) continue
+        for (const row of [...snapshot.departures, ...snapshot.arrivals]) row.headsign = 'Zielona Góra Główna przez Bardzo Długą Nazwę Stacji Pośredniej Testowej'
+      }
+      await route.fulfill({ response, json: body })
+    })
+    await page.setViewportSize({ width: 320, height: 640 })
+    await firstBoardTime(page, STATION)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'bez przewijania w bok').toBe(true)
+    const widths = await page
+      .locator('.board-table tbody tr[data-status] td[data-cell="direction"]')
+      .evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width))
+    expect(widths.length).toBeGreaterThan(0)
+    expect(Math.min(...widths)).toBeGreaterThanOrEqual(100)
+  })
+
+  test('podpisy godziny: potwierdzona = „Faktycznie” + „Plan HH:mm”, bez realizacji = „Plan” i nigdy „Faktycznie”', async ({ page }) => {
+    await firstBoardTime(page, STATION)
+    const all: string[] = []
+    for (const tab of ['Odjazdy', 'Przyjazdy']) {
+      await page.getByRole('tab', { name: tab }).click()
+      await expect(page.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true')
+      await expect(boardRows(page).first()).toBeVisible()
+      all.push(...(await boardRows(page).locator('td[data-cell="time"]').allInnerTexts()))
+    }
+    const planLine = /Plan \d{2}:\d{2}/
+    const facts = all.filter((text) => text.includes('Faktycznie'))
+    // Wiersz bez realizacji: sama godzina planu, podpis „Plan”, bez małej linii „Plan HH:mm” (nie ma czego porównywać).
+    const planOnly = all.filter((text) => !planLine.test(text))
+    expect(facts.length, 'mock ma potwierdzone pociągi').toBeGreaterThan(0)
+    for (const text of facts) expect(text).toMatch(planLine)
+    expect(planOnly.length, 'mock ma wiersz bez realizacji').toBeGreaterThan(0)
+    for (const text of planOnly) {
+      expect(text).toMatch(/(^|\n)Plan(\n|$)/)
+      expect(text).not.toContain('Faktycznie')
+      expect(text).not.toContain('Przew.')
+    }
+  })
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`a11y: tablica stacji w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} bez naruszeń serious/critical`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme })
+      await firstBoardTime(page, STATION)
+      await expect(page.getByRole('button', { name: NOTICE })).toBeVisible({ timeout: READY })
+      const { violations } = await scanA11y(page)
+      const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+      expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+    })
+  }
 })

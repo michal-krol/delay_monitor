@@ -73,10 +73,7 @@ export function PopularDestinations({
               type="button"
               aria-pressed={active}
               onClick={() => onSelect(active ? null : destination.name)}
-              className={`press min-h-11 shrink-0 rounded-full border px-3.5 text-sm transition sm:min-h-9 ${
-                active ? 'border-transparent text-white' : 'border-surface-border text-text-secondary hover:text-foreground'
-              }`}
-              style={active ? { background: 'var(--accent-gradient)' } : undefined}
+              className="chip-filter press shrink-0"
             >
               {destination.name}
             </button>
@@ -270,8 +267,9 @@ type Props = {
    * (`FullBoard`), więc bez osobnego zapytania -- podana z zewnątrz.
    */
   stationName: string
-  /** Do pinu na mapie -- lat/lon idzie z `weather.location` (ten sam fetch, zero nowego zapytania). */
   stationId: string
+  /** Pozycja stacji z listy stacji kolei (`useRailStations`, statyczna, 0 PKP) -- nie z pogody; `null` = brak, wtedy bez karty mapy. */
+  location: { lat: number; lon: number } | null
   /** 2 najbliższe odjazdy, gotowe linijki („18:12 → Kutno") — do popupu powiększonej mapy (`MapView.tsx`). Puste = brak podglądu, nie błąd. */
   mapPreview: string[]
   /** Kafelki KPI — tylko w arkuszu „Info” (od `sm` stoją nad tablicą w `FullBoard`). */
@@ -288,17 +286,15 @@ export function StationAside({
   weather,
   stationName,
   stationId,
+  location,
   mapPreview,
   stats,
 }: Props) {
   const { resolvedTheme } = useTheme()
   const inSheet = useInInfoSheet()
   const mapPins = useMemo(
-    () =>
-      weather.status === 'ready'
-        ? [{ id: stationId, lat: weather.location.lat, lon: weather.location.lon, label: stationName, mode: 'rail' as const, preview: mapPreview }]
-        : [],
-    [weather, stationId, stationName, mapPreview]
+    () => (location === null ? [] : [{ id: stationId, lat: location.lat, lon: location.lon, label: stationName, mode: 'rail' as const, preview: mapPreview }]),
+    [location, stationId, stationName, mapPreview]
   )
 
   const disruptions = (

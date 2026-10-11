@@ -38,6 +38,11 @@ type Props = {
    * `BoardTable` wyłącza je na długich tablicach). Domyślnie `true`.
    */
   animated?: boolean
+  /**
+   * Pełniejsze brzmienie na tablicy stacji: „Opóźnienie +N min” (bez liczby: „Opóźnienie”), a `unknown` jako
+   * „Brak danych o realizacji” (nie „brak danych”, które brzmi jak awaria). Pozostałe statusy bez zmian.
+   */
+  detailed?: boolean
 }
 
 /** Wyeksportowane, żeby legenda statusów (`BoardTable.tsx`) mogła reużyć te same etykiety zamiast duplikować je osobno. */
@@ -98,6 +103,7 @@ export function DelayBadge({
   predictedDelayMinutes = null,
   variant = 'pill',
   animated = true,
+  detailed = false,
 }: Props) {
   const hasEstimate = status === 'enRoute' && estimatedDelayMinutes !== null
   const hasPrediction = status === 'notStarted' && predictedDelayMinutes !== null && predictedDelayMinutes >= 1
@@ -110,13 +116,17 @@ export function DelayBadge({
       : 'w trasie, punktualnie'
     : status === 'delayed'
       ? delayMinutes === null
-        ? LABELS.delayed
-        : { prefix: '+', value: delayMinutes }
+        ? detailed
+          ? 'Opóźnienie'
+          : LABELS.delayed
+        : { prefix: detailed ? 'Opóźnienie +' : '+', value: delayMinutes }
       : status === 'notStarted'
         ? hasPrediction
           ? { prefix: `${notStartedLabel} · prognoza +`, value: predictedDelayMinutes }
           : notStartedLabel
-        : LABELS[status]
+        : status === 'unknown' && detailed
+          ? 'Brak danych o realizacji'
+          : LABELS[status]
   return (
     <span
       data-testid="delay-badge"

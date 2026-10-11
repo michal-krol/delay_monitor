@@ -180,6 +180,36 @@ describe('DelayBadge', () => {
   })
 })
 
+describe('DelayBadge detailed', () => {
+  it('delayed reads "Opóźnienie +12 min"', () => {
+    render(<DelayBadge status="delayed" delayMinutes={12} detailed animated={false} />)
+    expect(screen.getByTestId('delay-badge')).toHaveTextContent('Opóźnienie +12 min')
+  })
+
+  it('delayed without a number reads "Opóźnienie", never +0', () => {
+    render(<DelayBadge status="delayed" delayMinutes={null} detailed />)
+    expect(screen.getByTestId('delay-badge')).toHaveTextContent(/^Opóźnienie$/)
+  })
+
+  it('unknown reads "Brak danych o realizacji", never "punktualnie"', () => {
+    render(<DelayBadge status="unknown" delayMinutes={null} detailed />)
+    const badge = screen.getByTestId('delay-badge')
+    expect(badge).toHaveTextContent('Brak danych o realizacji')
+    expect(badge.textContent).not.toMatch(/punktualnie/i)
+  })
+
+  it('other statuses are unchanged', () => {
+    for (const status of ['onTime', 'cancelled', 'notStarted', 'enRoute'] as const) {
+      const view = render(<DelayBadge status={status} delayMinutes={0} />)
+      const text = view.baseElement.textContent
+      view.unmount()
+      const utils = render(<DelayBadge status={status} delayMinutes={0} detailed />)
+      expect(utils.baseElement.textContent, `status ${status}`).toBe(text)
+      utils.unmount()
+    }
+  })
+})
+
 describe('DelayBadge — wariant tekstowy', () => {
   it('używa tokenu tekstowego jako koloru, nie jako tła', () => {
     render(<DelayBadge status="delayed" delayMinutes={4} variant="text" />)
