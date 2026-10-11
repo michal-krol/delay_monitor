@@ -26,6 +26,11 @@ describe('resolvePageCity', () => {
     expect(resolvePageCity('../x', 'krakow', [WARSZAWA, KRAKOW])).toBe('krakow')
   })
 
+  it('a remembered city that left the registry is dropped once cities are loaded', () => {
+    expect(resolvePageCity(null, 'gdansk', [WARSZAWA, KRAKOW])).toBe('warszawa')
+    expect(resolvePageCity(null, 'gdansk', null)).toBe('gdansk')
+  })
+
   it('null when nothing resolves', () => {
     expect(resolvePageCity(null, null, null)).toBeNull()
     expect(resolvePageCity(null, null, [])).toBeNull()

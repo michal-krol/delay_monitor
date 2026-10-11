@@ -113,7 +113,7 @@ describe('SearchDialog', () => {
     render(<SearchDialog open onClose={vi.fn()} />)
     await user.type(await screen.findByRole('searchbox'), 'cent')
     await vi.advanceTimersByTimeAsync(300)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?q=cent&city=warszawa', expect.anything()))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?q=cent&city=warszawa&rail=all', expect.anything()))
   })
 
   it('uses the city from the path', async () => {
@@ -124,7 +124,7 @@ describe('SearchDialog', () => {
     render(<SearchDialog open onClose={vi.fn()} />)
     await user.type(await screen.findByRole('searchbox'), 'rynek')
     await vi.advanceTimersByTimeAsync(300)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?q=rynek&city=krakow', expect.anything()))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?q=rynek&city=krakow&rail=all', expect.anything()))
   })
 
   it('dialog works with no city yet (rail results)', async () => {
@@ -136,7 +136,7 @@ describe('SearchDialog', () => {
     await user.type(await screen.findByRole('searchbox'), 'zach')
     await vi.advanceTimersByTimeAsync(300)
     await user.click(await screen.findByRole('button', { name: /^Warszawa Zachodnia/ }))
-    expect(fetchMock).toHaveBeenCalledWith('/api/search?q=zach', expect.anything())
+    expect(fetchMock).toHaveBeenCalledWith('/api/search?q=zach&rail=all', expect.anything())
     expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Zachodnia', NAV_FORWARD_OPTIONS)
     expect(onClose).toHaveBeenCalled()
   })

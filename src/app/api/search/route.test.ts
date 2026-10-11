@@ -184,6 +184,13 @@ describe('GET /api/search', () => {
     pollerState = 'loading'
   })
 
+  it('registered city without a poller → sources.transit failed, not an endless loading', async () => {
+    const { GET } = await import('./route')
+    getGtfsPoller.mockReturnValueOnce(null)
+    const response = await GET(new Request('http://localhost/api/search?city=warszawa&q=war'))
+    expect((await response.json()).sources.transit).toBe('failed')
+  })
+
   it('short query → stations [] with sources', async () => {
     getGtfsPoller.mockClear()
     searchStations.mockClear()

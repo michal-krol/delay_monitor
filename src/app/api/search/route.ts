@@ -90,7 +90,7 @@ export async function GET(request: Request) {
   let transitState: SearchSources['transit'] = 'disabled'
   if (city !== null) {
     transitState =
-      schedule !== null ? 'ready' : poller?.getView().state === 'failed' ? 'failed' : 'loading'
+      schedule !== null ? 'ready' : poller === null || poller.getView().state === 'failed' ? 'failed' : 'loading'
   }
   if (schedule !== null) {
     for (const hit of searchStops(schedule, query, MAX_SUGGESTIONS)) {

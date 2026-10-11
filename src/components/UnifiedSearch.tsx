@@ -225,7 +225,7 @@ export function UnifiedSearch({
       else if (citiesState === 'failed') messages.push({ text: 'Nie udało się wczytać listy miast', tone: 'error' })
       else messages.push({ text: 'Brak skonfigurowanych miast', tone: 'muted' })
     }
-    if (shown.length === 0 && failedSources.length === 0 && !loading) {
+    if (shown.length === 0 && failedSources.length === 0 && !loading && !needsCity) {
       if (placesSearched) messages.push({ text: 'Brak wyników dla tej frazy', tone: 'neutral' })
       else if (linesSearched) messages.push({ text: 'Brak linii dla tej frazy', tone: 'neutral' })
     }

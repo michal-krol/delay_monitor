@@ -98,7 +98,8 @@ export function useUnifiedSearch({ city, query, lineSource }: { city: string | n
   useEffect(() => {
     if (trimmed.length < MIN_PLACES_QUERY) return
     const key = placesKey(attempt, city, trimmed)
-    const url = `/api/search?q=${encodeURIComponent(trimmed)}${city === null ? '' : `&city=${encodeURIComponent(city)}`}`
+    // `rail=all`: stacje PKP są krajowe — miasto zawęża tylko przystanki miejskie (07: miasto nie blokuje szukania PKP).
+    const url = `/api/search?q=${encodeURIComponent(trimmed)}${city === null ? '' : `&city=${encodeURIComponent(city)}`}&rail=all`
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
 

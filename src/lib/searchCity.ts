@@ -12,6 +12,7 @@ export function resolvePageCity(
   cities: { id: string; railStations: unknown[] }[] | null,
 ): string | null {
   if (urlCity !== null && CITY_ID_PATTERN.test(urlCity) && cities !== null && cities.some((city) => city.id === urlCity)) return urlCity
-  if (contextCity !== null) return contextCity
+  // Zapamiętane miasto usunięte z rejestru nie może zostać (żądania o nieistniejące miasto kończą się 400).
+  if (contextCity !== null && (cities === null || cities.some((city) => city.id === contextCity))) return contextCity
   return cities === null ? null : defaultCityId(cities)
 }
