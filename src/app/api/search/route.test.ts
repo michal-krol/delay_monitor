@@ -13,9 +13,14 @@ vi.mock('@/lib/board/instance', () => ({
 }))
 
 let schedule: GtfsSchedule | null = null
+let pollerState: string = 'loading'
+const getGtfsPoller = vi.fn((city: string) =>
+  city === 'warszawa'
+    ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView: () => ({ state: pollerState }) }
+    : null,
+)
 vi.mock('@/lib/gtfs/instance', () => ({
-  getGtfsPoller: (city: string) =>
-    city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule } : null,
+  getGtfsPoller: (city: string) => getGtfsPoller(city),
 }))
 
 beforeAll(async () => {
@@ -104,5 +109,106 @@ describe('GET /api/search', () => {
     expect(body.loading).toBe(true)
     schedule = kept
     expect((await call('city=warszawa&q=war')).body.loading).toBe(false)
+  })
+
+  it('no city → rail only, transit disabled, sources ready', async () => {
+    getGtfsPoller.mockClear()
+    const { response, body } = await call('q=kra')
+    expect(response.status).toBe(200)
+    // Bez miasta kolej z całej Polski (jak rail=all), bez filtra prefiksu.
+    // (mock słownika ignoruje frazę — liczy się, że Kraków nie jest odsiany prefiksem miasta)
+    expect(body.stations.map((s: { name: string }) => s.name)).toContain('Kraków Główny')
+    expect(body.stations.every((s: { kind: string }) => s.kind === 'rail')).toBe(true)
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'disabled' })
+    expect(body.loading).toBe(false)
+    expect(getGtfsPoller).not.toHaveBeenCalled()
+  })
+
+  it('empty city param is a 400 without echo', async () => {
+    const { response, body } = await call('city=&q=abc')
+    expect(response.status).toBe(400)
+    expect(body).toEqual({ error: 'Nieznane miasto' })
+  })
+
+  it('invalid city → 400, no echo', async () => {
+    const { response, body } = await call('city=%3Cscript%3E&q=abc')
+    expect(response.status).toBe(400)
+    expect(JSON.stringify(body)).not.toContain('script')
+  })
+
+  it('unknown city → 400', async () => {
+    const { response, body } = await call('city=nigdzie&q=abc')
+    expect(response.status).toBe(400)
+    expect(body).toEqual({ error: 'Nieznane miasto' })
+    expect(JSON.stringify(body)).not.toContain('nigdzie')
+  })
+
+  it('old fields stay: stations and loading', async () => {
+    const { body } = await call('city=warszawa&q=war')
+    expect(Array.isArray(body.stations)).toBe(true)
+    expect(body.loading).toBe(false)
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'ready' })
+  })
+
+  it('rail failure with ready GTFS → sources.rail failed, transit stops still returned', async () => {
+    searchStations.mockRejectedValueOnce(new Error('upstream down'))
+    const { response, body } = await call('city=warszawa&q=swi')
+    expect(response.status).toBe(200)
+    expect(body.sources).toEqual({ rail: 'failed', transit: 'ready' })
+    expect(body.stations.some((s: { kind: string }) => s.kind === 'transit')).toBe(true)
+    expect(JSON.stringify(body)).not.toContain('upstream down')
+  })
+
+  it('GTFS loading → sources.transit loading and loading true', async () => {
+    const kept = schedule
+    schedule = null
+    pollerState = 'loading'
+    const { body } = await call('city=warszawa&q=war')
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'loading' })
+    expect(body.loading).toBe(true)
+    // Nierozpoznany stan „nie gotowy” też znaczy „wczytuje się”.
+    pollerState = 'something-new'
+    expect((await call('city=warszawa&q=war')).body.sources.transit).toBe('loading')
+    schedule = kept
+    pollerState = 'loading'
+  })
+
+  it('GTFS failed poller → sources.transit failed', async () => {
+    const kept = schedule
+    schedule = null
+    pollerState = 'failed'
+    const { body } = await call('city=warszawa&q=war')
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'failed' })
+    expect(body.loading).toBe(true)
+    schedule = kept
+    pollerState = 'loading'
+  })
+
+  it('registered city without a poller → sources.transit failed, not an endless loading', async () => {
+    const { GET } = await import('./route')
+    getGtfsPoller.mockReturnValueOnce(null)
+    const response = await GET(new Request('http://localhost/api/search?city=warszawa&q=war'))
+    expect((await response.json()).sources.transit).toBe('failed')
+  })
+
+  it('short query → stations [] with sources', async () => {
+    getGtfsPoller.mockClear()
+    searchStations.mockClear()
+    expect((await call('city=warszawa&q=ab')).body).toEqual({
+      stations: [],
+      sources: { rail: 'ready', transit: 'ready' },
+    })
+    expect((await call('q=ab')).body).toEqual({
+      stations: [],
+      sources: { rail: 'ready', transit: 'disabled' },
+    })
+    expect(searchStations).not.toHaveBeenCalled()
+    expect(getGtfsPoller).not.toHaveBeenCalled()
+  })
+
+  it('rail=all with city unaffected', async () => {
+    const { body } = await call('city=warszawa&q=kra&rail=all')
+    expect(body.stations.map((s: { name: string }) => s.name)).toContain('Kraków Główny')
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'ready' })
   })
 })

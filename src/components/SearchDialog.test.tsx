@@ -59,30 +59,43 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** `/api/cities` → lista, `/api/search` → wyniki; reszta zapisana do inspekcji. */
-function stubFetch(search: unknown = { stations: [] }, cities: unknown = { cities: [WARSZAWA, KRAKOW] }) {
+const FIELD = { name: 'Stacja, przystanek lub linia' }
+const NO_LINES = { city: 'warszawa', schedule: { state: 'ready' }, lines: { metro: [], tram: [], bus: [], rail: [], other: [] }, attribution: [] }
+const EMPTY_SEARCH = { stations: [], sources: { rail: 'ready', transit: 'ready' } }
+const RAIL = { id: '33605', name: 'Warszawa Zachodnia', kind: 'rail', mode: 'rail' }
+const STOP = { id: '1001', name: 'Centrum', kind: 'transit', mode: 'bus' }
+const LINE = { routeId: 'L-1', line: 'L-1', longName: 'Centrum - Dworzec', mode: 'bus', kind: 'local' }
+
+/** `/api/cities` → lista (`null` = pada, `'pending'` = nigdy nie odpowiada), `/api/search` i `/api/gtfs/lines` → podane ciała. */
+function stubFetch({ search = EMPTY_SEARCH, cities = { cities: [WARSZAWA, KRAKOW] }, lines = NO_LINES }: { search?: unknown; cities?: unknown; lines?: unknown } = {}) {
   const fetchMock = vi.fn((url: string) => {
-    if (url.startsWith('/api/cities')) return cities === null ? Promise.reject(new Error('down')) : jsonResponse(cities)
+    if (url.startsWith('/api/cities')) {
+      if (cities === null) return Promise.reject(new Error('down'))
+      return cities === 'pending' ? new Promise<Response>(() => {}) : jsonResponse(cities)
+    }
+    if (url.startsWith('/api/gtfs/lines')) return jsonResponse(lines)
     return jsonResponse(search)
   })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
 }
 
+const withLine = { ...NO_LINES, lines: { ...NO_LINES.lines, bus: [LINE] } }
+
 describe('SearchDialog', () => {
   it('shows the modal and focuses the search input when opened', async () => {
     stubFetch()
     render(<SearchDialog open onClose={vi.fn()} />)
-    const input = await screen.findByRole('combobox', { name: 'Szukaj stacji lub przystanku…' })
+    const input = await screen.findByRole('searchbox', FIELD)
     expect(dialog.showModal).toHaveBeenCalledTimes(1)
     expect(input).toHaveFocus()
-    expect(screen.getByRole('dialog', { name: 'Szukaj stacji lub przystanku' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Szukaj stacji, przystanku lub linii' })).toBeInTheDocument()
   })
 
   it('mounts no content while closed', () => {
     stubFetch()
     render(<SearchDialog open={false} onClose={vi.fn()} />)
-    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(screen.queryByRole('searchbox')).toBeNull()
     expect(dialog.showModal).not.toHaveBeenCalled()
   })
 
@@ -93,14 +106,14 @@ describe('SearchDialog', () => {
     expect(dialog.close).toHaveBeenCalled()
   })
 
-  it('queries all rail stations of the resolved city', async () => {
+  it('searches places of the resolved (default) city', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const fetchMock = stubFetch()
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<SearchDialog open onClose={vi.fn()} />)
-    await user.type(await screen.findByRole('combobox'), 'cent')
+    await user.type(await screen.findByRole('searchbox'), 'cent')
     await vi.advanceTimersByTimeAsync(300)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?city=warszawa&rail=all&q=cent'))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?q=cent&city=warszawa&rail=all', expect.anything()))
   })
 
   it('uses the city from the path', async () => {
@@ -109,73 +122,86 @@ describe('SearchDialog', () => {
     const fetchMock = stubFetch()
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<SearchDialog open onClose={vi.fn()} />)
-    await user.type(await screen.findByRole('combobox'), 'rynek')
+    await user.type(await screen.findByRole('searchbox'), 'rynek')
     await vi.advanceTimersByTimeAsync(300)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?city=krakow&rail=all&q=rynek'))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/search?q=rynek&city=krakow&rail=all', expect.anything()))
   })
 
-  it('says so and offers a retry when the city list failed and no city is known', async () => {
-    stubFetch({ stations: [] }, null)
-    render(<SearchDialog open onClose={vi.fn()} />)
-    expect(await screen.findByText('Nie udało się wczytać listy miast')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Spróbuj ponownie' })).toBeInTheDocument()
-    expect(screen.queryByRole('combobox')).toBeNull()
-  })
-
-  it('shows a loading hint while the city list is loading', () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
-    render(<SearchDialog open onClose={vi.fn()} />)
-    expect(screen.getByText('Wczytuję…')).toBeInTheDocument()
-  })
-
-  it('pushes a transit stop and closes after picking it', async () => {
+  it('dialog works with no city yet (rail results)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    stubFetch({ stations: [{ id: '1001', name: 'Centrum', kind: 'transit', mode: 'bus' }] })
+    const fetchMock = stubFetch({ search: { stations: [RAIL], sources: { rail: 'ready', transit: 'disabled' } }, cities: 'pending' })
     const onClose = vi.fn()
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<SearchDialog open onClose={onClose} />)
-    await user.type(await screen.findByRole('combobox'), 'cent')
+    await user.type(await screen.findByRole('searchbox'), 'zach')
     await vi.advanceTimersByTimeAsync(300)
-    await user.click(await screen.findByRole('option', { name: 'Centrum' }))
+    await user.click(await screen.findByRole('button', { name: /^Warszawa Zachodnia/ }))
+    expect(fetchMock).toHaveBeenCalledWith('/api/search?q=zach&rail=all', expect.anything())
+    expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Zachodnia', NAV_FORWARD_OPTIONS)
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('stop result pushes /city/{city}/stop/{id} and closes', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    usePathname.mockReturnValue('/city/warszawa/lines')
+    stubFetch({ search: { stations: [STOP], sources: { rail: 'ready', transit: 'ready' } } })
+    const onClose = vi.fn()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<SearchDialog open onClose={onClose} />)
+    await user.type(await screen.findByRole('searchbox'), 'cent')
+    await vi.advanceTimersByTimeAsync(300)
+    await user.click(await screen.findByRole('button', { name: /^Centrum, Zespół przystanków/ }))
     expect(push).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum', NAV_FORWARD_OPTIONS)
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('line result pushes /city/{city}/line/{routeId} and closes', async () => {
+    usePathname.mockReturnValue('/city/warszawa/lines')
+    stubFetch({ lines: withLine })
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(<SearchDialog open onClose={onClose} />)
+    await user.type(await screen.findByRole('searchbox'), 'L-1')
+    await user.click(await screen.findByRole('button', { name: /^Linia L-1/ }))
+    expect(push).toHaveBeenCalledWith('/city/warszawa/line/L-1', NAV_FORWARD_OPTIONS)
     expect(onClose).toHaveBeenCalled()
   })
 
   it('pushes a rail station to /station and closes after picking it', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    stubFetch({ stations: [{ id: '33605', name: 'Warszawa Zachodnia', kind: 'rail', mode: 'rail' }] })
+    stubFetch({ search: { stations: [RAIL], sources: { rail: 'ready', transit: 'ready' } } })
     const onClose = vi.fn()
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<SearchDialog open onClose={onClose} />)
-    await user.type(await screen.findByRole('combobox'), 'zach')
+    await user.type(await screen.findByRole('searchbox'), 'zach')
     await vi.advanceTimersByTimeAsync(300)
-    await user.click(await screen.findByRole('option', { name: 'Warszawa Zachodnia' }))
+    await user.click(await screen.findByRole('button', { name: /^Warszawa Zachodnia/ }))
     expect(push).toHaveBeenCalledWith('/station/33605?name=Warszawa%20Zachodnia', NAV_FORWARD_OPTIONS)
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('add mode: picking a result hands it to onPick with the city instead of navigating', async () => {
+  it('pick mode: rail and stop go to onPick with the city, no lines group, no recents', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    stubFetch({ stations: [{ id: '1001', name: 'Centrum', kind: 'transit', mode: 'bus' }] })
+    usePathname.mockReturnValue('/city/warszawa/lines')
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
+    stubFetch({ search: { stations: [RAIL, STOP], sources: { rail: 'ready', transit: 'ready' } }, lines: withLine })
     const onClose = vi.fn()
     const onPick = vi.fn()
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<SearchDialog open onClose={onClose} onPick={onPick} />)
     expect(screen.getByRole('dialog', { name: 'Przypnij do Startu' })).toBeInTheDocument()
-    await user.type(await screen.findByRole('combobox'), 'cent')
-    await vi.advanceTimersByTimeAsync(300)
-    await user.click(await screen.findByRole('option', { name: 'Centrum' }))
-    expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ id: '1001', kind: 'transit' }), 'warszawa')
-    expect(push).not.toHaveBeenCalled()
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  it('add mode hides recent places (they are links that would navigate away)', async () => {
-    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
-    stubFetch()
-    render(<SearchDialog open onClose={vi.fn()} onPick={vi.fn()} />)
-    expect(await screen.findByRole('combobox')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Ostatnio oglądane' })).not.toBeInTheDocument()
+    await user.type(await screen.findByRole('searchbox'), 'cent')
+    await vi.advanceTimersByTimeAsync(300)
+    const stop = await screen.findByRole('button', { name: /^Centrum, Zespół przystanków/ })
+    expect(screen.queryByRole('heading', { name: 'Linie' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Linia / })).not.toBeInTheDocument()
+    await user.click(stop)
+    expect(onPick).toHaveBeenLastCalledWith(expect.objectContaining({ id: '1001', kind: 'transit' }), 'warszawa')
+    await user.click(screen.getByRole('button', { name: /^Warszawa Zachodnia/ }))
+    expect(onPick).toHaveBeenLastCalledWith(expect.objectContaining({ id: '33605', kind: 'rail' }), 'warszawa')
+    expect(push).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalledTimes(2)
   })
 
   it('shows recent places from storage while the query is empty', async () => {
@@ -186,12 +212,22 @@ describe('SearchDialog', () => {
     expect(screen.getByRole('link', { name: 'Stacja 1' })).toBeInTheDocument()
   })
 
+  it('closes after a click on a link inside (recent place), even to the current page', async () => {
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
+    stubFetch()
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(<SearchDialog open onClose={onClose} />)
+    await user.click(await screen.findByRole('link', { name: 'Stacja 1' }))
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('moves the focus back to the search input after „Wyczyść" (the focused button unmounts)', async () => {
     window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
     stubFetch()
     const user = userEvent.setup()
     render(<SearchDialog open onClose={vi.fn()} />)
-    const input = await screen.findByRole('combobox')
+    const input = await screen.findByRole('searchbox')
     await user.click(await screen.findByRole('button', { name: 'Wyczyść' }))
     expect(screen.queryByRole('button', { name: 'Wyczyść' })).toBeNull()
     expect(input).toHaveFocus()
@@ -221,9 +257,18 @@ describe('SearchDialog', () => {
     const onClose = vi.fn()
     const user = userEvent.setup()
     render(<SearchDialog open onClose={onClose} />)
-    await user.click(await screen.findByRole('combobox'))
+    await user.click(await screen.findByRole('searchbox'))
     expect(onClose).not.toHaveBeenCalled()
     await user.click(screen.getByRole('dialog'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('has a „Zamknij" button', async () => {
+    stubFetch()
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(<SearchDialog open onClose={onClose} />)
+    await user.click(await screen.findByRole('button', { name: 'Zamknij' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

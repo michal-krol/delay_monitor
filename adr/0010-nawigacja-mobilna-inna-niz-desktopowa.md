@@ -28,9 +28,10 @@ wielu miejsc naraz. Strona główna nazywała się „Pulpit”, co na telefonie
 - Dwa źródła pozycji menu: testy pilnują, że desktop zachowuje Odjazdy, a telefon ma cztery cele
   ≥ 44 × 44 px.
 - Na telefonie „Odjazdy” osiągalne tylko przez Start/wyszukiwanie; adres `/city` działa dalej.
-- Przejściowo (do PR 2) „Szukaj” w pasku to `<button>`, nie link — bez JS nic nie robi.
+- „Szukaj” w pasku to `<button>` (bez JS nic nie robi): poniżej `sm` prowadzi na trasę `/search`, od `sm` otwiera okno
+  wyszukiwania; obie powierzchnie to ten sam komponent `UnifiedSearch` (PR 2).
 
 ## Odrzucone
 
 - Jedna lista z pozycją chowaną CSS-em: ukryta pozycja nadal w drzewie dostępności i w testach.
-- „Szukaj” jako osobna strona od razu: trasa i wyszukiwarka to osobny PR (07 w pakiecie).
+- „Szukaj” jako osobna strona od razu: trasa i wyszukiwarka były osobnym PR (07 w pakiecie) — F0 dostarczył akcję, PR 2 trasę.

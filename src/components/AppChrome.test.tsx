@@ -8,11 +8,19 @@ import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 import { stubDialogMethods } from '@/test-utils/dialog'
 
+import { NAV_TAB_TYPES } from '@/lib/navTransition'
+
 const usePathname = vi.fn()
+const push = vi.fn()
 vi.mock('next/navigation', () => ({
   usePathname: () => usePathname(),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }))
+
+/** jsdom nie ma `matchMedia` (wtedy `useMediaQuery` daje wartość serwerową: szeroko). Telefon = wszystkie zapytania fałszywe. */
+function stubPhone(): void {
+  window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia
+}
 
 let dialog: ReturnType<typeof stubDialogMethods>
 
@@ -28,6 +36,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks()
   vi.unstubAllGlobals()
+  // @ts-expect-error przywracamy brak `matchMedia` z jsdom
+  delete window.matchMedia
 })
 
 const sidebar = () => within(screen.getByRole('complementary'))
@@ -69,13 +79,13 @@ describe('AppChrome search', () => {
     const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true })
     document.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
-    return screen.findByRole('combobox').then(() => expect(dialog.showModal).toHaveBeenCalledTimes(1))
+    return screen.findByRole('searchbox').then(() => expect(dialog.showModal).toHaveBeenCalledTimes(1))
   })
 
   it('keeps the browser omnibox away: Ctrl+K while the dialog is open is also prevented', async () => {
     render(<AppChrome />)
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }))
-    await screen.findByRole('combobox')
+    await screen.findByRole('searchbox')
     const second = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true, cancelable: true })
     document.dispatchEvent(second)
     expect(second.defaultPrevented).toBe(true)
@@ -96,7 +106,7 @@ describe('AppChrome search', () => {
   it('opens on "/" from the page body', async () => {
     render(<AppChrome />)
     fireEvent.keyDown(document.body, { key: '/' })
-    expect(await screen.findByRole('combobox')).toBeInTheDocument()
+    expect(await screen.findByRole('searchbox')).toBeInTheDocument()
   })
 
   it('ignores "/" while the focus is in an input', () => {
@@ -136,8 +146,53 @@ describe('AppChrome search', () => {
     expect(dialog.showModal).toHaveBeenCalledTimes(1)
     act(() => (screen.getByRole('dialog') as HTMLDialogElement).close())
     fireEvent.keyDown(document.body, { key: '/' })
-    await screen.findByRole('combobox')
+    await screen.findByRole('searchbox')
     expect(dialog.showModal).toHaveBeenCalledTimes(2)
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
+  })
+
+  it('below sm the search action navigates to /search instead of opening the dialog', async () => {
+    stubPhone()
+    const user = userEvent.setup()
+    render(<AppChrome />)
+    await user.click(within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getByRole('button', { name: 'Szukaj' }))
+    expect(push).toHaveBeenCalledWith('/search', { transitionTypes: NAV_TAB_TYPES })
+    expect(dialog.showModal).not.toHaveBeenCalled()
+  })
+
+  it('from sm it opens the dialog', async () => {
+    const user = userEvent.setup()
+    render(<AppChrome />)
+    await user.click(sidebar().getByRole('button', { name: /Szukaj/ }))
+    expect(dialog.showModal).toHaveBeenCalledTimes(1)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('on /search the action focuses the field', async () => {
+    stubPhone()
+    usePathname.mockReturnValue('/search')
+    const user = userEvent.setup()
+    render(
+      <>
+        <AppChrome />
+        <main>
+          <input type="search" aria-label="Stacja, przystanek lub linia" />
+        </main>
+      </>,
+    )
+    await user.click(within(screen.getByRole('navigation', { name: 'Nawigacja główna' })).getByRole('button', { name: 'Szukaj' }))
+    expect(screen.getByRole('searchbox')).toHaveFocus()
+    expect(push).not.toHaveBeenCalled()
+    expect(dialog.showModal).not.toHaveBeenCalled()
+  })
+
+  it('shortcut follows the same branch', () => {
+    stubPhone()
+    render(<AppChrome />)
+    const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true })
+    document.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(push).toHaveBeenCalledWith('/search', { transitionTypes: NAV_TAB_TYPES })
+    expect(dialog.showModal).not.toHaveBeenCalled()
   })
 })

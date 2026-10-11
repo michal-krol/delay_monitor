@@ -40,6 +40,17 @@ test('wiersz odjazdu na 375 px: bez poziomego przewijania, nagłówek kursu wido
   expect(box?.width ?? 0).toBeGreaterThan(40)
 })
 
+// Wyniki wyszukiwania z długą nazwą linii i wieloma plakietkami nie poszerzają strony (320 i 375 px).
+for (const width of [320, 375]) {
+  test(`/search na ${width} px: wyniki trzech grup bez poziomego przewijania`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 })
+    await page.goto('/search?q=Centr')
+    const main = page.getByRole('main')
+    for (const heading of ['Stacje kolejowe', 'Przystanki', 'Linie']) await expect(main.getByRole('heading', { name: heading })).toBeVisible({ timeout: 45_000 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  })
+}
+
 test('pulpit na 375 px: karta „Dziś w Polsce" jest widoczna pod treścią', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('button', { name: /Dziś w Polsce/ })).toBeVisible()

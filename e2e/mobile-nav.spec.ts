@@ -28,12 +28,15 @@ test('mobile: dolny pasek ma 4 cele (Start, Mapa, Szukaj, Linie) o polu >= 44×4
   await expect(nav.getByRole('link', { name: 'Start' })).toHaveAttribute('aria-current', 'page')
 })
 
-test('mobile: „Szukaj" w dolnym pasku otwiera okno wyszukiwania, a w nagłówku nie ma drugiego „Szukaj"', async ({ page }, testInfo) => {
+test('mobile: „Szukaj" w dolnym pasku prowadzi na stronę /search (bez okna), a w nagłówku nie ma drugiego „Szukaj"', async ({ page }, testInfo) => {
   test.skip(!isMobile(testInfo.project.name), 'dolny pasek tylko poniżej sm')
 
   await page.goto('/')
   await expect(page.getByRole('banner').getByRole('button', { name: 'Szukaj' })).toHaveCount(0)
   await openSearch(page, testInfo.project.name)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('heading', { level: 1, name: 'Szukaj' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Szukaj' })).toHaveAttribute('aria-current', 'page')
 })
 
 test('mobile: tap w „Linie" przechodzi na listę linii i oznacza zakładkę jako bieżącą', async ({ page }, testInfo) => {
@@ -81,7 +84,7 @@ test('desktop: dolny pasek zakładek nie jest widoczny, pasek boczny tak', async
 test.describe('320×640', () => {
   test.use({ viewport: { width: 320, height: 640 } })
 
-  for (const path of ['/', '/station/33605?name=Warszawa%20Centralna', '/city/warszawa/stop/1001']) {
+  for (const path of ['/', '/station/33605?name=Warszawa%20Centralna', '/city/warszawa/stop/1001', '/search']) {
     test(`bez poziomego przewijania: ${path}`, async ({ page }) => {
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
@@ -108,7 +111,7 @@ test('mobile: fokus na ostatnim linku długiej strony nie chowa się pod dolnym 
   expect(bottom).toBeLessThanOrEqual((viewport?.height ?? 0) - navHeight + 1)
 })
 
-test('a11y: otwarte okno wyszukiwania bez naruszeń serious/critical', async ({ page }, testInfo) => {
+test('a11y: otwarta wyszukiwarka (okno na desktopie, strona /search na telefonie) bez naruszeń serious/critical', async ({ page }, testInfo) => {
   await page.goto('/')
   await openSearch(page, testInfo.project.name)
 

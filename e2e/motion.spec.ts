@@ -234,6 +234,8 @@ test.describe('glass surfaces stay accessible', () => {
     })
 
     test(`axe: search dialog over the board (${theme})`, async ({ page }) => {
+      // Poniżej `sm` „Szukaj" prowadzi na stronę /search (skan w `unified-search.spec.ts`), okno jest od `sm`.
+      test.skip((page.viewportSize()?.width ?? 1280) < 640, 'okno wyszukiwania tylko od sm')
       await page.addInitScript((value) => window.localStorage.setItem('theme', value), theme)
       await stationReady(page)
       await page.keyboard.press('Control+k')

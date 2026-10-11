@@ -55,7 +55,7 @@ let pickOption: { id: string; name: string; kind?: 'rail' | 'transit' } = { id: 
 vi.mock('@/components/SearchDialog', () => ({
   SearchDialog: ({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick?: (option: typeof pickOption, city: string | null) => void }) =>
     open ? (
-      <div role="dialog" aria-label={onPick ? 'Przypnij do Startu' : 'Szukaj stacji lub przystanku'}>
+      <div role="dialog" aria-label={onPick ? 'Przypnij do Startu' : 'Szukaj stacji, przystanku lub linii'}>
         <button
           type="button"
           onClick={() => {

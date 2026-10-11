@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { scanA11y } from './helpers/axe'
+import { searchField } from './helpers/search'
 
 // Pulpit-dane (PR1 planu UI/UX): „Dodaj" przypina, „Edytuj ulubione" zmienia kolejność i odpina z „Cofnij".
 // Mock: prawdziwe ID stacji (AGENTS.md #8), przystanek miejski Warszawy `1001` („Centrum").
@@ -24,9 +25,9 @@ test('„Dodaj" przypina wybraną stację i potwierdza, zostając na Pulpicie', 
   await page.goto('/')
   await page.getByRole('button', { name: 'Dodaj' }).click()
   const dialog = page.getByRole('dialog', { name: 'Przypnij do Startu' })
-  await dialog.getByRole('combobox').fill('Centralna')
+  await searchField(dialog).fill('Centralna')
   // Rozkład miejski mocka parsuje się raz przy starcie — wyszukiwarka ponawia, dopóki nie jest gotowy.
-  await dialog.getByRole('option', { name: /Warszawa Centralna/ }).first().click({ timeout: 45_000 })
+  await dialog.getByRole('button', { name: /^Warszawa Centralna/ }).first().click({ timeout: 45_000 })
 
   await expect(page.getByRole('status').filter({ hasText: 'Przypięto do Startu' })).toHaveText('Przypięto do Startu: Warszawa Centralna')
   await expect(page).toHaveURL(/\/$/)

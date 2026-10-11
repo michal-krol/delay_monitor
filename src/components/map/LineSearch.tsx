@@ -4,6 +4,7 @@ import { useId, useMemo, useState, type KeyboardEvent } from 'react'
 import { LineBadge } from '../LineBadge'
 import { SEARCH_INPUT_CLASS } from '../StationSearch'
 import type { LineListEntry } from '@/lib/gtfs/query'
+import { rankLines } from '@/lib/discovery'
 import { normalizeForSearch } from '@/lib/search'
 
 const MAX_OPTIONS = 8
@@ -29,19 +30,8 @@ export function LineSearch({
   const listboxId = useId()
 
   const needle = normalizeForSearch(query.trim())
-  const options = useMemo(() => {
-    if (needle === '' || lines === null) return []
-    const exact: LineListEntry[] = []
-    const prefix: LineListEntry[] = []
-    const other: LineListEntry[] = []
-    for (const line of lines) {
-      const number = normalizeForSearch(line.line)
-      if (number === needle) exact.push(line)
-      else if (number.startsWith(needle)) prefix.push(line)
-      else if (normalizeForSearch(line.longName).includes(needle)) other.push(line)
-    }
-    return [...exact, ...prefix, ...other].slice(0, MAX_OPTIONS)
-  }, [needle, lines])
+  // Wspólny ranking wyszukiwarki (`discovery.ts`): numer równy → prefiks → nazwa trasy; ten sam co w `UnifiedSearch`.
+  const options = useMemo(() => (lines === null ? [] : rankLines(lines, needle, MAX_OPTIONS)), [needle, lines])
 
   const isOpen = options.length > 0
   const message = needle === '' ? null : lines === null ? 'Wczytywanie linii…' : options.length === 0 ? 'Nie znaleziono linii' : null

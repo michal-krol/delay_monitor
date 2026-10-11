@@ -50,6 +50,20 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - ★ Never „słupek” for a stop (a calque; chart bars are „słupki” in comments only).
 - Phone-only chrome is „Info” (button + sheet title „Informacje o stacji/przystanku”).
 
+## Search (`UnifiedSearch`, `/search`, desktop dialog)
+
+- Field label and placeholder: „Stacja, przystanek lub linia”; groups „Stacje kolejowe”, „Przystanki”, „Linie”.
+- Row context: PKP „Stacja kolejowa PKP”; stop group „Zespół przystanków · {miasto}”; line „{Metro|Tramwaj|Autobus|Kolej miejska} · {miasto}”
+  — GTFS rail is „Kolej miejska”, never „Stacja kolejowa PKP” (#13: it never opens a PKP connection).
+- States: 1–2 characters „Wpisz co najmniej 3 znaki, aby znaleźć miejsca” (lines still listed); loading „Wczytywanie…” (glossary: still
+  loading; never „Szukam…”); a failed source „Nie udało się wczytać {stacji kolejowych|przystanków|linii}” + „Spróbuj ponownie”; healthy zero
+  results „Brak wyników dla tej frazy” (places searched, 3+ characters) — with 1–2 characters only lines were searched, so „Brak linii dla tej
+  frazy”; neither is shown while a source loads or after a failure. Cap hint „Pokazano do 8 wyników — doprecyzuj frazę” (also at exactly 8 rows);
+  offline „Brak połączenia — wyniki mogą być nieaktualne”.
+- No city (stops and lines need one; PKP stations keep working): the city list loading „Wczytywanie miast…”; failed „Nie udało się wczytać
+  listy miast” + the same „Spróbuj ponownie” (one button retries every failed source, then focus returns to the field); empty registry
+  „Brak skonfigurowanych miast”. Never „Wybierz miasto…” — the app picks the city (URL, last used, default), the user is not asked.
+
 ## Filters
 
 - Board direction select (phones): departures „Kierunek” / „Wszystkie kierunki”; arrivals (headsign =

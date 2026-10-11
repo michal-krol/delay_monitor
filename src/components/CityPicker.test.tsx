@@ -6,10 +6,12 @@ import { CityPicker } from './CityPicker'
 import { __resetCityContext } from '@/hooks/useCityContext'
 
 const push = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+const replace = vi.fn()
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
 
 beforeEach(() => {
   push.mockClear()
+  replace.mockClear()
   window.localStorage.clear()
   __resetCityContext()
 })
@@ -32,6 +34,13 @@ describe('CityPicker', () => {
     await userEvent.selectOptions(screen.getByRole('combobox'), 'krakow')
     expect(push).toHaveBeenCalledWith('/city/krakow')
     expect(JSON.parse(window.localStorage.getItem('monitor.cityContext.v2') ?? 'null')).toBe('krakow')
+  })
+
+  it('with `replace` it replaces the history entry instead of pushing', async () => {
+    render(<CityPicker cities={cities} current="warszawa" replace hrefFor={(id) => `/search?city=${id}`} />)
+    await userEvent.selectOptions(screen.getByRole('combobox'), 'krakow')
+    expect(replace).toHaveBeenCalledWith('/search?city=krakow')
+    expect(push).not.toHaveBeenCalled()
   })
 
   it('renders nothing while the registry holds a single city (nothing to choose)', () => {

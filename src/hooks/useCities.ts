@@ -75,6 +75,13 @@ function fetchCities(): Promise<CityEntry[]> {
   return inFlight
 }
 
+/**
+ * Zamontowane instancje hooka. Ponowienie z jednej (przycisk „Spróbuj ponownie” w polu wyszukiwania) musi
+ * zaktualizować pozostałe (strona/okno, które z listy miast wyprowadzają miasto) — inaczej pole pokazuje
+ * „gotowe”, a rodzic wciąż „błąd”, i miasto nigdy się nie ustawia.
+ */
+const subscribers = new Set<(state: CitiesState, cities?: CityEntry[]) => void>()
+
 export function useCities(): { state: CitiesState; cities: CityEntry[]; retry: () => void } {
   const [state, setState] = useState<CitiesState>(usableCachedResult() !== null ? 'ready' : 'loading')
   const [cities, setCities] = useState<CityEntry[]>(usableCachedResult() ?? [])
@@ -82,6 +89,11 @@ export function useCities(): { state: CitiesState; cities: CityEntry[]; retry: (
 
   useEffect(() => {
     cancelledRef.current = false
+    const apply = (next: CitiesState, result?: CityEntry[]) => {
+      if (result !== undefined) setCities(result)
+      setState(next)
+    }
+    subscribers.add(apply)
     fetchCities()
       .then((result) => {
         if (cancelledRef.current) return
@@ -93,22 +105,18 @@ export function useCities(): { state: CitiesState; cities: CityEntry[]; retry: (
       })
     return () => {
       cancelledRef.current = true
+      subscribers.delete(apply)
     }
   }, [])
 
   // Wywoływane z kliknięcia „Spróbuj ponownie", nie z efektu — setState('loading')
   // tu jest bezpieczny (react-hooks/set-state-in-effect pilnuje tylko efektów).
   const retry = useCallback(() => {
-    setState('loading')
+    const broadcast = (next: CitiesState, result?: CityEntry[]) => subscribers.forEach((apply) => apply(next, result))
+    broadcast('loading')
     fetchCities()
-      .then((result) => {
-        if (cancelledRef.current) return
-        setCities(result)
-        setState('ready')
-      })
-      .catch(() => {
-        if (!cancelledRef.current) setState('failed')
-      })
+      .then((result) => broadcast('ready', result))
+      .catch(() => broadcast('failed'))
   }, [])
 
   return { state, cities, retry }

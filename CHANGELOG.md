@@ -34,6 +34,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Wspólny fundament wyglądu: kolor główny (nasycony niebieski) w obu motywach z policzonym kontrastem,
   wspólne klasy aktywnego segmentu, chipa filtra i głównego przycisku, zaokrąglenie kart 16 px, margines
   strony 16 px (12 px przy 320 px) oraz tytuł strony 24/30 px.
+- Wyszukiwanie „Stacja, przystanek lub linia”: na telefonie „Szukaj” w dolnym pasku otwiera stronę
+  `/search`, na komputerze nadal okno (Ctrl+K lub „/”). Jedno pole daje stacje kolejowe, przystanki
+  i linie (autobus, tramwaj, metro, kolej miejska) w osobnych grupach; linie znajdują się już od
+  jednego znaku, miejsca od trzech. Wybór miasta nie blokuje szukania stacji PKP; awaria jednego
+  źródła nie zamienia reszty w „Brak wyników”. Fraza i miasto są w adresie, „Wstecz” wraca do
+  tej samej frazy.
 - Gwiazdka przypięcia robi jedno krótkie „puknięcie” w chwili przypięcia (nie przy wczytaniu strony ani
   odświeżeniu danych); przy ograniczonym ruchu nie animuje się wcale.
 
