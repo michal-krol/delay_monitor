@@ -487,6 +487,9 @@ details[open] > summary .disclosure-chevron,
 }
 .bottom-sheet:not([data-snap='full']) [data-sheet-scroll] {
   overflow-y: hidden;
+  /* `PanelFrame` daje treści `overscroll-contain`; przy treści bez nic do przewinięcia Chromium kończy na niej łańcuch przewijania
+     dotykiem i przeciągnięcie panelu nie dociera do arkusza (np. „W pobliżu”). Poniżej `full` treść i tak się nie przewija. */
+  overscroll-behavior: auto;
 }
 
 /* Karta treści: prawie kryjąca, BEZ `backdrop-filter` (PR 6). Pływające paski, menu i kontrolki mapy: `glass-chrome*` niżej. */
