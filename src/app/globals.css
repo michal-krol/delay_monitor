@@ -487,6 +487,9 @@ details[open] > summary .disclosure-chevron,
 }
 .bottom-sheet:not([data-snap='full']) [data-sheet-scroll] {
   overflow-y: hidden;
+  /* `PanelFrame` daje treści `overscroll-contain`; przy treści bez nic do przewinięcia Chromium kończy na niej łańcuch przewijania
+     dotykiem i przeciągnięcie panelu nie dociera do arkusza (np. „W pobliżu”). Poniżej `full` treść i tak się nie przewija. */
+  overscroll-behavior: auto;
 }
 
 /* Karta treści: prawie kryjąca, BEZ `backdrop-filter` (PR 6). Pływające paski, menu i kontrolki mapy: `glass-chrome*` niżej. */
@@ -778,6 +781,20 @@ details[open] > summary .disclosure-chevron,
     .enter-fade {
       opacity: 0;
     }
+  }
+}
+
+/* Treść otwartej karty komunikatu (`ContextAlerts`): sam fade ~200 ms. `<details>` nie przechodzi przez
+   `display:none`, więc `@starting-style` tu nie zadziała — animacja startuje przy dopasowaniu `[open]`.
+   Bez ruchu (reduced-motion) treść jest po prostu widoczna. */
+@media (prefers-reduced-motion: no-preference) {
+  details[open] > .alert-body-enter {
+    animation: alert-body-in var(--duration-base) var(--ease-out);
+  }
+}
+@keyframes alert-body-in {
+  from {
+    opacity: 0;
   }
 }
 

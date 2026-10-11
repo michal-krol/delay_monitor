@@ -29,7 +29,7 @@ let vehiclePoller: {
 
 /** Podmieniany per-test: `null` = brak feedu alertów, obiekt = udawany poller. */
 let alertPoller: {
-  getView: () => { state: string }
+  getView: () => { state: string; fetchedAt?: string | null; ageMs?: number | null }
   getAlerts: () => { id: string; routes: string[]; effect: string; link: string; title: string; body: string }[]
 } | null = null
 
@@ -253,5 +253,75 @@ describe('GET /api/gtfs/board', () => {
     } finally {
       alertPoller = null
     }
+  })
+
+  describe('alertFeed (feed state for the UI; per-stop alerts semantics unchanged)', () => {
+    const GOOD = { id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }
+    const T = '2026-10-10T10:00:00.000Z'
+    const URL = 'http://localhost/api/gtfs/board?city=warszawa&stops=1001'
+
+    it('is null without an alert poller (unknown), next to stop.alerts: null', async () => {
+      const { body } = await call(URL)
+      expect(body.alertFeed).toBeNull()
+      expect(body.stops[0].alerts).toBeNull()
+    })
+
+    it.each(['idle', 'loading'])('%s feed: alertFeed.state mirrors it, stop.alerts stay null', async (state) => {
+      alertPoller = { getView: () => ({ state, fetchedAt: null, ageMs: null }), getAlerts: () => [] }
+      try {
+        const { body } = await call(URL)
+        expect(body.alertFeed).toEqual({ state, fetchedAt: null, ageMs: null })
+        expect(body.stops[0].alerts).toBeNull()
+      } finally {
+        alertPoller = null
+      }
+    })
+
+    it('ready + none for the group: alertFeed ready, stop.alerts [] (the only "none")', async () => {
+      alertPoller = { getView: () => ({ state: 'ready', fetchedAt: T, ageMs: 1200 }), getAlerts: () => [] }
+      try {
+        const { body } = await call(URL)
+        expect(body.alertFeed).toEqual({ state: 'ready', fetchedAt: T, ageMs: 1200 })
+        expect(body.stops[0].alerts).toEqual([])
+      } finally {
+        alertPoller = null
+      }
+    })
+
+    it('failed before any success: alertFeed failed with fetchedAt null, stop.alerts [] (old clients stop retrying)', async () => {
+      alertPoller = { getView: () => ({ state: 'failed', fetchedAt: null, ageMs: null }), getAlerts: () => [] }
+      try {
+        const { body } = await call(URL)
+        expect(body.alertFeed).toEqual({ state: 'failed', fetchedAt: null, ageMs: null })
+        expect(body.stops[0].alerts).toEqual([])
+      } finally {
+        alertPoller = null
+      }
+    })
+
+    it('failed after a success: last good list is kept and alertFeed carries fetchedAt', async () => {
+      alertPoller = { getView: () => ({ state: 'failed', fetchedAt: T, ageMs: 600_000 }), getAlerts: () => [GOOD] }
+      try {
+        const { body } = await call(URL)
+        expect(body.alertFeed).toEqual({ state: 'failed', fetchedAt: T, ageMs: 600_000 })
+        expect(body.stops[0].alerts).toEqual([GOOD])
+      } finally {
+        alertPoller = null
+      }
+    })
+
+    it('is present in the loading response too (schedule not ready)', async () => {
+      const kept = schedule
+      schedule = null
+      alertPoller = { getView: () => ({ state: 'ready', fetchedAt: T, ageMs: 5 }), getAlerts: () => [GOOD] }
+      try {
+        const { body } = await call(URL)
+        expect(body.schedule.state).toBe('loading')
+        expect(body.alertFeed).toEqual({ state: 'ready', fetchedAt: T, ageMs: 5 })
+      } finally {
+        schedule = kept
+        alertPoller = null
+      }
+    })
   })
 })
