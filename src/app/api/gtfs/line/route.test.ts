@@ -9,7 +9,7 @@ const getGtfsPoller = vi.fn((city: string) =>
   city === 'warszawa' ? { ensureLoaded: vi.fn(), getSchedule: () => schedule, getView } : null
 )
 type TestAlert = { id: string; routes: string[]; effect: string; link: string; title: string; body: string }
-let alertPoller: { getAlerts: () => TestAlert[]; getView: () => { state: 'idle' | 'loading' | 'ready' | 'failed' } } | null = null
+let alertPoller: { getAlerts: () => TestAlert[]; getView: () => { state: 'idle' | 'loading' | 'ready' | 'failed'; fetchedAt?: string | null; ageMs?: number | null } } | null = null
 vi.mock('@/lib/gtfs/instance', () => ({
   getGtfsPoller: (...a: [string]) => getGtfsPoller(...a),
   peekAlertPoller: () => alertPoller,
@@ -129,5 +129,74 @@ describe('GET /api/gtfs/line', () => {
     } finally {
       alertPoller = null
     }
+  })
+
+  describe('alertFeed (feed state for the UI; alerts/knownAlerts semantics unchanged)', () => {
+    const GOOD = { id: 'a', routes: ['20'], effect: 'DETOUR', link: '', title: 'Utrudnienia na linii 20', body: 'b' }
+    const T = '2026-10-10T10:00:00.000Z'
+
+    it('is null without an alert poller (unknown), next to alerts: null', async () => {
+      const { body } = await call('city=warszawa&route=20')
+      expect(body.alertFeed).toBeNull()
+      expect(body.alerts).toBeNull()
+    })
+
+    it.each(['idle', 'loading'] as const)('%s feed: alertFeed.state mirrors it, alerts stay null', async (state) => {
+      alertPoller = { getView: () => ({ state, fetchedAt: null, ageMs: null }), getAlerts: () => [] }
+      try {
+        const { body } = await call('city=warszawa&route=20')
+        expect(body.alertFeed).toEqual({ state, fetchedAt: null, ageMs: null })
+        expect(body.alerts).toBeNull()
+      } finally {
+        alertPoller = null
+      }
+    })
+
+    it('ready + no alerts for this line: alertFeed ready, alerts [] (the only "none")', async () => {
+      alertPoller = { getView: () => ({ state: 'ready', fetchedAt: T, ageMs: 1200 }), getAlerts: () => [] }
+      try {
+        const { body } = await call('city=warszawa&route=20')
+        expect(body.alertFeed).toEqual({ state: 'ready', fetchedAt: T, ageMs: 1200 })
+        expect(body.alerts).toEqual([])
+      } finally {
+        alertPoller = null
+      }
+    })
+
+    it('failed before any success: alertFeed failed with fetchedAt null, alerts [] (old clients stop retrying)', async () => {
+      alertPoller = { getView: () => ({ state: 'failed', fetchedAt: null, ageMs: null }), getAlerts: () => [] }
+      try {
+        const { body } = await call('city=warszawa&route=20')
+        expect(body.alertFeed).toEqual({ state: 'failed', fetchedAt: null, ageMs: null })
+        expect(body.alerts).toEqual([])
+      } finally {
+        alertPoller = null
+      }
+    })
+
+    it('failed after a success: last good list is kept and alertFeed carries fetchedAt', async () => {
+      alertPoller = { getView: () => ({ state: 'failed', fetchedAt: T, ageMs: 600_000 }), getAlerts: () => [GOOD] }
+      try {
+        const { body } = await call('city=warszawa&route=20')
+        expect(body.alertFeed).toEqual({ state: 'failed', fetchedAt: T, ageMs: 600_000 })
+        expect(body.alerts).toEqual([GOOD])
+      } finally {
+        alertPoller = null
+      }
+    })
+
+    it('is present in the loading response too (schedule not ready)', async () => {
+      const kept = schedule
+      schedule = null
+      alertPoller = { getView: () => ({ state: 'ready', fetchedAt: T, ageMs: 5 }), getAlerts: () => [GOOD] }
+      try {
+        const { body } = await call('city=warszawa&route=20')
+        expect(body.schedule.state).toBe('loading')
+        expect(body.alertFeed).toEqual({ state: 'ready', fetchedAt: T, ageMs: 5 })
+      } finally {
+        schedule = kept
+        alertPoller = null
+      }
+    })
   })
 })
