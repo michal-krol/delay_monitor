@@ -156,4 +156,9 @@ describe('BottomSheet CSS', () => {
   it('locks the inner panel scroll below the full snap', () => {
     expect(css).toMatch(/\.bottom-sheet:not\(\[data-snap='full'\]\) \[data-sheet-scroll\]\s*\{\s*overflow-y: hidden/)
   })
+
+  // e2e „dotyk: przeciągnięcie za treść karty…”: `overscroll-contain` treści urywał łańcuch do arkusza.
+  it('lets a drag on the locked panel body chain to the sheet', () => {
+    expect(css).toMatch(/\.bottom-sheet:not\(\[data-snap='full'\]\) \[data-sheet-scroll\]\s*\{[^}]*overscroll-behavior: auto/)
+  })
 })
