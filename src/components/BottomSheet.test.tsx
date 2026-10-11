@@ -156,4 +156,12 @@ describe('BottomSheet CSS', () => {
   it('locks the inner panel scroll below the full snap', () => {
     expect(css).toMatch(/\.bottom-sheet:not\(\[data-snap='full'\]\) \[data-sheet-scroll\]\s*\{\s*overflow-y: hidden/)
   })
+
+  it('the locked panel body chains touch scroll to the sheet (overscroll-behavior: auto beats PanelFrame overscroll-contain)', () => {
+    // `PanelFrame` daje treści `overscroll-contain`; bez nadpisania Chromium kończy na nieprzewijalnej treści łańcuch
+    // przewijania dotykiem i arkusza (np. „W pobliżu”) nie da się przeciągnąć. Nadpisanie musi zostać (fix/e2e-sheet-scroll-flake).
+    const rule = css.match(/\.bottom-sheet:not\(\[data-snap='full'\]\) \[data-sheet-scroll\]\s*\{([^}]*)\}/)
+    expect(rule, 'rule for the locked panel body is missing').not.toBeNull()
+    expect(rule![1].replace(/\/\*[\s\S]*?\*\//g, '')).toMatch(/overscroll-behavior:\s*auto\s*;/)
+  })
 })
