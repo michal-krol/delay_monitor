@@ -125,9 +125,7 @@ the panel scrolls the container. Rules:
   (`has-[[aria-expanded=true]]:z-30`); a new dropdown there needs `aria-expanded` on its trigger.
 - Inner scrolling (`[data-sheet-scroll]` = `PanelFrame` body) is locked below `full`, otherwise
   a drag scrolls the content instead of lifting the sheet. New scrollable panel content must
-  use the `PanelFrame` body or carry `data-sheet-scroll`. The same rule resets
-  `overscroll-behavior: auto`: Chromium ends the scroll chain at an `overscroll-contain` box even
-  when it is `overflow: hidden`, so a drag on the card body never lifted the sheet (912a815).
+  use the `PanelFrame` body or carry `data-sheet-scroll`.
 - A new object remounts the sheet (`key`) so it opens at `initialSnap` (default `peek`).
 - Things that must stay visible over the open sheet (filter chips, `role=status` messages) go in
   the `above` slot: it rides on the panel's top edge and scrolls with it. At `full` only about
@@ -144,5 +142,13 @@ the panel scrolls the container. Rules:
   a `translate` makes the dialog the containing block of the `fixed` overlay.
 - Gestures are verified in e2e only on mobile-chromium (CDP touch); WebKit in Playwright has
   no touch API — iOS momentum/drag needs click-QA on a real iPhone (staging).
+- Touch-drag e2e traps (flake `map.spec` "mapa nad arkuszem przesuwa", fixed 2026-10-10): `touchDrag` returns before the
+  page handles the gesture (seconds under software WebGL), so wait on `data-snap` with `READY` — never on `scrollend`
+  (Chromium sometimes sends none after a touch scroll with `scroll-snap`; the app avoids it too, `SETTLE_MS`). Measured
+  cause: a release while moving starts a fling that headless Chromium never animates, so `touchDrag` sends explicit CDP
+  `timestamp`s and holds still >100 ms before `touchEnd`. A slow first
+  drag on the map can trip the 500 ms long-press (`TransitMap.tsx`) and open „W pobliżu”, replacing the sheet: every panel
+  must stay draggable, so below `full` `[data-sheet-scroll]` carries `overscroll-behavior: auto` (with `contain` on a body
+  with nothing to scroll, Chromium ends the scroll chain there and the sheet never moves).
 - Inline maps (`MapView` without `rich`) use `cooperativeGestures` with Polish strings so they
   don't trap page scroll; the enlarged dialog map keeps normal gestures.

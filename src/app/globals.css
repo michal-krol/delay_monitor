@@ -485,10 +485,10 @@ details[open] > summary .disclosure-chevron,
   background-color: var(--text-muted);
   opacity: 0.6;
 }
-/* `overscroll-behavior: auto` zdejmuje `overscroll-contain` z treści `PanelFrame`: Chromium urywa na nim łańcuch
-   przewijania mimo `overflow: hidden`, więc przeciągnięcie za treść karty nie podnosiło arkusza (912a815). */
 .bottom-sheet:not([data-snap='full']) [data-sheet-scroll] {
   overflow-y: hidden;
+  /* `PanelFrame` daje treści `overscroll-contain`; przy treści bez nic do przewinięcia Chromium kończy na niej łańcuch przewijania
+     dotykiem i przeciągnięcie panelu nie dociera do arkusza (np. „W pobliżu”). Poniżej `full` treść i tak się nie przewija. */
   overscroll-behavior: auto;
 }
 
