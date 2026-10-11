@@ -32,8 +32,8 @@ const MAX_STOP_ICONS = 3
 /** Ile ostatnio wysłanych fraz pamiętamy, żeby odróżnić echo własnego pisania od nawigacji Wstecz. */
 const MAX_PENDING_ECHOES = 20
 
-/** Pierścień fokusu na tokenie `--primary-text` (jasny i ciemny motyw) — wewnątrz, żeby kontener nie przycinał. */
-const ROW_FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-text'
+/** Obrys fokusu na tokenie `--primary-text` (jasny i ciemny motyw) — wewnątrz, żeby kontener nie przycinał; `outline` (nie ring) przeżywa forced-colors. */
+const ROW_FOCUS = 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-text'
 const ROW_PRESSED = 'active:bg-black/10 dark:active:bg-white/15'
 
 const SEARCH_FIELD_CLASS = `${SEARCH_INPUT_CLASS} min-h-11 pl-10 pr-12 focus:ring-primary-text! [&::-webkit-search-cancel-button]:appearance-none`
@@ -155,7 +155,7 @@ export function UnifiedSearch({
   const inputRef = useRef<HTMLInputElement>(null)
   const uid = useId()
   const online = useOnline()
-  const { cities } = useCities()
+  const { state: citiesState, cities, retry: retryCities } = useCities()
   // Jedno pobranie listy linii: własne, gdy rodzic nie dał `lineSource` (mapa daje); to samo zasila „Ostatnio oglądane”.
   const ownLines = useCityLines(lineSource === undefined ? city : null)
   const lines = lineSource ?? ownLines
@@ -209,18 +209,29 @@ export function UnifiedSearch({
   const loading = visibleSources.some((source) => source.state === 'loading')
   const placesWanted = has('rail') || has('stop')
   const needsCity = (has('stop') && sources.transit === 'disabled') || (has('line') && sources.lines === 'disabled')
-  // „Brak wyników” tylko gdy naprawdę coś przeszukano: miejsca od 3 znaków, linie od 1 (gdy lista gotowa).
-  const searched = (placesWanted && trimmed.length >= MIN_PLACES_QUERY) || (has('line') && sources.lines === 'ready')
+  // „Brak wyników” tylko gdy przeszukano miejsca (od 3 znaków); same linie (od 1 znaku, gdy lista gotowa) = „Brak linii”.
+  const placesSearched = placesWanted && trimmed.length >= MIN_PLACES_QUERY
+  const linesSearched = has('line') && sources.lines === 'ready'
+  // Bez miasta przystanki i linie nie mają skąd się wziąć: powód zależy od stanu rejestru miast, nie od „wybierz miasto”.
+  const cityListFailed = needsCity && citiesState === 'failed'
 
   const messages: Message[] = []
   if (trimmed !== '') {
     if (placesWanted && trimmed.length < MIN_PLACES_QUERY) messages.push({ text: 'Wpisz co najmniej 3 znaki, aby znaleźć miejsca', tone: 'neutral' })
-    if (loading) messages.push({ text: 'Szukam…', tone: 'neutral' })
+    if (loading) messages.push({ text: 'Wczytywanie…', tone: 'neutral' })
     for (const source of failedSources) messages.push({ text: `Nie udało się wczytać ${source.failed}`, tone: 'error' })
-    if (needsCity) messages.push({ text: 'Wybierz miasto, aby szukać przystanków i linii', tone: 'muted' })
-    if (shown.length === 0 && failedSources.length === 0 && !loading && searched) messages.push({ text: 'Brak wyników dla tej frazy', tone: 'neutral' })
+    if (needsCity) {
+      if (citiesState === 'loading') messages.push({ text: 'Wczytywanie miast…', tone: 'neutral' })
+      else if (citiesState === 'failed') messages.push({ text: 'Nie udało się wczytać listy miast', tone: 'error' })
+      else messages.push({ text: 'Brak skonfigurowanych miast', tone: 'muted' })
+    }
+    if (shown.length === 0 && failedSources.length === 0 && !loading) {
+      if (placesSearched) messages.push({ text: 'Brak wyników dla tej frazy', tone: 'neutral' })
+      else if (linesSearched) messages.push({ text: 'Brak linii dla tej frazy', tone: 'neutral' })
+    }
     if (!online) messages.push({ text: 'Brak połączenia — wyniki mogą być nieaktualne', tone: 'muted' })
   }
+  const canRetry = failedSources.length > 0 || (trimmed !== '' && cityListFailed)
 
   const empty = trimmed === ''
   const lineList = lines.lines
@@ -269,8 +280,17 @@ export function UnifiedSearch({
           </span>
         ))}
       </p>
-      {failedSources.length > 0 && (
-        <button type="button" onClick={retry} className="chip-filter mt-2">
+      {canRetry && (
+        <button
+          type="button"
+          onClick={() => {
+            // Jeden przycisk ponawia wszystko, co zawiodło; po udanym ponowieniu znika, więc fokus idzie do pola.
+            if (failedSources.length > 0) retry()
+            if (cityListFailed) retryCities()
+            focusInput()
+          }}
+          className="chip-filter mt-2"
+        >
           Spróbuj ponownie
         </button>
       )}
@@ -289,7 +309,7 @@ export function UnifiedSearch({
                 <ResultRow key={discoveryKey(result)} result={result} cityName={cityName} onSelect={onSelect} />
               ))}
             </ul>
-            {rows.length >= MAX_PER_GROUP && <p className="mt-1 px-1 text-xs text-text-muted">Pokazano pierwsze {MAX_PER_GROUP} — doprecyzuj frazę</p>}
+            {rows.length >= MAX_PER_GROUP && <p className="mt-1 px-1 text-xs text-text-muted">Pokazano do {MAX_PER_GROUP} wyników — doprecyzuj frazę</p>}
           </section>
         )
       })}

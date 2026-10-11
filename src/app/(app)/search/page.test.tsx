@@ -87,11 +87,37 @@ describe('/search page', () => {
     await waitFor(() => expect(cityOf()).toBe('krakow'))
   })
 
-  it('a pattern-valid city param is used at once, before the registry loads', async () => {
+  it('the city param is not trusted before the registry loads (no city, or the remembered one)', async () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     searchParamsSeed = 'city=krakow'
+    const { unmount } = render(<Page />)
+    expect(await screen.findByTestId('unified')).toHaveAttribute('data-city', '')
+    unmount()
+    window.localStorage.setItem('monitor.cityContext.v2', JSON.stringify('warszawa'))
+    __resetCityContext()
     render(<Page />)
-    expect(await screen.findByTestId('unified')).toHaveAttribute('data-city', 'krakow')
+    await waitFor(() => expect(cityOf()).toBe('warszawa'))
+  })
+
+  it('a known city param wins once the registry has loaded (deep link)', async () => {
+    searchParamsSeed = 'city=krakow'
+    render(<Page />)
+    await waitFor(() => expect(cityOf()).toBe('krakow'))
+  })
+
+  it('an unknown city param never becomes the search city, not even for an instant', async () => {
+    const seen: string[] = []
+    searchParamsSeed = 'city=zzz'
+    render(<Page />)
+    seen.push(cityOf() ?? 'null')
+    await waitFor(() => expect(cityOf()).toBe('warszawa'))
+    seen.push(cityOf() ?? 'null')
+    expect(seen).not.toContain('zzz')
+  })
+
+  it('shows the heading and subtitle on phones too (TopBar is not compact)', () => {
+    render(<Page />)
+    expect(screen.getByRole('heading', { level: 1, name: 'Szukaj' }).className).not.toContain('sr-only')
   })
 
   it('unknown (registry) city param falls back to context/default once cities load', async () => {

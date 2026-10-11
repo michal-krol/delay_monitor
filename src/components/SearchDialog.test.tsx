@@ -89,7 +89,7 @@ describe('SearchDialog', () => {
     const input = await screen.findByRole('searchbox', FIELD)
     expect(dialog.showModal).toHaveBeenCalledTimes(1)
     expect(input).toHaveFocus()
-    expect(screen.getByRole('dialog', { name: 'Szukaj stacji lub przystanku' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Szukaj stacji, przystanku lub linii' })).toBeInTheDocument()
   })
 
   it('mounts no content while closed', () => {

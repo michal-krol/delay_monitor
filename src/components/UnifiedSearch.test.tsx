@@ -122,10 +122,11 @@ describe('UnifiedSearch', () => {
     expect(statusText()).toContain('Brak wyników dla tej frazy')
   })
 
-  it('zero results while a source still loads says Szukam…, not Brak wyników', () => {
+  it('zero results while a source still loads says Wczytywanie…, not Brak wyników', () => {
     found([], { transit: 'loading' })
     render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} initialQuery="zzz" />)
-    expect(statusText()).toContain('Szukam…')
+    expect(statusText()).toContain('Wczytywanie…')
+    expect(statusText()).not.toContain('Szukam')
     expect(statusText()).not.toContain('Brak wyników')
   })
 
@@ -135,6 +136,21 @@ describe('UnifiedSearch', () => {
     expect(statusText()).toContain('Wpisz co najmniej 3 znaki, aby znaleźć miejsca')
     expect(screen.getByRole('heading', { name: 'Linie' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Linia 128/ })).toBeInTheDocument()
+  })
+
+  it('1–2 chars with no line match says Brak linii (places were not searched), never Brak wyników', () => {
+    found([], { rail: 'idle', transit: 'idle' })
+    render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} initialQuery="zz" />)
+    expect(statusText()).toContain('Wpisz co najmniej 3 znaki, aby znaleźć miejsca')
+    expect(statusText()).toContain('Brak linii dla tej frazy')
+    expect(statusText()).not.toContain('Brak wyników')
+  })
+
+  it('1–2 chars while lines still load says neither Brak linii nor Brak wyników', () => {
+    found([], { rail: 'idle', transit: 'idle', lines: 'loading' })
+    render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} initialQuery="zz" />)
+    expect(statusText()).not.toContain('Brak linii')
+    expect(statusText()).not.toContain('Brak wyników')
   })
 
   it('failed source shows Nie udało się wczytać … and Spróbuj ponownie calls retry', async () => {
@@ -259,17 +275,88 @@ describe('UnifiedSearch', () => {
     expect(screen.getByRole('button', { name: 'Linia 128, Autobus · Warszawa' })).toBeInTheDocument()
   })
 
-  it('shows a cap hint when a group is full', () => {
+  it('shows a cap hint when a group is full (worded for "up to", since 8 rows may be exact)', () => {
     found(Array.from({ length: 8 }, (_, index) => rail(String(10000 + index), `Stacja ${index}`)))
     render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} initialQuery="sta" />)
-    expect(screen.getByText('Pokazano pierwsze 8 — doprecyzuj frazę')).toBeInTheDocument()
+    expect(screen.getByText('Pokazano do 8 wyników — doprecyzuj frazę')).toBeInTheDocument()
   })
 
-  it('without a city says to pick one but keeps PKP results', () => {
-    found([rail('33605', 'Warszawa Centralna')], { transit: 'disabled', lines: 'disabled' })
-    render(<UnifiedSearch city={null} onSelect={vi.fn()} initialQuery="cen" />)
-    expect(statusText()).toContain('Wybierz miasto, aby szukać przystanków i linii')
-    expect(screen.getByRole('button', { name: /^Warszawa Centralna/ })).toBeInTheDocument()
+  describe('without a city', () => {
+    const noCity = { transit: 'disabled', lines: 'disabled' } as const
+
+    it('cities still loading: says Wczytywanie miast…, keeps PKP results, never asks to pick a city', () => {
+      vi.mocked(useCities).mockReturnValue({ state: 'loading', cities: [], retry: vi.fn() })
+      found([rail('33605', 'Warszawa Centralna')], noCity)
+      render(<UnifiedSearch city={null} onSelect={vi.fn()} initialQuery="cen" />)
+      expect(statusText()).toContain('Wczytywanie miast…')
+      expect(statusText()).not.toContain('Wybierz miasto')
+      expect(screen.getByRole('button', { name: /^Warszawa Centralna/ })).toBeInTheDocument()
+    })
+
+    it('cities failed: error tone message and one Spróbuj ponownie that retries the city list and moves focus to the field', async () => {
+      const retryCities = vi.fn()
+      vi.mocked(useCities).mockReturnValue({ state: 'failed', cities: [], retry: retryCities })
+      const retry = found([rail('33605', 'Warszawa Centralna')], noCity)
+      const user = userEvent.setup()
+      render(<UnifiedSearch city={null} onSelect={vi.fn()} initialQuery="cen" />)
+      expect(screen.getByText('Nie udało się wczytać listy miast')).toHaveClass('text-error-text')
+      expect(screen.getByRole('button', { name: /^Warszawa Centralna/ })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Spróbuj ponownie' }))
+      expect(retryCities).toHaveBeenCalledTimes(1)
+      expect(retry).not.toHaveBeenCalled()
+      expect(screen.getByRole('searchbox')).toHaveFocus()
+    })
+
+    it('cities failed and a place source failed: one button retries both', async () => {
+      const retryCities = vi.fn()
+      vi.mocked(useCities).mockReturnValue({ state: 'failed', cities: [], retry: retryCities })
+      const retry = found([], { rail: 'failed', ...noCity })
+      const user = userEvent.setup()
+      render(<UnifiedSearch city={null} onSelect={vi.fn()} initialQuery="cen" />)
+      const buttons = screen.getAllByRole('button', { name: 'Spróbuj ponownie' })
+      expect(buttons).toHaveLength(1)
+      await user.click(buttons[0])
+      expect(retryCities).toHaveBeenCalledTimes(1)
+      expect(retry).toHaveBeenCalledTimes(1)
+    })
+
+    it('empty registry: says Brak skonfigurowanych miast, no retry button', () => {
+      vi.mocked(useCities).mockReturnValue({ state: 'ready', cities: [], retry: vi.fn() })
+      found([rail('33605', 'Warszawa Centralna')], noCity)
+      render(<UnifiedSearch city={null} onSelect={vi.fn()} initialQuery="cen" />)
+      expect(statusText()).toContain('Brak skonfigurowanych miast')
+      expect(screen.queryByRole('button', { name: 'Spróbuj ponownie' })).toBeNull()
+      expect(screen.getByRole('button', { name: /^Warszawa Centralna/ })).toBeInTheDocument()
+    })
+
+    it('says nothing about cities when only rail is offered or the field is empty', () => {
+      vi.mocked(useCities).mockReturnValue({ state: 'failed', cities: [], retry: vi.fn() })
+      found([rail('33605', 'Warszawa Centralna')], noCity)
+      const { unmount } = render(<UnifiedSearch city={null} onSelect={vi.fn()} initialQuery="cen" kinds={['rail']} />)
+      expect(statusText()).not.toContain('miast')
+      unmount()
+      render(<UnifiedSearch city={null} onSelect={vi.fn()} />)
+      expect(statusText()).toBe('')
+    })
+  })
+
+  it('after a successful retry the focus is on the field, not lost with the unmounted button', async () => {
+    found([], { transit: 'failed' })
+    const user = userEvent.setup()
+    render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} initialQuery="cen" />)
+    const button = screen.getByRole('button', { name: 'Spróbuj ponownie' })
+    await user.click(button)
+    expect(screen.getByRole('searchbox')).toHaveFocus()
+  })
+
+  it('row and Wyczyść focus indicators use outline (survives forced-colors), not box-shadow rings', () => {
+    found([rail('33605', 'Warszawa Centralna')])
+    render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} initialQuery="cen" />)
+    for (const element of [screen.getByRole('button', { name: /^Warszawa Centralna/ }), screen.getByRole('button', { name: 'Wyczyść' })]) {
+      expect(element).toHaveClass('focus-visible:outline-2', 'focus-visible:outline-primary-text')
+      expect(element).not.toHaveClass('outline-none')
+      expect(element.className).not.toContain('ring-')
+    }
   })
 
   it('passes city, query and lineSource to the search hook', async () => {
@@ -306,7 +393,7 @@ describe('UnifiedSearch', () => {
 
   it('without lineSource it fetches the line list once and shows recent lines from it', async () => {
     window.localStorage.setItem('monitor.recentLines.v1', JSON.stringify({ warszawa: ['128'] }))
-    const fetchMock = vi.fn((_url: string) =>
+    const fetchMock = vi.fn<(url: string) => Promise<Response>>(() =>
       jsonResponse({
         city: 'warszawa',
         schedule: { state: 'ready', loadedAt: null, ageMs: null, phase: null, serviceDates: null, feedVersion: null },

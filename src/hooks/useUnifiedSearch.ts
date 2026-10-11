@@ -132,6 +132,8 @@ export function useUnifiedSearch({ city, query, lineSource }: { city: string | n
   const rail: SearchSourceState = !placesActive ? 'idle' : current === null ? 'loading' : places === null ? 'failed' : places.rail
   const transit: SearchSourceState =
     city === null ? 'disabled' : !placesActive ? 'idle' : current === null ? 'loading' : places === null ? 'failed' : places.transit
+  // Decyzja: lista linii to statyczny rozkład (`refreshMs: null`), więc zachowana lista po nieudanym odświeżeniu
+  // jest pokazywana tak, jak jest — bez notki o wieku; „failed” tylko gdy nie mamy żadnej listy (#7).
   const linesFailed = linesSource.state === 'failed' && linesSource.lines === null
   const lines: SearchSourceState =
     city === null ? 'disabled' : trimmed === '' ? 'idle' : linesSource.state === 'loading' ? 'loading' : linesFailed ? 'failed' : 'ready'

@@ -105,7 +105,7 @@ test.describe('PR5: cele dotyku na telefonie', () => {
     expect(await hitHeight(stop)).toBeGreaterThanOrEqual(44)
   })
 
-  test('/search: pole, „Wyczyść" i wiersze wyników mają >= 44 px', async ({ page }) => {
+  test('/search: pole i „Wyczyść" mają >= 44 px, wiersze wyników >= 52 px', async ({ page }) => {
     await page.goto('/search?q=Centr')
     await page.waitForLoadState('networkidle')
     const main = page.getByRole('main')
@@ -115,7 +115,7 @@ test.describe('PR5: cele dotyku na telefonie', () => {
     expect(Math.round(await hitHeight(main.getByRole('button', { name: 'Wyczyść' })))).toBeGreaterThanOrEqual(44)
     const rows = main.locator('section').getByRole('button')
     await expect(rows.first()).toBeVisible()
-    for (let i = 0; i < (await rows.count()); i++) expect(Math.round(await hitHeight(rows.nth(i)))).toBeGreaterThanOrEqual(44)
+    for (let i = 0; i < (await rows.count()); i++) expect(Math.round(await hitHeight(rows.nth(i)))).toBeGreaterThanOrEqual(52)
   })
 
   test('„Wróć do wyszukiwania” ma >= 44 px', async ({ page }) => {

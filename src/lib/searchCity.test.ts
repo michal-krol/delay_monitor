@@ -14,13 +14,16 @@ describe('resolvePageCity', () => {
     expect(resolvePageCity('gdansk', null, [KRAKOW, WARSZAWA])).toBe('warszawa')
   })
 
-  it('before cities load a pattern-valid url city is used', () => {
-    expect(resolvePageCity('krakow', 'warszawa', null)).toBe('krakow')
+  it('before cities load the url city is NOT trusted (an unknown ?city= must not reach /api/gtfs); context or null', () => {
+    expect(resolvePageCity('krakow', 'warszawa', null)).toBe('warszawa')
+    expect(resolvePageCity('zzz', null, null)).toBeNull()
+    expect(resolvePageCity('krakow', null, null)).toBeNull()
   })
 
-  it('a url city that fails the pattern is ignored even before cities load', () => {
+  it('a url city that fails the pattern is ignored even once cities are loaded', () => {
     expect(resolvePageCity('KRK!', 'warszawa', null)).toBe('warszawa')
     expect(resolvePageCity('../x', null, null)).toBeNull()
+    expect(resolvePageCity('../x', 'krakow', [WARSZAWA, KRAKOW])).toBe('krakow')
   })
 
   it('null when nothing resolves', () => {

@@ -31,7 +31,7 @@ export default function Page() {
 function SearchSkeleton() {
   return (
     <PageShell>
-      <TopBar title="Szukaj" subtitle={SUBTITLE} compact />
+      <TopBar title="Szukaj" subtitle={SUBTITLE} />
       <div aria-busy="true" data-testid="search-skeleton" className="w-full max-w-2xl">
         <span className="sr-only">Wczytywanie…</span>
         <div aria-hidden="true" className="h-11 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
@@ -70,7 +70,7 @@ function SearchPage() {
 
   return (
     <PageShell>
-      <TopBar title="Szukaj" subtitle={SUBTITLE} compact actions={picker} />
+      <TopBar title="Szukaj" subtitle={SUBTITLE} actions={picker} />
       <div className="w-full max-w-2xl">
         {/* Fraza idzie do adresu przez replaceState — bez wpisu historii na literę; Wstecz wraca na poprzednią stronę. */}
         <UnifiedSearch autoFocus city={city} initialQuery={query} onQueryChange={(next) => patchUrlParams({ q: next === '' ? null : next })} onSelect={select} />

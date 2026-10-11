@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
-export const SEARCH_DIALOG = 'Szukaj stacji lub przystanku'
+export const SEARCH_DIALOG = 'Szukaj stacji, przystanku lub linii'
 /** Nazwa pola wspólnej wyszukiwarki (`UnifiedSearch`) — to samo w oknie desktopu i na stronie `/search`. */
 export const SEARCH_FIELD = 'Stacja, przystanek lub linia'
 

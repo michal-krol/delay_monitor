@@ -138,4 +138,24 @@ describe('useCities', () => {
     expect(result.current.cities).toEqual([CITY])
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
+
+  it('retry() from one component updates every mounted component (the search field and its page share the registry)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => Promise.reject(new Error('network down')))
+      .mockImplementationOnce(() => jsonResponse({ cities: [CITY] }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result: page } = renderHook(() => useCities())
+    const { result: field } = renderHook(() => useCities())
+    await vi.waitFor(() => expect(page.current.state).toBe('failed'))
+    await vi.waitFor(() => expect(field.current.state).toBe('failed'))
+
+    field.current.retry()
+
+    await vi.waitFor(() => expect(field.current.state).toBe('ready'))
+    await vi.waitFor(() => expect(page.current.state).toBe('ready'))
+    expect(page.current.cities).toEqual([CITY])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })
