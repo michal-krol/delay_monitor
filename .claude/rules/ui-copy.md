@@ -31,6 +31,10 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   text „Brak lokalizacji stacji”, a failed list „Nie udało się wczytać lokalizacji stacji”, never a dead control); disruption notice above the tabs „{n}
   utrudnienie|utrudnienia|utrudnień na stacji” (opens Info; only when there are messages — an unknown list
   is no notice, #7).
+- **Context alerts** (`ContextAlerts`, GTFS only): loading „Wczytywanie komunikatów…”; ready and none „Brak komunikatów
+  dla tego kontekstu”; failed with nothing to show „Nie udało się wczytać komunikatów”; failed with the last list
+  „Nie udało się odświeżyć. Pokazujemy ostatnie dane”. Card: „Rozwiń komunikat” / „Zwiń komunikat”, link „Źródło komunikatu”, optional „Na mapie” (only when the consumer can resolve the line).
+  No dates, severity or location (the feed has none); the tab count is `dedupeAlerts()` length, never `0` while unknown.
 - Data age: „Aktualizacja {N} s temu”; stale after a failed refresh: „Nie udało się odświeżyć · dane z {HH:mm}”.
 
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)

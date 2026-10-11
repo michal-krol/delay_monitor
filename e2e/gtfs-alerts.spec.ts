@@ -37,3 +37,42 @@ test('a11y: strona linii z widocznym banerem utrudnienia bez naruszeń serious/c
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
+
+// Kontrakt `alertFeed` (PR „komunikaty w kontekście"): stan feedu obok `alerts`, żeby ekrany odróżniały awarię od pustego
+// sukcesu. Mock GTFS = zero sieci; poller alertów budzi się przy pierwszym żądaniu, więc czekamy aż feed będzie `ready`.
+test('API: /api/gtfs/line i /board niosą alertFeed gotowego feedu obok alerts', async ({ request }) => {
+  await expect
+    .poll(async () => (await (await request.get('/api/gtfs/line?city=warszawa&route=20')).json()).alertFeed?.state, { timeout: READY })
+    .toBe('ready')
+  const line = await (await request.get('/api/gtfs/line?city=warszawa&route=20')).json()
+  expect(line.alertFeed).toMatchObject({ state: 'ready', fetchedAt: expect.any(String), ageMs: expect.any(Number) })
+  expect(Array.isArray(line.alerts)).toBe(true)
+
+  const board = await (await request.get('/api/gtfs/board?city=warszawa&stops=1001')).json()
+  expect(board.alertFeed).toMatchObject({ state: 'ready', fetchedAt: expect.any(String) })
+  expect(Array.isArray(board.stops[0].alerts)).toBe(true)
+})
+
+// Jedno ogłoszenie obejmujące kilka trybów (fixture A/TEST/4: metro M1 + autobus 128) trafia do OBU linii, ta sama treść.
+for (const [routeId, mode] of [['M1', 'metro'], ['128', 'autobus']] as const) {
+  test(`linia ${routeId} (${mode}): ogłoszenie wielotrybowe M1+128 jest widoczne`, async ({ page }) => {
+    await page.goto(`/city/warszawa/line/${routeId}`)
+    await expect(page.getByText('Zmiany na M1 i 128 — prace remontowe')).toBeVisible({ timeout: READY })
+    await expect(page.getByText('Utrudnienia w kursowaniu linii 20')).not.toBeVisible()
+  })
+}
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`a11y: strona linii z rozwiniętym komunikatem w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} bez naruszeń serious/critical`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme })
+    await page.goto('/city/warszawa/line/20')
+    const title = page.getByText('Utrudnienia w kursowaniu linii 20')
+    await expect(title).toBeVisible({ timeout: READY })
+    await title.click() // rozwija treść: skan obejmuje też link źródła i pełne body
+    await expect(page.getByText('Testowy alert na linię 20 (fixture mock).')).toBeVisible()
+
+    const { violations } = await scanA11y(page)
+    const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+    expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+  })
+}

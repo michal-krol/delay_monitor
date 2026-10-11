@@ -8,6 +8,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Dodane
 
+- Komunikaty w kontekście linii i przystanku: odpowiedzi `/api/gtfs/line` i `/api/gtfs/board` niosą
+  stan feedu komunikatów (`alertFeed`), więc ekran odróżnia awarię od „brak komunikatów”. Nowy komponent
+  `ContextAlerts` (karty zwinięte domyślnie, pełna treść bez wewnętrznego przewijania, „Źródło komunikatu”,
+  stany: wczytywanie / brak / nie udało się wczytać / nie udało się odświeżyć) oraz `alertsState` i
+  `alertsStale` w `useLineDetail`. Bez nowego źródła danych i bez nowych zapytań do feedu; podłączenie
+  do ekranów przystanku, linii i mapy w kolejnych zmianach.
 - Własne ekrany błędu i „Nie znaleziono strony”: po nieudanym wczytaniu strony są przyciski
   „Spróbuj ponownie” i „Wróć do Startu”, a nawigacja aplikacji zostaje na miejscu. Treści
   błędu nie widać — pokazujemy tylko polski komunikat.
