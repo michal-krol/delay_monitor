@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { startTransition, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
@@ -18,9 +18,14 @@ import { StationThumb } from './StationThumb'
 import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
-import { ArrowLeftIcon, CloseIcon, ICON_SIZE } from './icons'
+import { AlertCircleIcon, ArrowLeftIcon, ChevronRightIcon, CloseIcon, MapIcon, ICON_SIZE } from './icons'
 import { PinStar } from './PinStar'
 import { ICON_BUTTON_CLASS, IconButton } from './IconButton'
+import { MAP_ZOOM, formatAt } from './map/mapData'
+import { useRailStations } from '@/hooks/useRailStations'
+import { useCityContext } from '@/hooks/useCityContext'
+import { pluralPl } from '@/lib/plural'
+import type { MapRailStation } from '@/lib/weather/coordinates'
 import { NAV_BACK_TYPES } from '@/lib/navTransition'
 import { onTablistKeyDown } from './tablistKeys'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
@@ -78,13 +83,67 @@ function TabButton({
       aria-selected={active}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium transition max-sm:min-h-10 max-sm:px-2 touch-44 relative ${
-        active ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'
-      }`}
-      // Ten sam akcent co zakładki przystanku (TransitStopDetail) — stacja wygląda jak przystanek.
-      style={active ? { background: 'var(--accent-gradient)' } : undefined}
+      // Wspólny segment (F0): aktywny wygląd daje `aria-selected`; na telefonie dzielą szerokość po równo.
+      className="segment-item flex-1 sm:flex-none"
     >
       {children}
+    </button>
+  )
+}
+
+/** Co „Na mapie” może zrobić: jeszcze nie wiadomo / nie ma lokalizacji / jest link. Czysta decyzja, bez DOM. */
+export type StationMapLink = { state: 'loading' } | { state: 'failed' } | { state: 'unavailable' } | { state: 'ready'; href: string; lat: number; lon: number }
+
+/**
+ * Link „Na mapie” z statycznej listy stacji kolei (`useRailStations`, 0 PKP — AGENTS.md #3), nie z pogody.
+ * Znane miasto → mapa miasta, inaczej `/map` (przekierowanie gubi dziś `?at=` — naprawia osobny PR).
+ * Lista się wczytuje (`null` bez błędu) = „jeszcze nie wiadomo”; błąd listy = „nie udało się”; stacji nie ma na liście = brak lokalizacji.
+ */
+export function stationMapLink(rail: { stations: MapRailStation[] | null; error: boolean }, stationId: string, city: string | null): StationMapLink {
+  const station = rail.stations?.find((s) => s.id === stationId)
+  if (station === undefined) {
+    if (rail.stations !== null) return { state: 'unavailable' }
+    return rail.error ? { state: 'failed' } : { state: 'loading' }
+  }
+  const at = formatAt({ lat: station.lat, lon: station.lon, zoom: MAP_ZOOM.stops })
+  return { state: 'ready', href: `${city === null ? '' : `/city/${city}`}/map?at=${at}`, lat: station.lat, lon: station.lon }
+}
+
+/** Telefon: rząd w karcie nagłówka. Ładowanie = nic (ani sterowanie, ani „wyłączony” napis); brak lokalizacji = zwykły tekst, nie kontrolka. */
+function StationMapRow({ link }: { link: StationMapLink }) {
+  // Ładowanie: puste miejsce o wysokości rzędu, żeby po wczytaniu listy tablica nie zjechała w dół.
+  if (link.state === 'loading') return <div className="mt-2 min-h-11" aria-hidden="true" />
+  return (
+    <div className="mt-2">
+      {link.state === 'ready' ? (
+        <Link href={link.href} className="chip-filter gap-1.5">
+          <MapIcon size={ICON_SIZE.button} />
+          Na mapie
+        </Link>
+      ) : (
+        <p className="text-sm text-text-secondary">{link.state === 'failed' ? 'Nie udało się wczytać lokalizacji stacji' : 'Brak lokalizacji stacji'}</p>
+      )}
+    </div>
+  )
+}
+
+/** Telefon: zwarty komunikat o utrudnieniach na stacji; otwiera arkusz „Info” (treść źródłowa PKP, sekcja na górze). */
+function DisruptionNotice({ count, open, onOpen }: { count: number; open: boolean; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      // Safari nie fokusuje przycisku po kliknięciu — bez tego arkusz nie miałby dokąd oddać fokusu.
+      onClick={(event) => {
+        event.currentTarget.focus()
+        onOpen()
+      }}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      className={`press flex min-h-11 w-full items-center gap-2 rounded-xl border border-warning-text bg-surface-strong px-3 text-left text-sm font-medium text-warning-text focus-visible:outline-2 focus-visible:outline-primary-text`}
+    >
+      <AlertCircleIcon size={ICON_SIZE.button} />
+      <span className="min-w-0 flex-1">{`${count} ${pluralPl(count, 'utrudnienie', 'utrudnienia', 'utrudnień')} na stacji`}</span>
+      <ChevronRightIcon size={ICON_SIZE.button} />
     </button>
   )
 }
@@ -155,7 +214,12 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
   // wzorzec i uzasadnienie w page.tsx). Nieprawidłowy/uszkodzony parametr jest
   // po prostu ignorowany. Szczegóły połączenia mają teraz własną trasę
   // (`/connection/...`) z własnym adresem — nie ma już czego odtwarzać tutaj.
+  // `restoredRef`: StrictMode (dev) odpala efekty dwa razy, a między nimi efekt zapisu poniżej nadpisuje URL stanem
+  // domyślnym — drugie czytanie widziałoby już `tab=departures` i gubiło link. Stan z pierwszego przebiegu zostaje.
+  const restoredRef = useRef(false)
   useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
     const tab = readUrlParam('tab')
     if (tab === 'departures' || tab === 'arrivals') {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- odtworzenie stanu z URL-a, dostępnego tylko po zamontowaniu
@@ -186,16 +250,20 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
     patchUrlParams({ direction: destinationFilter })
   }, [destinationFilter])
 
-  // Zamknięcie całej tablicy (powrót do dashboardu) musi wyczyścić `tab` —
-  // inaczej otwarcie kolejnej, innej stacji odziedziczyłoby zakładkę sprzed
-  // zamknięcia, przez wciąż obecny w URL-u wpis.
-  useEffect(() => {
-    return () => {
-      patchUrlParams({ tab: null, direction: null })
-    }
-  }, [])
+  // Brak sprzątania `tab`/`direction` przy odmontowaniu: wstecz z `/connection/…` wraca do wpisu historii, w którego
+  // URL-u już są (zapisane wyżej przez `replaceState`). Sprzątanie biegnie PO zmianie adresu, więc wycinałoby je
+  // dopiero z NASTĘPNEJ strony (np. `?tab=` przystanku). Nowe stacje otwiera się świeżym linkiem — nic nie dziedziczą.
 
   const loading = snapshot === null && error === null
+
+  // Współrzędne stacji z listy stacji kolei (statyczna, 0 PKP) — dla „Na mapie” i pinu w aside; niezależne od pogody.
+  const rail = useRailStations()
+  const { city } = useCityContext()
+  const mapLink = stationMapLink(rail, stationId, city)
+  const lat = mapLink.state === 'ready' ? mapLink.lat : null
+  const lon = mapLink.state === 'ready' ? mapLink.lon : null
+  const location = useMemo(() => (lat === null || lon === null ? null : { lat, lon }), [lat, lon])
+  const disruptionCount = snapshot?.disruptionMessages?.length ?? 0
   const aside = (
     <StationAside
       insights={snapshot?.insights}
@@ -207,14 +275,23 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
       weather={weather}
       stationName={stationName}
       stationId={stationId}
+      location={location}
       mapPreview={mapPreview}
       stats={snapshot?.stats}
     />
   )
 
+  // Wiek danych: jedno miejsce naraz. Przy błędzie konfiguracji NIE pokazujemy statusu danych --
+  // „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API" to dokładnie to mieszanie sygnałów,
+  // przed którym ostrzega AGENTS.md #7. Ta sama zasada co ukrycie tabeli niżej.
+  const status = configError ? null : (
+    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
+  )
+
   return (
     <div className="grid items-start gap-5 max-sm:gap-2 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
-      {/* Na telefonie odjazdy pierwsze: zwarty nagłówek, selektor kierunku, kontekst i KPI w arkuszu „Info”. */}
+      {/* Telefon, kolejno (spec 02): karta nagłówka z „Na mapie” → powiadomienie o utrudnieniach → sekcja tablicy
+          (zakładki → filtr kierunku → wiek danych → wiersze). KPI, pogoda, ruch i legenda tylko w arkuszu „Info”. */}
       <div className="flex min-w-0 flex-col gap-5 max-sm:gap-2">
         <section className="glass relative rounded-2xl p-5 max-sm:p-3">
           {configError && <ConfigErrorBanner />}
@@ -234,15 +311,8 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
                 <BoardHeading className="max-sm:line-clamp-2 max-sm:text-lg max-sm:leading-tight" embedded={embedded} kind="pkp" id={stationId}>
                   {stationName}
                 </BoardHeading>
-                {/* Przy błędzie konfiguracji NIE pokazujemy statusu danych --
-                    „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API"
-                    to dokładnie to mieszanie sygnałów, przed którym ostrzega
-                    AGENTS.md #7. Ta sama zasada co ukrycie tabeli niżej. */}
-                {!configError && (
-                  <div className="mt-1">
-                    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
-                  </div>
-                )}
+                {/* Od `sm` wiek danych pod tytułem; na telefonie stoi nad wierszami (niżej). */}
+                {wide && status !== null && <div className="mt-1">{status}</div>}
               </div>
             </div>
 
@@ -253,7 +323,12 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
               {phoneBack !== undefined && !wide && <BoardMoreMenu infoLabel="Informacje o stacji" onInfo={openInfo} />}
             </div>
           </div>
+
+          {!wide && <StationMapRow link={mapLink} />}
         </section>
+
+        {/* Telefon: zwarty komunikat o utrudnieniach nad zakładkami (D2); od `sm` te same komunikaty stoją w aside. */}
+        {!configError && !wide && disruptionCount > 0 && <DisruptionNotice count={disruptionCount} open={infoOpen} onOpen={openInfo} />}
 
         {/* Baner z błędem konfiguracji nie ma slotu na przycisk, więc nie może
             całkowicie zastąpić widoku (jak robi StationCard) — FullBoard jest
@@ -262,13 +337,11 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
             "sprawdź klucz API" nie sąsiadował z wyglądającą na działającą tabelą. */}
         {!configError && (
           <>
-            {/* Telefon: kafelki tylko w arkuszu „Info”; w ich miejscu jeden selektor kierunku (bez dokładania wysokości). */}
-            {wide ? (
+            {/* Telefon: kafelki tylko w arkuszu „Info”. */}
+            {wide && (
               <div className="max-sm:hidden">
                 <StationStatsCards stats={snapshot?.stats} loading={loading} />
               </div>
-            ) : (
-              <DirectionSelect direction={direction} rows={allRows} value={destinationFilter} onChange={setDestinationFilter} />
             )}
 
             <section className="glass rounded-2xl p-5 max-sm:p-4">
@@ -283,7 +356,7 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
                   role="tablist"
                   aria-label="Kierunek"
                   onKeyDown={(event) => onTablistKeyDown(event, DIRECTIONS.indexOf(direction), (index) => switchDirection(DIRECTIONS[index]))}
-                  className="grid grid-cols-2 gap-1 rounded-full bg-black/5 p-1 max-sm:col-span-2 sm:inline-flex dark:bg-white/5"
+                  className="segment max-sm:col-span-2"
                 >
                   <TabButton id={tabId('departures')} panelId={panelId} active={direction === 'departures'} onClick={() => switchDirection('departures')}>
                     Odjazdy
@@ -294,12 +367,13 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
                 </div>
                 {wide && <StatusLegend />}
 
-                {/* Telefon: wybrany kierunek pokazuje selektor nad tablicą. */}
+                {/* Telefon: wybrany kierunek pokazuje selektor pod zakładkami. */}
                 {destinationFilter !== null && wide && (
                   <button
                     type="button"
+                    data-active=""
                     onClick={() => setDestinationFilter(null)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs text-text-secondary transition hover:text-foreground"
+                    className="chip-filter gap-1.5"
                   >
                     Kierunek: {destinationFilter}
                     <CloseIcon size={ICON_SIZE.chip} />
@@ -310,8 +384,16 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
                 </div>
               </ActionGrid>
 
-              {/* Od `sm` do `xl` kierunki są filtrami nad tablicą (ten sam stan co karta w kolumnie od `xl`).
-                  Na telefonie filtr to `DirectionSelect` w miejscu kafelków KPI (plus lista w arkuszu „Info”) — chipy kosztowały ~55 px. */}
+              {/* Telefon: filtr kierunku (`DirectionSelect`) tuż pod zakładkami, potem wiek danych — kolejność ze spec 02.
+                  Chipy kosztowały ~55 px, więc selektor zastępuje je na telefonie. */}
+              {!wide && (
+                <div className="mt-2">
+                  <DirectionSelect direction={direction} rows={allRows} value={destinationFilter} onChange={setDestinationFilter} />
+                </div>
+              )}
+              {!wide && status !== null && <div className="mt-2">{status}</div>}
+
+              {/* Od `sm` do `xl` kierunki są filtrami nad tablicą (ten sam stan co karta w kolumnie od `xl`). */}
               {direction === 'departures' && wide && (
                 <PopularDestinations variant="chips" insights={snapshot?.insights} loading={false} onSelect={setDestinationFilter} selected={destinationFilter} />
               )}

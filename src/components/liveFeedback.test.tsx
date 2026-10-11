@@ -113,7 +113,7 @@ describe('delayed row glow', () => {
     render(<BoardTable stationName="Warszawa Centralna" direction="departures" rows={[boardRow()]} now={NOW} loading={false} />)
     const rowEl = screen.getByRole('row', { name: /Kraków/ })
     expect(rowEl).toHaveAttribute('data-status', 'delayed')
-    expect(within(rowEl).getByText('+5 min')).toBeInTheDocument()
+    expect(within(rowEl).getByText('Opóźnienie +5 min')).toBeInTheDocument()
   })
 })
 

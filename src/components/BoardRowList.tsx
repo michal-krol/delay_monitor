@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { CarrierLogo } from './CarrierLogo'
 import { DelayBadge } from './DelayBadge'
 import { AlertCircleIcon, ICON_SIZE } from './icons'
-import { timeNote } from './boardTime'
 import { TimePair, connectionHref } from './TimePair'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
@@ -20,12 +19,11 @@ type Props = {
 
 /** Treść wiersza: ta sama kolumna godziny co tablica (`TimePair`), kierunek główny, status przy kursie. */
 function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
-  const note = timeNote(row, now)
   return (
     // Metadane pod kierunkiem biorą też szerokość statusu — długa plakietka („jeszcze nie wyjechał”) ucinała peron.
     <span className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3">
       <span className="row-span-2">
-        <TimePair row={row} now={now} withNote={false} />
+        <TimePair row={row} now={now} compact />
       </span>
       <span className="min-w-0 truncate font-medium text-foreground">{row.headsign ?? '—'}</span>
       <span className="text-right">
@@ -41,14 +39,13 @@ function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
         <span className="mr-1 inline-block align-[-2px]">
           <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
         </span>
-        {row.carrier || 'Nieznany przewoźnik'} · {row.trainLabel} · {row.platform !== null ? `peron ${row.platform}` : 'peron: nie podano'}
+        {row.carrier || 'Nieznany przewoźnik'} · {row.trainLabel} · {row.platform !== null ? `peron ${row.platform}` : 'peron —'}
         {row.hasDisruption === true && (
           <span className="ml-1 text-warning-text">
             <AlertCircleIcon size={ICON_SIZE.inline} label="Utrudnienie na trasie" className="inline align-[-2px]" />
           </span>
         )}
       </span>
-      {note !== null && <span className="col-span-3 mt-0.5 text-xs font-semibold text-text-secondary tabular-nums">{note}</span>}
     </span>
   )
 }
