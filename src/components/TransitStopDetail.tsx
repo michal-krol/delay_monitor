@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
+import { useNearViewport } from '@/hooks/useNearViewport'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
@@ -249,6 +250,8 @@ export function TransitStopDetail({
   const summary = board?.summary
 
   const { resolvedTheme } = useTheme()
+  // Telefon: MapLibre (WebGL, worker, kafelki) startuje dopiero, gdy sekcja mapy zbliży się do ekranu — raz, bez odmontowania.
+  const [phoneMapRef, phoneMapNear] = useNearViewport()
   const mapPins = useMemo(
     () =>
       members.map((m) => {
@@ -686,14 +689,17 @@ export function TransitStopDetail({
 
         {/* Telefon: mapa podglądowa (≤ 180 px) dopiero pod odjazdami; od `sm` mapa jest w kolumnie. Bez lokalizacji — opis zamiast pustego prostokąta. */}
         {!wide && board !== null && (
-          <section aria-labelledby={`${tabIdBase}-map`} className="glass rounded-2xl p-3">
+          <section ref={phoneMapRef} aria-labelledby={`${tabIdBase}-map`} className="glass rounded-2xl p-3">
             <h2 id={`${tabIdBase}-map`} className="mb-2 text-sm font-semibold text-text-secondary">
               Lokalizacja przystanku
             </h2>
-            {mapPins.length > 0 ? (
+            {mapPins.length === 0 ? (
+              <p className="text-sm text-text-secondary">Brak lokalizacji przystanku</p>
+            ) : phoneMapNear ? (
               <MapView pins={mapPins} onPinClick={onPinClick} ariaLabel={mapLabel} dark={resolvedTheme === 'dark'} compact />
             ) : (
-              <p className="text-sm text-text-secondary">Brak lokalizacji przystanku</p>
+              // Rezerwa wysokości = `compact` MapView (h-44), żeby wejście mapy nie przesuwało układu.
+              <div className="h-44" aria-hidden="true" />
             )}
           </section>
         )}

@@ -1,5 +1,5 @@
 import { test, expect, type Locator } from '@playwright/test'
-import { showLineTimetable } from './helpers/info'
+import { scrollToStopMap, showLineTimetable } from './helpers/info'
 
 // Niewidoczny obszar trafienia 44×44 (`touch-44`, WCAG 2.5.5) — wygląd bez zmian,
 // więc mierzymy `::after`, nie sam przycisk. Decyzja właściciela 2026-09-29.
@@ -38,7 +38,8 @@ test('cele dolnego paska (mobile: Start, Mapa, Szukaj, Linie) mają pole >= 44×
 
 test('„Powiększ mapę" zostaje w rogu mapy i ma obszar trafienia >= 44×44', async ({ page }) => {
   await page.goto('/city/warszawa/stop/1001')
-  // Telefon: mapa podglądowa stoi pod odjazdami (PR6), od `sm` w prawej kolumnie — bez otwierania „Info”.
+  // Telefon: mapa podglądowa stoi pod odjazdami (PR6) i montuje się po przewinięciu; od `sm` w prawej kolumnie.
+  await scrollToStopMap(page)
   await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   const btn = page.getByRole('button', { name: 'Powiększ mapę' })
   const { w, h } = await afterSize(btn)

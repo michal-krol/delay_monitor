@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { scanA11y } from './helpers/axe'
-import { showBoardContext } from './helpers/info'
+import { scrollToStopMap, showBoardContext } from './helpers/info'
 
 // PR4: tablice „najpierw odjazdy” na telefonie — pierwszy odjazd bez przewijania, przyklejony
 // pasek zakładek, arkusz „Info” z tym samym kontekstem co prawa kolumna.
@@ -447,6 +447,8 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
     const rows = page.getByRole('tabpanel').getByTestId('departure-list').locator('li')
     await expectAboveNav(page, rows.nth(1))
     const map = page.getByRole('region', { name: /^Mapa zespołu przystanków/ })
+    // Mapa montuje się leniwie (IntersectionObserver) — region istnieje po przewinięciu do sekcji.
+    await scrollToStopMap(page)
     await expect(map).toBeAttached({ timeout: READY })
     const mapBox = (await map.boundingBox())!
     const panelBox = (await page.getByRole('tabpanel').boundingBox())!
@@ -512,6 +514,7 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
       await page.emulateMedia({ colorScheme })
       await page.goto(STOP)
       await expect(page.getByRole('button', { name: /^\d+ komunikat/ })).toBeVisible({ timeout: READY })
+      await scrollToStopMap(page)
       await expect(page.getByRole('region', { name: /^Mapa zespołu przystanków/ })).toBeAttached({ timeout: READY })
       const { violations } = await scanA11y(page)
       const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))

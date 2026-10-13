@@ -45,6 +45,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Przystanek miejski na telefonie: mapa podglądowa („Lokalizacja przystanku”) wczytuje się dopiero, gdy
+  przewiniesz w jej pobliże (zapas 300 px), a nie przy każdym otwarciu przystanku; raz wczytana zostaje.
+  Miejsce na mapę jest zarezerwowane, więc układ się nie przesuwa. Bez `IntersectionObserver` mapa
+  montuje się od razu.
 - Przystanek miejski na telefonie: najpierw nazwa, „Na mapie” i „Info”, zakładki „Odjazdy · Linie · Rozkład ·
   Komunikaty” (cztery w rzędzie, 2×2 na wąskim ekranie, bez przewijania w bok), potem odjazdy — dwa pierwsze
   widać bez przewijania — a mapa podglądowa (do 180 px) dopiero pod listą. Odjazd ma pełny kierunek, dużą godzinę

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
@@ -686,6 +686,30 @@ describe('TransitStopDetail', () => {
       expect(screen.getByRole('tabpanel').compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       await userEvent.click(screen.getByRole('button', { name: 'Info' }))
       expect(screen.getAllByRole('region', { name: /^Mapa/ })).toHaveLength(1)
+    })
+
+    it('phone: MapView mounts only once the map section nears the viewport, and stays mounted after', () => {
+      let notify: IntersectionObserverCallback = () => {}
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          constructor(cb: IntersectionObserverCallback) {
+            notify = cb
+          }
+          observe() {}
+          disconnect() {}
+        },
+      )
+      stubMatchMedia(false)
+      stubDialogMethods()
+      mockStop(groupBoard)
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(screen.getByText('Lokalizacja przystanku')).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: /^Mapa/ })).not.toBeInTheDocument()
+      act(() => notify([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver))
+      expect(screen.getByRole('region', { name: /^Mapa/ })).toBeInTheDocument()
+      act(() => notify([{ isIntersecting: false } as IntersectionObserverEntry], {} as IntersectionObserver))
+      expect(screen.getByRole('region', { name: /^Mapa/ })).toBeInTheDocument()
     })
 
     it('wide: the map stays in the aside card (full size), the phone map section is absent', () => {
