@@ -47,10 +47,8 @@ test('375×667: pierwszy odjazd na ekranie miasta z wybraną stacją widać bez 
 
 test('375×667: najbliższy odjazd przystanku „Centrum” widać bez przewijania', async ({ page }) => {
   await page.goto(STOP)
-  const panel = page.getByRole('tabpanel')
-  // Wyróżniony blok „Najbliższy odjazd” albo — gdy nic nie odjeżdża — pierwszy wiersz listy.
-  const first = panel.getByText('Najbliższy odjazd').or(panel.getByTestId('departure-list').locator('li').first()).first()
-  await expectAboveNav(page, first)
+  // Godzina pierwszego wiersza (dominująca) nad paskiem; znaczniki pod nią mogą zejść — dwa pełne wiersze mierzy test 375×812.
+  await expectAboveNav(page, page.getByRole('tabpanel').getByTestId('departure-list').locator('li time').first())
 })
 
 test('ekran miasta na telefonie: najpierw wyszukiwarka, statystyki zwinięte do linii pod nią, rozwijane dotknięciem', async ({ page }) => {
@@ -78,12 +76,12 @@ test('pasek zakładek przystanku zostaje pod nagłówkiem po przewinięciu o 600
     await route.fulfill({ response, json: body })
   })
   await page.goto(STOP)
-  await page.getByRole('tab', { name: 'Pełny rozkład' }).click()
+  await page.getByRole('tab', { name: 'Rozkład' }).click()
   await expect(page.getByTestId('departure-list').locator('li').nth(20)).toBeAttached({ timeout: READY })
   await page.evaluate(() => window.scrollBy(0, 600))
   const bar = page.getByTestId('stop-tabs-bar')
   await expect(bar).toBeInViewport()
-  await expect(page.getByRole('tab', { name: 'Pełny rozkład' })).toBeInViewport()
+  await expect(page.getByRole('tab', { name: 'Rozkład' })).toBeInViewport()
   const header = (await page.locator('header').first().boundingBox())!
   expect(Math.abs((await bar.boundingBox())!.y - (header.y + header.height))).toBeLessThanOrEqual(2)
 })
@@ -319,22 +317,23 @@ test('„Info” = modalny arkusz: kolejność sekcji, blokada tła i przewijani
   expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe('hidden')
 })
 
-test('„Info” przystanku: linie, natężenie, mapa (w tej kolejności); × zamyka', async ({ page }) => {
+test('„Info” przystanku: KPI, linie, natężenie (mapa stoi pod odjazdami, nie w arkuszu); × zamyka', async ({ page }) => {
   await page.goto(STOP)
   await page.getByRole('button', { name: 'Info' }).click()
   const sheet = page.getByRole('dialog', { name: 'Informacje o przystanku' })
   await expect(sheet.getByRole('heading', { name: 'Natężenie ruchu dziś' })).toBeAttached({ timeout: READY })
   await expect(sheet.getByRole('heading', { name: 'Linie w tym zespole' })).toBeAttached()
-  // Brief §8: linie → natężenie (zwinięte) → mapa (zwinięta, leniwa) — mapa na końcu.
-  await expect(sheet.getByRole('button', { name: 'Mapa', exact: true })).toBeVisible({ timeout: READY })
-  expect(await sheet.getByRole('heading', { level: 3 }).allTextContents()).toEqual(['Linie w tym zespole', 'Natężenie ruchu dziś', 'Mapa'])
+  // Spec 04: mapa podglądowa jest w głównym przepływie pod odjazdami — w arkuszu jej nie ma (jedno miejsce naraz).
+  await expect(sheet.getByText('Odjazdy dziś')).toBeVisible({ timeout: READY })
+  expect(await sheet.getByRole('heading', { level: 3 }).allTextContents()).toEqual(['Linie w tym zespole', 'Natężenie ruchu dziś'])
+  await expect(sheet.getByRole('region', { name: /^Mapa/ })).toHaveCount(0)
   await sheet.getByRole('button', { name: 'Zamknij informacje' }).click()
   await expect(sheet).toHaveCount(0)
 })
 
 test('a11y: przystanek na telefonie (chipy, przyklejony pasek) bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(STOP)
-  await expect(page.getByRole('tab', { name: 'Najbliższe odjazdy' })).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('tab', { name: 'Odjazdy' })).toBeVisible({ timeout: READY })
   const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
@@ -767,4 +766,86 @@ test.describe('połączenie na telefonie (PR5)', () => {
     const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
     expect(blocking, blocking.map((v) => `${v.id}: ${v.help} (${v.nodes.length}) ${v.nodes[0]?.html.slice(0, 120)}`).join('\n')).toEqual([])
   })
+})
+
+// PR6 „04 Przystanek”: odjazdy przed mapą, URL tab/line, 320 px bez przewijania w bok, axe w obu motywach.
+test.describe('przystanek miejski na telefonie (PR6)', () => {
+  test.use({ viewport: { width: 375, height: 812 } })
+
+  test('375×812: dwa pierwsze odjazdy nad dolnym paskiem, mapa (≤ 180 px) dopiero pod listą', async ({ page }) => {
+    await page.goto(STOP)
+    const rows = page.getByRole('tabpanel').getByTestId('departure-list').locator('li')
+    await expectAboveNav(page, rows.nth(1))
+    const map = page.getByRole('region', { name: /^Mapa zespołu przystanków/ })
+    await expect(map).toBeAttached({ timeout: READY })
+    const mapBox = (await map.boundingBox())!
+    const panelBox = (await page.getByRole('tabpanel').boundingBox())!
+    expect(mapBox.y, 'mapa po odjazdach').toBeGreaterThanOrEqual(panelBox.y + panelBox.height)
+    expect(mapBox.height).toBeLessThanOrEqual(180)
+  })
+
+  test('320×640: cztery zakładki w układzie 2×2, bez przewijania w bok', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 })
+    await page.goto(STOP)
+    const tabs = page.getByRole('tablist', { name: 'Widok przystanku' }).getByRole('tab')
+    await expect(tabs).toHaveCount(4, { timeout: READY })
+    const boxes = await tabs.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y })))
+    expect(new Set(boxes.map((b) => Math.round(b.y))).size, 'dwa rzędy').toBe(2)
+    expect(boxes[0].y).toBe(boxes[1].y)
+    expect(boxes[0].x).toBeLessThan(boxes[1].x)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'bez przewijania w bok').toBe(true)
+  })
+
+  test('zakładka i filtr linii są w URL i przeżywają przeładowanie oraz Wstecz z linii', async ({ page }) => {
+    await page.goto(STOP)
+    await page.getByRole('tab', { name: 'Linie' }).click({ timeout: READY })
+    await expect(page).toHaveURL(/tab=lines/)
+    await page.getByRole('tab', { name: 'Odjazdy' }).click()
+    await expect(page).not.toHaveURL(/tab=/)
+    await page.getByRole('group', { name: 'Filtr linii' }).getByRole('button', { name: /^20/ }).click()
+    await expect(page).toHaveURL(/line=20/)
+    await page.reload()
+    await expect(page.getByRole('group', { name: 'Filtr linii' }).getByRole('button', { name: /^20/ })).toHaveAttribute('aria-pressed', 'true', { timeout: READY })
+
+    await page.getByRole('tab', { name: 'Linie' }).click()
+    await page.getByRole('tabpanel').getByRole('link', { name: /^Linia 20/ }).first().click()
+    await expect(page).toHaveURL(/\/city\/warszawa\/line\/20/)
+    await page.goBack()
+    await expect(page.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+    await expect(page).toHaveURL(/line=20/)
+  })
+
+  test('zły ?tab= i ?line= są ignorowane po cichu', async ({ page }) => {
+    await page.goto(`${STOP}?tab=zzz&line=../../x`)
+    await expect(page.getByRole('tab', { name: 'Odjazdy' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+    await expect(page.getByRole('button', { name: 'Wszystkie', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('skrót „N komunikatów” nad odjazdami otwiera zakładkę Komunikaty', async ({ page }) => {
+    await page.goto(STOP)
+    const notice = page.getByRole('button', { name: /^\d+ komunikat/ })
+    await expect(notice).toBeVisible({ timeout: READY })
+    await notice.click()
+    await expect(page.getByRole('tab', { name: /Komunikaty/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('heading', { name: /Komunikaty linii obsługujących ten zespół/ })).toBeVisible()
+  })
+
+  test('„Na mapie” prowadzi do mapy miasta z at=, bez GPS', async ({ page }) => {
+    await page.goto(STOP)
+    const link = page.getByRole('link', { name: 'Na mapie' })
+    await expect(link).toBeVisible({ timeout: READY })
+    expect(await link.getAttribute('href')).toMatch(/^\/city\/warszawa\/map\?at=52\.\d+,21\.\d+,14\.0$/)
+  })
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`a11y: przystanek w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} (zakładki, powiadomienie, mapa) bez naruszeń serious/critical`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme })
+      await page.goto(STOP)
+      await expect(page.getByRole('button', { name: /^\d+ komunikat/ })).toBeVisible({ timeout: READY })
+      await expect(page.getByRole('region', { name: /^Mapa zespołu przystanków/ })).toBeAttached({ timeout: READY })
+      const { violations } = await scanA11y(page)
+      const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+      expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+    })
+  }
 })

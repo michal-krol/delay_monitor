@@ -99,3 +99,39 @@ test('a11y: szczegóły przystanku miejskiego bez naruszeń serious/critical', a
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 })
+
+// PR6: ciemny motyw — zespół, wybrany przystanek, pusty filtr; zmiana motywu nie pobiera rozkładu ani nie gubi widoku.
+test('a11y (ciemny): zespół, wybrany przystanek i pusty filtr linii bez naruszeń serious/critical', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto(CENTRUM)
+  await expect(page.getByRole('tab', { name: /Cały zespół/ })).toBeVisible({ timeout: READY })
+  const scan = async () => {
+    const { violations } = await scanA11y(page)
+    const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+    expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
+  }
+  await scan()
+  await page.getByRole('tab', { name: /^Centrum 02/ }).click()
+  await expect(page.getByRole('tab', { name: /^Centrum 02/ })).toHaveAttribute('aria-selected', 'true')
+  await scan()
+  // Linia spoza zespołu w `?line=` jest ignorowana; filtr linii bez odjazdów w 50 najbliższych pokazuje „Wszystkie linie”.
+  await page.goto(`${CENTRUM}?przystanek=100103&line=20`)
+  await expect(page.getByRole('tab', { name: /^Centrum 03/ })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+  await scan()
+})
+
+test('zmiana motywu zachowuje przystanek i zakładkę i nie pobiera rozkładu ponownie', async ({ page, browserName }) => {
+  await page.goto(`${CENTRUM}?przystanek=100102&tab=lines`)
+  await expect(page.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+  let boardRequests = 0
+  page.on('request', (request) => {
+    if (request.url().includes('/api/gtfs/board')) boardRequests += 1
+  })
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.waitForTimeout(500)
+  // WebKit: wolniejsze pierwsze odpowiedzi — zwykłe ponowienie drabinką bywa w tym oknie, więc zliczamy tylko w Chromium.
+  if (browserName !== 'webkit') expect(boardRequests).toBe(0)
+  await expect(page.getByRole('tab', { name: /^Centrum 02/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true')
+})

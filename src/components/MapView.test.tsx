@@ -78,6 +78,14 @@ describe('MapView', () => {
     expect(screen.getByRole('region', { name: 'Mapa przystanku Foo' })).toBeInTheDocument()
   })
 
+  it('compact: region ma 176 px (h-44, ≤ 180 w specyfikacji przystanku), domyślnie zostaje h-64', () => {
+    const pins = [{ id: 'a', lat: 52.1, lon: 21.0, label: 'Przystanek A' }]
+    const { rerender } = render(<MapView dark={false} pins={pins} ariaLabel="Mapa" compact />)
+    expect(screen.getByRole('region', { name: 'Mapa' })).toHaveClass('h-44')
+    rerender(<MapView dark={false} pins={pins} ariaLabel="Mapa" />)
+    expect(screen.getByRole('region', { name: 'Mapa' })).toHaveClass('h-64')
+  })
+
   it('tworzy jeden marker na pin i wyśrodkowuje na pierwszym', async () => {
     render(
       <MapView

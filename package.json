@@ -27,9 +27,9 @@
   "dependencies": {
     "@formkit/auto-animate": "0.10.0",
     "@number-flow/react": "0.6.2",
-    "lucide": "1.49.0",
+    "lucide": "1.53.0",
     "maplibre-gl": "^6.11.2",
-    "next": "16.3.8",
+    "next": "16.4.0",
     "next-themes": "^0.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",

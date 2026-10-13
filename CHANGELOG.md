@@ -61,6 +61,20 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Szczegóły połączenia: marker na mapie to ikona pociągu z podpisem „Szacowana pozycja — wg rozkładu i ostatniego
   potwierdzenia, nie GPS”; bez rozstrzygnięcia pozycji nie ma markera ani podpisu. Zniknęła pulsująca poświata
   przy bieżącym przystanku (zapętlona animacja).
+- Przystanek miejski na telefonie: najpierw nazwa, „Na mapie” i „Info”, zakładki „Odjazdy · Linie · Rozkład ·
+  Komunikaty” (cztery w rzędzie, 2×2 na wąskim ekranie, bez przewijania w bok), potem odjazdy — dwa pierwsze
+  widać bez przewijania — a mapa podglądowa (do 180 px) dopiero pod listą. Odjazd ma pełny kierunek, dużą godzinę
+  i „wg rozkładu”. Zakładka (`?tab=`) i filtr linii (`?line=`) są w adresie, więc Wstecz z linii wraca do tego
+  samego widoku; błędne wartości są ignorowane. Zmiana przystanku w zespole nie pokazuje odjazdów poprzedniego
+  przystanku (do czasu odpowiedzi — wczytywanie). KPI przystanku są w „Info”.
+- Pozycja pojazdu przy odjeździe: zamiast „zaraz będzie” — „Pojazd w pobliżu przystanku” albo „Pojazd: N
+  przystanki dalej”, zawsze z wiekiem GPS („GPS: 18 s temu”). Pozycja starsza niż próg mapy (180 s) znika, a odjazd
+  wg rozkładu zostaje. Kolor aktywnych elementów przystanku to nowy błękit (`--primary*`).
+- Zakładka „Komunikaty” przystanku używa `ContextAlerts`: awaria feedu to „Nie udało się wczytać komunikatów”, a nie
+  „brak”; po nieudanym odświeżeniu zostaje ostatnia lista z ostrzeżeniem. Nad odjazdami skrót „N komunikatów”.
+- Lista odjazdów przystanku pokazuje „Pobrano … temu” (przycisk: odśwież teraz) albo, po nieudanym odświeżeniu,
+  „Nie udało się odświeżyć · dane z GG:MM”. Pusty filtr linii podpowiada „Wszystkie linie”. Usunięty blok
+  „Najbliższy odjazd” (godzina jest teraz duża w każdym wierszu).
 - Tablica stacji: duża godzina to ta użyteczna — „Faktycznie” (potwierdzona), „Przew.” (prognoza) albo „Plan”
   — a pod nią mały „Plan GG:MM · za N min” (także gdy godziny są równe). Dotyczy tablicy i kart na Starcie.
   Godzina skopiowana z planu bez potwierdzenia dalej nie jest faktem.

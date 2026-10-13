@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useTransitBoard } from './useTransitBoard'
 import { jsonResponse } from '@/test-utils/http'
@@ -210,6 +210,38 @@ describe('useTransitBoard', () => {
       await vi.waitFor(() => expect(result.current.error).toBe('network'))
       expect(result.current.failed).toBe(false)
       expect(result.current.data).not.toBeNull()
+    })
+  })
+
+  describe('lastSuccessAt / refresh', () => {
+    it('exposes lastSuccessAt after a good fetch and null before', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(ready))
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      expect(result.current.lastSuccessAt).toBeNull()
+      await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+      expect(typeof result.current.lastSuccessAt).toBe('number')
+    })
+
+    it('refresh refetches now', async () => {
+      const fetchMock = vi.fn().mockImplementation(ready)
+      vi.stubGlobal('fetch', fetchMock)
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+      const before = fetchMock.mock.calls.length
+      act(() => result.current.refresh())
+      await vi.waitFor(() => expect(fetchMock.mock.calls.length).toBe(before + 1))
+    })
+
+    it('keeps lastSuccessAt of the last good fetch when a later one fails', async () => {
+      const fetchMock = vi.fn().mockImplementation(ready)
+      vi.stubGlobal('fetch', fetchMock)
+      const { result } = renderHook(() => useTransitBoard('warszawa', ['1001']))
+      await vi.waitFor(() => expect(result.current.data).not.toBeNull())
+      const good = result.current.lastSuccessAt
+      fetchMock.mockRejectedValueOnce(new Error('network'))
+      await vi.advanceTimersByTimeAsync(30000)
+      await vi.waitFor(() => expect(result.current.error).toBe('network'))
+      expect(result.current.lastSuccessAt).toBe(good)
     })
   })
 })

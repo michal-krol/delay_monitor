@@ -73,7 +73,7 @@ export function useTransitBoard(city: string | null, stopIds: string[], limit = 
   // Klucz obejmuje wszystko, co wchodzi do URL-a; `keepPreviousData` -- przełączenie przystanku nie
   // zdejmuje pinów mapy ani podglądu w popupie (budowane z `data.stops[].members`) przed nową odpowiedzią.
   const key = city === null || stopIds.length === 0 ? null : JSON.stringify([city, stopsKey, limit, member])
-  const { data: polled, error } = usePolling<TransitBoardResponse>(
+  const { data: polled, error, lastSuccessAt, refresh } = usePolling<TransitBoardResponse>(
     key,
     () =>
       fetchJson(
@@ -103,5 +103,6 @@ export function useTransitBoard(city: string | null, stopIds: string[], limit = 
   const loading = (data === null && error === null) || scheduleLoading
   const failed = (data === null && error !== null) || data?.schedule.state === 'failed'
 
-  return { data, error, loading, failed }
+  // `lastSuccessAt` = kiedy PRZEGLĄDARKA dostała ostatnią dobrą odpowiedź (etykieta „Pobrano…”), nie wiek feedu.
+  return { data, error, loading, failed, lastSuccessAt, refresh }
 }

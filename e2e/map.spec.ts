@@ -32,7 +32,7 @@ async function expectTilesRendered(canvas: Locator): Promise<void> {
 
 test('przystanek miejski: mapa pokazuje jeden pin na przystanek i steruje przełącznikiem', async ({ page }) => {
   await page.goto(CENTRUM)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
   await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
 
   const map = page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })
@@ -47,7 +47,7 @@ test('przystanek miejski: mapa pokazuje jeden pin na przystanek i steruje przeł
 
 test('przystanek miejski: „Powiększ mapę" otwiera pełnoekranowy widok z podglądem odjazdów w popupie', async ({ page }) => {
   await page.goto(CENTRUM)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
   await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
 
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
@@ -62,13 +62,11 @@ test('przystanek miejski: „Powiększ mapę" otwiera pełnoekranowy widok z pod
 
   await page.keyboard.press('Escape')
   await expect(dialog).not.toBeVisible()
-  // Telefon: powiększenie leży w modalnym arkuszu „Info” — ten sam Escape nie zamyka arkusza.
-  if ((page.viewportSize()?.width ?? 1280) < 640) await expect(page.getByRole('dialog', { name: /^Informacje o / })).toBeVisible()
 })
 
 test('przystanek miejski: kliknięcie tła zamyka pełnoekranową mapę', async ({ page }) => {
   await page.goto(CENTRUM)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
   await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
   const dialog = page.getByRole('dialog', { name: /^Mapa (zespołu przystanków|przystanku)/ })
@@ -77,15 +75,13 @@ test('przystanek miejski: kliknięcie tła zamyka pełnoekranową mapę', async 
   // Dialog ma margines (inset-4 / sm:inset-10) -- róg viewportu to samo tło.
   await page.mouse.click(3, 3)
   await expect(dialog).not.toBeVisible()
-  // Telefon: tło powiększenia pokrywa cały ekran (portal do dialogu bez `translate`), więc arkusz „Info” zostaje.
-  if ((page.viewportSize()?.width ?? 1280) < 640) await expect(page.getByRole('dialog', { name: /^Informacje o / })).toBeVisible()
 })
 
 test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', async ({ page, browserName }) => {
   // WebKit domyślnie pomija przyciski w kolejności Tab (Full Keyboard Access).
   test.skip(browserName === 'webkit', 'Tab w Safari zależy od ustawień systemu')
   await page.goto(CENTRUM)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
   await expect(page.getByRole('region', { name: /^Mapa (zespołu przystanków|przystanku)/ })).toBeVisible({ timeout: READY })
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
   const dialog = page.getByRole('dialog', { name: /^Mapa (zespołu przystanków|przystanku)/ })
@@ -110,7 +106,7 @@ test('przystanek miejski: Tab w pełnoekranowej mapie nie ucieka poza dialog', a
 test('przystanek miejski: zablokowane kafelki nie psują strony (piny i reszta widoku żyją)', async ({ page }) => {
   await page.route('**/tiles.openfreemap.org/**', (route) => route.abort())
   await page.goto(CENTRUM)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
   await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
   await expect(page.locator('.maplibregl-marker')).toHaveCount(4, { timeout: READY })
   await expect(page.getByRole('tab', { name: /^Centrum 0\d/ }).first()).toBeVisible()
@@ -120,7 +116,7 @@ test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten s
   page,
 }) => {
   await page.goto(STATION_BOARD)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
 
   // Karta pogody istnieje od razu (nagłówek statyczny) — na pin czekamy dopiero
   // po zwrocie /api/weather (available:true + location), nie po samym mount. Pogodę serwuje
@@ -136,7 +132,7 @@ test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten s
 
 test('a11y: przystanek miejski z mapą bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(CENTRUM)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
 
   const { violations } = await scanA11y(page)
@@ -147,7 +143,7 @@ test('a11y: przystanek miejski z mapą bez naruszeń serious/critical', async ({
 test('a11y: przystanek miejski z mapą w trybie ciemnym bez naruszeń serious/critical', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto(CENTRUM)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
 
   const { violations } = await scanA11y(page)
@@ -157,7 +153,7 @@ test('a11y: przystanek miejski z mapą w trybie ciemnym bez naruszeń serious/cr
 
 test('a11y: powiększona mapa (dialog) bez naruszeń serious/critical', async ({ page }) => {
   await page.goto(CENTRUM)
-  await showBoardMap(page) // telefon: zwinięta sekcja „Mapa” w arkuszu „Info” (PR5)
+  await showBoardMap(page) // telefon: stacja — zwinięta sekcja „Mapa” w „Info” (PR5); przystanek — mapa pod odjazdami (PR6)
   await expect(page.locator('.maplibregl-marker').first()).toBeVisible({ timeout: READY })
   await page.getByRole('button', { name: 'Powiększ mapę' }).click()
   await expect(page.getByRole('dialog').locator('.maplibregl-marker').first()).toBeVisible()
@@ -390,7 +386,7 @@ test('mapa transportu: wyszukanie przystanku miejskiego pokazuje rozkład, nie �
   await page.getByRole('option', { name: 'Centrum' }).first().click()
   const card = page.getByRole('dialog', { name: 'Centrum' })
   await expect(card).toBeVisible()
-  await expect(card.getByText(/rozkład/)).toBeVisible()
+  await expect(card.getByText(/rozkład/).first()).toBeVisible()
   await expect(card.getByText(/na czas/)).toHaveCount(0)
 })
 
