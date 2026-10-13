@@ -18,7 +18,18 @@ vi.mock('next/navigation', () => ({
 }))
 
 const useTransitBoard = vi.fn()
-vi.mock('@/hooks/useTransitBoard', () => ({ useTransitBoard: () => useTransitBoard() }))
+vi.mock('@/hooks/useTransitBoard', () => ({ useTransitBoard: (...args: unknown[]) => useTransitBoard(...args) }))
+
+// Prawdziwy MapLibre nie działa w jsdom (WebGL) — atrapa zachowuje region, rozmiar i klik w pin.
+vi.mock('./MapView', () => ({
+  MapView: ({ ariaLabel, compact, onPinClick, pins }: { ariaLabel: string; compact?: boolean; onPinClick?: (id: string) => void; pins: { id: string }[] }) => (
+    <div role="region" aria-label={ariaLabel} data-compact={compact === true ? 'true' : 'false'}>
+      {pins.map((pin) => (
+        <button key={pin.id} type="button" aria-label={`pin ${pin.id}`} onClick={() => onPinClick?.(pin.id)} />
+      ))}
+    </div>
+  ),
+}))
 
 const board = {
   stopId: '7014M',
@@ -69,7 +80,10 @@ beforeEach(() => {
     error: null,
     loading: false,
     failed: false,
+    lastSuccessAt: null,
+    refresh: vi.fn(),
   })
+  window.history.replaceState(null, '', '/')
 })
 
 afterEach(() => vi.unstubAllGlobals())
@@ -224,13 +238,13 @@ describe('TransitStopDetail', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     const tabs = within(screen.getByRole('tablist', { name: 'Widok przystanku' })).getAllByRole('tab')
     expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
-    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Najbliższe odjazdy')
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Odjazdy')
 
     tabs[0].focus()
     await userEvent.keyboard('{ArrowRight}')
     expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
     expect(tabs[1]).toHaveFocus()
-    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Wszystkie linie')
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Linie')
 
     await userEvent.keyboard('{End}')
     expect(tabs[3]).toHaveFocus()
@@ -279,13 +293,14 @@ describe('TransitStopDetail', () => {
 
     await userEvent.click(alertsTab)
     expect(screen.getByText('Utrudnienia na linii M1')).toBeInTheDocument()
-    expect(screen.getByText('Treść.')).toBeInTheDocument()
+    // Skrót (aria-hidden) i pełna treść — ta sama treść dwa razy w DOM.
+    expect(screen.getAllByText('Treść.').length).toBeGreaterThan(0)
   })
 
   it('shows a neutral message on the Komunikaty tab when there are no alerts', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
-    expect(screen.getByText('Aktualnie brak komunikatów dla tego przystanku.')).toBeInTheDocument()
+    expect(screen.getByText('Brak komunikatów dla tego kontekstu')).toBeInTheDocument()
   })
 
   // PR0 review: przed odpowiedzią nie wiadomo, czy to zespół, czy jeden przystanek.
@@ -338,12 +353,12 @@ describe('TransitStopDetail', () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
     expect(screen.getByText('Wczytywanie komunikatów…')).toBeInTheDocument()
-    expect(screen.queryByText('Aktualnie brak komunikatów dla tego przystanku.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Brak komunikatów dla tego kontekstu')).not.toBeInTheDocument()
   })
 
-  it('shows all lines grouped by mode on the Wszystkie linie tab', async () => {
+  it('shows all lines grouped by mode on the Linie tab', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    await userEvent.click(screen.getByRole('tab', { name: 'Wszystkie linie' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Linie' }))
     // "metro"/"tramwaj" jako etykieta trybu renderują się też w nagłówku i w
     // karcie aside — liczymy wystąpienia zamiast zakładać jedno.
     expect(screen.getAllByText('metro').length).toBeGreaterThan(0)
@@ -351,9 +366,9 @@ describe('TransitStopDetail', () => {
     expect(screen.getAllByRole('link', { name: 'Linia M1' }).length).toBeGreaterThan(0)
   })
 
-  it('shows the full fetched departure list on Pełny rozkład, not just the nearest preview', async () => {
+  it('shows the full fetched departure list on Rozkład, not just the nearest preview', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    await userEvent.click(screen.getByRole('tab', { name: 'Pełny rozkład' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Rozkład' }))
     expect(screen.getByText('Kabaty')).toBeInTheDocument()
     expect(screen.getByText('Piaski')).toBeInTheDocument()
   })
@@ -400,26 +415,6 @@ describe('TransitStopDetail', () => {
     render(<TransitStopDetail city="warszawa" stopId="1001" />)
     await userEvent.click(screen.getByRole('tab', { name: /^Centrum 02/ }))
     expect(replace).toHaveBeenCalledWith('/city/warszawa/stop/1001?name=Centrum&przystanek=100102', { scroll: false })
-  })
-
-  it('highlights the nearest upcoming departure on the Najbliższe odjazdy tab, not on Pełny rozkład', async () => {
-    const soon = new Date(Date.now() + 5 * 60_000).toISOString()
-    useTransitBoard.mockReturnValue({
-      data: {
-        city: 'warszawa',
-        schedule: { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null },
-        stops: [{ ...board, departures: [{ ...board.departures[0], plannedAt: soon }, board.departures[1]] }],
-        attribution: [],
-      },
-      error: null,
-      loading: false,
-      failed: false,
-    })
-    render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    expect(screen.getByText('Najbliższy odjazd')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('tab', { name: 'Pełny rozkład' }))
-    expect(screen.queryByText('Najbliższy odjazd')).not.toBeInTheDocument()
   })
 
   it('pins as a gtfs pinned item carrying the city', async () => {
@@ -495,7 +490,7 @@ describe('TransitStopDetail', () => {
       failed: false,
     })
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
+    expect(screen.getByText('Brak kolejnych odjazdów w rozkładzie na dziś i jutro.')).toBeInTheDocument()
     expect(screen.queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
   })
 
@@ -529,5 +524,242 @@ describe('TransitStopDetail', () => {
     )
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     expect(await screen.findByText('Rozkład jazdy — Warszawa')).toBeInTheDocument()
+  })
+
+  // PR6 „04 Przystanek”: URL tab/line, zakres słupka, mapa pod odjazdami, komunikaty, status pobrania.
+  describe('PR6 stop screen', () => {
+    const scheduleReady = { state: 'ready', loadedAt: null, ageMs: 1000, phase: null, serviceDates: null, feedVersion: null }
+    const mockStop = (stop: object, extra: object = {}, hook: object = {}) =>
+      useTransitBoard.mockReturnValue({
+        data: { city: 'warszawa', schedule: scheduleReady, stops: [stop], attribution: [], ...extra },
+        error: null,
+        loading: false,
+        failed: false,
+        lastSuccessAt: null,
+        refresh: vi.fn(),
+        ...hook,
+      })
+    const alertA = { id: 'a', routes: ['M1'], effect: 'DETOUR', link: '', title: 'Objazd M1', body: 'Treść A.' }
+    const mixedLines = [
+      { routeId: '175', line: '175', mode: 'bus', kind: 'regular' },
+      { routeId: '20', line: '20', mode: 'tram', kind: 'regular' },
+      { routeId: 'M1', line: 'M1', mode: 'metro', kind: 'regular' },
+      { routeId: 'S2', line: 'S2', mode: 'rail', kind: 'regular' },
+    ]
+    const dep = (routeId: string, line: string, mode: string, headsign: string) => ({ ...board.departures[0], tripId: `t-${routeId}`, routeId, line, mode, headsign })
+
+    it('requests the API maximum (50) departures', () => {
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(useTransitBoard).toHaveBeenCalledWith('warszawa', ['7014M'], 50, null)
+    })
+
+    it('tabs are Odjazdy, Linie, Rozkład, Komunikaty, in that order', () => {
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      const tabs = within(screen.getByRole('tablist', { name: 'Widok przystanku' })).getAllByRole('tab')
+      expect(tabs.map((tab) => tab.textContent)).toEqual(['Odjazdy', 'Linie', 'Rozkład', 'Komunikaty'])
+    })
+
+    it('reads the tab from ?tab= and ignores an unknown one', () => {
+      search = 'tab=lines'
+      const { unmount } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true')
+      unmount()
+      search = 'tab=nonsense'
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.getByRole('tab', { name: 'Odjazdy' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('writes the tab to the URL keeping other params; the default tab removes the param', async () => {
+      window.history.replaceState(null, '', '/city/warszawa/stop/7014M?name=X')
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      await userEvent.click(screen.getByRole('tab', { name: 'Komunikaty' }))
+      expect(window.location.search).toBe('?name=X&tab=alerts')
+      await userEvent.click(screen.getByRole('tab', { name: 'Odjazdy' }))
+      expect(window.location.search).toBe('?name=X')
+    })
+
+    it('reads ?line= only when the line is on the board, and writes/clears it on click', async () => {
+      search = 'line=zzz'
+      const { unmount } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.getByRole('button', { name: 'Wszystkie' })).toHaveAttribute('aria-pressed', 'true')
+      unmount()
+      search = 'line=M1'
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.getByRole('button', { name: /^M1/ })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.queryByText('Piaski')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Wszystkie' }))
+      expect(screen.getByText('Piaski')).toBeInTheDocument()
+      expect(window.location.search).not.toContain('line=')
+      await userEvent.click(screen.getByRole('button', { name: /^M1/ }))
+      expect(window.location.search).toBe('?line=M1')
+    })
+
+    it('a change of stop clears the previous place tab and line from the URL', () => {
+      window.history.replaceState(null, '', '/city/warszawa?stop=7014M&tab=lines&line=M1')
+      const { rerender } = render(<TransitStopDetail city="warszawa" stopId="7014M" embedded />)
+      expect(window.location.search).toContain('tab=lines')
+      rerender(<TransitStopDetail city="warszawa" stopId="1001" embedded />)
+      expect(window.location.search).toBe('?stop=7014M')
+    })
+
+    it('shows rows as loading, not the old post departures, while the response is for another przystanek', () => {
+      search = 'przystanek=100102'
+      mockStop({ ...groupBoard, activeMember: null })
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(screen.queryByText('Kabaty')).not.toBeInTheDocument()
+      expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
+    })
+
+    it('shows the rows once the response is for the chosen przystanek', () => {
+      search = 'przystanek=100102'
+      mockStop({ ...groupBoard, activeMember: '100102' })
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(screen.getByText('Kabaty')).toBeInTheDocument()
+    })
+
+    it('an unknown przystanek does not invent a post: whole group, rows shown, no endless loading', () => {
+      search = 'przystanek=999999'
+      mockStop({ ...groupBoard, activeMember: null })
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(screen.getByText('Kabaty')).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /Cały zespół/ })).toHaveAttribute('aria-selected', 'false')
+    })
+
+    it('a failed refresh after switching przystanek says it failed instead of showing the old post rows', () => {
+      search = 'przystanek=100102'
+      mockStop({ ...groupBoard, activeMember: null }, {}, { error: 'network' })
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(screen.queryByText('Kabaty')).not.toBeInTheDocument()
+      expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
+    })
+
+    it('„Na mapie” on a phone links to the map at the group coordinates, without GPS', () => {
+      stubMatchMedia(false)
+      mockStop(groupBoard)
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(screen.getByRole('link', { name: 'Na mapie' })).toHaveAttribute('href', '/city/warszawa/map?at=52.00000,21.00000,14.0')
+    })
+
+    it('without any located przystanek: text instead of a dead control, no map, no empty rectangle', () => {
+      stubMatchMedia(false)
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.queryByRole('link', { name: 'Na mapie' })).not.toBeInTheDocument()
+      expect(screen.getAllByText('Brak lokalizacji przystanku').length).toBeGreaterThan(0)
+      expect(screen.queryByRole('region', { name: /^Mapa/ })).not.toBeInTheDocument()
+    })
+
+    it('phone: one compact map after the departures panel, not in the Info sheet', async () => {
+      stubMatchMedia(false)
+      stubDialogMethods()
+      mockStop(groupBoard)
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      const map = screen.getByRole('region', { name: 'Mapa zespołu przystanków Centrum' })
+      expect(map).toHaveAttribute('data-compact', 'true')
+      expect(screen.getByRole('tabpanel').compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      await userEvent.click(screen.getByRole('button', { name: 'Info' }))
+      expect(screen.getAllByRole('region', { name: /^Mapa/ })).toHaveLength(1)
+    })
+
+    it('wide: the map stays in the aside card (full size), the phone map section is absent', () => {
+      mockStop(groupBoard)
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(screen.getByRole('region', { name: /^Mapa/ })).toHaveAttribute('data-compact', 'false')
+      expect(screen.queryByText('Lokalizacja przystanku')).not.toBeInTheDocument()
+    })
+
+    it('a pin click selects that przystanek and writes it to the URL', async () => {
+      mockStop({ ...groupBoard, activeMember: null })
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      await userEvent.click(screen.getByRole('button', { name: 'pin 100102' }))
+      expect(replace).toHaveBeenCalledWith('/city/warszawa/stop/1001?przystanek=100102', { scroll: false })
+    })
+
+    it('Komunikaty tab: a failed feed without a first success is not „brak komunikatów”', async () => {
+      mockStop({ ...board, alerts: [] }, { alertFeed: { state: 'failed', fetchedAt: null, ageMs: null } })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      await userEvent.click(screen.getByRole('tab', { name: 'Komunikaty' }))
+      expect(screen.getByText('Nie udało się wczytać komunikatów')).toBeInTheDocument()
+      expect(screen.queryByText('Brak komunikatów dla tego kontekstu')).not.toBeInTheDocument()
+    })
+
+    it('Komunikaty tab: a ready feed with no alerts says none', async () => {
+      mockStop({ ...board, alerts: [] }, { alertFeed: { state: 'ready', fetchedAt: '2026-09-02T12:00:00Z', ageMs: 0 } })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      await userEvent.click(screen.getByRole('tab', { name: 'Komunikaty' }))
+      expect(screen.getByText('Brak komunikatów dla tego kontekstu')).toBeInTheDocument()
+    })
+
+    it('Komunikaty tab: a failed refresh keeps the last list with a stale warning', async () => {
+      mockStop({ ...board, alerts: [alertA] }, { alertFeed: { state: 'failed', fetchedAt: '2026-09-02T12:00:00Z', ageMs: 600000 } })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
+      expect(screen.getByText('Nie udało się odświeżyć. Pokazujemy ostatnie dane')).toBeInTheDocument()
+      expect(screen.getByText('Objazd M1')).toBeInTheDocument()
+    })
+
+    it('Komunikaty tab: a failed board refresh with a good list also reads as stale', async () => {
+      mockStop({ ...board, alerts: [alertA] }, { alertFeed: { state: 'ready', fetchedAt: '2026-09-02T12:00:00Z', ageMs: 0 } }, { error: 'network' })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      await userEvent.click(screen.getByRole('tab', { name: /Komunikaty/ }))
+      expect(screen.getByText('Nie udało się odświeżyć. Pokazujemy ostatnie dane')).toBeInTheDocument()
+    })
+
+    it('the notice counts deduplicated alerts and opens the Komunikaty tab', async () => {
+      mockStop({ ...board, alerts: [alertA, alertA] }, { alertFeed: { state: 'ready', fetchedAt: '2026-09-02T12:00:00Z', ageMs: 0 } })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      await userEvent.click(screen.getByRole('button', { name: '1 komunikat' }))
+      expect(screen.getByRole('tab', { name: /Komunikaty/ })).toHaveAttribute('aria-selected', 'true')
+      expect(window.location.search).toBe('?tab=alerts')
+    })
+
+    it('no notice without alerts', () => {
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.queryByRole('button', { name: /komunikat/ })).not.toBeInTheDocument()
+    })
+
+    it('a filter that leaves no rows offers „Wszystkie linie”', async () => {
+      search = 'line=20'
+      mockStop({ ...board, departures: [board.departures[0]] })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.getByText('Brak odjazdów linii 20 wśród najbliższych 50 odjazdów.')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Wszystkie linie' }))
+      expect(screen.getByText('Kabaty')).toBeInTheDocument()
+    })
+
+    it('shows „Pobrano …” as a refresh button, and the last-good hour when a refresh failed', async () => {
+      const refresh = vi.fn()
+      mockStop(board, {}, { lastSuccessAt: Date.now(), refresh })
+      const { unmount } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      await userEvent.click(screen.getByRole('button', { name: /^Pobrano/ }))
+      expect(refresh).toHaveBeenCalledTimes(1)
+      unmount()
+      mockStop(board, {}, { lastSuccessAt: Date.now(), error: 'network' })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.getByRole('button', { name: /^Nie udało się odświeżyć · dane z \d{2}:\d{2}/ })).toBeInTheDocument()
+      expect(screen.getByText('Kabaty')).toBeInTheDocument()
+    })
+
+    it('renders bus, tram, metro and rail lines and rows without GPS, stop code or alerts', async () => {
+      mockStop({
+        ...board,
+        modes: ['metro', 'tram', 'bus', 'rail'],
+        lines: mixedLines,
+        alerts: null,
+        departures: [dep('175', '175', 'bus', 'Lotnisko'), dep('20', '20', 'tram', 'Piaski'), dep('M1', 'M1', 'metro', 'Kabaty'), dep('S2', 'S2', 'rail', 'Pruszków')],
+      })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      for (const headsign of ['Lotnisko', 'Piaski', 'Kabaty', 'Pruszków']) expect(screen.getByText(headsign)).toBeInTheDocument()
+      expect(screen.getAllByText(/wg rozkładu/).length).toBeGreaterThan(0)
+      expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('tab', { name: 'Linie' }))
+      for (const label of ['metro', 'tramwaj', 'autobus', 'kolej']) expect(screen.getAllByText(label).length).toBeGreaterThan(0)
+    })
+
+    it('a vehicle older than the GPS threshold does not touch the timetable row', () => {
+      mockStop({ ...board, departures: [{ ...board.departures[0], vehicle: { stopsAway: 0, ageSec: 900 } }] })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.getByText('Kabaty')).toBeInTheDocument()
+      expect(screen.queryByText(/zaraz będzie|Pojazd/)).not.toBeInTheDocument()
+    })
   })
 })

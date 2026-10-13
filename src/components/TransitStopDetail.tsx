@@ -1,6 +1,7 @@
 'use client'
 
-import { startTransition, useEffect, useId, useMemo, useState, type CSSProperties } from 'react'
+import { startTransition, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
+import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
@@ -10,20 +11,24 @@ import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import type { GtfsLine } from '@/lib/gtfs/query'
-import { GTFS_STOP_ID_PATTERN } from '@/lib/validation'
+import { dedupeAlerts, toContextAlertsState, type ContextAlertsState } from '@/lib/gtfs/alertView'
+import { GTFS_ROUTE_ID_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 import { formatSecondsOfDay } from '@/lib/format'
 import { getCity } from '@/lib/gtfs/cities'
 import { zonedHour } from '@/lib/pkp/time'
-import { AlertBanner } from './AlertBanner'
+import { patchUrlParams } from '@/lib/urlState'
 import { AttributionFooter } from './AttributionFooter'
 import { AsideCard, HourlyTraffic } from './aside'
+import { ContextAlerts } from './ContextAlerts'
 import { LineBadge } from './LineBadge'
 import { MapView } from './MapView'
-import { ScheduleStatus } from './ScheduleStatus'
+import { MAP_ZOOM, formatAt } from './map/mapData'
+import { ScheduleStatus, scheduleNeedsAttention } from './ScheduleStatus'
 import { stopDisplayName, stopsWithLines } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
+import { TransitFetchStatus } from './TransitFetchStatus'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, AlertCircleIcon, CheckIcon, ICON_SIZE } from './icons'
+import { AccessibleIcon, AlertCircleIcon, CheckIcon, ChevronRightIcon, ICON_SIZE, MapIcon } from './icons'
 import { PinStar } from './PinStar'
 import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
@@ -36,13 +41,16 @@ import { pluralPl } from '@/lib/plural'
 
 type StopTab = 'departures' | 'lines' | 'schedule' | 'alerts'
 const STOP_TABS: { key: StopTab; label: string }[] = [
-  { key: 'departures', label: 'Najbliższe odjazdy' },
-  { key: 'lines', label: 'Wszystkie linie' },
-  { key: 'schedule', label: 'Pełny rozkład' },
+  { key: 'departures', label: 'Odjazdy' },
+  { key: 'lines', label: 'Linie' },
+  { key: 'schedule', label: 'Rozkład' },
   { key: 'alerts', label: 'Komunikaty' },
 ]
-/** Odjazdy pobierane w jednej, wspólnej dla obu tabów odjazdowych liczbie — „Najbliższe" tnie do podglądu, „Pełny rozkład" pokazuje całość. */
-const SCHEDULE_FETCH_LIMIT = 60
+const DEFAULT_TAB: StopTab = 'departures'
+/** `?tab=` spoza listy ignorujemy po cichu (#4). */
+const parseTab = (raw: string | null): StopTab => STOP_TABS.find((tab) => tab.key === raw)?.key ?? DEFAULT_TAB
+/** Tyle odjazdów ZWRACA `/api/gtfs/board` maksymalnie (`MAX_LIMIT`) — prosimy o całość, bez cichego przycinania po stronie API. */
+const SCHEDULE_FETCH_LIMIT = 50
 const NEAREST_PREVIEW_COUNT = 10
 
 /** Ikona pinu na mapie: pierwszy tryb wg priorytetu prezentacji (`MODE_ORDER`) obecny na przystanku. */
@@ -81,11 +89,10 @@ export function TransitStopDetail({
   // `undefined` = jeszcze nie wybrano w tej sesji (idź za `?przystanek=` albo
   // deep-linkiem), `null` = user jawnie wybrał cały zespół, `string` = wybrany przystanek.
   const [memberChoice, setMemberChoice] = useState<string | null | undefined>(undefined)
-  const [lineFilter, setLineFilter] = useState<string | null>(null)
+  // Ten sam układ dla zakładki i filtra linii: `undefined` = idź za URL-em (`?tab=`, `?line=`), inaczej wybór usera.
+  const [lineChoice, setLineChoice] = useState<string | null | undefined>(undefined)
+  const [tabChoice, setTabChoice] = useState<StopTab | undefined>(undefined)
   const [requestedMember, setRequestedMember] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<StopTab>('departures')
-  // `startTransition`: dopiero zmiana stanu w przejściu uruchamia crossfade (`TabCrossfade`).
-  const selectTab = (tab: StopTab): void => startTransition(() => setActiveTab(tab))
   // Kontekst w kolumnie (`wide`) albo w arkuszu „Info” — jedno miejsce naraz, patrz `useBoardContext`.
   const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
   const tabIdBase = useId()
@@ -94,12 +101,31 @@ export function TransitStopDetail({
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
-  // Reset przy zmianie przystanku — ten sam idiom co useTransitBoard.ts.
+  const activeTab = tabChoice ?? parseTab(searchParams.get('tab'))
+  // `startTransition`: dopiero zmiana stanu w przejściu uruchamia crossfade (`TabCrossfade`). Zakładka i filtr
+  // piszą do URL-a przez `replaceState` (bez żądania do serwera, bez wpisu w historii — `urlState.ts`).
+  const selectTab = (tab: StopTab): void => {
+    startTransition(() => setTabChoice(tab))
+    patchUrlParams({ tab: tab === DEFAULT_TAB ? null : tab })
+  }
+  const selectLine = (routeId: string | null): void => {
+    setLineChoice(routeId)
+    patchUrlParams({ line: routeId })
+  }
+  // Zmiana miejsca (nie pierwszy render): stan poprzedniego przystanku — wybór słupka, zakładka, filtr linii — nie przechodzi dalej.
+  const placeKey = `${city}/${stopId}`
+  const lastPlaceKey = useRef(placeKey)
   useEffect(() => {
+    if (lastPlaceKey.current !== placeKey) {
+      lastPlaceKey.current = placeKey
+      patchUrlParams({ tab: null, line: null })
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMemberChoice(undefined)
     setRequestedMember(null)
-  }, [stopId])
+    setTabChoice(undefined)
+    setLineChoice(undefined)
+  }, [placeKey])
   const rawUrlMember = searchParams.get('przystanek')
   const urlMember = rawUrlMember !== null && GTFS_STOP_ID_PATTERN.test(rawUrlMember) ? rawUrlMember : null
   // Priorytet: jawny klik w tej sesji > `?przystanek=` z URL > deep-link po segmencie
@@ -115,9 +141,16 @@ export function TransitStopDetail({
     const qs = next.toString()
     router.replace(qs.length > 0 ? `${pathname}?${qs}` : pathname, { scroll: false })
   }
-  // Jedno zapytanie na obie zakładki odjazdowe — „Pełny rozkład" pokazuje całą
-  // listę do `SCHEDULE_FETCH_LIMIT`, „Najbliższe" tnie ją do podglądu niżej.
-  const { data, error, loading, failed } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effMember)
+  // `MapView` montuje mapę od nowa przy każdej zmianie `onPinClick` (Trap 2, `maps.md`) — a `selectMember` zmienia tożsamość razem
+  // z URL-em, który sam zapisuje. Stały wrapper z ref-em: klik w pin nie niszczy własnego popupu.
+  const selectMemberRef = useRef(selectMember)
+  useEffect(() => {
+    selectMemberRef.current = selectMember
+  })
+  const onPinClick = useCallback((id: string) => selectMemberRef.current(id), [])
+  // Jedno zapytanie na obie zakładki odjazdowe — „Rozkład" pokazuje całą
+  // listę do `SCHEDULE_FETCH_LIMIT`, „Odjazdy" tnie ją do podglądu niżej.
+  const { data, error, loading, failed, lastSuccessAt, refresh } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effMember)
   // Nazwa miasta z `/api/cities` — jeden wspólny hook z `WeatherChip`,
   // `TransitStopCard` i stroną miasta (Task 9). Fallback do slugu, dopóki
   // lista się nie wczyta / gdy fetch zawiedzie.
@@ -174,10 +207,34 @@ export function TransitStopDetail({
     recordRecentPlace({ kind: 'gtfs', city, id: recentId, name: recentName, ...(recentMember !== undefined && { member: recentMember }) })
   }, [boardLoaded, memberSettled, city, recentId, recentMember, recentName, recordRecentPlace])
 
-  const departures = useMemo(
-    () => (lineFilter === null ? (board?.departures ?? []) : (board?.departures ?? []).filter((d) => d.routeId === lineFilter)),
-    [board, lineFilter]
-  )
+  // Zmiana słupka zachowuje poprzednią odpowiedź (`keepPreviousData`: piny i geometria zespołu nie znikają), ale jej
+  // odjazdy dotyczą INNEGO zakresu — dopóki `activeMember` odpowiedzi nie zgadza się z wyborem, lista jest „wczytywana"
+  // (albo, gdy odświeżenie padło, „nie udało się pobrać"), nigdy odjazdami starego słupka. Id spoza zespołu serwer ignoruje
+  // (cały zespół) — sprawdzamy go na PEŁNEJ liście członków, żeby nieznany słupek nie wisiał w ładowaniu.
+  const expectedMember = effMember !== null && (board?.members ?? []).some((m) => m.id === effMember) ? effMember : null
+  const scopeMismatch = board !== null && (board.activeMember ?? null) !== expectedMember
+  const departuresLoading = loading || (scopeMismatch && error === null)
+  const departuresFailed = failed || (scopeMismatch && error !== null)
+  const boardRows = board === null || scopeMismatch ? [] : board.departures
+
+  // Filtr z `?line=` ważny tylko, gdy ta linia jest na tablicy (`board.lines`); do wczytania tablicy — brak filtra.
+  const rawUrlLine = searchParams.get('line')
+  const urlLine = rawUrlLine !== null && GTFS_ROUTE_ID_PATTERN.test(rawUrlLine) ? rawUrlLine : null
+  const requestedLine = lineChoice !== undefined ? lineChoice : urlLine
+  const lineFilter = requestedLine !== null && (board?.lines ?? []).some((l) => l.routeId === requestedLine) ? requestedLine : null
+  const filteredLine = lineFilter === null ? null : (board?.lines.find((l) => l.routeId === lineFilter) ?? null)
+  const departures = lineFilter === null ? boardRows : boardRows.filter((d) => d.routeId === lineFilter)
+
+  // Komunikaty: stan feedu z `alertFeed` (awaria ≠ pusto, `alertView.ts`); nieudane odświeżenie tablicy z ostatnią
+  // listą = „nie udało się odświeżyć, pokazujemy ostatnie dane"; pierwszy fetch bez danych = „nie udało się wczytać".
+  const alertList = board?.alerts ?? null
+  const alertsView: ContextAlertsState =
+    board === null
+      ? { state: failed || error !== null ? 'failed' : 'loading', stale: false }
+      : error !== null && alertList !== null
+        ? { state: 'failed', stale: true }
+        : toContextAlertsState(data?.alertFeed, alertList)
+  const alertCount = alertList === null ? 0 : dedupeAlerts(alertList).length
 
   const linesByMode = useMemo(() => {
     const groups = new Map<GtfsMode, GtfsLine[]>()
@@ -217,9 +274,22 @@ export function TransitStopDetail({
     [members, stopName, board]
   )
 
+  // „Na mapie": współrzędne wybranego słupka albo środek zespołu — z danych tablicy (zero GPS, zero zapytań). Bez słupka
+  // z lokalizacją linku nie ma (tekst zamiast martwej kontrolki).
+  const located = activeMember !== null ? [activeMember] : members
+  const mapHref =
+    located.length === 0
+      ? null
+      : `/city/${city}/map?at=${formatAt({
+          lat: located.reduce((sum, m) => sum + m.lat, 0) / located.length,
+          lon: located.reduce((sum, m) => sum + m.lon, 0) / located.length,
+          zoom: MAP_ZOOM.stops,
+        })}`
+  const mapLabel = members.length > 1 ? `Mapa zespołu przystanków ${stopName}` : `Mapa przystanku ${stopName}`
+
   const mapCard = mapPins.length > 0 && (
     <InfoSection title="Mapa" collapsible className="card-hover">
-      <MapView pins={mapPins} onPinClick={setMemberChoice} ariaLabel={members.length > 1 ? `Mapa zespołu przystanków ${stopName}` : `Mapa przystanku ${stopName}`} dark={resolvedTheme === 'dark'} />
+      <MapView pins={mapPins} onPinClick={onPinClick} ariaLabel={mapLabel} dark={resolvedTheme === 'dark'} />
     </InfoSection>
   )
   const trafficCard = (
@@ -264,7 +334,24 @@ export function TransitStopDetail({
       )}
     </AsideCard>
   )
-  // Telefon (arkusz „Info”, brief §8): linie → natężenie (zwinięte) → mapa (zwinięta, montowana po rozwinięciu).
+  // Telefon (arkusz „Info”): linie → natężenie (zwinięte). Mapa stoi pod odjazdami w głównym przepływie (spec 04),
+  // więc nie ma jej w arkuszu — jedno miejsce naraz (`ui-states.md`).
+  const summaryTiles = (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <StatTile uppercaseLabel label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />
+      <StatTile uppercaseLabel label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" className="card-hover" />
+      <StatTile
+        uppercaseLabel
+        label="Pierwszy / ostatni"
+        value={
+          summary && summary.firstDepartureSec !== null && summary.lastDepartureSec !== null
+            ? `${formatSecondsOfDay(summary.firstDepartureSec)}–${formatSecondsOfDay(summary.lastDepartureSec)}`
+            : '—'
+        }
+        className="card-hover"
+      />
+    </div>
+  )
   const asideCards = wide ? (
     <>
       {mapCard}
@@ -273,16 +360,27 @@ export function TransitStopDetail({
     </>
   ) : (
     <>
+      {summaryTiles}
       {linesCard}
       {trafficCard}
-      {mapCard}
     </>
   )
 
+  const departuresEmpty = departuresFailed
+    ? 'Nie udało się pobrać rozkładu.'
+    : filteredLine !== null && boardRows.length > 0
+      ? `Brak odjazdów linii ${filteredLine.line} wśród najbliższych ${SCHEDULE_FETCH_LIMIT} odjazdów.`
+      : 'Brak kolejnych odjazdów w rozkładzie na dziś i jutro.'
+  const timeZone = getCity(city)?.timezone ?? 'Europe/Warsaw'
+  const refreshFailed = error !== null && board !== null
+  const fetchStatus = <TransitFetchStatus lastSuccessAt={lastSuccessAt ?? null} refreshFailed={refreshFailed} timeZone={timeZone} onRefresh={refresh} />
+  const memberChipClass = (on: boolean): string =>
+    `card-hover relative rounded-xl border px-3 py-2.5 text-left transition max-sm:min-h-11 max-sm:py-2 ${on ? 'border-primary bg-primary-soft text-primary-text ring-1 ring-primary' : 'border-surface-border'}`
+
   return (
     <div className="grid items-start gap-5 max-sm:gap-3 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
-      {/* Na telefonie odjazdy pierwsze: przystanki zespołu jako chipy, podsumowanie jako pigułki,
-          kontekst (mapa, pogoda, natężenie, linie) w arkuszu „Info”. */}
+      {/* Na telefonie odjazdy pierwsze: przystanki zespołu jako chipy, kontekst (pogoda, natężenie, linie) w arkuszu
+          „Info”, mapa podglądowa dopiero pod odjazdami (04). */}
       <div className="flex min-w-0 flex-col gap-5 max-sm:gap-3">
         <section className="glass-strong glow-ring rounded-2xl p-5 max-sm:p-4" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
           <div className="flex flex-wrap items-start justify-between gap-3 max-sm:flex-nowrap">
@@ -310,7 +408,7 @@ export function TransitStopDetail({
                 </p>
               )}
               {activeMember !== null && (
-                <p className="mt-0.5 text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                <p className="mt-0.5 text-sm font-medium text-primary-text">
                   {stopDisplayName(stopName, activeMember.code ?? activeMember.platformCode)}
                   {activeMember.street !== null && <span className="text-text-secondary"> · {activeMember.street}</span>}
                 </p>
@@ -323,7 +421,8 @@ export function TransitStopDetail({
                 </p>
               )}
               {data !== null && (
-                <div className="mt-2">
+                // Telefon: linijka stanu rozkładu tylko, gdy coś jest nie tak (ładowanie, awaria, stare dane) — oszczędza wysokość odjazdów.
+                <div className={`mt-2 ${scheduleNeedsAttention(data.schedule, error !== null) ? '' : 'max-sm:hidden'}`}>
                   <ScheduleStatus compact schedule={data.schedule} cityName={cityName} error={error !== null} />
                 </div>
               )}
@@ -340,6 +439,21 @@ export function TransitStopDetail({
               </IconButton>
             </div>
           </div>
+
+          {/* Telefon: „Na mapie” (z danych tablicy, bez GPS) i „Info” w jednym rzędzie; od `sm` kontekst stoi w kolumnie. */}
+          {!wide && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {mapHref !== null ? (
+                <Link href={mapHref} className="chip-filter gap-1.5">
+                  <MapIcon size={ICON_SIZE.button} />
+                  Na mapie
+                </Link>
+              ) : (
+                board !== null && <p className="text-sm text-text-secondary">Brak lokalizacji przystanku</p>
+              )}
+              <InfoButton open={infoOpen} onClick={toggleInfo} />
+            </div>
+          )}
         </section>
 
         {members.length > 1 && (
@@ -364,11 +478,10 @@ export function TransitStopDetail({
                 onClick={() => selectMember(null)}
                 aria-selected={effMember === null}
                 tabIndex={memberIndex === 0 ? 0 : -1}
-                className={`card-hover relative rounded-xl border px-3 py-2.5 text-left text-xs transition max-sm:min-h-11 max-sm:py-2 ${effMember === null ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
-                style={effMember === null ? ({ '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties) : undefined}
+                className={`${memberChipClass(effMember === null)} text-xs`}
               >
                 {effMember === null && (
-                  <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white max-sm:hidden">
+                  <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-primary text-primary-fg max-sm:hidden">
                     <CheckIcon className="h-2.5 w-2.5" />
                   </span>
                 )}
@@ -387,11 +500,10 @@ export function TransitStopDetail({
                     onClick={() => selectMember(member.id)}
                     aria-selected={on}
                     tabIndex={memberIndex === index + 1 ? 0 : -1}
-                    className={`card-hover relative flex flex-col gap-1.5 rounded-xl border px-3 py-2.5 text-left transition max-sm:min-h-11 max-sm:justify-center max-sm:py-2 ${on ? 'glow-ring border-transparent ring-2 ring-indigo-500' : 'border-surface-border'}`}
-                    style={on ? ({ '--glow-color': 'rgba(99, 102, 241, 0.4)' } as CSSProperties) : undefined}
+                    className={`${memberChipClass(on)} flex flex-col gap-1.5 max-sm:justify-center`}
                   >
                     {on && (
-                      <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-500 text-white max-sm:hidden">
+                      <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-primary text-primary-fg max-sm:hidden">
                         <CheckIcon className="h-2.5 w-2.5" />
                       </span>
                     )}
@@ -399,7 +511,7 @@ export function TransitStopDetail({
                         zaczynać się dokładnie od "Centrum 02" (testy jednostkowe/e2e
                         odpytują ten prefiks przez `getByText`/`getByRole(...,{name})`,
                         które nie łączą tekstu rozbitego na sąsiednie elementy). */}
-                    <span className="pr-5 font-heading text-base font-extrabold tabular-nums text-foreground max-sm:pr-0 max-sm:text-sm">
+                    <span className="pr-5 font-heading text-base font-extrabold tabular-nums max-sm:pr-0 max-sm:text-sm">
                       {stopDisplayName(stopName, member.code ?? member.platformCode)}
                     </span>
                     {member.street !== null && <span className="text-xs text-text-muted max-sm:hidden">{member.street}</span>}
@@ -416,91 +528,60 @@ export function TransitStopDetail({
           </section>
         )}
 
-        <div className="grid gap-3 max-sm:grid-cols-2 max-sm:gap-1.5 sm:grid-cols-3">
-          {/* Telefon: liczbę linii widać w filtrze linii poniżej — pigułki mieszczą się w jednym rzędzie. */}
-          <div className="contents max-sm:hidden">
-            <StatTile uppercaseLabel label="Linie" value={summary ? String(summary.lineCount) : '—'} className="card-hover" />
-          </div>
-          <StatTile uppercaseLabel label="Odjazdy dziś" value={summary ? String(summary.departuresToday) : '—'} hint="wg rozkładu" className="card-hover" />
-          <StatTile
-            uppercaseLabel
-            label="Pierwszy / ostatni"
-            value={
-              summary && summary.firstDepartureSec !== null && summary.lastDepartureSec !== null
-                ? `${formatSecondsOfDay(summary.firstDepartureSec)}–${formatSecondsOfDay(summary.lastDepartureSec)}`
-                : '—'
-            }
-            className="card-hover"
-          />
-        </div>
+        {/* Telefon: KPI w arkuszu „Info” (spec 04) — nad zakładkami nie ma miejsca na odjazdy. */}
+        {wide && summaryTiles}
 
         <section className="glass rounded-2xl p-5 max-sm:p-4">
-          {/* Telefon: zakładki i filtr linii przyklejone pod nagłówkiem aplikacji, każdy rząd
-              przewijany w poziomie (cele 44 px); „Info” poza przewijaniem, zawsze pod ręką. */}
+          {/* Telefon: zakładki i filtr linii przyklejone pod nagłówkiem aplikacji. Zakładki to segment, który
+              nie przewija się w bok: 4 w rzędzie, na wąskim ekranie (320 px) 2×2 w tej samej kolejności. */}
           <div
             data-testid="stop-tabs-bar"
             className={`mb-3 flex flex-col gap-2 ${STICKY_TABS_BAR}`}
           >
-            <div className="flex items-center gap-2">
-              <div
-                role="tablist"
-                aria-label="Widok przystanku"
-                onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => selectTab(STOP_TABS[index].key))}
-                className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 max-sm:-my-1 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:py-1"
-              >
-                {STOP_TABS.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    role="tab"
-                    id={viewTabId(tab.key)}
-                    aria-controls={viewPanelId}
-                    aria-selected={activeTab === tab.key}
-                    tabIndex={activeTab === tab.key ? 0 : -1}
-                    onClick={() => selectTab(tab.key)}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition max-sm:min-h-11 ${
-                      activeTab === tab.key ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
-                    }`}
-                    style={activeTab === tab.key ? { background: 'var(--accent-gradient)' } : undefined}
-                  >
-                    {tab.label}
-                    {tab.key === 'alerts' && (board?.alerts?.length ?? 0) > 0 && (
-                      <AlertCircleIcon
-                        size={ICON_SIZE.inline}
-                        label="aktywne utrudnienia"
-                        className={`shrink-0 ${activeTab === tab.key ? 'text-white' : 'text-warning-text'}`}
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-              <InfoButton open={infoOpen} onClick={toggleInfo} />
+            <div
+              role="tablist"
+              aria-label="Widok przystanku"
+              onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => selectTab(STOP_TABS[index].key))}
+              className="segment grid w-full grid-cols-2 min-[360px]:grid-cols-4 sm:inline-grid sm:w-auto sm:self-start"
+            >
+              {STOP_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  id={viewTabId(tab.key)}
+                  aria-controls={viewPanelId}
+                  aria-selected={activeTab === tab.key}
+                  tabIndex={activeTab === tab.key ? 0 : -1}
+                  onClick={() => selectTab(tab.key)}
+                  className="segment-item relative gap-1.5 px-1 sm:px-4"
+                >
+                  {tab.label}
+                  {/* Kropka zamiast ikony: 4 zakładki w jednym rzędzie nie mają miejsca na więcej szerokości; nazwę niesie sr-only. */}
+                  {tab.key === 'alerts' && alertCount > 0 && (
+                    <>
+                      <span aria-hidden="true" className="absolute right-1.5 top-2 h-2 w-2 rounded-full bg-warning-text" />
+                      <span className="sr-only">aktywne utrudnienia</span>
+                    </>
+                  )}
+                </button>
+              ))}
             </div>
 
             {(activeTab === 'departures' || activeTab === 'schedule') && board !== null && board.lines.length > 1 && (
               <div role="group" aria-label="Filtr linii" className="flex flex-wrap items-center gap-1.5 max-sm:-my-1 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:py-1">
-                <button
-                  type="button"
-                  onClick={() => setLineFilter(null)}
-                  aria-pressed={lineFilter === null}
-                  className={`shrink-0 rounded-full border px-2.5 py-1 text-xs transition max-sm:min-h-11 max-sm:px-3.5 ${
-                    lineFilter === null ? 'border-transparent text-white' : 'border-surface-border text-text-secondary'
-                  }`}
-                  style={lineFilter === null ? { background: 'var(--accent-gradient)' } : undefined}
-                >
+                <button type="button" onClick={() => selectLine(null)} aria-pressed={lineFilter === null} className="chip-filter shrink-0">
                   Wszystkie
                 </button>
                 {board.lines.map((line) => (
                   <button
                     key={line.routeId}
                     type="button"
-                    onClick={() => setLineFilter(lineFilter === line.routeId ? null : line.routeId)}
+                    onClick={() => selectLine(lineFilter === line.routeId ? null : line.routeId)}
                     aria-pressed={lineFilter === line.routeId}
-                    className="grid shrink-0 place-items-center rounded-full max-sm:min-h-11 max-sm:min-w-11"
+                    className="grid shrink-0 place-items-center rounded-full outline-offset-2 aria-pressed:outline-2 aria-pressed:outline-primary-text focus-visible:outline-2 focus-visible:outline-primary-text max-sm:min-h-11 max-sm:min-w-11"
                   >
-                    <span style={{ opacity: lineFilter !== null && lineFilter !== line.routeId ? 0.4 : 1 }}>
-                      <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
-                    </span>
+                    <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
                   </button>
                 ))}
               </div>
@@ -510,15 +591,38 @@ export function TransitStopDetail({
           <div role="tabpanel" id={viewPanelId} aria-labelledby={viewTabId(activeTab)}>
             <TabCrossfade id={activeTab} name="stop-panel">
             {(activeTab === 'departures' || activeTab === 'schedule') && (
-              <TransitDepartureList
-                departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
-                loading={loading}
-                emptyMessage={failed ? 'Nie udało się pobrać rozkładu.' : undefined}
-                city={city}
-                showStopCode={activeMember === null && members.length > 1}
-                now={now}
-                highlightFirst={activeTab === 'departures'}
-              />
+              <>
+                {/* Znane komunikaty: zwarty skrót nad odjazdami, szczegóły w zakładce „Komunikaty”. */}
+                {activeTab === 'departures' && alertCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => selectTab('alerts')}
+                    className="press flex min-h-11 w-full items-center gap-2 rounded-xl border border-warning-text bg-surface-strong px-3 text-left text-sm font-medium text-warning-text focus-visible:outline-2 focus-visible:outline-primary-text"
+                  >
+                    <AlertCircleIcon size={ICON_SIZE.button} />
+                    <span className="min-w-0 flex-1">{`${alertCount} ${pluralPl(alertCount, 'komunikat', 'komunikaty', 'komunikatów')}`}</span>
+                    <ChevronRightIcon size={ICON_SIZE.button} />
+                  </button>
+                )}
+                {refreshFailed && fetchStatus}
+                <TransitDepartureList
+                  departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
+                  loading={departuresLoading}
+                  emptyMessage={departuresEmpty}
+                  emptyAction={
+                    lineFilter !== null && !departuresFailed && boardRows.length > 0 ? (
+                      <button type="button" onClick={() => selectLine(null)} className="chip-filter mt-3">
+                        Wszystkie linie
+                      </button>
+                    ) : undefined
+                  }
+                  city={city}
+                  showStopCode={activeMember === null && members.length > 1}
+                  now={now}
+                />
+                {/* „Pobrano …” pod listą (nie nad nią: odjazdy pierwsze); ostrzeżenie o nieudanym odświeżeniu zostaje nad listą. */}
+                {!refreshFailed && fetchStatus}
+              </>
             )}
 
             {activeTab === 'lines' &&
@@ -551,19 +655,32 @@ export function TransitStopDetail({
                 </div>
               ))}
 
-            {activeTab === 'alerts' &&
-              (board === null || board.alerts === null ? (
-                // Tablica albo feed alertów jeszcze nie odpowiedział — nieznane, nie „brak" (#7); hook ponawia
-                // drabinką. Bez tablicy nie wiadomo też, czy to zespół, czy przystanek (żadnego „tego przystanku").
-                <p className="text-sm text-text-muted">Wczytywanie komunikatów…</p>
-              ) : board.alerts.length > 0 ? (
-                <AlertBanner alerts={board.alerts} />
-              ) : (
-                <p className="text-sm text-text-muted">Aktualnie brak komunikatów dla {scopeGenitive}.</p>
-              ))}
+            {activeTab === 'alerts' && (
+              <ContextAlerts
+                alerts={alertList}
+                state={alertsView.state}
+                stale={alertsView.stale}
+                // Przed odpowiedzią nie wiadomo, czy to zespół, czy przystanek — nazwa neutralna.
+                scopeLabel={board === null ? 'Komunikaty' : wholeGroup ? 'Komunikaty linii obsługujących ten zespół' : 'Komunikaty linii obsługujących ten przystanek'}
+              />
+            )}
             </TabCrossfade>
           </div>
         </section>
+
+        {/* Telefon: mapa podglądowa (≤ 180 px) dopiero pod odjazdami; od `sm` mapa jest w kolumnie. Bez lokalizacji — opis zamiast pustego prostokąta. */}
+        {!wide && board !== null && (
+          <section aria-labelledby={`${tabIdBase}-map`} className="glass rounded-2xl p-3">
+            <h2 id={`${tabIdBase}-map`} className="mb-2 text-sm font-semibold text-text-secondary">
+              Lokalizacja przystanku
+            </h2>
+            {mapPins.length > 0 ? (
+              <MapView pins={mapPins} onPinClick={onPinClick} ariaLabel={mapLabel} dark={resolvedTheme === 'dark'} compact />
+            ) : (
+              <p className="text-sm text-text-secondary">Brak lokalizacji przystanku</p>
+            )}
+          </section>
+        )}
       </div>
 
       <aside className="flex flex-col gap-4 xl:sticky xl:top-6">

@@ -97,14 +97,11 @@ describe('live dot on the vehicle chip', () => {
     } as unknown as GtfsDeparture & { vehicle: { stopsAway: number; ageSec: number } }
   }
 
-  it('shows for a position at most a minute old', () => {
-    render(<TransitDepartureList departures={[dep(15)]} />)
-    expect(screen.getByTestId('live-dot')).toBeInTheDocument()
-  })
-
-  it('is absent for a stale position', () => {
-    render(<TransitDepartureList departures={[dep(150)]} />)
+  // Chip niesie wiek GPS jako tekst („GPS: 15 s temu"), więc pulsująca kropka nie dokłada informacji.
+  it.each([15, 150])('carries no live dot (ageSec %i): the GPS age is written out', (ageSec) => {
+    render(<TransitDepartureList departures={[dep(ageSec)]} />)
     expect(screen.queryByTestId('live-dot')).not.toBeInTheDocument()
+    expect(screen.getByText(/GPS:/)).toBeInTheDocument()
   })
 })
 

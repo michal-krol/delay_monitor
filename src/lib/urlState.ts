@@ -6,7 +6,8 @@
  * zamiast jednej strony ze stanem `expanded`). Użycie na trasie `/`
  * (`?station=&name=` w starym `src/app/page.tsx`) zniknęło razem z tamtym
  * plikiem. `FullBoard.tsx` wciąż importuje `readUrlParam`/`patchUrlParams`,
- * ale już tylko dla jednego parametru (`?tab=`) — szczegóły połączenia mają
+ * ale już tylko dla jednego parametru (`?tab=`); `TransitStopDetail` pisze tędy `?tab=`
+ * i `?line=` (zmiana widoku bez żądania do serwera) — szczegóły połączenia mają
  * od dawna własną trasę (`/connection/...`), więc `scheduleId`/`orderId`/
  * `operatingDate` nie przechodzą już przez ten moduł.
  *
