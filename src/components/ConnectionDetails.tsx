@@ -1,20 +1,24 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { DelayBadge, STATUS_TEXT } from './DelayBadge'
 import { DelayForecast } from './DelayForecast'
 import { CarrierLogo } from './CarrierLogo'
 import { PageTitle } from './PageTitle'
-import { AlertCircleIcon, ArrivalIcon, ArrowRightIcon, CalendarIcon, DisclosureIcon, DepartureIcon, InfoIcon, PauseIcon, TimerIcon, VehiclePositionIcon, ICON_SIZE } from './icons'
+import { TrainRouteList } from './TrainRouteList'
+import { describeStopTime } from './stopTime'
+import { AlertCircleIcon, ArrivalIcon, ArrowRightIcon, CalendarIcon, DepartureIcon, InfoIcon, TimerIcon, TrainIcon, ICON_SIZE } from './icons'
 import { resolveStopStatus, type RealizationStatus } from '@/lib/board/realization'
 import { resolvePositionAnchor } from '@/lib/board/trainDetail'
 import { resolveInterpolatedPosition, type TrainDetailStopWithCoords } from '@/lib/board/mapPosition'
 import { MapView, type MapMover, type MapPin } from './MapView'
 import { stopDelayMinutes, summariseJourney } from '@/lib/board/journey'
 import { pluralPl } from '@/lib/plural'
-import { formatAge, formatClockTime, formatDuration } from '@/lib/format'
+import { formatAgo, formatClockTime, formatDuration } from '@/lib/format'
 import { countdownLabel } from '@/lib/countdown'
+import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { usePolling } from '@/hooks/usePolling'
 import { useStationWeather } from '@/hooks/useStationWeather'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
@@ -51,24 +55,6 @@ type Props = {
 
 type Status = 'loading' | 'error' | 'ready'
 
-// Kolor znacznika/odcinka toru per status — te same pary kolor/token co
-// `DelayBadge` (src/app/globals.css, decyzja #1.1), żeby stepper i plakietka
-// obok nigdy nie mogły pokazać dwóch różnych kolorów dla tego samego statusu.
-/**
- * „peron 3 · tor 1", sam peron albo sam tor — puste, gdy nie znamy żadnego.
- *
- * Peron i tor są dwiema niezależnymi wartościami (jedna bywa znana bez
- * drugiej), więc nie sklejamy ich w „3/1" — z takiego zapisu nie da się
- * odczytać, której z nich brakuje. Jeden ciąg, nie trzy wyrażenia JSX obok
- * siebie: te renderują się jako osobne węzły tekstowe i rozbijają zarówno
- * zaznaczanie tekstu, jak i odczyt przez czytnik ekranu.
- */
-function formatPlatformTrack(platform: string | null, track: string | null): string {
-  return [platform !== null ? `peron ${platform}` : null, track !== null ? `tor ${track}` : null]
-    .filter((part) => part !== null)
-    .join(' · ')
-}
-
 /**
  * Pociąg, który dojechał do ostatniego przystanku (albo ma całą trasę
  * odwołaną), już się nie zmieni. Jedna implementacja (AGENTS.md: jedna
@@ -82,27 +68,6 @@ function isJourneyOver(stops: TrainDetailStopWithCoords[]): boolean {
   return stops[stops.length - 1].isConfirmed || stops.every((stop) => stop.isCancelled)
 }
 
-const STOP_COLOR: Record<RealizationStatus, string> = {
-  onTime: 'var(--status-onTime-bg)',
-  delayed: 'var(--status-delayed-bg)',
-  cancelled: 'var(--status-cancelled-bg)',
-  unknown: 'var(--status-unknown-bg)',
-  notStarted: 'var(--status-notStarted-bg)',
-  enRoute: 'var(--status-enRoute-bg)',
-}
-
-/** Ten sam wzorzec zastrzeżenia co `ESTIMATE_TOOLTIP` w `DelayBadge.tsx` — inne źródło (godzina wprost z PKP dla TEGO przystanku), ta sama ostrożność. */
-const PREDICTED_TIME_TOOLTIP =
-  'Przewidywana godzina na podstawie danych PKP dla tego przystanku — może się różnić od faktycznej.'
-
-/**
- * Próg, od którego postój dostaje własną plakietkę. Na żywym API (475 tras,
- * 8380 przystanków) 4880 z 7173 postojów trwa dokładnie minutę — plakietka bez
- * progu wisiałaby przy prawie każdym wierszu i przestałaby cokolwiek znaczyć.
- * Pokazujemy tylko postoje, przy których pasażer realnie ma co zrobić.
- */
-const NOTABLE_STOP_MINUTES = 3
-
 /** Odświeżanie samego odliczania „za ile" — bez żadnego zapytania do PKP (AGENTS.md #3). */
 const COUNTDOWN_TICK_MS = 30_000
 
@@ -113,6 +78,9 @@ const COUNTDOWN_TICK_MS = 30_000
  * więc częściej nie ma sensu pytać PKP (AGENTS.md #3).
  */
 const BACKGROUND_REFRESH_MS = 5 * 60_000
+
+/** Blok szkieletu — ten sam wzór co `PageSkeleton.tsx` (jednorazowy puls, bez własnych animacji). */
+const SKELETON_BLOCK = 'animate-pulse rounded bg-black/5 dark:bg-white/5'
 
 /** Komunikat, gdy serwer nie podał własnego (błąd sieci, nie-JSON, 5xx bez treści). */
 const GENERIC_ERROR = 'Nie udało się pobrać szczegółów połączenia.'
@@ -135,6 +103,9 @@ async function fetchTrainDetail(
   const response = await fetch(`/api/train?${params}`).catch(() => null)
   if (response === null) throw new Error(GENERIC_ERROR)
   if (!response.ok) {
+    // Komunikat serwera przechodzi tylko przy statusach, na które użytkownik może zareagować (404, limit 503);
+    // reszta („Błąd pobierania danych z PKP”, „Nieoczekiwany błąd”) łamie słownik (`ui-copy.md`) -- ogólny tekst.
+    if (response.status !== 404 && response.status !== 503) throw new Error(GENERIC_ERROR)
     const body: unknown = await response.json().catch(() => null)
     const serverMessage =
       body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
@@ -210,7 +181,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // szkieletu, a błąd nie gasi działającej strony (#7). Kończy się, gdy pociąg
   // dojedzie do stacji końcowej (`isDone`). Powrót na kartę odświeża tylko
   // wtedy, gdy tik minął w ukryciu -- zero fokusa okna, zero dodatkowego kosztu.
-  const { data, error, lastSuccessAt } = usePolling<TrainDetailApiResponse>(
+  const { data, error, lastSuccessAt, refresh } = usePolling<TrainDetailApiResponse>(
     JSON.stringify([scheduleId, orderId, operatingDate]),
     ({ background }) => fetchTrainDetail(scheduleId, orderId, operatingDate, background),
     { refreshMs: BACKGROUND_REFRESH_MS, isDone: (json) => isJourneyOver(json.stops), cacheNamespace: 'train' }
@@ -223,6 +194,9 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   const status: Status = data !== null ? 'ready' : error !== null ? 'error' : 'loading'
   const backgroundRefreshFailed = data !== null && error !== null
   const [now, setNow] = useState(() => Date.now())
+  // Skrót długiej trasy: stan LOKALNY (nie dotyka `usePolling`) — rozwinięcie, zwinięcie i odświeżenie w tle nie
+  // robią żadnego zapytania (#3), a rozwinięta lista przeżywa kolejne odpowiedzi.
+  const [routeExpanded, setRouteExpanded] = useState(false)
   // Pogoda punktu startu trasy — `stops[0]` to stacja początkowa (`stationId`
   // to identyfikator PKP, ten sam, którym kluczuje `/api/weather`). Pusty ciąg
   // przed odpowiedzią = hook nie bije w API (AGENTS.md #3).
@@ -266,7 +240,6 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // (`mapPosition.ts`), żeby oś i mapa nigdy nie pokazały dwóch różnych pozycji.
   const positionAnchor = resolvePositionAnchor(stops, data?.trainStatus ?? null, nowDate)
   const scheduleMode = positionAnchor.mode === 'schedule'
-  const staleProjection = positionAnchor.mode === 'stale'
   const currentStopIndex = positionAnchor.index
   const stopStatuses = stops.map((stop, index) =>
     resolveStopStatus({
@@ -289,17 +262,15 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // wielu przystanków, więc bez deduplikacji baner powtarzałby ten sam tekst.
   const routeDisruptions = [...new Set(stops.flatMap((stop) => stop.disruptionMessages ?? []))]
 
-  // „Dane sprzed {N} min": widoczne, gdy ostatnia próba w tle padła (dane mogą
-  // być świeże wg zegara, ale wiadomo, że sprawdzenie się nie powiodło) ALBO
-  // dane są starsze niż 2×BACKGROUND_REFRESH_MS (żadna próba nie padła, ale i
-  // żadna się nie powiodła od dawna -- np. karta odświeżona z bookmarka po
-  // przerwie). Zniknie po najbliższym udanym odświeżeniu (AGENTS.md #7: wiek
-  // danych rośnie widocznie, nigdy nie chowa się cicho). Wyjątek: skończona
-  // podróż (patrz `isJourneyOver`, ten sam warunek co zatrzymanie dociągania
-  // w tle) nie oczekuje już żadnego odświeżenia -- wskaźnik byłby tylko szumem.
-  const dataAgeMs = lastSuccessAt !== null ? now - lastSuccessAt : null
-  const showDataAge =
-    !isJourneyOver(stops) && dataAgeMs !== null && (backgroundRefreshFailed || dataAgeMs >= 2 * BACKGROUND_REFRESH_MS)
+  // „Pobrano {N} temu": ZAWSZE widoczne, gdy mamy dane (AGENTS.md #7: wiek rośnie widocznie, nigdy się nie
+  // chowa). To chwila pobrania przez PRZEGLĄDARKĘ (`lastSuccessAt`), nie wiek źródła -- odpowiedź PKP nie
+  // niesie czasu źródła. Kolor ostrzegawczy: ostatnia próba w tle padła (`backgroundRefreshFailed`: wtedy też
+  // „Spróbuj ponownie") ALBO dane starsze niż 2×BACKGROUND_REFRESH_MS (np. karta po przerwie). Skończona
+  // podróż (`isJourneyOver`, ten sam warunek co zatrzymanie dociągania) nie oczekuje odświeżenia -- zawsze neutralnie.
+  const journeyOver = isJourneyOver(stops)
+  const dataAgeSec = lastSuccessAt !== null ? Math.max(0, Math.floor((now - lastSuccessAt) / 1000)) : null
+  const refreshFailed = backgroundRefreshFailed && !journeyOver
+  const ageWarning = !journeyOver && (refreshFailed || (dataAgeSec !== null && dataAgeSec * 1000 >= 2 * BACKGROUND_REFRESH_MS))
 
   // Mapa trasy: tylko przystanki z rzeczywistymi współrzędnymi (AGENTS.md #6 —
   // reszta po prostu nie dostaje pina, polilinia łączy się dłuższym odcinkiem
@@ -324,7 +295,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
     const position = resolveInterpolatedPosition(stops, data?.trainStatus ?? null, new Date(now))
     return position === null
       ? []
-      : [{ id: 'train', lat: position.lat, lon: position.lon, label: 'Pociąg — szacowane wg rozkładu', mode: 'rail' as const, kind: 'regular' as const }]
+      : [{ id: 'train', lat: position.lat, lon: position.lon, label: 'Szacowana pozycja', mode: 'rail' as const, kind: 'regular' as const, glyph: 'train' as const }]
   }, [stops, data?.trainStatus, now])
 
   const categoryLabel = data?.category ?? null
@@ -341,37 +312,64 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `onLabelResolved` to callback rodzica, nie stan śledzony tu
   }, [status, trainNumber])
 
-  const arrivalTime = formatTime(summary.destination?.displayAt ?? null)
+  // Przyjazd do celu z tego samego helpera co wiersze trasy (`describeStopTime` → `timePresentation`, #2):
+  // fakt / prognoza / plan z podpisem, nie surowy `displayAt`.
+  const lastIndex = stops.length - 1
+  const destinationTime = lastIndex >= 0 ? describeStopTime(stops[lastIndex], stopStatuses[lastIndex], now, 'arrival') : null
+  const destinationAt = destinationTime?.at ?? null
+  const arrivalTime = formatTime(destinationAt)
   // Bez sufitu godziny: do celu podróży „za 2 h 5 min” ma sens (wspólne odliczanie, `lib/countdown.ts`).
-  const destinationAt = summary.destination?.displayAt ?? null
-  const countdown = destinationAt === null ? null : countdownLabel(now, destinationAt, Infinity)
+  // Odwołany cel nie odlicza.
+  const countdown =
+    destinationAt === null || stopStatuses[lastIndex] === 'cancelled' ? null : countdownLabel(now, destinationAt, Infinity)
   const travelTime = formatDurationOrNull(summary.plannedDurationMinutes)
 
   return (
     <div className="flex flex-col gap-6">
       {status === 'loading' && (
-        <div className="glass rounded-2xl p-6">
+        // Szkielet nagłówka i osi (jak `PageSkeleton`): bloki są dekoracją, czytnik dostaje jedno zdanie.
+        <div data-testid="connection-loading" aria-busy="true" className="glass rounded-2xl p-4 sm:p-6">
           <PageTitle>{trainLabel}</PageTitle>
-          <p className="mt-1 text-sm text-text-muted">Wczytywanie trasy…</p>
+          <span className="sr-only">Wczytywanie trasy…</span>
+          <div aria-hidden="true" className={`${SKELETON_BLOCK} mt-3 h-6 w-3/4 max-w-md`} />
+          <div aria-hidden="true" className={`${SKELETON_BLOCK} mt-3 h-8 w-32`} />
+          <div className="mt-5 flex flex-col gap-4 border-t border-surface-border pt-4">
+            {[0, 1, 2, 3].map((row) => (
+              <div key={row} className="flex items-center gap-3">
+                <div aria-hidden="true" className={`${SKELETON_BLOCK} h-3 w-3 shrink-0 rounded-full`} />
+                <div aria-hidden="true" className={`${SKELETON_BLOCK} h-5 w-2/5`} />
+                <div aria-hidden="true" className={`${SKELETON_BLOCK} ml-auto h-5 w-16`} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {status === 'error' && (
-        <div className="glass rounded-2xl p-6">
+        <div className="glass rounded-2xl p-4 sm:p-6">
           {/* Każdy stan ma jeden h1 — etykieta z linku, jak przy wczytywaniu. */}
           <PageTitle className="mb-2">{trainLabel}</PageTitle>
           <p role="alert" className="text-sm font-medium text-error-text">
             {error}
           </p>
-          {/* Komunikat serwera (np. limit godzinowy PKP) już mówi, co zrobić --
+          {/* Komunikat serwera (np. limit godzinowy PKP, 404) już mówi, co zrobić --
               drugi generyczny akapit dublowałby to, albo sugerowałby, że
               odświeżenie strony pomoże, gdy w rzeczywistości trafi w ten sam limit. */}
           {error === GENERIC_ERROR && (
             <p className="mt-1 text-sm text-text-secondary">
-              Ten widok pobiera dane przy każdym otwarciu i nie ma zapisanej wcześniejszej wersji do pokazania. Spróbuj
-              odświeżyć stronę.
+              Ten widok nie ma zapisanej wcześniejszej wersji.
             </p>
           )}
+          {/* Ręczne ponowienie = jedyna nowa ścieżka wywołania: pierwszoplanowe `refresh()` po kliknięciu
+              (no-op w trakcie pobierania), nigdy automatyczne (#3). */}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={refresh} className="btn-primary control-44">
+              Spróbuj ponownie
+            </button>
+            <Link href="/search" transitionTypes={NAV_FORWARD_TYPES} className="chip-filter control-44">
+              Szukaj stacji
+            </Link>
+          </div>
         </div>
       )}
 
@@ -380,10 +378,19 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
           `status === 'error'` (AGENTS.md #7: „brak wyników" ≠ „nie udało się
           sprawdzić"). */}
       {status === 'ready' && data !== null && data.stops.length === 0 && (
-        <div className="glass rounded-2xl p-6">
-          <p role="alert" className="text-sm text-text-muted">
+        <div className="glass rounded-2xl p-4 sm:p-6">
+          <PageTitle className="mb-2">{trainLabel}</PageTitle>
+          <p role="status" className="text-sm text-text-muted">
             PKP nie udostępnia teraz trasy tego połączenia.
           </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={refresh} className="btn-primary control-44">
+              Spróbuj ponownie
+            </button>
+            <Link href="/search" transitionTypes={NAV_FORWARD_TYPES} className="chip-filter control-44">
+              Szukaj stacji
+            </Link>
+          </div>
         </div>
       )}
 
@@ -393,7 +400,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               w drugiej i przez oba wiersze — dzięki temu widżety zaczynają się od
               samej góry, a karta nagłówka ma szerokość listy przystanków. */}
           {/* ── Nagłówek ─────────────────────────────────────────────── */}
-          <header className="glass @container rounded-2xl p-5 sm:p-6 xl:col-start-1 xl:row-start-1">
+          <header className="glass @container rounded-2xl p-4 sm:p-6 xl:col-start-1 xl:row-start-1">
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -418,8 +425,23 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     <span>{summary.destination.stationName}</span>
                   </p>
                 )}
-                {showDataAge && dataAgeMs !== null && (
-                  <p className="mt-1 text-xs text-text-muted">Dane sprzed {formatAge(dataAgeMs)}</p>
+                {/* Jedna linia daty na każdej szerokości (też, gdy to nie dziś -- bez „dziś"). */}
+                <p className="mt-1.5 flex items-center gap-1.5 text-sm text-text-secondary">
+                  <CalendarIcon size={ICON_SIZE.inline} className="shrink-0 text-text-muted" />
+                  {formatOperatingDate(data.operatingDate) ?? data.operatingDate}
+                </p>
+                {dataAgeSec !== null && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {/* Bez `aria-live`: licznik tyka co 30 s, to nie komunikat dla czytnika. */}
+                    <p data-testid="data-age" className={`text-xs ${ageWarning ? 'text-warning-text' : 'text-text-muted'}`}>
+                      {refreshFailed && 'Nie udało się odświeżyć — pokazujemy ostatnie dane · '}Pobrano {formatAgo(dataAgeSec)}
+                    </p>
+                    {refreshFailed && (
+                      <button type="button" onClick={refresh} className="chip-filter control-44">
+                        Spróbuj ponownie
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -428,33 +450,48 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                     (kierunek domyślny). Dla nagłówka to informacja („pociąg
                     jeszcze nie ruszył"), a nie truizm „nie przyjechał"; ten
                     drugi ma sens tylko na ostatnim przystanku steppera niżej. */}
-                <DelayBadge
-                  status={overallStatus}
-                  delayMinutes={summary.arrivalDelayMinutes}
-                  estimatedDelayMinutes={summary.estimatedArrivalDelayMinutes}
-                />
-                {arrivalTime !== null && (
-                  <div className="text-right">
+                <div className="flex flex-col items-start gap-1">
+                  <DelayBadge
+                    status={overallStatus}
+                    delayMinutes={summary.arrivalDelayMinutes}
+                    estimatedDelayMinutes={summary.estimatedArrivalDelayMinutes}
+                  />
+                  {/* Dotykowy odpowiednik podpowiedzi (`title`) na plakietce szacunku. */}
+                  {overallStatus === 'enRoute' && typeof summary.estimatedArrivalDelayMinutes === 'number' && (
+                    <p className="max-w-64 text-xs text-text-muted">
+                      Szacunek z ostatniego potwierdzenia — może się zmienić na dalszej trasie.
+                    </p>
+                  )}
+                </div>
+                {arrivalTime !== null && destinationTime !== null && (
+                  <div data-testid="arrival-block" className="text-left sm:text-right">
                     <div className="text-xs tracking-[0.08em] text-text-muted uppercase">Przyjazd do celu</div>
-                    <div className="font-heading text-3xl font-bold text-foreground tabular-nums">{arrivalTime}</div>
+                    <div
+                      className="time-dominant text-foreground sm:font-heading sm:text-3xl sm:font-bold"
+                      style={destinationTime.kind === 'plan' ? undefined : { color: STATUS_TEXT[stopStatuses[lastIndex]] }}
+                    >
+                      {arrivalTime}
+                    </div>
+                    <div className="text-xs text-text-secondary">
+                      {destinationTime.label === 'Przew.' ? <abbr title="Przewidywana">Przew.</abbr> : <span>{destinationTime.label}</span>}
+                      {destinationTime.planAt !== null && ' '}
+                      {destinationTime.planAt !== null && <span>{`· Plan ${formatTime(destinationTime.planAt)}`}</span>}
+                    </div>
                     {countdown !== null && <div className="text-sm text-text-secondary">{countdown}</div>}
                   </div>
                 )}
               </div>
             </div>
 
+            {/* Telefon czyta to z wierszy trasy i z „Informacji o połączeniu" -- siatka od `sm`. */}
             <div
-              className="mt-5 grid gap-4 border-t border-surface-border pt-4 text-sm @md:grid-cols-2 @xl:grid-cols-4"
+              data-testid="connection-meta"
+              className="mt-5 grid gap-4 border-t border-surface-border pt-4 text-sm max-sm:hidden @md:grid-cols-3"
             >
               <MetaItem
-                icon={<CalendarIcon size={ICON_SIZE.button} />}
-                label="Data"
-                value={formatOperatingDate(data.operatingDate) ?? data.operatingDate}
-              />
-              <MetaItem
                 icon={<DepartureIcon size={ICON_SIZE.button} />}
-                label="Odjazd"
-                value={formatTime(summary.origin?.displayAt ?? null) ?? '—'}
+                label="Odjazd (plan)"
+                value={formatTime(summary.origin?.plannedAt ?? null) ?? '—'}
                 hint={summary.origin?.stationName ?? null}
               />
               <MetaItem
@@ -497,199 +534,14 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               )}
               <section className="glass rounded-2xl p-5 sm:p-6">
                 <SectionHeading>Przebieg trasy</SectionHeading>
-                {/* Pionowy stepper: kolumna znacznika ma `flex-direction: column`, więc
-                    każdy wiersz sam rysuje swój odcinek „szyny" do następnego przystanku
-                    (kropka = status TEGO przystanku, odcinek pod nią = status NASTĘPNEGO —
-                    to on informuje, jak wygląda dalsza podróż tym odcinkiem trasy). */}
-                {/* `@container`, nie breakpoint okna: szerokość tego wiersza zależy od
-                    paska bocznego i prawej kolumny, nie od szerokości ekranu. Przy oknie
-                    1280 px lewa kolumna ma ~620 px, a przy 1024 px — ~710 px (prawa
-                    kolumna schodzi pod treść poniżej `xl`), więc breakpoint okna włączałby
-                    gęsty układ tam, gdzie jest CIAŚNIEJ. Zmierzone: przy 768 px nazwy
-                    stacji wychodziły poza wiersz. */}
-                <ol className="@container mt-4" aria-label="Przebieg trasy">
-                  {data.stops.map((stop, index) => {
-                    // Oparte na fakcie przyjazdu/odjazdu (planowym LUB faktycznym), nie
-                    // tylko planowym — pociąg bez dopasowanej trasy (patrz trainDetail.ts)
-                    // ma plannedArrival/plannedDeparture zawsze null, ale wciąż zna
-                    // faktyczne czasy i nie może przez to zniknąć z widoku.
-                    const hasDeparture = stop.plannedDeparture !== null || stop.actualDeparture !== null
-                    // `actualArrival`/`actualDeparture` bez `isConfirmed` nie dowodzi
-                    // realizacji (patrz AGENTS.md/realization.ts) — ta sama zasada
-                    // dotyczy wyboru CZASU DO WYŚWIETLENIA, nie tylko liczenia statusu.
-                    // Niepotwierdzony przystanek pokazuje więc zawsze plan, nigdy
-                    // surowe `actual` (które PKP bywa, że ustawia na wartość przesuniętą
-                    // o całą dobę dla przystanków daleko w przyszłości).
-                    const confirmedArrival = stop.isConfirmed && stop.actualArrival !== null ? stop.actualArrival : null
-                    const confirmedDeparture = stop.isConfirmed && stop.actualDeparture !== null ? stop.actualDeparture : null
-                    // Wiersz pokazuje jedną godzinę planową i pod nią jedną rzeczywistą:
-                    // odjazdową, bo to ona mówi, kiedy podróż stąd rusza dalej. Na
-                    // stacji końcowej odjazdu nie ma, więc zostaje przyjazd.
-                    // `?? null` przy `predicted*` — odpowiedź API zawsze niesie te pola,
-                    // ale ręczne literały w starszych testach mogą ich nie mieć wcale
-                    // (brakujący klucz to `undefined`, nie `null`).
-                    const plannedTime = formatTime(hasDeparture ? stop.plannedDeparture : stop.plannedArrival)
-                    const realized = hasDeparture
-                      ? (confirmedDeparture ?? stop.predictedDeparture ?? null)
-                      : (confirmedArrival ?? stop.predictedArrival ?? null)
-                    const realizedTime = formatTime(realized)
-                    const isPrediction =
-                      realized !== null && (hasDeparture ? confirmedDeparture === null : confirmedArrival === null)
-                    const isFirst = index === 0
-                    const isLast = index === data.stops.length - 1
-                    const isCurrent = index === currentStopIndex
-                    const thisStatus = stopStatuses[index]
-                    const nextStatus = stopStatuses[index + 1]
-                    // `?? null`/`?? []` — odpowiedź API zawsze niesie te pola, ale
-                    // ręczne literały w starszych testach mogą ich nie mieć wcale,
-                    // a `undefined !== null` przepuściłoby pustą plakietkę.
-                    const messages = stop.disruptionMessages ?? []
-                    const stopTypeName = stop.stopTypeName ?? null
-                    const stopMinutes = stop.stopMinutes ?? null
-                    const showStopMinutes = stopMinutes !== null && stopMinutes >= NOTABLE_STOP_MINUTES
-                    const hasBadges = isCurrent || showStopMinutes || stopTypeName !== null || messages.length > 0
-
-                    // Klucz z indeksem, nie sam `stationId`: pociąg z zawrotką mija tę
-                    // samą stację dwa razy (np. PODLASIAK: Szczecin Dąbie) — bez indeksu
-                    // React myli oba wiersze przy odświeżaniu danych w tle.
-                    return (
-                      <li key={`${stop.stationId}-${index}`} className="flex gap-3.5">
-                        <div className="flex flex-col items-center pt-2.5">
-                          {/* Halo z makiety na przystanku, na którym pociąg właśnie stoi —
-                              jedyne miejsce w widoku odpowiadające „tu jesteśmy teraz",
-                              więc jedyne, które je dostaje (jeden akcent, nie rozsypane efekty). */}
-                          <span
-                            className={`h-3 w-3 shrink-0 rounded-full ${isCurrent && !scheduleMode && !staleProjection ? 'breathe' : ''}`}
-                            style={{
-                              backgroundColor: STOP_COLOR[thisStatus],
-                              boxShadow: isCurrent
-                                ? '0 0 0 4px color-mix(in srgb, var(--status-enRoute-bg) 25%, transparent)'
-                                : undefined,
-                            }}
-                            aria-hidden="true"
-                          />
-                          {!isLast && (
-                            <span
-                              className="mt-1.5 w-0.5 flex-1"
-                              style={{ backgroundColor: STOP_COLOR[nextStatus] }}
-                              aria-hidden="true"
-                            />
-                          )}
-                        </div>
-
-                        <div className={`min-w-0 flex-1 ${isLast ? 'pb-0' : 'pb-4'}`}>
-                          <div
-                            className={`rounded-xl border px-2.5 py-1.5 ${isCurrent ? '' : 'border-transparent'}`}
-                            style={
-                              isCurrent
-                                ? {
-                                    borderColor: 'color-mix(in srgb, var(--status-enRoute-bg) 55%, transparent)',
-                                    // 10% przyciemniało wiersz na tyle, że tekst statusu spadał
-                                    // do 3,99:1 (zmierzone). 6% zostawia widoczne podświetlenie
-                                    // i nie zjada kontrastu — ciężar niesie ramka.
-                                    backgroundColor: 'color-mix(in srgb, var(--status-enRoute-bg) 6%, transparent)',
-                                  }
-                                : undefined
-                            }
-                          >
-                            <div className="grid grid-cols-[3.6rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 @lg:grid-cols-[3.6rem_minmax(0,1fr)_5rem_7rem]">
-                              <div className="tabular-nums">
-                                <div className="font-semibold text-foreground">{plannedTime ?? '—'}</div>
-                                {realizedTime !== null && realizedTime !== plannedTime && (
-                                  <div
-                                    className={`text-xs font-medium ${isPrediction ? 'italic' : ''}`}
-                                    style={{ color: STATUS_TEXT[thisStatus] }}
-                                    title={isPrediction ? PREDICTED_TIME_TOOLTIP : undefined}
-                                  >
-                                    {realizedTime}
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="min-w-0">
-                                <span className={`${isFirst || isLast ? 'font-semibold' : 'font-medium'} break-words text-foreground`}>
-                                  {stop.stationName}
-                                </span>
-                                {(isFirst || isLast) && (
-                                  <span className="ml-2 text-xs tracking-[0.1em] text-text-muted uppercase">
-                                    {isFirst ? 'odjazd' : 'przyjazd'}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Peron i tor są dwiema niezależnymi wartościami
-                                  (jedna bywa znana bez drugiej), więc każda ma
-                                  własną etykietę zamiast sklejenia „4/2".
-                                  Nic nie pokazujemy, gdy nie znamy żadnej. */}
-                              <div className="text-sm text-text-secondary tabular-nums">
-                                {formatPlatformTrack(stop.platform, stop.track)}
-                              </div>
-
-                              <div className="@lg:text-right">
-                                <DelayBadge
-                                  status={thisStatus}
-                                  delayMinutes={stopDelayMinutes(stop)}
-                                  // Ostatni przystanek to tylko przyjazd -> „jeszcze nie przyjechał";
-                                  // wszystkie wcześniejsze wiersz opisuje odjazdowo.
-                                  direction={isLast ? 'arrival' : 'departure'}
-                                  estimatedDelayMinutes={stop.estimatedDelayMinutes}
-                                  variant="text"
-                                />
-                              </div>
-                            </div>
-
-                            {hasBadges && (
-                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                {isCurrent && (
-                                  <span
-                                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
-                                    style={{
-                                      backgroundColor: 'var(--status-enRoute-bg)',
-                                      color: 'var(--status-enRoute-fg)',
-                                    }}
-                                  >
-                                    <VehiclePositionIcon size={ICON_SIZE.inline} />
-                                    {scheduleMode
-                                      ? 'Pociąg jest tutaj — wg rozkładu'
-                                      : staleProjection
-                                        ? 'Pociąg jest tutaj — szacowane z rozkładu'
-                                        : 'Pociąg jest tutaj'}
-                                  </span>
-                                )}
-                                {showStopMinutes && (
-                                  <span
-                                    className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary"
-                                  >
-                                    <PauseIcon size={ICON_SIZE.inline} />
-                                    Postój {stopMinutes} min
-                                  </span>
-                                )}
-                                {stopTypeName !== null && (
-                                  // Ograniczenie postoju („tylko dla wysiadających”), nie utrudnienie: neutralny
-                                  // chip jak „Postój”, bo amber + AlertCircle to wyłącznie „Utrudnienie” obok.
-                                  <span className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-text-secondary">
-                                    <InfoIcon size={ICON_SIZE.inline} />
-                                    {stopTypeName}
-                                  </span>
-                                )}
-                                {messages.length > 0 && (
-                                  <details className="w-full">
-                                    <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                      <AlertCircleIcon size={ICON_SIZE.inline} />
-                                      Utrudnienie
-                                      <DisclosureIcon size={ICON_SIZE.chip} />
-                                    </summary>
-                                    <p className="mt-1.5 text-xs text-text-secondary">{messages.join(' ')}</p>
-                                  </details>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ol>
+                <TrainRouteList
+                  stops={data.stops}
+                  statuses={stopStatuses}
+                  anchor={positionAnchor}
+                  now={now}
+                  expanded={routeExpanded}
+                  onToggle={() => setRouteExpanded((value) => !value)}
+                />
               </section>
 
               {mapPins.length >= 2 && (
@@ -700,7 +552,10 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                       wystarcza (AGENTS.md #7) -- kropka rusza się po mapie i bez
                       podpisu widocznego OD RAZU wygląda jak realny GPS. */}
                   {mapMovers.length > 0 && (
-                    <p className="mt-2 text-xs text-text-muted">Pozycja pociągu szacowana wg rozkładu.</p>
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
+                      <TrainIcon size={ICON_SIZE.inline} className="shrink-0" />
+                      Szacowana pozycja — wg rozkładu i ostatniego potwierdzenia, nie GPS.
+                    </p>
                   )}
                 </section>
               )}

@@ -31,7 +31,7 @@ export type MapPin = {
  * Ta sama konwencja co na mapie miasta: kropka w kolorze rodzaju + strzałka kierunku
  * (`bearing`, azymut od północy); bez `bearing` sama kropka.
  */
-export type MapMover = { id: string; lat: number; lon: number; label: string; mode: GtfsMode; /** Rodzaj linii (kolor); pociąg PKP przekazuje `'regular'` jawnie. */ kind: LineKind; bearing?: number | null }
+export type MapMover = { id: string; lat: number; lon: number; label: string; mode: GtfsMode; /** Rodzaj linii (kolor); pociąg PKP przekazuje `'regular'` jawnie. */ kind: LineKind; bearing?: number | null; /** `'train'` = kółko 24 px z glifem pociągu (pozycja PKP szacowana, nie GPS). */ glyph?: 'train' }
 /**
  * Trasa rysowana po kolejnych punktach — kontur ulic z `shapes.txt` gdy wzorzec go ma, inaczej łamana po przystankach (`schedule.ts`/`query.ts` decydują, MapView tylko rysuje).
  * Kolor liczy `lineColor(mode, kind)` — ta sama paleta co plakietki i mapa miasta; pociąg PKP przekazuje `'regular'` jawnie.
@@ -126,19 +126,23 @@ function buildPopupContent(pin: MapPin, rich: boolean): HTMLElement {
  */
 function createMoverElement(mover: MapMover): HTMLDivElement {
   const color = lineColor(mover.mode, mover.kind).bg
+  // `glyph: 'train'` = 24 px kółko z białym glifem (szacowana pozycja pociągu PKP); bez poświaty i pulsowania.
+  const glyph = mover.glyph === 'train'
+  const size = glyph ? 'h-6 w-6' : 'h-4 w-4'
   const element = document.createElement('div')
-  element.className = 'relative h-4 w-4 cursor-pointer'
+  element.className = `relative ${size} cursor-pointer`
   element.setAttribute('data-testid', 'map-mover')
   const dot = document.createElement('div')
   dot.dataset.part = 'dot'
-  dot.className = 'h-4 w-4 rounded-full shadow ring-2 ring-white'
+  dot.className = `${size} rounded-full shadow ring-2 ring-white${glyph ? ' flex items-center justify-center text-white' : ''}`
   dot.style.backgroundColor = color
   dot.style.setProperty('--tw-ring-color', strokeFor(color))
+  if (glyph) dot.appendChild(iconElement('train', { width: String(ICON_SIZE.inline), height: String(ICON_SIZE.inline), stroke: 'currentColor' }))
   // Ostrzem do góry, wyśrodkowana nad kropką: pudełko 16 px (glif ~9×13 px, podstawa ~2 px nad kropką).
   // Opakowanie w `div`, bo `hidden` działa na HTMLElement, nie na SVGElement.
   const arrow = document.createElement('div')
   arrow.dataset.part = 'arrow'
-  arrow.className = 'absolute -top-4 left-0 h-4 w-4'
+  arrow.className = `absolute -top-4 ${glyph ? 'left-1' : 'left-0'} h-4 w-4`
   arrow.appendChild(iconElement('vehicleHeading', { width: '16', height: '16', fill: color, stroke: color }))
   // Obrys w kolorze `strokeFor` przez `drop-shadow` (żółte metro ~1,3:1 na jasnym podkładzie), jak przy kropce.
   arrow.style.filter = outlineFilter(color)
@@ -215,7 +219,7 @@ function mountMap(
         if (arrow !== null) moverArrows.set(mover.id, arrow)
         const marker = new lib.Marker({ element, rotation: mover.bearing ?? 0, rotationAlignment: 'map' })
           .setLngLat([mover.lon, mover.lat])
-          .setPopup(new lib.Popup({ offset: 10 }).setDOMContent(moverPopup(mover.label)))
+          .setPopup(new lib.Popup({ offset: mover.glyph === 'train' ? 16 : 10 }).setDOMContent(moverPopup(mover.label)))
           .addTo(mapInstance)
         moverMarkers.set(mover.id, marker)
       }

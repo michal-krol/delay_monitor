@@ -45,6 +45,22 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Szczegóły połączenia kolejowego (telefon i komputer): każdy przystanek pokazuje godzinę użyteczną z nazwanym
+  źródłem — „Faktycznie” (potwierdzona), „Przew.” (prognoza PKP) albo „Plan” — oraz małe „Plan GG:MM”; odjazd i
+  przyjazd są opisane osobno, peron i tor osobno („Peron 2 · tor 4”). Potwierdzony przystanek ma pełny punkt,
+  przyszły pusty, odwołany tekst „odwołany”. Nazwa stacji prowadzi do jej tablicy. „Przyjazd do celu” ma ten sam podpis.
+  Godzina skopiowana z planu bez potwierdzenia dalej nie jest faktem; opóźnienie całego pociągu nie jest doklejane
+  do przyszłych godzin.
+- Szczegóły połączenia: długa trasa (powyżej 8 przystanków) pokazuje od ostatniej potwierdzonej stacji do dwóch
+  następnych i przycisk „Pokaż całą trasę” (rozwija lokalnie, bez zapytania do PKP). Na telefonie nagłówek jest
+  zwarty (data pod relacją, kafelki „Odjazd (plan)” / „Przyjazd (plan)” / „Czas podróży” tylko na szerszych ekranach).
+- Szczegóły połączenia: wiek danych to „Pobrano … temu” (kiedy przeglądarka pobrała odpowiedź, nie wiek danych PKP);
+  po nieudanym odświeżeniu „Nie udało się odświeżyć — pokazujemy ostatnie dane” z „Spróbuj ponownie”. Zakończona
+  podróż nie dostaje ostrzeżenia. Wczytywanie ma szkielet nagłówka i osi, a błąd pierwszego pobrania — „Spróbuj
+  ponownie” i „Szukaj stacji”. Rytm odpytywania `/api/train` i jego limity bez zmian.
+- Szczegóły połączenia: marker na mapie to ikona pociągu z podpisem „Szacowana pozycja — wg rozkładu i ostatniego
+  potwierdzenia, nie GPS”; bez rozstrzygnięcia pozycji nie ma markera ani podpisu. Zniknęła pulsująca poświata
+  przy bieżącym przystanku (zapętlona animacja).
 - Przystanek miejski na telefonie: mapa podglądowa („Lokalizacja przystanku”) wczytuje się dopiero, gdy
   przewiniesz w jej pobliże (zapas 300 px), a nie przy każdym otwarciu przystanku; raz wczytana zostaje.
   Miejsce na mapę jest zarezerwowane, więc układ się nie przesuwa. Bez `IntersectionObserver` mapa
@@ -133,6 +149,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Chip pojazdu na odjazdach przystanku (ekran przystanku, karta Startu, popup mapy): wiek pozycji
+  („GPS: N s temu”) rośnie między odpytaniami zamiast stać na wartości z chwili odpowiedzi, a chip znika
+  po przekroczeniu 180 s także wtedy, gdy kolejna odpowiedź jeszcze nie przyszła. Bez nowych zapytań;
+  w dalszym ciągu tylko „wg rozkładu”, bez pola opóźnienia.
 - Powrót z połączenia do tablicy stacji zachowuje zakładkę i filtr kierunku (tablica nie czyści już `tab`
   i `direction` z adresu następnej strony); link z `?tab=` działa też w trybie deweloperskim.
 - Wczytywanie tablicy stacji na telefonie: szkielet ma pełną szerokość karty i nie ma już nad nim

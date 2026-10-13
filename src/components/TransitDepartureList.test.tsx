@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TransitDepartureList } from './TransitDepartureList'
 import { ON_REQUEST_TITLE } from './OnRequestBadge'
 import { HIDE_AFTER_SEC } from './map/mapData'
@@ -119,6 +119,48 @@ describe('TransitDepartureList', () => {
   it('keeps the vehicle chip at exactly HIDE_AFTER_SEC', () => {
     render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: HIDE_AFTER_SEC } })]} />)
     expect(screen.getByText(/Pojazd: 2 przystanki dalej/)).toBeInTheDocument()
+  })
+
+  describe('vehicle age since the response (fetchedAt)', () => {
+    afterEach(() => vi.useRealTimers())
+
+    const T0 = Date.parse('2026-09-02T12:00:00Z')
+
+    it('adds the time since the response to the "GPS: …" label as the clock ticks', () => {
+      vi.useFakeTimers({ now: T0 })
+      render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 18 } })]} fetchedAt={T0} />)
+      expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 18 s temu')).toBeInTheDocument()
+      act(() => {
+        vi.advanceTimersByTime(30_000)
+      })
+      expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 48 s temu')).toBeInTheDocument()
+    })
+
+    it('hides the chip once ageSec + time since the response exceeds HIDE_AFTER_SEC, keeping the row', () => {
+      vi.useFakeTimers({ now: T0 })
+      render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: HIDE_AFTER_SEC - 20 } })]} fetchedAt={T0} />)
+      expect(screen.getByText(/Pojazd: 2 przystanki dalej/)).toBeInTheDocument()
+      act(() => {
+        vi.advanceTimersByTime(30_000)
+      })
+      expect(screen.queryByText(/Pojazd/)).not.toBeInTheDocument()
+      expect(screen.getByText('14:30')).toBeInTheDocument()
+    })
+
+    it('shows ageSec unchanged without fetchedAt', () => {
+      vi.useFakeTimers({ now: T0 })
+      render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 18 } })]} />)
+      act(() => {
+        vi.advanceTimersByTime(60_000)
+      })
+      expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 18 s temu')).toBeInTheDocument()
+    })
+
+    it('does not lower the age when the clock goes back before the response', () => {
+      vi.useFakeTimers({ now: T0 })
+      render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 18 } })]} fetchedAt={T0 + 60_000} />)
+      expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 18 s temu')).toBeInTheDocument()
+    })
   })
 
   it('shows the full headsign without truncation', () => {

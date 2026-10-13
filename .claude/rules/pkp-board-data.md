@@ -37,7 +37,11 @@ in the same file returns the dominant time (`fact` = confirmed `actualAt` + `del
 else `forecast` = `predictedAt` → „Przew.”, else `plan`; a cancelled row is always `plan`), the plan time
 for the small „Plan HH:mm” line (present for fact/forecast, even when equal) and the countdown. It only
 reads `realizedTime()`: an `actualAt` copied from the plan without a confirmed delay is still no fact (#2).
-Board (`TimePair`) and Start cards (`TimePair compact`) share it; PR5 (connection) and PR11 (Start) reuse it.
+Board (`TimePair`) and Start cards (`TimePair compact`) share it; PR11 (Start) reuses it. The connection view
+(PR5) reuses it per stop through `describeStopTime()` (`src/components/stopTime.ts`): confirmed actual (`isConfirmed`,
+the per-stop signal of #2) → fact, else PKP prediction → forecast, else plan; a stop without a planned time (route not
+matched) shows the confirmed actual or the prediction, never an invented plan. The terminal „Przyjazd do celu” uses the
+same function with the `arrival` event.
 
 ## #9 `/operations` and `/schedules` are not limited to "today"
 

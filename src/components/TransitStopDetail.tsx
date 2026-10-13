@@ -638,6 +638,7 @@ export function TransitStopDetail({
                   city={city}
                   showStopCode={activeMember === null && members.length > 1}
                   now={now}
+                  fetchedAt={lastSuccessAt}
                 />
                 {/* „Pobrano …” pod listą (nie nad nią: odjazdy pierwsze); ostrzeżenie o nieudanym odświeżeniu zostaje nad listą. */}
                 {!refreshFailed && fetchStatus}
