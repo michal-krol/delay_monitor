@@ -180,7 +180,8 @@ describe('TrainRouteList', () => {
         // surowe actual niepotwierdzonego przystanku — artefakt PKP, nie może trafić na ekran
         actualDeparture: '2026-08-01T20:15:00.000Z',
       }),
-      stop(2, { plannedDeparture: '2026-08-01T09:11:00.000Z' }),
+      // ostatni przystanek = zawsze przyjazd
+      stop(2, { plannedArrival: '2026-08-01T09:11:00.000Z' }),
     ]
     renderList(stops, { statuses: ['delayed', 'enRoute', 'notStarted'] })
 
@@ -197,6 +198,33 @@ describe('TrainRouteList', () => {
     const plan = within(rowOf('Stacja 2'))
     expect(plan.getByText('Plan')).toBeInTheDocument()
     expect(plan.getByText(formatClockTime('2026-08-01T09:11:00.000Z'))).toBeInTheDocument()
+  })
+
+  it('empty or blank peron/tor counts as unknown (no "Peron " stub)', () => {
+    renderList([stop(0, { platform: '', track: '4' }), stop(1, { platform: '  ', track: '' }), stop(2)])
+    expect(within(rowOf('Stacja 0')).getByText('Tor 4')).toBeInTheDocument()
+    expect(within(rowOf('Stacja 1')).queryByText(/peron|tor/i)).not.toBeInTheDocument()
+  })
+
+  it('last stop that also carries a departure shows "Przyjazd" with the arrival time, like "Przyjazd do celu"', () => {
+    renderList([stop(0), stop(1, { plannedArrival: '2026-08-01T09:05:00.000Z', plannedDeparture: '2026-08-01T09:06:00.000Z' })])
+    const row = within(rowOf('Stacja 1'))
+    expect(row.getByText('Przyjazd')).toBeInTheDocument()
+    expect(row.queryByText('Odjazd')).not.toBeInTheDocument()
+    expect(row.getByText(formatClockTime('2026-08-01T09:05:00.000Z'))).toBeInTheDocument()
+  })
+
+  it('marks only the current stop with aria-current="step"', () => {
+    renderList(route(3, 1), { anchor: LIVE(1) })
+    expect(rowOf('Stacja 1')).toHaveAttribute('aria-current', 'step')
+    expect(rowOf('Stacja 0')).not.toHaveAttribute('aria-current')
+    expect(rowOf('Stacja 2')).not.toHaveAttribute('aria-current')
+  })
+
+  it('disruption summary is a 44 px touch target', () => {
+    renderList([stop(0, { disruptionMessages: ['Zmiana peronu'] }), stop(1)])
+    // eslint-disable-next-line testing-library/no-node-access -- klasa jest na <summary>, nie na tekście
+    expect(screen.getByText('Utrudnienie').closest('summary')).toHaveClass('min-h-11')
   })
 
   it('no breathe class (static halo)', () => {

@@ -51,10 +51,15 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   glued into an unlabelled range. „Przyjazd do celu” carries the same label; the meta tiles say „Odjazd (plan)” /
   „Przyjazd (plan)”.
 - Platform and track are separate: „Peron 2 · tor 4”, „Peron 2”, „Tor 4”; both unknown = nothing in the row
-  (not „—” on every stop; the phone board card, which has few rows, keeps its „—”).
+  (not „—” on every stop); an empty or blank value counts as unknown.
 - Age = „Pobrano {N s | N min | N h} temu” (`formatAgo`, from `lastSuccessAt`): when the BROWSER fetched, never the
-  age of the PKP source (the response has no source time). After a failed refresh: „Nie udało się odświeżyć —
-  pokazujemy ostatnie dane” + „Spróbuj ponownie”. A finished journey keeps the neutral „Pobrano …”, no warning.
+  age of the PKP source (the response has no source time). The connection has its own failure form, besides the
+  ones of `ContextAlerts` and the board data age: „Nie udało się odświeżyć — pokazujemy ostatnie dane” + „Spróbuj
+  ponownie”. A finished journey keeps the neutral „Pobrano …”, no warning.
+- First-fetch error (no snapshot): server wording only for actionable statuses (404 „Nie znaleziono połączenia”, 503
+  rate limit); every other status = „Nie udało się pobrać szczegółów połączenia.” + „Ten widok nie ma zapisanej
+  wcześniejszej wersji.” (never the server's „Błąd …”). Empty route = `role="status"` „PKP nie udostępnia teraz trasy
+  tego połączenia.” under the h1, with the same two actions.
 - Long route: „Pokaż całą trasę ({N} przystanków)” ↔ „Zwiń trasę” (`aria-expanded`, no fetch).
 - Map: „Szacowana pozycja” (popup and caption) — never „na żywo”, „Live” or GPS wording for PKP; no marker and no
   caption when the resolver gives nothing. First-fetch error offers „Spróbuj ponownie” and „Szukaj stacji” (→ `/search`).

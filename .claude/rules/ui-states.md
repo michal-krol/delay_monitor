@@ -38,8 +38,8 @@ data age, not a white screen. Error banner only for a configuration error (401).
   notice showing; anything new above the board must pay for itself. „Na mapie” = coordinates from
   `useRailStations` (static list, 0 PKP, no weather); unknown location is text, not a control.
 - Connection (`ConnectionDetails`, PR5): loading = header + axis skeleton (`aria-busy`, one h1); first-fetch error =
-  server message + „Spróbuj ponownie” (`usePolling().refresh()`, foreground, bounded by the server's 90 s cache and
-  miss cap) + „Szukaj stacji”; empty `stops` = „PKP nie udostępnia teraz trasy…” (not a finished journey); a failed
+  server message only for 404/503, else the generic one (`ui-copy.md`) + „Spróbuj ponownie” (`usePolling().refresh()`, foreground, bounded by the server's 90 s cache and
+  miss cap) + „Szukaj stacji”; empty `stops` = „PKP nie udostępnia teraz trasy…” (`role="status"`, h1 + the same two actions; not a finished journey); a failed
   refresh keeps the route and turns the age line „Pobrano … temu” into the warning. A finished journey shows the age
   neutrally. Collapsing/expanding the route (> 8 stops, `routeWindow.ts`) is local state — no fetch (#3).
 - Trivia (weather, city stats, KPI tiles, direction chips, status legend) lives below or in sheets on phones:

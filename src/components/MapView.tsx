@@ -134,10 +134,10 @@ function createMoverElement(mover: MapMover): HTMLDivElement {
   element.setAttribute('data-testid', 'map-mover')
   const dot = document.createElement('div')
   dot.dataset.part = 'dot'
-  dot.className = `${size} rounded-full shadow ring-2 ring-white${glyph ? ' flex items-center justify-center' : ''}`
+  dot.className = `${size} rounded-full shadow ring-2 ring-white${glyph ? ' flex items-center justify-center text-white' : ''}`
   dot.style.backgroundColor = color
   dot.style.setProperty('--tw-ring-color', strokeFor(color))
-  if (glyph) dot.appendChild(iconElement('train', { width: String(ICON_SIZE.inline), height: String(ICON_SIZE.inline), stroke: '#fff' }))
+  if (glyph) dot.appendChild(iconElement('train', { width: String(ICON_SIZE.inline), height: String(ICON_SIZE.inline), stroke: 'currentColor' }))
   // Ostrzem do góry, wyśrodkowana nad kropką: pudełko 16 px (glif ~9×13 px, podstawa ~2 px nad kropką).
   // Opakowanie w `div`, bo `hidden` działa na HTMLElement, nie na SVGElement.
   const arrow = document.createElement('div')
@@ -219,7 +219,7 @@ function mountMap(
         if (arrow !== null) moverArrows.set(mover.id, arrow)
         const marker = new lib.Marker({ element, rotation: mover.bearing ?? 0, rotationAlignment: 'map' })
           .setLngLat([mover.lon, mover.lat])
-          .setPopup(new lib.Popup({ offset: 10 }).setDOMContent(moverPopup(mover.label)))
+          .setPopup(new lib.Popup({ offset: mover.glyph === 'train' ? 16 : 10 }).setDOMContent(moverPopup(mover.label)))
           .addTo(mapInstance)
         moverMarkers.set(mover.id, marker)
       }

@@ -338,7 +338,9 @@ describe('MapView', () => {
     expect(dot?.className).not.toMatch(/animate-|blur|glow/)
     // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
     const svg = dot?.querySelector('svg')
-    expect(svg).toHaveAttribute('stroke', '#fff')
+    // Biel z tokenu tekstu kółka (`text-white` + `currentColor`), bez surowego `#fff` w glifie.
+    expect(dot).toHaveClass('text-white')
+    expect(svg).toHaveAttribute('stroke', 'currentColor')
     // Ten sam glif co `TrainIcon` ze słownika (jeden węzeł Lucide).
     const shape = (node: Element | null | undefined) => node?.innerHTML.replace(/<title>.*?<\/title>/, '')
     // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona bez roli

@@ -73,7 +73,7 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
   the glyph pops once (1→1.12→1, `--ease-spring`) only when `pinned` flips false→true after mount, never on
   first render or on a polling rerender.
 - The connection axis has no looping halo (the `breathe` utility was removed in PR5): the current stop is a static
-  halo + outline that fades 200 ms (`--duration-base`) when the position moves; the PKP map marker is a static train
+  halo (`box-shadow`, not animated) + outline and tint that fade 200 ms (`--duration-base`) when the position moves; the PKP map marker is a static train
   glyph labelled „Szacowana pozycja” — motion never suggests live GPS.
 - Shared interaction classes (`.segment`, `.chip-filter`, `.btn-primary`, `page-title`, `time-dominant`) and the
   `--primary*` tokens are defined once in `globals.css` (F0, `adr/0011`); screens consume them, do not re-style.

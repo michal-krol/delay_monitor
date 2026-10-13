@@ -103,6 +103,9 @@ async function fetchTrainDetail(
   const response = await fetch(`/api/train?${params}`).catch(() => null)
   if (response === null) throw new Error(GENERIC_ERROR)
   if (!response.ok) {
+    // Komunikat serwera przechodzi tylko przy statusach, na które użytkownik może zareagować (404, limit 503);
+    // reszta („Błąd pobierania danych z PKP”, „Nieoczekiwany błąd”) łamie słownik (`ui-copy.md`) -- ogólny tekst.
+    if (response.status !== 404 && response.status !== 503) throw new Error(GENERIC_ERROR)
     const body: unknown = await response.json().catch(() => null)
     const serverMessage =
       body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
@@ -354,8 +357,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
               odświeżenie strony pomoże, gdy w rzeczywistości trafi w ten sam limit. */}
           {error === GENERIC_ERROR && (
             <p className="mt-1 text-sm text-text-secondary">
-              Ten widok pobiera dane przy każdym otwarciu i nie ma zapisanej wcześniejszej wersji do pokazania. Spróbuj
-              odświeżyć stronę.
+              Ten widok nie ma zapisanej wcześniejszej wersji.
             </p>
           )}
           {/* Ręczne ponowienie = jedyna nowa ścieżka wywołania: pierwszoplanowe `refresh()` po kliknięciu
@@ -376,10 +378,19 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
           `status === 'error'` (AGENTS.md #7: „brak wyników" ≠ „nie udało się
           sprawdzić"). */}
       {status === 'ready' && data !== null && data.stops.length === 0 && (
-        <div className="glass rounded-2xl p-6">
-          <p role="alert" className="text-sm text-text-muted">
+        <div className="glass rounded-2xl p-4 sm:p-6">
+          <PageTitle className="mb-2">{trainLabel}</PageTitle>
+          <p role="status" className="text-sm text-text-muted">
             PKP nie udostępnia teraz trasy tego połączenia.
           </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={refresh} className="btn-primary control-44">
+              Spróbuj ponownie
+            </button>
+            <Link href="/search" transitionTypes={NAV_FORWARD_TYPES} className="chip-filter control-44">
+              Szukaj stacji
+            </Link>
+          </div>
         </div>
       )}
 

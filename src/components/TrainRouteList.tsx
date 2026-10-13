@@ -2,7 +2,7 @@
 
 import { useId } from 'react'
 import Link from 'next/link'
-import { DelayBadge, STATUS_TEXT } from './DelayBadge'
+import { DelayBadge, STATUS_TEXT, TOKENS } from './DelayBadge'
 import { AlertCircleIcon, ChevronRightIcon, DisclosureIcon, InfoIcon, PauseIcon, VehiclePositionIcon, ICON_SIZE } from './icons'
 import { describeStopTime, stopEvent } from './stopTime'
 import type { RealizationStatus } from '@/lib/board/realization'
@@ -26,17 +26,6 @@ type Props = {
   onToggle: () => void
 }
 
-// Kolor znacznika/odcinka toru per status — te same pary kolor/token co `DelayBadge` (src/app/globals.css,
-// decyzja #1.1), żeby oś i plakietka obok nigdy nie mogły pokazać dwóch różnych kolorów dla tego samego statusu.
-const STOP_COLOR: Record<RealizationStatus, string> = {
-  onTime: 'var(--status-onTime-bg)',
-  delayed: 'var(--status-delayed-bg)',
-  cancelled: 'var(--status-cancelled-bg)',
-  unknown: 'var(--status-unknown-bg)',
-  notStarted: 'var(--status-notStarted-bg)',
-  enRoute: 'var(--status-enRoute-bg)',
-}
-
 /**
  * Próg, od którego postój dostaje własną plakietkę. Na żywym API (475 tras, 8380 przystanków) 4880 z 7173 postojów
  * trwa dokładnie minutę — plakietka bez progu wisiałaby przy prawie każdym wierszu i przestałaby cokolwiek znaczyć.
@@ -47,7 +36,10 @@ const NOTABLE_STOP_MINUTES = 3
  * „Peron 3 · tor 1”, sam „Peron 3” albo sam „Tor 1” — puste, gdy nie znamy żadnego. Peron i tor to dwie niezależne
  * wartości (jedna bywa znana bez drugiej), więc nie sklejamy ich w „3/1”. Jeden ciąg, nie kilka węzłów tekstowych.
  */
-function formatPlatformTrack(platform: string | null, track: string | null): string {
+function formatPlatformTrack(platformRaw: string | null, trackRaw: string | null): string {
+  // Pusty ciąg albo same spacje = nieznane (nie „Peron ”).
+  const platform = platformRaw?.trim() || null
+  const track = trackRaw?.trim() || null
   if (platform !== null && track !== null) return `Peron ${platform} · tor ${track}`
   if (platform !== null) return `Peron ${platform}`
   if (track !== null) return `Tor ${track}`
@@ -86,7 +78,8 @@ export function TrainRouteList({ stops, statuses, anchor, now, expanded, onToggl
           const isCurrent = index === anchor.index
           const status = statuses[index]
           const nextStatus = statuses[index + 1]
-          const event = stopEvent(stop)
+          // Ostatni przystanek to zawsze przyjazd (jak „Przyjazd do celu” w nagłówku), nawet gdy PKP podaje też odjazd.
+          const event = isLast ? 'arrival' : stopEvent(stop)
           const time = describeStopTime(stop, status, now, event)
           const filled = stop.isConfirmed && !stop.isCancelled
           const platformTrack = formatPlatformTrack(stop.platform, stop.track)
@@ -103,7 +96,7 @@ export function TrainRouteList({ stops, statuses, anchor, now, expanded, onToggl
           // Klucz z indeksem, nie sam `stationId`: pociąg z zawrotką mija tę samą stację dwa razy (np. PODLASIAK:
           // Szczecin Dąbie) — bez indeksu React myli oba wiersze przy odświeżaniu danych w tle.
           return (
-            <li key={`${stop.stationId}-${index}`} className="flex gap-3.5">
+            <li key={`${stop.stationId}-${index}`} aria-current={isCurrent ? 'step' : undefined} className="flex gap-3.5">
               <div className="flex flex-col items-center pt-[1.1875rem]">
                 {/* Pełna kropka = potwierdzony (`isConfirmed`, #2), pusty pierścień = przyszły albo odwołany; kolor to
                     status. Halo (statyczne, bez pętli) tylko tam, gdzie pociąg właśnie jest. */}
@@ -112,13 +105,13 @@ export function TrainRouteList({ stops, statuses, anchor, now, expanded, onToggl
                   data-dot={filled ? 'filled' : 'hollow'}
                   className="box-border h-3 w-3 shrink-0 rounded-full border-2"
                   style={{
-                    borderColor: STOP_COLOR[status],
-                    backgroundColor: filled ? STOP_COLOR[status] : 'transparent',
+                    borderColor: TOKENS[status].bg,
+                    backgroundColor: filled ? TOKENS[status].bg : 'transparent',
                     boxShadow: isCurrent ? '0 0 0 4px color-mix(in srgb, var(--status-enRoute-bg) 25%, transparent)' : undefined,
                   }}
                   aria-hidden="true"
                 />
-                {!isLast && <span className="mt-1.5 w-0.5 flex-1" style={{ backgroundColor: STOP_COLOR[nextStatus] }} aria-hidden="true" />}
+                {!isLast && <span className="mt-1.5 w-0.5 flex-1" style={{ backgroundColor: TOKENS[nextStatus].bg }} aria-hidden="true" />}
               </div>
 
               <div className={`min-w-0 flex-1 ${isLast ? 'pb-0' : 'pb-3'}`}>
@@ -216,10 +209,13 @@ export function TrainRouteList({ stops, statuses, anchor, now, expanded, onToggl
                       )}
                       {messages.length > 0 && (
                         <details className="w-full">
-                          <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                            <AlertCircleIcon size={ICON_SIZE.inline} />
-                            Utrudnienie
-                            <DisclosureIcon size={ICON_SIZE.chip} />
+                          {/* Cel dotyku 44 px (`min-h-11`), pigułka wizualnie niska: `-my-2` oddaje wysokość układowi. */}
+                          <summary className="-my-2 inline-flex min-h-11 w-fit cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                              <AlertCircleIcon size={ICON_SIZE.inline} />
+                              Utrudnienie
+                              <DisclosureIcon size={ICON_SIZE.chip} />
+                            </span>
                           </summary>
                           <p className="mt-1.5 text-xs text-text-secondary">{messages.join(' ')}</p>
                         </details>

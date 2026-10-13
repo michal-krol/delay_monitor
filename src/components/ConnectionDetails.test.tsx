@@ -343,7 +343,8 @@ describe('ConnectionDetails', () => {
 
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('PKP nie udostępnia teraz trasy tego połączenia.')
+    expect(await screen.findByRole('status')).toHaveTextContent('PKP nie udostępnia teraz trasy tego połączenia.')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByText('Nie udało się pobrać szczegółów połączenia.')).not.toBeInTheDocument()
     expect(screen.queryByText('0 przystanków')).not.toBeInTheDocument()
   })
@@ -1254,6 +1255,27 @@ describe('ConnectionDetails', () => {
       expect(trainCalls(fetchMock)).toBe(1)
     })
 
+    it('a fully cancelled train: "odwołany" on every row, no countdown to the destination, no further polling', async () => {
+      startClock('2026-08-01T10:00:00Z')
+      const cancelled = {
+        ...RESPONSE,
+        stops: RESPONSE.stops.map((stop) => ({ ...stop, isCancelled: true, isConfirmed: false })),
+      }
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse(cancelled))
+      vi.stubGlobal('fetch', fetchMock)
+
+      renderDetails()
+      await untilRoute()
+
+      // eslint-disable-next-line testing-library/no-node-access -- ograniczenie zapytania do wiersza przystanku
+      const rows = [routeList().getByText('Gdańsk Główny'), routeList().getByText('Warszawa Centralna')].map((name) => name.closest('li') as HTMLElement)
+      for (const row of rows) expect(within(row).getByText('odwołany')).toBeInTheDocument()
+      expect(within(screen.getByTestId('arrival-block')).queryByText(/^za /)).not.toBeInTheDocument()
+
+      await vi.advanceTimersByTimeAsync(3 * REFRESH_MS)
+      expect(trainCalls(fetchMock)).toBe(1)
+    })
+
     it('finished journey shows the neutral age without a warning or a retry', async () => {
       // Ten test musi puścić realny zegar odliczania („za ile", co 30 s) naprzód,
       // żeby sprawdzić, że próg 2×BACKGROUND_REFRESH_MS sam z siebie nie pokazuje
@@ -1577,6 +1599,20 @@ describe('header, states and arrival (PR5)', () => {
       expect(new URL(trainUrls(fetchMock)[1], 'http://localhost').searchParams.has('background')).toBe(false)
     })
 
+    it('a 500 never shows the server wording ("Błąd …" is banned in visible text): generic message, no refresh advice', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Błąd pobierania danych z PKP' }), { status: 500 }))
+      )
+
+      render(<ConnectionDetails {...PROPS} />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się pobrać szczegółów połączenia.')
+      expect(screen.queryByText(/Błąd/)).not.toBeInTheDocument()
+      expect(screen.getByText('Ten widok nie ma zapisanej wcześniejszej wersji.')).toBeInTheDocument()
+      expect(screen.queryByText(/odświeżyć stronę/)).not.toBeInTheDocument()
+    })
+
     it.each([
       [404, 'Nie znaleziono połączenia'],
       [503, 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.'],
@@ -1597,7 +1633,11 @@ describe('header, states and arrival (PR5)', () => {
 
     render(<ConnectionDetails {...PROPS} />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('PKP nie udostępnia teraz trasy tego połączenia.')
+    expect(await screen.findByRole('status')).toHaveTextContent('PKP nie udostępnia teraz trasy tego połączenia.')
     expect(screen.queryByTestId('data-age')).not.toBeInTheDocument()
+    // Jak wczytywanie i błąd: jeden h1 z etykiety linku, a nie pusta strona bez tytułu.
+    expect(screen.getByRole('heading', { level: 1, name: 'EIC 1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Spróbuj ponownie' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Szukaj stacji' })).toHaveAttribute('href', '/search')
   })
 })
