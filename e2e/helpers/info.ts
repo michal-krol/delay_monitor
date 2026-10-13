@@ -30,9 +30,12 @@ export async function showBoardContext(page: Page): Promise<void> {
 
 /**
  * Mapa stacji/przystanku: od `sm` w prawej kolumnie; na telefonie w arkuszu „Info” w zwiniętej sekcji
- * „Mapa”, montowana dopiero po rozwinięciu (PR5) — otwiera arkusz i rozwija sekcję.
+ * „Mapa”, montowana dopiero po rozwinięciu (PR5) — otwiera arkusz i rozwija sekcję. Wyjątek: przystanek miejski
+ * (mapa pod odjazdami, PR6).
  */
 export async function showBoardMap(page: Page): Promise<void> {
+  // Przystanek miejski (PR6): mapa podglądowa stoi w przepływie pod odjazdami, nie w arkuszu „Info” — nic do otwierania.
+  if (new URL(page.url()).pathname.includes('/stop/')) return
   await showBoardContext(page)
   if ((page.viewportSize()?.width ?? 1280) >= 640) return
   const toggle = page.getByRole('dialog', { name: /^Informacje o / }).getByRole('button', { name: 'Mapa', exact: true })

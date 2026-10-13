@@ -310,6 +310,7 @@ export function MapView({
   route,
   movers,
   dark,
+  compact = false,
 }: {
   /** Motyw z `resolvedTheme` wołającego — podkład jak na mapie miasta. Zmiana = mapa montowana od nowa (rzadkie: klik w przełącznik motywu). */
   dark: boolean
@@ -318,6 +319,8 @@ export function MapView({
   ariaLabel: string
   route?: MapRoute
   movers?: MapMover[]
+  /** Podgląd w przepływie telefonu (ekran przystanku, ≤ 180 px): `h-44` zamiast `h-64`. */
+  compact?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
@@ -400,7 +403,7 @@ export function MapView({
   return (
     <>
       <div className="relative">
-        <div ref={containerRef} role="region" aria-label={ariaLabel} className="h-64 w-full overflow-hidden rounded-2xl" />
+        <div ref={containerRef} role="region" aria-label={ariaLabel} className={`${compact ? 'h-44' : 'h-64'} w-full overflow-hidden rounded-2xl`} />
         <button
           ref={expandButtonRef}
           type="button"

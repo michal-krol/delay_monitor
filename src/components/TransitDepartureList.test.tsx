@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { TransitDepartureList } from './TransitDepartureList'
 import { ON_REQUEST_TITLE } from './OnRequestBadge'
+import { HIDE_AFTER_SEC } from './map/mapData'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 
 type Dep = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
@@ -69,25 +70,78 @@ describe('TransitDepartureList', () => {
     expect(screen.queryByText(/słup\./i)).not.toBeInTheDocument()
   })
 
-  it('shows a vehicle chip when a departure has a live vehicle', () => {
-    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 15 } })]} />)
-    expect(screen.getByText('2 przyst.')).toBeInTheDocument()
-  })
-
-  it('gives the stop-code and vehicle chips readable (not title-only) text', () => {
-    render(<TransitDepartureList departures={[dep({ stopCode: '06', vehicle: { stopsAway: 2, ageSec: 15 } })]} showStopCode />)
+  it('gives the stop-code chip readable (not title-only) text', () => {
+    render(<TransitDepartureList departures={[dep({ stopCode: '06' })]} showStopCode />)
     expect(screen.getByText('Odjazd z przystanku')).toHaveClass('sr-only')
-    expect(screen.getByText(/pozycja na żywo/)).toHaveClass('sr-only')
   })
 
-  it('says how old a stale vehicle position is', () => {
-    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 150 } })]} />)
-    expect(screen.getByText(/pozycja sprzed 3 min/)).toHaveClass('sr-only')
-  })
-
-  it('shows "zaraz będzie" (approaching, not departed) at stopsAway 0', () => {
+  it('never says „zaraz będzie"; stopsAway 0 reads „Pojazd w pobliżu przystanku"', () => {
     render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 0, ageSec: 15 } })]} />)
-    expect(screen.getByText('zaraz będzie')).toBeInTheDocument()
+    expect(screen.getByText(/Pojazd w pobliżu przystanku/)).toBeInTheDocument()
+    expect(screen.queryByText(/zaraz będzie/i)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [1, 'Pojazd: 1 przystanek dalej'],
+    [2, 'Pojazd: 2 przystanki dalej'],
+    [5, 'Pojazd: 5 przystanków dalej'],
+  ])('stopsAway %i reads „%s"', (stopsAway, text) => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway, ageSec: 15 } })]} />)
+    expect(screen.getByText(new RegExp(text))).toBeInTheDocument()
+  })
+
+  it('shows the GPS age next to the vehicle chip', () => {
+    const { rerender } = render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 18 } })]} />)
+    expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 18 s temu')).toBeInTheDocument()
+    rerender(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 2 } })]} />)
+    expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: przed chwilą')).toBeInTheDocument()
+  })
+
+  it('keeps the vehicle chip visible text only: no sr-only duplicate, no live dot, no title', () => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 15 } })]} />)
+    const chip = screen.getByText(/Pojazd: 2 przystanki dalej/)
+    expect(chip).not.toHaveAttribute('title')
+    expect(chip).toHaveTextContent(/^Pojazd: 2 przystanki dalej · GPS: 15 s temu$/)
+    expect(screen.queryByText(/pozycja/i)).not.toBeInTheDocument()
+  })
+
+  it('omits the vehicle chip when ageSec > HIDE_AFTER_SEC but still shows the timetable row', () => {
+    const { container } = render(
+      <TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: HIDE_AFTER_SEC + 1 } })]} />
+    )
+    expect(screen.queryByText(/Pojazd/)).not.toBeInTheDocument()
+    expect(screen.getByText('14:30')).toBeInTheDocument()
+    // Jedyne oznaczenie to nieświeży pojazd — pusty kontener oznaczeń nie może zostać w DOM.
+    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
+    expect(container.querySelector('[data-testid="departure-meta"]')).toBeNull()
+  })
+
+  it('keeps the vehicle chip at exactly HIDE_AFTER_SEC', () => {
+    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: HIDE_AFTER_SEC } })]} />)
+    expect(screen.getByText(/Pojazd: 2 przystanki dalej/)).toBeInTheDocument()
+  })
+
+  it('shows the full headsign without truncation', () => {
+    render(<TransitDepartureList departures={[dep({ headsign: 'Os. Górczewska — Dworzec Wschodni' })]} />)
+    const headsign = screen.getByTestId('departure-headsign')
+    expect(headsign).not.toHaveClass('truncate')
+    expect(headsign).toHaveClass('min-w-0', '[overflow-wrap:anywhere]')
+  })
+
+  it('shows 00:10 for a departure after midnight, independent of the process TZ', () => {
+    render(
+      <TransitDepartureList
+        departures={[dep({ plannedAt: '2026-09-03T00:10:00+02:00', departureSec: 87000, serviceDate: '2026-09-02' })]}
+      />
+    )
+    expect(screen.getByText('00:10')).toBeInTheDocument()
+  })
+
+  it('lays the row on a 3-column grid; the clock is the dominant, non-shrinking cell', () => {
+    render(<TransitDepartureList departures={[dep()]} />)
+    const row = screen.getByRole('listitem')
+    expect(row).toHaveClass('grid', 'grid-cols-[auto_minmax(0,1fr)_auto]', 'items-start', 'gap-x-3', 'gap-y-1', 'py-3')
+    expect(screen.getByText('14:30')).toHaveClass('time-dominant', 'text-foreground', 'shrink-0')
   })
 
   it('shows skeletons while loading', () => {
@@ -101,23 +155,31 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
   })
 
-  it('highlights the next departure in the accent colour, never green (#13)', () => {
-    const now = new Date('2026-09-02T14:20:00+02:00').getTime()
-    render(<TransitDepartureList departures={[dep()]} now={now} highlightFirst />)
-    expect(screen.getByText('za 10 min')).toHaveClass('text-indigo-600')
-  })
-
-  it('shows the stop number on the next departure in a group view', () => {
-    const now = new Date('2026-09-02T14:20:00+02:00').getTime()
-    render(<TransitDepartureList departures={[dep({ stopCode: '02' })]} now={now} highlightFirst showStopCode />)
-    // Jeden odjazd = tylko blok „Najbliższy odjazd", lista pod nim pusta — tag jest w bloku.
+  it('shows the stop number on the first departure in a group view and none in a single-stop view', () => {
+    const { rerender } = render(<TransitDepartureList departures={[dep({ stopCode: '02' })]} showStopCode />)
     expect(screen.getByTitle('Odjazd z przystanku 02')).toBeInTheDocument()
+    rerender(<TransitDepartureList departures={[dep({ stopCode: '02' })]} />)
+    expect(screen.queryByText('02')).not.toBeInTheDocument()
   })
 
-  it('has no stop number on the next departure in a single-stop view', () => {
+  it('has no „Najbliższy odjazd" highlight block any more', () => {
     const now = new Date('2026-09-02T14:20:00+02:00').getTime()
-    render(<TransitDepartureList departures={[dep({ stopCode: '02' })]} now={now} highlightFirst />)
-    expect(screen.queryByText('02')).not.toBeInTheDocument()
+    render(<TransitDepartureList departures={[dep()]} now={now} />)
+    expect(screen.queryByText('Najbliższy odjazd')).not.toBeInTheDocument()
+  })
+
+  it('renders emptyAction under the empty message', () => {
+    render(<TransitDepartureList departures={[]} emptyAction={<button type="button">Wszystkie linie</button>} />)
+    expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Wszystkie linie' })).toBeInTheDocument()
+  })
+
+  it('renders no emptyAction while departures exist or loading', () => {
+    const action = <button type="button">Wszystkie linie</button>
+    const { rerender } = render(<TransitDepartureList departures={[dep()]} emptyAction={action} />)
+    expect(screen.queryByRole('button', { name: 'Wszystkie linie' })).not.toBeInTheDocument()
+    rerender(<TransitDepartureList departures={[]} loading emptyAction={action} />)
+    expect(screen.queryByRole('button', { name: 'Wszystkie linie' })).not.toBeInTheDocument()
   })
 
   it('falls back to the platform code as the stop number, shown once', () => {
@@ -128,23 +190,27 @@ describe('TransitDepartureList', () => {
     expect(screen.queryByText('peron 01')).not.toBeInTheDocument()
   })
 
-  it('counts down next to the clock as „za N min · wg rozkładu” (#13: schedule, not a measurement)', () => {
+  it('always says „wg rozkładu” under the dominant time, with the countdown inside the hour', () => {
     const now = new Date('2026-09-02T14:25:00+02:00').getTime()
     render(<TransitDepartureList departures={[dep()]} now={now} />)
     expect(screen.getByText('za 5 min · wg rozkładu')).toBeInTheDocument()
   })
 
-  it('rows count down only within the hour; the next-departure block keeps hours', () => {
+  it('says only „wg rozkładu” when the departure is beyond the hour, and without a now prop', () => {
     const now = new Date('2026-09-02T12:25:00+02:00').getTime()
-    render(
-      <TransitDepartureList
-        departures={[dep(), dep({ tripId: 't2', plannedAt: '2026-09-02T14:40:00+02:00', departureSec: 52800 })]}
-        now={now}
-        highlightFirst
-      />
-    )
-    expect(screen.getByText('za 2 h 5 min')).toBeInTheDocument()
-    expect(screen.queryByText(/wg rozkładu/)).not.toBeInTheDocument()
+    const { rerender } = render(<TransitDepartureList departures={[dep()]} now={now} />)
+    expect(screen.getByText('wg rozkładu')).toBeInTheDocument()
+    expect(screen.queryByText(/za \d/)).not.toBeInTheDocument()
+    rerender(<TransitDepartureList departures={[dep()]} />)
+    expect(screen.getByText('wg rozkładu')).toBeInTheDocument()
+  })
+
+  it('says „wg rozkładu” on every row in the card variant too', () => {
+    const now = new Date('2026-09-02T14:25:00+02:00').getTime()
+    render(<TransitDepartureList departures={[dep()]} now={now} variant="card" city="warszawa" />)
+    expect(screen.getByText('za 5 min · wg rozkładu')).toBeInTheDocument()
+    expect(screen.getByRole('link')).toHaveClass('grid', 'focus-visible:ring-primary-text')
+    expect(screen.getByRole('link')).not.toHaveClass('focus-visible:ring-indigo-500')
   })
 
   it('a metro stop tagged from platform_code reads „peron”, not „Odjazd z przystanku”', () => {

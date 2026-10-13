@@ -1,11 +1,15 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { countdownLabel } from '@/lib/countdown'
+import { formatAgo } from '@/lib/format'
+import { pluralPl } from '@/lib/plural'
 import { LineBadge } from './LineBadge'
 import { OnRequestBadge } from './OnRequestBadge'
 import { LINE_KIND_LABEL } from './transitMode'
-import { LiveDot } from './LiveDot'
+import { ICON_SIZE, VehiclePositionIcon } from './icons'
+import { HIDE_AFTER_SEC } from './map/mapData'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
@@ -21,12 +25,12 @@ type Props = {
   showStopCode?: boolean
   /** Znacznik czasu (`Date.now()`-owy) do liczenia kolumny „Za" — brak = kolumna schowana. */
   now?: number
-  /** Wyróżnij pierwszy odjazd osobnym blokiem nad listą (tylko zakładka „Najbliższe odjazdy"). */
-  highlightFirst?: boolean
-  /** `card` (Pulpit): cały wiersz linkuje do linii (wymaga `city`), „wg rozkładu” widoczne także bez odliczania. */
+  /** `card` (Start): cały wiersz linkuje do linii (wymaga `city`). */
   variant?: 'board' | 'card'
-  /** Ile wierszy szkieletu przy wczytywaniu (karta Pulpitu pokazuje mniej kursów). */
+  /** Ile wierszy szkieletu przy wczytywaniu (karta Startu pokazuje mniej kursów). */
   skeletonRows?: number
+  /** Pod komunikatem o braku odjazdów (np. przycisk „Wszystkie linie”, gdy filtr linii nic nie zostawił). */
+  emptyAction?: ReactNode
 }
 
 /**
@@ -74,33 +78,28 @@ function DepartureRow({
   now?: number
   variant: 'board' | 'card'
 }) {
-  // Odliczanie tylko w obrębie godziny, z dopiskiem „wg rozkładu”: to plan, nie pomiar (#13).
+  // Odliczanie tylko w obrębie godziny; „wg rozkładu” zawsze, bo to plan, nie pomiar (#13).
   const countdown = now !== undefined ? countdownLabel(now, departure.plannedAt) : null
   const lineHref = city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined
   // Karta: link na cały wiersz, więc plakietka linii nie może być drugim (zagnieżdżonym) linkiem.
   const rowHref = variant === 'card' ? lineHref : undefined
-  const scheduleNote = countdown !== null ? `${countdown} · wg rozkładu` : variant === 'card' ? 'wg rozkładu' : null
+  const scheduleNote = countdown !== null ? `${countdown} · wg rozkładu` : 'wg rozkładu'
   const tag = stopTagOf(departure, showStopCode)
   const stopCode = tag?.code ?? null
-  const hasStopTag = tag !== null
   // Numer przystanku z `platform_code` już jest w tagu — „peron 01" obok byłby duplikatem.
   const platform = departure.platformCode !== stopCode ? departure.platformCode : null
+  // Pozycja starsza niż na mapie (`HIDE_AFTER_SEC`) nie jest już pozycją — chip znika, wiersz zostaje.
+  const vehicle = departure.vehicle != null && departure.vehicle.ageSec <= HIDE_AFTER_SEC ? departure.vehicle : null
   const hasMeta =
-    hasStopTag ||
-    departure.vehicle != null ||
+    tag !== null ||
+    vehicle !== null ||
     LINE_KIND_LABEL[departure.lineKind] !== '' ||
     departure.frequencyBased ||
     departure.onRequest ||
     platform !== null
-  const rowClass = 'flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5'
+  const rowClass = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 py-3'
   const cells = (
     <>
-      <time
-        dateTime={departure.plannedAt}
-        className="w-12 shrink-0 font-semibold tabular-nums text-foreground"
-      >
-        {clock(departure.plannedAt)}
-      </time>
       <LineBadge
         line={departure.line}
         kind={departure.lineKind}
@@ -108,27 +107,24 @@ function DepartureRow({
         size="sm"
         href={rowHref === undefined ? lineHref : undefined}
       />
-      <span data-testid="departure-headsign" className="min-w-0 flex-1 truncate text-sm text-foreground">
+      <span data-testid="departure-headsign" className="min-w-0 text-sm text-foreground [overflow-wrap:anywhere]">
         {departure.headsign ?? '—'}
       </span>
-      {/* Oznaczenia dodatkowe: na wąskiej liście (kontener < `@xl`) schodzą do
-          drugiego wiersza (`order-last basis-full`), wcięte `pl-15` pod plakietkę
-          linii (nie pod nazwę kierunku), na
-          szerokiej zostają w jednym rzędzie z resztą. Do sześciu `shrink-0` w
-          jednym wierszu ściskało kierunek do 0 px na 375 px. */}
+      <time dateTime={departure.plannedAt} className="time-dominant text-foreground shrink-0">
+        {clock(departure.plannedAt)}
+      </time>
+      <span className="col-start-2 col-span-2 text-xs font-semibold tabular-nums text-text-secondary">{scheduleNote}</span>
       {hasMeta && (
-        <div className="order-last flex basis-full flex-wrap items-center gap-x-2 gap-y-1 pl-15 @xl:order-none @xl:basis-auto @xl:flex-nowrap @xl:pl-0">
+        <div data-testid="departure-meta" className="col-start-2 col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           {tag !== null && <StopTag code={tag.code} platform={tag.platform} />}
-          {departure.vehicle != null && (
-            <span
-              title={departure.vehicle.ageSec > 60 ? `${Math.round(departure.vehicle.ageSec / 60)} min temu` : 'na żywo'}
-              className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300"
-            >
-              {departure.vehicle.ageSec <= 60 && <LiveDot />}
-              {departure.vehicle.stopsAway === 0 ?'zaraz będzie' : `${departure.vehicle.stopsAway} przyst.`}
-              <span className="sr-only">
-                , {departure.vehicle.ageSec > 60 ? `pozycja sprzed ${Math.round(departure.vehicle.ageSec / 60)} min` : 'pozycja na żywo'}
-              </span>
+          {vehicle !== null && (
+            <span className="inline-flex items-center gap-1.5 rounded bg-primary-soft px-1.5 py-0.5 text-xs font-semibold text-primary-text">
+              <VehiclePositionIcon size={ICON_SIZE.chip} />
+              {`${
+                vehicle.stopsAway === 0
+                  ? 'Pojazd w pobliżu przystanku'
+                  : `Pojazd: ${vehicle.stopsAway} ${pluralPl(vehicle.stopsAway, 'przystanek', 'przystanki', 'przystanków')} dalej`
+              } · GPS: ${formatAgo(vehicle.ageSec)}`}
             </span>
           )}
           {LINE_KIND_LABEL[departure.lineKind] !== '' && <span className="shrink-0 text-xs text-text-muted">{LINE_KIND_LABEL[departure.lineKind]}</span>}
@@ -139,10 +135,6 @@ function DepartureRow({
           {platform !== null && <span className="shrink-0 text-xs text-text-secondary">peron {platform}</span>}
         </div>
       )}
-      {scheduleNote !== null && (
-        // Wąska lista: osobna linia pod godziną (wcięta jak oznaczenia), szeroka: na końcu wiersza.
-        <span className="order-last basis-full pl-15 text-xs font-semibold tabular-nums text-text-secondary @xl:order-none @xl:basis-auto @xl:pl-0">{scheduleNote}</span>
-      )}
     </>
   )
   return rowHref !== undefined ? (
@@ -150,7 +142,7 @@ function DepartureRow({
       <Link
         href={rowHref}
         transitionTypes={NAV_FORWARD_TYPES}
-        className={`${rowClass} -mx-2 rounded-lg px-2 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/[0.06]`}
+        className={`${rowClass} -mx-2 rounded-lg px-2 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-primary-text focus-visible:outline-none dark:hover:bg-white/[0.06]`}
       >
         {cells}
       </Link>
@@ -167,9 +159,9 @@ export function TransitDepartureList({
   city,
   showStopCode = false,
   now,
-  highlightFirst = false,
   variant = 'board',
   skeletonRows = 3,
+  emptyAction,
 }: Props) {
   const listRef = useRowAnimation<HTMLUListElement>()
   if (loading) {
@@ -186,48 +178,19 @@ export function TransitDepartureList({
   }
 
   if (departures.length === 0) {
-    return <p className="mt-3 text-sm text-text-secondary">{emptyMessage}</p>
+    return (
+      <>
+        <p className="mt-3 text-sm text-text-secondary">{emptyMessage}</p>
+        {emptyAction}
+      </>
+    )
   }
 
-  // Wyróżnienie tylko gdy mamy `now` ORAZ pierwszy odjazd faktycznie jeszcze
-  // nie minął — inaczej odjazd zniknąłby z listy bez pokazania się w bloku
-  // (AGENTS.md #7: nic nie znika po cichu).
-  const [first, ...rest] = departures
-  const highlightRelative = highlightFirst && now !== undefined ? countdownLabel(now, first.plannedAt, Infinity) : null
-  const showHighlight = highlightRelative !== null
-  const firstTag = stopTagOf(first, showStopCode)
-  const listed = showHighlight ? rest : departures
-
   return (
-    <>
-      {showHighlight && (
-        <div className="mt-3 glass-strong rounded-2xl p-4">
-          <div className="text-xs font-medium uppercase tracking-wide text-text-muted">Najbliższy odjazd</div>
-          {/* `flex-wrap` + `ml-auto`: na 320 px długie „za 2 h 42 min" schodzi do drugiego wiersza
-              zamiast wypychać stronę w bok (kierunek ma `min-w-0`, więc zawija się dopiero, gdy nie mieści się reszta). */}
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <LineBadge line={first.line} mode={first.mode} kind={first.lineKind} size="md" />
-            <span className="min-w-0 flex-1 truncate font-heading text-lg font-bold text-foreground">
-              {first.headsign ?? '—'}
-            </span>
-            {firstTag !== null && <StopTag code={firstTag.code} platform={firstTag.platform} />}
-            <div className="ml-auto shrink-0 text-right">
-              <div className="font-heading text-2xl font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400">
-                {highlightRelative}
-              </div>
-              <div className="text-xs text-text-secondary">Planowo: {clock(first.plannedAt)}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {listed.length > 0 && (
-        <ul ref={listRef} data-testid="departure-list" className="@container mt-3 divide-y divide-surface-border">
-          {listed.map((departure, index) => (
-            <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} />
-          ))}
-        </ul>
-      )}
-    </>
+    <ul ref={listRef} data-testid="departure-list" className="mt-3 divide-y divide-surface-border">
+      {departures.map((departure, index) => (
+        <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} />
+      ))}
+    </ul>
   )
 }
