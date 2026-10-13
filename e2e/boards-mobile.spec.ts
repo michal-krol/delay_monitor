@@ -550,6 +550,8 @@ test.describe('połączenie na telefonie (PR5)', () => {
   test('375×812: tytuł, relacja i pierwszy przystanek widać bez przewijania nad dolnym paskiem', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await page.goto(TRAIN_104)
+    // Najpierw dane: w stanie ładowania nie ma jeszcze relacji ani wierszy trasy (wcześniej test bywał migoczący).
+    await expect(routeRows(page).first()).toBeVisible({ timeout: READY })
     const title = page.getByRole('heading', { level: 1 })
     const relation = page.locator('header p').filter({ has: page.getByRole('img', { name: 'do', exact: true }) })
     await expectAboveNav(page, title)
