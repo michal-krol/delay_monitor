@@ -49,6 +49,9 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   „Brak lokalizacji przystanku”; the map preview sits under the list in „Lokalizacja przystanku”.
 - Alerts tab scope label: „Komunikaty linii obsługujących ten przystanek|zespół” („Komunikaty” before the board is
   known); shortcut above the list „{n} komunikat|komunikaty|komunikatów” (deduplicated, opens the tab).
+- Unknown stop on a ready schedule: „Nie znaleziono przystanku” + link „Szukaj przystanku” (`/search`); a loading schedule is loading, not this.
+- Alerts tab marker: a dot, accessible text „Komunikaty, {n}”; no separate „utrudnienia” wording (GTFS says „komunikaty”). Lines tab without a board: „Wczytywanie…” / „Nie udało się pobrać rozkładu.”; board without lines: „Brak linii w rozkładzie.”
+- Map preview section heading: „Lokalizacja przystanku”; map region name „Mapa zespołu przystanków {name}” / „Mapa przystanku {name}”.
 - Browser fetch age: „Pobrano {N s temu|przed chwilą}” (not the age of the source feed); stale after a failed refresh:
   „Nie udało się odświeżyć · dane z {HH:mm}” (city time zone).
 

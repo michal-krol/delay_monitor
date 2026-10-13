@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { startTransition, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -28,7 +28,7 @@ import { stopDisplayName, stopsWithLines } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { TransitFetchStatus } from './TransitFetchStatus'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
-import { AccessibleIcon, AlertCircleIcon, CheckIcon, ChevronRightIcon, ICON_SIZE, MapIcon } from './icons'
+import { AccessibleIcon, AlertCircleIcon, CheckIcon, ChevronRightIcon, ICON_SIZE, MapIcon, SearchIcon } from './icons'
 import { PinStar } from './PinStar'
 import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
@@ -112,7 +112,7 @@ export function TransitStopDetail({
     setLineChoice(routeId)
     patchUrlParams({ line: routeId })
   }
-  // Zmiana miejsca (nie pierwszy render): stan poprzedniego przystanku — wybór słupka, zakładka, filtr linii — nie przechodzi dalej.
+  // Zmiana miejsca (nie pierwszy render): stan poprzedniego przystanku — wybór przystanku, zakładka, filtr linii — nie przechodzi dalej.
   const placeKey = `${city}/${stopId}`
   const lastPlaceKey = useRef(placeKey)
   useEffect(() => {
@@ -207,10 +207,10 @@ export function TransitStopDetail({
     recordRecentPlace({ kind: 'gtfs', city, id: recentId, name: recentName, ...(recentMember !== undefined && { member: recentMember }) })
   }, [boardLoaded, memberSettled, city, recentId, recentMember, recentName, recordRecentPlace])
 
-  // Zmiana słupka zachowuje poprzednią odpowiedź (`keepPreviousData`: piny i geometria zespołu nie znikają), ale jej
+  // Zmiana przystanku w zespole zachowuje poprzednią odpowiedź (`keepPreviousData`: piny i geometria zespołu nie znikają), ale jej
   // odjazdy dotyczą INNEGO zakresu — dopóki `activeMember` odpowiedzi nie zgadza się z wyborem, lista jest „wczytywana"
-  // (albo, gdy odświeżenie padło, „nie udało się pobrać"), nigdy odjazdami starego słupka. Id spoza zespołu serwer ignoruje
-  // (cały zespół) — sprawdzamy go na PEŁNEJ liście członków, żeby nieznany słupek nie wisiał w ładowaniu.
+  // (albo, gdy odświeżenie padło, „nie udało się pobrać"), nigdy odjazdami poprzedniego przystanku. Id spoza zespołu serwer ignoruje
+  // (cały zespół) — sprawdzamy go na PEŁNEJ liście członków, żeby nieznany przystanek nie wisiał w ładowaniu.
   const expectedMember = effMember !== null && (board?.members ?? []).some((m) => m.id === effMember) ? effMember : null
   const scopeMismatch = board !== null && (board.activeMember ?? null) !== expectedMember
   const departuresLoading = loading || (scopeMismatch && error === null)
@@ -274,7 +274,7 @@ export function TransitStopDetail({
     [members, stopName, board]
   )
 
-  // „Na mapie": współrzędne wybranego słupka albo środek zespołu — z danych tablicy (zero GPS, zero zapytań). Bez słupka
+  // „Na mapie": współrzędne wybranego przystanku albo środek zespołu — z danych tablicy (zero GPS, zero zapytań). Bez przystanku
   // z lokalizacją linku nie ma (tekst zamiast martwej kontrolki).
   const located = activeMember !== null ? [activeMember] : members
   const mapHref =
@@ -377,12 +377,29 @@ export function TransitStopDetail({
   const memberChipClass = (on: boolean): string =>
     `card-hover relative rounded-xl border px-3 py-2.5 text-left transition max-sm:min-h-11 max-sm:py-2 ${on ? 'border-primary bg-primary-soft text-primary-text ring-1 ring-primary' : 'border-surface-border'}`
 
+  // Rozkład gotowy, a przystanku w nim nie ma (poprawny format id, nieznany w feedzie): nie „brak odjazdów”, tylko jasny komunikat + droga dalej.
+  // `loading` zwraca `stops: [null]` już przy wczytywaniu rozkładu — to nie jest „nie znaleziono”.
+  if (data !== null && data.schedule.state === 'ready' && board === null) {
+    return (
+      <section className="glass-strong rounded-2xl p-5 max-sm:p-4">
+        <BoardHeading embedded={embedded} kind="gtfs" id={`${city}:${stopId}`}>
+          {stopName}
+        </BoardHeading>
+        <p className="mt-2 text-sm text-text-secondary">Nie znaleziono przystanku</p>
+        <Link href="/search" className="chip-filter mt-3 gap-1.5">
+          <SearchIcon size={ICON_SIZE.button} />
+          Szukaj przystanku
+        </Link>
+      </section>
+    )
+  }
+
   return (
     <div className="grid items-start gap-5 max-sm:gap-3 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
       {/* Na telefonie odjazdy pierwsze: przystanki zespołu jako chipy, kontekst (pogoda, natężenie, linie) w arkuszu
           „Info”, mapa podglądowa dopiero pod odjazdami (04). */}
       <div className="flex min-w-0 flex-col gap-5 max-sm:gap-3">
-        <section className="glass-strong glow-ring rounded-2xl p-5 max-sm:p-4" style={{ '--glow-color': 'rgba(99, 102, 241, 0.18)' } as CSSProperties}>
+        <section className="glass-strong rounded-2xl p-5 max-sm:p-4">
           <div className="flex flex-wrap items-start justify-between gap-3 max-sm:flex-nowrap">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -448,9 +465,7 @@ export function TransitStopDetail({
                   <MapIcon size={ICON_SIZE.button} />
                   Na mapie
                 </Link>
-              ) : (
-                board !== null && <p className="text-sm text-text-secondary">Brak lokalizacji przystanku</p>
-              )}
+              ) : null}
               <InfoButton open={infoOpen} onClick={toggleInfo} />
             </div>
           )}
@@ -561,8 +576,8 @@ export function TransitStopDetail({
                   {/* Kropka zamiast ikony: 4 zakładki w jednym rzędzie nie mają miejsca na więcej szerokości; nazwę niesie sr-only. */}
                   {tab.key === 'alerts' && alertCount > 0 && (
                     <>
-                      <span aria-hidden="true" className="absolute right-1.5 top-2 h-2 w-2 rounded-full bg-warning-text" />
-                      <span className="sr-only">aktywne utrudnienia</span>
+                      <span aria-hidden="true" className={`absolute right-1.5 top-2 h-2 w-2 rounded-full ${activeTab === tab.key ? 'bg-primary-fg' : 'bg-warning-text'}`} />
+                      <span className="sr-only">{`, ${alertCount}`}</span>
                     </>
                   )}
                 </button>
@@ -628,7 +643,7 @@ export function TransitStopDetail({
 
             {activeTab === 'lines' &&
               (linesByMode.length === 0 ? (
-                <p className="text-sm text-text-muted">—</p>
+                <p className="text-sm text-text-secondary">{board === null ? (failed || error !== null ? 'Nie udało się pobrać rozkładu.' : 'Wczytywanie…') : 'Brak linii w rozkładzie.'}</p>
               ) : (
                 <div className="flex flex-col gap-3">
                   {linesByMode.map(([mode, lines]) => (

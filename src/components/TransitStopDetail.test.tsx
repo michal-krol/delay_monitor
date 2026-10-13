@@ -548,6 +548,34 @@ describe('TransitStopDetail', () => {
     ]
     const dep = (routeId: string, line: string, mode: string, headsign: string) => ({ ...board.departures[0], tripId: `t-${routeId}`, routeId, line, mode, headsign })
 
+    it('a ready schedule that does not know the stop says „Nie znaleziono przystanku” with a search link, not an empty timetable', () => {
+      useTransitBoard.mockReturnValue({
+        data: { city: 'warszawa', schedule: scheduleReady, stops: [null], attribution: [] },
+        error: null,
+        loading: false,
+        failed: false,
+        lastSuccessAt: null,
+        refresh: vi.fn(),
+      })
+      render(<TransitStopDetail city="warszawa" stopId="999999" />)
+      expect(screen.getByText('Nie znaleziono przystanku')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Szukaj przystanku' })).toHaveAttribute('href', '/search')
+      expect(screen.queryByText(/Brak kolejnych odjazdów/)).not.toBeInTheDocument()
+    })
+
+    it('an unknown stop while the schedule is still loading is loading, never „nie znaleziono”', () => {
+      useTransitBoard.mockReturnValue({
+        data: { city: 'warszawa', schedule: { ...scheduleReady, state: 'loading' }, stops: [null], attribution: [] },
+        error: null,
+        loading: true,
+        failed: false,
+        lastSuccessAt: null,
+        refresh: vi.fn(),
+      })
+      render(<TransitStopDetail city="warszawa" stopId="1001" />)
+      expect(screen.queryByText('Nie znaleziono przystanku')).not.toBeInTheDocument()
+    })
+
     it('requests the API maximum (50) departures', () => {
       render(<TransitStopDetail city="warszawa" stopId="7014M" />)
       expect(useTransitBoard).toHaveBeenCalledWith('warszawa', ['7014M'], 50, null)
