@@ -37,6 +37,21 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   No dates, severity or location (the feed has none); the tab count is `dedupeAlerts()` length, never `0` while unknown.
 - Data age: „Aktualizacja {N} s temu”; stale after a failed refresh: „Nie udało się odświeżyć · dane z {HH:mm}”.
 
+## Transit stop (`TransitStopDetail`, `TransitDepartureList`, GTFS only — #13)
+
+- Tabs, in this order: „Odjazdy”, „Linie”, „Rozkład”, „Komunikaty” (URL `?tab=departures|lines|schedule|alerts`; the
+  default is not written). Line filter chip „Wszystkie”; empty result: „Brak odjazdów linii {X} wśród najbliższych 50
+  odjazdów.” + action „Wszystkie linie”; real empty: „Brak kolejnych odjazdów w rozkładzie na dziś i jutro.”.
+- Departure row: big time + „wg rozkładu” (+ „za N min · wg rozkładu” inside the hour); never „na czas”, never a
+  delay. Vehicle (GPS, not ETA): „Pojazd w pobliżu przystanku” at 0, „Pojazd: N {przystanek|przystanki|przystanków} dalej”,
+  always with „GPS: {formatAgo}”; older than `HIDE_AFTER_SEC` (`mapData`, one threshold) = no vehicle chip. Never „zaraz będzie”.
+- Header (phone): „Na mapie” = link with the post/group coordinates from the board (no GPS), or the text
+  „Brak lokalizacji przystanku”; the map preview sits under the list in „Lokalizacja przystanku”.
+- Alerts tab scope label: „Komunikaty linii obsługujących ten przystanek|zespół” („Komunikaty” before the board is
+  known); shortcut above the list „{n} komunikat|komunikaty|komunikatów” (deduplicated, opens the tab).
+- Browser fetch age: „Pobrano {N s temu|przed chwilą}” (not the age of the source feed); stale after a failed refresh:
+  „Nie udało się odświeżyć · dane z {HH:mm}” (city time zone).
+
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)
 
 - Render error: title „Nie udało się wczytać tej strony” (`global-error`: „…aplikacji”), actions
