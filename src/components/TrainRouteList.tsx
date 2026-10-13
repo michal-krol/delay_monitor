@@ -97,13 +97,8 @@ export function TrainRouteList({ stops, statuses, anchor, now, expanded, onToggl
           const stopMinutes = stop.stopMinutes ?? null
           const showStopMinutes = stopMinutes !== null && stopMinutes >= NOTABLE_STOP_MINUTES
           const hasBadges = isCurrent || showStopMinutes || stopTypeName !== null || messages.length > 0
-          const caption = isFirst ? 'odjazd' : isLast ? 'przyjazd' : null
-          const name = (
-            <>
-              <span className={`${isFirst || isLast ? 'font-semibold' : 'font-medium'} break-words text-foreground`}>{stop.stationName}</span>
-              {caption !== null && <span className="ml-2 text-xs tracking-[0.1em] text-text-muted uppercase">{caption}</span>}
-            </>
-          )
+          // Odjazd/przyjazd mówi etykieta przy godzinie — drugi podpis przy nazwie byłby powtórzeniem.
+          const name = <span className={`${isFirst || isLast ? 'font-semibold' : 'font-medium'} break-words text-foreground`}>{stop.stationName}</span>
 
           // Klucz z indeksem, nie sam `stationId`: pociąg z zawrotką mija tę samą stację dwa razy (np. PODLASIAK:
           // Szczecin Dąbie) — bez indeksu React myli oba wiersze przy odświeżaniu danych w tle.
@@ -141,7 +136,8 @@ export function TrainRouteList({ stops, statuses, anchor, now, expanded, onToggl
                       : undefined
                   }
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  {/* Wąski kontener (telefon): czas pod nazwą, wyrównany do lewej — nazwa dostaje całą szerokość; od `@md` czas jedzie w prawą kolumnę. */}
+                  <div className="flex flex-col @md:flex-row @md:items-start @md:justify-between @md:gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex min-h-11 items-center">
                         {STATION_ID_PATTERN.test(stop.stationId) ? (
@@ -162,23 +158,21 @@ export function TrainRouteList({ stops, statuses, anchor, now, expanded, onToggl
                       {platformTrack !== '' && <p className="-mt-1 text-sm text-text-secondary tabular-nums">{platformTrack}</p>}
                     </div>
 
-                    <div className="shrink-0 pt-2 text-right tabular-nums">
-                      <div className="whitespace-nowrap">
-                        <span className="text-xs text-text-muted">{event === 'departure' ? 'Odjazd' : 'Przyjazd'}</span>{' '}
+                    <div className="pb-1 text-left tabular-nums @md:shrink-0 @md:pt-2 @md:pb-0 @md:text-right">
+                      <div className="flex flex-wrap items-baseline gap-x-1.5 @md:justify-end">
+                        <span className="text-xs text-text-muted">{event === 'departure' ? 'Odjazd' : 'Przyjazd'}</span>
                         <span
                           className={`text-lg font-semibold ${time.kind === 'plan' ? 'text-foreground' : ''}`}
                           style={time.kind === 'plan' ? undefined : { color: STATUS_TEXT[status] }}
                         >
                           {time.at !== null ? formatClockTime(time.at) : '—'}
                         </span>
-                      </div>
-                      <div className="whitespace-nowrap">
                         <span className="text-xs font-semibold text-text-secondary">
                           {time.label === 'Przew.' ? <abbr title="Przewidywana">Przew.</abbr> : time.label}
                         </span>
-                        {time.planAt !== null && <span className="text-sm text-text-muted"> · Plan {formatClockTime(time.planAt)}</span>}
                       </div>
-                      <div>
+                      <div className="flex flex-wrap items-baseline gap-x-1.5 @md:justify-end">
+                        {time.planAt !== null && <span className="text-sm text-text-muted">Plan {formatClockTime(time.planAt)}</span>}
                         <DelayBadge
                           status={status}
                           delayMinutes={stopDelayMinutes(stop)}
