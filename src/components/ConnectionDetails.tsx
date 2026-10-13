@@ -453,7 +453,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   )}
                 </div>
                 {arrivalTime !== null && destinationTime !== null && (
-                  <div data-testid="arrival-block" className="text-right">
+                  <div data-testid="arrival-block" className="text-left sm:text-right">
                     <div className="text-xs tracking-[0.08em] text-text-muted uppercase">Przyjazd do celu</div>
                     <div
                       className="time-dominant text-foreground sm:font-heading sm:text-3xl sm:font-bold"
