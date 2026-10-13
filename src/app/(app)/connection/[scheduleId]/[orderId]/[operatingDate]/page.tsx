@@ -75,7 +75,9 @@ export default function Page() {
         crumbs={[{ label: 'Tablica odjazdów' }, { label: resolvedLabel ?? (trainLabel || 'Połączenie') }]}
         share
       />
+      {/* `key`: inny przejazd = świeży stan (np. rozwinięta trasa poprzedniego pociągu nie przechodzi na następny). */}
       <ConnectionDetails
+        key={`${scheduleId}-${orderId}-${operatingDate}`}
         scheduleId={scheduleId}
         orderId={orderId}
         operatingDate={operatingDate}

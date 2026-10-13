@@ -923,19 +923,6 @@ details[open] > summary .disclosure-chevron,
 
 /* Mikroanimacje z makiety Claude Design ("Czy dojadę? — Makieta dashboardu",
    artboardy Main/EmptyState/ErrorStates) — przeniesione 1:1 co do wartości. */
-@keyframes softBreathe {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.72;
-  }
-}
-@utility breathe {
-  animation: softBreathe 2.6s ease-in-out infinite;
-}
-
 @keyframes floatIcon {
   0%,
   100% {
@@ -994,7 +981,6 @@ details[open] > summary .disclosure-chevron,
    („pociąg jest tutaj", „brak stacji") jest już w treści obok. */
 @media (prefers-reduced-motion: reduce) {
   .delay-changed,
-  .breathe,
   .float,
   .ring-pulse::after {
     animation: none;

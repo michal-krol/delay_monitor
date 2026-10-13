@@ -282,7 +282,8 @@ export const GaugeIcon = /* @__PURE__ */ lucideIcon(Gauge)
 
 // --- Mapa: DOM poza Reactem i raster (te same węzły Lucide) ---
 
-const DOM_ICONS = { chevronRight: ChevronRight, vehicleHeading: Navigation2 } as const
+// `train` = ten sam węzeł co `TrainIcon` (marker szacowanej pozycji pociągu PKP).
+const DOM_ICONS = { chevronRight: ChevronRight, vehicleHeading: Navigation2, train: TrainFront } as const
 
 /** `<svg>` do DOM budowanego ręcznie (popup, marker pojazdu): `createElementNS`, nie innerHTML (#4). Dekoracyjny. */
 export function iconElement(icon: keyof typeof DOM_ICONS, attrs: Record<string, string> = {}): SVGSVGElement {

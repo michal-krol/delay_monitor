@@ -438,6 +438,336 @@ test.describe('tablica stacji na telefonie (PR4)', () => {
   }
 })
 
+// PR5 „Połączenie kolejowe”: nagłówek bez przewijania, skrót długiej trasy, podpisy plan/prognoza/fakt,
+// szacowana pozycja, ponowienie po błędzie, a11y w obu motywach. Mock pociągu 104 ma tylko 3 przystanki, więc
+// scenariusze długiej trasy podstawiają odpowiedź `/api/train` (kształt `TrainDetailApiResponse`).
+test.describe('połączenie na telefonie (PR5)', () => {
+  /** Mock rebase'uje `operatingDate` do dzisiejszej daty warszawskiej (jak w `map.spec.ts`). */
+  const warsawToday = (): string => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Warsaw' })
+  const TRAIN_104 = `/connection/2026/104/${warsawToday()}?train=TLK%2058102`
+  const TRAIN_107 = `/connection/2026/107/${warsawToday()}`
+  const TRAIN_503 = 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.'
+  const ROUTE_LIST = 'Przebieg trasy'
+  const MINUTE = 60_000
+
+  /** 14 przystanków; ostatni potwierdzony = indeks 5, okno skróconej trasy = indeksy 5–7. Czasy względem „teraz”. */
+  function longRouteBody(): Record<string, unknown> {
+    const base = Math.floor(Date.now() / MINUTE) * MINUTE
+    const iso = (offsetMin: number): string => new Date(base + offsetMin * MINUTE).toISOString()
+    const names = ['Gdynia Główna', 'Sopot', 'Gdańsk Główny', 'Tczew', 'Malbork', 'Elbląg', 'Iława', 'Działdowo', 'Mława', 'Ciechanów', 'Nasielsk', 'Legionowo', 'Warszawa Wschodnia', 'Warszawa Centralna']
+    const last = names.length - 1
+    const stops = names.map((stationName, i) => {
+      const departure = (i - 5) * 12 - 3 // minuty względem „teraz”; przystanek 5 odjechał 3 min temu
+      const plannedDeparture = i === last ? null : iso(departure)
+      const plannedArrival = i === 0 ? null : iso(departure - 1)
+      const confirmed = i <= 5
+      const cancelled = i === 8
+      const stop = {
+        stationId: i === last ? '33605' : String(10001 + i),
+        stationName,
+        plannedArrival,
+        actualArrival: confirmed && i > 0 ? iso(departure + 1) : null,
+        arrivalDelayMinutes: confirmed && i > 0 ? 2 : null,
+        plannedDeparture,
+        actualDeparture: confirmed && i !== last ? iso(departure + 2) : null,
+        departureDelayMinutes: confirmed && i !== last ? 3 : null,
+        isCancelled: cancelled,
+        isConfirmed: confirmed,
+        platform: null as string | null,
+        track: null as string | null,
+        hasTrainStarted: i <= 8,
+        estimatedDelayMinutes: !confirmed && !cancelled && i <= 8 ? 3 : null,
+        predictedArrival: null as string | null,
+        predictedDeparture: null as string | null,
+        disruptionMessages: [] as string[],
+        stopMinutes: i === 0 || i === last ? null : 1,
+        stopTypeName: null,
+        lat: null,
+        lon: null,
+      }
+      // Przystanek 6: PKP przewiduje godzinę (niepotwierdzony) → „Przew.”.
+      if (i === 6) return { ...stop, predictedArrival: iso(departure + 3), predictedDeparture: iso(departure + 4), platform: '1', track: '2' }
+      // Przystanek 7: `actual*` = kopia planu bez `isConfirmed` (AGENTS.md #2) → nigdy „Faktycznie”.
+      if (i === 7) return { ...stop, actualArrival: plannedArrival, actualDeparture: plannedDeparture }
+      if (i === 0) return { ...stop, platform: '2', track: '4' }
+      if (i === 10) return { ...stop, platform: '3' }
+      if (i === 11) return { ...stop, track: '5' }
+      return stop
+    })
+    return {
+      scheduleId: '2026',
+      orderId: '104',
+      operatingDate: warsawToday(),
+      trainStatus: 'P',
+      carrierCode: 'IC',
+      carrierName: 'PKP Intercity',
+      category: 'TLK',
+      categoryName: 'Twoje Linie Kolejowe',
+      routeName: null,
+      nationalNumber: '58102',
+      stops,
+    }
+  }
+
+  type TrainApi = { requests: number; fail: boolean; hold: Promise<unknown> | null }
+
+  /** Podstawia `/api/train` (body = null → odpowiada mock), liczy żądania; `fail` = 503, `hold` wstrzymuje odpowiedź. */
+  async function stubTrain(page: Page, body: Record<string, unknown> | null): Promise<TrainApi> {
+    const api: TrainApi = { requests: 0, fail: false, hold: null }
+    await page.route(/\/api\/train\?/, async (route) => {
+      api.requests++
+      if (api.hold !== null) await api.hold
+      if (api.fail) return route.fulfill({ status: 503, json: { error: TRAIN_503 } })
+      if (body === null) return route.fallback()
+      return route.fulfill({ json: body })
+    })
+    return api
+  }
+
+  const routeList = (page: Page): Locator => page.getByRole('list', { name: ROUTE_LIST })
+  const routeRows = (page: Page): Locator => routeList(page).getByRole('listitem')
+  const row = (page: Page, name: string): Locator => routeRows(page).filter({ hasText: name })
+  const showAll = (page: Page): Locator => page.getByRole('button', { name: /^Pokaż całą trasę/ })
+  const noHorizontalScroll = (page: Page): Promise<boolean> => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+
+  /** Dwie klatki: ewentualne żądanie wywołane kliknięciem zdążyłoby już dotrzeć do `page.route`. */
+  const settleFrames = (page: Page): Promise<unknown> =>
+    page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+
+  async function openLongRoute(page: Page): Promise<TrainApi> {
+    const api = await stubTrain(page, longRouteBody())
+    await page.goto(TRAIN_104)
+    await expect(showAll(page)).toBeVisible({ timeout: READY })
+    return api
+  }
+
+  async function expandRoute(page: Page): Promise<void> {
+    await showAll(page).click()
+    await expect(routeRows(page)).toHaveCount(14)
+  }
+
+  test('375×812: tytuł, relacja i pierwszy przystanek widać bez przewijania nad dolnym paskiem', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.goto(TRAIN_104)
+    // Najpierw dane: w stanie ładowania nie ma jeszcze relacji ani wierszy trasy (wcześniej test bywał migoczący).
+    await expect(routeRows(page).first()).toBeVisible({ timeout: READY })
+    const title = page.getByRole('heading', { level: 1 })
+    const relation = page.locator('header p').filter({ has: page.getByRole('img', { name: 'do', exact: true }) })
+    await expectAboveNav(page, title)
+    await expectAboveNav(page, relation)
+    await expectAboveNav(page, routeRows(page).first())
+    expect(await page.evaluate(() => window.scrollY)).toBe(0)
+  })
+
+  test('bez poziomego przewijania: mock 104 w 320 px, długa trasa rozwinięta w 320 i 375 px', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 })
+    await page.goto(TRAIN_104)
+    await expect(routeRows(page).first()).toBeVisible({ timeout: READY })
+    expect(await noHorizontalScroll(page), 'mock 104, 320 px').toBe(true)
+
+    await stubTrain(page, longRouteBody())
+    for (const width of [320, 375]) {
+      await page.setViewportSize({ width, height: 640 })
+      await page.goto(TRAIN_104)
+      await expandRoute(page)
+      expect(await noHorizontalScroll(page), `długa trasa, ${width} px`).toBe(true)
+    }
+  })
+
+  test('długa trasa: tylko okno wierszy, „Pokaż całą trasę (14 przystanków)” rozwija i zwija bez żadnego zapytania do /api/train', async ({ page }) => {
+    const api = await openLongRoute(page)
+    await expect(routeRows(page)).toHaveCount(3)
+    const button = showAll(page)
+    await expect(button).toHaveText('Pokaż całą trasę (14 przystanków)')
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
+    const before = api.requests
+    expect(before).toBeGreaterThan(0)
+
+    await button.click()
+    await expect(routeRows(page)).toHaveCount(14)
+    const collapse = page.getByRole('button', { name: 'Zwiń trasę' })
+    await expect(collapse).toHaveAttribute('aria-expanded', 'true')
+    await settleFrames(page)
+    expect(api.requests, 'rozwinięcie nie pobiera danych (#3)').toBe(before)
+
+    await collapse.click()
+    await expect(routeRows(page)).toHaveCount(3)
+    await settleFrames(page)
+    expect(api.requests, 'zwinięcie nie pobiera danych (#3)').toBe(before)
+  })
+
+  test('klawiatura: Enter i Spacja na przycisku trasy rozwijają i zwijają listę', async ({ page }) => {
+    await openLongRoute(page)
+    const button = showAll(page)
+    await button.focus()
+    await page.keyboard.press('Enter')
+    await expect(routeRows(page)).toHaveCount(14)
+    const collapse = page.getByRole('button', { name: 'Zwiń trasę' })
+    await expect(collapse).toBeFocused()
+    await page.keyboard.press('Space')
+    await expect(routeRows(page)).toHaveCount(3)
+    await expect(showAll(page)).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  test('podpisy godzin: potwierdzony = „Faktycznie” + „Plan HH:mm”, prognoza = „Przew.”, kopia planu bez potwierdzenia = „Plan”, odwołany = „odwołany”', async ({ page }) => {
+    await openLongRoute(page)
+    // Okno skróconej trasy: ostatni potwierdzony (Elbląg), prognoza (Iława), kopia planu (Działdowo).
+    await expect(row(page, 'Elbląg')).toContainText('Faktycznie')
+    await expect(row(page, 'Elbląg')).toContainText(/Plan \d{2}:\d{2}/)
+    await expect(row(page, 'Iława')).toContainText('Przew.')
+    await expect(row(page, 'Iława')).not.toContainText('Faktycznie')
+    // Tekst bez białych znaków między węzłami: „22:05Plan…” = podpis „Plan”, a nie „Plan 22:05” (mała linia planu).
+    await expect(row(page, 'Działdowo')).toContainText(/\d{2}:\d{2}Plan(?! \d)/)
+    await expect(row(page, 'Działdowo')).not.toContainText('Faktycznie')
+    await expect(row(page, 'Działdowo')).not.toContainText('Przew.')
+
+    await expandRoute(page)
+    await expect(row(page, 'Mława')).toContainText(/odwołany/i)
+    // Niepotwierdzony przystanek bez `actual*` i prognozy: sam plan.
+    await expect(row(page, 'Ciechanów')).not.toContainText('Faktycznie')
+    // Tylko potwierdzone przystanki mówią „Faktycznie”: 0–5.
+    await expect(routeRows(page).filter({ hasText: 'Faktycznie' })).toHaveCount(6)
+  })
+
+  test('peron i tor: „Peron N · tor M”, sam „Peron N”, sam „Tor M”, a przystanek bez obu nie pokazuje żadnego z nich', async ({ page }) => {
+    await openLongRoute(page)
+    await expandRoute(page)
+    await expect(row(page, 'Gdynia Główna')).toContainText('Peron 2 · tor 4')
+    await expect(row(page, 'Nasielsk')).toContainText('Peron 3')
+    await expect(row(page, 'Nasielsk')).not.toContainText(/\b[Tt]or\b/)
+    await expect(row(page, 'Legionowo')).toContainText('Tor 5')
+    await expect(row(page, 'Legionowo')).not.toContainText('Peron')
+    await expect(row(page, 'Sopot')).not.toContainText(/Peron|\b[Tt]or\b/)
+  })
+
+  test('stacja → połączenie → rozwiń trasę → przystanek → Wstecz wraca do połączenia', async ({ page }) => {
+    await stubTrain(page, longRouteBody())
+    await page.goto(STATION)
+    const rowButton = page.locator('td button[aria-label]').first()
+    await expect(async () => {
+      await page.reload()
+      await expect(rowButton).toBeVisible({ timeout: 5_000 })
+    }).toPass({ timeout: READY })
+    await rowButton.click()
+    await expect(page).toHaveURL(/\/connection\//)
+    await expandRoute(page)
+
+    await routeList(page).getByRole('link', { name: /Warszawa Centralna/ }).click()
+    await expect(page).toHaveURL(/\/station\/33605/)
+    await page.goBack()
+    await expect(page).toHaveURL(/\/connection\//)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: READY })
+  })
+
+  test('deep link bez historii: „Wróć do tablicy” prowadzi na Start', async ({ page }) => {
+    await page.goto(TRAIN_104)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: READY })
+    const back = page.getByRole('button', { name: 'Wróć do tablicy' })
+    // Klik przed hydracją przepada bez śladu (jak w `showBoardContext`).
+    await expect(async () => {
+      if (new URL(page.url()).pathname.startsWith('/connection/')) await back.click()
+      await expect(page).toHaveURL(/\/$/, { timeout: 2_000 })
+    }).toPass({ timeout: READY })
+  })
+
+  test('pozycja szacowana: podpis „Szacowana pozycja”, bez „Live”/„na żywo”/„GPS” (poza „nie GPS”); pociąg 107 bez markera i podpisu', async ({ page }) => {
+    // Marker pozycji to element DOM, kafelki nie są potrzebne (zero sieci).
+    await page.route('https://tiles.openfreemap.org/**', (route) => route.abort())
+    await page.goto(TRAIN_104)
+    const map = page.locator('section', { has: page.getByRole('heading', { name: 'Mapa trasy' }) })
+    await expect(map).toBeVisible({ timeout: READY })
+    await expect(map.getByTestId('map-mover')).toHaveCount(1)
+    const caption = map.getByText('Szacowana pozycja')
+    await expect(caption).toBeVisible()
+    const text = (await map.innerText()).replaceAll('nie GPS', '')
+    expect(text).not.toMatch(/live|na żywo|gps/i)
+
+    await page.goto(TRAIN_107)
+    await expect(map).toBeVisible({ timeout: READY })
+    await expect(map.getByTestId('map-mover')).toHaveCount(0)
+    await expect(map.getByText('Szacowana pozycja')).toHaveCount(0)
+  })
+
+  test('pierwsze pobranie nie powiodło się: komunikat serwera, „Spróbuj ponownie” i „Szukaj stacji”; ponowienie pokazuje trasę', async ({ page }) => {
+    const api = await stubTrain(page, null)
+    api.fail = true
+    await page.goto(TRAIN_104)
+    const message = page.getByText(TRAIN_503, { exact: true })
+    await expect(message).toBeVisible({ timeout: READY })
+    await expect(page.getByRole('link', { name: 'Szukaj stacji' })).toHaveAttribute('href', '/search')
+    const retry = page.getByRole('button', { name: 'Spróbuj ponownie' })
+    await expect(retry).toBeVisible()
+    await expect(routeRows(page)).toHaveCount(0)
+
+    api.fail = false
+    await retry.click()
+    await expect(routeRows(page).first()).toBeVisible({ timeout: READY })
+    await expect(message).toHaveCount(0)
+  })
+
+  test('wiek danych: na gotowej stronie „Pobrano … temu”', async ({ page }) => {
+    await page.goto(TRAIN_104)
+    await expect(page.getByTestId('data-age')).toHaveText(/^Pobrano /, { timeout: READY })
+  })
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    const label = colorScheme === 'dark' ? 'ciemnym' : 'jasnym'
+
+    async function expectNoBlocking(page: Page): Promise<void> {
+      await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme))
+      const { violations } = await scanA11y(page)
+      const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+      expect(blocking, blocking.map((v) => `${v.id}: ${v.help} (${v.nodes.length}) ${v.nodes[0]?.html.slice(0, 120)}`).join('\n')).toEqual([])
+    }
+
+    test.describe(`a11y w trybie ${label}`, () => {
+      test.beforeEach(async ({ page }) => {
+        await page.emulateMedia({ colorScheme })
+        await page.addInitScript((value) => window.localStorage.setItem('theme', value), colorScheme)
+      })
+
+      test('rozwinięta długa trasa bez naruszeń serious/critical', async ({ page }) => {
+        await openLongRoute(page)
+        await expandRoute(page)
+        await expect(page).toHaveTitle(/.+/)
+        await expectNoBlocking(page)
+      })
+
+      test('wczytywanie (szkielet) bez naruszeń serious/critical', async ({ page }) => {
+        const api = await stubTrain(page, longRouteBody())
+        let release!: () => void
+        api.hold = new Promise<void>((resolve) => (release = resolve))
+        await page.goto(TRAIN_104)
+        await expect(page.getByTestId('connection-loading')).toHaveAttribute('aria-busy', 'true', { timeout: READY })
+        await expect(page).toHaveTitle(/.+/)
+        await expectNoBlocking(page)
+        release()
+        await expect(routeRows(page).first()).toBeVisible({ timeout: READY })
+      })
+
+      test('błąd pierwszego pobrania bez naruszeń serious/critical', async ({ page }) => {
+        const api = await stubTrain(page, null)
+        api.fail = true
+        await page.goto(TRAIN_104)
+        await expect(page.getByRole('button', { name: 'Spróbuj ponownie' })).toBeVisible({ timeout: READY })
+        await expect(page).toHaveTitle(/.+/)
+        await expectNoBlocking(page)
+      })
+    })
+  }
+
+  test('a11y: ciemny motyw z ograniczonym ruchem, rozwinięta trasa, bez naruszeń serious/critical', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' })
+    await page.addInitScript(() => window.localStorage.setItem('theme', 'dark'))
+    await openLongRoute(page)
+    await expandRoute(page)
+    await expect(page.locator('html')).toHaveClass(/dark/)
+    const { violations } = await scanA11y(page)
+    const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
+    expect(blocking, blocking.map((v) => `${v.id}: ${v.help} (${v.nodes.length}) ${v.nodes[0]?.html.slice(0, 120)}`).join('\n')).toEqual([])
+  })
+})
+
 // PR6 „04 Przystanek”: odjazdy przed mapą, URL tab/line, 320 px bez przewijania w bok, axe w obu motywach.
 test.describe('przystanek miejski na telefonie (PR6)', () => {
   test.use({ viewport: { width: 375, height: 812 } })

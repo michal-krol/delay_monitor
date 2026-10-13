@@ -61,6 +61,27 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   „Spróbuj ponownie” + „Wróć do Startu”. Never print `error.message`/`digest` (#4).
 - 404: „Nie znaleziono strony” + „Wróć do Startu”.
 
+## Train connection (`ConnectionDetails`, PKP only — PR5)
+
+- Stop time = `describeStopTime()` (`stopTime.ts`, on top of `timePresentation()`): dominant time with its source
+  label „Faktycznie” (confirmed) / „Przew.” (`<abbr title="Przewidywana">`) / „Plan”, small „Plan HH:mm” when the
+  dominant time is not the plan. Departure rows say „Odjazd”, the terminal row „Przyjazd”; two times are never
+  glued into an unlabelled range. „Przyjazd do celu” carries the same label; the meta tiles say „Odjazd (plan)” /
+  „Przyjazd (plan)”.
+- Platform and track are separate: „Peron 2 · tor 4”, „Peron 2”, „Tor 4”; both unknown = nothing in the row
+  (not „—” on every stop); an empty or blank value counts as unknown.
+- Age = „Pobrano {N s | N min | N h} temu” (`formatAgo`, from `lastSuccessAt`): when the BROWSER fetched, never the
+  age of the PKP source (the response has no source time). The connection has its own failure form, besides the
+  ones of `ContextAlerts` and the board data age: „Nie udało się odświeżyć — pokazujemy ostatnie dane” + „Spróbuj
+  ponownie”. A finished journey keeps the neutral „Pobrano …”, no warning.
+- First-fetch error (no snapshot): server wording only for actionable statuses (404 „Nie znaleziono połączenia”, 503
+  rate limit); every other status = „Nie udało się pobrać szczegółów połączenia.” + „Ten widok nie ma zapisanej
+  wcześniejszej wersji.” (never the server's „Błąd …”). Empty route = `role="status"` „PKP nie udostępnia teraz trasy
+  tego połączenia.” under the h1, with the same two actions.
+- Long route: „Pokaż całą trasę ({N} przystanków)” ↔ „Zwiń trasę” (`aria-expanded`, no fetch).
+- Map: „Szacowana pozycja” (popup and caption) — never „na żywo”, „Live” or GPS wording for PKP; no marker and no
+  caption when the resolver gives nothing. First-fetch error offers „Spróbuj ponownie” and „Szukaj stacji” (→ `/search`).
+
 ## Place words (`gtfs.md`)
 
 - PKP: „stacja”. GTFS: bare name („Centrum”) = „zespół przystanków”; one stop = „przystanek {nr}”
