@@ -529,7 +529,8 @@ export function TransitStopDetail({
         )}
 
         {/* Telefon: KPI w arkuszu „Info” (spec 04) — nad zakładkami nie ma miejsca na odjazdy. */}
-        {wide && summaryTiles}
+        {/* SSR zakłada „szeroko”: `max-sm:hidden` chowa KPI na telefonie jeszcze przed hydracją (bez mignięcia kafelków). */}
+        {wide && <div className="max-sm:hidden">{summaryTiles}</div>}
 
         <section className="glass rounded-2xl p-5 max-sm:p-4">
           {/* Telefon: zakładki i filtr linii przyklejone pod nagłówkiem aplikacji. Zakładki to segment, który
