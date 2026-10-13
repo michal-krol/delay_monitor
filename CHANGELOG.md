@@ -145,6 +145,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Chip pojazdu na odjazdach przystanku (ekran przystanku, karta Startu, popup mapy): wiek pozycji
+  („GPS: N s temu”) rośnie między odpytaniami zamiast stać na wartości z chwili odpowiedzi, a chip znika
+  po przekroczeniu 180 s także wtedy, gdy kolejna odpowiedź jeszcze nie przyszła. Bez nowych zapytań;
+  w dalszym ciągu tylko „wg rozkładu”, bez pola opóźnienia.
 - Powrót z połączenia do tablicy stacji zachowuje zakładkę i filtr kierunku (tablica nie czyści już `tab`
   i `direction` z adresu następnej strony); link z `?tab=` działa też w trybie deweloperskim.
 - Wczytywanie tablicy stacji na telefonie: szkielet ma pełną szerokość karty i nie ma już nad nim

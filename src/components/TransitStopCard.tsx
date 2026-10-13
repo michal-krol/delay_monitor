@@ -34,7 +34,7 @@ type Props = {
  * zapytań; Pulpit trzyma kilka przypięć, nie kilkadziesiąt).
  */
 export function TransitStopCard({ city, stopId, stopName, member = false, onGroupResolved }: Props) {
-  const { data, loading, failed } = useTransitBoard(city, [stopId], CARD_ROWS, member ? stopId : null)
+  const { data, loading, failed, lastSuccessAt } = useTransitBoard(city, [stopId], CARD_ROWS, member ? stopId : null)
   // Ten sam wspólny hook `/api/cities` co `WeatherChip`/`TransitStopDetail`/
   // strona miasta (Task 9).
   const { cities: cityEntries } = useCities()
@@ -84,6 +84,7 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onGrou
           departures={board?.departures ?? []}
           loading={loading}
           now={now}
+          fetchedAt={lastSuccessAt}
           city={city}
           variant="card"
           skeletonRows={CARD_ROWS}

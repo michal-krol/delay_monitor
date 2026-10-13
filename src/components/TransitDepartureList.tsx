@@ -3,16 +3,20 @@ import Link from 'next/link'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { countdownLabel } from '@/lib/countdown'
-import { formatAgo } from '@/lib/format'
+import { effectiveAgeMs, formatAgo } from '@/lib/format'
 import { pluralPl } from '@/lib/plural'
 import { LineBadge } from './LineBadge'
 import { OnRequestBadge } from './OnRequestBadge'
 import { LINE_KIND_LABEL } from './transitMode'
 import { ICON_SIZE, VehiclePositionIcon } from './icons'
 import { HIDE_AFTER_SEC } from './map/mapData'
+import { useNow } from '@/hooks/useNow'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
+
+/** Jak często odświeżamy wiek pozycji pojazdu między odpytaniami (30 s) — etykieta „GPS: N s temu” ma rosnąć. */
+const VEHICLE_AGE_TICK_MS = 10_000
 
 type Props = {
   departures: DepartureWithVehicle[]
@@ -25,6 +29,11 @@ type Props = {
   showStopCode?: boolean
   /** Znacznik czasu (`Date.now()`-owy) do liczenia kolumny „Za" — brak = kolumna schowana. */
   now?: number
+  /**
+   * Kiedy przeglądarka dostała odpowiedź (`lastSuccessAt` z `useTransitBoard`). `vehicle.ageSec` jest
+   * zamrożony w chwili odpowiedzi, więc dokładamy czas od pobrania — brak = wiek z odpowiedzi.
+   */
+  fetchedAt?: number | null
   /** `card` (Start): cały wiersz linkuje do linii (wymaga `city`). */
   variant?: 'board' | 'card'
   /** Ile wierszy szkieletu przy wczytywaniu (karta Startu pokazuje mniej kursów). */
@@ -71,12 +80,16 @@ function DepartureRow({
   showStopCode,
   now,
   variant,
+  clock: vehicleClock,
+  fetchedAt,
 }: {
   departure: DepartureWithVehicle
   city?: string
   showStopCode: boolean
   now?: number
   variant: 'board' | 'card'
+  clock: number
+  fetchedAt?: number | null
 }) {
   // Odliczanie tylko w obrębie godziny; „wg rozkładu” zawsze, bo to plan, nie pomiar (#13).
   const countdown = now !== undefined ? countdownLabel(now, departure.plannedAt) : null
@@ -89,7 +102,10 @@ function DepartureRow({
   // Numer przystanku z `platform_code` już jest w tagu — „peron 01" obok byłby duplikatem.
   const platform = departure.platformCode !== stopCode ? departure.platformCode : null
   // Pozycja starsza niż na mapie (`HIDE_AFTER_SEC`) nie jest już pozycją — chip znika, wiersz zostaje.
-  const vehicle = departure.vehicle != null && departure.vehicle.ageSec <= HIDE_AFTER_SEC ? departure.vehicle : null
+  // Wiek liczony raz (odpowiedź + czas od pobrania) i dla etykiety, i dla progu.
+  const vehicleAgeSec =
+    departure.vehicle != null ? (effectiveAgeMs(departure.vehicle.ageSec * 1000, fetchedAt, vehicleClock) ?? 0) / 1000 : 0
+  const vehicle = departure.vehicle != null && vehicleAgeSec <= HIDE_AFTER_SEC ? departure.vehicle : null
   const hasMeta =
     tag !== null ||
     vehicle !== null ||
@@ -124,7 +140,7 @@ function DepartureRow({
                 vehicle.stopsAway === 0
                   ? 'Pojazd w pobliżu przystanku'
                   : `Pojazd: ${vehicle.stopsAway} ${pluralPl(vehicle.stopsAway, 'przystanek', 'przystanki', 'przystanków')} dalej`
-              } · GPS: ${formatAgo(vehicle.ageSec)}`}
+              } · GPS: ${formatAgo(vehicleAgeSec)}`}
             </span>
           )}
           {LINE_KIND_LABEL[departure.lineKind] !== '' && <span className="shrink-0 text-xs text-text-muted">{LINE_KIND_LABEL[departure.lineKind]}</span>}
@@ -159,11 +175,13 @@ export function TransitDepartureList({
   city,
   showStopCode = false,
   now,
+  fetchedAt,
   variant = 'board',
   skeletonRows = 3,
   emptyAction,
 }: Props) {
   const listRef = useRowAnimation<HTMLUListElement>()
+  const clock = useNow(VEHICLE_AGE_TICK_MS)
   if (loading) {
     return (
       <>
@@ -189,7 +207,7 @@ export function TransitDepartureList({
   return (
     <ul ref={listRef} data-testid="departure-list" className="mt-3 divide-y divide-surface-border">
       {departures.map((departure, index) => (
-        <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} />
+        <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} clock={clock} fetchedAt={fetchedAt} />
       ))}
     </ul>
   )

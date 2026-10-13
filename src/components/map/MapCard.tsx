@@ -212,7 +212,7 @@ function RailBody({ id }: { id: string }) {
 function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind: 'stop' }>; city: string }) {
   // Przystanek (np. „Centrum 01") → odjazdy tylko z niego; stacja metra = cały zespół.
   const member = selection.id !== selection.groupId ? selection.id : null
-  const { data, error } = useTransitBoard(city, [selection.id], 3, member)
+  const { data, error, lastSuccessAt } = useTransitBoard(city, [selection.id], 3, member)
   const board = data?.stops[0] ?? null
   const post = board?.members.find((m) => m.id === selection.id)
   const lines = post?.lines ?? board?.lines ?? []
@@ -239,7 +239,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
         {error !== null && data === null ? (
           <p className="mt-2 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
         ) : (
-          <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} showStopCode={member === null && stopsWithLines(board?.members).length > 1} />
+          <TransitDepartureList departures={board?.departures ?? []} loading={loading || (data !== null && data.stops.length === 0)} city={city} fetchedAt={lastSuccessAt} showStopCode={member === null && stopsWithLines(board?.members).length > 1} />
         )}
       </div>
       <Action href={`/city/${city}/stop/${selection.id}`}>Rozkład przystanku</Action>
