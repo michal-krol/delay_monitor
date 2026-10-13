@@ -7,7 +7,7 @@ import * as maplibregl from 'maplibre-gl'
 import { MapView, STYLE_DARK, STYLE_LIGHT } from './MapView'
 import { MODE_COLOR, UNKNOWN_COLOR, outlineFilter, strokeFor } from './map/mapData'
 import { LINE_PALETTE } from './transitMode'
-import { ChevronRightIcon } from './icons'
+import { ChevronRightIcon, TrainIcon } from './icons'
 
 type PopupMock = { setDOMContent: (node: HTMLElement) => PopupMock; content: HTMLElement | null }
 
@@ -322,6 +322,29 @@ describe('MapView', () => {
       rerender(<MapView dark={false} pins={[PIN]} movers={[{ ...mover, bearing: null }]} ariaLabel="Mapa" />)
       expect(arrow?.hidden).toBe(true)
     })
+  })
+
+  it('pojazd z glifem pociągu: 24 px kółko z białym glifem TrainIcon, bez halo, z zachowanym testid i strzałką', async () => {
+    const mover = { id: 'train', lat: 52.001, lon: 21.001, label: 'Szacowana pozycja', mode: 'rail' as const, kind: 'regular' as const, glyph: 'train' as const }
+    render(<MapView dark={false} pins={[{ id: 'a', lat: 52, lon: 21, label: 'A' }]} movers={[mover]} ariaLabel="Mapa" />)
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
+    const element = vi.mocked(maplibregl.Marker).mock.calls[0][0]?.element as HTMLElement
+    expect(element.dataset.testid).toBe('map-mover')
+    // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+    const [dot, arrow] = [element.querySelector<HTMLElement>('[data-part="dot"]'), element.querySelector<HTMLElement>('[data-part="arrow"]')]
+    expect(dot).toHaveClass('h-6', 'w-6')
+    expect(dot?.style.backgroundColor).toBe(css(MODE_COLOR.rail))
+    // Bez poświaty i pulsowania (ruch tylko przy zmianie pozycji).
+    expect(dot?.className).not.toMatch(/animate-|blur|glow/)
+    // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+    const svg = dot?.querySelector('svg')
+    expect(svg).toHaveAttribute('stroke', '#fff')
+    // Ten sam glif co `TrainIcon` ze słownika (jeden węzeł Lucide).
+    const shape = (node: Element | null | undefined) => node?.innerHTML.replace(/<title>.*?<\/title>/, '')
+    // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona bez roli
+    const expected = shape(render(<TrainIcon />).container.querySelector('svg'))
+    expect(shape(svg)).toBe(expected)
+    expect(arrow?.hidden).toBe(true) // brak kierunku = sama kropka (logika strzałki bez zmian)
   })
 
   it('ustawia workerUrl na własny statyczny asset przed konstrukcją mapy', async () => {

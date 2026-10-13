@@ -5,7 +5,7 @@ import * as maplibregl from 'maplibre-gl'
 import { ConnectionDetails } from './ConnectionDetails'
 import { formatClockTime } from '@/lib/format'
 import { jsonResponse } from '@/test-utils/http'
-import { ArrivalIcon, DepartureIcon, VehiclePositionIcon, type IconProps } from './icons'
+import { ArrivalIcon, DepartureIcon, TrainIcon, VehiclePositionIcon, type IconProps } from './icons'
 
 /** Kształt ikony (dzieci `<svg>` bez `<title>`) — do porównania z ikoną ze słownika `icons.tsx`. */
 function glyph(svg: Element | null | undefined): string | undefined {
@@ -152,7 +152,7 @@ describe('ConnectionDetails', () => {
     const metaIcon = (label: string) =>
       // eslint-disable-next-line testing-library/no-node-access -- ikona MetaItem jest dekoracyjna (aria-hidden), bez roli
       glyph(screen.getByText(label, { selector: 'div' }).parentElement?.previousElementSibling?.querySelector('svg'))
-    expect(metaIcon('Odjazd')).toBe(iconGlyph(DepartureIcon))
+    expect(metaIcon('Odjazd (plan)')).toBe(iconGlyph(DepartureIcon))
     expect(metaIcon('Przyjazd (plan)')).toBe(iconGlyph(ArrivalIcon))
     expect(screen.getByText('+7 min')).toBeInTheDocument()
     // Peron i tor jako dwie osobne wartości, nie sklejone „3/1" -- jedna
@@ -909,6 +909,22 @@ describe('ConnectionDetails', () => {
       expect(screen.getByRole('button', { name: 'Zwiń trasę' })).toHaveAttribute('aria-expanded', 'true')
       expect(trainCalls()).toBe(1) // rozwinięcie to stan lokalny, zero zapytań (#3)
     })
+
+    it('expanding, collapsing and clicking a row never refetch /api/train (#3)', async () => {
+      freezeClock('2026-08-01T09:22:00Z')
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse(longRoute(14, 4)))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 1" />)
+      await waitForRoute()
+
+      fireEvent.click(screen.getByRole('button', { name: /Pokaż całą trasę/ }))
+      fireEvent.click(routeList().getByText('Przystanek 9'))
+      fireEvent.click(screen.getByRole('button', { name: 'Zwiń trasę' }))
+      fireEvent.click(routeList().getByText('Przystanek 5'))
+
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/train'))).toHaveLength(1)
+    })
   })
 
   describe('background refresh', () => {
@@ -1079,7 +1095,7 @@ describe('ConnectionDetails', () => {
       expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
     })
 
-    it('background failure keeps data and shows data age', async () => {
+    it('after a failed background refresh shows the warning + retry, the route stays; retry is a foreground fetch (no background=1)', async () => {
       startClock('2026-08-01T10:00:00Z')
       // Osobny licznik tylko dla /api/train -- /api/weather bije w ten sam
       // globalny mock, więc liczenie „które to wywołanie fetch" po kolei
@@ -1096,19 +1112,33 @@ describe('ConnectionDetails', () => {
 
       renderDetails()
       await untilRoute()
-      // Świeże dane, żadnej próby w tle jeszcze nie było -- brak wskaźnika wieku.
-      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
+      // Świeże dane, żadnej próby w tle jeszcze nie było -- neutralny wiek, bez ostrzeżenia i ponowienia.
+      expect(screen.getByTestId('data-age')).toHaveTextContent('Pobrano przed chwilą')
+      expect(screen.getByTestId('data-age')).not.toHaveClass('text-warning-text')
+      expect(screen.queryByRole('button', { name: 'Spróbuj ponownie' })).not.toBeInTheDocument()
 
       // Tik po 5 min pada (503 -- limit godzinowy, patrz route.ts). Ostatni
       // dobry stan zostaje na ekranie, ale musi być widać, że jest nieświeży.
       await vi.advanceTimersByTimeAsync(REFRESH_MS)
 
-      await vi.waitFor(() => expect(screen.getByText('Dane sprzed 5 min')).toBeInTheDocument())
+      await vi.waitFor(() =>
+        expect(screen.getByTestId('data-age')).toHaveTextContent(
+          'Nie udało się odświeżyć — pokazujemy ostatnie dane · Pobrano 5 min temu'
+        )
+      )
+      expect(screen.getByTestId('data-age')).toHaveClass('text-warning-text')
       expect(routeList().getByText('Warszawa Centralna')).toBeInTheDocument()
       expect(trainCalls(fetchMock)).toBe(2)
+
+      // Ręczne ponowienie = pierwszoplanowe pobranie: bez `background=1`.
+      const retry = screen.getByRole('button', { name: 'Spróbuj ponownie' })
+      expect(retry).toHaveClass('control-44')
+      fireEvent.click(retry)
+      await vi.waitFor(() => expect(trainCalls(fetchMock)).toBe(3))
+      expect(new URL(trainUrls(fetchMock)[2], 'http://localhost').searchParams.has('background')).toBe(false)
     })
 
-    it('background 503 then over an hour passes shows the data age in hours and minutes', async () => {
+    it('background 503 after a clock jump of an hour shows the fetch age in minutes, as formatAgo does', async () => {
       startClock('2026-08-01T10:00:00Z')
       let trainCallCount = 0
       const fetchMock = vi.fn((url: string) => {
@@ -1125,17 +1155,16 @@ describe('ConnectionDetails', () => {
 
       // Zegar skacze o godzinę (np. uśpiony laptop), tik pada (503) -- wiek
       // danych ma przejść przez `formatAge()` (godziny + minuty), nie zostać
-      // surowymi minutami: „65 min" zamiast „1 h 5 min". `setSystemTime` przesuwa
-      // też zaplanowane timery, więc do tiku wciąż brakuje 5 min.
+      // `formatAgo` (jedna implementacja wieku „temu"): 65 min < 90 min zostaje w minutach.
+      // `setSystemTime` przesuwa też zaplanowane timery, więc do tiku wciąż brakuje 5 min.
       vi.setSystemTime(new Date('2026-08-01T11:00:00Z'))
       await vi.advanceTimersByTimeAsync(REFRESH_MS)
 
-      await vi.waitFor(() => expect(screen.getByText('Dane sprzed 1 h 5 min')).toBeInTheDocument())
-      expect(screen.queryByText('Dane sprzed 65 min')).not.toBeInTheDocument()
+      await vi.waitFor(() => expect(screen.getByTestId('data-age')).toHaveTextContent('Pobrano 65 min temu'))
       expect(trainCalls(fetchMock)).toBe(2)
     })
 
-    it('successful refresh hides the age', async () => {
+    it('successful refresh clears the warning and the retry button, the age restarts', async () => {
       startClock('2026-08-01T10:00:00Z')
       // Jak wyżej -- osobny licznik tylko dla /api/train, /api/weather nie
       // wchodzi w tę sekwencję.
@@ -1153,7 +1182,7 @@ describe('ConnectionDetails', () => {
       await untilRoute()
 
       await vi.advanceTimersByTimeAsync(REFRESH_MS)
-      await vi.waitFor(() => expect(screen.getByText('Dane sprzed 5 min')).toBeInTheDocument())
+      await vi.waitFor(() => expect(screen.getByTestId('data-age')).toHaveTextContent('Nie udało się odświeżyć'))
 
       // Ponowienie po nieudanej próbie w tle (znów 5 min), tym razem udane --
       // wskaźnik wieku musi zgasnąć. Czekamy na pozytywny sygnał, że
@@ -1163,7 +1192,9 @@ describe('ConnectionDetails', () => {
       await vi.advanceTimersByTimeAsync(REFRESH_MS)
       await vi.waitFor(() => expect(within(wwaRow()).getByText('+1 min')).toBeInTheDocument())
 
-      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
+      expect(screen.getByTestId('data-age')).not.toHaveTextContent('Nie udało się odświeżyć')
+      expect(screen.getByTestId('data-age')).not.toHaveClass('text-warning-text')
+      expect(screen.queryByRole('button', { name: 'Spróbuj ponownie' })).not.toBeInTheDocument()
       expect(trainCalls(fetchMock)).toBe(3)
     })
 
@@ -1223,7 +1254,7 @@ describe('ConnectionDetails', () => {
       expect(trainCalls(fetchMock)).toBe(1)
     })
 
-    it('finished journey does not show the data age', async () => {
+    it('finished journey shows the neutral age without a warning or a retry', async () => {
       // Ten test musi puścić realny zegar odliczania („za ile", co 30 s) naprzód,
       // żeby sprawdzić, że próg 2×BACKGROUND_REFRESH_MS sam z siebie nie pokazuje
       // wskaźnika po zakończeniu podróży (patrz `jsonResponse`: sprawdzone, że
@@ -1247,7 +1278,40 @@ describe('ConnectionDetails', () => {
       // i pokazał się mimo że nic już nigdy nie odświeży tych danych.
       await vi.advanceTimersByTimeAsync(15 * 60_000)
 
-      expect(screen.queryByText(/Dane sprzed/)).not.toBeInTheDocument()
+      expect(screen.getByTestId('data-age')).toHaveTextContent('Pobrano 15 min temu')
+      expect(screen.getByTestId('data-age')).not.toHaveClass('text-warning-text')
+      expect(screen.queryByRole('button', { name: 'Spróbuj ponownie' })).not.toBeInTheDocument()
+    })
+
+    it('shows the age in the warning colour (no retry, no failure text) once it passes 2x the refresh interval on a hidden tab', async () => {
+      startClock('2026-08-01T10:00:00Z')
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+      renderDetails()
+      await untilRoute()
+
+      setHidden(true) // ukryta karta: tiki dociągania są pomijane, zegar „Pobrano" idzie dalej
+      await vi.advanceTimersByTimeAsync(12 * 60_000)
+
+      await vi.waitFor(() => expect(screen.getByTestId('data-age')).toHaveTextContent('Pobrano 12 min temu'))
+      expect(screen.getByTestId('data-age')).toHaveClass('text-warning-text')
+      expect(screen.getByTestId('data-age')).not.toHaveTextContent('Nie udało się odświeżyć')
+      expect(screen.queryByRole('button', { name: 'Spróbuj ponownie' })).not.toBeInTheDocument()
+    })
+
+    it('shows "Pobrano … temu" from lastSuccessAt (browser fetch time), neutral and not announced', async () => {
+      startClock('2026-08-01T10:00:00Z')
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+      renderDetails()
+      await untilRoute()
+      expect(screen.getByTestId('data-age')).toHaveTextContent('Pobrano przed chwilą')
+
+      await vi.advanceTimersByTimeAsync(3 * 60_000)
+      await vi.waitFor(() => expect(screen.getByTestId('data-age')).toHaveTextContent('Pobrano 3 min temu'))
+      expect(screen.getByTestId('data-age')).not.toHaveClass('text-warning-text')
+      // Zegar odliczania tyka co 30 s -- to nie jest komunikat dla czytnika.
+      expect(screen.getByTestId('data-age')).not.toHaveAttribute('aria-live')
     })
   })
 })
@@ -1279,7 +1343,12 @@ describe('route map', () => {
     // w kropkę markera (AGENTS.md #7) -- pierwszy przystanek jest potwierdzony
     // (isConfirmed: true w RESPONSE), więc resolveInterpolatedPosition zwraca
     // pozycję i podpis się renderuje.
-    expect(screen.getByText('Pozycja pociągu szacowana wg rozkładu.')).toBeInTheDocument()
+    const caption = screen.getByText(ESTIMATED_POSITION_CAPTION)
+    // Podpis niesie glif pociągu ze słownika ikon (`TrainIcon`), tak jak marker na mapie.
+    // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona bez roli
+    expect(glyph(caption.querySelector('svg'))).toBe(iconGlyph(TrainIcon))
+    // Nigdy „na żywo" / „Live" dla PKP -- to szacunek, nie GPS.
+    expect(screen.queryByText(/na żywo|live/i)).not.toBeInTheDocument()
 
     // Weryfikacja realnego markera, nie tylko tekstu obok (wzorzec z MapView.test.tsx):
     // 2 piny (przystanki z coords) + 1 mover (pozycja pociągu) = 3 wywołania Marker.
@@ -1297,6 +1366,13 @@ describe('route map', () => {
     expect(lat).toBeLessThan(54.355)
     expect(lon).toBeGreaterThan(18.646)
     expect(lon).toBeLessThan(21.00316)
+
+    // Marker z glifem pociągu, a popup nazywa go „Szacowana pozycja".
+    const moverElement = calls[moverCallIndex][0]?.element as HTMLElement
+    // eslint-disable-next-line testing-library/no-node-access -- marker spoza drzewa RTL
+    expect(moverElement.querySelector('[data-part="dot"] svg')).not.toBeNull()
+    const popupTexts = vi.mocked(maplibregl.Popup).mock.results.map((result) => (result.value as { content: HTMLElement | null }).content?.textContent)
+    expect(popupTexts).toContain('Szacowana pozycja')
   })
 
   it('does not show the estimated-position caption when there is no confirmed movement yet', async () => {
@@ -1316,7 +1392,10 @@ describe('route map', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
 
     expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
-    expect(screen.queryByText('Pozycja pociągu szacowana wg rozkładu.')).not.toBeInTheDocument()
+    // Resolver bez pozycji: ani podpisu, ani markera (tylko 2 piny przystanków).
+    expect(screen.queryByText(ESTIMATED_POSITION_CAPTION)).not.toBeInTheDocument()
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(maplibregl.Marker).mock.calls.some((call) => (call[0]?.element as HTMLElement | undefined)?.dataset.testid === 'map-mover')).toBe(false)
   })
 
   it('shows the estimated-position marker once past the planned departure, even with nothing confirmed (mirrors mock train 107, ruling z 2026-09-23)', async () => {
@@ -1339,7 +1418,186 @@ describe('route map', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
 
     expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
-    expect(screen.getByText('Pozycja pociągu szacowana wg rozkładu.')).toBeInTheDocument()
+    expect(screen.getByText(ESTIMATED_POSITION_CAPTION)).toBeInTheDocument()
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(3))
+  })
+})
+
+const ESTIMATED_POSITION_CAPTION = 'Szacowana pozycja — wg rozkładu i ostatniego potwierdzenia, nie GPS.'
+
+describe('header, states and arrival (PR5)', () => {
+  const PROPS = { scheduleId: '2026', orderId: '12345', operatingDate: '2026-08-01', trainLabel: 'EIC 1' } as const
+  const trainUrls = (m: ReturnType<typeof vi.fn>) => m.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/api/train'))
+
+  it('header shows number, carrier, relation and the operating date also when it is not today', async () => {
+    freezeClock('2026-10-11T10:00:00Z') // data kursowania 01.08.2026 jest dawno za nami
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ ...RESPONSE, nationalNumber: '1602' })))
+
+    render(<ConnectionDetails {...PROPS} />)
+    await waitForRoute()
+
+    expect(screen.getByRole('heading', { level: 1, name: 'EIC 1602' })).toBeInTheDocument()
+    expect(screen.getAllByText('„PKP Intercity” Spółka Akcyjna').length).toBeGreaterThan(0)
+    expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
+    // Jedna linia daty, bez „dziś": data jest widoczna także w przeszłości, tylko raz.
+    expect(screen.getAllByText(/01\.08\.2026/)).toHaveLength(1)
+  })
+
+  it('meta grid is hidden on phones (class), has "Odjazd (plan)" with the planned departure and no "Data" tile', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(RESPONSE)))
+
+    render(<ConnectionDetails {...PROPS} />)
+    await waitForRoute()
+
+    const meta = screen.getByTestId('connection-meta')
+    expect(meta).toHaveClass('max-sm:hidden')
+    const tiles = within(meta)
+    expect(tiles.getByText('Odjazd (plan)')).toBeInTheDocument()
+    // Plan 09:00, nie faktyczne 09:07 (faktyczny odjazd jest w wierszu trasy).
+    expect(tiles.getByText(formatClockTime('2026-08-01T09:00:00.000Z'))).toBeInTheDocument()
+    expect(tiles.queryByText(formatClockTime('2026-08-01T09:07:00.000Z'))).not.toBeInTheDocument()
+    expect(tiles.queryByText('Data')).not.toBeInTheDocument()
+    expect(tiles.getByText('Przyjazd (plan)')).toBeInTheDocument()
+    expect(tiles.getByText('Czas podróży')).toBeInTheDocument()
+  })
+
+  describe('"Przyjazd do celu" label', () => {
+    const WITH_LAST = (last: Record<string, unknown>) => ({ ...RESPONSE, stops: [RESPONSE.stops[0], { ...RESPONSE.stops[1], ...last }] })
+    const arrival = () => within(screen.getByTestId('arrival-block'))
+    const PLAN = formatClockTime('2026-08-01T11:20:00.000Z')
+
+    it('confirmed arrival = "Faktycznie" with the plan underneath and a countdown', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      const last = { isConfirmed: true, actualArrival: '2026-08-01T11:25:00.000Z', arrivalDelayMinutes: 5 }
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(WITH_LAST(last))))
+
+      render(<ConnectionDetails {...PROPS} />)
+      await waitForRoute()
+
+      expect(arrival().getByText(formatClockTime('2026-08-01T11:25:00.000Z'))).toBeInTheDocument()
+      expect(arrival().getByText('Faktycznie')).toBeInTheDocument()
+      expect(arrival().getByText(`· Plan ${PLAN}`)).toBeInTheDocument()
+      expect(arrival().getByText(/^za /)).toBeInTheDocument()
+    })
+
+    it('PKP prediction = "Przew." (abbr "Przewidywana"), plan underneath', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(WITH_LAST({ predictedArrival: '2026-08-01T11:40:00.000Z' }))))
+
+      render(<ConnectionDetails {...PROPS} />)
+      await waitForRoute()
+
+      expect(arrival().getByText(formatClockTime('2026-08-01T11:40:00.000Z'))).toBeInTheDocument()
+      expect(arrival().getByText('Przew.')).toHaveAttribute('title', 'Przewidywana')
+      expect(arrival().getByText(`· Plan ${PLAN}`)).toBeInTheDocument()
+      expect(arrival().queryByText('Faktycznie')).not.toBeInTheDocument()
+    })
+
+    it('no fact and no prediction = "Plan" only, never a raw unconfirmed actual', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      // `actualArrival` skopiowany z planu bez potwierdzenia nie jest faktem (#2).
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(WITH_LAST({ actualArrival: '2026-08-01T11:50:00.000Z' }))))
+
+      render(<ConnectionDetails {...PROPS} />)
+      await waitForRoute()
+
+      expect(arrival().getByText(PLAN)).toBeInTheDocument()
+      expect(arrival().getByText('Plan')).toBeInTheDocument()
+      expect(arrival().queryByText(/Plan \d/)).not.toBeInTheDocument()
+      expect(arrival().queryByText(formatClockTime('2026-08-01T11:50:00.000Z'))).not.toBeInTheDocument()
+    })
+
+    it('cancelled destination has no countdown; unknown arrival hides the block', async () => {
+      freezeClock('2026-08-01T10:00:00Z')
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(WITH_LAST({ isCancelled: true }))))
+
+      const view = render(<ConnectionDetails {...PROPS} />)
+      await waitForRoute()
+      expect(arrival().queryByText(/^za /)).not.toBeInTheDocument()
+      view.unmount()
+
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(WITH_LAST({ plannedArrival: null }))))
+      render(<ConnectionDetails {...PROPS} orderId="999" />)
+      await waitForRoute()
+      expect(screen.queryByTestId('arrival-block')).not.toBeInTheDocument()
+    })
+  })
+
+  it('en-route estimate gets a touch-friendly caption; none without an estimate', async () => {
+    freezeClock('2026-08-01T10:00:00Z')
+    const caption = 'Szacunek z ostatniego potwierdzenia — może się zmienić na dalszej trasie.'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        jsonResponse({ ...RESPONSE, stops: [{ ...RESPONSE.stops[0], estimatedDelayMinutes: null }, { ...RESPONSE.stops[1], estimatedDelayMinutes: 6 }] })
+      )
+    )
+    const view = render(<ConnectionDetails {...PROPS} />)
+    await waitForRoute()
+    expect(screen.getByText(caption)).toBeInTheDocument()
+    view.unmount()
+
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ ...RESPONSE, orderId: '999' })))
+    render(<ConnectionDetails {...PROPS} orderId="999" />)
+    await waitForRoute()
+    expect(screen.queryByText(caption)).not.toBeInTheDocument()
+  })
+
+  it('loading shows a header + axis skeleton (aria-busy, sr-only text, one h1, decorative blocks)', () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(() => {})))
+
+    render(<ConnectionDetails {...PROPS} />)
+
+    const card = screen.getByTestId('connection-loading')
+    expect(card).toHaveAttribute('aria-busy', 'true')
+    expect(within(card).getByText('Wczytywanie trasy…')).toHaveClass('sr-only')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 1, name: 'EIC 1' })).toBeInTheDocument()
+    // eslint-disable-next-line testing-library/no-node-access -- bloki szkieletu są dekoracją bez roli
+    const blocks = card.querySelectorAll('[aria-hidden="true"].animate-pulse')
+    expect(blocks.length).toBeGreaterThanOrEqual(10) // relacja, status + ~4 wiersze osi (kropka + 2 paski)
+  })
+
+  describe('first-fetch error', () => {
+    it('keeps the server message and offers "Spróbuj ponownie" (foreground fetch) and "Szukaj stacji" → /search', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(() => Promise.resolve(new Response('boom', { status: 500 })))
+        .mockImplementation(() => jsonResponse(RESPONSE))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<ConnectionDetails {...PROPS} />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się pobrać szczegółów połączenia.')
+      expect(screen.getByRole('link', { name: 'Szukaj stacji' })).toHaveAttribute('href', '/search')
+      fireEvent.click(screen.getByRole('button', { name: 'Spróbuj ponownie' }))
+
+      await waitForRoute()
+      expect(trainUrls(fetchMock)).toHaveLength(2)
+      expect(new URL(trainUrls(fetchMock)[1], 'http://localhost').searchParams.has('background')).toBe(false)
+    })
+
+    it.each([
+      [404, 'Nie znaleziono połączenia'],
+      [503, 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.'],
+    ])('%i keeps the server message and gets the same two actions', async (status, message) => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: message }), { status })))
+
+      render(<ConnectionDetails {...PROPS} />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(message)
+      expect(screen.queryByText(/Spróbuj odświeżyć stronę/)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Spróbuj ponownie' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Szukaj stacji' })).toHaveAttribute('href', '/search')
+    })
+  })
+
+  it('empty stops is not a finished journey: message, no age line, no retry', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ ...RESPONSE, stops: [] })))
+
+    render(<ConnectionDetails {...PROPS} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('PKP nie udostępnia teraz trasy tego połączenia.')
+    expect(screen.queryByTestId('data-age')).not.toBeInTheDocument()
   })
 })
