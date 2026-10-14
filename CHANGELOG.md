@@ -45,6 +45,19 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Katalog linii (`/city/<miasto>/lines`): nagłówek „Linie” z nazwą miasta pod spodem, pole „Numer linii lub
+  przystanek końcowy” (z przyciskiem „Wyczyść wyszukiwanie”) i filtry rodzaju komunikacji „Wszystkie · Metro ·
+  Tramwaje · Autobusy · Kolej miejska” — zawijane w kolejne wiersze, bez przewijania w bok, z `aria-pressed`.
+  Fraza (`q`, do 100 znaków) i tryb (`mode`) są w adresie (zapis bez nowych wpisów w historii, inne parametry
+  zostają, błędne wartości są ignorowane), więc „Wstecz” z linii wraca do tego samego widoku, a odświeżenie go
+  nie gubi. Wyniki mają ten sam ranking co wyszukiwarka (dokładny numer, potem początek numeru, potem nazwa
+  trasy) i nagłówek „Wyniki · N”; bez trafień: „Brak pasujących linii” z przyciskiem „Wyczyść filtry”. Przy
+  aktywnym filtrze trybu jego sekcja jest od razu otwarta. Dane idą przez wspólny `useCityLines` (jeden fetcher,
+  rozkład i źródło z tej samej odpowiedzi, bez zapytań na wiersz). Kafle linii nie obcinają już krańców: nazwa
+  zawija się do pełnej wysokości, w wąskim kontenerze jest jedna kolumna, w szerszym siatka dopasowana do
+  szerokości. Sekcja kolei nazywa się „Kolej miejska” (nie „Kolej”). Zmiana: szukanie po samym numerze nie
+  znajduje już linii, w których numer tylko zawiera frazę (np. „16” nie pokaże „N16”) — tak samo jak w
+  wyszukiwarce; „n16” i „N1” działają.
 - Szczegóły połączenia kolejowego (telefon i komputer): każdy przystanek pokazuje godzinę użyteczną z nazwanym
   źródłem — „Faktycznie” (potwierdzona), „Przew.” (prognoza PKP) albo „Plan” — oraz małe „Plan GG:MM”; odjazd i
   przyjazd są opisane osobno, peron i tor osobno („Peron 2 · tor 4”). Potwierdzony przystanek ma pełny punkt,
