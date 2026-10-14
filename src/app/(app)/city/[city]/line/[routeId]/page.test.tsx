@@ -544,6 +544,19 @@ describe('LineDetailPage — pane switch', () => {
     expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toBeInTheDocument()
   })
 
+  // Regresja z QA w przeglądarce: od `lg` obie sekcje są zamontowane, a ich `ViewTransition` miały jedną nazwę
+  // („two <ViewTransition name> components with the same name") — to przerywa przejście (ui-motion.md).
+  it('at lg and above the two mounted sections never share a view-transition name', async () => {
+    stubMatchMedia(true)
+    stubFetch()
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    const duplicates = errors.mock.calls.filter((call) => String(call[0]).includes('same name'))
+    errors.mockRestore()
+    expect(duplicates).toEqual([])
+  })
+
   it('?pane=timetable opens the timetable below lg', async () => {
     stubMatchMedia(false)
     window.history.replaceState(null, '', '/city/warszawa/line/20?pane=timetable')

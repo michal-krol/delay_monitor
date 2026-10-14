@@ -396,9 +396,10 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
               </div>
 
               <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-                {/* Poniżej `lg` nieaktywna sekcja jest odmontowana (nie tylko schowana): wejście nowej to crossfade. */}
+                {/* Poniżej `lg` nieaktywna sekcja jest odmontowana (nie tylko schowana): wejście nowej to crossfade.
+                    Od `lg` obie sekcje są zamontowane naraz — dwie takie same nazwy `view-transition-name` przerywają przejście (ui-motion.md). */}
                 {(lgUp || pane === 'route') && (
-                  <TabCrossfade id="route" name="line-pane">
+                  <TabCrossfade id="route" name={lgUp ? 'line-pane-route' : 'line-pane'}>
                     <section className={`glass rounded-2xl p-4 ${pane === 'route' ? '' : 'max-lg:hidden'}`}>
                       <LineRouteList
                         city={city}
@@ -415,7 +416,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                 )}
 
                 {(lgUp || pane === 'timetable') && (
-                  <TabCrossfade id="timetable" name="line-pane">
+                  <TabCrossfade id="timetable" name={lgUp ? 'line-pane-timetable' : 'line-pane'}>
                     <section className={`glass rounded-2xl p-4 ${pane === 'timetable' ? '' : 'max-lg:hidden'}`}>
                       <h2 className="text-sm font-bold text-foreground">Rozkład</h2>
                       {/* Kapsuła kontekstu: stała pozycja, zmienia się tylko tekst. */}
