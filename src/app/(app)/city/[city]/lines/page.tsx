@@ -1,33 +1,34 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { notFound, useParams } from 'next/navigation'
+import { Suspense, startTransition, useMemo, useState } from 'react'
+import { notFound, useParams, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
-import { fetchJson, usePolling } from '@/hooks/usePolling'
+import { useCityLines } from '@/hooks/useCityLines'
 import { useRecentLines } from '@/hooks/useRecentLines'
 import { useSectionOpen } from '@/hooks/useSectionOpen'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
-import { LineGrid, LineResults, RecentLines } from '@/components/LineGrid'
+import { CloseIcon, ICON_SIZE, SearchIcon } from '@/components/icons'
+import { HOVER } from '@/components/interaction'
+import { LineGrid, LineResults, RecentLines, SECTION_LABEL } from '@/components/LineGrid'
 import { SEARCH_INPUT_CLASS } from '@/components/StationSearch'
 import { ScheduleStatus, scheduleNeedsAttention } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { CityTransitWidget } from '@/components/CityTransitWidget'
-import { MODE_ORDER } from '@/components/transitMode'
+import { TabCrossfade } from '@/components/TabCrossfade'
+import { MODE_ICON } from '@/components/transitMode'
 import { PageShell } from '@/components/aside'
-import { normalizeForSearch } from '@/lib/search'
-import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
-import type { LineListEntry } from '@/lib/gtfs/query'
+import { availableModes, filterCatalogLines, groupByMode, linesViewPatch, MAX_LINES_QUERY, parseLinesView, type LinesView } from '@/lib/linesView'
+import { patchUrlParams } from '@/lib/urlState'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
-type LinesResponse = {
-  city: string
-  schedule: TransitBoardResponse['schedule']
-  lines: Record<GtfsMode, LineListEntry[]> | null
-  attribution: string[]
-}
+const FALLBACK_SUBTITLE = 'Metro, tramwaje, autobusy i kolej miejska'
 
+const SEARCH_FIELD_CLASS = `${SEARCH_INPUT_CLASS} min-h-11 pl-10 pr-12 focus:ring-primary-text! [&::-webkit-search-cancel-button]:appearance-none`
+
+// `useSearchParams()` wymaga granicy <Suspense> przy prerenderze statycznym (jak w `/search`); fallback trafia do HTML-a,
+// więc to ten sam szkielet co po hydracji — nie pusty ekran (#7).
 export default function CityLinesPage() {
   const params = useParams<{ city: string }>()
   const city = typeof params.city === 'string' ? params.city : ''
@@ -36,85 +37,160 @@ export default function CityLinesPage() {
     notFound()
   }
 
+  return (
+    <Suspense
+      fallback={
+        <PageShell>
+          <TopBar title="Linie" subtitle={FALLBACK_SUBTITLE} />
+          <LinesSkeleton />
+        </PageShell>
+      }
+    >
+      <CityLinesRoute city={city} />
+    </Suspense>
+  )
+}
+
+/** Adres czytamy raz, przy montowaniu: potem stan trzyma komponent, a adres tylko za nim podąża (`replaceState`). */
+function CityLinesRoute({ city }: { city: string }) {
+  const searchParams = useSearchParams()
+  return <LinesCatalog key={city} city={city} initial={parseLinesView(searchParams)} />
+}
+
+function LinesSkeleton() {
+  return (
+    <div aria-busy="true" data-testid="lines-skeleton" className="flex flex-col gap-2.5">
+      <span className="sr-only">Wczytywanie…</span>
+      <div aria-hidden="true" className="h-11 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
+      {[0, 1, 2].map((index) => (
+        <div key={index} aria-hidden="true" className="h-14 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
+      ))}
+    </div>
+  )
+}
+
+function ModeChips({ modes, active, onSelect }: { modes: GtfsMode[]; active: GtfsMode | null; onSelect: (mode: GtfsMode | null) => void }) {
+  return (
+    <div role="group" aria-label="Rodzaj komunikacji" className="flex flex-wrap gap-2">
+      <button type="button" className="chip-filter" aria-pressed={active === null} onClick={() => onSelect(null)}>
+        Wszystkie
+      </button>
+      {modes.map((mode) => {
+        const Icon = MODE_ICON[mode]
+        return (
+          <button key={mode} type="button" className="chip-filter gap-1.5" aria-pressed={active === mode} onClick={() => onSelect(mode)}>
+            <Icon size={ICON_SIZE.chip} />
+            {SECTION_LABEL[mode]}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
   const { cities } = useCities()
-  const [query, setQuery] = useState('')
   const { recent } = useRecentLines(city)
   const { isOpen, setOpen } = useSectionOpen()
+  const { lines, state, error, refresh, schedule, attribution } = useCityLines(city)
+  const [q, setQ] = useState(initial.q)
+  const [mode, setMode] = useState(initial.mode)
 
-  // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
-  const { data, error } = usePolling<LinesResponse>(city, () => fetchJson(`/api/gtfs/lines?city=${encodeURIComponent(city)}`), {
-    refreshMs: null,
-    // Brak listy = dalej ponawiamy (także po nieudanym pierwszym wczytaniu rozkładu: `state: 'failed'`, `lines: null`).
-    isLoading: (json) => json.lines === null,
-  })
-  const failed = error !== null
   // Ostrzeżenie (wczytywanie, wiek danych, błąd) idzie na górę; wtedy stopka NIE powtarza bloku stanu rozkładu.
-  const attention = data !== null && scheduleNeedsAttention(data.schedule, failed)
-
+  const attention = schedule !== null && scheduleNeedsAttention(schedule, error)
   const cityName = useMemo(() => cities.find((option) => option.id === city)?.name ?? city, [cities, city])
 
-  // Wszystkie linie w kolejności prezentacji (środek → numer) — do szukania i do „Ostatnio oglądane”.
-  const allLines = useMemo(() => (data?.lines == null ? null : MODE_ORDER.flatMap((mode) => data.lines![mode])), [data])
+  const modes = useMemo(() => (lines === null ? [] : availableModes(lines)), [lines])
+  // Tryb z adresu, którego miasto nie ma, jest ignorowany (efektywnie „Wszystkie").
+  const activeMode = mode !== null && modes.includes(mode) ? mode : null
+  const shown = useMemo(() => (lines === null ? [] : filterCatalogLines(lines, { q, mode: activeMode })), [lines, q, activeMode])
+  const grouped = useMemo(() => groupByMode(shown), [shown])
 
-  const needle = normalizeForSearch(query)
-  const hits = useMemo(
-    () =>
-      allLines === null || needle.length === 0
-        ? null
-        : allLines.filter((entry) => normalizeForSearch(entry.line).includes(needle) || normalizeForSearch(entry.longName).includes(needle)),
-    [allLines, needle]
-  )
+  function changeQuery(next: string): void {
+    setQ(next)
+    patchUrlParams({ q: next === '' ? null : next })
+  }
+
+  function changeMode(next: GtfsMode | null): void {
+    // Tylko przejście stanu animuje zmianę treści (crossfade); adres od razu.
+    startTransition(() => setMode(next))
+    patchUrlParams({ mode: next })
+  }
+
+  function clearFilters(): void {
+    setQ('')
+    startTransition(() => setMode(null))
+    patchUrlParams(linesViewPatch({ q: '', mode: null }))
+  }
 
   return (
-    <PageShell
-      aside={<CityTransitWidget city={city} cityName={cityName} />}
-    >
+    <PageShell aside={<CityTransitWidget city={city} cityName={cityName} />}>
       <TopBar
         city={city}
-        title={`Linie — ${cityName}`}
-        subtitle="Metro, tramwaje, autobusy i kolej miejska"
+        title="Linie"
+        subtitle={cityName}
         actions={<CityPicker cities={cities} current={city} hrefFor={(id) => `/city/${id}/lines`} />}
       />
 
       {/* Góra: tylko gdy coś jest nie tak (wczytywanie, wiek danych, błąd); zwykła linijka jest w stopce. */}
-      {data !== null && attention && (
-        <ScheduleStatus schedule={data.schedule} cityName={cityName} error={failed} />
-      )}
+      {schedule !== null && attention && <ScheduleStatus schedule={schedule} cityName={cityName} error={error} />}
 
-      {data === null ? (
-        failed ? (
-          <p className="text-sm text-error-text">Nie udało się pobrać listy linii.</p>
+      {lines === null ? (
+        state === 'failed' ? (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm text-error-text">Nie udało się pobrać listy linii.</p>
+            <button type="button" onClick={refresh} className="btn-primary">
+              Spróbuj ponownie
+            </button>
+          </div>
         ) : (
-          <p className="text-sm text-text-secondary">Wczytywanie…</p>
+          // Wczytywanie rozkładu (`lines: null`) — fazę pokazuje `ScheduleStatus` u góry.
+          <LinesSkeleton />
         )
-      ) : allLines === null ? (
-        // Rozkład jeszcze się wczytuje (`lines: null`) — fazę pokazuje `ScheduleStatus` u góry.
-        <p className="text-sm text-text-secondary">Wczytywanie…</p>
-      ) : allLines.length === 0 ? (
-        <p className="text-sm text-text-secondary">Feed nie zawiera linii.</p>
+      ) : lines.length === 0 ? (
+        <p className="text-sm text-text-secondary">Brak linii w rozkładzie.</p>
       ) : (
-        <>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Szukaj: numer linii albo przystanek końcowy…"
-            aria-label="Szukaj linii"
-            className={SEARCH_INPUT_CLASS}
-          />
-          <RecentLines recent={recent} lines={allLines} city={city} />
-          {hits !== null ? (
-            <LineResults lines={hits} city={city} />
-          ) : (
-            <LineGrid linesByMode={data.lines!} city={city} isOpen={isOpen} onToggle={setOpen} />
-          )}
-        </>
+        <div className="flex flex-col gap-3">
+          <form role="search" onSubmit={(event) => event.preventDefault()} className="relative">
+            <SearchIcon size={ICON_SIZE.button} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-text-muted" />
+            <input
+              type="search"
+              enterKeyHint="search"
+              autoComplete="off"
+              maxLength={MAX_LINES_QUERY}
+              value={q}
+              onChange={(event) => changeQuery(event.target.value)}
+              placeholder="Numer linii lub przystanek końcowy"
+              aria-label="Numer linii lub przystanek końcowy"
+              className={SEARCH_FIELD_CLASS}
+            />
+            {q !== '' && (
+              <button
+                type="button"
+                aria-label="Wyczyść wyszukiwanie"
+                onClick={() => changeQuery('')}
+                className={`control-44 absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center justify-center rounded-lg text-text-secondary transition ${HOVER} focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-text`}
+              >
+                <CloseIcon size={ICON_SIZE.button} />
+              </button>
+            )}
+          </form>
+          <ModeChips modes={modes} active={activeMode} onSelect={changeMode} />
+          <RecentLines recent={recent} lines={lines} city={city} />
+          <TabCrossfade id={activeMode ?? 'all'} name="lines-catalog">
+            {q.trim() !== '' ? (
+              <LineResults lines={shown} city={city} onClear={clearFilters} />
+            ) : (
+              <LineGrid linesByMode={grouped} city={city} isOpen={isOpen} onToggle={setOpen} openByDefault={activeMode !== null} />
+            )}
+          </TabCrossfade>
+        </div>
       )}
 
-      {data !== null && data.schedule.state !== 'loading' && (
+      {schedule !== null && schedule.state !== 'loading' && (
         <footer data-testid="lines-footer">
-          {!attention && <ScheduleStatus schedule={data.schedule} cityName={cityName} quiet />}
-          <AttributionFooter attribution={data.attribution} />
+          {!attention && <ScheduleStatus schedule={schedule} cityName={cityName} quiet />}
+          <AttributionFooter attribution={attribution} />
         </footer>
       )}
     </PageShell>

@@ -2,17 +2,17 @@ import Link from 'next/link'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { pluralPl } from '@/lib/plural'
-import { ArrowRightIcon, DisclosureIcon, ICON_SIZE } from './icons'
+import { ArrowRightIcon, ChevronRightIcon, DisclosureIcon, ICON_SIZE } from './icons'
 import { LineBadge } from './LineBadge'
 import { BUS_KIND_LABEL, BUS_KIND_ORDER, LINE_KIND_LABEL, MODE_ICON, MODE_ORDER, darkRingClass, lineColor } from './transitMode'
 import { FOCUS_RING, HOVER } from './interaction'
 
-/** Nagłówki sekcji (liczba mnoga) — `MODE_LABEL` to liczba pojedyncza („tramwaj”) i służy gdzie indziej. */
-const SECTION_LABEL: Record<GtfsMode, string> = {
+/** Nagłówki sekcji (liczba mnoga) — `MODE_LABEL` to liczba pojedyncza („tramwaj”) i służy gdzie indziej. Też etykiety chipów filtra trybu. */
+export const SECTION_LABEL: Record<GtfsMode, string> = {
   metro: 'Metro',
   tram: 'Tramwaje',
   bus: 'Autobusy',
-  rail: 'Kolej',
+  rail: 'Kolej miejska',
   other: 'Inne',
 }
 
@@ -25,7 +25,7 @@ export function splitEndStops(longName: string): [string, string] | null {
   return at < 0 ? null : [longName.slice(0, at), longName.slice(at + 3)]
 }
 
-/** Nazwa dostępnościowa linku: „Linia N: A – B” (pełna nazwa, bo wizualnie kierunek jest przycięty). */
+/** Nazwa dostępnościowa linku: „Linia N: A – B” (pełna nazwa; wizualnie kierunek zawija się, ale ikona strzałki jest dekoracyjna). */
 const lineName = (entry: LineListEntry) => (entry.longName === '' ? `Linia ${entry.line}` : `Linia ${entry.line}: ${entry.longName}`)
 
 const SUMMARY_RESET = 'list-none [&::-webkit-details-marker]:hidden'
@@ -46,13 +46,11 @@ function LineTile({ entry, city }: { entry: LineListEntry; city: string }) {
     <Link
       href={lineHref(city, entry.routeId)}
       aria-label={lineName(entry)}
-      className={`flex min-h-[52px] min-w-0 flex-col gap-0.5 rounded-[10px] border border-surface-border px-2.5 py-1.5 transition ${HOVER} ${FOCUS_RING}`}
+      className={`control-44 flex min-w-0 items-center gap-2.5 rounded-[10px] border border-surface-border px-2.5 py-1.5 transition ${HOVER} ${FOCUS_RING}`}
     >
-      <span className="flex">
-        <LineBadge line={entry.line} mode={entry.mode} kind={entry.kind} />
-      </span>
+      <LineBadge line={entry.line} mode={entry.mode} kind={entry.kind} />
       {entry.longName !== '' && (
-        <span className="truncate text-xs text-text-secondary">
+        <span className="min-w-0 text-[13px] leading-snug text-text-secondary [overflow-wrap:anywhere]">
           <Direction entry={entry} />
         </span>
       )}
@@ -60,15 +58,18 @@ function LineTile({ entry, city }: { entry: LineListEntry; city: string }) {
   )
 }
 
+/** Wąski kontener = jedna kolumna (pełna nazwa się zawija), szerszy = auto-fit; `@container`, nie breakpoint okna (szerokość zależy od paska bocznego). */
 function TileGrid({ lines, city }: { lines: LineListEntry[]; city: string }) {
   return (
-    <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-1.5 pb-2 pt-1">
-      {lines.map((entry) => (
-        <li key={entry.routeId} className="min-w-0">
-          <LineTile entry={entry} city={city} />
-        </li>
-      ))}
-    </ul>
+    <div className="@container">
+      <ul className="grid grid-cols-1 gap-1.5 pb-2 pt-1 @md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+        {lines.map((entry) => (
+          <li key={entry.routeId} className="min-w-0">
+            <LineTile entry={entry} city={city} />
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -86,10 +87,15 @@ type Props = {
   linesByMode: Record<GtfsMode, LineListEntry[]>
   city: string
   /** Stan rozwinięcia sekcji (`useSectionOpen`); klucz = rodzaj środka albo `bus:<rodzaj linii>`. */
-  isOpen: (key: string, lineCount: number) => boolean
+  isOpen: (key: string, lineCount: number, openByDefault?: boolean) => boolean
   /** Użytkownik zwinął/rozwinął sekcję (`details.open` po zmianie). */
-  onToggle: (key: string, open: boolean, lineCount: number) => void
+  onToggle: (key: string, open: boolean, lineCount: number, openByDefault?: boolean) => void
+  /** Sekcje i podsekcje startują otwarte (aktywny filtr trybu: użytkownik już wybrał, co chce zobaczyć); zapisany wybór nadal wygrywa. */
+  openByDefault?: boolean
 }
+
+/** `openByDefault` dopisujemy do wywołań tylko gdy jest włączone — domyślne wywołania `isOpen`/`onToggle` zostają bez zmian. */
+const defaultArgs = (openByDefault: boolean | undefined): [] | [true] => (openByDefault === true ? [true] : [])
 
 /**
  * Lista linii miasta: zwijana sekcja na rodzaj środka (natywne `<details>` — klawiatura i czytnik ekranu
@@ -97,7 +103,8 @@ type Props = {
  * przebiegu linii. Wywołujący renderuje to dopiero, gdy lista linii jest wczytana (stan domyślny
  * sekcji zależy od szerokości ekranu, którą hook zna dopiero po zamontowaniu).
  */
-export function LineGrid({ linesByMode, city, isOpen, onToggle }: Props) {
+export function LineGrid({ linesByMode, city, isOpen, onToggle, openByDefault }: Props) {
+  const extra = defaultArgs(openByDefault)
   return (
     <div className="flex flex-col gap-2.5">
       {MODE_ORDER.filter((mode) => linesByMode[mode].length > 0).map((mode) => {
@@ -108,8 +115,8 @@ export function LineGrid({ linesByMode, city, isOpen, onToggle }: Props) {
           <details
             key={mode}
             data-testid="line-section"
-            open={isOpen(mode, defaultCount)}
-            onToggle={(event) => onToggle(mode, event.currentTarget.open, defaultCount)}
+            open={isOpen(mode, defaultCount, ...extra)}
+            onToggle={(event) => onToggle(mode, event.currentTarget.open, defaultCount, ...extra)}
             className="glass rounded-2xl"
           >
             <summary className={`${SUMMARY_RESET} flex min-h-14 cursor-pointer items-center gap-2.5 rounded-2xl px-3.5 py-2.5 ${HOVER} ${FOCUS_RING}`}>
@@ -119,7 +126,11 @@ export function LineGrid({ linesByMode, city, isOpen, onToggle }: Props) {
               <DisclosureIcon size={ICON_SIZE.button} className="ml-auto text-text-muted" />
             </summary>
             <div className="px-3.5 pb-3.5 pt-0.5">
-              {mode === 'bus' ? <BusSubsections lines={lines} city={city} isOpen={isOpen} onToggle={onToggle} /> : <TileGrid lines={lines} city={city} />}
+              {mode === 'bus' ? (
+                <BusSubsections lines={lines} city={city} isOpen={isOpen} onToggle={onToggle} openByDefault={openByDefault} />
+              ) : (
+                <TileGrid lines={lines} city={city} />
+              )}
             </div>
           </details>
         )
@@ -128,7 +139,8 @@ export function LineGrid({ linesByMode, city, isOpen, onToggle }: Props) {
   )
 }
 
-function BusSubsections({ lines, city, isOpen, onToggle }: { lines: LineListEntry[]; city: string } & Pick<Props, 'isOpen' | 'onToggle'>) {
+function BusSubsections({ lines, city, isOpen, onToggle, openByDefault }: { lines: LineListEntry[]; city: string } & Pick<Props, 'isOpen' | 'onToggle' | 'openByDefault'>) {
+  const extra = defaultArgs(openByDefault)
   return (
     <>
       {BUS_KIND_ORDER.map((kind) => {
@@ -139,8 +151,8 @@ function BusSubsections({ lines, city, isOpen, onToggle }: { lines: LineListEntr
           <details
             key={kind}
             data-testid="line-subsection"
-            open={isOpen(key, ofKind.length)}
-            onToggle={(event) => onToggle(key, event.currentTarget.open, ofKind.length)}
+            open={isOpen(key, ofKind.length, ...extra)}
+            onToggle={(event) => onToggle(key, event.currentTarget.open, ofKind.length, ...extra)}
             className="border-t border-surface-border first:border-t-0"
           >
             <summary className={`${SUMMARY_RESET} flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-0.5 py-1.5 text-[13px] text-text-secondary ${HOVER} ${FOCUS_RING}`}>
@@ -159,12 +171,19 @@ function BusSubsections({ lines, city, isOpen, onToggle }: { lines: LineListEntr
 }
 
 /** Wyniki szukania: płaska lista ze wszystkich środków, z plakietką rodzaju linii (nocna, przyspieszona…). */
-export function LineResults({ lines, city }: { lines: LineListEntry[]; city: string }) {
+export function LineResults({ lines, city, onClear }: { lines: LineListEntry[]; city: string; onClear?: () => void }) {
   return (
     <section className="glass rounded-2xl p-3.5">
       <h2 className="mb-1 text-sm font-bold text-foreground">Wyniki · {lines.length}</h2>
       {lines.length === 0 ? (
-        <p className="py-2 text-sm text-text-secondary">Brak linii pasujących do wyszukiwania.</p>
+        <div className="flex flex-col items-start gap-2 py-2">
+          <p className="text-sm text-text-secondary">Brak pasujących linii</p>
+          {onClear !== undefined && (
+            <button type="button" onClick={onClear} className="btn-primary">
+              Wyczyść filtry
+            </button>
+          )}
+        </div>
       ) : (
         <ul>
           {lines.map((entry) => {
@@ -174,15 +193,16 @@ export function LineResults({ lines, city }: { lines: LineListEntry[]; city: str
                 <Link
                   href={lineHref(city, entry.routeId)}
                   aria-label={chip === '' ? lineName(entry) : `${lineName(entry)}, ${chip}`}
-                  className={`flex min-h-12 items-center gap-2.5 rounded-lg px-1 py-1.5 ${HOVER} ${FOCUS_RING}`}
+                  className={`control-44 flex items-center gap-2.5 rounded-lg px-1 py-1.5 ${HOVER} ${FOCUS_RING}`}
                 >
                   <LineBadge line={entry.line} mode={entry.mode} kind={entry.kind} />
-                  <span className="min-w-0 truncate text-sm text-foreground">
+                  <span className="min-w-0 flex-1 text-sm text-foreground [overflow-wrap:anywhere]">
                     <Direction entry={entry} />
                   </span>
                   {chip !== '' && (
-                    <span className="ml-auto whitespace-nowrap rounded-full bg-black/5 px-2 py-0.5 text-xs text-text-secondary dark:bg-white/10">{chip}</span>
+                    <span className="whitespace-nowrap rounded-full bg-black/5 px-2 py-0.5 text-xs text-text-secondary dark:bg-white/10">{chip}</span>
                   )}
+                  <ChevronRightIcon size={ICON_SIZE.button} className="flex-none text-text-muted" />
                 </Link>
               </li>
             )
