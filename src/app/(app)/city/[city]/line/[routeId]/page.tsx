@@ -1,48 +1,58 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { startTransition, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { notFound, useParams } from 'next/navigation'
+import { notFound, useParams, useSearchParams } from 'next/navigation'
 import { PageTitle } from '@/components/PageTitle'
 import { TopBar } from '@/components/TopBar'
-import { AlertBanner } from '@/components/AlertBanner'
+import { ContextAlerts } from '@/components/ContextAlerts'
 import { LineBadge } from '@/components/LineBadge'
-import { OnRequestBadge } from '@/components/OnRequestBadge'
+import { LineRouteList } from '@/components/LineRouteList'
 import { LineTimetable } from '@/components/LineTimetable'
 import { MapView, type MapMover, type MapPin } from '@/components/MapView'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
+import { TabCrossfade } from '@/components/TabCrossfade'
+import { TransitFetchStatus } from '@/components/TransitFetchStatus'
 import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { AsideCard, PageShell } from '@/components/aside'
-import { AccessibleIcon, ArrowRightIcon, ChevronRightIcon, SwapIcon, VehicleHeadingIcon, ICON_SIZE } from '@/components/icons'
-import { LINE_KIND_LABEL, MODE_LABEL, darkRingClass, lineColor } from '@/components/transitMode'
+import { AlertCircleIcon, ArrowLeftIcon, ChevronRightIcon, ICON_SIZE, MapIcon, SwapIcon } from '@/components/icons'
+import { LINE_KIND_LABEL, MODE_ICON, MODE_LABEL } from '@/components/transitMode'
+import { formatAgo, formatSecondsOfDay } from '@/lib/format'
+import { dedupeAlerts } from '@/lib/gtfs/alertView'
+import { getCity } from '@/lib/gtfs/cities'
+import { lineViewPatch, parseLineViewState, resolveLineView, type LinePane, type LineViewState } from '@/lib/lineViewState'
 import { pluralPl } from '@/lib/plural'
-import { formatSecondsOfDay } from '@/lib/format'
+import { patchUrlParams } from '@/lib/urlState'
 import { useCities } from '@/hooks/useCities'
-import { isLineLoading } from '@/hooks/useLineDetail'
-import { useLineVehicles } from '@/hooks/useLineVehicles'
+import { deriveLineAlerts, isLineLoading, lineRefreshMs, type LineResponse } from '@/hooks/useLineDetail'
+import { useLineVehicles, type LineVehiclesState } from '@/hooks/useLineVehicles'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useNearViewport } from '@/hooks/useNearViewport'
 import { useRecentLines } from '@/hooks/useRecentLines'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
-import { hasCustomStroke, strokeFor } from '@/components/map/mapData'
 import type { LineDetail } from '@/lib/gtfs/query'
 import type { LineKind } from '@/lib/gtfs/types'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } from '@/lib/validation'
 
-type LineResponse = {
-  city: string
+/** Odpowiedź `/api/gtfs/line`: typ z hooka (stan komunikatów) + pola, których strona używa dodatkowo. */
+type PageLineResponse = LineResponse & {
   schedule: TransitBoardResponse['schedule']
-  line: LineDetail | null
-  /** `null` = feed alertów jeszcze nie odpowiedział (nieznane); `isLineLoading` ponawia do skutku. */
-  alerts: import('@/lib/gtfs/alerts').AlertRecord[] | null
-  /** Stan feedu komunikatów (`toContextAlertsState`); tylko typ — konsumuje go dopiero ekran linii (PR7). */
-  alertFeed?: import('@/lib/gtfs/alertView').AlertFeedStatus | null
   attribution: string[]
 }
 
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
+
+/** Tailwind `lg` (64rem): od niego trasa i rozkład stoją obok siebie. SSR zakłada „szeroko” (bez mignięcia na desktopie). */
+const LG_UP = '(min-width: 64rem)'
+
+const PANES: { key: LinePane; label: string }[] = [
+  { key: 'route', label: 'Trasa' },
+  { key: 'timetable', label: 'Rozkład' },
+]
 
 /** Przystanek, za którym jest pojazd — jeden konkretny, więc z numerem („za „Centrum 02”"). */
 function afterStopName(stops: typeof NO_STOPS, index: number): string {
@@ -59,29 +69,40 @@ export default function LineDetailPage() {
     notFound()
   }
 
-  const { cities } = useCities()
-  const [dirIdx, setDirIdx] = useState(0)
-  const [stopSel, setStopSel] = useState(0)
-  /** Poniżej `lg` jedna sekcja naraz (trasa albo rozkład); od `lg` obie obok siebie i stan nic nie zmienia. */
-  const [pane, setPane] = useState<'route' | 'timetable'>('route')
-  const paneSwitchRef = useRef<HTMLDivElement>(null)
-  const [selectedBaseSec, setSelectedBaseSec] = useState<number | null>(null)
+  // `key`: wybór kierunku, przystanku i widoku nie przechodzi na inną linię.
+  return <LineDetailView key={`${city}/${routeId}`} city={city} routeId={routeId} />
+}
 
-  // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje; po błędzie ponowienie co 30 s.
-  const { data, error } = usePolling<LineResponse>(
+function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
+  const { cities } = useCities()
+  const searchParams = useSearchParams()
+  const lgUp = useMediaQuery(LG_UP, true)
+  // `undefined` = idź za URL-em, inaczej wybór usera w tej sesji (jak w `TransitStopDetail`).
+  const [dirChoice, setDirChoice] = useState<number | undefined>(undefined)
+  const [stopChoice, setStopChoice] = useState<string | null | undefined>(undefined)
+  const [paneChoice, setPaneChoice] = useState<LinePane | undefined>(undefined)
+  /** Wybrany kurs (start z pierwszego przystanku) — zawsze lokalny, nigdy w URL-u; ważny tylko dla kierunku, w którym go wybrano. */
+  const [base, setBase] = useState<{ directionId: number; sec: number } | null>(null)
+  const segmentRef = useRef<HTMLDivElement>(null)
+  const alertsRef = useRef<HTMLDivElement>(null)
+  const mapHeadingId = useId()
+
+  // Jedno pobranie z ponawianiem (drabinka `usePolling`, nigdy się nie poddaje), dopóki rozkład się wczytuje albo alerty są nieznane; po błędzie ponowienie co 30 s.
+  const { data, error, lastSuccessAt, refresh } = usePolling<PageLineResponse>(
     `${city}:${routeId}`,
     () => fetchJson(`/api/gtfs/line?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}`),
-    { refreshMs: null, isLoading: isLineLoading }
+    { refreshMs: lineRefreshMs, isLoading: isLineLoading }
   )
   const failed = error !== null
 
   const entry = useMemo(() => cities.find((option) => option.id === city) ?? null, [cities, city])
   const cityName = entry?.name ?? city
+  const timeZone = getCity(city)?.timezone ?? 'Europe/Warsaw'
 
   const line = data?.line ?? null
 
   // „Ostatnio oglądane": zapis dopiero, gdy linia się wczytała (nigdy dla nieznanego id)
-  // i tylko raz na trasę — nie przy każdym odświeżeniu danych.
+  // i tylko raz na trasę — nie przy każdym odświeżeniu danych ani zmianie motywu.
   const { record: recordRecent } = useRecentLines(city)
   const recordedRef = useRef<string | null>(null)
   const lineKnown = line !== null
@@ -92,20 +113,38 @@ export default function LineDetailPage() {
     recordRecent(routeId)
   }, [lineKnown, city, routeId, recordRecent])
 
-  const loading = data === null && !failed
+  // Stan widoku: URL (`dir`, `stop`, `pane`, `day`) nadpisany wyborami z tej sesji; dane rozstrzygają, co jest poprawne.
+  const urlView = parseLineViewState(searchParams)
+  const view: LineViewState = {
+    directionId: dirChoice !== undefined ? dirChoice : urlView.directionId,
+    stopId: stopChoice !== undefined ? stopChoice : urlView.stopId,
+    pane: paneChoice ?? urlView.pane,
+    day: urlView.day,
+  }
   const directions = line?.directions ?? []
-  const direction = directions[Math.min(dirIdx, Math.max(0, directions.length - 1))]
+  // Kopia tablicy: React Compiler uznaje argument wywołania za możliwie mutowany i odrzuca `useMemo` mapy niżej (`stops` pochodzi z `directions`).
+  const resolved = resolveLineView(view, [...directions])
+  const direction = resolved === null ? undefined : directions[resolved.directionIndex]
   const stops = direction?.stops ?? NO_STOPS
-  const selectedStop = stops[Math.min(stopSel, Math.max(0, stops.length - 1))]
+  const selectedStop = resolved === null ? undefined : stops[resolved.stopIndex]
+  const pane = view.pane
+  const selectedBaseSec = base !== null && direction?.directionId === base.directionId ? base.sec : null
 
-  // Endpoint pozycji przyjmuje wyłącznie kierunek 0/1; przebieg bywa oznaczony
-  // `2` (nieznany) — wtedy hook nie pyta i nie renderujemy markerów ani karty.
-  const vehicleDir = direction?.directionId === 1 ? 1 : 0
+  const alertsView = deriveLineAlerts(data, failed)
+  const alertList = data?.alerts ?? null
+  const alertCount = alertList === null ? 0 : dedupeAlerts(alertList).length
+
+  const scheduleLoading = data !== null && line === null && data.schedule.state === 'loading'
+  const loading = (data === null && !failed) || scheduleLoading
+  const loadFailed = (data === null && failed) || (data !== null && line === null && data.schedule.state === 'failed')
+
+  // Endpoint pozycji przyjmuje wyłącznie kierunek 0/1; przebieg bywa oznaczony `2` (nieznany) — wtedy hook nie pyta
+  // i nie renderujemy markerów ani listy pojazdów.
   const showVehicles = direction !== undefined && (direction.directionId === 0 || direction.directionId === 1)
-  const liveVehicles = useLineVehicles(city, routeId, showVehicles ? vehicleDir : 2)
+  const liveVehicles = useLineVehicles(city, routeId, showVehicles ? direction.directionId : 2)
 
   // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam przystanek może wystąpić
-  // dwa razy), pojazdy z tego samego pollingu co karta „Pojazdy w trasie" -- zero nowych zapytań.
+  // dwa razy), pojazdy z tego samego pollingu co lista „Pojazdy w trasie" -- zero nowych zapytań.
   const mapPins = useMemo<MapPin[]>(
     () =>
       stops.map((stop, index) => ({
@@ -121,9 +160,6 @@ export default function LineDetailPage() {
   )
   // Rodzaj do koloru mapy; `'regular'` tylko na czas ładowania linii — sekcja mapy renderuje się dopiero, gdy `line` jest znane.
   const mapKind: LineKind = line?.kind ?? 'regular'
-  // Paleta linii liczona raz (oś czasu: kropki pojazdów). Czerń/granat (nocna/lokalna) giną na ciemnej karcie — jasny pierścień zamiast pierścienia w kolorze tła (ta sama reguła co plakietki, `darkRingClass`).
-  const palette = lineColor(line?.mode ?? 'bus', mapKind)
-  const dotDarkRing = darkRingClass(mapKind) !== '' ? 'dark:ring-white/40' : 'dark:ring-slate-900'
   const mapRoute = useMemo(
     () => ({ points: direction?.shape?.map(([lat, lon]) => ({ lat, lon })) ?? stops, mode: line?.mode ?? 'bus', kind: mapKind }),
     [direction?.shape, stops, line?.mode, mapKind]
@@ -141,13 +177,45 @@ export default function LineDetailPage() {
     }))
   }, [showVehicles, liveVehicles.vehicles, stops, line?.mode, mapKind])
   const { resolvedTheme } = useTheme()
-  const onMapPinClick = useCallback((id: string) => setStopSel(Number(id)), [])
+  // MapLibre (WebGL, worker, kafelki) startuje dopiero, gdy sekcja zbliży się do ekranu — raz, bez odmontowania.
+  const [mapSectionRef, mapNear] = useNearViewport()
+
+  function selectPane(next: LinePane): void {
+    startTransition(() => setPaneChoice(next))
+    patchUrlParams(lineViewPatch({ ...view, pane: next }))
+  }
 
   function switchDirection(): void {
-    setDirIdx((i) => (i + 1) % Math.max(1, directions.length))
-    setStopSel(0)
-    setSelectedBaseSec(null)
+    if (resolved === null) return
+    const next = directions[(resolved.directionIndex + 1) % directions.length]
+    setDirChoice(next.directionId)
+    setStopChoice(null)
+    setBase(null)
+    patchUrlParams(lineViewPatch({ ...view, directionId: next.directionId, stopId: null }))
   }
+
+  /** `openTimetable`: wybór z listy trasy — poniżej `lg` przystanek wybiera się po to, żeby zobaczyć jego rozkład. */
+  function selectStop(stopId: string, openTimetable: boolean): void {
+    if (direction === undefined) return
+    const toTimetable = openTimetable && !lgUp && pane !== 'timetable'
+    setStopChoice(stopId)
+    if (toTimetable) {
+      startTransition(() => setPaneChoice('timetable'))
+      segmentRef.current?.scrollIntoView?.({ block: 'nearest' })
+    }
+    patchUrlParams(lineViewPatch({ ...view, directionId: direction.directionId, stopId, pane: toTimetable ? 'timetable' : pane }))
+  }
+
+  // `MapView` montuje mapę od nowa przy każdej zmianie `onPinClick` (Trap 2, `maps.md`) — a `selectStop` zmienia tożsamość przy
+  // każdym renderze. Stały wrapper z ref-em: klik w pin nie niszczy własnego popupu.
+  const onPinRef = useRef<(id: string) => void>(() => {})
+  useEffect(() => {
+    onPinRef.current = (id) => {
+      const stop = stops[Number(id)]
+      if (stop !== undefined) selectStop(stop.stopId, false)
+    }
+  })
+  const onMapPinClick = useCallback((id: string) => onPinRef.current(id), [])
 
   const asideContent = (
     <>
@@ -178,34 +246,37 @@ export default function LineDetailPage() {
         </AsideCard>
       )}
 
-      {showVehicles && direction !== undefined && (
+      {/* Stan pozycji (wczytywanie / błąd / brak feedu / brak pojazdów) mówi wiersz „Pojazdy w tym kierunku" w głównej kolumnie — tu tylko lista. */}
+      {showVehicles && direction !== undefined && liveVehicles.vehicles.length > 0 && (
         <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
-          {liveVehicles.error !== null && liveVehicles.vehicles.length === 0 ? (
-            <p className="text-xs text-error-text">Nie udało się pobrać pozycji.</p>
-          ) : liveVehicles.feed.state === 'loading' ? (
-            <p className="text-xs text-text-muted">Wczytywanie pozycji…</p>
-          ) : liveVehicles.vehicles.length === 0 ? (
-            <p className="text-xs text-text-muted">Brak pojazdów w trasie w tym kierunku.</p>
-          ) : (
-            <ul className="flex flex-col gap-1.5 text-xs">
-              {liveVehicles.vehicles
-                .slice()
-                .sort((a, b) => a.afterStopOrder - b.afterStopOrder)
-                .map((v) => (
-                  <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
-                    <span className="text-foreground">#{v.sideNumber}</span>
-                    <span className="text-text-muted">
-                      za „{afterStopName(stops, v.afterStopOrder)}”
-                      {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
-                    </span>
-                  </li>
-                ))}
-            </ul>
-          )}
+          <ul className="flex flex-col gap-1.5 text-xs">
+            {liveVehicles.vehicles
+              .slice()
+              .sort((a, b) => a.afterStopOrder - b.afterStopOrder)
+              .map((v) => (
+                <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
+                  <span className="text-foreground">#{v.sideNumber}</span>
+                  <span className="text-text-muted">
+                    za „{afterStopName(stops, v.afterStopOrder)}”
+                    {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
+                  </span>
+                </li>
+              ))}
+          </ul>
         </AsideCard>
       )}
     </>
   )
+
+  const catalogLink = (
+    <Link href={`/city/${city}/lines`} className="chip-filter mt-3 gap-1.5">
+      <ArrowLeftIcon size={ICON_SIZE.button} />
+      Wróć do katalogu linii
+    </Link>
+  )
+
+  const headsign = direction === undefined ? '' : directionName(direction)
+  const Icon = line === null ? null : MODE_ICON[line.mode]
 
   return (
     <PageShell aside={asideContent}>
@@ -219,222 +290,258 @@ export default function LineDetailPage() {
         ]}
       />
 
-        {line !== null && (
+      {line !== null && Icon !== null && (
+        <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-3">
               <LineBadge line={line.line} mode={line.mode} kind={line.kind} />
               <PageTitle>{line.longName}</PageTitle>
             </div>
-            <p className="text-sm text-text-secondary">
-              {MODE_LABEL[line.mode]}
-              {LINE_KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · linia {LINE_KIND_LABEL[line.kind]}</span>}
+            <p data-testid="line-mode" className="flex items-center gap-1.5 text-sm text-text-secondary">
+              <Icon size={ICON_SIZE.inline} />
+              <span>
+                {MODE_LABEL[line.mode]}
+                {LINE_KIND_LABEL[line.kind] !== '' && <span className="text-text-muted"> · linia {LINE_KIND_LABEL[line.kind]}</span>}
+              </span>
             </p>
-            {data?.alerts != null && data.alerts.length > 0 && <AlertBanner alerts={data.alerts} />}
-            {data !== null && (
-              <ScheduleStatus schedule={data.schedule} cityName={cityName} title={`Rozkład jazdy linii ${line.line}`} error={failed} />
-            )}
           </div>
-        )}
 
-        {failed && data === null ? (
-          <p className="text-sm text-error-text">Nie udało się pobrać przebiegu linii.</p>
-        ) : loading ? (
-          <p className="text-sm text-text-secondary">Wczytywanie przebiegu linii…</p>
-        ) : line === null || direction === undefined ? (
-          <p className="text-sm text-text-secondary">
-            {data?.schedule.state === 'loading' ? 'Wczytywanie rozkładu…' : 'Nie znaleziono takiej linii w rozkładzie.'}
-          </p>
-        ) : (
-          <>
+          {direction !== undefined && (
+            <div className="glass flex items-start gap-3 rounded-2xl p-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-text-muted">Kierunek</p>
+                <p className="text-lg font-bold leading-snug text-foreground [overflow-wrap:anywhere]">{headsign}</p>
+                {direction.origin != null && direction.origin !== '' && <p className="mt-0.5 text-sm text-text-secondary [overflow-wrap:anywhere]">{`Od: ${direction.origin}`}</p>}
+              </div>
+              {directions.length >= 2 && (
+                <button type="button" onClick={switchDirection} className="chip-filter shrink-0 gap-2 text-primary-text">
+                  <SwapIcon size={ICON_SIZE.button} />
+                  Zmień kierunek
+                </button>
+              )}
+            </div>
+          )}
+
+          {alertCount > 0 && (
             <button
               type="button"
-              onClick={switchDirection}
-              disabled={directions.length < 2}
-              className="press inline-flex w-fit items-center gap-2 rounded-full border border-surface-border px-3.5 py-1.5 text-sm font-semibold text-foreground transition max-sm:min-h-11 enabled:hover:bg-black/5 disabled:opacity-60 dark:enabled:hover:bg-white/10"
+              onClick={() => alertsRef.current?.scrollIntoView?.({ block: 'start' })}
+              className="press flex min-h-11 w-full items-center gap-2 rounded-xl border border-warning-text bg-surface-strong px-3 text-left text-sm font-medium text-warning-text focus-visible:outline-2 focus-visible:outline-primary-text"
             >
-              {/* Spacje tekstowe: w flexie nie zmieniają układu, a nazwa dostępna nie skleja się w „CentrumdoDworzec”. */}
-              <span>{direction.origin ?? stops[0]?.name}</span>{' '}
-              <ArrowRightIcon size={ICON_SIZE.chip} label="do" className="text-text-muted" />{' '}
-              <span>{direction.headsign ?? stops.at(-1)?.name ?? `Kierunek ${direction.directionId + 1}`}</span>{' '}
-              {directions.length >= 2 && <SwapIcon size={ICON_SIZE.button} label="zmień kierunek" className="ml-1 text-indigo-600 dark:text-indigo-400" />}
+              <AlertCircleIcon size={ICON_SIZE.button} />
+              <span className="min-w-0 flex-1">{`${alertCount} ${pluralPl(alertCount, 'komunikat', 'komunikaty', 'komunikatów')}`}</span>
+              <ChevronRightIcon size={ICON_SIZE.button} />
             </button>
+          )}
 
-            {/* W treści głównej, nie w aside: aside schodzi pod treść poniżej `xl`, a mapa ma być tuż pod nagłówkiem trasy, także na telefonie. */}
-            {stops.length >= 2 && (
-              <section className="glass rounded-2xl p-4">
-                <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
-                <MapView
-                  pins={mapPins}
-                  route={mapRoute}
-                  movers={mapMovers}
-                  onPinClick={onMapPinClick}
-                  ariaLabel={`Mapa trasy linii ${line.line}`}
-                  dark={resolvedTheme === 'dark'}
-                />
-              </section>
-            )}
+          <div>
+            {data !== null && <ScheduleStatus schedule={data.schedule} cityName={cityName} title={`Rozkład jazdy linii ${line.line}`} error={failed} />}
+            <TransitFetchStatus lastSuccessAt={lastSuccessAt} refreshFailed={failed && data !== null} timeZone={timeZone} onRefresh={refresh} />
+          </div>
+        </div>
+      )}
 
-            <div ref={paneSwitchRef} role="group" aria-label="Widok linii" className="glass flex w-max gap-1 rounded-full p-1 lg:hidden">
-              {(['route', 'timetable'] as const).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  aria-pressed={pane === key}
-                  onClick={() => setPane(key)}
-                  className={`min-h-11 rounded-full px-5 text-sm font-medium transition ${pane === key ? 'text-white shadow-sm' : 'text-text-secondary hover:text-foreground'}`}
-                  style={pane === key ? { background: 'var(--accent-gradient)' } : undefined}
-                >
-                  {key === 'route' ? 'Trasa' : 'Rozkład'}
-                </button>
-              ))}
-            </div>
+      {loading ? (
+        // Szkielet nagłówka i listy przystanków: bloki są dekoracją, czytnik dostaje jedno zdanie.
+        <div data-testid="line-loading" aria-busy="true" className="glass rounded-2xl p-4 sm:p-6">
+          <PageTitle>Przebieg linii</PageTitle>
+          <p role="status" className="mt-2 text-sm text-text-secondary">
+            {scheduleLoading ? 'Wczytywanie rozkładu…' : 'Wczytywanie przebiegu linii…'}
+          </p>
+          <div aria-hidden="true" className={`${SKELETON_BLOCK} mt-3 h-14 w-full`} />
+          <div className="mt-5 flex flex-col gap-4 border-t border-surface-border pt-4">
+            {[0, 1, 2, 3, 4].map((row) => (
+              <div key={row} aria-hidden="true" className="flex items-center gap-3">
+                <div className={`${SKELETON_BLOCK} h-3 w-3 shrink-0 rounded-full`} />
+                <div className={`${SKELETON_BLOCK} h-5 w-3/5`} />
+                <div className={`${SKELETON_BLOCK} ml-auto h-5 w-12`} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : loadFailed ? (
+        <div className="glass rounded-2xl p-4 sm:p-6">
+          <PageTitle>Przebieg linii</PageTitle>
+          <p role="status" className="mt-2 text-sm text-error-text">
+            Nie udało się pobrać przebiegu linii.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={refresh} className="btn-primary mt-3">
+              Spróbuj ponownie
+            </button>
+            {catalogLink}
+          </div>
+        </div>
+      ) : line === null ? (
+        <div className="glass rounded-2xl p-4 sm:p-6">
+          <PageTitle>Przebieg linii</PageTitle>
+          <p className="mt-2 text-sm text-text-secondary">Nie znaleziono linii</p>
+          {catalogLink}
+        </div>
+      ) : (
+        <>
+          {direction === undefined ? (
+            <p role="status" className="text-sm text-text-secondary">
+              Brak przebiegu tej linii.
+            </p>
+          ) : (
+            <>
+              {/* Poniżej `lg` jedna sekcja naraz; od `lg` obie obok siebie i przełącznik jest schowany. */}
+              <div ref={segmentRef} role="group" aria-label="Widok linii" className="segment grid w-full grid-cols-2 lg:hidden">
+                {PANES.map((item) => (
+                  <button key={item.key} type="button" aria-pressed={pane === item.key} onClick={() => selectPane(item.key)} className="segment-item">
+                    {item.label}
+                  </button>
+                ))}
+              </div>
 
-            <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-              <section className={`glass rounded-2xl p-4 ${pane === 'route' ? '' : 'max-lg:hidden'}`}>
-                <h2 className="text-sm font-bold text-foreground">
-                  Trasa linii · {stops.length} {pluralPl(stops.length, 'przystanek', 'przystanki', 'przystanków')}
-                </h2>
-                <ol className="mt-3">
-                  {stops.map((stop, index) => {
-                    const active = index === stopSel
-                    const first = index === 0
-                    const last = index === stops.length - 1
-                    const passSec = selectedBaseSec !== null ? selectedBaseSec + stop.offsetSec : null
-                    return (
-                      <li key={`${stop.stopId}-${index}`} className="flex gap-3">
-                        <div className="flex flex-col items-center pt-1.5">
-                          {first || last ? (
-                            <span
-                              className="h-2.5 w-2.5 shrink-0"
-                              style={{ background: active ? 'var(--accent-solid)' : 'var(--foreground)' }}
-                              aria-hidden="true"
-                            />
-                          ) : stop.onRequest ? (
-                            <span
-                              className="h-2.5 w-2.5 shrink-0 rounded-full border-2 bg-transparent"
-                              style={{ borderColor: active ? 'var(--accent-solid)' : 'var(--foreground)' }}
-                              aria-hidden="true"
-                            />
-                          ) : (
-                            <span
-                              className="h-2.5 w-2.5 shrink-0 rounded-full"
-                              style={{ background: active ? 'var(--accent-solid)' : 'var(--foreground)' }}
-                              aria-hidden="true"
-                            />
-                          )}
-                          {!last && (
-                            <span className="relative mt-1 w-0.5 flex-1 bg-surface-border">
-                              {showVehicles &&
-                                liveVehicles.vehicles
-                                  .filter((v) => v.afterStopOrder === index)
-                                  .map((v) => (
-                                    <span
-                                      key={v.sideNumber + v.tripId}
-                                      title={`Pojazd ${v.sideNumber}${v.ageSec > 60 ? ` · ${Math.round(v.ageSec / 60)} min temu` : ''}`}
-                                      data-testid="timeline-vehicle"
-                                      className={`absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full text-white shadow ring-2 ring-white ${dotDarkRing}`}
-                                      style={{
-                                        top: `${v.fraction * 100}%`,
-                                        // Kolor rodzaju jak na mapie; strzałka = kierunek jazdy NA OSI (w dół
-                                        // listy), nie `v.bearing` — geograficzny azymut na pionowej,
-                                        // schematycznej osi nie wskazuje niczego sensownego (ten idzie na mapę).
-                                        backgroundColor: palette.bg,
-                                        color: palette.fg,
-                                        transform: 'translateY(-50%)',
-                                        // Żółte metro na białym pierścieniu jasnej karty znika — pierścień w kolorze obrysu z mapy.
-                                        ...(hasCustomStroke(palette.bg) ? ({ '--tw-ring-color': strokeFor(palette.bg) } as CSSProperties) : {}),
-                                      }}
-                                    >
-                                      <VehicleHeadingIcon className="h-2.5 w-2.5 rotate-180" />
-                                      <span className="sr-only">
-                                        Pojazd {v.sideNumber}
-                                        {v.ageSec > 60 ? `, ${Math.round(v.ageSec / 60)} min temu` : ''}
-                                      </span>
-                                    </span>
-                                  ))}
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+                {/* Poniżej `lg` nieaktywna sekcja jest odmontowana (nie tylko schowana): wejście nowej to crossfade. */}
+                {(lgUp || pane === 'route') && (
+                  <TabCrossfade id="route" name="line-pane">
+                    <section className={`glass rounded-2xl p-4 ${pane === 'route' ? '' : 'max-lg:hidden'}`}>
+                      <LineRouteList
+                        city={city}
+                        stops={stops}
+                        selectedStopId={selectedStop?.stopId ?? null}
+                        selectedBaseSec={selectedBaseSec}
+                        onSelectStop={(stopId) => selectStop(stopId, true)}
+                        vehicles={showVehicles ? liveVehicles.vehicles : undefined}
+                        mode={line.mode}
+                        kind={line.kind}
+                      />
+                    </section>
+                  </TabCrossfade>
+                )}
+
+                {(lgUp || pane === 'timetable') && (
+                  <TabCrossfade id="timetable" name="line-pane">
+                    <section className={`glass rounded-2xl p-4 ${pane === 'timetable' ? '' : 'max-lg:hidden'}`}>
+                      <h2 className="text-sm font-bold text-foreground">Rozkład</h2>
+                      {/* Kapsuła kontekstu: stała pozycja, zmienia się tylko tekst. */}
+                      <div
+                        role="group"
+                        aria-label="Wybrany rozkład"
+                        className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-surface-border bg-surface-strong px-3 py-2 text-sm"
+                      >
+                        <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
+                        <span aria-hidden="true" className="text-text-muted">
+                          ·
+                        </span>
+                        <span className="min-w-0 font-semibold text-foreground [overflow-wrap:anywhere]">{headsign}</span>
+                        {selectedStop !== undefined && (
+                          <>
+                            <span aria-hidden="true" className="text-text-muted">
+                              ·
                             </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setStopSel(index)
-                            // Telefon: przystanek wybiera się po to, żeby zobaczyć jego rozkład.
-                            if (pane !== 'timetable') {
-                              setPane('timetable')
-                              paneSwitchRef.current?.scrollIntoView({ block: 'nearest' })
-                            }
-                          }}
-                          aria-pressed={active}
-                          className={`press mb-2 flex flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm transition max-sm:min-h-11 max-sm:items-center ${
-                            active ? 'bg-black/5 font-semibold text-foreground dark:bg-white/10' : 'text-text-secondary hover:text-foreground'
-                          }`}
+                            <span className="min-w-0 text-foreground [overflow-wrap:anywhere]">{stopDisplayName(selectedStop.name, selectedStop.code)}</span>
+                          </>
+                        )}
+                      </div>
+                      {selectedStop !== undefined && (
+                        <Link
+                          href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
+                          className="mt-2 inline-flex items-center gap-0.5 text-sm font-medium text-primary-text hover:underline focus-visible:outline-2 focus-visible:outline-primary-text max-sm:min-h-11"
                         >
-                          <span className={`min-w-0 flex-1 ${first || last ? 'font-semibold text-foreground' : ''}`}>
-                            {stopDisplayName(stop.name, stop.code)}
-                            {stop.onRequest && (
-                              <span className="ml-1.5 inline-block align-middle">
-                                <OnRequestBadge />
-                              </span>
-                            )}
-                            {(first || last) && (
-                              <span className="ml-1.5 text-xs uppercase tracking-[0.08em] text-text-muted">
-                                {first ? 'początek' : 'koniec'}
-                              </span>
-                            )}
-                            {stop.street !== null && (
-                              <span className="ml-2 text-xs text-text-muted">{stop.street}</span>
-                            )}
-                          </span>
-                          {stop.wheelchair === 2 && (
-                            <AccessibleIcon
-                              size={ICON_SIZE.chip}
-                              className="shrink-0 self-center text-warning-text"
-                              label="Przystanek niedostępny dla osób na wózku"
-                            />
-                          )}
-                          {passSec !== null ? (
-                            <span className="shrink-0 font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">{formatSecondsOfDay(passSec)}</span>
-                          ) : (
-                            index > 0 && <span className="shrink-0 text-xs tabular-nums text-text-muted">+{Math.round(stop.offsetSec / 60)} min</span>
-                          )}
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ol>
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} aria-hidden="true" /> na żądanie</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek krańcowy</span>
-                </div>
-              </section>
+                          Odjazdy z przystanku
+                          <ChevronRightIcon size={ICON_SIZE.inline} />
+                        </Link>
+                      )}
+                      <LineTimetable
+                        blocks={direction.departures}
+                        offsetSec={selectedStop?.offsetSec ?? 0}
+                        selectedBaseSec={selectedBaseSec}
+                        onSelect={(sec) => setBase(sec === null ? null : { directionId: direction.directionId, sec })}
+                      />
+                    </section>
+                  </TabCrossfade>
+                )}
 
-              <section className={`glass rounded-2xl p-4 ${pane === 'timetable' ? '' : 'max-lg:hidden'}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-bold text-foreground">Rozkład — {selectedStop !== undefined ? stopDisplayName(selectedStop.name, selectedStop.code) : ''}</h2>
-                  {selectedStop !== undefined && (
-                    <Link
-                      href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
-                      className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-                    >
-                      pełna tablica przystanku
-                      <ChevronRightIcon size={ICON_SIZE.inline} className="ml-0.5 inline align-[-2px]" />
-                    </Link>
+                {/* Mapa i pozycje pod listą trasy (nie w aside: aside schodzi pod treść poniżej `xl`); od `lg` na całą szerokość pod obiema sekcjami. */}
+                <div className={`flex min-w-0 flex-col gap-4 lg:col-span-2 ${pane === 'route' ? '' : 'max-lg:hidden'}`}>
+                  {stops.length >= 2 && (
+                    <section ref={mapSectionRef} aria-labelledby={mapHeadingId} className="glass rounded-2xl p-3 sm:p-4">
+                      <h2 id={mapHeadingId} className="mb-2 text-sm font-bold text-foreground">
+                        Mapa trasy
+                      </h2>
+                      {mapNear ? (
+                        <MapView
+                          pins={mapPins}
+                          route={mapRoute}
+                          movers={mapMovers}
+                          onPinClick={onMapPinClick}
+                          ariaLabel={`Mapa trasy linii ${line.line}`}
+                          dark={resolvedTheme === 'dark'}
+                          compact={!lgUp}
+                        />
+                      ) : (
+                        // Rezerwa wysokości = wysokość mapy, żeby wejście mapy nie przesuwało układu.
+                        <div className={lgUp ? 'h-64' : 'h-44'} aria-hidden="true" />
+                      )}
+                    </section>
                   )}
+                  <VehiclesRow city={city} routeId={routeId} directionId={direction.directionId} showVehicles={showVehicles} live={liveVehicles} />
                 </div>
-                <LineTimetable
-                  blocks={direction.departures}
-                  offsetSec={selectedStop?.offsetSec ?? 0}
-                  selectedBaseSec={selectedBaseSec}
-                  onSelect={setSelectedBaseSec}
-                />
-              </section>
-            </div>
-          </>
-        )}
+              </div>
+            </>
+          )}
 
-        {data !== null && <AttributionFooter attribution={data.attribution} />}
+          <div ref={alertsRef} className="glass scroll-mt-20 rounded-2xl p-4">
+            <ContextAlerts alerts={alertList} state={alertsView.state} stale={alertsView.stale} scopeLabel={`Komunikaty linii ${line.line}`} />
+          </div>
+        </>
+      )}
+
+      {data !== null && <AttributionFooter attribution={data.attribution} />}
     </PageShell>
+  )
+}
+
+const SKELETON_BLOCK = 'animate-pulse rounded bg-black/5 dark:bg-white/5'
+
+/** Nazwa kierunku: pełny headsign; bez niego ostatni przystanek TEGO kierunku; bez przystanków „Kierunek nieznany" (origin nie jest celem). */
+function directionName(direction: LineDetail['directions'][number]): string {
+  const headsign = direction.headsign?.trim()
+  if (headsign) return headsign
+  return direction.stops.at(-1)?.name ?? 'Kierunek nieznany'
+}
+
+/**
+ * Pojazdy kierunku: stan pozycji (osobny od przebiegu i rozkładu, #7) + wejście do mapy. Pozycje to GPS, nie ETA (#13).
+ * Kierunek nieznany (2) nie odpytuje pozycji i nie podaje `dir` — nie podszywamy się pod kierunek 0.
+ */
+function VehiclesRow({ city, routeId, directionId, showVehicles, live }: { city: string; routeId: string; directionId: number; showVehicles: boolean; live: LineVehiclesState }) {
+  const mapHref = `/city/${city}/map?line=${encodeURIComponent(routeId)}${showVehicles ? `&dir=${directionId}` : ''}`
+  let status: ReactNode = null
+  if (!showVehicles) {
+    status = <p className="text-sm text-text-secondary">Kierunek nieznany — pokazujemy pojazdy bez rozróżnienia kierunku.</p>
+  } else if (live.error !== null && live.vehicles.length === 0) {
+    status = <p className="text-sm text-error-text">Nie udało się pobrać pozycji.</p>
+  } else if (live.feed.state === 'loading') {
+    status = <p className="text-sm text-text-secondary">Wczytywanie pozycji…</p>
+  } else if (live.vehicles.length === 0) {
+    status =
+      live.feed.state === 'ready' ? (
+        <p className="text-sm text-text-secondary">Brak pojazdów w tym kierunku.</p>
+      ) : (
+        <p className="text-sm text-text-secondary">Brak danych o pozycjach pojazdów</p>
+      )
+  } else {
+    const newest = Math.min(...live.vehicles.map((v) => v.ageSec))
+    status = (
+      <>
+        <p className="text-sm font-semibold text-foreground">{`Pojazdy w tym kierunku: ${live.vehicles.length}`}</p>
+        <p className="text-xs text-text-secondary">{`GPS: ${formatAgo(newest)}`}</p>
+      </>
+    )
+  }
+  return (
+    <section aria-label="Pojazdy linii" className="glass flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+      <div className="min-w-0 flex-1">{status}</div>
+      <Link href={mapHref} className="chip-filter shrink-0 gap-1.5">
+        <MapIcon size={ICON_SIZE.button} />
+        Pojazdy na mapie
+      </Link>
+    </section>
   )
 }
