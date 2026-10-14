@@ -35,11 +35,20 @@ export async function showBoardContext(page: Page): Promise<void> {
  */
 export async function showBoardMap(page: Page): Promise<void> {
   // Przystanek miejski (PR6): mapa podglądowa stoi w przepływie pod odjazdami, nie w arkuszu „Info” — nic do otwierania.
-  if (new URL(page.url()).pathname.includes('/stop/')) return
+  if (new URL(page.url()).pathname.includes('/stop/')) return scrollToStopMap(page)
   await showBoardContext(page)
   if ((page.viewportSize()?.width ?? 1280) >= 640) return
   const toggle = page.getByRole('dialog', { name: /^Informacje o / }).getByRole('button', { name: 'Mapa', exact: true })
   // Sekcja mapy pojawia się dopiero, gdy znamy lokalizację (stacja: po odpowiedzi pogody).
   await expect(toggle).toBeVisible({ timeout: 45_000 })
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+}
+
+/**
+ * Przystanek miejski na telefonie: MapLibre montuje się dopiero, gdy sekcja „Lokalizacja przystanku” zbliży się do
+ * ekranu (IntersectionObserver), więc region mapy istnieje po przewinięciu do niej. Od `sm` mapa jest w kolumnie.
+ */
+export async function scrollToStopMap(page: Page): Promise<void> {
+  if ((page.viewportSize()?.width ?? 1280) >= 640) return
+  await page.getByRole('heading', { name: 'Lokalizacja przystanku' }).scrollIntoViewIfNeeded({ timeout: 45_000 })
 }
