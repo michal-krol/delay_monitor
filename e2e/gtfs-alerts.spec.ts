@@ -7,7 +7,9 @@ test('linia: aktywny alert z fixture\'u pokazuje baner utrudnienia, alert linii 
   await page.goto('/city/warszawa/line/20')
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
   await expect(page.getByText('Utrudnienia w kursowaniu linii 20')).toBeVisible({ timeout: READY })
-  await expect(page.getByRole('link', { name: /Szczegóły/ })).toHaveAttribute('href', 'https://www.wtp.waw.pl/utrudnienia/test-1/')
+  // `ContextAlerts` (PR7): karta jest zwinięta (`<details>`), link „Źródło komunikatu” pojawia się po rozwinięciu.
+  await page.getByText('Utrudnienia w kursowaniu linii 20').click()
+  await expect(page.getByRole('link', { name: 'Źródło komunikatu' })).toHaveAttribute('href', 'https://www.wtp.waw.pl/utrudnienia/test-1/')
   // W TEJ SAMEJ nawigacji, PO potwierdzeniu, że baner w ogóle się renderuje —
   // inaczej ten test przechodzi nawet gdyby renderowanie alertów było całkiem
   // zepsute (fixture ma trzeci alert bez żadnej linii, ale linia 999 nie jest
@@ -69,7 +71,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const title = page.getByText('Utrudnienia w kursowaniu linii 20')
     await expect(title).toBeVisible({ timeout: READY })
     await title.click() // rozwija treść: skan obejmuje też link źródła i pełne body
-    await expect(page.getByText('Testowy alert na linię 20 (fixture mock).')).toBeVisible()
+    // Skrót (aria-hidden) znika po rozwinięciu; pełna treść to akapit.
+    await expect(page.getByRole('paragraph').filter({ hasText: 'Testowy alert na linię 20 (fixture mock).' })).toBeVisible()
 
     const { violations } = await scanA11y(page)
     const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))

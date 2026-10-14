@@ -79,7 +79,8 @@ test('przystanek metra z dwukropkiem w ID: link z linii prowadzi do tablicy, nie
   // przeładowaniu tego samego URL-a (`decodeStopIdFromPathSegment`).
   await page.goto('/city/warszawa/line/M1')
   await showLineTimetable(page)
-  const link = page.getByRole('link', { name: /pełna tablica przystanku/ })
+  // `exact`: każdy wiersz trasy ma własny link „Odjazdy z przystanku {nazwa}”; tu chodzi o link z sekcji rozkładu.
+  const link = page.getByRole('link', { name: 'Odjazdy z przystanku', exact: true })
   await expect(link).toBeVisible({ timeout: READY })
 
   await link.click()
