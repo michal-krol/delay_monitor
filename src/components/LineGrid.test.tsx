@@ -187,6 +187,11 @@ describe('LineResults', () => {
     expect(onClear).toHaveBeenCalledTimes(1)
   })
 
+  it('an empty result has no „Wyniki · 0" heading', () => {
+    render(<LineResults lines={[]} city="warszawa" />)
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+  })
+
   it('an empty result without onClear offers no button', () => {
     render(<LineResults lines={[]} city="warszawa" />)
     expect(screen.getByText('Brak pasujących linii')).toBeInTheDocument()

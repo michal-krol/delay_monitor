@@ -223,6 +223,30 @@ describe('CityLinesPage', () => {
       expect(window.location.search).toBe('')
     })
 
+    it('returns focus to the field after „Wyczyść filtry" and after the clear button (the button unmounts)', async () => {
+      stubFetch(FULL)
+      const user = userEvent.setup()
+      render(<CityLinesPage />)
+      await screen.findByRole('link', { name: /Linia M1/ })
+      const field = screen.getByRole('searchbox', { name: SEARCH_LABEL })
+      await user.type(field, 'zzzz')
+      await user.click(screen.getByRole('button', { name: 'Wyczyść filtry' }))
+      expect(field).toHaveFocus()
+      await user.type(field, 'm')
+      await user.click(screen.getByRole('button', { name: 'Wyczyść wyszukiwanie' }))
+      expect(field).toHaveFocus()
+    })
+
+    it('announces the result count in a status region while a phrase is typed', async () => {
+      stubFetch(FULL)
+      const user = userEvent.setup()
+      render(<CityLinesPage />)
+      await screen.findByRole('link', { name: /Linia M1/ })
+      expect(screen.getByRole('status')).toHaveTextContent('')
+      await user.type(screen.getByRole('searchbox', { name: SEARCH_LABEL }), 'zzzz')
+      expect(screen.getByRole('status')).toHaveTextContent('Znaleziono: 0 linii')
+    })
+
     it('the clear button empties the field and returns to the sections', async () => {
       stubFetch()
       const user = userEvent.setup()

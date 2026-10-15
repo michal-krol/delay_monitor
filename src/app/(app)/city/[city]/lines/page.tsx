@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, startTransition, useMemo, useState } from 'react'
+import { Suspense, startTransition, useMemo, useRef, useState } from 'react'
 import { notFound, useParams, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { useCityLines } from '@/hooks/useCityLines'
@@ -19,6 +19,7 @@ import { TabCrossfade } from '@/components/TabCrossfade'
 import { MODE_ICON } from '@/components/transitMode'
 import { PageShell } from '@/components/aside'
 import { availableModes, filterCatalogLines, groupByMode, linesViewPatch, MAX_LINES_QUERY, parseLinesView, type LinesView } from '@/lib/linesView'
+import { pluralPl } from '@/lib/plural'
 import { patchUrlParams } from '@/lib/urlState'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { CITY_ID_PATTERN } from '@/lib/validation'
@@ -95,6 +96,7 @@ function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
   const { lines, state, error, refresh, schedule, attribution } = useCityLines(city)
   const [q, setQ] = useState(initial.q)
   const [mode, setMode] = useState(initial.mode)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Ostrzeżenie (wczytywanie, wiek danych, błąd) idzie na górę; wtedy stopka NIE powtarza bloku stanu rozkładu.
   const attention = schedule !== null && scheduleNeedsAttention(schedule, error)
@@ -121,6 +123,8 @@ function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
     setQ('')
     startTransition(() => setMode(null))
     patchUrlParams(linesViewPatch({ q: '', mode: null }))
+    // Przycisk „Wyczyść filtry” znika po kliknięciu — fokus wraca do pola, nie do `<body>`.
+    inputRef.current?.focus()
   }
 
   return (
@@ -154,6 +158,7 @@ function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
           <form role="search" onSubmit={(event) => event.preventDefault()} className="relative">
             <SearchIcon size={ICON_SIZE.button} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-text-muted" />
             <input
+              ref={inputRef}
               type="search"
               enterKeyHint="search"
               autoComplete="off"
@@ -168,13 +173,20 @@ function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
               <button
                 type="button"
                 aria-label="Wyczyść wyszukiwanie"
-                onClick={() => changeQuery('')}
+                onClick={() => {
+                  changeQuery('')
+                  inputRef.current?.focus()
+                }}
                 className={`control-44 absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center justify-center rounded-lg text-text-secondary transition ${HOVER} focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-text`}
               >
                 <CloseIcon size={ICON_SIZE.button} />
               </button>
             )}
           </form>
+          {/* Wynik zmienia się przy pisaniu, a panel jest podmieniany w całości — liczbę ogłasza ten węzeł (bez wiekowych komunikatów listy). */}
+          <p role="status" className="sr-only">
+            {q.trim() === '' ? '' : `Znaleziono: ${shown.length} ${pluralPl(shown.length, 'linia', 'linie', 'linii')}`}
+          </p>
           <ModeChips modes={modes} active={activeMode} onSelect={changeMode} />
           <RecentLines recent={recent} lines={lines} city={city} />
           <TabCrossfade id={activeMode ?? 'all'} name="lines-catalog">

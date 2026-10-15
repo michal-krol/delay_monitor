@@ -174,7 +174,7 @@ function BusSubsections({ lines, city, isOpen, onToggle, openByDefault }: { line
 export function LineResults({ lines, city, onClear }: { lines: LineListEntry[]; city: string; onClear?: () => void }) {
   return (
     <section className="glass rounded-2xl p-3.5">
-      <h2 className="mb-1 text-sm font-bold text-foreground">Wyniki · {lines.length}</h2>
+      {lines.length > 0 && <h2 className="mb-1 text-sm font-bold text-foreground">Wyniki · {lines.length}</h2>}
       {lines.length === 0 ? (
         <div className="flex flex-col items-start gap-2 py-2">
           <p className="text-sm text-text-secondary">Brak pasujących linii</p>
@@ -229,7 +229,7 @@ export function RecentLines({ recent, lines, city }: { recent: string[]; lines: 
           href={lineHref(city, entry.routeId)}
           aria-label={lineName(entry)}
           title={entry.longName}
-          className={`inline-flex min-h-11 items-center rounded-md ${FOCUS_RING}`}
+          className={`control-44 inline-flex items-center justify-center rounded-md ${FOCUS_RING}`}
         >
           <LineBadge line={entry.line} mode={entry.mode} kind={entry.kind} size="sm" />
         </Link>
