@@ -12,6 +12,7 @@ import type { DiscoveryResult } from '@/lib/discovery'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 import { jsonResponse } from '@/test-utils/http'
+import { PanelFrame } from './map/PanelFrame'
 import { MODE_ICON } from './transitMode'
 import { UnifiedSearch } from './UnifiedSearch'
 
@@ -440,5 +441,103 @@ describe('UnifiedSearch', () => {
     expect(screen.getByRole('button', { name: 'Centrum, Zespół przystanków · Warszawa, linie 128' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Linia 128, Pl. Piłsudskiego – Szczęśliwice, Autobus · Warszawa' })).toBeInTheDocument()
     expect(screen.queryByRole('option')).toBeNull()
+  })
+})
+
+describe('UnifiedSearch variant="overlay" (map)', () => {
+  const overlay = (props: Partial<React.ComponentProps<typeof UnifiedSearch>> = {}) =>
+    render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} variant="overlay" {...props} />)
+
+  it('overlay variant renders nothing below the field when query is empty', async () => {
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
+    found([rail('33605', 'Warszawa Centralna')])
+    overlay()
+    expect(screen.getByRole('searchbox', { name: 'Stacja, przystanek lub linia' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Warszawa Centralna|Wyczyść/ })).toBeNull()
+    expect(screen.queryByText(/Wpisz nazwę/)).toBeNull()
+    expect(statusText()).toBe('')
+    expect(screen.queryByRole('group', { name: 'Wyniki wyszukiwania' })).toBeNull()
+  })
+
+  it('renders the results in an opaque, scrollable panel over the map only while the query is non-empty', async () => {
+    found([rail('33605', 'Warszawa Centralna')])
+    const user = userEvent.setup()
+    overlay()
+    await user.type(screen.getByRole('searchbox'), 'cent')
+    const panel = screen.getByRole('group', { name: 'Wyniki wyszukiwania' })
+    expect(within(panel).getByRole('button', { name: /Warszawa Centralna/ })).toBeInTheDocument()
+    expect(panel.className).toMatch(/\babsolute\b/)
+    expect(panel.className).toMatch(/overflow-y-auto/)
+    expect(panel.className).toMatch(/--sheet-surface/)
+  })
+
+  it('Escape clears a non-empty query and closes the panel', async () => {
+    found([rail('33605', 'Warszawa Centralna')])
+    const onQueryChange = vi.fn()
+    const user = userEvent.setup()
+    overlay({ onQueryChange })
+    await user.type(screen.getByRole('searchbox'), 'cent')
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('searchbox')).toHaveValue('')
+    expect(onQueryChange).toHaveBeenLastCalledWith('')
+    expect(screen.queryByRole('group', { name: 'Wyniki wyszukiwania' })).toBeNull()
+  })
+
+  it('Escape with a query is consumed (an enclosing PanelFrame stays open); with an empty query it passes through', async () => {
+    found([rail('33605', 'Warszawa Centralna')])
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <PanelFrame title="A" closeLabel="Zamknij" onClose={onClose}>
+        <UnifiedSearch city="warszawa" onSelect={vi.fn()} variant="overlay" />
+      </PanelFrame>,
+    )
+    await user.type(screen.getByRole('searchbox'), 'cent')
+    await user.keyboard('{Escape}')
+    expect(onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('the clear button closes the panel', async () => {
+    found([rail('33605', 'Warszawa Centralna')])
+    const user = userEvent.setup()
+    overlay()
+    await user.type(screen.getByRole('searchbox'), 'cent')
+    await user.click(screen.getByRole('button', { name: 'Wyczyść' }))
+    expect(screen.queryByRole('group', { name: 'Wyniki wyszukiwania' })).toBeNull()
+  })
+
+  it('picking a result calls onSelect and closes the panel', async () => {
+    const result = rail('33605', 'Warszawa Centralna')
+    found([result])
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
+    overlay({ onSelect })
+    await user.type(screen.getByRole('searchbox'), 'cent')
+    await user.click(screen.getByRole('button', { name: /Warszawa Centralna/ }))
+    expect(onSelect).toHaveBeenCalledWith(result)
+    expect(screen.getByRole('searchbox')).toHaveValue('')
+    expect(screen.queryByRole('group', { name: 'Wyniki wyszukiwania' })).toBeNull()
+  })
+
+  it('keeps the live region mounted and shows messages in the panel', async () => {
+    found([], { transit: 'loading' })
+    const user = userEvent.setup()
+    overlay()
+    expect(screen.getByRole('status')).toBeInTheDocument()
+    await user.type(screen.getByRole('searchbox'), 'cent')
+    expect(statusText()).toContain('Wczytywanie…')
+  })
+
+  it('the default (page) variant is unchanged: results stay in flow, Escape keeps the query', async () => {
+    found([rail('33605', 'Warszawa Centralna')])
+    const user = userEvent.setup()
+    render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} />)
+    await user.type(screen.getByRole('searchbox'), 'cent')
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('searchbox')).toHaveValue('cent')
+    expect(screen.queryByRole('group', { name: 'Wyniki wyszukiwania' })).toBeNull()
   })
 })

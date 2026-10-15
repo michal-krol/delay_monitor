@@ -38,7 +38,11 @@ const ROW_PRESSED = 'active:bg-black/10 dark:active:bg-white/15'
 
 const SEARCH_FIELD_CLASS = `${SEARCH_INPUT_CLASS} min-h-11 pl-10 pr-12 focus:ring-primary-text! [&::-webkit-search-cancel-button]:appearance-none`
 
-const modeKindLabel = (mode: GtfsMode) => (mode === 'rail' ? 'Kolej miejska' : MODE_LABEL[mode].charAt(0).toUpperCase() + MODE_LABEL[mode].slice(1))
+/** `overlay` (mapa): wyniki w nieprzezroczystym panelu nad mapą, z własnym przewijaniem; `--sheet-surface` = stabilne tło dla axe. */
+const OVERLAY_PANEL_CLASS =
+  'absolute inset-x-0 top-full z-20 mt-2 max-h-[60dvh] overflow-y-auto overscroll-contain rounded-xl border border-surface-border bg-[var(--sheet-surface)] p-3 pt-1 shadow-lg'
+
+const modeKindLabel =(mode: GtfsMode) => (mode === 'rail' ? 'Kolej miejska' : MODE_LABEL[mode].charAt(0).toUpperCase() + MODE_LABEL[mode].slice(1))
 
 function ModeTile({ modes }: { modes: GtfsMode[] }) {
   return (
@@ -139,6 +143,7 @@ export function UnifiedSearch({
   lineSource,
   kinds = ALL_KINDS,
   recents = true,
+  variant = 'page',
 }: {
   city: string | null
   onSelect: (result: DiscoveryResult) => void
@@ -150,7 +155,13 @@ export function UnifiedSearch({
   kinds?: ReadonlyArray<Kind>
   /** „Ostatnio oglądane" pod pustym polem; dialog „Dodaj" je wyłącza (to linki, wyprowadziłyby z dialogu). */
   recents?: boolean
+  /**
+   * `page` (domyślnie): wyniki i komunikaty w przepływie strony. `overlay` (mapa): tylko pole; wyniki w panelu
+   * nad mapą wyłącznie przy niepustej frazie (bez ostatnich i podpowiedzi), wybór czyści pole, Escape czyści frazę.
+   */
+  variant?: 'page' | 'overlay'
 }) {
+  const overlay = variant === 'overlay'
   const [query, setQuery] = useState(initialQuery)
   const inputRef = useRef<HTMLInputElement>(null)
   const uid = useId()
@@ -234,46 +245,26 @@ export function UnifiedSearch({
   const canRetry = failedSources.length > 0 || (trimmed !== '' && cityListFailed)
 
   const empty = trimmed === ''
+  // Na mapie puste pole to samo pole: ani ostatnie, ani instrukcja, ani wyniki (panel żyje tylko przy frazie).
+  const listOpen = !overlay || !empty
+  const withRecents = recents && !overlay
   const lineList = lines.lines
-  const showRecentLines = recents && empty && has('line') && city !== null && lineList !== null
+  const showRecentLines = withRecents && empty && has('line') && city !== null && lineList !== null
   const hasRecentLines = showRecentLines && lineList.some((entry) => recentLines.recent.includes(entry.routeId))
-  const hasRecentPlaces = recents && recentPlaces.places.length > 0
-  const showInstruction = empty && recentPlaces.loaded && !hasRecentPlaces && !hasRecentLines
+  const hasRecentPlaces = withRecents && recentPlaces.places.length > 0
+  const showInstruction = !overlay && empty && recentPlaces.loaded && !hasRecentPlaces && !hasRecentLines
 
-  return (
-    <div className="w-full">
-      <form role="search" onSubmit={submit} className="relative">
-        <SearchIcon size={ICON_SIZE.button} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-text-muted" />
-        <input
-          ref={inputRef}
-          type="search"
-          enterKeyHint="search"
-          autoFocus={autoFocus}
-          autoComplete="off"
-          maxLength={100}
-          aria-label="Stacja, przystanek lub linia"
-          placeholder="Stacja, przystanek lub linia"
-          className={SEARCH_FIELD_CLASS}
-          value={query}
-          onChange={(event) => change(event.target.value)}
-        />
-        {query !== '' && (
-          <button
-            type="button"
-            aria-label="Wyczyść"
-            onClick={() => {
-              change('')
-              focusInput()
-            }}
-            className={`control-44 absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center justify-center rounded-lg text-text-secondary transition ${HOVER} ${ROW_PRESSED} ${ROW_FOCUS}`}
-          >
-            <CloseIcon size={ICON_SIZE.button} />
-          </button>
-        )}
-      </form>
+  const select = overlay
+    ? (result: DiscoveryResult) => {
+        onSelect(result)
+        change('')
+      }
+    : onSelect
 
+  const body = (
+    <>
       {/* Zawsze zamontowany, żeby czytnik ekranu zauważył zmianę tekstu; pusty nie zajmuje miejsca. */}
-      <p role="status" aria-live="polite" className={`text-sm ${messages.length > 0 ? 'mt-3' : ''}`}>
+      <p role="status" aria-live="polite" className={`text-sm ${messages.length > 0 ? (overlay ? 'mt-2' : 'mt-3') : ''}`}>
         {messages.map((message) => (
           <span key={message.text} className={`block ${TONE_CLASS[message.tone]}`}>
             {message.text}
@@ -295,26 +286,81 @@ export function UnifiedSearch({
         </button>
       )}
 
-      {GROUPS.filter((group) => has(group.kind)).map((group) => {
-        const rows = shown.filter((result) => result.kind === group.kind)
-        if (rows.length === 0) return null
-        const headingId = `${uid}-${group.kind}`
-        return (
-          <section key={group.kind} aria-labelledby={headingId} className="mt-4">
-            <h3 id={headingId} className="px-1 text-xs font-semibold tracking-wide text-text-secondary uppercase">
-              {group.title}
-            </h3>
-            <ul className="mt-1">
-              {rows.map((result) => (
-                <ResultRow key={discoveryKey(result)} result={result} cityName={cityName} onSelect={onSelect} />
-              ))}
-            </ul>
-            {rows.length >= MAX_PER_GROUP && <p className="mt-1 px-1 text-xs text-text-muted">Pokazano do {MAX_PER_GROUP} wyników — doprecyzuj frazę</p>}
-          </section>
-        )
-      })}
+      {listOpen &&
+        GROUPS.filter((group) => has(group.kind)).map((group) => {
+          const rows = shown.filter((result) => result.kind === group.kind)
+          if (rows.length === 0) return null
+          const headingId = `${uid}-${group.kind}`
+          return (
+            <section key={group.kind} aria-labelledby={headingId} className="mt-4">
+              <h3 id={headingId} className="px-1 text-xs font-semibold tracking-wide text-text-secondary uppercase">
+                {group.title}
+              </h3>
+              <ul className="mt-1">
+                {rows.map((result) => (
+                  <ResultRow key={discoveryKey(result)} result={result} cityName={cityName} onSelect={select} />
+                ))}
+              </ul>
+              {rows.length >= MAX_PER_GROUP && <p className="mt-1 px-1 text-xs text-text-muted">Pokazano do {MAX_PER_GROUP} wyników — doprecyzuj frazę</p>}
+            </section>
+          )
+        })}
+    </>
+  )
 
-      {empty && recents && (
+  return (
+    <div className={overlay ? 'relative w-full' : 'w-full'}>
+      <form role="search" onSubmit={submit} className="relative">
+        <SearchIcon size={ICON_SIZE.button} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-text-muted" />
+        <input
+          ref={inputRef}
+          type="search"
+          enterKeyHint="search"
+          autoFocus={autoFocus}
+          autoComplete="off"
+          maxLength={100}
+          aria-label="Stacja, przystanek lub linia"
+          placeholder="Stacja, przystanek lub linia"
+          className={SEARCH_FIELD_CLASS}
+          value={query}
+          onChange={(event) => change(event.target.value)}
+          onKeyDown={(event) => {
+            // Na mapie Escape z frazą zamyka panel wyników (czyści pole); `preventDefault` chroni przed zamknięciem
+            // karty/panelu obok (`PanelFrame` ignoruje Escape z `defaultPrevented`), pusta fraza przepuszcza Escape dalej.
+            if (overlay && event.key === 'Escape' && query !== '') {
+              event.preventDefault()
+              change('')
+            }
+          }}
+        />
+        {query !== '' && (
+          <button
+            type="button"
+            aria-label="Wyczyść"
+            onClick={() => {
+              change('')
+              focusInput()
+            }}
+            className={`control-44 absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center justify-center rounded-lg text-text-secondary transition ${HOVER} ${ROW_PRESSED} ${ROW_FOCUS}`}
+          >
+            <CloseIcon size={ICON_SIZE.button} />
+          </button>
+        )}
+      </form>
+
+      {overlay ? (
+        // Nad kontrolkami mapy i arkuszem: `data-search-results` podnosi cały pasek wyszukiwania (`has-[…]:z-30` w stronie).
+        <div
+          {...(listOpen ? { role: 'group', 'aria-label': 'Wyniki wyszukiwania', 'data-search-results': '' } : {})}
+          className={listOpen ? OVERLAY_PANEL_CLASS : undefined}
+        >
+          {body}
+        </div>
+      ) : (
+        body
+      )}
+
+      {empty && withRecents && (
         <RecentPlaces
           limit={8}
           headingLevel="h3"
