@@ -126,6 +126,9 @@ CI (outside the fast `quality` job: one `e2e-<project>` matrix job per Playwrigh
   (`iPhone 15`). New viewport = entry in `playwright.config.ts`.
 - Outside CI `playwright.config.ts` builds with `--webpack` (Turbopack fails when
   `node_modules` is above `turbopack.root`). Don't junction `node_modules` into the worktree.
+- Never `taskkill /IM node.exe` (or `pkill node`) to free a port: it kills every dev server, MCP helper and
+  session on the machine (a subagent did it 2026-10-14). Find the PID that listens on YOUR `E2E_PORT`
+  (`netstat -ano | grep :<port>`) and stop only that one. Put this in every subagent brief that runs e2e.
 - `next.config.ts` roots file tracing (`outputFileTracingRoot` = `turbopack.root`) where
   `node_modules/next` lives, so a worktree's standalone build stays in its `.next` (guard:
   `next.config.test.ts`). Builds before 2026-10-02 left `.claude/worktrees/node_modules/{next,styled-jsx}`

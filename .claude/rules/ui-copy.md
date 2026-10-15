@@ -103,6 +103,19 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   listy miast” + the same „Spróbuj ponownie” (one button retries every failed source, then focus returns to the field); empty registry
   „Brak skonfigurowanych miast”. Never „Wybierz miasto…” — the app picks the city (URL, last used, default), the user is not asked.
 
+## Lines catalog (`/city/<city>/lines`, `lines/page.tsx`, `LineGrid.tsx`, GTFS only — #13)
+
+- H1 „Linie”; the subtitle under it is the city name (no „Linie — {miasto}”).
+- Field (`type=search`): label and placeholder „Numer linii lub przystanek końcowy”; clear button „Wyczyść wyszukiwanie” (only with text).
+- Mode chips, group name „Rodzaj komunikacji” (wrapped, never a horizontal scroller, `aria-pressed`): „Wszystkie”, then only the modes the city
+  has — „Metro”, „Tramwaje”, „Autobusy”, „Kolej miejska” (`SECTION_LABEL`, one source for chips and section titles). GTFS rail is „Kolej miejska”, never
+  „Kolej” alone or PKP wording (#13).
+- Search result list: heading „Wyniki · N” (N = lines in the current filter, not running vehicles); row link name „Linia N: A – B” (+ „, nocna” etc. for a bus kind).
+- States: nothing matches „Brak pasujących linii” + button „Wyczyść filtry” (clears both `q` and `mode`); the city has no lines „Brak linii w rozkładzie.”;
+  loading is the section skeleton (`aria-busy`, sr-only „Wczytywanie…”); failed with nothing to show „Nie udało się pobrać listy linii.” + „Spróbuj ponownie”;
+  failed with a list keeps it and shows the `ScheduleStatus` warning (#7).
+- Full termini always visible (wrap, no `truncate`); „Ostatnio oglądane” keeps its short badge-only links (name „Linia N: A – B”).
+
 ## Filters
 
 - Board direction select (phones): departures „Kierunek” / „Wszystkie kierunki”; arrivals (headsign =

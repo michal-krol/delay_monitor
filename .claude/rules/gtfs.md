@@ -71,12 +71,27 @@ paths:
   `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
   `LINE_KIND_LABEL` (singular chip) and ONE `BUS_KIND_LABEL`/`BUS_KIND_ORDER` (plural colour
   legend: „Linie” bus subsections + map legend) in `transitMode.tsx`.
-- **„Linie” page** (`/city/<city>/lines`, `LineGrid.tsx`): `<details>` sections per mode, bus
-  subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
+- **„Linie” page** (`/city/<city>/lines`, `lines/page.tsx` + `LineGrid.tsx`): `<details>` sections per mode,
+  bus subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
   (`useSectionOpen`), recent lines `monitor.recentLines.v1` (`useRecentLines`, recorded by the
   line page only after its detail loaded) — both through Zod (#4). React fires `toggle` also
-  for a programmatic `open` change: `setOpen(key, open, count)` skips writes equal to the
+  for a programmatic `open` change: `setOpen(key, open, count, openByDefault?)` skips writes equal to the
   current state, otherwise the first render would freeze the defaults.
+  - **Data**: `useCityLines(city)` (the one fetcher of `/api/gtfs/lines`; `schedule` and `attribution`
+    for `ScheduleStatus`/`AttributionFooter` come from the same payload; zero requests per row).
+  - **URL state** `q` (≤100 chars) and `mode` (a `GtfsMode`): `src/lib/linesView.ts` (`parseLinesView`,
+    `linesViewPatch`), written with `patchUrlParams` = `replaceState`, so typing adds no history entries and
+    other params are preserved; bad values are ignored silently (#4). The URL is read once, in a `<Suspense>`
+    boundary (`useSearchParams`), into the inner `LinesCatalog key={city}` — a city change resets `q`, `mode`
+    and results. A `mode` the city doesn't have is treated as „Wszystkie” after load.
+  - **Filtering**: mode filter first, then `rankLines` (`src/lib/discovery.ts`: exact number → number
+    prefix → phrase in the route name; no infix match on the number, same as the global search), via
+    `filterCatalogLines`. A non-empty `q` shows the flat `LineResults`; otherwise `LineGrid` with the
+    mode-filtered groups (`groupByMode`, chips from `availableModes`). An active mode filter passes
+    `openByDefault` so its only section opens without a click; a stored user toggle still wins.
+  - **Tiles**: no `truncate` — full termini wrap; the grid is a container query (`@container`), one
+    column in a narrow container, auto-fill from `@md`, never a window breakpoint (the aside changes the width).
+  - Copy: `ui-copy.md` „Lines catalog”.
 - **`schedule.routePatterns`** (stop sequence per direction + second `offsets` from the first
   stop) accumulated in the hot `stop_times` loop — don't scan millions of events per line-page
   request. `lineDetail()` reads the ready index; the page computes a time as
