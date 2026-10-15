@@ -26,6 +26,9 @@ PKP responses = data from outside the system.
 - Link-preview cards and page titles (`src/lib/share/`) take names ONLY from the station dictionary
   and the loaded GTFS schedule, by route params — never `?name=` or other URL text; unknown or
   malformed id → generic card. `?name=` is display-only inside the client pages.
+- User GPS (`adr/0012`): only via `useUserLocation().request()` after a click (`UserLocationProvider`,
+  `getCurrentPosition`, never `watchPosition`); coordinates stay in provider memory — never `localStorage`,
+  URL, logs or server. `Permissions-Policy` is `geolocation=(self)` and nothing else widened.
 - Security headers from `next.config.ts` are guarded by `next.config.test.ts` — weakening the
   policy = update the test.
 - Deliberately accepted risks and their rationale are kept out of the public README, in the
