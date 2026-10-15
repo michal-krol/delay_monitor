@@ -111,6 +111,12 @@ export default function CityMapPage() {
   const [view, setView] = useState<MapView | null>(null)
   // Wynik wyszukiwarki bez pozycji na mapie: komunikat z linkiem do szczegółów (kamera się nie rusza).
   const [noPosition, setNoPosition] = useState<{ name: string; href: string | null; linkLabel: string } | null>(null)
+  const noPositionRef = useRef<HTMLDivElement>(null)
+  // Klikany wiersz wyników znika razem z panelem, a tu nie otwiera się żadna karta — fokus idzie do komunikatu
+  // (nie do pola: na telefonie wyskoczyłaby klawiatura). Nowy obiekt stanu = nowy komunikat = nowy fokus.
+  useEffect(() => {
+    if (noPosition !== null) noPositionRef.current?.focus()
+  }, [noPosition])
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
   // Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon.
@@ -407,7 +413,7 @@ export default function CityMapPage() {
       return focusOn(lat, lon)
     }
     // Zespół przystanków: konkretne przystanki z listy miasta (po `groupId`), środek ich pozycji; wynik niesie ten sam
-    // środek z serwera — na wypadek, gdy lista przystanków jeszcze się wczytuje. Numeru przystanku nie zgadujemy (`code: null`).
+    // środek z serwera (`groupCentroid`, ta sama reguła) — na wypadek, gdy lista przystanków jeszcze się wczytuje. Numeru przystanku nie zgadujemy (`code: null`).
     const { stop } = result
     const members = stopsState.stops?.filter((s) => s.groupId === stop.id) ?? []
     const at =
@@ -540,7 +546,13 @@ export default function CityMapPage() {
       )}
 
       {noPosition !== null && (
-        <div role="status" className="glass-strong pointer-events-auto flex w-max max-w-full items-center gap-x-3 rounded-xl py-1.5 pr-1 pl-3 text-sm">
+        <div
+          ref={noPositionRef}
+          role="status"
+          aria-label="Brak pozycji na mapie"
+          tabIndex={-1}
+          className="glass-strong pointer-events-auto flex w-max max-w-full items-center gap-x-3 rounded-xl py-1.5 pr-1 pl-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-text"
+        >
           <span>
             Brak pozycji na mapie: {noPosition.name}.
             {noPosition.href !== null && (

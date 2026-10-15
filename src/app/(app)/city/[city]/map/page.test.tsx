@@ -332,6 +332,30 @@ describe('CityMapPage — unified search', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('focus moves into the no-position notice (not body) when the picked row unmounts, and the search field is not refocused', async () => {
+    state.search = [{ id: '99999', name: 'Stacja Bez Pozycji', kind: 'rail', mode: 'rail' }]
+    render(<CityMapPage />)
+    fireEvent.change(field(), { target: { value: 'Bez Pozycji' } })
+    const row = await screen.findByRole('button', { name: /^Stacja Bez Pozycji, / })
+    row.focus()
+    fireEvent.click(row)
+    const notice = await screen.findByRole('status', { name: 'Brak pozycji na mapie' })
+    await waitFor(() => expect(notice).toHaveFocus())
+    expect(within(notice).getByRole('link', { name: 'Szczegóły stacji' })).toBeInTheDocument()
+    expect(field()).not.toHaveFocus()
+  })
+
+  it('a card pick still moves focus into the card (PanelFrame), not body', async () => {
+    state.search = [{ id: '33605', name: 'Warszawa Centralna', kind: 'rail', mode: 'rail', lat: 52.2288, lon: 21.0033 }]
+    render(<CityMapPage />)
+    fireEvent.change(field(), { target: { value: 'Centralna' } })
+    const row = await screen.findByRole('button', { name: /^Warszawa Centralna, Stacja kolejowa PKP/ })
+    row.focus()
+    fireEvent.click(row)
+    await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toHaveFocus())
+  })
+
   it('a stop group with no members in the stop list and no coordinates shows the same notice', async () => {
     state.stops = { stops: [STOP], error: false }
     state.search = [{ id: '7777', name: 'Nieznany zespół', kind: 'transit', mode: 'bus' }]

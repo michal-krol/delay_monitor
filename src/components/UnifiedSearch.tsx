@@ -42,7 +42,7 @@ const SEARCH_FIELD_CLASS = `${SEARCH_INPUT_CLASS} min-h-11 pl-10 pr-12 focus:rin
 const OVERLAY_PANEL_CLASS =
   'absolute inset-x-0 top-full z-20 mt-2 max-h-[60dvh] overflow-y-auto overscroll-contain rounded-xl border border-surface-border bg-[var(--sheet-surface)] p-3 pt-1 shadow-lg'
 
-const modeKindLabel =(mode: GtfsMode) => (mode === 'rail' ? 'Kolej miejska' : MODE_LABEL[mode].charAt(0).toUpperCase() + MODE_LABEL[mode].slice(1))
+const modeKindLabel = (mode: GtfsMode) => (mode === 'rail' ? 'Kolej miejska' : MODE_LABEL[mode].charAt(0).toUpperCase() + MODE_LABEL[mode].slice(1))
 
 function ModeTile({ modes }: { modes: GtfsMode[] }) {
   return (

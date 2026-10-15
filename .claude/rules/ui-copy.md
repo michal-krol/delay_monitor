@@ -68,11 +68,14 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 
 ## Map search (`UnifiedSearch variant="overlay"`, `/city/<city>/map`)
 
-- ONE field „Stacja, przystanek lub linia” (the same label/placeholder/groups/states as `/search` and the dialog — no
-  Przystanek/Linia tabs, no „Szukaj linii…”). Results float over the map in an opaque panel, only while the field is not empty;
-  an empty field shows no recents and no instruction; the panel is a `role="group"` named „Wyniki wyszukiwania”. Picking a result clears the field and stays on the map.
+- Wording of the field, groups and states: see „Search” below (one field, no Przystanek/Linia tabs). Map-specific: results float
+  over the map in an opaque `role="group"` panel named „Wyniki wyszukiwania”, only while the field is not empty (no recents, no
+  instruction under an empty field). Picking a result clears the field and stays on the map.
 - Result without a position on the map: `role="status"` „Brak pozycji na mapie: {name}.” + link „Szczegóły stacji” (PKP) /
-  „Szczegóły przystanku” (zespół) to the board page, close button „Zamknij komunikat”; the camera does not move.
+  „Szczegóły przystanku” (zespół) to the board page, close button „Zamknij komunikat”; the camera does not move. Focus goes to
+  this notice (the picked row unmounted and no card opens), never back to the field (it would raise the phone keyboard).
+- A zespół is placed at the centroid of its stops from the city stop list; with no members there it falls back to the result's
+  own `lat/lon` (the server's `groupCentroid`) — same point, not a second rule; neither = the notice above.
 
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)
 
