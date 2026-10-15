@@ -1,16 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
 import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
-import { StationSearch, type StationOption } from '@/components/StationSearch'
+import { UnifiedSearch } from '@/components/UnifiedSearch'
 import { CityIcon, CloseIcon, ListIcon, ShareIcon, ICON_SIZE } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
-import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { stopDisplayName } from '@/components/stopName'
 import { MapFilters } from '@/components/map/MapFilters'
@@ -39,6 +39,7 @@ import {
   type VisibleItem,
 } from '@/components/map/mapData'
 import { useCities } from '@/hooks/useCities'
+import { useCityLines } from '@/hooks/useCityLines'
 import { useCityStops } from '@/hooks/useCityStops'
 import type { CityStop } from '@/lib/gtfs/query'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
@@ -48,10 +49,10 @@ import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
+import { discoveryHref, type DiscoveryResult } from '@/lib/discovery'
 import { formatAgo } from '@/lib/format'
 import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
-import type { GtfsMode } from '@/lib/gtfs/types'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 import { lineColor } from '@/components/transitMode'
@@ -108,7 +109,8 @@ export default function CityMapPage() {
   const [selection, setSelection] = useState<MapSelection | null>(null)
   const [focus, setFocus] = useState<{ lat: number; lon: number; nonce: number; zoom?: number } | null>(null)
   const [view, setView] = useState<MapView | null>(null)
-  const [searchTab, setSearchTab] = useState<'place' | 'line'>('place')
+  // Wynik wyszukiwarki bez pozycji na mapie: komunikat z linkiem do szczegółów (kamera się nie rusza).
+  const [noPosition, setNoPosition] = useState<{ name: string; href: string | null; linkLabel: string } | null>(null)
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
   // Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon.
@@ -117,9 +119,9 @@ export default function CityMapPage() {
   const vehiclesState = useCityVehicles(city)
   const stopsState = useCityStops(city)
   const railState = useRailStations()
-  const lines = useCityList<LineListEntry>(`/api/gtfs/lines?city=${encodeURIComponent(city)}`, (json) =>
-    json.lines === null ? null : Object.values(json.lines as Record<GtfsMode, LineListEntry[]>).flat()
-  )
+  // Jedno pobranie katalogu linii: zasila stronę i (jako `lineSource`) wyszukiwarkę — ten sam ranking `rankLines`.
+  const lineState = useCityLines(city)
+  const lines = lineState.lines
   const backbone = useCityList<BackboneLine>(`/api/gtfs/backbone?city=${encodeURIComponent(city)}`, (json) => json.lines as BackboneLine[] | null)
   const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
@@ -166,7 +168,7 @@ export default function CityMapPage() {
     (next: MapView) => {
       setView(next)
       if (locatedViewRef.current) return
-      const at =formatAt({ ...next.center, zoom: next.zoom })
+      const at = formatAt({ ...next.center, zoom: next.zoom })
       patchUrlParams({ at })
       saveLastView(city, at)
     },
@@ -385,16 +387,38 @@ export default function CityMapPage() {
     if (station !== undefined) setSelection({ kind: 'rail', id: station.id, name: station.name, lat: station.lat, lon: station.lon })
   }
 
-  function onSearchSelect(option: StationOption): void {
-    const lat = option.lat ?? null
-    const lon = option.lon ?? null
-    if (option.kind === 'rail') {
-      setSelection({ kind: 'rail', id: option.id, name: option.name, lat, lon })
-    } else {
-      // Zespół przystankowy: odjazdy całego zespołu; stacja metra (rodzic) ma w warstwie swój punkt.
-      setSelection({ kind: 'stop', id: option.id, groupId: option.id, name: option.name, code: null, mode: option.mode ?? 'bus', lat, lon })
+  /** Wybór z wyszukiwarki: nigdy nie wychodzi z mapy; bez pozycji kamera stoi (nigdy 0,0), a komunikat linkuje do szczegółów. */
+  function onSearchPick(result: DiscoveryResult): void {
+    setNoPosition(null)
+    if (result.kind === 'line') {
+      // Panel linii jest ostatni w kolejności kart — zwalniamy to, co go przesłania.
+      setSelection(null)
+      setNearby(null)
+      setListOpen(false)
+      chooseLine(result.line)
+      return
     }
-    if (lat !== null && lon !== null) focusOn(lat, lon)
+    if (result.kind === 'rail') {
+      const { id, name } = result.station
+      const lat = result.station.lat ?? null
+      const lon = result.station.lon ?? null
+      if (lat === null || lon === null) return setNoPosition({ name, href: discoveryHref(result), linkLabel: 'Szczegóły stacji' })
+      setSelection({ kind: 'rail', id, name, lat, lon })
+      return focusOn(lat, lon)
+    }
+    // Zespół przystanków: konkretne przystanki z listy miasta (po `groupId`), środek ich pozycji; wynik niesie ten sam
+    // środek z serwera — na wypadek, gdy lista przystanków jeszcze się wczytuje. Numeru przystanku nie zgadujemy (`code: null`).
+    const { stop } = result
+    const members = stopsState.stops?.filter((s) => s.groupId === stop.id) ?? []
+    const at =
+      members.length > 0
+        ? { lat: members.reduce((sum, s) => sum + s.lat, 0) / members.length, lon: members.reduce((sum, s) => sum + s.lon, 0) / members.length }
+        : stop.lat !== undefined && stop.lon !== undefined
+          ? { lat: stop.lat, lon: stop.lon }
+          : null
+    if (at === null) return setNoPosition({ name: stop.name, href: discoveryHref(result), linkLabel: 'Szczegóły przystanku' })
+    setSelection({ kind: 'stop', id: stop.id, groupId: stop.id, name: stop.name, code: null, mode: stop.mode ?? members[0]?.mode ?? 'bus', lat: at.lat, lon: at.lon })
+    focusOn(at.lat, at.lon)
   }
 
   const neverLoaded = vehiclesState.vehicles.length === 0
@@ -476,10 +500,7 @@ export default function CityMapPage() {
   const cardKey =
     selection !== null ? `${selection.kind}:${selection.id}` : nearby !== null ? 'nearby' : listOpen ? 'list' : `line:${line?.routeId}`
 
-  const placeSearch = (
-    <StationSearch endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`} placeholder="Szukaj stacji lub przystanku…" onSelect={onSearchSelect} wide />
-  )
-  const lineSearch = <LineSearch lines={lines} onSelect={chooseLine} />
+  const search = <UnifiedSearch city={city} variant="overlay" lineSource={lineState} onSelect={onSearchPick} />
   const filters = (
     <MapFilters hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} alertsOnly={alertsOnly} onAlertsOnly={changeAlertsOnly} />
   )
@@ -518,6 +539,29 @@ export default function CityMapPage() {
         </ul>
       )}
 
+      {noPosition !== null && (
+        <div role="status" className="glass-strong pointer-events-auto flex w-max max-w-full items-center gap-x-3 rounded-xl py-1.5 pr-1 pl-3 text-sm">
+          <span>
+            Brak pozycji na mapie: {noPosition.name}.
+            {noPosition.href !== null && (
+              <>
+                {' '}
+                <Link href={noPosition.href} className="touch-44 relative font-medium text-primary-text underline underline-offset-2">
+                  {noPosition.linkLabel}
+                </Link>
+              </>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => setNoPosition(null)}
+            aria-label="Zamknij komunikat"
+            className="touch-44 relative grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <CloseIcon size={ICON_SIZE.chip} />
+          </button>
+        </div>
+      )}
       {nearbyPending && nearby === null && userLocation.status !== 'requesting' && (
         <div role="status" className="glass-strong pointer-events-auto flex w-max max-w-full flex-wrap items-center gap-x-3 rounded-xl px-3 py-1.5 text-sm">
           <span>Okolica wymaga Twojej lokalizacji.</span>
@@ -589,12 +633,11 @@ export default function CityMapPage() {
           <div className="pointer-events-none absolute inset-0 flex flex-col">
             {/* Nad arkuszem (`.bottom-sheet`, z-20) tylko wtedy, gdy coś tu jest rozwinięte (wyniki wyszukiwania,
                 Filtry, Przypięte, Więcej) — inaczej lista otwierała się pod panelem; zwinięte zostają pod nim. */}
-            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 sm:ml-4 sm:mt-4">
+            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
               <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
                 {isWide ? (
                   <>
-                    <div className="w-72">{placeSearch}</div>
-                    <div className="w-52">{lineSearch}</div>
+                    <div className="w-80">{search}</div>
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -621,31 +664,15 @@ export default function CityMapPage() {
                     </div>
                   </>
                 ) : (
-                  // Telefon: dwa rzędy — zakładki i przyciski (ich panele otwierają się w lewo od prawej
-                  // krawędzi), pod nimi pole na całą szerokość. „Lista” i „Udostępnij” są w „Więcej”.
+                  // Telefon: pole wyszukiwania na całą szerokość, pod nim rząd przycisków (ich panele otwierają się
+                  // w lewo od prawej krawędzi). „Lista” i „Udostępnij” są w „Więcej”.
                   <div className="flex w-full flex-col gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
-                        {(['place', 'line'] as const).map((tab) => (
-                          <button
-                            key={tab}
-                            type="button"
-                            aria-pressed={searchTab === tab}
-                            onClick={() => setSearchTab(tab)}
-                            className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
-                            style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
-                          >
-                            {tab === 'place' ? 'Przystanek' : 'Linia'}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="ml-auto flex gap-2">
-                        {filters}
-                        <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                        <MapMoreMenu listOpen={listOpen} onToggleList={toggleList} onShare={() => void share()} />
-                      </div>
+                    {search}
+                    <div className="flex items-center justify-end gap-2">
+                      {filters}
+                      <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
+                      <MapMoreMenu listOpen={listOpen} onToggleList={toggleList} onShare={() => void share()} />
                     </div>
-                    {searchTab === 'place' ? placeSearch : lineSearch}
                   </div>
                 )}
               </div>

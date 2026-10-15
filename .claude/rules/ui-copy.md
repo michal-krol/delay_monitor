@@ -63,8 +63,16 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   miejsce lub wybierz je na mapie” (no retry button — the browser will not prompt again); no API „Lokalizacja nie jest dostępna
   w tej przeglądarce”; failed „Nie udało się ustalić lokalizacji” + „Spróbuj ponownie”.
 - `?nearby=1` without a position in memory (after F5): „Okolica wymaga Twojej lokalizacji.” + button „Pokaż moją lokalizację”
-  (the click is the only GPS call; the flag is removed afterwards or when „W pobliżu” is closed).
+  (the click is the only GPS call; the flag is removed as soon as „W pobliżu” is opened, so closing it never brings the button back).
 - „W pobliżu” subtitle: „Promień 500 m · w linii prostej” — distances are straight-line, never walking time.
+
+## Map search (`UnifiedSearch variant="overlay"`, `/city/<city>/map`)
+
+- ONE field „Stacja, przystanek lub linia” (the same label/placeholder/groups/states as `/search` and the dialog — no
+  Przystanek/Linia tabs, no „Szukaj linii…”). Results float over the map in an opaque panel, only while the field is not empty;
+  an empty field shows no recents and no instruction; the panel is a `role="group"` named „Wyniki wyszukiwania”. Picking a result clears the field and stays on the map.
+- Result without a position on the map: `role="status"` „Brak pozycji na mapie: {name}.” + link „Szczegóły stacji” (PKP) /
+  „Szczegóły przystanku” (zespół) to the board page, close button „Zamknij komunikat”; the camera does not move.
 
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)
 

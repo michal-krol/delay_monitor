@@ -28,6 +28,8 @@ const state = vi.hoisted(() => ({
   vehicles: { vehicles: [] as unknown[], feed: { state: 'ready', ageMs: 13_000 as number | null }, alertLines: [] as string[], error: null as string | null },
   stops: { stops: null as unknown[] | null, error: false },
   rail: { stations: null as unknown[] | null, error: false },
+  /** Odpowiedź `/api/search` (wyszukiwarka na mapie). */
+  search: [] as unknown[],
   mapProps: null as null | {
     initialCamera: { lat: number; lon: number; zoom: number }
     follow: { lat: number; lon: number } | null
@@ -38,6 +40,7 @@ const state = vi.hoisted(() => ({
     onlyLines: Set<string> | null
     listOpen: boolean
     route: { key: string } | null
+    focus: { lat: number; lon: number } | null
     routeId: string | null; hidden: Set<string>; selected: unknown; onSelect: (hit: MapHit | null) => void; onViewChange: (view: MapView) => void },
 }))
 vi.mock('@/hooks/useCityVehicles', () => ({ useCityVehicles: () => state.vehicles }))
@@ -86,15 +89,22 @@ beforeEach(() => {
   state.stops = { stops: [STOP], error: false }
   state.rail = { stations: [STATION], error: false }
   state.mapProps = null
+  state.search = []
   setWide(true)
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string) => {
+      if (url.startsWith('/api/search')) return jsonResponse({ stations: state.search, sources: { rail: 'ready', transit: 'ready' } })
       if (url.startsWith('/api/cities')) return jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [] }] })
       if (url.startsWith('/api/gtfs/backbone')) return jsonResponse({ lines: [] })
       if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ schedule: { state: 'ready' }, line: LINE_DETAIL })
       if (url.startsWith('/api/gtfs/lines')) {
-        return jsonResponse({ lines: { tram: [{ routeId: '20', line: '20', longName: 'Boernerowo — Żerań', mode: 'tram', kind: 'regular' }] } })
+        return jsonResponse({
+          city: 'warszawa',
+          schedule: { state: 'ready' },
+          lines: { tram: [{ routeId: '20', line: '20', longName: 'Boernerowo — Żerań', mode: 'tram', kind: 'regular' }] },
+          attribution: [],
+        })
       }
       return jsonResponse({ stations: [] })
     })
@@ -196,13 +206,12 @@ describe('CityMapPage', () => {
     expect(screen.getByText(/Nie udało się wczytać stacji kolejowych/)).toBeInTheDocument()
   })
 
-  it('on a phone: search tabs switch between place and line search; the card is a bottom sheet', async () => {
+  it('on a phone: one search field replaces the Przystanek/Linia tabs; the card is a bottom sheet', async () => {
     setWide(false)
     render(<CityMapPage />)
-    expect(screen.getByRole('combobox', { name: 'Szukaj stacji lub przystanku…' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Linia' }))
-    expect(screen.getByRole('combobox', { name: 'Szukaj linii' })).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: 'Szukaj stacji lub przystanku…' })).toBeNull()
+    expect(screen.getAllByRole('searchbox', { name: 'Stacja, przystanek lub linia' })).toHaveLength(1)
+    expect(screen.queryByRole('group', { name: 'Czego szukasz' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Przystanek' })).toBeNull()
 
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     map().onSelect({ kind: 'rail', id: '33605' })
@@ -240,11 +249,108 @@ describe('CityMapPage — line mode', () => {
     state.vehicles = { vehicles: [{ ...VEHICLE, directionId: 1 }], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
-    await screen.findByPlaceholderText('Szukaj linii…')
+    await screen.findByRole('searchbox', { name: 'Stacja, przystanek lub linia' })
     map().onSelect({ kind: 'vehicle', id: 'v1' })
     fireEvent.click(await screen.findByRole('button', { name: 'Pokaż trasę na mapie' }))
     expect(await screen.findByRole('dialog', { name: 'Linia 20' })).toBeInTheDocument()
     expect(window.location.search).toBe('?line=20&dir=1')
+  })
+})
+
+describe('CityMapPage — unified search', () => {
+  const field = () => screen.getByRole('searchbox', { name: 'Stacja, przystanek lub linia' })
+  const MEMBER_2 = { id: '100102', groupId: '1001', name: 'Centrum', code: '02', lat: 52.25, lon: 21.03, mode: 'bus' }
+  const linesCalls = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).startsWith('/api/gtfs/lines'))
+
+  it('map page fetches /api/gtfs/lines once', async () => {
+    render(<CityMapPage />)
+    fireEvent.change(field(), { target: { value: '20' } })
+    expect(await screen.findByRole('button', { name: /^Linia 20,/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^Linia 20,/ }))
+    await screen.findByRole('dialog', { name: 'Linia 20' })
+    expect(linesCalls()).toHaveLength(1)
+  })
+
+  it('picking a line sets ?line= and opens the line panel', async () => {
+    render(<CityMapPage />)
+    fireEvent.change(field(), { target: { value: '20' } })
+    fireEvent.click(await screen.findByRole('button', { name: /^Linia 20,/ }))
+    expect(await screen.findByRole('dialog', { name: 'Linia 20' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/city/warszawa/map')
+    expect(window.location.search).toBe('?line=20')
+    await waitFor(() => expect(map().routeId).toBe('20'))
+    // Wybór zamyka panel wyników i czyści pole.
+    expect(field()).toHaveValue('')
+  })
+
+  it('picking a line while a card is open replaces the card with the line panel', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    map().onSelect({ kind: 'rail', id: '33605' })
+    await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
+    fireEvent.change(field(), { target: { value: '20' } })
+    fireEvent.click(await screen.findByRole('button', { name: /^Linia 20,/ }))
+    expect(await screen.findByRole('dialog', { name: 'Linia 20' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Warszawa Centralna' })).toBeNull()
+  })
+
+  it('picking a stop group selects a stop at a member position (no invented stop code)', async () => {
+    state.stops = { stops: [STOP, MEMBER_2], error: false }
+    // Pozycja z wyniku wyszukiwania celowo inna niż członków — liczy się pozycja przystanków z listy.
+    state.search = [{ id: '1001', name: 'Centrum', kind: 'transit', mode: 'bus', lat: 10, lon: 10 }]
+    render(<CityMapPage />)
+    fireEvent.change(field(), { target: { value: 'Centrum' } })
+    fireEvent.click(await screen.findByRole('button', { name: /^Centrum, Zespół przystanków/ }))
+    // Karta ZESPOŁU („Centrum"), nie pojedynczego słupka „Centrum 01".
+    expect(await screen.findByRole('dialog', { name: 'Centrum' })).toBeInTheDocument()
+    expect(map().selected).toEqual({ lat: (52.23 + 52.25) / 2, lon: (21.01 + 21.03) / 2 })
+    expect(map().focus).toMatchObject({ lat: (52.23 + 52.25) / 2, lon: (21.01 + 21.03) / 2 })
+    expect(window.location.pathname).toBe('/city/warszawa/map')
+  })
+
+  it('a rail station result centres the map on the station', async () => {
+    state.search = [{ id: '33605', name: 'Warszawa Centralna', kind: 'rail', mode: 'rail', lat: 52.2288, lon: 21.0033 }]
+    render(<CityMapPage />)
+    fireEvent.change(field(), { target: { value: 'Centralna' } })
+    fireEvent.click(await screen.findByRole('button', { name: /^Warszawa Centralna, Stacja kolejowa PKP/ }))
+    expect(await screen.findByRole('dialog', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+    expect(map().focus).toMatchObject({ lat: 52.2288, lon: 21.0033 })
+  })
+
+  it('result without coordinates shows „Brak pozycji na mapie” and a details link and does not move the camera', async () => {
+    state.search = [{ id: '99999', name: 'Stacja Bez Pozycji', kind: 'rail', mode: 'rail' }]
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.change(field(), { target: { value: 'Bez Pozycji' } })
+    fireEvent.click(await screen.findByRole('button', { name: /^Stacja Bez Pozycji, / }))
+    const notice = await screen.findByText(/Brak pozycji na mapie/)
+    expect(notice).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'Szczegóły stacji' })
+    expect(link).toHaveAttribute('href', '/station/99999?name=Stacja%20Bez%20Pozycji')
+    expect(map().focus).toBeNull()
+    expect(map().selected).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('a stop group with no members in the stop list and no coordinates shows the same notice', async () => {
+    state.stops = { stops: [STOP], error: false }
+    state.search = [{ id: '7777', name: 'Nieznany zespół', kind: 'transit', mode: 'bus' }]
+    render(<CityMapPage />)
+    fireEvent.change(field(), { target: { value: 'Nieznany' } })
+    fireEvent.click(await screen.findByRole('button', { name: /^Nieznany zespół, / }))
+    expect(await screen.findByText(/Brak pozycji na mapie/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Szczegóły przystanku' })).toHaveAttribute('href', '/city/warszawa/stop/7777?name=Nieznany%20zesp%C3%B3%C5%82')
+    expect(map().focus).toBeNull()
+  })
+
+  it('the no-position notice goes away with its close button and on the next pick', async () => {
+    state.search = [{ id: '99999', name: 'Stacja Bez Pozycji', kind: 'rail', mode: 'rail' }]
+    render(<CityMapPage />)
+    fireEvent.change(field(), { target: { value: 'Bez Pozycji' } })
+    fireEvent.click(await screen.findByRole('button', { name: /^Stacja Bez Pozycji, / }))
+    await screen.findByText(/Brak pozycji na mapie/)
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij komunikat' }))
+    expect(screen.queryByText(/Brak pozycji na mapie/)).toBeNull()
   })
 })
 
