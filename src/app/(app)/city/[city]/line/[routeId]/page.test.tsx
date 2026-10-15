@@ -532,6 +532,20 @@ describe('LineDetailPage — pane switch', () => {
     expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
   })
 
+  it('switching the pane writes the resolved dir/stop (not a bad URL value) and keeps ?day=', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?dir=9&stop=nie-ma-takiego&day=sunday')
+    stubMatchMedia(false)
+    stubFetch()
+    const user = userEvent.setup()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    await user.click(within(screen.getByRole('group', { name: 'Widok linii' })).getByRole('button', { name: 'Rozkład' }))
+    expect(search().get('pane')).toBe('timetable')
+    expect(search().get('dir')).toBe('0')
+    expect(search().get('stop')).not.toBe('nie-ma-takiego')
+    expect(search().get('day')).toBe('sunday')
+  })
+
   it('at lg and above both sections show and a stop click does not switch the pane', async () => {
     stubMatchMedia(true)
     stubFetch()

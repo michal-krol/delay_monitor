@@ -67,8 +67,15 @@ describe('LineRouteList', () => {
     setup()
     expect(screen.getByRole('heading', { name: 'Trasa linii · 4 przystanki' })).toBeTruthy()
     expect(screen.getByText('przystanek')).toBeTruthy()
-    expect(screen.getByText('na żądanie')).toBeTruthy()
     expect(screen.getByText('przystanek krańcowy')).toBeTruthy()
+    // Legenda „na żądanie” tylko gdy przebieg ma taki przystanek.
+    expect(screen.queryByText('na żądanie')).toBeNull()
+  })
+
+  it('shows the „na żądanie” legend entry when a stop is request-only', () => {
+    setup({ stops: [stop(0), stop(1, { onRequest: true }), stop(2)] })
+    // Znacznik w wierszu + wpis legendy.
+    expect(screen.getAllByText(/na żądanie/i).length).toBeGreaterThanOrEqual(2)
   })
 
   it('labels the first and the last row początek / koniec', () => {

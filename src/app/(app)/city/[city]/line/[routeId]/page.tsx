@@ -23,6 +23,7 @@ import { formatAgo, formatSecondsOfDay } from '@/lib/format'
 import { dedupeAlerts } from '@/lib/gtfs/alertView'
 import { getCity } from '@/lib/gtfs/cities'
 import { lineViewPatch, parseLineViewState, resolveLineView, type LinePane, type LineViewState } from '@/lib/lineViewState'
+import { NAV_BACK_TYPES, NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { pluralPl } from '@/lib/plural'
 import { patchUrlParams } from '@/lib/urlState'
 import { useCities } from '@/hooks/useCities'
@@ -182,7 +183,15 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
 
   function selectPane(next: LinePane): void {
     startTransition(() => setPaneChoice(next))
-    patchUrlParams(lineViewPatch({ ...view, pane: next }))
+    // Zapisujemy rozstrzygnięty kierunek i przystanek, nie surowe wartości z URL-a (zły `dir`/`stop` nie zostaje w linku).
+    patchUrlParams(
+      lineViewPatch({
+        ...view,
+        directionId: view.directionId === null ? null : (direction?.directionId ?? null),
+        stopId: view.stopId === null ? null : (selectedStop?.stopId ?? null),
+        pane: next,
+      })
+    )
   }
 
   function switchDirection(): void {
@@ -258,7 +267,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                   <span className="text-foreground">#{v.sideNumber}</span>
                   <span className="text-text-muted">
                     za „{afterStopName(stops, v.afterStopOrder)}”
-                    {v.ageSec > 60 && ` · ${Math.round(v.ageSec / 60)} min temu`}
+                    {v.ageSec > 60 && ` · GPS: ${formatAgo(v.ageSec)}`}
                   </span>
                 </li>
               ))}
@@ -269,7 +278,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   )
 
   const catalogLink = (
-    <Link href={`/city/${city}/lines`} className="chip-filter mt-3 gap-1.5">
+    <Link href={`/city/${city}/lines`} transitionTypes={NAV_BACK_TYPES} className="chip-filter mt-3 gap-1.5">
       <ArrowLeftIcon size={ICON_SIZE.button} />
       Wróć do katalogu linii
     </Link>
@@ -442,6 +451,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                       {selectedStop !== undefined && (
                         <Link
                           href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
+                          transitionTypes={NAV_FORWARD_TYPES}
                           className="mt-2 inline-flex items-center gap-0.5 text-sm font-medium text-primary-text hover:underline focus-visible:outline-2 focus-visible:outline-primary-text max-sm:min-h-11"
                         >
                           Odjazdy z przystanku
@@ -533,6 +543,7 @@ function VehiclesRow({ city, routeId, directionId, showVehicles, live }: { city:
       <>
         <p className="text-sm font-semibold text-foreground">{`Pojazdy w tym kierunku: ${live.vehicles.length}`}</p>
         <p className="text-xs text-text-secondary">{`GPS: ${formatAgo(newest)}`}</p>
+        {live.error !== null && <p className="text-xs text-warning-text">Nie udało się odświeżyć pozycji. Pokazujemy ostatnie dane.</p>}
       </>
     )
   }

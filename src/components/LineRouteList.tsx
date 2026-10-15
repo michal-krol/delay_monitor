@@ -157,9 +157,11 @@ export function LineRouteList({ city, stops, selectedStopId, selectedBaseSec, on
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} aria-hidden="true" /> na żądanie
-        </span>
+        {stops.some((s) => s.onRequest) && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: 'var(--foreground)' }} aria-hidden="true" /> na żądanie
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2" style={{ background: 'var(--foreground)' }} aria-hidden="true" /> przystanek krańcowy
         </span>
