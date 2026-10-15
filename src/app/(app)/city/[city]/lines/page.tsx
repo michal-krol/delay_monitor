@@ -26,7 +26,7 @@ import { CITY_ID_PATTERN } from '@/lib/validation'
 
 const FALLBACK_SUBTITLE = 'Metro, tramwaje, autobusy i kolej miejska'
 
-const SEARCH_FIELD_CLASS = `${SEARCH_INPUT_CLASS} min-h-11 pl-10 pr-12 focus:ring-primary-text! [&::-webkit-search-cancel-button]:appearance-none`
+const SEARCH_FIELD_CLASS = `${SEARCH_INPUT_CLASS} min-h-11 pl-10 focus:ring-primary-text! [&::-webkit-search-cancel-button]:appearance-none`
 
 // `useSearchParams()` wymaga granicy <Suspense> przy prerenderze statycznym (jak w `/search`); fallback trafia do HTML-a,
 // więc to ten sam szkielet co po hydracji — nie pusty ekran (#7).
@@ -167,7 +167,7 @@ function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
               onChange={(event) => changeQuery(event.target.value)}
               placeholder="Numer linii lub przystanek końcowy"
               aria-label="Numer linii lub przystanek końcowy"
-              className={SEARCH_FIELD_CLASS}
+              className={`${SEARCH_FIELD_CLASS} ${q === '' ? 'pr-3' : 'pr-12'}`}
             />
             {q !== '' && (
               <button
