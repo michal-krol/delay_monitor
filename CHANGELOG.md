@@ -162,6 +162,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Dolny pasek nawigacji na telefonie: etykiety („Start”, „Mapa”, „Szukaj”, „Linie”) miały za mały kontrast
+  (4,1–4,2:1 zamiast 4,5:1), gdy pod półprzezroczystym paskiem przewijała się nasycona plakietka linii
+  (np. czarna nocna lub niebieska kolejowa) — widać to było na `/search` w jasnym motywie. Pasek jest teraz
+  kryjący w 90 % (własny token `--bottom-nav-bg`, w obu motywach), więc etykiety trzymają ≥ 4,5:1 nad każdą
+  plakietką z palety; reszta paneli szklanych (nagłówek, mapa, menu) bez zmian. Test `designTokens.test.ts` liczy
+  ten kontrast dla całej palety linii, a dwa testy axe na `/search` nie są już wyłączone.
 - Chip pojazdu na odjazdach przystanku (ekran przystanku, karta Startu, popup mapy): wiek pozycji
   („GPS: N s temu”) rośnie między odpytaniami zamiast stać na wartości z chwili odpowiedzi, a chip znika
   po przekroczeniu 180 s także wtedy, gdy kolejna odpowiedź jeszcze nie przyszła. Bez nowych zapytań;

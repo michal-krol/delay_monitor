@@ -34,6 +34,9 @@
   --surface-border: rgba(15, 23, 42, 0.08);
   --surface-shadow: 0 8px 30px rgba(15, 23, 42, 0.1);
   --sidebar-bg: rgba(255, 255, 255, 0.75);
+  /* Dolny pasek telefonu: treść przewija się pod nim, więc etykiety muszą trzymać 4,5:1 nad NAJGORSZĄ plakietką linii
+     (czerń/granat; przy 0,75 było 4,12:1). Alfa ≥ 0,85 — liczy to `designTokens.test.ts`. */
+  --bottom-nav-bg: rgba(255, 255, 255, 0.9);
   --sidebar-border: rgba(15, 23, 42, 0.06);
   --foreground: #0f172a;
   --text-secondary: #475569;
@@ -85,6 +88,7 @@
   --surface-border: rgba(255, 255, 255, 0.08);
   --surface-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --sidebar-bg: rgba(6, 10, 20, 0.6);
+  --bottom-nav-bg: rgba(6, 10, 20, 0.9);
   --sidebar-border: rgba(255, 255, 255, 0.06);
   --foreground: #f1f5f9;
   --text-secondary: #94a3b8;
@@ -517,11 +521,17 @@ details[open] > summary .disclosure-chevron,
   background-color: color-mix(in srgb, var(--sheet-surface) 88%, transparent);
   backdrop-filter: blur(16px);
 }
+/* Dolny pasek telefonu: jak `glass-chrome`, ale kryjący na tyle, by etykiety miały kontrast nad plakietką linii pod spodem. */
+@utility glass-chrome-nav {
+  background-color: var(--bottom-nav-bg);
+  backdrop-filter: blur(12px);
+}
 /* Prośba o mniej przezroczystości albo tryb wysokiego kontrastu: pełne tło, bez rozmycia. Zwykła reguła
    (poza warstwami) bije utility Tailwinda. */
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   .glass-chrome,
   .glass-chrome-strong,
+  .glass-chrome-nav,
   .bottom-sheet__panel {
     background-color: var(--sheet-surface);
     backdrop-filter: none;

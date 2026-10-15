@@ -35,7 +35,9 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
   it cost INP when the sheet opened). Content cards stay `.glass`/`.glass-strong` — near-opaque,
   **no `backdrop-filter`**. `prefers-reduced-transparency` and `forced-colors` fall back to `--sheet-surface`.
   Blur only — no `saturate()` (measured: it alone added ~8 ms to INP when the search dialog opens).
-  Keep chrome alpha ≥ ~0.6 (axe contrast, `maps.md` `color-scheme`).
+  Keep chrome alpha ≥ ~0.6 (axe contrast, `maps.md` `color-scheme`). The phone bottom bar is the exception that
+  needs more: content scrolls under it, so it uses `glass-chrome-nav` (`--bottom-nav-bg`, alpha 0.9) — its labels must
+  hold 4.5:1 over the worst `LINE_PALETTE` badge (guard in `designTokens.test.ts`; 0.75 gave 4.12:1).
 
 ## Traps (each cost a debugging round)
 
