@@ -3,6 +3,7 @@ import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { MODE_COLOR } from './map/mapData'
 import { ACCENT_GRADIENT } from './icons'
+import { LINE_PALETTE } from './transitMode'
 
 /**
  * Strażnik tokenów (PR 7): kolory statusu, błędu i obramowania powierzchni mają
@@ -332,6 +333,28 @@ describe('F0 foundation: primary colour, shared classes, motion', () => {
       expect(contrast(c.text, c.sheet), `${theme} on sheet-surface`).toBeGreaterThanOrEqual(4.5)
       expect(contrast(c.text, c.soft), `${theme} on primary-soft`).toBeGreaterThanOrEqual(4.5)
     }
+  })
+
+  it('bottom-nav labels are >= 4.5:1 over the worst line badge scrolled under the translucent bar, in both themes', () => {
+    // Regresja 2026-10-10: przy alfie 0,75 etykieta „Start” nad czarną/niebieską plakietką linii miała 4,12–4,24:1 (axe, /search).
+    for (const theme of ['light', 'dark'] as const) {
+      const t = themes[theme]
+      const nav = parseColor(t['--bottom-nav-bg'])
+      expect(nav[3], `${theme} alpha`).toBeGreaterThanOrEqual(0.85)
+      const labels = { inactive: parseColor(t['--text-secondary']), active: parseColor(t['--primary-text']) }
+      for (const [name, badge] of Object.entries(LINE_PALETTE)) {
+        const surface = over(nav, parseColor(badge.bg))
+        for (const [state, label] of Object.entries(labels)) {
+          expect(contrast(label, surface), `${theme} ${state} label over ${name}`).toBeGreaterThanOrEqual(4.5)
+        }
+      }
+    }
+  })
+
+  it('the bottom bar uses the nav glass utility, which also falls back to solid under reduced transparency', () => {
+    expect(readFileSync(join(SRC, 'components/BottomNav.tsx'), 'utf8')).toContain('glass-chrome-nav')
+    const block = css.match(/@media \(prefers-reduced-transparency: reduce\)[^{]*\{([\s\S]*?\n\})/)?.[1] ?? ''
+    expect(block).toContain('.glass-chrome-nav')
   })
 
   it('primary fill against --bg-base is >= 3:1 in both themes (active outline/non-text)', () => {

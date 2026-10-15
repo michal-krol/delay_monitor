@@ -105,6 +105,9 @@ test('mobile: fokus na ostatnim linku długiej strony nie chowa się pod dolnym 
   const navHeight = await page.getByRole('navigation', { name: 'Nawigacja główna' }).evaluate((n) => n.getBoundingClientRect().height)
   // Ostatni link w treści (poza paskiem i nagłówkiem), czyli to, co klawiatura osiąga na samym dole.
   const last = page.locator('main a, footer a').last()
+  // Koniec strony, jak po przewinięciu do dołu: WebKit nie przewija przy `focus()` elementu już widocznego w oknie,
+  // więc bez tego wynik zależałby od wysokości listy (jedna kolumna kafli w wąskim kontenerze), nie od odstępu pod paskiem.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await last.focus()
   const bottom = await last.evaluate((n) => n.getBoundingClientRect().bottom)
   const viewport = page.viewportSize()

@@ -45,6 +45,19 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Katalog linii (`/city/<miasto>/lines`): nagłówek „Linie” z nazwą miasta pod spodem, pole „Numer linii lub
+  przystanek końcowy” (z przyciskiem „Wyczyść wyszukiwanie”) i filtry rodzaju komunikacji „Wszystkie · Metro ·
+  Tramwaje · Autobusy · Kolej miejska” — zawijane w kolejne wiersze, bez przewijania w bok, z `aria-pressed`.
+  Fraza (`q`, do 100 znaków) i tryb (`mode`) są w adresie (zapis bez nowych wpisów w historii, inne parametry
+  zostają, błędne wartości są ignorowane), więc „Wstecz” z linii wraca do tego samego widoku, a odświeżenie go
+  nie gubi. Wyniki mają ten sam ranking co wyszukiwarka (dokładny numer, potem początek numeru, potem nazwa
+  trasy) i nagłówek „Wyniki · N”; bez trafień: „Brak pasujących linii” z przyciskiem „Wyczyść filtry”. Przy
+  aktywnym filtrze trybu jego sekcja jest od razu otwarta. Dane idą przez wspólny `useCityLines` (jeden fetcher,
+  rozkład i źródło z tej samej odpowiedzi, bez zapytań na wiersz). Kafle linii nie obcinają już krańców: nazwa
+  zawija się do pełnej wysokości, w wąskim kontenerze jest jedna kolumna, w szerszym siatka dopasowana do
+  szerokości. Sekcja kolei nazywa się „Kolej miejska” (nie „Kolej”). Zmiana: szukanie po samym numerze nie
+  znajduje już linii, w których numer tylko zawiera frazę (np. „16” nie pokaże „N16”) — tak samo jak w
+  wyszukiwarce; „n16” i „N1” działają.
 - Szczegóły linii miejskiej (autobus, tramwaj, metro, kolej miejska; telefon i komputer): numer i rodzaj linii,
   pełny kierunek z przyciskiem „Zmień kierunek” (kierunek wybierany po jego identyfikatorze, brak nazwy to „Kierunek
   nieznany”), przełącznik „Trasa | Rozkład”, lista przystanków z osią i osobnym linkiem „Odjazdy z przystanku”,
@@ -159,6 +172,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Dolny pasek nawigacji na telefonie: etykiety („Start”, „Mapa”, „Szukaj”, „Linie”) miały za mały kontrast
+  (4,1–4,2:1 zamiast 4,5:1), gdy pod półprzezroczystym paskiem przewijała się nasycona plakietka linii
+  (np. czarna nocna lub niebieska kolejowa) — widać to było na `/search` w jasnym motywie. Pasek jest teraz
+  kryjący w 90 % (własny token `--bottom-nav-bg`, w obu motywach), więc etykiety trzymają ≥ 4,5:1 nad każdą
+  plakietką z palety; reszta paneli szklanych (nagłówek, mapa, menu) bez zmian. Test `designTokens.test.ts` liczy
+  ten kontrast dla całej palety linii, a dwa testy axe na `/search` nie są już wyłączone.
 - Chip pojazdu na odjazdach przystanku (ekran przystanku, karta Startu, popup mapy): wiek pozycji
   („GPS: N s temu”) rośnie między odpytaniami zamiast stać na wartości z chwili odpowiedzi, a chip znika
   po przekroczeniu 180 s także wtedy, gdy kolejna odpowiedź jeszcze nie przyszła. Bez nowych zapytań;
