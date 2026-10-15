@@ -58,7 +58,8 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 ## Map location (`LocateControl`, `/city/<city>/map`, adr/0012)
 
 - Control: accessible name and tooltip „Moja lokalizacja” (`LocateIcon`); GPS only after the click (`aria-busy` while asking).
-- States (`role="status"` beside the button): asking „Szukam lokalizacji…”; denied „Brak dostępu do lokalizacji. Wyszukaj
+- States (`role="status"` beside the button): asking „Szukam lokalizacji…” (the one allowed exception to „Wczytywanie…” — it is
+  a device lookup the user triggered, not a fetch of our data); denied „Brak dostępu do lokalizacji. Wyszukaj
   miejsce lub wybierz je na mapie” (no retry button — the browser will not prompt again); no API „Lokalizacja nie jest dostępna
   w tej przeglądarce”; failed „Nie udało się ustalić lokalizacji” + „Spróbuj ponownie”.
 - `?nearby=1` without a position in memory (after F5): „Okolica wymaga Twojej lokalizacji.” + button „Pokaż moją lokalizację”
@@ -105,7 +106,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Row context: PKP „Stacja kolejowa PKP”; stop group „Zespół przystanków · {miasto}”; line „{Metro|Tramwaj|Autobus|Kolej miejska} · {miasto}”
   — GTFS rail is „Kolej miejska”, never „Stacja kolejowa PKP” (#13: it never opens a PKP connection).
 - States: 1–2 characters „Wpisz co najmniej 3 znaki, aby znaleźć miejsca” (lines still listed); loading „Wczytywanie…” (glossary: still
-  loading; never „Szukam…”); a failed source „Nie udało się wczytać {stacji kolejowych|przystanków|linii}” + „Spróbuj ponownie”; healthy zero
+  loading; never „Szukam…”; the one exception is the locate status „Szukam lokalizacji…”, see „Map location”); a failed source „Nie udało się wczytać {stacji kolejowych|przystanków|linii}” + „Spróbuj ponownie”; healthy zero
   results „Brak wyników dla tej frazy” (places searched, 3+ characters) — with 1–2 characters only lines were searched, so „Brak linii dla tej
   frazy”; neither is shown while a source loads or after a failure. Cap hint „Pokazano do 8 wyników — doprecyzuj frazę” (also at exactly 8 rows);
   offline „Brak połączenia — wyniki mogą być nieaktualne”.

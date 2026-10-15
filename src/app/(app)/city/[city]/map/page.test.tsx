@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render as baseRender, screen, waitFor, within } from '@testing-library/react'
-import { useEffect, type ReactElement } from 'react'
+import { StrictMode, useEffect, type ReactElement, type ReactNode } from 'react'
+import { MAP_ZOOM } from '@/components/map/mapData'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityMapPage from './page'
 import type { MapHit, MapView } from '@/components/map/TransitMap'
@@ -427,8 +428,95 @@ describe('CityMapPage — my location', () => {
     rerender(<CityMapPage />)
     expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
     expect(map().selected).toEqual({ lat: 52.2301, lon: 21.0101 })
+    expect(map().initialCamera).toEqual({ lat: 52.2301, lon: 21.0101, zoom: MAP_ZOOM.focus })
     expect(window.location.search).toBe('?hide=busStops')
     expect(geo.getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+
+  it('nearby=1 with ready point survives React StrictMode (effects run twice)', async () => {
+    const geo = stubGeolocation()
+    const strict = ({ children }: { children: ReactNode }) => (
+      <StrictMode>
+        <UserLocationProvider>{children}</UserLocationProvider>
+      </StrictMode>
+    )
+    const { rerender } = baseRender(<Primer />, { wrapper: strict })
+    await waitFor(() => expect(geo.calls).toHaveLength(1))
+    await act(async () => geo.calls[0].ok(FIX))
+    await waitFor(() => expect(screen.getByTestId('loc-status')).toHaveTextContent('ready'))
+
+    window.history.replaceState(null, '', '/city/warszawa/map?nearby=1')
+    rerender(<CityMapPage />)
+    expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
+    expect(map().initialCamera).toEqual({ lat: 52.2301, lon: 21.0101, zoom: MAP_ZOOM.focus })
+    expect(window.location.search).toBe('')
+  })
+
+  /** Wszystko, co przeglądarka zapamiętałaby o widoku: URL i każda wartość w localStorage. */
+  const persistedText = () =>
+    [window.location.href, ...Object.keys(window.localStorage).map((k) => window.localStorage.getItem(k) ?? '')].join('\n')
+  const AT_USER = { center: { lat: 52.2301, lon: 21.0101 }, zoom: 16 }
+
+  it('the camera centred on the user is never written to the URL or localStorage, and writing resumes after a drag', async () => {
+    const geo = stubGeolocation()
+    window.history.replaceState(null, '', '/city/warszawa/map?at=52.23010%2C21.01010%2C15.0&hide=busStops')
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+
+    act(() => map().onViewChange(AT_USER))
+    expect(persistedText()).not.toMatch(/52\.230|21\.010/)
+    expect(window.location.search).toBe('?hide=busStops')
+
+    act(() => map().onUserMove())
+    act(() => map().onViewChange({ center: { lat: 52.3, lon: 21.1 }, zoom: 13 }))
+    expect(window.location.search).toContain('at=52.30000')
+    expect(window.localStorage.getItem('monitor.map.view.v1')).toContain('52.30000')
+  })
+
+  it('nearby=1 start view centred on the user is not persisted either', async () => {
+    const geo = stubGeolocation()
+    const { rerender } = render(<Primer />)
+    await waitFor(() => expect(geo.calls).toHaveLength(1))
+    await act(async () => geo.calls[0].ok(FIX))
+    await waitFor(() => expect(screen.getByTestId('loc-status')).toHaveTextContent('ready'))
+    window.history.replaceState(null, '', '/city/warszawa/map?nearby=1')
+    rerender(<CityMapPage />)
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+
+    act(() => map().onViewChange(AT_USER))
+    expect(persistedText()).not.toMatch(/52\.230|21\.010/)
+
+    act(() => map().onUserMove())
+    act(() => map().onViewChange({ center: { lat: 52.3, lon: 21.1 }, zoom: 13 }))
+    expect(window.location.search).toContain('at=52.30000')
+  })
+
+  it('"Pokaż całe miasto" after locating resumes saving the view', async () => {
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    fireEvent.click(screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' }))
+    act(() => map().onViewChange({ center: { lat: 52.2297, lon: 21.0122 }, zoom: 12 }))
+    expect(window.location.search).toContain('at=52.22970')
+  })
+
+  it('the nearby=1 notice does not come back once nearby was opened and closed another way', async () => {
+    const geo = stubGeolocation()
+    window.history.replaceState(null, '', '/city/warszawa/map?nearby=1')
+    render(<CityMapPage />)
+    await screen.findByRole('button', { name: 'Pokaż moją lokalizację' })
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij „W pobliżu”' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'W pobliżu' })).toBeNull())
+    expect(screen.queryByRole('button', { name: 'Pokaż moją lokalizację' })).toBeNull()
+    expect(window.location.search).toBe('')
   })
 
   it('nearby=1 without point shows „Pokaż moją lokalizację" and calls no GPS until clicked', async () => {

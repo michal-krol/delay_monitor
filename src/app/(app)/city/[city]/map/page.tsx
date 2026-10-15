@@ -47,7 +47,7 @@ import { useLineDetail } from '@/hooks/useLineDetail'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
-import { useUserLocation } from '@/hooks/useUserLocation'
+import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
 import { formatAgo } from '@/lib/format'
 import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
@@ -130,6 +130,9 @@ export default function CityMapPage() {
   // `?nearby=1` bez gotowej pozycji (np. po F5): czeka na kliknięcie, GPS sam się nie uruchamia (adr/0012).
   const [nearbyPending, setNearbyPending] = useState(false)
   const userLocation = useUserLocation()
+  const entryRef = useRef<{ flag: boolean; here: UserPoint | null } | null>(null)
+  // Kamera jest wyśrodkowana na użytkowniku: ten kadr NIE trafia do `?at=` ani do localStorage (adr/0012, #4).
+  const locatedViewRef = useRef(false)
   const [listOpen, setListOpen] = useState(false)
   const [visible, setVisible] = useState<{ items: VisibleItem[]; overflow: boolean } | null>(null)
 
@@ -144,11 +147,13 @@ export default function CityMapPage() {
     // `?nearby=1` (Start → „W pobliżu mnie"): gotowa pozycja z providera otwiera okolicę i zużywa flagę; bez niej
     // (np. po F5) NIE pytamy o GPS — strona pokazuje przycisk (adr/0012). Mapa tworzy się asynchronicznie, więc
     // „skupienie" to kadr startowy na punkcie, a nie `focus` (ten przepadłby przed powstaniem mapy).
-    const here = readUrlParam('nearby') === '1' ? userLocation.point : null
+    // Wejście liczymy raz (ref): StrictMode odpala ten efekt dwa razy, a pierwszy przebieg zużywa flagę w URL-u.
+    entryRef.current ??= { flag: readUrlParam('nearby') === '1', here: readUrlParam('nearby') === '1' ? userLocation.point : null }
+    const { flag, here } = entryRef.current
     if (here !== null) {
       showNearbyAt(here, false)
       patchUrlParams({ nearby: null })
-    } else if (readUrlParam('nearby') === '1') setNearbyPending(true)
+    } else if (flag) setNearbyPending(true)
     // Kadr: pozycja z `?nearby=1` > link `?at=` > ostatni widok w tej przeglądarce > centrum miasta.
     setInitialCamera(
       here !== null ? { lat: here.lat, lon: here.lon, zoom: MAP_ZOOM.focus } : (parseAt(readUrlParam('at')) ?? readLastView(city) ?? { ...feed.mapCenter, zoom: MAP_ZOOM.initial })
@@ -160,7 +165,8 @@ export default function CityMapPage() {
   const onViewChange = useCallback(
     (next: MapView) => {
       setView(next)
-      const at = formatAt({ ...next.center, zoom: next.zoom })
+      if (locatedViewRef.current) return
+      const at =formatAt({ ...next.center, zoom: next.zoom })
       patchUrlParams({ at })
       saveLastView(city, at)
     },
@@ -276,7 +282,7 @@ export default function CityMapPage() {
     const known = stopsState.stops?.find((s) => s.id === stop.stopId)
     const mode = known?.mode ?? (line?.mode === 'tram' || line?.mode === 'metro' ? line.mode : 'bus')
     setSelection({ kind: 'stop', id: stop.stopId, groupId: stop.groupId, name: stop.name, code: stop.code, mode, lat: stop.lat, lon: stop.lon })
-    setFocus({ lat: stop.lat, lon: stop.lon, nonce: Date.now() })
+    focusOn(stop.lat, stop.lon)
   }
 
   function changeAlertsOnly(next: boolean): void {
@@ -285,14 +291,24 @@ export default function CityMapPage() {
   }
 
   function focusOn(lat: number, lon: number): void {
+    locatedViewRef.current = false
     setFocus({ lat, lon, nonce: Date.now() })
   }
 
-  /** Okolica wokół pozycji użytkownika (przycisk „Moja lokalizacja", `?nearby=1`); współrzędne zostają w stanie strony, nie w URL-u. */
+  /** Okolica wokół pozycji użytkownika (przycisk „Moja lokalizacja", `?nearby=1`); współrzędne zostają w stanie strony, nie w URL-u ani w localStorage. */
   function showNearbyAt(point: { lat: number; lon: number }, fly = true): void {
     setSelection(null)
-    setNearby({ lat: point.lat, lon: point.lon })
+    openNearbyAround(point)
     if (fly) focusOn(point.lat, point.lon)
+    locatedViewRef.current = true
+    // Ewentualne `?at=` (np. z linku) mogło już zawierać tę pozycję — usuwamy je razem z kadrem.
+    patchUrlParams({ at: null })
+  }
+
+  /** Każde otwarcie okolicy zużywa `?nearby=1`, żeby przycisk „Pokaż moją lokalizację" nie wracał po jej zamknięciu. */
+  function openNearbyAround(point: { lat: number; lon: number }): void {
+    setNearby({ lat: point.lat, lon: point.lon })
+    consumeNearbyFlag()
   }
 
   async function showMyLocation(): Promise<void> {
@@ -305,11 +321,6 @@ export default function CityMapPage() {
     if (!nearbyPending) return
     setNearbyPending(false)
     patchUrlParams({ nearby: null })
-  }
-
-  function closeNearby(): void {
-    setNearby(null)
-    consumeNearbyFlag()
   }
 
   function openNearby(point: NearbyPoint): void {
@@ -383,7 +394,7 @@ export default function CityMapPage() {
       // Zespół przystankowy: odjazdy całego zespołu; stacja metra (rodzic) ma w warstwie swój punkt.
       setSelection({ kind: 'stop', id: option.id, groupId: option.id, name: option.name, code: null, mode: option.mode ?? 'bus', lat, lon })
     }
-    if (lat !== null && lon !== null) setFocus({ lat, lon, nonce: Date.now() })
+    if (lat !== null && lon !== null) focusOn(lat, lon)
   }
 
   const neverLoaded = vehiclesState.vehicles.length === 0
@@ -436,7 +447,7 @@ export default function CityMapPage() {
         onNearby={
           selection.kind !== 'vehicle' && selection.lat !== null && selection.lon !== null
             ? () => {
-                setNearby({ lat: selection.lat!, lon: selection.lon! })
+                openNearbyAround({ lat: selection.lat!, lon: selection.lon! })
                 setSelection(null)
               }
             : undefined
@@ -444,7 +455,7 @@ export default function CityMapPage() {
         alertLines={vehiclesState.alertLines}
       />
     ) : nearby !== null ? (
-      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={closeNearby} />
+      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={() => setNearby(null)} />
     ) : listOpen ? (
       <VisibleListPanel items={visibleItems} overflow={visible?.overflow ?? false} onOpen={openVisible} onClose={() => setListOpen(false)} />
     ) : line !== null ? (
@@ -562,13 +573,16 @@ export default function CityMapPage() {
               listOpen={listOpen}
               onContextPoint={(point) => {
                 setSelection(null)
-                setNearby(point)
+                openNearbyAround(point)
               }}
               onVisibleChange={(items, overflow) => setVisible({ items, overflow })}
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
               onViewChange={onViewChange}
-              onUserMove={() => setFollowId(null)}
+              onUserMove={() => {
+                setFollowId(null)
+                locatedViewRef.current = false
+              }}
             />
           )}
 
@@ -665,7 +679,10 @@ export default function CityMapPage() {
           {/* Pozycja związana z `top-[200px]` wrappera legendy niżej — przesuwasz przycisk (albo „Moja lokalizacja"), przesuń legendę. */}
           <button
             type="button"
-            onClick={() => setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })}
+            onClick={() => {
+              locatedViewRef.current = false
+              setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })
+            }}
             aria-label={`Pokaż całe miasto — ${feed.name}`}
             title="Pokaż całe miasto"
             className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
