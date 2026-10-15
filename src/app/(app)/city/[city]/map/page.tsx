@@ -14,6 +14,7 @@ import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { stopDisplayName } from '@/components/stopName'
 import { MapFilters } from '@/components/map/MapFilters'
+import { LocateControl } from '@/components/map/LocateControl'
 import { MapLegend } from '@/components/map/MapLegend'
 import { MapMoreMenu } from '@/components/map/MapMoreMenu'
 import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
@@ -46,6 +47,7 @@ import { useLineDetail } from '@/hooks/useLineDetail'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { useUserLocation } from '@/hooks/useUserLocation'
 import { formatAgo } from '@/lib/format'
 import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
@@ -125,6 +127,9 @@ export default function CityMapPage() {
   const { pinnedItems, loaded: pinsLoaded, addPinned, removePinned, replacePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
+  // `?nearby=1` bez gotowej pozycji (np. po F5): czeka na kliknięcie, GPS sam się nie uruchamia (adr/0012).
+  const [nearbyPending, setNearbyPending] = useState(false)
+  const userLocation = useUserLocation()
   const [listOpen, setListOpen] = useState(false)
   const [visible, setVisible] = useState<{ items: VisibleItem[]; overflow: boolean } | null>(null)
 
@@ -136,8 +141,18 @@ export default function CityMapPage() {
     setRouteParam(line !== null && GTFS_ROUTE_ID_PATTERN.test(line) ? line : null)
     setDirectionId(readUrlParam('dir') === '1' ? 1 : 0)
     setAlertsOnly(readUrlParam('alerts') === '1')
-    // Kadr: link `?at=` > ostatni widok w tej przeglądarce > centrum miasta.
-    setInitialCamera(parseAt(readUrlParam('at')) ?? readLastView(city) ?? { ...feed.mapCenter, zoom: MAP_ZOOM.initial })
+    // `?nearby=1` (Start → „W pobliżu mnie"): gotowa pozycja z providera otwiera okolicę i zużywa flagę; bez niej
+    // (np. po F5) NIE pytamy o GPS — strona pokazuje przycisk (adr/0012). Mapa tworzy się asynchronicznie, więc
+    // „skupienie" to kadr startowy na punkcie, a nie `focus` (ten przepadłby przed powstaniem mapy).
+    const here = readUrlParam('nearby') === '1' ? userLocation.point : null
+    if (here !== null) {
+      showNearbyAt(here, false)
+      patchUrlParams({ nearby: null })
+    } else if (readUrlParam('nearby') === '1') setNearbyPending(true)
+    // Kadr: pozycja z `?nearby=1` > link `?at=` > ostatni widok w tej przeglądarce > centrum miasta.
+    setInitialCamera(
+      here !== null ? { lat: here.lat, lon: here.lon, zoom: MAP_ZOOM.focus } : (parseAt(readUrlParam('at')) ?? readLastView(city) ?? { ...feed.mapCenter, zoom: MAP_ZOOM.initial })
+    )
     setMounted(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- odtworzenie raz, przy wejściu
   }, [])
@@ -273,6 +288,30 @@ export default function CityMapPage() {
     setFocus({ lat, lon, nonce: Date.now() })
   }
 
+  /** Okolica wokół pozycji użytkownika (przycisk „Moja lokalizacja", `?nearby=1`); współrzędne zostają w stanie strony, nie w URL-u. */
+  function showNearbyAt(point: { lat: number; lon: number }, fly = true): void {
+    setSelection(null)
+    setNearby({ lat: point.lat, lon: point.lon })
+    if (fly) focusOn(point.lat, point.lon)
+  }
+
+  async function showMyLocation(): Promise<void> {
+    const point = await userLocation.request()
+    consumeNearbyFlag()
+    if (point !== null) showNearbyAt(point)
+  }
+
+  function consumeNearbyFlag(): void {
+    if (!nearbyPending) return
+    setNearbyPending(false)
+    patchUrlParams({ nearby: null })
+  }
+
+  function closeNearby(): void {
+    setNearby(null)
+    consumeNearbyFlag()
+  }
+
   function openNearby(point: NearbyPoint): void {
     if (point.kind === 'rail') {
       setSelection({ kind: 'rail', id: point.id, name: point.name, lat: point.lat, lon: point.lon })
@@ -405,7 +444,7 @@ export default function CityMapPage() {
         alertLines={vehiclesState.alertLines}
       />
     ) : nearby !== null ? (
-      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={() => setNearby(null)} />
+      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={closeNearby} />
     ) : listOpen ? (
       <VisibleListPanel items={visibleItems} overflow={visible?.overflow ?? false} onOpen={openVisible} onClose={() => setListOpen(false)} />
     ) : line !== null ? (
@@ -468,6 +507,14 @@ export default function CityMapPage() {
         </ul>
       )}
 
+      {nearbyPending && nearby === null && userLocation.status !== 'requesting' && (
+        <div role="status" className="glass-strong pointer-events-auto flex w-max max-w-full flex-wrap items-center gap-x-3 rounded-xl px-3 py-1.5 text-sm">
+          <span>Okolica wymaga Twojej lokalizacji.</span>
+          <button type="button" onClick={() => void showMyLocation()} className="touch-44 relative min-h-9 font-medium text-primary-text underline underline-offset-2">
+            Pokaż moją lokalizację
+          </button>
+        </div>
+      )}
       {shareStatus !== 'idle' && (
         <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
           {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
@@ -615,7 +662,7 @@ export default function CityMapPage() {
             {vehicleCountAnnouncement}
           </p>
 
-          {/* Pozycja związana z `top-44`/`sm:top-36` wrappera legendy niżej — przesuwasz przycisk, przesuń legendę. */}
+          {/* Pozycja związana z `top-[200px]` wrappera legendy niżej — przesuwasz przycisk (albo „Moja lokalizacja"), przesuń legendę. */}
           <button
             type="button"
             onClick={() => setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })}
@@ -626,6 +673,9 @@ export default function CityMapPage() {
             <CityIcon size={ICON_SIZE.tile} />
           </button>
 
+          {/* 144 px = pod „Pokaż całe miasto" (132 px) + 12 px; komunikaty wysuwają się w lewo od przycisku. */}
+          <LocateControl className="absolute right-3 top-[144px] z-10" onLocated={showNearbyAt} />
+
           {outsideFeed && !sheetOpen && (
             <p role="status" className="glass-strong absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-xs text-text-secondary">
               Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
@@ -633,12 +683,12 @@ export default function CityMapPage() {
           )}
 
           {(isWide || card === null) && (
-            // `sm:top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
-            // miasto” (`top-[88px]` + `h-11` = 132 px) + 12 px odstępu. Od `top-3` rozwinięta legenda
-            // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `SM_UP`)
-            // przyciski Lista/Filtry/Udostępnij schodzą do drugiego rzędu (114–158 px przy 375 px),
-            // stąd `top-44` (176 px) — przy 144 px legenda zakrywała ich dolne 14 px.
-            <div className="pointer-events-none absolute bottom-8 right-3 top-44 z-10 flex flex-col justify-end sm:right-4 sm:top-36">
+            // `top-[200px]` = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px), „Pokaż całe miasto”
+            // (`top-[88px]` + `h-11` = 132 px) i „Moja lokalizacja” (`top-[144px]` + `h-11` = 188 px) + 12 px
+            // odstępu. Od `top-3` rozwinięta legenda przykrywała je na niskich ekranach (800×600, 375×667).
+            // Poniżej `sm` przyciski Lista/Filtry/Udostępnij schodzą do drugiego rzędu (114–158 px przy
+            // 375 px) — 200 px je także omija.
+            <div className="pointer-events-none absolute bottom-8 right-3 top-[200px] z-10 flex flex-col justify-end sm:right-4">
               <MapLegend />
             </div>
           )}

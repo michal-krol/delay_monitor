@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render as baseRender, screen, waitFor, within } from '@testing-library/react'
+import { useEffect, type ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityMapPage from './page'
 import type { MapHit, MapView } from '@/components/map/TransitMap'
+import { UserLocationProvider } from '@/components/UserLocationProvider'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
+import { useUserLocation } from '@/hooks/useUserLocation'
 import { jsonResponse } from '@/test-utils/http'
+
+// Strona czyta pozycję użytkownika z providera z layoutu `(app)` — w testach opakowujemy ją tak samo.
+const render = (ui: ReactElement) => baseRender(ui, { wrapper: UserLocationProvider })
 
 const notFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
@@ -363,6 +369,107 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     expect(window.location.search).toBe('?alerts=1')
     fireEvent.click(screen.getByRole('button', { name: /nie tylko z utrudnieniami/ }))
     await waitFor(() => expect(map().onlyLines).toBeNull())
+  })
+})
+
+type GeoSuccess = (p: GeolocationPosition) => void
+type GeoFailure = (e: GeolocationPositionError) => void
+
+/** Atrapa `navigator.geolocation`: odpowiedź przychodzi dopiero z testu. */
+function stubGeolocation() {
+  const calls: { ok: GeoSuccess; fail: GeoFailure }[] = []
+  const getCurrentPosition = vi.fn((ok: GeoSuccess, fail: GeoFailure) => {
+    calls.push({ ok, fail })
+  })
+  Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition }, configurable: true })
+  return { calls, getCurrentPosition }
+}
+const FIX = { coords: { latitude: 52.2301, longitude: 21.0101, accuracy: 30 } } as GeolocationPosition
+
+/** Wypełnia provider pozycją, zanim zamontuje się strona (jak po „W pobliżu mnie” na Starcie). */
+function Primer() {
+  const { request, status } = useUserLocation()
+  useEffect(() => void request(), [request])
+  return <span data-testid="loc-status">{status}</span>
+}
+
+describe('CityMapPage — my location', () => {
+  afterEach(() => Object.defineProperty(navigator, 'geolocation', { value: undefined, configurable: true }))
+
+  it('map page makes no geolocation call on load', async () => {
+    const geo = stubGeolocation()
+    window.history.replaceState(null, '', '/city/warszawa/map?nearby=1')
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect(geo.getCurrentPosition).not.toHaveBeenCalled()
+  })
+
+  it('"Moja lokalizacja" opens nearby at the point and focuses it', async () => {
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    const panel = await screen.findByRole('dialog', { name: 'W pobliżu' })
+    expect(within(panel).getByText(/w linii prostej/)).toBeInTheDocument()
+    expect(map().selected).toEqual({ lat: 52.2301, lon: 21.0101 })
+    expect((state.mapProps as unknown as { focus: unknown }).focus).toMatchObject({ lat: 52.2301, lon: 21.0101 })
+  })
+
+  it('nearby=1 with ready point opens nearby and removes the flag', async () => {
+    const geo = stubGeolocation()
+    const { rerender } = render(<Primer />)
+    await waitFor(() => expect(geo.calls).toHaveLength(1))
+    await act(async () => geo.calls[0].ok(FIX))
+    await waitFor(() => expect(screen.getByTestId('loc-status')).toHaveTextContent('ready'))
+
+    window.history.replaceState(null, '', '/city/warszawa/map?hide=busStops&nearby=1')
+    rerender(<CityMapPage />)
+    expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
+    expect(map().selected).toEqual({ lat: 52.2301, lon: 21.0101 })
+    expect(window.location.search).toBe('?hide=busStops')
+    expect(geo.getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+
+  it('nearby=1 without point shows „Pokaż moją lokalizację" and calls no GPS until clicked', async () => {
+    const geo = stubGeolocation()
+    window.history.replaceState(null, '', '/city/warszawa/map?nearby=1')
+    render(<CityMapPage />)
+    const show = await screen.findByRole('button', { name: 'Pokaż moją lokalizację' })
+    expect(screen.queryByRole('dialog', { name: 'W pobliżu' })).toBeNull()
+    expect(geo.getCurrentPosition).not.toHaveBeenCalled()
+    expect(window.location.search).toBe('?nearby=1')
+
+    fireEvent.click(show)
+    expect(geo.getCurrentPosition).toHaveBeenCalledTimes(1)
+    await act(async () => geo.calls[0].ok(FIX))
+    expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pokaż moją lokalizację' })).toBeNull()
+    expect(window.location.search).toBe('')
+  })
+
+  it('a denied nearby=1 prompt consumes the flag and shows the denial text', async () => {
+    const geo = stubGeolocation()
+    window.history.replaceState(null, '', '/city/warszawa/map?nearby=1')
+    render(<CityMapPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Pokaż moją lokalizację' }))
+    await act(async () => geo.calls[0].fail({ code: 1, message: 'x' } as GeolocationPositionError))
+    expect(await screen.findByText('Brak dostępu do lokalizacji. Wyszukaj miejsce lub wybierz je na mapie')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pokaż moją lokalizację' })).toBeNull()
+    expect(window.location.search).toBe('')
+  })
+
+  it('closing nearby keeps hidden/line filters', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/map?hide=busStops&line=20')
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    map().onContextPoint({ lat: 52.2301, lon: 21.0101 })
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij „W pobliżu”' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'W pobliżu' })).toBeNull())
+    expect(window.location.search).toBe('?hide=busStops&line=20')
+    expect([...map().hidden]).toEqual(['busStops'])
+    expect(map().routeId).toBe('20')
   })
 })
 

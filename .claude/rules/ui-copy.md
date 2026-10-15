@@ -55,6 +55,16 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Browser fetch age: „Pobrano {N s temu|przed chwilą}” (not the age of the source feed); stale after a failed refresh:
   „Nie udało się odświeżyć · dane z {HH:mm}” (city time zone).
 
+## Map location (`LocateControl`, `/city/<city>/map`, adr/0012)
+
+- Control: accessible name and tooltip „Moja lokalizacja” (`LocateIcon`); GPS only after the click (`aria-busy` while asking).
+- States (`role="status"` beside the button): asking „Szukam lokalizacji…”; denied „Brak dostępu do lokalizacji. Wyszukaj
+  miejsce lub wybierz je na mapie” (no retry button — the browser will not prompt again); no API „Lokalizacja nie jest dostępna
+  w tej przeglądarce”; failed „Nie udało się ustalić lokalizacji” + „Spróbuj ponownie”.
+- `?nearby=1` without a position in memory (after F5): „Okolica wymaga Twojej lokalizacji.” + button „Pokaż moją lokalizację”
+  (the click is the only GPS call; the flag is removed afterwards or when „W pobliżu” is closed).
+- „W pobliżu” subtitle: „Promień 500 m · w linii prostej” — distances are straight-line, never walking time.
+
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)
 
 - Render error: title „Nie udało się wczytać tej strony” (`global-error`: „…aplikacji”), actions

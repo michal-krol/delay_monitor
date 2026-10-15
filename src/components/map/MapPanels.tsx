@@ -32,7 +32,7 @@ export function NearbyPanel({
   const nextDeparture = new Map((data?.stops ?? []).flatMap((s) => (s === null ? [] : [[s.stopId, s.departures[0]] as const])))
 
   return (
-    <PanelFrame title="W pobliżu" subtitle="Promień 500 m" closeLabel="Zamknij „W pobliżu”" onClose={onClose}>
+    <PanelFrame title="W pobliżu" subtitle="Promień 500 m · w linii prostej" closeLabel="Zamknij „W pobliżu”" onClose={onClose}>
       {points.length === 0 ? (
         <p className="p-1 text-sm text-text-secondary">Brak stacji i przystanków w promieniu 500 m.</p>
       ) : (
