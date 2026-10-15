@@ -25,8 +25,15 @@ describe('nagłówki bezpieczeństwa', () => {
     expect(headers.get('X-Content-Type-Options')).toBe('nosniff')
     expect(headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin')
     expect(headers.get('X-Frame-Options')).toBe('DENY')
-    expect(headers.get('Permissions-Policy')).toContain('geolocation=()')
     expect(headers.get('Content-Security-Policy')).toBeDefined()
+  })
+
+  it('next.config: Permissions-Policy has geolocation=(self) and camera/microphone/payment/usb still empty', async () => {
+    // GPS tylko po kliknięciu (adr/0012); żadne inne uprawnienie nie jest poszerzone.
+    const policy = (await headersFor('/')).get('Permissions-Policy') ?? ''
+    expect(policy.split(', ').sort()).toEqual(
+      ['camera=()', 'geolocation=(self)', 'microphone=()', 'payment=()', 'usb=()'].sort(),
+    )
   })
 
   it('nie pozwala osadzić strony w ramce ani przejąć bazowego URL-a', async () => {
