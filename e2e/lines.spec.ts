@@ -301,10 +301,11 @@ test.describe('Katalog linii (PR9)', () => {
     for (const right of rights) expect(right).toBeLessThanOrEqual(320)
   })
 
+  // Jeden widok = jeden test: sześć nawigacji + skanów axe w jednym teście przekraczało 30 s na mobile-safari.
   for (const colorScheme of ['light', 'dark'] as const) {
-    test(`a11y: katalog z aktywnym chipem i wyniki szukania (m.in. nocna N16 i lokalna L-1) w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} bez naruszeń serious/critical`, async ({ page }) => {
-      await page.addInitScript((value) => window.localStorage.setItem('theme', value), colorScheme)
-      for (const search of A11Y_VIEWS) {
+    for (const search of A11Y_VIEWS) {
+      test(`a11y: katalog „${search}” (m.in. nocna N16 i lokalna L-1) w trybie ${colorScheme === 'dark' ? 'ciemnym' : 'jasnym'} bez naruszeń serious/critical`, async ({ page }) => {
+        await page.addInitScript((value) => window.localStorage.setItem('theme', value), colorScheme)
         await gotoCatalog(page, search)
         await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme))
         await expect(anyLineLinks(page).first()).toBeVisible({ timeout: READY })
@@ -313,8 +314,8 @@ test.describe('Katalog linii (PR9)', () => {
           await expect(lineLink(page, 'L-1')).toBeVisible()
         }
         await expectNoBlocking(page)
-      }
-    })
+      })
+    }
   }
 
   test('zmiana motywu zachowuje frazę i tryb i nie pobiera listy linii ponownie', async ({ page }) => {
