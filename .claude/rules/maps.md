@@ -129,7 +129,9 @@ the panel scrolls the container. Rules:
 - A new object remounts the sheet (`key`) so it opens at `initialSnap` (default `peek`).
 - Things that must stay visible over the open sheet (filter chips, `role=status` messages) go in
   the `above` slot: it rides on the panel's top edge and scrolls with it. At `full` only about
-  one row fits (~55 px on iPhone 15) — put the most important item last (nearest the edge).
+  one row fits (~55 px on iPhone 15), so the transport map's slot is ONE bottom-aligned row — statuses left
+  (`min-w-0 flex-1`, wrapping), „Moja lokalizacja" right — never two stacked rows (the upper one ended under the
+  page header at `full`). Chips above that row may clip at `full`. Details: „Phone overview…” below.
 - Board pages' „Info” and the `WeatherChip` sheet are NOT this sheet: `InfoSheet`
   (`src/components/InfoSheet.tsx`) is a native modal `<dialog>` from the bottom (`adr/0009-modalne-info.md`):
   no gestures to pass through, so background inert + scroll lock. Close paths (×, Escape via `cancel`,
@@ -181,3 +183,27 @@ selected object sits in the free area, not under the toolbar or the sheet.
   locate flight interrupted would otherwise unblock the arrival at the user. The radius stays after the latch is gone, so returning near the user is blocked
   again (a city view within 150 px of the user is therefore not persisted either — accepted, fails closed). Source-verified (maplibre 6.13): `getCenter()` is the
   padded-area centre, so padding does not offset the stored centre; jsdom cannot test that.
+
+## Phone overview, search, location and filters on the transport map (PR10)
+
+Wording of every string: `ui-copy.md` („Map location”, „Map overview…”, „Map search”, „Map filters”); GPS decision: `adr/0012`.
+
+- **Overview = a `BottomSheet`, not a dialog.** Phone with no selection/nearby/line shows `OverviewPanel` (region „Pojazdy i przystanki w widoku”) at
+  `peek`; „Lista” opens the same sheet at `half` (`cardKey` `overview:list`), it is not a second window. The map computes the frame (`listOpen || overview`
+  in `TransitMap`). Wide screens have no sheet: the list is a window panel, the full `MapLegend` sits by the map, the object card is an `aside`
+  (a flex sibling, so no extra camera padding).
+- **`above` slot row** (`map/page.tsx`): statuses (`statusStack`, „poza obszarem” notice) in a `min-w-0 flex-1` column + `LocateControl` with
+  `messagesAbove` (its messages stack in the flow above the button; beside it they floated over the statuses). Wide screens keep the control
+  absolutely positioned (`top-[144px]`) and the legend below it (`top-[200px]`) — move them together.
+- **One search.** `UnifiedSearch variant="overlay"` replaces the place and line inputs; results are an opaque `role=group` panel
+  (`data-search-results` lifts the toolbar above the sheet). The page calls `useCityLines` ONCE and passes it as `lineSource` — the field must not
+  fetch the catalog a second time; a result never navigates away from the map, and a result without coordinates is a notice, never the camera at 0,0.
+- **GPS only after a click.** `useUserLocation()` (`UserLocationProvider` in `(app)/layout.tsx`) — no call on mount, no `watchPosition`, denied is
+  remembered (no re-prompt). `?nearby=1` without a point in memory (F5) shows a button, never asks. The point lives in the provider and in
+  `locatedViewRef`/page state only (privacy rule in „Camera insets”).
+- **Mode chips are the same `hidden` set** as the „Filtry” panel (`changeHidden` → `?hide=`); one `activeFilterCount()` feeds the badge, the
+  chips list and „Wyczyść filtry”. Chips exist only on phones and only for layers present in the vehicle data.
+- **Vehicle position age.** `ageSec` is GPS age grown by `useCityVehicles` (one clock per page). `FADE_START_SEC` 90 fades the dot, `HIDE_AFTER_SEC` 180
+  removes it from the map and the visible list; a selected vehicle older than that stays selected and its card says position lost. The overview shows
+  the MEDIAN age of the vehicles in frame („Pozycje sprzed …”) — not the header's browser fetch age (`lastSuccessAt`).
+- **Full snap deviates on purpose:** no padding correction at `full` (user decision 2026-10-15, see „Camera insets”).
