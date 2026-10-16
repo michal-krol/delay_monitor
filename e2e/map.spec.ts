@@ -395,6 +395,9 @@ test('mapa transportu: tryb linii — panel z przebiegiem, zmiana kierunku w URL
   }
   const switchDirection = panel.getByRole('button', { name: 'Zmień kierunek' })
   if (await switchDirection.isVisible()) {
+    // Od PR10 nad kierunkiem leży sekcja „Komunikaty linii": na niskim ekranie (iPhone 15, 659 px) przycisk wychodzi poza widok
+    // pełnego arkusza o ~12 % i treść przewija się w środku (`[data-sheet-scroll]`, przy `full` jest przewijalna).
+    await switchDirection.scrollIntoViewIfNeeded()
     await expect(switchDirection).toBeInViewport({ ratio: 1 })
     await switchDirection.click()
     await expect(page).toHaveURL(/[?&]dir=1/)
@@ -1045,7 +1048,7 @@ test.describe('mapa transportu: lokalizacja użytkownika', () => {
   test.describe('zgoda', () => {
     test.use({ geolocation: USER, permissions: ['geolocation'] })
 
-    test('okolica po kliknięciu; pozycja użytkownika nie trafia do adresu ani do localStorage po przesunięciu, przybliżeniu i klawiaturze', async ({ page }) => {
+    test('okolica po kliknięciu; pozycja użytkownika nie trafia do adresu ani do localStorage po przesunięciu, przybliżeniu i klawiaturze', async ({ page, browserName }) => {
       await stubGeolocation(page, 'delegate')
       const map = await openMap(page)
       const box = (await map.boundingBox())!
@@ -1066,9 +1069,12 @@ test.describe('mapa transportu: lokalizacja użytkownika', () => {
       const view = (await map.boundingBox())!
 
       // Zachowania, które przesuwają środek kadru bez `dragstart` (zatrzask + promień ochronny): koło myszy poza środkiem i strzałki.
-      await page.mouse.move(view.x + view.width / 2 + 100, view.y + view.height * 0.45 - 60)
-      await page.mouse.wheel(0, -400)
-      await page.waitForTimeout(1_200)
+      if (browserName !== 'webkit') {
+        // Mobilny WebKit w Playwright nie ma `mouse.wheel` — tam zostają strzałki (zoom szczypnięciem to click-QA na iPhonie).
+        await page.mouse.move(view.x + view.width / 2 + 100, view.y + view.height * 0.45 - 60)
+        await page.mouse.wheel(0, -400)
+        await page.waitForTimeout(1_200)
+      }
       await map.focus() // region mapy to sam canvas MapLibre (tabindex 0)
       await page.keyboard.press('ArrowRight')
       await page.keyboard.press('ArrowRight')
