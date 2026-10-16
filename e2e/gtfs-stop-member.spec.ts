@@ -79,7 +79,8 @@ test('przystanek metra z dwukropkiem w ID: link z linii prowadzi do tablicy, nie
   // przeładowaniu tego samego URL-a (`decodeStopIdFromPathSegment`).
   await page.goto('/city/warszawa/line/M1')
   await showLineTimetable(page)
-  const link = page.getByRole('link', { name: /pełna tablica przystanku/ })
+  // `exact`: każdy wiersz trasy ma własny link „Odjazdy z przystanku {nazwa}”; tu chodzi o link z sekcji rozkładu.
+  const link = page.getByRole('link', { name: 'Odjazdy z przystanku', exact: true })
   await expect(link).toBeVisible({ timeout: READY })
 
   await link.click()
@@ -121,8 +122,17 @@ test('a11y (ciemny): zespół, wybrany przystanek i pusty filtr linii bez narusz
 })
 
 test('zmiana motywu zachowuje przystanek i zakładkę i nie pobiera rozkładu ponownie', async ({ page, browserName }) => {
+  // Pierwsza odpowiedź po obudzeniu pollerów ma `alerts: null` (feed komunikatów jeszcze nieznany, gtfs.md #13),
+  // więc `useTransitBoard` ponawia drabinką po ~1 s. Liczymy dopiero od odpowiedzi z gotowymi komunikatami —
+  // inaczej to ponowienie wpada w okno zliczania (CI: wolniejszy start, lokalnie zwykle poza oknem).
+  const settled = page.waitForResponse(async (response) => {
+    if (!response.url().includes('/api/gtfs/board')) return false
+    const body = (await response.json()) as { schedule: { state: string }; stops: ({ alerts: unknown[] | null } | null)[] }
+    return body.schedule.state === 'ready' && body.stops.every((stop) => stop === null || stop.alerts !== null)
+  })
   await page.goto(`${CENTRUM}?przystanek=100102&tab=lines`)
   await expect(page.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+  await settled
   let boardRequests = 0
   page.on('request', (request) => {
     if (request.url().includes('/api/gtfs/board')) boardRequests += 1

@@ -279,11 +279,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expectNoBlocking(page)
     })
 
-    test('wyniki: stacje, przystanki i linie', async ({ page }, testInfo) => {
-      // Produkt (nie test): pod półprzezroczystym dolnym paskiem leży czarna plakietka linii (wiersz 6. grupy „Linie");
-      // etykieta „Start" ma tam 4,12:1 (axe color-contrast, serious). Tylko Pixel 7 + jasny motyw — iPhone 15 i ciemny
-      // przechodzą, bo wiersz ląduje w innym miejscu. Do usunięcia po poprawie kontrastu paska (2026-10-10).
-      test.fixme(theme === 'light' && testInfo.project.name === 'mobile-chromium', 'dolny pasek nad czarną plakietką linii: 4,12:1')
+    test('wyniki: stacje, przystanki i linie', async ({ page }) => {
       const main = await openPage(page)
       await searchField(main).fill('Centr')
       for (const heading of ['Stacje kolejowe', 'Przystanki', 'Linie']) await expect(main.getByRole('heading', { name: heading })).toBeVisible({ timeout: READY })
@@ -304,10 +300,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expectNoBlocking(page)
     })
 
-    test('częściowa awaria', async ({ page }, testInfo) => {
-      // Ten sam produktowy kontrast dolnego paska co w teście „wyniki” wyżej: po pokazaniu nagłówka „Szukaj” na telefonie
-      // (2026-10-11) niebieska plakietka linii ląduje pod etykietą „Start” (4,24:1) — tu na iPhone 15, jasny motyw.
-      test.fixme(theme === 'light' && testInfo.project.name === 'mobile-safari', 'dolny pasek nad niebieską plakietką linii: 4,24:1')
+    test('częściowa awaria', async ({ page }) => {
       await page.route(SEARCH_API, (route) =>
         route.fulfill({
           status: 200,

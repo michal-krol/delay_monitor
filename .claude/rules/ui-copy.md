@@ -127,6 +127,39 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   hint „Przybliż mapę, aby zobaczyć więcej”. Empty frame: „W tym kadrze nic nie widać — oddal albo przesuń mapę.”, plus „Wyczyść filtry”
   when any restriction is active.
 
+## Transit line (`/city/[city]/line/[routeId]`, GTFS only — #13)
+
+- Mode word from `MODE_LABEL[mode]` with `MODE_ICON` (never a hardcoded „Autobus”); h1 = the line's long name; in every
+  non-ready state (loading, failed, unknown line) the h1 is „Przebieg linii”.
+- Direction card: label „Kierunek”, the full headsign (wraps, never cut), „Od: {origin}” only when the origin is known;
+  headsign fallback = the last stop of THAT direction, else „Kierunek nieznany” — never present the origin as the
+  destination. Swap button „Zmień kierunek” (visible text; only with ≥ 2 directions).
+- Segment „Widok linii”: „Trasa” / „Rozkład” (phones; from `lg` both panes show). Timetable pane: h2 „Rozkład”, capsule
+  (`role=group`, „Wybrany rozkład”) = line badge · headsign · selected stop name, link „Odjazdy z przystanku”. Route rows:
+  select button + separate chevron link named „Odjazdy z przystanku {name}”; „początek”/„koniec”, „Na żądanie”.
+- Route pane heading (`LineRouteList`): „Trasa linii · N przystanków” (`pluralPl`: przystanek|przystanki|przystanków); legend under the
+  list „przystanek” / „na żądanie” / „przystanek krańcowy”. Map section heading „Mapa trasy” (region name „Mapa trasy linii {line}”).
+  Timetable status title (`ScheduleStatus`) „Rozkład jazdy linii {line}”. A repeated stop (loop) presses the row that was picked,
+  not the first occurrence.
+- Aside (xl, `AsideCard` „Linia {line}”): labels „Rodzaj”, „Kierunki”, „Przystanki”, „Pierwszy / ostatni” (first–last departure of the
+  selected direction); card „Pojazdy w trasie — {headsign}” lists „#{side} za „{stop}” · {formatAgo}” (age only past 60 s).
+  Vehicle ages anywhere on this screen go through `formatAgo`, never a hand-built „N min temu”; the axis marker has an
+  sr-only name „Pojazd {side}, {formatAgo}” and no `title`. Breadcrumb tail is „Linia” until the long name is known (never the raw id).
+- Vehicles row (one copy; the list stays in the aside card „Pojazdy w trasie — {headsign}”): „Pojazdy w tym kierunku: N” +
+  „GPS: {formatAgo}”; loading „Wczytywanie pozycji…”; failed „Nie udało się pobrać pozycji.”; no position feed for the mode
+  „Brak danych o pozycjach pojazdów” (the route and timetable stay); healthy zero „Brak pojazdów w tym kierunku.”; link
+  „Pojazdy na mapie” (`/city/{city}/map?line={routeId}&dir={0|1}`); unknown direction (id 2): no `dir`, no fetch, text
+  „Kierunek nieznany — pokazujemy pojazdy bez rozróżnienia kierunku.” „Failed” = a fetch error OR a `failed` feed state
+  with no vehicles; „Brak danych o pozycjach pojazdów” is only for the other non-ready feed states (idle, no feed).
+- Alerts: shortcut „{n} komunikat|komunikaty|komunikatów” (only when n > 0, scrolls to the section AND moves focus to it) and the `ContextAlerts`
+  section with scope „Komunikaty linii {line}”; wording of the states as in „Context alerts” above.
+- States: loading = skeleton + „Wczytywanie przebiegu linii…” (schedule loading: „Wczytywanie rozkładu…”); failed first fetch =
+  „Nie udało się pobrać przebiegu linii.” + „Spróbuj ponownie” + link back to the catalog; unknown line = „Nie znaleziono
+  linii” + „Wróć do katalogu linii”; no route = „Brak przebiegu tej linii.”. Age: „Pobrano … temu” (browser fetch) /
+  „Nie udało się odświeżyć · dane z {HH:mm}”.
+- URL: `?dir=<directionId>&stop=<stopId>&pane=timetable&day=…` (defaults not written; `day` is read only by the timetable
+  screen), `replaceState` only — see `gtfs.md`.
+
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)
 
 - Render error: title „Nie udało się wczytać tej strony” (`global-error`: „…aplikacji”), actions
@@ -174,6 +207,19 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - No city (stops and lines need one; PKP stations keep working): the city list loading „Wczytywanie miast…”; failed „Nie udało się wczytać
   listy miast” + the same „Spróbuj ponownie” (one button retries every failed source, then focus returns to the field); empty registry
   „Brak skonfigurowanych miast”. Never „Wybierz miasto…” — the app picks the city (URL, last used, default), the user is not asked.
+
+## Lines catalog (`/city/<city>/lines`, `lines/page.tsx`, `LineGrid.tsx`, GTFS only — #13)
+
+- H1 „Linie”; the subtitle under it is the city name (no „Linie — {miasto}”).
+- Field (`type=search`): label and placeholder „Numer linii lub przystanek końcowy”; clear button „Wyczyść wyszukiwanie” (only with text).
+- Mode chips, group name „Rodzaj komunikacji” (wrapped, never a horizontal scroller, `aria-pressed`): „Wszystkie”, then only the modes the city
+  has — „Metro”, „Tramwaje”, „Autobusy”, „Kolej miejska” (`SECTION_LABEL`, one source for chips and section titles). GTFS rail is „Kolej miejska”, never
+  „Kolej” alone or PKP wording (#13).
+- Search result list: heading „Wyniki · N” (N = lines in the current filter, not running vehicles); row link name „Linia N: A – B” (+ „, nocna” etc. for a bus kind).
+- States: nothing matches „Brak pasujących linii” + button „Wyczyść filtry” (clears both `q` and `mode`); the city has no lines „Brak linii w rozkładzie.”;
+  loading is the section skeleton (`aria-busy`, sr-only „Wczytywanie…”); failed with nothing to show „Nie udało się pobrać listy linii.” + „Spróbuj ponownie”;
+  failed with a list keeps it and shows the `ScheduleStatus` warning (#7).
+- Full termini always visible (wrap, no `truncate`); „Ostatnio oglądane” keeps its short badge-only links (name „Linia N: A – B”).
 
 ## Filters
 

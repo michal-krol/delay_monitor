@@ -37,6 +37,12 @@ data age, not a white screen. Error banner only for a configuration error (401).
   Budget (`e2e/boards-mobile.spec.ts`): at 375×812 the first two departures sit above the bottom bar with no
   notice showing; anything new above the board must pay for itself. „Na mapie” = coordinates from
   `useRailStations` (static list, 0 PKP, no weather); unknown location is text, not a control.
+- Transit line page (PR7): loading = skeleton (`aria-busy`, one h1 „Przebieg linii”, never „Nie znaleziono linii”); first-fetch error =
+  retry + back to the catalog; a failed refresh keeps the route and turns „Pobrano … temu” into the warning. Four independent
+  states, each with its own copy: schedule/route, vehicles (loading / failed / no feed for the mode / healthy zero), alerts
+  (`deriveLineAlerts`: loading / failed / ready+[] / failed with the last list), and the age line. A failure in vehicles or
+  alerts never hides the route or the timetable. `ready` + `line === null` is „Nie znaleziono linii”; zero stops is „Brak
+  przebiegu tej linii.”, no crash.
 - Connection (`ConnectionDetails`, PR5): loading = header + axis skeleton (`aria-busy`, one h1); first-fetch error =
   server message only for 404/503, else the generic one (`ui-copy.md`) + „Spróbuj ponownie” (`usePolling().refresh()`, foreground, bounded by the server's 90 s cache and
   miss cap) + „Szukaj stacji”; empty `stops` = „PKP nie udostępnia teraz trasy…” (`role="status"`, h1 + the same two actions; not a finished journey); a failed

@@ -15,7 +15,7 @@ const VIEWS = [
   {
     name: 'linie GTFS',
     path: '/city/warszawa/lines',
-    ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: 'Linie — Warszawa' }),
+    ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { level: 1, name: 'Linie', exact: true }),
   },
   {
     name: 'ekran miasta GTFS',

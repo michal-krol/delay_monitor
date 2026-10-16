@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { isLineLoading, useLineDetail } from './useLineDetail'
+import { deriveLineAlerts, isLineLoading, lineRefreshMs, useLineDetail } from './useLineDetail'
 import type { AlertFeedStatus } from '@/lib/gtfs/alertView'
 import { jsonResponse } from '@/test-utils/http'
 
@@ -198,5 +198,23 @@ describe('isLineLoading', () => {
   })
   it('schedule loading is loading regardless of the feed', () => {
     expect(isLineLoading({ line: null, schedule: { state: 'loading' }, alerts: [], alertFeed: feed('failed', null) })).toBe(true)
+  })
+})
+
+// Wspólny mapper stanu komunikatów: strona linii (własny `usePolling`) i hook dają ten sam wynik.
+describe('deriveLineAlerts / lineRefreshMs', () => {
+  const base = { line: LINE as never, schedule: { state: 'ready' } }
+  it('no data yet: loading, or failed after a network error — never "ready"', () => {
+    expect(deriveLineAlerts(null, false)).toEqual({ state: 'loading', stale: false })
+    expect(deriveLineAlerts(null, true)).toEqual({ state: 'failed', stale: false })
+  })
+  it('ready feed + [] is the only "none"; a network error after it keeps the list but marks it stale', () => {
+    const data = { ...base, alerts: [], alertFeed: feed('ready', '2026-09-03T09:00:00.000Z') }
+    expect(deriveLineAlerts(data, false)).toEqual({ state: 'ready', stale: false })
+    expect(deriveLineAlerts(data, true)).toEqual({ state: 'failed', stale: true })
+  })
+  it('a failed feed is retried every 5 min, others are not polled by refreshMs', () => {
+    expect(lineRefreshMs({ ...base, alerts: null, alertFeed: feed('failed', null) })).toBe(5 * 60_000)
+    expect(lineRefreshMs({ ...base, alerts: [], alertFeed: feed('ready', '2026-09-03T09:00:00.000Z') })).toBeNull()
   })
 })

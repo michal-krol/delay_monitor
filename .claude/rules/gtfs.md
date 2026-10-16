@@ -71,12 +71,40 @@ paths:
   `L-n`/`L<digit>` local, 700–899 zone, `route_desc` keywords first. Labels: ONE
   `LINE_KIND_LABEL` (singular chip) and ONE `BUS_KIND_LABEL`/`BUS_KIND_ORDER` (plural colour
   legend: „Linie” bus subsections + map legend) in `transitMode.tsx`.
-- **„Linie” page** (`/city/<city>/lines`, `LineGrid.tsx`): `<details>` sections per mode, bus
-  subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
+- **„Linie” page** (`/city/<city>/lines`, `lines/page.tsx` + `LineGrid.tsx`): `<details>` sections per mode,
+  bus subsections per kind (= colour legend). Open state `monitor.linesSections.v1`
   (`useSectionOpen`), recent lines `monitor.recentLines.v1` (`useRecentLines`, recorded by the
   line page only after its detail loaded) — both through Zod (#4). React fires `toggle` also
-  for a programmatic `open` change: `setOpen(key, open, count)` skips writes equal to the
+  for a programmatic `open` change: `setOpen(key, open, count, openByDefault?)` skips writes equal to the
   current state, otherwise the first render would freeze the defaults.
+  - **Data**: `useCityLines(city)` (the one fetcher of `/api/gtfs/lines`; `schedule` and `attribution`
+    for `ScheduleStatus`/`AttributionFooter` come from the same payload; zero requests per row).
+  - **URL state** `q` (≤100 chars) and `mode` (a `GtfsMode`): `src/lib/linesView.ts` (`parseLinesView`,
+    `linesViewPatch`), written with `patchUrlParams` = `replaceState`, so typing adds no history entries and
+    other params are preserved; bad values are ignored silently (#4). The URL is read once, in a `<Suspense>`
+    boundary (`useSearchParams`), into the inner `LinesCatalog key={city}` — a city change resets `q`, `mode`
+    and results. A `mode` the city doesn't have is treated as „Wszystkie” after load.
+  - **Filtering**: mode filter first, then `rankLines` (`src/lib/discovery.ts`: exact number → number
+    prefix → phrase in the route name; no infix match on the number, same as the global search), via
+    `filterCatalogLines`. A non-empty `q` shows the flat `LineResults`; otherwise `LineGrid` with the
+    mode-filtered groups (`groupByMode`, chips from `availableModes`). An active mode filter passes
+    `openByDefault` so its only section opens without a click; a stored user toggle still wins.
+  - **Tiles**: no `truncate` — full termini wrap; the grid is a container query (`@container`), one
+    column in a narrow container, auto-fill from `@md`, never a window breakpoint (the aside changes the width).
+  - Copy: `ui-copy.md` „Lines catalog”.
+- **Line detail page view state** (`/city/<city>/line/<routeId>`, `src/lib/lineViewState.ts`): `?dir=<directionId>`
+  (the direction's id, NOT its array index — a direction with id 1 may come first; default = first in the array),
+  `?stop=<stopId>` (first occurrence; with no valid `dir` the first direction that contains it), `?pane=route|timetable`
+  (phones only), `?day=weekday|saturday|sunday|other` (read by the timetable screen). Written with `patchUrlParams`
+  (`replaceState`, other params kept, defaults omitted); parsed against an allow-list/regex, resolved only against the
+  loaded `LineDetail` (`resolveLineView`), bad values fall back silently (#4). In-session choices (`dirChoice`, `stopChoice`,
+  `paneChoice`) win over later URL changes on the same mounted route (another route remounts via `key`). Only a direction
+  switch writes `dir`, and never for the first direction (switching back removes it); picking a stop or pane re-writes whatever
+  `dir` the URL already carries. A looped route repeats a stop: the URL holds the `stopId` (first occurrence on reload), the
+  picked row lives in local `stopIndexChoice` (valid while it matches the view's `stopId`, reset on a direction switch) and
+  drives the highlighted row and the timetable `offsetSec`. The page keeps its own `usePolling`
+  (one `/api/gtfs/line` per line) and derives alerts with `deriveLineAlerts()` from `useLineDetail.ts` — never mount
+  `useLineDetail` next to it. Unknown direction (id 2) never queries vehicles and links the map without `dir`.
 - **`schedule.routePatterns`** (stop sequence per direction + second `offsets` from the first
   stop) accumulated in the hot `stop_times` loop — don't scan millions of events per line-page
   request. `lineDetail()` reads the ready index; the page computes a time as
