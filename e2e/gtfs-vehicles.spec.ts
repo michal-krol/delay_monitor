@@ -15,7 +15,7 @@ test('linia: marker pojazdu na osi + karta „Pojazdy w trasie" ze znakiem boczn
   // to tytuł karty w PageAside).
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
   // Marker na osi trasy renderuje się na każdym viewporcie (jest w <ol>, nie w aside).
-  await expect(page.getByTitle(/^Pojazd 380\d/).first()).toBeVisible({ timeout: READY })
+  await expect(page.getByTestId('timeline-vehicle').first()).toBeVisible({ timeout: READY })
 
   // Karta „Pojazdy w trasie" w PageAside (od `xl` po prawej, niżej pod treścią).
   await expect(page.getByText(/#380\d/).first()).toBeVisible({ timeout: READY })
@@ -33,7 +33,7 @@ test('a11y: strona linii z markerami pojazdów bez naruszeń serious/critical', 
   await page.goto(LINE_20)
   // Precondition widoczna na każdym viewporcie (nagłówek trasy + marker na osi, nie karta aside).
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
-  await expect(page.getByTitle(/^Pojazd 380\d/).first()).toBeVisible({ timeout: READY })
+  await expect(page.getByTestId('timeline-vehicle').first()).toBeVisible({ timeout: READY })
 
   const { violations } = await scanA11y(page)
   const blocking = violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))

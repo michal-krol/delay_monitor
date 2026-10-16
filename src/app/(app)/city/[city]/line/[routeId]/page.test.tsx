@@ -36,6 +36,9 @@ vi.mock('@/components/MapView', () => ({
         <button type="button" data-testid="map-pin-1" onClick={() => onPinClick?.('1')}>
           pin 1
         </button>
+        <button type="button" data-testid="map-pin-2" onClick={() => onPinClick?.('2')}>
+          pin 2
+        </button>
         {(movers ?? []).map((m) => (
           <span key={m.label} data-testid="mover" data-lat={m.lat} data-lon={m.lon} data-mode={m.mode} data-bearing={m.bearing ?? ''}>
             {m.label}
@@ -318,6 +321,14 @@ describe('LineDetailPage', () => {
     expect(await screen.findByText('#3801')).toBeInTheDocument()
   })
 
+  it('an old vehicle shows its age through formatAgo (aside and axis), not a hand-rolled „N min temu”', async () => {
+    stubFetch(LINE, { ...VEHICLES_READY, vehicles: [{ ...VEHICLES_READY.vehicles[0], ageSec: 7200 }] })
+    render(<LineDetailPage />)
+    expect(await screen.findByText(/za „Centrum 01” · 2 h temu/)).toBeInTheDocument()
+    expect(screen.getByTestId('timeline-vehicle')).toHaveTextContent('Pojazd 3801, 2 h temu')
+    expect(screen.getByTestId('timeline-vehicle')).not.toHaveAttribute('title')
+  })
+
   it('highlights a picked departure across every stop of the route (start + travel offset)', async () => {
     stubFetch()
     const user = userEvent.setup()
@@ -399,8 +410,10 @@ describe('LineDetailPage — direction by id and URL state', () => {
     expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Dworzec Centralny')
     expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).not.toHaveTextContent('Metro Politechnika')
 
+    // Powrót do pierwszego kierunku = stan domyślny: parametr znika.
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
-    expect(search().get('dir')).toBe('0')
+    expect(search().has('dir')).toBe(false)
+    expect(search().get('foo')).toBe('bar')
     expect(screen.getByText('Od: Centrum')).toBeInTheDocument()
   })
 
@@ -415,7 +428,7 @@ describe('LineDetailPage — direction by id and URL state', () => {
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
     expect(search().get('dir')).toBe('2')
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
-    expect(search().get('dir')).toBe('0')
+    expect(search().has('dir')).toBe(false)
   })
 
   it('a single direction has no swap button (not a disabled dead control)', async () => {
@@ -440,7 +453,21 @@ describe('LineDetailPage — direction by id and URL state', () => {
     expect(screen.queryByText('06:05')).not.toBeInTheDocument()
   })
 
-  it('picking a stop writes stop=<id> (with the resolved dir) and keeps the pane on desktop', async () => {
+  it('picking a stop writes stop=<id>, does NOT write the default dir, and keeps the pane on desktop', async () => {
+    stubFetch()
+    const user = userEvent.setup()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    await user.click(screen.getByRole('button', { name: /Rondo ONZ/ }))
+    expect(search().get('stop')).toBe('700201')
+    expect(search().has('dir')).toBe(false)
+    // Od `lg` obie sekcje są obok siebie — wybór przystanku nie przełącza widoku.
+    expect(search().has('pane')).toBe(false)
+    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Rondo ONZ 02')
+  })
+
+  it('picking a stop keeps the dir the URL already carried', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?dir=0')
     stubFetch()
     const user = userEvent.setup()
     render(<LineDetailPage />)
@@ -448,9 +475,51 @@ describe('LineDetailPage — direction by id and URL state', () => {
     await user.click(screen.getByRole('button', { name: /Rondo ONZ/ }))
     expect(search().get('stop')).toBe('700201')
     expect(search().get('dir')).toBe('0')
-    // Od `lg` obie sekcje są obok siebie — wybór przystanku nie przełącza widoku.
-    expect(search().has('pane')).toBe(false)
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Rondo ONZ 02')
+  })
+
+  describe('a stop repeated in a loop route', () => {
+    // Pętla: Centrum 01 na początku (0 s) i na końcu (900 s) — to samo stopId, inny offsetSec.
+    const LOOP = lineWith([{ ...DIR0, stops: [DIR0_STOPS[0], DIR0_STOPS[1], { ...DIR0_STOPS[0], offsetSec: 900 }] }, DIR1])
+    const centrumButtons = () => screen.getAllByRole('button', { name: /^Centrum 01/ })
+
+    it('pressing the SECOND occurrence selects that row, uses its offsetSec, and writes the stopId', async () => {
+      stubFetch(LOOP)
+      const user = userEvent.setup()
+      render(<LineDetailPage />)
+      await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+      expect(centrumButtons()[0]).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: '06:00' })).toBeInTheDocument()
+
+      await user.click(centrumButtons()[1])
+      expect(centrumButtons()[1]).toHaveAttribute('aria-pressed', 'true')
+      expect(centrumButtons()[0]).toHaveAttribute('aria-pressed', 'false')
+      // Rozkład przesunięty o offset DRUGIEGO wystąpienia (900 s): 06:00 → 06:15.
+      expect(screen.getByRole('button', { name: '06:15' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '06:00' })).not.toBeInTheDocument()
+      expect(search().get('stop')).toBe('100101')
+    })
+
+    it('a map pin of the second occurrence selects that occurrence too', async () => {
+      stubFetch(LOOP)
+      const user = userEvent.setup()
+      render(<LineDetailPage />)
+      await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+      await user.click(await screen.findByTestId('map-pin-2'))
+      expect(centrumButtons()[1]).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: '06:15' })).toBeInTheDocument()
+    })
+
+    it('switching direction drops the picked occurrence', async () => {
+      stubFetch(LOOP)
+      const user = userEvent.setup()
+      render(<LineDetailPage />)
+      await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+      await user.click(centrumButtons()[1])
+      await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
+      await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
+      expect(centrumButtons()[0]).toHaveAttribute('aria-pressed', 'true')
+      expect(centrumButtons()[1]).toHaveAttribute('aria-pressed', 'false')
+    })
   })
 
   it('a bad dir/stop in the URL falls back silently to the first direction and its first stop', async () => {
@@ -641,6 +710,16 @@ describe('LineDetailPage — long names, empty and unknown data', () => {
     expect(screen.queryByText('Nie znaleziono linii')).not.toBeInTheDocument()
   })
 
+  it('the breadcrumb says „Linia”, never the raw route id, until the line name is known', async () => {
+    params.routeId = 'rawid-77'
+    vi.stubGlobal('fetch', vi.fn((url: string) => (url.startsWith('/api/gtfs/line') ? new Promise(() => {}) : jsonResponse({ cities: [] }))))
+    render(<LineDetailPage />)
+    await screen.findByTestId('line-loading')
+    const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
+    expect(within(nav).getByText('Linia')).toHaveAttribute('aria-current', 'page')
+    expect(nav).not.toHaveTextContent('rawid-77')
+  })
+
   it('keeps the weather chip in the top bar even before the line loads', async () => {
     stubFetch({ ...LINE, line: null, schedule: { ...LINE.schedule, state: 'loading' } })
     render(<LineDetailPage />)
@@ -777,6 +856,7 @@ describe('LineDetailPage — vehicles', () => {
   it.each([
     ['loading', 'Wczytywanie pozycji…', () => new Promise(() => {})],
     ['failed', 'Nie udało się pobrać pozycji.', () => Promise.reject(new Error('x'))],
+    ['feed failed on the server (200, no vehicles)', 'Nie udało się pobrać pozycji.', () => jsonResponse({ vehicles: [], feed: { state: 'failed', ageMs: null } })],
     ['no feed (not ready)', 'Brak danych o pozycjach pojazdów', () => jsonResponse({ vehicles: [], feed: { state: 'idle', ageMs: null } })],
     ['ready and empty', 'Brak pojazdów w tym kierunku.', () => jsonResponse({ vehicles: [], feed: { state: 'ready', ageMs: 0 } })],
   ])('vehicle state %s shows only its own text and keeps the route', async (_name, text, vehiclesResponse) => {
@@ -830,6 +910,18 @@ describe('LineDetailPage — alerts', () => {
     vi.mocked(window.HTMLElement.prototype.scrollIntoView).mockClear()
     await user.click(shortcut)
     expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled()
+  })
+
+  it('the shortcut also moves focus to the alerts section, so keyboard users land there', async () => {
+    stubFetch({ ...LINE, alerts: [ALERT] })
+    const user = userEvent.setup()
+    render(<LineDetailPage />)
+    await user.click(await screen.findByRole('button', { name: '1 komunikat' }))
+    // eslint-disable-next-line testing-library/no-node-access -- fokus nie ma zapytania Testing Library; sekcja nie ma roli
+    const focused = document.activeElement as HTMLElement
+    expect(focused).not.toBe(document.body)
+    expect(focused).toHaveAttribute('tabindex', '-1')
+    expect(focused).toContainElement(screen.getByText('Komunikaty linii 20'))
   })
 
   it('one alert uses the singular form', async () => {
@@ -886,7 +978,7 @@ describe('LineDetailPage — theme switch', () => {
     expect(screen.getByRole('button', { name: 'Rozkład' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Rondo ONZ 02')
     expect(screen.getByRole('button', { name: '06:05' })).toHaveAttribute('aria-pressed', 'true')
-    expect(search().get('dir')).toBe('0')
+    expect(search().has('dir')).toBe(false)
     expect(search().get('stop')).toBe('700201')
     expect(search().get('pane')).toBe('timetable')
     expect(callsTo(fetchMock, '/api/gtfs/line')).toHaveLength(lineCalls)

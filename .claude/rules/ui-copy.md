@@ -65,12 +65,21 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Segment „Widok linii”: „Trasa” / „Rozkład” (phones; from `lg` both panes show). Timetable pane: h2 „Rozkład”, capsule
   (`role=group`, „Wybrany rozkład”) = line badge · headsign · selected stop name, link „Odjazdy z przystanku”. Route rows:
   select button + separate chevron link named „Odjazdy z przystanku {name}”; „początek”/„koniec”, „Na żądanie”.
+- Route pane heading (`LineRouteList`): „Trasa linii · N przystanków” (`pluralPl`: przystanek|przystanki|przystanków); legend under the
+  list „przystanek” / „na żądanie” / „przystanek krańcowy”. Map section heading „Mapa trasy” (region name „Mapa trasy linii {line}”).
+  Timetable status title (`ScheduleStatus`) „Rozkład jazdy linii {line}”. A repeated stop (loop) presses the row that was picked,
+  not the first occurrence.
+- Aside (xl, `AsideCard` „Linia {line}”): labels „Rodzaj”, „Kierunki”, „Przystanki”, „Pierwszy / ostatni” (first–last departure of the
+  selected direction); card „Pojazdy w trasie — {headsign}” lists „#{side} za „{stop}” · {formatAgo}” (age only past 60 s).
+  Vehicle ages anywhere on this screen go through `formatAgo`, never a hand-built „N min temu”; the axis marker has an
+  sr-only name „Pojazd {side}, {formatAgo}” and no `title`. Breadcrumb tail is „Linia” until the long name is known (never the raw id).
 - Vehicles row (one copy; the list stays in the aside card „Pojazdy w trasie — {headsign}”): „Pojazdy w tym kierunku: N” +
   „GPS: {formatAgo}”; loading „Wczytywanie pozycji…”; failed „Nie udało się pobrać pozycji.”; no position feed for the mode
   „Brak danych o pozycjach pojazdów” (the route and timetable stay); healthy zero „Brak pojazdów w tym kierunku.”; link
   „Pojazdy na mapie” (`/city/{city}/map?line={routeId}&dir={0|1}`); unknown direction (id 2): no `dir`, no fetch, text
-  „Kierunek nieznany — pokazujemy pojazdy bez rozróżnienia kierunku.”
-- Alerts: shortcut „{n} komunikat|komunikaty|komunikatów” (only when n > 0, scrolls to the section) and the `ContextAlerts`
+  „Kierunek nieznany — pokazujemy pojazdy bez rozróżnienia kierunku.” „Failed” = a fetch error OR a `failed` feed state
+  with no vehicles; „Brak danych o pozycjach pojazdów” is only for the other non-ready feed states (idle, no feed).
+- Alerts: shortcut „{n} komunikat|komunikaty|komunikatów” (only when n > 0, scrolls to the section AND moves focus to it) and the `ContextAlerts`
   section with scope „Komunikaty linii {line}”; wording of the states as in „Context alerts” above.
 - States: loading = skeleton + „Wczytywanie przebiegu linii…” (schedule loading: „Wczytywanie rozkładu…”); failed first fetch =
   „Nie udało się pobrać przebiegu linii.” + „Spróbuj ponownie” + link back to the catalog; unknown line = „Nie znaleziono
