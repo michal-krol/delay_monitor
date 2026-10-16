@@ -121,8 +121,17 @@ test('a11y (ciemny): zespół, wybrany przystanek i pusty filtr linii bez narusz
 })
 
 test('zmiana motywu zachowuje przystanek i zakładkę i nie pobiera rozkładu ponownie', async ({ page, browserName }) => {
+  // Pierwsza odpowiedź po obudzeniu pollerów ma `alerts: null` (feed komunikatów jeszcze nieznany, gtfs.md #13),
+  // więc `useTransitBoard` ponawia drabinką po ~1 s. Liczymy dopiero od odpowiedzi z gotowymi komunikatami —
+  // inaczej to ponowienie wpada w okno zliczania (CI: wolniejszy start, lokalnie zwykle poza oknem).
+  const settled = page.waitForResponse(async (response) => {
+    if (!response.url().includes('/api/gtfs/board')) return false
+    const body = (await response.json()) as { schedule: { state: string }; stops: ({ alerts: unknown[] | null } | null)[] }
+    return body.schedule.state === 'ready' && body.stops.every((stop) => stop === null || stop.alerts !== null)
+  })
   await page.goto(`${CENTRUM}?przystanek=100102&tab=lines`)
   await expect(page.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+  await settled
   let boardRequests = 0
   page.on('request', (request) => {
     if (request.url().includes('/api/gtfs/board')) boardRequests += 1
