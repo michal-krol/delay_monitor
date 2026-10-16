@@ -46,6 +46,7 @@ import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useLineDetail } from '@/hooks/useLineDetail'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
+import { useNow } from '@/hooks/useNow'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
 import { discoveryHref, type DiscoveryResult } from '@/lib/discovery'
@@ -56,6 +57,11 @@ import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 import { lineColor } from '@/components/transitMode'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
+
+/** Jak często odświeżamy wiek pobrania w nagłówku (jak odczyty pojazdów w `useCityVehicles`). */
+const AGE_TICK_MS = 10_000
+/** Kadr, którego środek leży tak blisko pozycji GPS (~10 m), uznajemy za wyśrodkowany na użytkowniku. */
+const ON_USER_DEG = 1e-4
 
 const LAST_VIEW_KEY = 'monitor.map.view.v1'
 /** `localStorage` to dane spoza aplikacji — schemat, nie asercja typu (AGENTS.md #4). */
@@ -132,8 +138,15 @@ export default function CityMapPage() {
   const [nearbyPending, setNearbyPending] = useState(false)
   const userLocation = useUserLocation()
   const entryRef = useRef<{ flag: boolean; here: UserPoint | null } | null>(null)
-  // Kamera jest wyśrodkowana na użytkowniku: ten kadr NIE trafia do `?at=` ani do localStorage (adr/0012, #4).
-  const locatedViewRef = useRef(false)
+  // Ostatnia pozycja GPS użytkownika (tylko w pamięci). Kadr wyśrodkowany na niej NIE trafia do `?at=` ani do localStorage
+  // (adr/0012, #4). Decyduje geometria przy każdym `moveend`, nie zatrzask: przesunięcie programowe (trasa, śledzenie) zdejmuje
+  // blokadę samo, a spóźnione `moveend` z przerwanej animacji nie odblokuje zapisu dolotu do użytkownika.
+  const locatedViewRef = useRef<{ lat: number; lon: number } | null>(null)
+  // Insety kamery (px): góra = pasek kontrolek nad mapą, dół = widoczny arkusz (tylko telefon). Mierzone, nie zgadywane.
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const [topInset, setTopInset] = useState(0)
+  const [sheetInset, setSheetInset] = useState(0)
+  const now = useNow(AGE_TICK_MS)
   // Arkusz z „Moją lokalizacją" jest przemontowywany przy każdej zmianie obiektu (`key`), więc fokus trzeba oddać ręcznie.
   const locateButtonRef = useRef<HTMLButtonElement>(null)
   const locateHadFocusRef = useRef(false)
@@ -174,10 +187,23 @@ export default function CityMapPage() {
     locateHadFocusRef.current = false
   }, [nearby])
 
+  useEffect(() => {
+    const el = toolbarRef.current
+    if (el === null) return
+    // Dolna krawędź kontrolek względem mapy (z górnym marginesem): tyle kadru zasłaniają pasek, wyszukiwarka i chipy.
+    const measure = (): void => setTopInset(Math.round(el.offsetTop + el.offsetHeight))
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const onViewChange = useCallback(
     (next: MapView) => {
       setView(next)
-      if (locatedViewRef.current) return
+      const here = locatedViewRef.current
+      if (here !== null && Math.abs(next.center.lat - here.lat) < ON_USER_DEG && Math.abs(next.center.lon - here.lon) < ON_USER_DEG) return
       const at = formatAt({ ...next.center, zoom: next.zoom })
       patchUrlParams({ at })
       saveLastView(city, at)
@@ -188,7 +214,7 @@ export default function CityMapPage() {
   // Mapa zgłasza kadr po KAŻDYM `idle` (na telefonie zawsze); ten sam skład to ten sam stan — bez ponownego renderu całej strony.
   const onVisibleChange = useCallback((items: VisibleItem[], overflow: boolean) => {
     setVisible((prev) =>
-      prev !== null && prev.overflow === overflow && prev.items.length === items.length && prev.items.every((item, i) => item.kind === items[i].kind && item.id === items[i].id)
+      prev !== null && prev.overflow === overflow && prev.items.length === items.length && prev.items.every((item, i) => item.kind === items[i].kind && item.id === items[i].id && item.label === items[i].label)
         ? prev
         : { items, overflow }
     )
@@ -324,7 +350,6 @@ export default function CityMapPage() {
   }
 
   function focusOn(lat: number, lon: number): void {
-    locatedViewRef.current = false
     setFocus({ lat, lon, nonce: Date.now() })
   }
 
@@ -333,7 +358,7 @@ export default function CityMapPage() {
     setSelection(null)
     openNearbyAround(point)
     if (fly) focusOn(point.lat, point.lon)
-    locatedViewRef.current = true
+    locatedViewRef.current = { lat: point.lat, lon: point.lon }
     // Ewentualne `?at=` (np. z linku) mogło już zawierać tę pozycję — usuwamy je razem z kadrem.
     patchUrlParams({ at: null })
   }
@@ -467,8 +492,9 @@ export default function CityMapPage() {
         ? 'nie udało się pobrać pozycji pojazdów'
         : vehiclesFailed
           ? 'pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne'
-          : vehiclesState.feed.ageMs !== null
-            ? `pozycje pojazdów: ${formatAgo(Math.round(vehiclesState.feed.ageMs / 1000))}`
+          : vehiclesState.lastSuccessAt !== null
+            ? // Kiedy PRZEGLĄDARKA pobrała odczyt (rośnie z zegarem) — wiek GPS pojazdów jest osobno („Pozycje sprzed", ui-copy.md).
+              `pobrano ${formatAgo(Math.round((now - vehiclesState.lastSuccessAt) / 1000))}`
             : 'pozycje pojazdów na żywo'
 
   const problems = [
@@ -581,6 +607,10 @@ export default function CityMapPage() {
   // Chipy filtrów i statusy: pod kontrolkami, a gdy jest arkusz (telefon: zawsze, przegląd też) — na jego krawędzi
   // (`above`), bo przy half/full by je zakrył (role=status, decyzja z PR3).
   const sheetOpen = !isWide && (card !== null || overviewPanel !== null)
+  // Insety kamery: dół tylko przy otwartym arkuszu (telefon; szeroki ekran ma panel obok mapy — kontener mapy już go wyłącza,
+  // więc bez dodatkowego paddingu z prawej). Zamknięty arkusz = 0; `sheetInset` zostaje do następnego zgłoszenia.
+  const bottomInset = sheetOpen ? sheetInset : 0
+  const insets = useMemo(() => ({ top: topInset, bottom: bottomInset }), [topInset, bottomInset])
   // „Moja lokalizacja": z arkuszem jedzie w jego slocie `above` (peek go nie zakrywa), bez — przy prawej krawędzi mapy.
   const locateControl = (
     <LocateControl
@@ -660,6 +690,7 @@ export default function CityMapPage() {
               pinnedItems={pinnedPoints}
               onlyLines={onlyLines}
               listOpen={listOpen || overview}
+              insets={insets}
               onContextPoint={(point) => {
                 setSelection(null)
                 openNearbyAround(point)
@@ -668,17 +699,14 @@ export default function CityMapPage() {
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
               onViewChange={onViewChange}
-              onUserMove={() => {
-                setFollowId(null)
-                locatedViewRef.current = false
-              }}
+              onUserMove={() => setFollowId(null)}
             />
           )}
 
           <div className="pointer-events-none absolute inset-0 flex flex-col">
             {/* Nad arkuszem (`.bottom-sheet`, z-20) tylko wtedy, gdy coś tu jest rozwinięte (wyniki wyszukiwania,
                 Filtry, Przypięte, Więcej) — inaczej lista otwierała się pod panelem; zwinięte zostają pod nim. */}
-            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
+            <div ref={toolbarRef} className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
               <MapToolbar
                 isWide={isWide}
                 search={search}
@@ -703,6 +731,7 @@ export default function CityMapPage() {
             <BottomSheet
               key={cardKey}
               initialSnap={cardKey === 'overview:list' ? 'half' : 'peek'}
+              onVisibleHeight={setSheetInset}
               above={
                 <>
                   {statusStack}
@@ -727,10 +756,7 @@ export default function CityMapPage() {
           {/* Szeroki ekran: pozycja związana z `top-[200px]` wrappera legendy niżej — przesuwasz przycisk (albo „Moja lokalizacja"), przesuń legendę. */}
           <button
             type="button"
-            onClick={() => {
-              locatedViewRef.current = false
-              setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })
-            }}
+            onClick={() => setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })}
             aria-label={`Pokaż całe miasto — ${feed.name}`}
             title="Pokaż całe miasto"
             className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"

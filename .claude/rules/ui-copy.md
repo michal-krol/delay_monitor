@@ -89,6 +89,9 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - GTFS stop by mode (`STOP_LABEL` in `MapCard`): „Stacja metra”, „Przystanek tramwajowy”, „Przystanek autobusowy”, „Stacja kolei miejskiej”
   (GTFS rail, not PKP), „Przystanek” (other); an unknown vehicle run is „inne”, never a bus.
 - Line panel alerts: `ContextAlerts` with „Komunikaty linii {X}” (wording as in „Context alerts” above).
+- Page header subtitle (`TopBar`): „{miasto} · pobrano {N s temu|przed chwilą}” — the glossary „Pobrano …” (browser fetch age, `lastSuccessAt`, grows with
+  the page clock); it is NOT the GPS age („Pozycje sprzed …” in the overview, per vehicle). Other states unchanged: „wczytywanie pozycji pojazdów…”,
+  „nie udało się pobrać pozycji pojazdów”, „pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne”.
 
 ## Map search (`UnifiedSearch variant="overlay"`, `/city/<city>/map`)
 

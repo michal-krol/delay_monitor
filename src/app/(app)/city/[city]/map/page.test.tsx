@@ -25,7 +25,19 @@ vi.mock('next/navigation', () => ({
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
 
 const state = vi.hoisted(() => ({
-  vehicles: { vehicles: [] as unknown[], feed: { state: 'ready', ageMs: 13_000 as number | null }, alertLines: [] as string[], error: null as string | null },
+  vehicles: {
+    vehicles: [] as unknown[],
+    feed: { state: 'ready', ageMs: 13_000 as number | null },
+    alertLines: [] as string[],
+    error: null as string | null,
+  } as {
+    vehicles: unknown[]
+    feed: { state: string; ageMs: number | null }
+    alertLines: string[]
+    error: string | null
+    /** Kiedy PRZEGLĄDARKA ostatnio pobrała odczyt (nagłówek: „pobrano N s temu”); brak = `null`. */
+    lastSuccessAt?: number | null
+  },
   stops: { stops: null as unknown[] | null, error: false },
   rail: { stations: null as unknown[] | null, error: false },
   /** Odpowiedź `/api/search` (wyszukiwarka na mapie). */
@@ -34,6 +46,8 @@ const state = vi.hoisted(() => ({
     initialCamera: { lat: number; lon: number; zoom: number }
     follow: { lat: number; lon: number } | null
     onUserMove: () => void
+    /** Pasy zasłonięte przez pasek (góra) i arkusz (dół, tylko telefon) — padding kamery. */
+    insets: { top: number; bottom: number }
     onContextPoint: (point: { lat: number; lon: number }) => void
     onVisibleChange: (items: { kind: 'vehicle' | 'stop' | 'rail'; id: string; label: string }[], overflow: boolean) => void
     pinnedItems: { lat: number; lon: number }[]
@@ -43,7 +57,7 @@ const state = vi.hoisted(() => ({
     focus: { lat: number; lon: number } | null
     routeId: string | null; hidden: Set<string>; selected: unknown; onSelect: (hit: MapHit | null) => void; onViewChange: (view: MapView) => void },
 }))
-vi.mock('@/hooks/useCityVehicles', () => ({ useCityVehicles: () => state.vehicles }))
+vi.mock('@/hooks/useCityVehicles', () => ({ useCityVehicles: () => ({ ...state.vehicles, lastSuccessAt: state.vehicles.lastSuccessAt ?? null }) }))
 vi.mock('@/hooks/useCityStops', () => ({ useCityStops: () => state.stops }))
 vi.mock('@/hooks/useRailStations', () => ({
   useRailStations: () => state.rail,
@@ -110,9 +124,19 @@ beforeEach(() => {
     })
   )
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 const map = () => state.mapProps!
+
+/** Zegar strony stoi (tylko `Date`): odczyt sprzed 13 s daje w nagłówku dokładnie „pobrano 13 s temu”. */
+function fetchedSecondsAgo(seconds: number): number {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(1_760_000_000_000)
+  return Date.now() - seconds * 1000
+}
 
 describe('CityMapPage', () => {
   it('404s for a city outside the registry', () => {
@@ -121,14 +145,17 @@ describe('CityMapPage', () => {
   })
 
   it('has no city picker while the registry holds a single city', async () => {
+    state.vehicles.lastSuccessAt = fetchedSecondsAgo(13)
     render(<CityMapPage />)
-    await screen.findByText('Warszawa · pozycje pojazdów: 13 s temu')
+    await screen.findByText('Warszawa · pobrano 13 s temu')
     expect(screen.queryByRole('combobox', { name: 'Miasto' })).not.toBeInTheDocument()
   })
 
   it('shows the freshness of vehicle positions in the header, in three distinct states', () => {
+    // „pobrano" = kiedy przeglądarka pobrała odczyt (rośnie z zegarem), nie wiek próbki z serwera (osobno: „Pozycje sprzed" w przeglądzie).
+    state.vehicles.lastSuccessAt = fetchedSecondsAgo(13)
     const { rerender } = render(<CityMapPage />)
-    expect(screen.getByText('Warszawa · pozycje pojazdów: 13 s temu')).toBeInTheDocument()
+    expect(screen.getByText('Warszawa · pobrano 13 s temu')).toBeInTheDocument()
     state.vehicles = { vehicles: [], feed: { state: 'loading', ageMs: null }, alertLines: [], error: null }
     rerender(<CityMapPage />)
     expect(screen.getByText(/wczytywanie pozycji pojazdów/)).toBeInTheDocument()
@@ -326,6 +353,16 @@ describe('CityMapPage — overview sheet (phone)', () => {
     expect(screen.queryByRole('region', { name: 'Pojazdy i przystanki w widoku' })).toBeNull()
   })
 
+  it('a vehicle that keeps its id but changes line updates the list label (the signature guard compares labels too)', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false))
+    expect(within(overview()).getByRole('button', { name: /Linia 20 → Centrum/ })).toBeInTheDocument()
+    act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '15' }], false))
+    expect(within(overview()).getByRole('button', { name: /Linia 15 → Centrum/ })).toBeInTheDocument()
+    expect(within(overview()).queryByRole('button', { name: /Linia 20 → Centrum/ })).toBeNull()
+  })
+
   it('peek does not cover the locate control (control sits in the above slot)', async () => {
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
@@ -421,6 +458,43 @@ describe('CityMapPage — overview sheet (phone)', () => {
     expect(screen.queryByRole('region', { name: 'Pojazdy i przystanki w widoku' })).toBeNull()
     expect(inside(screen.getByRole('button', { name: 'Moja lokalizacja' }), '.bottom-sheet')).toBe(false)
     expect(screen.getByText('Legenda')).toBeInTheDocument()
+  })
+})
+
+describe('CityMapPage — camera insets', () => {
+  // jsdom nie liczy układu: mapa ma 600 px, każdy zmierzony element 40 px (pasek u góry, slot `above` arkusza).
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600)
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(40)
+  })
+  afterEach(() => vi.restoreAllMocks())
+  const sheet = () => document.querySelector<HTMLElement>('.bottom-sheet')! // eslint-disable-line testing-library/no-node-access -- kontener przewijania nie ma roli
+
+  it('on a phone the bottom inset is the settled visible sheet (peek, then half) plus the controls row on top', async () => {
+    setWide(false)
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect(map().insets).toEqual({ top: 40, bottom: 190 }) // 25 % × 600 + slot `above`
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
+    expect(map().insets).toEqual({ top: 40, bottom: 370 }) // half: 55 % × 600 + 40
+  })
+
+  it('at full the bottom inset keeps its last peek/half value', async () => {
+    setWide(false)
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
+    sheet().scrollTop = 330
+    fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ }))
+    expect(sheet()).toHaveAttribute('data-snap', 'full')
+    expect(map().insets.bottom).toBe(370)
+  })
+
+  it('a wide screen has no sheet: nothing is covered at the bottom (the aside is a flex sibling of the map)', async () => {
+    setWide(true)
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect(map().insets).toEqual({ top: 40, bottom: 0 })
   })
 })
 
@@ -799,6 +873,21 @@ describe('CityMapPage — my location', () => {
     expect(screen.getByRole('button', { name: 'Moja lokalizacja' })).toHaveFocus()
   })
 
+  it('Escape closes "W pobliżu" opened by "Moja lokalizacja" and returns focus to the locate button (same path as ×)', async () => {
+    setWide(false)
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    const locate = screen.getByRole('button', { name: 'Moja lokalizacja' })
+    locate.focus()
+    fireEvent.click(locate)
+    await act(async () => geo.calls[0].ok(FIX))
+    const panel = await screen.findByRole('dialog', { name: 'W pobliżu' })
+    fireEvent.keyDown(panel, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Moja lokalizacja' })).toHaveFocus()
+  })
+
   it('nearby=1 with ready point opens nearby and removes the flag', async () => {
     const geo = stubGeolocation()
     const { rerender } = render(<Primer />)
@@ -856,6 +945,43 @@ describe('CityMapPage — my location', () => {
     act(() => map().onViewChange({ center: { lat: 52.3, lon: 21.1 }, zoom: 13 }))
     expect(window.location.search).toContain('at=52.30000')
     expect(window.localStorage.getItem('monitor.map.view.v1')).toContain('52.30000')
+  })
+
+  it('locatedViewRef is cleared when the camera is moved away programmatically (line select / follow) and still blocks saving while centred on the user', async () => {
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+    const userCoordinates = /52\.230|21\.010/
+
+    // Lot do użytkownika: najpierw spóźnione `moveend` z przerwanej animacji (daleko), potem dolot — dolot nie trafia nigdzie.
+    act(() => map().onViewChange(AT_USER))
+    expect(persistedText()).not.toMatch(userCoordinates)
+    act(() => map().onViewChange({ center: { lat: 52.25, lon: 21.05 }, zoom: 14 }))
+    act(() => map().onViewChange(AT_USER))
+    expect(window.location.search).toContain('at=52.25000')
+    expect(persistedText()).not.toMatch(userCoordinates)
+
+    // Śledzenie pojazdu przenosi kamerę (bez przeciągnięcia): ten kadr jest już zwykłym widokiem i się zapisuje.
+    map().onSelect({ kind: 'vehicle', id: 'v1' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Śledź pojazd' }))
+    await waitFor(() => expect(map().follow).not.toBeNull())
+    act(() => map().onViewChange({ center: { lat: 52.2, lon: 21.0 }, zoom: 16 }))
+    expect(window.location.search).toContain('at=52.20000')
+    expect(window.localStorage.getItem('monitor.map.view.v1')).toContain('52.20000')
+
+    // Wybór linii (kadr trasy) — tak samo.
+    fireEvent.click(await screen.findByRole('button', { name: 'Pokaż trasę na mapie' }))
+    await waitFor(() => expect(map().routeId).toBe('20')) // „W pobliżu" zasłania panel linii, ale mapa już kadruje trasę
+    act(() => map().onViewChange({ center: { lat: 52.28, lon: 20.99 }, zoom: 13 }))
+    expect(window.location.search).toContain('at=52.28000')
+
+    // Kamera znów na użytkowniku — nadal nic z jego pozycji.
+    act(() => map().onViewChange({ ...AT_USER, zoom: 17 }))
+    expect(window.location.search).toContain('at=52.28000')
+    expect(persistedText()).not.toMatch(userCoordinates)
   })
 
   it('nearby=1 start view centred on the user is not persisted either', async () => {
