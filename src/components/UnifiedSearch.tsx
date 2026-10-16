@@ -163,6 +163,9 @@ export function UnifiedSearch({
 }) {
   const overlay = variant === 'overlay'
   const [query, setQuery] = useState(initialQuery)
+  // Overlay (mapa): panel można zamknąć, nie tracąc frazy — dotknięcie mapy albo fokus poza polem i panelem.
+  const [dismissed, setDismissed] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const uid = useId()
   const online = useOnline()
@@ -194,8 +197,21 @@ export function UnifiedSearch({
   function change(next: string): void {
     pendingEchoes.current = [...pendingEchoes.current, next].slice(-MAX_PENDING_ECHOES)
     setQuery(next)
+    setDismissed(false)
     onQueryChange?.(next)
   }
+
+  // Dotyk poza polem i panelem (mapa to canvas bez fokusu; iOS nie odbiera wtedy fokusu polu) zamyka panel;
+  // `pointerdown` jak w `useDropdown`. Fokus wychodzący klawiaturą łapie `onBlur` na korzeniu niżej.
+  const panelOpen = overlay && query.trim() !== '' && !dismissed
+  useEffect(() => {
+    if (!panelOpen) return
+    const onPointer = (event: PointerEvent): void => {
+      if (!rootRef.current?.contains(event.target as Node)) setDismissed(true)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    return () => document.removeEventListener('pointerdown', onPointer)
+  }, [panelOpen])
 
   const focusInput = useCallback(() => inputRef.current?.focus(), [])
 
@@ -246,7 +262,7 @@ export function UnifiedSearch({
 
   const empty = trimmed === ''
   // Na mapie puste pole to samo pole: ani ostatnie, ani instrukcja, ani wyniki (panel żyje tylko przy frazie).
-  const listOpen = !overlay || !empty
+  const listOpen = !overlay || panelOpen
   const withRecents = recents && !overlay
   const lineList = lines.lines
   const showRecentLines = withRecents && empty && has('line') && city !== null && lineList !== null
@@ -309,7 +325,13 @@ export function UnifiedSearch({
   )
 
   return (
-    <div className={overlay ? 'relative w-full' : 'w-full'}>
+    <div
+      ref={rootRef}
+      className={overlay ? 'relative w-full' : 'w-full'}
+      // Tab poza pole i panel zamyka panel (fokus przechodzi do konkretnego elementu). Brak `relatedTarget` (klik w niefokusowalny
+      // obszar, Safari nie fokusuje przycisków) NIE zamyka: wtedy panel zniknąłby przed `click` na wyniku — tamte przypadki łapie `pointerdown` wyżej.
+      onBlur={overlay ? (event) => event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && setDismissed(true) : undefined}
+    >
       <form role="search" onSubmit={submit} className="relative">
         <SearchIcon size={ICON_SIZE.button} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-text-muted" />
         <input
@@ -324,6 +346,9 @@ export function UnifiedSearch({
           className={SEARCH_FIELD_CLASS}
           value={query}
           onChange={(event) => change(event.target.value)}
+          // Powrót do pola otwiera zamknięty panel (fokus albo ponowne dotknięcie pola, które już ma fokus — iOS).
+          onFocus={() => setDismissed(false)}
+          onClick={() => setDismissed(false)}
           onKeyDown={(event) => {
             // Na mapie Escape z frazą zamyka panel wyników (czyści pole); `preventDefault` chroni przed zamknięciem
             // karty/panelu obok (`PanelFrame` ignoruje Escape z `defaultPrevented`), pusta fraza przepuszcza Escape dalej.
@@ -354,7 +379,8 @@ export function UnifiedSearch({
           {...(listOpen ? { role: 'group', 'aria-label': 'Wyniki wyszukiwania', 'data-search-results': '' } : {})}
           className={listOpen ? OVERLAY_PANEL_CLASS : undefined}
         >
-          {body}
+          {/* Zamknięty panel nie renderuje komunikatów (wyciekłyby poza panelem); przy pustym polu zostaje żywy region. */}
+          {dismissed && !empty ? null : body}
         </div>
       ) : (
         body

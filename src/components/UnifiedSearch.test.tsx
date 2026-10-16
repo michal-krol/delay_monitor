@@ -522,6 +522,76 @@ describe('UnifiedSearch variant="overlay" (map)', () => {
     expect(screen.queryByRole('group', { name: 'Wyniki wyszukiwania' })).toBeNull()
   })
 
+  describe('closing without Escape', () => {
+    const panel = () => screen.queryByRole('group', { name: 'Wyniki wyszukiwania' })
+
+    it('closes the panel on a pointer press outside the field and panel (a tap on the map), keeping the phrase', async () => {
+      found([rail('33605', 'Warszawa Centralna')])
+      const user = userEvent.setup()
+      render(
+        <>
+          <div data-testid="map" />
+          <UnifiedSearch city="warszawa" onSelect={vi.fn()} variant="overlay" />
+        </>,
+      )
+      await user.type(screen.getByRole('searchbox'), 'cent')
+      expect(panel()).not.toBeNull()
+      await user.pointer({ keys: '[MouseLeft]', target: screen.getByTestId('map') })
+      expect(panel()).toBeNull()
+      expect(screen.getByRole('searchbox')).toHaveValue('cent')
+    })
+
+    it('closes the panel when focus leaves the field and the panel (Tab past the last result)', async () => {
+      found([rail('33605', 'Warszawa Centralna')])
+      const user = userEvent.setup()
+      render(
+        <>
+          <UnifiedSearch city="warszawa" onSelect={vi.fn()} variant="overlay" />
+          <button type="button">Dalej</button>
+        </>,
+      )
+      await user.type(screen.getByRole('searchbox'), 'cent')
+      await user.tab() // Wyczyść
+      await user.tab() // wynik
+      expect(panel()).not.toBeNull()
+      await user.tab() // poza polem i panelem
+      expect(screen.getByRole('button', { name: 'Dalej' })).toHaveFocus()
+      expect(panel()).toBeNull()
+    })
+
+    it('stays open while the user interacts inside the panel', async () => {
+      found([rail('33605', 'Warszawa Centralna')])
+      const user = userEvent.setup()
+      overlay()
+      await user.type(screen.getByRole('searchbox'), 'cent')
+      const row = screen.getByRole('button', { name: /Warszawa Centralna/ })
+      await user.pointer({ keys: '[MouseLeft>]', target: row })
+      expect(panel()).not.toBeNull()
+      await user.tab()
+      expect(panel()).not.toBeNull()
+    })
+
+    it('reopens when the user returns to the field or types again', async () => {
+      found([rail('33605', 'Warszawa Centralna')])
+      const user = userEvent.setup()
+      render(
+        <>
+          <div data-testid="map" />
+          <UnifiedSearch city="warszawa" onSelect={vi.fn()} variant="overlay" />
+        </>,
+      )
+      await user.type(screen.getByRole('searchbox'), 'cent')
+      await user.pointer({ keys: '[MouseLeft]', target: screen.getByTestId('map') })
+      expect(panel()).toBeNull()
+      await user.click(screen.getByRole('searchbox'))
+      expect(panel()).not.toBeNull()
+      await user.pointer({ keys: '[MouseLeft]', target: screen.getByTestId('map') })
+      expect(panel()).toBeNull()
+      await user.type(screen.getByRole('searchbox'), 'r')
+      expect(panel()).not.toBeNull()
+    })
+  })
+
   it('keeps the live region mounted and shows messages in the panel', async () => {
     found([], { transit: 'loading' })
     const user = userEvent.setup()
