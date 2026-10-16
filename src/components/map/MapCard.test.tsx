@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MapCard } from './MapCard'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
+import { BusIcon, ICON_SIZE, OtherModeIcon } from '../icons'
 import { LINE_PALETTE } from '../transitMode'
 
 const railStatus = vi.fn()
@@ -113,6 +114,16 @@ describe('MapCard — stop', () => {
     expect(screen.getByTitle('Odjazd z przystanku 01')).toBeInTheDocument()
   })
 
+  it('names a rail or other GTFS stop by its own mode, not as a bus stop', () => {
+    transitBoard.mockReturnValue({ data: null, error: null })
+    const stop = (mode: 'rail' | 'other') => ({ kind: 'stop' as const, id: '1001', groupId: '1001', name: 'Centrum', code: null, mode, lat: 52.23, lon: 21.01 })
+    const { rerender } = render(<MapCard selection={stop('rail')} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText('Stacja kolei miejskiej')).toBeInTheDocument()
+    rerender(<MapCard selection={stop('other')} vehicle={null} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText('Przystanek')).toBeInTheDocument()
+    expect(screen.queryByText('Przystanek autobusowy')).toBeNull()
+  })
+
   it('reports a failed timetable fetch', () => {
     transitBoard.mockReturnValue({ data: null, error: 'boom' })
     render(
@@ -148,6 +159,38 @@ describe('MapCard — vehicle', () => {
     expect(screen.getByText('nie wiadomo')).toBeInTheDocument()
     rerender(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={null} city="warszawa" onClose={() => {}} />)
     expect(screen.getByText(/Pojazd zniknął z mapy/)).toBeInTheDocument()
+  })
+
+  it('says how old the GPS position is — „Pozycja sprzed …”, never the fetch time', () => {
+    const { rerender } = render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ ageSec: 12 })} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText(/Pozycja sprzed 12 s/)).toBeInTheDocument()
+    rerender(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ ageSec: 91 })} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText(/Pozycja sprzed 2 min/)).toBeInTheDocument()
+    expect(screen.getByText('nieaktualna')).toBeInTheDocument()
+  })
+
+  it('selected vehicle older than 180s shows position-lost text', () => {
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ ageSec: 181 })} city="warszawa" onClose={() => {}} onShowRoute={() => {}} onToggleFollow={() => {}} />)
+    expect(screen.getByText('Utracono pozycję pojazdu — ostatnia sprzed 3 min')).toBeInTheDocument()
+    // Żadnego pozornie aktualnego punktu ani akcji na martwej pozycji.
+    expect(screen.queryByText(/Pozycja sprzed/)).toBeNull()
+    expect(screen.queryByText('aktualna')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Śledź/ })).toBeNull()
+  })
+
+  it('exactly 180 s is still a position (the map hides only above it)', () => {
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ ageSec: 180 })} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByText(/Pozycja sprzed 3 min/)).toBeInTheDocument()
+    expect(screen.queryByText(/Utracono pozycję/)).toBeNull()
+  })
+
+  it('a vehicle of an unknown trip does not pose as a bus', () => {
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ routeId: null, shortName: null, mode: null, kind: null })} city="warszawa" onClose={() => {}} />)
+    // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona (aria-hidden), bez roli
+    const glyph = (root: ParentNode) => root.querySelector('svg')!.innerHTML
+    const chip = glyph(screen.getByRole('dialog').querySelector('header')!) // eslint-disable-line testing-library/no-node-access -- jak wyżej
+    expect(chip).toBe(glyph(render(<OtherModeIcon size={ICON_SIZE.chip} />).container))
+    expect(chip).not.toBe(glyph(render(<BusIcon size={ICON_SIZE.chip} />).container))
   })
 
   it('colours the line badge by the served kind, not one re-derived from the number', () => {

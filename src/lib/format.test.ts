@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { effectiveAgeMs, formatAge, formatAgo, formatClockTime, formatDuration, formatSecondsOfDay } from './format'
+import { effectiveAgeMs, formatAge, formatAgo, formatClockTime, formatDuration, formatSecondsOfDay, formatSince } from './format'
 
 describe('formatClockTime', () => {
   it('formats an ISO timestamp in Warsaw time regardless of the runner timezone', () => {
@@ -61,6 +61,16 @@ describe('formatAgo', () => {
 
   it('clamps a negative age (clock skew) to zero instead of going negative', () => {
     expect(formatAgo(-5)).toBe('przed chwilą')
+  })
+})
+
+describe('formatSince', () => {
+  it('reads after „sprzed": chwili / N s / N min / N h, clamped at zero', () => {
+    expect(formatSince(0)).toBe('chwili')
+    expect(formatSince(-5)).toBe('chwili')
+    expect(formatSince(13)).toBe('13 s')
+    expect(formatSince(8 * 60)).toBe('8 min')
+    expect(formatSince(90 * 60)).toBe('2 h')
   })
 })
 

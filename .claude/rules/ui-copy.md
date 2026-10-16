@@ -66,6 +66,22 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   (the click is the only GPS call; the flag is removed as soon as „W pobliżu” is opened, so closing it never brings the button back).
 - „W pobliżu” subtitle: „Promień 500 m · w linii prostej” — distances are straight-line, never walking time.
 
+## Map overview and vehicle position age (`OverviewPanel`, `MapCard`, `/city/<city>/map`)
+
+- Phone overview (nothing selected, no nearby, no line) = bottom sheet at `peek`, a region (not a dialog) named „Pojazdy i przystanki w
+  widoku”: counts „{n} pojazd|pojazdy|pojazdów · {n} przystanek|przystanki|przystanków · {n} stacja|stacje|stacji kolejowa” (zero parts left
+  out), loading „Liczę obiekty w kadrze…”, nothing „Brak obiektów w kadrze”, overflow „Pierwsze 100 obiektów” + „Przybliż mapę, aby zobaczyć
+  więcej” (never a total). „Lista” opens the same sheet at `half`; list subtitle in the window panel is „{n} obiekt|obiekty|obiektów”.
+- Feed age of the whole reading: „Pozycje sprzed {N s|N min}” („Pozycje sprzed chwili” under 5 s); unknown age = no claim; loading „Wczytywanie
+  pozycji pojazdów…”; failed without data „Nie udało się pobrać pozycji pojazdów”; failed with data „Nie udało się odświeżyć · Pozycje sprzed …”.
+- Per-vehicle GPS age (card row „GPS pojazdu”, list rows): „Pozycja sprzed {N s|N min}” via `formatSince` (`formatAgo` ends in „temu” and does not
+  read after „sprzed”). Over `HIDE_AFTER_SEC` (180 s) the card says „Utracono pozycję pojazdu — ostatnia sprzed {N min}”; gone from the feed:
+  „Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.”. Never the browser’s fetch time.
+- Compact legend (`CompactLegend`, „Legenda rodzajów”): one chip per mode with `MODE_LABEL` (metro, tramwaj, autobus, kolej, inne).
+- GTFS stop by mode (`STOP_LABEL` in `MapCard`): „Stacja metra”, „Przystanek tramwajowy”, „Przystanek autobusowy”, „Stacja kolei miejskiej”
+  (GTFS rail, not PKP), „Przystanek” (other); an unknown vehicle run is „inne”, never a bus.
+- Line panel alerts: `ContextAlerts` with „Komunikaty linii {X}” (wording as in „Context alerts” above).
+
 ## Map search (`UnifiedSearch variant="overlay"`, `/city/<city>/map`)
 
 - Wording of the field, groups and states: see „Search” below (one field, no Przystanek/Linia tabs). Map-specific: results float

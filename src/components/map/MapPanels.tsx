@@ -3,6 +3,8 @@
 import { ArrowRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { stopDisplayName } from '../stopName'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
+import { formatSince } from '@/lib/format'
+import { pluralPl } from '@/lib/plural'
 import { VISIBLE_LIMIT, type NearbyPoint, type VisibleItem } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
@@ -90,9 +92,35 @@ export function VisibleListPanel({
   onClearFilters?: () => void
 }) {
   // Przy przepełnieniu znamy tylko górną granicę z limitu — nie podajemy liczby udającej sumę.
-  const subtitle = items === null ? 'Liczę obiekty w kadrze…' : overflow ? `Pierwsze ${VISIBLE_LIMIT} obiektów` : `${items.length} obiektów`
+  const subtitle =
+    items === null ? 'Liczę obiekty w kadrze…' : overflow ? `Pierwsze ${VISIBLE_LIMIT} obiektów` : `${items.length} ${pluralPl(items.length, 'obiekt', 'obiekty', 'obiektów')}`
   return (
     <PanelFrame title="W widoku" subtitle={subtitle} closeLabel="Zamknij listę" onClose={onClose}>
+      <VisibleListBody items={items} overflow={overflow} onOpen={onOpen} onClearFilters={onClearFilters} />
+    </PanelFrame>
+  )
+}
+
+/**
+ * Treść listy „w widoku" bez ramy: stan pusty, grupy wierszy, wskazówka przy przepełnieniu. Jedna implementacja dla
+ * `VisibleListPanel` (okno) i `OverviewPanel` (arkusz przeglądu na telefonie). `overflowHint={false}` — wywołujący
+ * pokazuje wskazówkę sam (przegląd trzyma ją w nagłówku, gdzie widać ją na `peek`).
+ */
+export function VisibleListBody({
+  items,
+  overflow,
+  onOpen,
+  onClearFilters,
+  overflowHint = true,
+}: {
+  items: VisibleItem[] | null
+  overflow: boolean
+  onOpen: (item: VisibleItem) => void
+  onClearFilters?: () => void
+  overflowHint?: boolean
+}) {
+  return (
+    <>
       {items !== null && items.length === 0 && (
         <>
           <p className="p-1 text-sm text-text-secondary">W tym kadrze nic nie widać — oddal albo przesuń mapę.</p>
@@ -115,7 +143,10 @@ export function VisibleListPanel({
                 {group.map((item) => (
                   <li key={`${item.kind}:${item.id}`}>
                     <button type="button" onClick={() => onOpen(item)} className={rowClass}>
-                      <span className="min-w-0 flex-1 truncate">{kind === 'vehicle' ? `Linia ${item.label || '—'}` : item.label}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{kind === 'vehicle' ? `Linia ${item.label || '—'}` : item.label}</span>
+                        {item.ageSec !== undefined && <span className="block text-xs text-text-muted">Pozycja sprzed {formatSince(item.ageSec)}</span>}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -123,10 +154,12 @@ export function VisibleListPanel({
             </section>
           )
         })}
-      {overflow && <p className="p-2 text-xs text-text-muted">Przybliż mapę, aby zobaczyć więcej</p>}
-    </PanelFrame>
+      {overflow && overflowHint && <p className="p-2 text-xs text-text-muted">{OVERFLOW_HINT}</p>}
+    </>
   )
 }
+
+export const OVERFLOW_HINT = 'Przybliż mapę, aby zobaczyć więcej'
 
 export type PinnedPoint = { key: string; name: string; lat: number; lon: number }
 

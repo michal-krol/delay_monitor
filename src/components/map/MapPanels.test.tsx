@@ -77,7 +77,7 @@ describe('VisibleListPanel', () => {
     expect(screen.queryByText(/\d\+/)).toBeNull()
 
     rerender(<VisibleListPanel items={items} overflow={false} onOpen={() => {}} onClose={() => {}} />)
-    expect(screen.getByText('1 obiektów')).toBeInTheDocument()
+    expect(screen.getByText('1 obiekt')).toBeInTheDocument()
     expect(screen.queryByText('Przybliż mapę, aby zobaczyć więcej')).toBeNull()
   })
 

@@ -70,12 +70,23 @@ export function effectiveAgeMs(ageMs: number | undefined, lastSuccessAt: number 
  * przycięty do zera -- nigdy „−3 s temu".
  */
 export function formatAgo(ageSec: number): string {
+  const span = ageSpan(ageSec)
+  return span === null ? 'przed chwilą' : `${span} temu`
+}
+
+/** To samo co `formatAgo`, ale po przyimku „sprzed": „Pozycja sprzed 13 s" / „sprzed chwili" (nie „sprzed 13 s temu"). */
+export function formatSince(ageSec: number): string {
+  return ageSpan(ageSec) ?? 'chwili'
+}
+
+/** „N s" / „N min" / „N h"; `null` poniżej 5 s (progi wspólne dla `formatAgo` i `formatSince`). */
+function ageSpan(ageSec: number): string | null {
   const seconds = Math.max(0, Math.round(ageSec))
-  if (seconds < 5) return 'przed chwilą'
-  if (seconds < 60) return `${seconds} s temu`
+  if (seconds < 5) return null
+  if (seconds < 60) return `${seconds} s`
   const minutes = Math.round(seconds / 60)
-  if (minutes < 90) return `${minutes} min temu`
-  return `${Math.round(minutes / 60)} h temu`
+  if (minutes < 90) return `${minutes} min`
+  return `${Math.round(minutes / 60)} h`
 }
 
 /**

@@ -412,5 +412,11 @@ export function nearbyPoints(
 }
 
 /** Punkt widoczny w kadrze — wiersz listy „w widoku". */
-export type VisibleItem = { kind: 'vehicle' | 'stop' | 'rail'; id: string; label: string }
+export type VisibleItem = {
+  kind: 'vehicle' | 'stop' | 'rail'
+  id: string
+  label: string
+  /** Wiek pozycji GPS pojazdu (dokłada strona z odczytu co 15 s; mapa go nie zna). */
+  ageSec?: number
+}
 export const VISIBLE_LIMIT = 100

@@ -1,7 +1,8 @@
 import { useId } from 'react'
 import { DisclosureIcon, VehicleHeadingIcon, ICON_SIZE } from '../icons'
-import { BUS_KIND_LABEL, BUS_KIND_ORDER, darkRingClass, lineColor } from '../transitMode'
+import { BUS_KIND_LABEL, BUS_KIND_ORDER, MODE_LABEL, MODE_ORDER, darkRingClass, lineColor } from '../transitMode'
 import { MODE_COLOR, outlineFilter, strokeFor } from './mapData'
+import { ModeChip } from './ModeChip'
 import type { GtfsMode } from '@/lib/gtfs/types'
 
 const POINTS: [GtfsMode, string][] = [
@@ -13,8 +14,26 @@ const POINTS: [GtfsMode, string][] = [
 const VEHICLES: [GtfsMode, string][] = [
   ['bus', 'Autobus'],
   ['tram', 'Tramwaj'],
+  ['metro', 'Metro'],
   ['rail', 'Pociąg'],
 ]
+
+/**
+ * Rodzaje środków w jednym rzędzie — kompaktowa legenda dla `peek` arkusza przeglądu (telefon). Ten sam `ModeChip`
+ * (`MODE_ICON` + `lineColor`) co karty i filtry, z `other` na własnej ikonie; pełne objaśnienie kształtów to `MapLegend`.
+ */
+export function CompactLegend() {
+  return (
+    <ul aria-label="Legenda rodzajów" className="flex flex-wrap gap-x-3 gap-y-1">
+      {MODE_ORDER.map((mode) => (
+        <li key={mode} className="flex items-center gap-1.5 text-xs text-text-secondary">
+          <ModeChip mode={mode} />
+          <span className="first-letter:uppercase">{MODE_LABEL[mode]}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /**
  * Legenda RODZAJÓW obiektów (spec §8) — bez „na żywo" jako kategorii. Natywne

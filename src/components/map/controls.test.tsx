@@ -3,13 +3,15 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { LinePanel } from './LinePanel'
 import { MapFilters } from './MapFilters'
-import { MapLegend } from './MapLegend'
+import { CompactLegend, MapLegend } from './MapLegend'
 import { MapMoreMenu } from './MapMoreMenu'
 import { PanelFrame } from './PanelFrame'
 import { MODE_COLOR, outlineFilter, type LayerKey } from './mapData'
+import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import { ON_REQUEST_TITLE } from '../OnRequestBadge'
-import { BUS_KIND_LABEL, BUS_KIND_ORDER, lineColor } from '../transitMode'
+import { BUS_KIND_LABEL, BUS_KIND_ORDER, MODE_ICON, MODE_LABEL, MODE_ORDER, lineColor } from '../transitMode'
+import { BusIcon, ICON_SIZE, OtherModeIcon } from '../icons'
 
 const line = (routeId: string, name = routeId, longName = ''): LineListEntry => ({
   routeId, line: name, longName, mode: 'bus', kind: 'regular',
@@ -120,7 +122,7 @@ describe('MapMoreMenu', () => {
 describe('MapLegend', () => {
   it('describes kinds of objects, never "live" as a category', () => {
     render(<MapLegend />)
-    for (const label of ['Stacja kolejowa', 'Stacja metra', 'Przystanek tramwajowy', 'Przystanek autobusowy', 'Autobus', 'Tramwaj', 'Pociąg']) {
+    for (const label of ['Stacja kolejowa', 'Stacja metra', 'Przystanek tramwajowy', 'Przystanek autobusowy', 'Autobus', 'Tramwaj', 'Metro', 'Pociąg']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     expect(screen.queryByText(/na żywo/)).toBeNull()
@@ -130,7 +132,7 @@ describe('MapLegend', () => {
     const { container } = render(<MapLegend />)
     // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- dekoracyjne kształty legendy (aria-hidden), bez roli
     const arrows = [...container.querySelectorAll<HTMLElement>('span[style*="drop-shadow"]')]
-    expect(arrows).toHaveLength(3) // autobus, tramwaj, pociąg
+    expect(arrows).toHaveLength(4) // autobus, tramwaj, metro, pociąg
     expect(arrows[0].style.filter).toBe(outlineFilter(MODE_COLOR.bus))
     // Ten sam glif co na mapie (Lucide navigation-2 z `VehicleHeadingIcon`), nie trójkąt z obramowań.
     // eslint-disable-next-line testing-library/no-node-access -- jak wyżej
@@ -158,9 +160,56 @@ const css = (hex: string) => {
   return el.style.background
 }
 
+describe('CompactLegend', () => {
+  // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona (aria-hidden), bez roli
+  const glyph = (root: ParentNode) => root.querySelector('svg')!.innerHTML
+  it('legend uses MODE_ICON for bus tram metro rail and OtherModeIcon for other', () => {
+    render(<CompactLegend />)
+    const items = within(screen.getByRole('list', { name: 'Legenda rodzajów' })).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual(MODE_ORDER.map((mode) => MODE_LABEL[mode]))
+    MODE_ORDER.forEach((mode, i) => {
+      const Icon = MODE_ICON[mode]
+      expect(glyph(items[i])).toBe(glyph(render(<Icon size={ICON_SIZE.chip} />).container))
+    })
+    // `other` ma własny glif i nigdy nie wraca do autobusu.
+    expect(MODE_ICON.other).toBe(OtherModeIcon)
+    expect(glyph(items[MODE_ORDER.indexOf('other')])).not.toBe(glyph(render(<BusIcon size={ICON_SIZE.chip} />).container))
+  })
+
+  it('takes the swatch colour from lineColor for each mode', () => {
+    render(<CompactLegend />)
+    const items = within(screen.getByRole('list', { name: 'Legenda rodzajów' })).getAllByRole('listitem')
+    MODE_ORDER.forEach((mode, i) => {
+      // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna próbka (aria-hidden), bez roli
+      expect(items[i].querySelector<HTMLElement>('[aria-hidden="true"]')!.style.background).toBe(css(lineColor(mode, 'regular').bg))
+    })
+  })
+})
+
 describe('LinePanel', () => {
   const entry = line('20', '20')
-  const props = { line: entry, directionId: 0, vehiclesOnLine: 0, city: 'warszawa', onDirection: () => {}, onStop: () => {}, onClose: () => {} }
+  const props = {
+    line: entry, directionId: 0, vehiclesOnLine: 0, city: 'warszawa', onDirection: () => {}, onStop: () => {}, onClose: () => {},
+    alerts: [] as AlertRecord[], alertsState: 'ready' as const, alertsStale: false,
+  }
+
+  it('LinePanel shows ContextAlerts loading/ready-empty/failed/stale', () => {
+    const alert = { id: 'a1', routes: ['20'], effect: 'DETOUR', link: '', title: 'Objazd linii 20', body: 'Remont torowiska' }
+    const { rerender } = render(<LinePanel {...props} detail={undefined} error={false} alerts={[]} alertsState="loading" />)
+    expect(screen.getByText('Komunikaty linii 20')).toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie komunikatów…')).toBeInTheDocument()
+    rerender(<LinePanel {...props} detail={undefined} error={false} alertsState="ready" />)
+    expect(screen.getByText('Brak komunikatów dla tego kontekstu')).toBeInTheDocument()
+    rerender(<LinePanel {...props} detail={undefined} error={false} alertsState="failed" />)
+    expect(screen.getByText('Nie udało się wczytać komunikatów')).toBeInTheDocument()
+    expect(screen.queryByText('Brak komunikatów dla tego kontekstu')).toBeNull()
+    rerender(<LinePanel {...props} detail={undefined} error={false} alerts={[alert]} alertsState="failed" alertsStale />)
+    expect(screen.getByText('Nie udało się odświeżyć. Pokazujemy ostatnie dane')).toBeInTheDocument()
+    expect(screen.getByText('Objazd linii 20')).toBeInTheDocument()
+    // Ostatnia lista zostaje: „Rozwiń komunikat”, bez przycisku „Na mapie” (linia już jest na mapie).
+    expect(screen.getByText('Rozwiń komunikat')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Na mapie' })).toBeNull()
+  })
 
   it('tells loading, failure and an unknown route apart, always keeping the timetable link', () => {
     const { rerender } = render(<LinePanel {...props} detail={undefined} error={false} />)

@@ -181,12 +181,17 @@ describe('CityMapPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
-  it('says a selected vehicle vanished rather than showing an empty card', async () => {
+  it('says a selected vehicle lost its position rather than showing an empty card or a fake-current point', async () => {
     const { rerender } = render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     map().onSelect({ kind: 'vehicle', id: 'v1' })
     await screen.findByRole('dialog')
     state.vehicles = { vehicles: [{ ...VEHICLE, ageSec: 500 }], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
+    rerender(<CityMapPage />)
+    expect(await screen.findByText('Utracono pozycję pojazdu — ostatnia sprzed 8 min')).toBeInTheDocument()
+    // Mapa nie rysuje wyróżnienia na martwym punkcie.
+    expect(map().selected).toBeNull()
+    state.vehicles = { vehicles: [], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
     rerender(<CityMapPage />)
     expect(await screen.findByText(/Pojazd zniknął z mapy/)).toBeInTheDocument()
   })
@@ -245,6 +250,36 @@ describe('CityMapPage — line mode', () => {
     expect(map().route).toBeNull()
   })
 
+  it('the line panel carries the line alerts as ContextAlerts, from the one line fetch', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/map?line=20')
+    render(<CityMapPage />)
+    const panel = await screen.findByRole('dialog', { name: 'Linia 20' })
+    expect(await within(panel).findByText('Komunikaty linii 20')).toBeInTheDocument()
+    expect(within(panel).getByText('Brak komunikatów dla tego kontekstu')).toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).startsWith('/api/gtfs/line?'))).toHaveLength(1)
+  })
+
+  it('rail GTFS line never calls /api/train', async () => {
+    const delegate = vi.mocked(fetch)
+    const railDetail = { ...LINE_DETAIL, routeId: 'S1', line: 'S1', mode: 'rail', directions: [LINE_DETAIL.directions[0]] }
+    const fetchMock = vi.fn((url: string) => {
+      if (url.startsWith('/api/gtfs/lines')) {
+        return jsonResponse({ city: 'warszawa', schedule: { state: 'ready' }, lines: { rail: [{ routeId: 'S1', line: 'S1', longName: 'Pruszków — Otwock', mode: 'rail', kind: 'regular' }] }, attribution: [] })
+      }
+      if (url.startsWith('/api/gtfs/line?')) return jsonResponse({ schedule: { state: 'ready' }, line: railDetail })
+      return delegate(url)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    window.history.replaceState(null, '', '/city/warszawa/map?line=S1')
+    render(<CityMapPage />)
+    const panel = await screen.findByRole('dialog', { name: 'Linia S1' })
+    expect(within(panel).getByText(/kolej · w trasie: 0/)).toBeInTheDocument()
+    // Przystanek z przebiegu kolei miejskiej: karta z własnym rodzajem (nie „Przystanek autobusowy").
+    fireEvent.click(await within(panel).findByRole('button', { name: /Boernerowo/ }))
+    expect(await screen.findByText('Stacja kolei miejskiej')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/train'))).toEqual([])
+  })
+
   it('"Pokaż trasę" in a vehicle card enters line mode in the vehicle direction', async () => {
     state.vehicles = { vehicles: [{ ...VEHICLE, directionId: 1 }], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
     render(<CityMapPage />)
@@ -254,6 +289,81 @@ describe('CityMapPage — line mode', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Pokaż trasę na mapie' }))
     expect(await screen.findByRole('dialog', { name: 'Linia 20' })).toBeInTheDocument()
     expect(window.location.search).toBe('?line=20&dir=1')
+  })
+})
+
+describe('CityMapPage — overview sheet (phone)', () => {
+  const sheet = () => document.querySelector<HTMLElement>('.bottom-sheet')! // eslint-disable-line testing-library/no-node-access -- kontener przewijania nie ma roli
+  const overview = () => screen.getByRole('region', { name: 'Pojazdy i przystanki w widoku' })
+  const inside = (el: HTMLElement, selector: string) => el.closest(selector) !== null // eslint-disable-line testing-library/no-node-access -- arkusz i jego slot nie mają ról
+
+  beforeEach(() => setWide(false))
+
+  it('with nothing selected the phone shows the overview in a peek sheet, reporting what is in view', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect(sheet()).toHaveAttribute('data-snap', 'peek')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // Mapa liczy kadr też bez otwartej listy — z tego żyje podsumowanie.
+    expect(map().listOpen).toBe(true)
+    expect(within(overview()).getByText('Liczę obiekty w kadrze…')).toBeInTheDocument()
+    act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }, { kind: 'stop', id: '100101', label: 'Centrum 01' }], false))
+    expect(within(overview()).getByText('1 pojazd · 1 przystanek')).toBeInTheDocument()
+    expect(within(overview()).getByText('Pozycje sprzed 13 s')).toBeInTheDocument()
+    expect(within(overview()).getByRole('list', { name: 'Legenda rodzajów' })).toBeInTheDocument()
+    // Pełna legenda z boku jest tylko na szerokim ekranie: na telefonie legenda leży w arkuszu.
+    expect(screen.queryByText('Legenda')).toBeNull()
+  })
+
+  it('vehicle rows in the overview list say how old the position is and open the card', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false))
+    const row = within(overview()).getByRole('button', { name: /Linia 20 → Centrum/ })
+    expect(row).toHaveTextContent('Pozycja sprzed 10 s')
+    fireEvent.click(row)
+    expect(await screen.findByRole('dialog', { name: 'tramwaj 20' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Pojazdy i przystanki w widoku' })).toBeNull()
+  })
+
+  it('peek does not cover the locate control (control sits in the above slot)', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    const locate = screen.getByRole('button', { name: 'Moja lokalizacja' })
+    expect(inside(locate, '.bottom-sheet__above')).toBe(true)
+    expect(sheet()).toContainElement(locate)
+    // Z kartą tak samo — arkusz niesie kontrolkę ze sobą.
+    map().onSelect({ kind: 'rail', id: '33605' })
+    await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
+    expect(inside(screen.getByRole('button', { name: 'Moja lokalizacja' }), '.bottom-sheet__above')).toBe(true)
+  })
+
+  it('"Lista" opens the overview sheet at half and a second press brings it back to peek', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
+    expect(sheet()).toHaveAttribute('data-snap', 'half')
+    expect(screen.getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('dialog')).toBeNull() // jedna lista, nie druga obok przeglądu
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
+    expect(sheet()).toHaveAttribute('data-snap', 'peek')
+  })
+
+  it('a feed that has never answered makes no age claim', async () => {
+    state.vehicles = { vehicles: [], feed: { state: 'loading', ageMs: null }, alertLines: [], error: null }
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect(within(overview()).getByText('Wczytywanie pozycji pojazdów…')).toBeInTheDocument()
+    expect(within(overview()).queryByText(/sprzed/)).toBeNull()
+  })
+
+  it('on a wide screen there is no sheet: the legend and the locate control stay on the map', async () => {
+    setWide(true)
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect(screen.queryByRole('region', { name: 'Pojazdy i przystanki w widoku' })).toBeNull()
+    expect(inside(screen.getByRole('button', { name: 'Moja lokalizacja' }), '.bottom-sheet')).toBe(false)
+    expect(screen.getByText('Legenda')).toBeInTheDocument()
   })
 })
 
@@ -489,7 +599,7 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     expect(map().listOpen).toBe(true)
     expect(await screen.findByText('Liczę obiekty w kadrze…')).toBeInTheDocument()
     map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false)
-    fireEvent.click(await screen.findByRole('button', { name: 'Linia 20 → Centrum' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Linia 20 → Centrum/ }))
     expect(await screen.findByRole('dialog', { name: 'tramwaj 20' })).toBeInTheDocument()
   })
 

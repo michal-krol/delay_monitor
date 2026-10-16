@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { ArrowRightIcon, ChevronRightIcon, SwapIcon, ICON_SIZE } from '../icons'
-import { AlertBanner } from '../AlertBanner'
+import { ContextAlerts } from '../ContextAlerts'
 import { LineBadge } from '../LineBadge'
 import { OnRequestBadge } from '../OnRequestBadge'
 import { MODE_LABEL } from '../transitMode'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
+import type { ContextAlertsState } from '@/lib/gtfs/alertView'
 import type { LineDetail, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import { PanelFrame } from './PanelFrame'
 import { stopDisplayName } from '../stopName'
@@ -19,7 +20,9 @@ import { stopDisplayName } from '../stopName'
 export function LinePanel({
   line,
   detail,
-  alerts = [],
+  alerts,
+  alertsState,
+  alertsStale,
   error,
   directionId,
   vehiclesOnLine,
@@ -31,8 +34,11 @@ export function LinePanel({
   line: LineListEntry
   /** `undefined` = wczytuje się, `null` = rozkład nie zna przebiegu tej linii. */
   detail: LineDetail | null | undefined
-  /** Aktywne utrudnienia tej linii (`/api/gtfs/line`). */
-  alerts?: AlertRecord[]
+  /** Komunikaty tej linii z tej samej odpowiedzi `/api/gtfs/line` co przebieg (`useLineDetail`) — bez osobnego pollera. */
+  alerts: AlertRecord[]
+  alertsState: ContextAlertsState['state']
+  /** `failed`, ale ostatnia dobra lista istnieje. */
+  alertsStale: boolean
   error: boolean
   directionId: number
   vehiclesOnLine: number
@@ -55,11 +61,9 @@ export function LinePanel({
       bodyLabel="Przystanki linii"
       focusKey={line.routeId}
     >
-      {alerts.length > 0 && (
-        <div className="mb-3">
-          <AlertBanner alerts={alerts} />
-        </div>
-      )}
+      <div className="mb-3">
+        <ContextAlerts alerts={alerts} state={alertsState} stale={alertsStale} scopeLabel={`Komunikaty linii ${line.line}`} />
+      </div>
       {detail === undefined && error && <p className="text-sm text-error-text">Nie udało się pobrać przebiegu linii.</p>}
       {detail === undefined && !error && (
         <ul className="space-y-2" aria-hidden="true">

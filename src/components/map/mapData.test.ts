@@ -100,6 +100,20 @@ describe('vehiclesToGeoJSON', () => {
     expect(features.map((f) => [f.properties.id, f.properties.opacity])).toEqual([['a', 0.5]])
   })
 
+  it('vehicle age 91s is faded, 181s is hidden', () => {
+    const features = vehiclesToGeoJSON(
+      [vehicle({ id: 'fresh', ageSec: 90 }), vehicle({ id: 'faded', ageSec: 91 }), vehicle({ id: 'edge', ageSec: 180 }), vehicle({ id: 'gone', ageSec: 181 })],
+      new Set(),
+      null
+    ).features
+    const opacity = Object.fromEntries(features.map((f) => [f.properties.id, f.properties.opacity]))
+    expect(opacity.fresh).toBe(1)
+    expect(opacity.faded).toBeLessThan(1)
+    expect(opacity.faded).toBeGreaterThan(0.9)
+    expect(opacity.edge).toBe(0)
+    expect(opacity).not.toHaveProperty('gone')
+  })
+
   it('keeps only lines with disruptions when asked', () => {
     const vehicles = [vehicle({ id: 'a', shortName: '20' }), vehicle({ id: 'b', shortName: '9' }), vehicle({ id: 'c', shortName: null })]
     expect(vehiclesToGeoJSON(vehicles, new Set(), null, new Set(['9'])).features.map((f) => f.properties.id)).toEqual(['b'])

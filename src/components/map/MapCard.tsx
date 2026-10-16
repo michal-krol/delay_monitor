@@ -12,10 +12,10 @@ import { MODE_LABEL } from '../transitMode'
 import { TransitDepartureList } from '../TransitDepartureList'
 import { useRailStationStatus } from '@/hooks/useRailStations'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
-import { formatAgo, formatClockTime } from '@/lib/format'
+import { formatAgo, formatClockTime, formatSince } from '@/lib/format'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
 import type { GtfsMode } from '@/lib/gtfs/types'
-import { FADE_START_SEC, vehicleKind } from './mapData'
+import { FADE_START_SEC, HIDE_AFTER_SEC, vehicleKind } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
 import { stopDisplayName, stopsWithLines } from '../stopName'
@@ -50,7 +50,7 @@ export function MapCard({
   alertLines = [],
 }: {
   selection: MapSelection
-  /** Aktualny odczyt wybranego pojazdu; `null` = zniknął z feedu (pozycja > 180 s). */
+  /** Ostatni odczyt wybranego pojazdu; starszy niż `HIDE_AFTER_SEC` = „utracono pozycję"; `null` = zniknął z feedu. */
   vehicle: CityVehicle | null
   city: string
   onClose: () => void
@@ -72,7 +72,9 @@ export function MapCard({
   const heading =
     selection.kind === 'vehicle'
       ? vehicle?.shortName !== null && vehicle?.shortName !== undefined
-        ? `${MODE_LABEL[vehicle.mode ?? 'bus']} ${vehicle.shortName}`
+        ? vehicle.mode !== null
+          ? `${MODE_LABEL[vehicle.mode]} ${vehicle.shortName}`
+          : `Linia ${vehicle.shortName}`
         : 'Pojazd'
       : selection.kind === 'stop'
         ? stopDisplayName(selection.name, selection.code)
@@ -120,14 +122,24 @@ export function MapCard({
   )
 }
 
+/** Przystanek GTFS nazwany swoim rodzajem. `rail` = kolej miejska z rozkładu (nie stacja PKP z `kind: 'rail'`, #13). */
+const STOP_LABEL: Record<GtfsMode, string> = {
+  metro: 'Stacja metra',
+  tram: 'Przystanek tramwajowy',
+  bus: 'Przystanek autobusowy',
+  rail: 'Stacja kolei miejskiej',
+  other: 'Przystanek',
+}
+
 function Subtitle({ selection, vehicle }: { selection: MapSelection; vehicle: CityVehicle | null }) {
   const [mode, text]: [GtfsMode, ReactNode] =
     selection.kind === 'rail'
       ? ['rail', 'Stacja kolejowa']
       : selection.kind === 'stop'
-        ? [selection.mode, selection.mode === 'metro' ? 'Stacja metra' : `Przystanek ${selection.mode === 'tram' ? 'tramwajowy' : 'autobusowy'}`]
+        ? [selection.mode, STOP_LABEL[selection.mode]]
         : [
-            vehicle?.mode ?? 'bus',
+            // Nieznany kurs (`mode: null`) ma szary kolor „inne" na mapie — chip też, nie autobus.
+            vehicle?.mode ?? 'other',
             vehicle?.headsign !== null && vehicle?.headsign !== undefined ? (
               <span className="inline-flex items-center gap-1">
                 <ArrowRightIcon size={ICON_SIZE.inline} label="do" />
@@ -264,6 +276,8 @@ function VehicleBody({
   if (vehicle === null) {
     return <p className="text-sm text-text-secondary">Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.</p>
   }
+  // Powyżej `HIDE_AFTER_SEC` mapa nie rysuje już punktu (jeden próg, `mapData`) — karta nie udaje, że pojazd tu jest.
+  const lost = vehicle.ageSec > HIDE_AFTER_SEC
   const fresh = vehicle.ageSec <= FADE_START_SEC
   return (
     <>
@@ -276,35 +290,42 @@ function VehicleBody({
           Utrudnienia na tej linii — szczegóły w rozkładzie linii.
         </p>
       )}
-      <dl className="mt-3 space-y-3 text-sm">
-        <div>
-          <dt className="text-xs text-text-muted">Następny przystanek</dt>
-          <dd className="font-semibold">{vehicle.nextStop !== null ? stopDisplayName(vehicle.nextStop.name, vehicle.nextStop.code) : 'nie wiadomo'}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-text-muted">Pozycja</dt>
-          <dd>
-            {formatAgo(vehicle.ageSec)} ·{' '}
-            <span className={fresh ? 'text-primary-text' : 'text-warning-text'}>
-              {fresh ? 'aktualna' : 'nieaktualna'}
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-text-muted">Numer boczny</dt>
-          <dd>{vehicle.sideNumber !== '' ? vehicle.sideNumber : '—'}</dd>
-        </div>
-      </dl>
-      {onToggleFollow !== undefined && (
-        <button
-          type="button"
-          aria-pressed={following}
-          onClick={onToggleFollow}
-          // `aria-pressed` stylizuje `.chip-filter` (wypełnienie/obrys `--primary*`, także w trybie wysokiego kontrastu).
-          className="chip-filter mt-3 gap-2 px-3 text-xs font-semibold"
-        >
-          {following ? 'Śledzę pojazd' : 'Śledź pojazd'}
-        </button>
+      {lost ? (
+        <p role="status" className="mt-3 text-sm font-medium text-warning-text">{`Utracono pozycję pojazdu — ostatnia sprzed ${formatSince(vehicle.ageSec)}`}</p>
+      ) : (
+        <>
+          <dl className="mt-3 space-y-3 text-sm">
+            <div>
+              <dt className="text-xs text-text-muted">Następny przystanek</dt>
+              <dd className="font-semibold">{vehicle.nextStop !== null ? stopDisplayName(vehicle.nextStop.name, vehicle.nextStop.code) : 'nie wiadomo'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-text-muted">GPS pojazdu</dt>
+              <dd>
+                {/* Wiek znacznika GPS z feedu (`ageSec`), nie czas, kiedy przeglądarka pobrała odczyt. */}
+                Pozycja sprzed {formatSince(vehicle.ageSec)} ·{' '}
+                <span className={fresh ? 'text-primary-text' : 'text-warning-text'}>
+                  {fresh ? 'aktualna' : 'nieaktualna'}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-text-muted">Numer boczny</dt>
+              <dd>{vehicle.sideNumber !== '' ? vehicle.sideNumber : '—'}</dd>
+            </div>
+          </dl>
+          {onToggleFollow !== undefined && (
+            <button
+              type="button"
+              aria-pressed={following}
+              onClick={onToggleFollow}
+              // `aria-pressed` stylizuje `.chip-filter` (wypełnienie/obrys `--primary*`, także w trybie wysokiego kontrastu).
+              className="chip-filter mt-3 gap-2 px-3 text-xs font-semibold"
+            >
+              {following ? 'Śledzę pojazd' : 'Śledź pojazd'}
+            </button>
+          )}
+        </>
       )}
       <p className="mt-3 text-xs text-text-muted">Komunikacja miejska nie publikuje opóźnień — pokazujemy pozycję z GPS i rozkład.</p>
       {vehicle.routeId !== null ? (
