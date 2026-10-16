@@ -35,6 +35,8 @@ Why: `adr/0006-ikony-lucide.md`.
     180° inside the `<summary>` of an open `<details>` or under `aria-expanded="true"` — no
     per-site rotate or `group-open:` classes; sidebar collapse is a panel, not a disclosure,
     and keeps the horizontal chevron
+  - mode icons come from `MODE_ICON` (`transitMode.tsx`) everywhere (cards, badges, mode chips, compact legend): metro `MetroIcon`, tram `TramIcon`,
+    bus `BusIcon`, rail `TrainIcon`, `other` `OtherModeIcon` — an unknown mode never falls back to `BusIcon`; filters (map „Filtry”) `FilterIcon`
   - rail mode/station `TrainIcon`; a vehicle's position `VehiclePositionIcon`; its heading
     `VehicleHeadingIcon` (same glyph as the map arrows)
   - disruption `AlertCircleIcon` only (help „?" is `HelpCircleIcon`)
