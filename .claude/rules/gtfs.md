@@ -92,6 +92,14 @@ paths:
   - **Tiles**: no `truncate` — full termini wrap; the grid is a container query (`@container`), one
     column in a narrow container, auto-fill from `@md`, never a window breakpoint (the aside changes the width).
   - Copy: `ui-copy.md` „Lines catalog”.
+- **Line detail page view state** (`/city/<city>/line/<routeId>`, `src/lib/lineViewState.ts`): `?dir=<directionId>`
+  (the direction's id, NOT its array index — a direction with id 1 may come first; default = first in the array),
+  `?stop=<stopId>` (first occurrence; with no valid `dir` the first direction that contains it), `?pane=route|timetable`
+  (phones only), `?day=weekday|saturday|sunday|other` (read by the timetable screen). Written with `patchUrlParams`
+  (`replaceState`, other params kept, defaults omitted); parsed against an allow-list/regex, resolved only against the
+  loaded `LineDetail` (`resolveLineView`), bad values fall back silently (#4). The page keeps its own `usePolling`
+  (one `/api/gtfs/line` per line) and derives alerts with `deriveLineAlerts()` from `useLineDetail.ts` — never mount
+  `useLineDetail` next to it. Unknown direction (id 2) never queries vehicles and links the map without `dir`.
 - **`schedule.routePatterns`** (stop sequence per direction + second `offsets` from the first
   stop) accumulated in the hot `stop_times` loop — don't scan millions of events per line-page
   request. `lineDetail()` reads the ready index; the page computes a time as

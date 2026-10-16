@@ -100,7 +100,7 @@ test.describe('PR5: cele dotyku na telefonie', () => {
   test('strona linii: pigułka kierunku i przystanek na osi mają >= 44 px', async ({ page }) => {
     await page.goto('/city/warszawa/line/20')
     await expect(page.getByRole('heading', { name: /^Trasa linii/ })).toBeAttached({ timeout: READY })
-    expect(await hitHeight(page.getByRole('button', { name: /zmień kierunek/ }))).toBeGreaterThanOrEqual(44)
+    expect(await hitHeight(page.getByRole('button', { name: 'Zmień kierunek' }))).toBeGreaterThanOrEqual(44)
     const stop = page.getByRole('list').getByRole('button', { pressed: false }).first()
     await expect(stop).toBeVisible({ timeout: READY })
     expect(await hitHeight(stop)).toBeGreaterThanOrEqual(44)

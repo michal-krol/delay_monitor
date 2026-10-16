@@ -40,12 +40,14 @@ test('linia: przełącznik kierunku odwraca początek i koniec trasy', async ({ 
   // renderuje się na każdym viewporcie.
   await expect(page.getByRole('heading', { name: /Trasa linii/ })).toBeVisible({ timeout: READY })
 
-  const directionButton = page.getByRole('button', { name: /zmień kierunek/i })
-  const before = await directionButton.textContent()
+  // Przycisk ma stały podpis „Zmień kierunek”; zmianę widać w karcie kierunku (headsign) i w `?dir=`.
+  const card = page.getByText('Kierunek', { exact: true }).locator('..')
+  const before = await card.innerText()
 
-  await directionButton.click()
+  await page.getByRole('button', { name: 'Zmień kierunek' }).click()
+  await expect(page).toHaveURL(/[?&]dir=\d+/)
   await expect(async () => {
-    expect(await directionButton.textContent()).not.toBe(before)
+    expect(await card.innerText()).not.toBe(before)
   }).toPass({ timeout: 5_000 })
 })
 

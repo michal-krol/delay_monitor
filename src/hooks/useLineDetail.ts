@@ -12,7 +12,7 @@ const ALERT_RETRY_MS = 5 * 60_000
  * `alerts: null` = feed alertów jeszcze nie odpowiedział (nieznane, nie „brak") -- patrz `/api/gtfs/line`.
  * `alertFeed`: stan feedu (`null` = brak pollera; brak pola = stary payload).
  */
-type LineResponse = { line: LineDetail | null; schedule: { state: string }; alerts?: AlertRecord[] | null; alertFeed?: AlertFeedStatus | null }
+export type LineResponse = { line: LineDetail | null; schedule: { state: string }; alerts?: AlertRecord[] | null; alertFeed?: AlertFeedStatus | null }
 
 /**
  * Przebieg linii (kształt + przystanki obu kierunków) dla trybu linii na mapie —
@@ -49,20 +49,31 @@ function projectAlerts(data: LineResponse): ContextAlertsState {
   return toContextAlertsState(data.alertFeed, data.alerts === undefined ? [] : data.alerts)
 }
 
+/**
+ * Stan komunikatów z jednej odpowiedzi + ewentualnego błędu odświeżenia -- JEDNO miejsce dla hooka i strony linii
+ * (własny `usePolling` strony nie wolno dublować przepisanym mapperem). Błąd sieci po sukcesie: ostatnia lista
+ * zostaje, ale jest nieaktualna (`stale`) -- tylko gdy była znana (nie „wczytuje się").
+ */
+export function deriveLineAlerts(data: LineResponse | null, networkError: boolean): ContextAlertsState {
+  if (data === null) return { state: networkError ? 'failed' : 'loading', stale: false }
+  const view = projectAlerts(data)
+  if (!networkError) return view
+  return { state: 'failed', stale: view.state === 'ready' || (view.state === 'failed' && view.stale) }
+}
+
+/** `refreshMs` linii: `failed` feed alertów ponawiamy co 5 min, resztę wyłącza drabinka/brak odświeżania. */
+export const lineRefreshMs = (json: LineResponse): number | null => (json.alertFeed?.state === 'failed' ? ALERT_RETRY_MS : null)
+
 export function useLineDetail(city: string, routeId: string | null): LineDetailState {
   const { data, error } = usePolling<LineResponse>(
     routeId === null ? null : JSON.stringify([city, routeId]),
     () => fetchJson(`/api/gtfs/line?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId as string)}`),
-    { refreshMs: (json) => (json.alertFeed?.state === 'failed' ? ALERT_RETRY_MS : null), isLoading: isLineLoading }
+    { refreshMs: lineRefreshMs, isLoading: isLineLoading }
   )
   const scheduleFailed = data?.schedule.state === 'failed'
   // Przebieg jest dostępny, gdy tylko rozkład go zna -- nie czeka na alerty (te dojdą kolejną próbą drabinki).
   const ready = data !== null && !isLineScheduleLoading(data) && !scheduleFailed
-  let alertsState: ContextAlertsState = data === null ? { state: error !== null ? 'failed' : 'loading', stale: false } : projectAlerts(data)
-  // Błąd sieci po sukcesie: ostatnia lista zostaje, ale jest nieaktualna -- tylko gdy była znana (nie „wczytuje się").
-  if (data !== null && error !== null) {
-    alertsState = { state: 'failed', stale: alertsState.state === 'ready' || (alertsState.state === 'failed' && alertsState.stale) }
-  }
+  const alertsState = deriveLineAlerts(data, error !== null)
   return {
     detail: ready ? data.line : undefined,
     alerts: ready ? (data.alerts ?? []) : [],

@@ -58,6 +58,16 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   szerokości. Sekcja kolei nazywa się „Kolej miejska” (nie „Kolej”). Zmiana: szukanie po samym numerze nie
   znajduje już linii, w których numer tylko zawiera frazę (np. „16” nie pokaże „N16”) — tak samo jak w
   wyszukiwarce; „n16” i „N1” działają.
+- Szczegóły linii miejskiej (autobus, tramwaj, metro, kolej miejska; telefon i komputer): numer i rodzaj linii,
+  pełny kierunek z przyciskiem „Zmień kierunek” (kierunek wybierany po jego identyfikatorze, brak nazwy to „Kierunek
+  nieznany”), przełącznik „Trasa | Rozkład”, lista przystanków z osią i osobnym linkiem „Odjazdy z przystanku”,
+  mapa podglądowa pod listą oraz wiersz „Pojazdy w tym kierunku” z linkiem „Pojazdy na mapie” (dla kierunku
+  nieznanego bez parametru `dir` i bez pytania o pozycje). W rozkładzie widać kapsułę „linia · kierunek · przystanek”.
+  Wybór kierunku, przystanku i widoku zapisuje się w adresie (`dir`, `stop`, `pane`; wpis w historii się nie
+  mnoży), więc „Wstecz” z tablicy przystanku wraca do tego samego miejsca; błędne wartości są po cichu pomijane.
+  Komunikaty linii: skrót „N komunikatów” nad panelami i sekcja `ContextAlerts` pod nimi (awaria feedu ≠ „brak
+  komunikatów”, ostatnia lista zostaje z ostrzeżeniem); wiek pobrania „Pobrano … temu” z odświeżeniem na dotyk.
+  Bez nowych zapytań do źródeł (jedno `/api/gtfs/line` na linię jak dotąd).
 - Szczegóły połączenia kolejowego (telefon i komputer): każdy przystanek pokazuje godzinę użyteczną z nazwanym
   źródłem — „Faktycznie” (potwierdzona), „Przew.” (prognoza PKP) albo „Plan” — oraz małe „Plan GG:MM”; odjazd i
   przyjazd są opisane osobno, peron i tor osobno („Peron 2 · tor 4”). Potwierdzony przystanek ma pełny punkt,
