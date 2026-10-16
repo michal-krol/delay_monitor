@@ -191,7 +191,18 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
 
   function selectPane(next: LinePane): void {
     startTransition(() => setPaneChoice(next))
-    writeUrl({ ...view, pane: next }, ['pane'])
+    // `dir`/`stop` zapisujemy tylko, gdy są w URL-u teraz (żywy `window.location`, nie `searchParams`), i to rozstrzygnięte —
+    // zła wartość z linku nie zostaje; `day` i obce parametry zostają (patch dotyka tylko trzech kluczy).
+    const live = new URLSearchParams(window.location.search)
+    writeUrl(
+      {
+        ...view,
+        directionId: live.has('dir') ? (direction?.directionId ?? null) : null,
+        stopId: live.has('stop') ? (selectedStop?.stopId ?? null) : null,
+        pane: next,
+      },
+      ['dir', 'stop', 'pane']
+    )
   }
 
   function switchDirection(): void {

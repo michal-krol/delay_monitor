@@ -324,7 +324,7 @@ describe('LineDetailPage', () => {
   it('an old vehicle shows its age through formatAgo (aside and axis), not a hand-rolled „N min temu”', async () => {
     stubFetch(LINE, { ...VEHICLES_READY, vehicles: [{ ...VEHICLES_READY.vehicles[0], ageSec: 7200 }] })
     render(<LineDetailPage />)
-    expect(await screen.findByText(/za „Centrum 01” · 2 h temu/)).toBeInTheDocument()
+    expect(await screen.findByText(/za „Centrum 01” · GPS: 2 h temu/)).toBeInTheDocument()
     expect(screen.getByTestId('timeline-vehicle')).toHaveTextContent('Pojazd 3801, 2 h temu')
     expect(screen.getByTestId('timeline-vehicle')).not.toHaveAttribute('title')
   })
