@@ -182,9 +182,16 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   // MapLibre (WebGL, worker, kafelki) startuje dopiero, gdy sekcja zbliży się do ekranu — raz, bez odmontowania.
   const [mapSectionRef, mapNear] = useNearViewport()
 
+  // Każda akcja zapisuje TYLKO swoje klucze: `searchParams` z Next nie nadąża za `replaceState`, więc przepisywanie
+  // pozostałych (np. `dir` po zmianie kierunku) z tego stanu kasowałoby je z URL-a.
+  function writeUrl(next: LineViewState, keys: ('dir' | 'stop' | 'pane')[]): void {
+    const full = lineViewPatch(next)
+    patchUrlParams(Object.fromEntries(keys.map((key) => [key, full[key]])))
+  }
+
   function selectPane(next: LinePane): void {
     startTransition(() => setPaneChoice(next))
-    patchUrlParams(lineViewPatch({ ...view, directionId: urlView.directionId, pane: next }))
+    writeUrl({ ...view, pane: next }, ['pane'])
   }
 
   function switchDirection(): void {
@@ -195,7 +202,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
     setStopIndexChoice(undefined)
     setBase(null)
     // Pierwszy kierunek to stan domyślny: powrót do niego usuwa `dir` z URL-a.
-    patchUrlParams(lineViewPatch({ ...view, directionId: next === directions[0] ? null : next.directionId, stopId: null }))
+    writeUrl({ ...view, directionId: next === directions[0] ? null : next.directionId, stopId: null }, ['dir', 'stop'])
   }
 
   /** `openTimetable`: wybór z listy trasy — poniżej `lg` przystanek wybiera się po to, żeby zobaczyć jego rozkład. `index`: wiersz (pętla). */
@@ -209,7 +216,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
       segmentRef.current?.scrollIntoView?.({ block: 'nearest' })
     }
     // `dir` zostaje tym, co niesie URL (wpisuje go tylko zmiana kierunku) — domyślnego kierunku nie dopisujemy.
-    patchUrlParams(lineViewPatch({ ...view, directionId: urlView.directionId, stopId, pane: toTimetable ? 'timetable' : pane }))
+    writeUrl({ ...view, stopId, pane: toTimetable ? 'timetable' : pane }, ['stop', 'pane'])
   }
 
   // `MapView` montuje mapę od nowa przy każdej zmianie `onPinClick` (Trap 2, `maps.md`) — a `selectStop` zmienia tożsamość przy
