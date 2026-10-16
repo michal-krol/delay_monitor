@@ -105,8 +105,7 @@ export function LinePanel({
       )}
       <Link
         href={`/city/${city}/line/${line.routeId}`}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-        style={{ background: 'var(--accent-gradient)' }}
+        className="btn-primary mt-4 w-full text-sm"
       >
         Rozkład linii
         <ChevronRightIcon size={ICON_SIZE.inline} />

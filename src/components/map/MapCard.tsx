@@ -149,8 +149,7 @@ function Action({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
-      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-      style={{ background: 'var(--accent-gradient)' }}
+      className="btn-primary mt-4 w-full text-sm"
     >
       {children}
       <ChevronRightIcon size={ICON_SIZE.inline} />
@@ -301,10 +300,8 @@ function VehicleBody({
           type="button"
           aria-pressed={following}
           onClick={onToggleFollow}
-          className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-            following ? 'border-transparent text-white' : 'border-surface-border text-text-secondary hover:bg-black/5 dark:hover:bg-white/10'
-          }`}
-          style={following ? { background: 'var(--accent-gradient)' } : undefined}
+          // `aria-pressed` stylizuje `.chip-filter` (wypełnienie/obrys `--primary*`, także w trybie wysokiego kontrastu).
+          className="chip-filter mt-3 gap-2 px-3 text-xs font-semibold"
         >
           {following ? 'Śledzę pojazd' : 'Śledź pojazd'}
         </button>
