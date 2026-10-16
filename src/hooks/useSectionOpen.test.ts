@@ -149,6 +149,31 @@ describe('useSectionOpen', () => {
     expect(result.current.isOpen('bus', 1)).toBe(false)
   })
 
+  it('openByDefault opens a narrow section without a stored value', () => {
+    mockNarrow(true)
+    const { result } = renderHook(() => useSectionOpen())
+    expect(result.current.isOpen('metro', 1)).toBe(false)
+    expect(result.current.isOpen('metro', 1, true)).toBe(true)
+    expect(result.current.isOpen('bus', 99, true)).toBe(true)
+  })
+
+  it('a stored collapse still wins over openByDefault', () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ metro: false }))
+    const { result } = renderHook(() => useSectionOpen())
+    expect(result.current.isOpen('metro', 1, true)).toBe(false)
+  })
+
+  it('setOpen skips a write equal to the openByDefault state', () => {
+    mockNarrow(true)
+    const { result } = renderHook(() => useSectionOpen())
+    // programmatyczne otwarcie (tryb aktywny) odpala `toggle` z open=true — to nie gest użytkownika
+    act(() => result.current.setOpen('metro', true, 1, true))
+    expect(window.localStorage.getItem(KEY)).toBeNull()
+    // realne zwinięcie takiej sekcji jest zapisywane
+    act(() => result.current.setOpen('metro', false, 1, true))
+    expect(stored()).toEqual({ metro: false })
+  })
+
   it('works when matchMedia is missing', () => {
     vi.stubGlobal('matchMedia', undefined)
     const { result } = renderHook(() => useSectionOpen())

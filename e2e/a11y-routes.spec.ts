@@ -26,7 +26,7 @@ const ROUTES: { name: string; go: (page: Page) => Promise<void>; ready: (page: P
   { name: 'szczegóły połączenia', go: openConnection, ready: (p) => p.getByRole('heading', { level: 1 }) },
   { name: 'ekran miasta', go: (p) => p.goto('/city/warszawa').then(() => undefined), ready: (p) => p.getByRole('heading', { name: /Odjazdy i przyjazdy/ }) },
   { name: 'przystanek', go: (p) => p.goto('/city/warszawa/stop/1001').then(() => undefined), ready: (p) => p.getByRole('tablist') },
-  { name: 'linie', go: (p) => p.goto('/city/warszawa/lines').then(() => undefined), ready: (p) => p.getByRole('heading', { name: 'Linie — Warszawa' }) },
+  { name: 'linie', go: (p) => p.goto('/city/warszawa/lines').then(() => undefined), ready: (p) => p.getByRole('heading', { level: 1, name: 'Linie', exact: true }) },
   { name: 'linia', go: (p) => p.goto('/city/warszawa/line/20').then(() => undefined), ready: (p) => p.getByRole('heading', { name: /^Trasa linii/ }) },
   { name: 'szukaj', go: (p) => p.goto('/search').then(() => undefined), ready: (p) => p.getByRole('searchbox', { name: 'Stacja, przystanek lub linia' }) },
   { name: 'mapa', go: (p) => p.goto('/city/warszawa/map').then(() => undefined), ready: (p) => p.getByRole('button', { name: /Filtry/ }) },

@@ -35,10 +35,10 @@ test('tablica → wiersze połączeń → szczegóły połączenia po kliknięci
 test('linie GTFS: strona Linie pokazuje sekcje z liniami miasta', async ({ page }) => {
   await page.goto('/city/warszawa/lines')
 
-  await expect(page.getByRole('heading', { name: 'Linie — Warszawa' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Linie', exact: true })).toBeVisible()
 
   // GTFS mock parsuje się raz przy starcie (~kilkanaście s), strona sama ponawia.
-  await expect(page.getByLabel('Szukaj linii')).toBeVisible({ timeout: 45_000 })
+  await expect(page.getByLabel('Numer linii lub przystanek końcowy')).toBeVisible({ timeout: 45_000 })
   await expect(page.getByTestId('line-section').first()).toBeVisible()
   // Na wąskim ekranie sekcje startują zwinięte — kafle widać po rozwinięciu pierwszej.
   const first = page.getByTestId('line-section').first()

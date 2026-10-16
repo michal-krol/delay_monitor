@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { LineGrid, LineResults, RecentLines, splitEndStops } from './LineGrid'
+import { LineGrid, LineResults, RecentLines, SECTION_LABEL, splitEndStops } from './LineGrid'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
 
@@ -98,6 +99,56 @@ describe('LineGrid', () => {
     expect(isOpen).toHaveBeenCalledWith('bus:night', 1)
   })
 
+  it('renders a non-empty rail group', () => {
+    const withRail = { ...lines, rail: [entry('S1', 'rail', { longName: 'Pruszków – Otwock' })] }
+    render(<LineGrid linesByMode={withRail} city="warszawa" isOpen={always} onToggle={vi.fn()} />)
+    expect(SECTION_LABEL.rail).toBe('Kolej miejska')
+    const rail = screen.getAllByTestId('line-section')[3]
+    // eslint-disable-next-line testing-library/no-node-access -- <summary> nie ma roli ARIA
+    expect(rail.querySelector('summary')?.textContent).toMatch(/^Kolej miejska.*1 linia$/)
+    expect(within(rail).getByRole('link', { name: 'Linia S1: Pruszków – Otwock' })).toHaveAttribute('href', '/city/warszawa/line/S1')
+  })
+
+  it.each([
+    ['bus', entry('128', 'bus', { longName: 'Dworzec – Bemowo' })],
+    ['tram', entry('20', 'tram', { longName: 'Piaski – Annopol' })],
+    ['metro', entry('M1', 'metro', { longName: 'Kabaty – Młociny' })],
+    ['rail', entry('S1', 'rail', { longName: 'Pruszków – Otwock' })],
+  ] as const)('link names are „Linia N: …" for %s', (mode, line) => {
+    const grouped = { metro: [], tram: [], bus: [], rail: [], other: [], [mode]: [line] }
+    render(<LineGrid linesByMode={grouped} city="warszawa" isOpen={always} onToggle={vi.fn()} />)
+    expect(screen.getByRole('link', { name: `Linia ${line.line}: ${line.longName}` })).toHaveAttribute('href', `/city/warszawa/line/${line.routeId}`)
+    // Ta sama ikona i etykieta trybu w nagłówku sekcji, niezależnie od trybu.
+    expect(screen.getByTestId('line-section')).toBeInTheDocument()
+  })
+
+  it('long longName is fully rendered and wraps (no truncate)', () => {
+    const long = 'Bardzo długa nazwa przystanku początkowego – Jeszcze dłuższa nazwa przystanku końcowego w innej dzielnicy'
+    render(<LineGrid linesByMode={{ ...lines, tram: [entry('20', 'tram', { longName: long })] }} city="warszawa" isOpen={always} onToggle={vi.fn()} />)
+    const link = screen.getByRole('link', { name: `Linia 20: ${long}` })
+    expect(link).toHaveTextContent('Bardzo długa nazwa przystanku początkowego')
+    expect(link).toHaveTextContent('Jeszcze dłuższa nazwa przystanku końcowego w innej dzielnicy')
+    // eslint-disable-next-line testing-library/no-node-access -- sprawdzamy klasy układu, nie rolę
+    expect(link.querySelector('.truncate')).toBeNull()
+    expect(link.className).not.toContain('truncate')
+  })
+
+  it('openByDefault opens every section and bus subsection', () => {
+    const isOpen = vi.fn((_key: string, _count: number, openByDefault?: boolean) => openByDefault === true)
+    render(<LineGrid linesByMode={lines} city="warszawa" isOpen={isOpen} onToggle={vi.fn()} openByDefault />)
+    for (const section of screen.getAllByTestId('line-section')) expect(section).toHaveAttribute('open')
+    for (const sub of screen.getAllByTestId('line-subsection')) expect(sub).toHaveAttribute('open')
+  })
+
+  it('night and local bus badges keep darkRingClass', () => {
+    render(<LineGrid linesByMode={{ ...lines, bus: [bus('N16', 'night'), bus('L-1', 'local'), bus('128', 'regular')] }} city="warszawa" isOpen={always} onToggle={vi.fn()} />)
+    for (const [name, ring] of [['N16', true], ['L-1', true], ['128', false]] as const) {
+      // eslint-disable-next-line testing-library/no-node-access -- plakietka nie ma roli
+      const badge = screen.getByRole('link', { name: new RegExp(`^Linia ${name}:`) }).querySelector('span.font-semibold')
+      expect(badge?.className.includes('dark:ring-1')).toBe(ring)
+    }
+  })
+
   it('reports a toggle with the key, the new state and the line count', async () => {
     const onToggle = vi.fn()
     render(<LineGrid linesByMode={lines} city="warszawa" isOpen={always} onToggle={onToggle} />)
@@ -128,9 +179,33 @@ describe('LineResults', () => {
     expect(screen.getByRole('link', { name: /^Linia 128: / })).not.toHaveTextContent('nocna')
   })
 
-  it('explains an empty result instead of rendering nothing', () => {
+  it('empty results show „Brak pasujących linii" and „Wyczyść filtry" calls onClear', async () => {
+    const onClear = vi.fn()
+    render(<LineResults lines={[]} city="warszawa" onClear={onClear} />)
+    expect(screen.getByText('Brak pasujących linii')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Wyczyść filtry' }))
+    expect(onClear).toHaveBeenCalledTimes(1)
+  })
+
+  it('an empty result has no „Wyniki · 0" heading', () => {
     render(<LineResults lines={[]} city="warszawa" />)
-    expect(screen.getByText('Brak linii pasujących do wyszukiwania.')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+  })
+
+  it('an empty result without onClear offers no button', () => {
+    render(<LineResults lines={[]} city="warszawa" />)
+    expect(screen.getByText('Brak pasujących linii')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('rows show the full name, wrapping, with a chevron', () => {
+    const long = 'Bardzo długa nazwa początkowa – Bardzo długa nazwa końcowa'
+    render(<LineResults lines={[entry('N16', 'bus', { kind: 'night', longName: long })]} city="warszawa" />)
+    const link = screen.getByRole('link', { name: `Linia N16: ${long}, nocna` })
+    expect(link).toHaveTextContent('Bardzo długa nazwa końcowa')
+    expect(link.className).not.toContain('truncate')
+    // eslint-disable-next-line testing-library/no-node-access -- sprawdzamy klasy układu i dekoracyjną ikonę
+    expect(link.querySelector('.truncate')).toBeNull()
   })
 })
 
@@ -145,6 +220,12 @@ describe('RecentLines', () => {
   it('renders nothing when every stored id is unknown', () => {
     const { container } = render(<RecentLines recent={['GONE', '999']} lines={all} city="warszawa" />)
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('RecentLines skips unknown routeId', () => {
+    render(<RecentLines recent={['GONE', 'M1']} lines={all} city="warszawa" />)
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Linia M1: M1 start – M1 koniec' })).toHaveAttribute('href', '/city/warszawa/line/M1')
   })
 
   it('skips unknown ids and keeps the stored order', () => {

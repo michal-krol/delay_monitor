@@ -271,7 +271,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                   <span className="text-foreground">#{v.sideNumber}</span>
                   <span className="text-text-muted">
                     za „{afterStopName(stops, v.afterStopOrder)}”
-                    {v.ageSec > 60 && ` · ${formatAgo(v.ageSec)}`}
+                    {v.ageSec > 60 && ` · GPS: ${formatAgo(v.ageSec)}`}
                   </span>
                 </li>
               ))}
@@ -551,6 +551,7 @@ function VehiclesRow({ city, routeId, directionId, showVehicles, live }: { city:
       <>
         <p className="text-sm font-semibold text-foreground">{`Pojazdy w tym kierunku: ${live.vehicles.length}`}</p>
         <p className="text-xs text-text-secondary">{`GPS: ${formatAgo(newest)}`}</p>
+        {live.error !== null && <p className="text-xs text-warning-text">Nie udało się odświeżyć pozycji. Pokazujemy ostatnie dane.</p>}
       </>
     )
   }

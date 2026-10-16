@@ -54,20 +54,25 @@ export function useSectionOpen() {
     setStored(initial)
   }, [])
 
+  /** `openByDefault` (np. katalog z aktywnym filtrem trybu) zastępuje domyślną szerokość/limit; zapisany wybór nadal wygrywa. */
+  const defaultOpen = useCallback(
+    (lineCount: number, openByDefault?: boolean): boolean => openByDefault === true || (!narrow && lineCount <= MAX_LINES_OPEN_BY_DEFAULT),
+    [narrow],
+  )
+
   const isOpen = useCallback(
-    (key: string, lineCount: number): boolean =>
-      stored[key] ?? (!narrow && lineCount <= MAX_LINES_OPEN_BY_DEFAULT),
-    [stored, narrow],
+    (key: string, lineCount: number, openByDefault?: boolean): boolean => stored[key] ?? defaultOpen(lineCount, openByDefault),
+    [stored, defaultOpen],
   )
 
   /**
    * Zapis tylko realnej zmiany: `open` równe aktualnemu stanowi (zapisanemu albo domyślnemu dla
-   * `lineCount`) się pomija. React odpala `toggle` na `<details>` także przy programowej zmianie
+   * `lineCount`/`openByDefault`) się pomija. React odpala `toggle` na `<details>` także przy programowej zmianie
    * `open` — bez tej bramki zapisalibyśmy wartość domyślną i zamrozili ją na stałe.
    */
-  const setOpen = useCallback((key: string, open: boolean, lineCount: number): void => {
+  const setOpen = useCallback((key: string, open: boolean, lineCount: number, openByDefault?: boolean): void => {
     if (!validKey(key)) return
-    const current = storedRef.current[key] ?? (!narrow && lineCount <= MAX_LINES_OPEN_BY_DEFAULT)
+    const current = storedRef.current[key] ?? defaultOpen(lineCount, openByDefault)
     if (current === open) return
     const next = { ...storedRef.current, [key]: open }
     storedRef.current = next
@@ -77,7 +82,7 @@ export function useSectionOpen() {
     } catch {
       // Pełny/zablokowany storage — sekcja działa do końca sesji, tylko się nie zapamięta.
     }
-  }, [narrow])
+  }, [defaultOpen])
 
   return { isOpen, setOpen }
 }
