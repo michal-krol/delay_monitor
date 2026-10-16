@@ -3,7 +3,7 @@
 import { ArrowRightIcon, StarIcon, ICON_SIZE } from '../icons'
 import { stopDisplayName } from '../stopName'
 import { useTransitBoard } from '@/hooks/useTransitBoard'
-import { type NearbyPoint, type VisibleItem } from './mapData'
+import { VISIBLE_LIMIT, type NearbyPoint, type VisibleItem } from './mapData'
 import { ModeChip } from './ModeChip'
 import { PanelFrame } from './PanelFrame'
 import { useDropdown } from '@/hooks/useDropdown'
@@ -80,15 +80,29 @@ export function VisibleListPanel({
   overflow,
   onOpen,
   onClose,
+  onClearFilters,
 }: {
   items: VisibleItem[] | null
   overflow: boolean
   onOpen: (item: VisibleItem) => void
   onClose: () => void
+  /** Podane tylko przy aktywnych filtrach: pusty kadr po filtrze oferuje ich wyczyszczenie. */
+  onClearFilters?: () => void
 }) {
+  // Przy przepełnieniu znamy tylko górną granicę z limitu — nie podajemy liczby udającej sumę.
+  const subtitle = items === null ? 'Liczę obiekty w kadrze…' : overflow ? `Pierwsze ${VISIBLE_LIMIT} obiektów` : `${items.length} obiektów`
   return (
-    <PanelFrame title="W widoku" subtitle={items === null ? 'Liczę obiekty w kadrze…' : `${items.length}${overflow ? '+' : ''} obiektów`} closeLabel="Zamknij listę" onClose={onClose}>
-      {items !== null && items.length === 0 && <p className="p-1 text-sm text-text-secondary">W tym kadrze nic nie widać — oddal albo przesuń mapę.</p>}
+    <PanelFrame title="W widoku" subtitle={subtitle} closeLabel="Zamknij listę" onClose={onClose}>
+      {items !== null && items.length === 0 && (
+        <>
+          <p className="p-1 text-sm text-text-secondary">W tym kadrze nic nie widać — oddal albo przesuń mapę.</p>
+          {onClearFilters !== undefined && (
+            <button type="button" onClick={onClearFilters} className="chip-filter mt-1">
+              Wyczyść filtry
+            </button>
+          )}
+        </>
+      )}
       {items !== null &&
         LIST_GROUPS.map(({ kind, title }) => {
           const group = items.filter((item) => item.kind === kind)
@@ -109,7 +123,7 @@ export function VisibleListPanel({
             </section>
           )
         })}
-      {overflow && <p className="p-2 text-xs text-text-muted">Pokazujemy pierwsze 100 — przybliż, żeby zobaczyć resztę.</p>}
+      {overflow && <p className="p-2 text-xs text-text-muted">Przybliż mapę, aby zobaczyć więcej</p>}
     </PanelFrame>
   )
 }

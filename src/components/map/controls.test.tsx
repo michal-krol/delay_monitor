@@ -58,32 +58,43 @@ describe('MapFilters', () => {
 })
 
 describe('MapFilters on a phone', () => {
-  it('icon-only below sm: the „Filtry" label stays for screen readers, the count stays visible', () => {
+  it('shows the „Filtry" label next to the icon (a full 44 px button, not icon-only) and keeps the count visible', () => {
     render(<MapFilters hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={[]} onChange={() => {}} />)
     const button = screen.getByRole('button', { name: /^Filtry/ })
     expect(button).toHaveTextContent('1 aktywnych ograniczeń')
-    expect(within(button).getByText('Filtry')).toHaveClass('max-sm:sr-only')
+    expect(within(button).getByText('Filtry')).not.toHaveClass('sr-only')
+    expect(button).toHaveClass('control-44')
+  })
+
+  it('counts the active line too (one count definition shared with the chips)', () => {
+    render(<MapFilters hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={[]} onChange={() => {}} lineActive />)
+    expect(screen.getByRole('button', { name: /^Filtry/ })).toHaveTextContent('2 aktywnych ograniczeń')
+  })
+
+  it('uses the primary tokens for checkboxes and the badge, never the old accent', () => {
+    render(<MapFilters hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={['buses']} onChange={() => {}} />)
+    const button = screen.getByRole('button', { name: /^Filtry/ })
+    fireEvent.click(button)
+    expect(button.innerHTML).toMatch(/bg-primary/)
+    expect(screen.getByRole('checkbox', { name: /Autobusy/ })).toHaveClass('accent-primary')
+    expect(button.innerHTML).not.toMatch(/accent-solid/)
   })
 })
 
 describe('MapMoreMenu', () => {
-  function setup(listOpen = false) {
-    const onToggleList = vi.fn()
+  function setup() {
     const onShare = vi.fn()
-    render(<MapMoreMenu listOpen={listOpen} onToggleList={onToggleList} onShare={onShare} />)
-    return { onToggleList, onShare, button: screen.getByRole('button', { name: 'Więcej' }) }
+    render(<MapMoreMenu onShare={onShare} />)
+    return { onShare, button: screen.getByRole('button', { name: 'Więcej' }) }
   }
 
-  it('opens, toggles the list and closes after the choice', () => {
-    const { onToggleList, button } = setup(true)
+  it('holds only the share action (Lista lives next to Filtry)', () => {
+    const { button } = setup()
     expect(button).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(button)
     const menu = screen.getByRole('list', { name: 'Więcej' })
-    const list = within(menu).getByRole('button', { name: 'Lista' })
-    expect(list).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(list)
-    expect(onToggleList).toHaveBeenCalledOnce()
-    expect(screen.queryByRole('list', { name: 'Więcej' })).toBeNull()
+    expect(within(menu).queryByRole('button', { name: 'Lista' })).toBeNull()
+    expect(within(menu).getAllByRole('button')).toHaveLength(1)
   })
 
   it('shares the view and closes', () => {

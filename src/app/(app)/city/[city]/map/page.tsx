@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { z } from 'zod'
@@ -9,21 +8,20 @@ import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { UnifiedSearch } from '@/components/UnifiedSearch'
-import { CityIcon, CloseIcon, ListIcon, ShareIcon, ICON_SIZE } from '@/components/icons'
+import { CityIcon, ICON_SIZE } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { stopDisplayName } from '@/components/stopName'
-import { MapFilters } from '@/components/map/MapFilters'
 import { LocateControl } from '@/components/map/LocateControl'
 import { MapLegend } from '@/components/map/MapLegend'
-import { MapMoreMenu } from '@/components/map/MapMoreMenu'
-import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
+import { NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
+import { ActiveFilterChips, MapToolbar, NoPositionNotice } from '@/components/map/MapToolbar'
 import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
 import {
   HIDE_AFTER_SEC,
-  LAYER_LABEL,
   MAP_ZOOM,
   VEHICLE_LAYERS,
+  activeFilterCount,
   boundsContain,
   formatAt,
   nearbyPoints,
@@ -111,12 +109,6 @@ export default function CityMapPage() {
   const [view, setView] = useState<MapView | null>(null)
   // Wynik wyszukiwarki bez pozycji na mapie: komunikat z linkiem do szczegółów (kamera się nie rusza).
   const [noPosition, setNoPosition] = useState<{ name: string; href: string | null; linkLabel: string } | null>(null)
-  const noPositionRef = useRef<HTMLDivElement>(null)
-  // Klikany wiersz wyników znika razem z panelem, a tu nie otwiera się żadna karta — fokus idzie do komunikatu
-  // (nie do pola: na telefonie wyskoczyłaby klawiatura). Nowy obiekt stanu = nowy komunikat = nowy fokus.
-  useEffect(() => {
-    if (noPosition !== null) noPositionRef.current?.focus()
-  }, [noPosition])
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
   // Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon.
@@ -298,6 +290,15 @@ export default function CityMapPage() {
     patchUrlParams({ alerts: next ? '1' : null })
   }
 
+  /** „Wyczyść filtry": domyślne warstwy, bez linii/kierunku/utrudnień; miasto (ścieżka) i `?at=` zostają. */
+  function clearFilters(): void {
+    setHidden(new Set())
+    setAlertsOnly(false)
+    setRouteParam(null)
+    setDirectionId(0)
+    patchUrlParams({ hide: null, vehicles: null, rail: null, mode: null, line: null, dir: null, alerts: null })
+  }
+
   function focusOn(lat: number, lon: number): void {
     locatedViewRef.current = false
     setFocus({ lat, lon, nonce: Date.now() })
@@ -445,6 +446,7 @@ export default function CityMapPage() {
     railState.error && 'Nie udało się wczytać stacji kolejowych — ponawiam.',
   ].filter((p): p is string => typeof p === 'string')
 
+  const filterCount = activeFilterCount({ hidden, line: line !== null, alertsOnly })
   const vehiclesOnLine = line === null ? 0 : vehiclesState.vehicles.filter((v) => v.routeId === line.routeId && v.ageSec <= HIDE_AFTER_SEC).length
   // Karta wybranego obiektu ma pierwszeństwo; po jej zamknięciu wraca panel linii.
   const selectionPinned = selection !== null ? pinnedItemFor(selection) : null
@@ -487,7 +489,13 @@ export default function CityMapPage() {
     ) : nearby !== null ? (
       <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={() => setNearby(null)} />
     ) : listOpen ? (
-      <VisibleListPanel items={visibleItems} overflow={visible?.overflow ?? false} onOpen={openVisible} onClose={() => setListOpen(false)} />
+      <VisibleListPanel
+        items={visibleItems}
+        overflow={visible?.overflow ?? false}
+        onOpen={openVisible}
+        onClose={() => setListOpen(false)}
+        onClearFilters={filterCount > 0 ? clearFilters : undefined}
+      />
     ) : line !== null ? (
       <LinePanel
         line={line}
@@ -507,9 +515,6 @@ export default function CityMapPage() {
     selection !== null ? `${selection.kind}:${selection.id}` : nearby !== null ? 'nearby' : listOpen ? 'list' : `line:${line?.routeId}`
 
   const search = <UnifiedSearch city={city} variant="overlay" lineSource={lineState} onSelect={onSearchPick} />
-  const filters = (
-    <MapFilters hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} alertsOnly={alertsOnly} onAlertsOnly={changeAlertsOnly} />
-  )
 
   function toggleList(): void {
     setListOpen((open) => !open)
@@ -522,58 +527,17 @@ export default function CityMapPage() {
   const sheetOpen = !isWide && card !== null
   const statusStack = (
     <>
-      {(hidden.size > 0 || line !== null || alertsOnly) && (
-        <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
-          {line !== null && (
-            <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
-          )}
-          {alertsOnly && (
-            <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
-          )}
-          {[...hidden].map((key) => (
-            <Chip
-              key={key}
-              label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
-              removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
-              onRemove={() => {
-                const next = new Set(hidden)
-                next.delete(key)
-                changeHidden(next)
-              }}
-            />
-          ))}
-        </ul>
-      )}
+      <ActiveFilterChips
+        hidden={hidden}
+        line={line}
+        alertsOnly={alertsOnly}
+        onClearLine={() => chooseLine(null)}
+        onAlertsOnly={changeAlertsOnly}
+        onHiddenChange={changeHidden}
+        onClear={clearFilters}
+      />
 
-      {noPosition !== null && (
-        <div
-          ref={noPositionRef}
-          role="status"
-          aria-label="Brak pozycji na mapie"
-          tabIndex={-1}
-          className="glass-strong pointer-events-auto flex w-max max-w-full items-center gap-x-3 rounded-xl py-1.5 pr-1 pl-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-text"
-        >
-          <span>
-            Brak pozycji na mapie: {noPosition.name}.
-            {noPosition.href !== null && (
-              <>
-                {' '}
-                <Link href={noPosition.href} className="touch-44 relative font-medium text-primary-text underline underline-offset-2">
-                  {noPosition.linkLabel}
-                </Link>
-              </>
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => setNoPosition(null)}
-            aria-label="Zamknij komunikat"
-            className="touch-44 relative grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            <CloseIcon size={ICON_SIZE.chip} />
-          </button>
-        </div>
-      )}
+      {noPosition !== null && <NoPositionNotice notice={noPosition} onClose={() => setNoPosition(null)} />}
       {nearbyPending && nearby === null && userLocation.status !== 'requesting' && (
         <div role="status" className="glass-strong pointer-events-auto flex w-max max-w-full flex-wrap items-center gap-x-3 rounded-xl px-3 py-1.5 text-sm">
           <span>Okolica wymaga Twojej lokalizacji.</span>
@@ -646,48 +610,21 @@ export default function CityMapPage() {
             {/* Nad arkuszem (`.bottom-sheet`, z-20) tylko wtedy, gdy coś tu jest rozwinięte (wyniki wyszukiwania,
                 Filtry, Przypięte, Więcej) — inaczej lista otwierała się pod panelem; zwinięte zostają pod nim. */}
             <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
-              <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
-                {isWide ? (
-                  <>
-                    <div className="w-80">{search}</div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        aria-pressed={listOpen}
-                        onClick={toggleList}
-                        className={`glass inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${
-                          listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
-                        }`}
-                        style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
-                      >
-                        <ListIcon size={ICON_SIZE.button} />
-                        Lista
-                      </button>
-                      <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                      {filters}
-                      <button
-                        type="button"
-                        onClick={() => void share()}
-                        aria-label="Udostępnij ten widok mapy"
-                        className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                      >
-                        <ShareIcon size={ICON_SIZE.button} />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  // Telefon: pole wyszukiwania na całą szerokość, pod nim rząd przycisków (ich panele otwierają się
-                  // w lewo od prawej krawędzi). „Lista” i „Udostępnij” są w „Więcej”.
-                  <div className="flex w-full flex-col gap-1.5">
-                    {search}
-                    <div className="flex items-center justify-end gap-2">
-                      {filters}
-                      <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                      <MapMoreMenu listOpen={listOpen} onToggleList={toggleList} onShare={() => void share()} />
-                    </div>
-                  </div>
-                )}
-              </div>
+              <MapToolbar
+                isWide={isWide}
+                search={search}
+                hidden={hidden}
+                vehicleLayers={vehicleLayers}
+                onHiddenChange={changeHidden}
+                alertsOnly={alertsOnly}
+                onAlertsOnly={changeAlertsOnly}
+                lineActive={line !== null}
+                listOpen={listOpen}
+                onToggleList={toggleList}
+                pinnedPoints={pinnedPoints}
+                onOpenPinned={openPinned}
+                onShare={() => void share()}
+              />
 
               {!sheetOpen && statusStack}
             </div>
@@ -754,16 +691,5 @@ export default function CityMapPage() {
         {isWide && card !== null && <aside className="flex w-aside shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
       </div>
     </div>
-  )
-}
-
-function Chip({ label, removeLabel, onRemove }: { label: string; removeLabel: string; onRemove: () => void }) {
-  return (
-    <li className="glass-strong inline-flex items-center gap-1 rounded-full py-1 pl-3 pr-1 text-xs font-medium">
-      {label}
-      <button type="button" onClick={onRemove} aria-label={removeLabel} className="touch-44 relative -my-1 grid h-9 w-9 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
-        <CloseIcon size={ICON_SIZE.chip} />
-      </button>
-    </li>
   )
 }

@@ -339,7 +339,9 @@ describe('CityMapPage — unified search', () => {
     const row = await screen.findByRole('button', { name: /^Stacja Bez Pozycji, / })
     row.focus()
     fireEvent.click(row)
-    const notice = await screen.findByRole('status', { name: 'Brak pozycji na mapie' })
+    // Komunikat nie ma `aria-label` (nazwą jest jego tekst — bez podwójnego odczytu), więc szukamy go po treści.
+    await screen.findByText(/Brak pozycji na mapie/)
+    const notice = screen.getAllByRole('status').find((el) => /Brak pozycji na mapie/.test(el.textContent ?? ''))!
     await waitFor(() => expect(notice).toHaveFocus())
     expect(within(notice).getByRole('link', { name: 'Szczegóły stacji' })).toBeInTheDocument()
     expect(field()).not.toHaveFocus()
@@ -500,6 +502,73 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
     expect(window.location.search).toBe('?alerts=1')
     fireEvent.click(screen.getByRole('button', { name: /nie tylko z utrudnieniami/ }))
     await waitFor(() => expect(map().onlyLines).toBeNull())
+  })
+})
+
+describe('CityMapPage — toolbar and filters', () => {
+  const FULL_URL = '/city/warszawa/map?at=52.25000%2C21.05000%2C15.0&hide=busStops%2Ctrams&line=20&dir=1&alerts=1'
+
+  it('Lista and Filtry sit under the search field on a phone, with the mode chips of the vehicles present', async () => {
+    setWide(false)
+    render(<CityMapPage />)
+    expect(screen.getByRole('button', { name: 'Lista' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Filtry/ })).toHaveAttribute('aria-expanded', 'false')
+    const chips = within(screen.getByRole('group', { name: 'Rodzaje pojazdów' })).getAllByRole('button')
+    expect(chips.map((chip) => chip.textContent)).toEqual(['Tramwaje']) // VEHICLE to jedyny pojazd w danych
+  })
+
+  it('a mode chip hides and shows the layer through the same URL state as Filtry', async () => {
+    setWide(false)
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Tramwaje' }))
+    expect([...map().hidden]).toEqual(['trams'])
+    expect(window.location.search).toBe('?hide=trams')
+    expect(screen.getByRole('button', { name: 'Tramwaje' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /^Filtry/ })).toHaveTextContent('1 aktywnych ograniczeń')
+
+    fireEvent.click(screen.getByRole('button', { name: /^Filtry/ }))
+    expect(screen.getByRole('checkbox', { name: /Tramwaje/ })).not.toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: 'Tramwaje' }))
+    expect([...map().hidden]).toEqual([])
+    expect(window.location.search).toBe('')
+  })
+
+  it('Wyczyść filtry resets layers, line, dir, alerts, hide and keeps city', async () => {
+    window.history.replaceState(null, '', FULL_URL)
+    render(<CityMapPage />)
+    await waitFor(() => expect(map().routeId).toBe('20'))
+    expect(screen.getByRole('button', { name: /^Filtry/ })).toHaveTextContent('4 aktywnych ograniczeń') // 2 warstwy + linia + utrudnienia
+
+    fireEvent.click(screen.getByRole('button', { name: 'Wyczyść filtry' }))
+    await waitFor(() => expect(map().routeId).toBeNull())
+    expect([...map().hidden]).toEqual([])
+    expect(map().onlyLines).toBeNull()
+    expect(window.location.pathname).toBe('/city/warszawa/map')
+    expect(window.location.search).toBe('?at=52.25000%2C21.05000%2C15.0')
+    expect(screen.queryByRole('button', { name: 'Wyczyść filtry' })).toBeNull()
+    expect(screen.queryByRole('list', { name: 'Aktywne filtry' })).toBeNull()
+  })
+
+  it('empty list after filter offers Wyczyść filtry, and clearing brings the view back', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/map?hide=trams')
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
+    act(() => map().onVisibleChange([], false))
+    const panel = await screen.findByRole('dialog', { name: 'W widoku' })
+    fireEvent.click(within(panel).getByRole('button', { name: 'Wyczyść filtry' }))
+    await waitFor(() => expect([...map().hidden]).toEqual([]))
+    expect(window.location.search).toBe('')
+  })
+
+  it('an empty list without any filter does not offer Wyczyść filtry', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
+    act(() => map().onVisibleChange([], false))
+    const panel = await screen.findByRole('dialog', { name: 'W widoku' })
+    expect(within(panel).queryByRole('button', { name: 'Wyczyść filtry' })).toBeNull()
   })
 })
 

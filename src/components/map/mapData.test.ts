@@ -4,6 +4,7 @@ import type { CityStop } from '@/lib/gtfs/query'
 import { LINE_PALETTE, lineColor } from '../transitMode'
 import {
   MODE_COLOR,
+  activeFilterCount,
   UNKNOWN_COLOR,
   boundsContain,
   arrowImage,
@@ -50,6 +51,15 @@ describe('parseHidden / serializeHidden', () => {
   it('serializes in a stable order and drops the param when nothing is hidden', () => {
     expect(serializeHidden(new Set<LayerKey>(['trams', 'rail']))).toBe('rail,trams')
     expect(serializeHidden(new Set())).toBeNull()
+  })
+})
+
+describe('activeFilterCount', () => {
+  it('filter count = hidden + line + alerts', () => {
+    expect(activeFilterCount({ hidden: new Set(), line: false, alertsOnly: false })).toBe(0)
+    expect(activeFilterCount({ hidden: new Set<LayerKey>(['busStops', 'trams']), line: false, alertsOnly: false })).toBe(2)
+    expect(activeFilterCount({ hidden: new Set<LayerKey>(['busStops', 'trams']), line: true, alertsOnly: true })).toBe(4)
+    expect(activeFilterCount({ hidden: new Set(), line: true, alertsOnly: false })).toBe(1)
   })
 })
 

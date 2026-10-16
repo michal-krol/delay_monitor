@@ -164,6 +164,19 @@ export function serializeHidden(hidden: ReadonlySet<LayerKey>): string | null {
   return keys.length === 0 ? null : keys.join(',')
 }
 
+/** Ukrywa/pokazuje jedną warstwę — jeden przełącznik dla panelu „Filtry" i czipów rodzajów (ten sam zbiór `hidden`). */
+export function toggleLayer(hidden: ReadonlySet<LayerKey>, key: LayerKey): Set<LayerKey> {
+  const next = new Set(hidden)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  return next
+}
+
+/** Liczba aktywnych ograniczeń: ukryte warstwy + wybrana linia + „tylko linie z utrudnieniami" — jedna definicja dla licznika „Filtry", listy czipów i „Wyczyść filtry". */
+export function activeFilterCount({ hidden, line, alertsOnly }: { hidden: ReadonlySet<LayerKey>; line: boolean; alertsOnly: boolean }): number {
+  return hidden.size + (line ? 1 : 0) + (alertsOnly ? 1 : 0)
+}
+
 type Point = { type: 'Feature'; geometry: { type: 'Point'; coordinates: [number, number] }; properties: Record<string, string | number> }
 export type PointCollection = { type: 'FeatureCollection'; features: Point[] }
 

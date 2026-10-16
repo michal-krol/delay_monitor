@@ -75,7 +75,23 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   „Szczegóły przystanku” (zespół) to the board page, close button „Zamknij komunikat”; the camera does not move. Focus goes to
   this notice (the picked row unmounted and no card opens), never back to the field (it would raise the phone keyboard).
 - A zespół is placed at the centroid of its stops from the city stop list; with no members there it falls back to the result's
-  own `lat/lon` (the server's `groupCentroid`) — same point, not a second rule; neither = the notice above.
+  own `lat/lon` (the server's `groupCentroid`) — same point, not a second rule; neither = the notice above. The notice has no
+  `aria-label` (its text is the name — a label would be read twice on focus); its focus indicator is an `outline`, not a `ring`.
+- The results panel also closes (the phrase stays) on a press outside the field+panel (a tap on the map) and when focus moves out
+  to another element; focusing/tapping the field or typing reopens it.
+
+## Map filters (`MapToolbar`, `MapFilters`, `VisibleListPanel`, `/city/<city>/map`)
+
+- Always visible under the search field on phones (no menu): „Lista” (`aria-pressed`) and „Filtry” (badge = `activeFilterCount`:
+  hidden layers + the chosen line + „Tylko linie z utrudnieniami”; sr-only suffix „ aktywnych ograniczeń”). „Więcej” keeps only „Udostępnij widok”.
+- Mode chips (phones, group „Rodzaje pojazdów”): one `.chip-filter` per vehicle layer present, label = `LAYER_LABEL` („Autobusy”,
+  „Tramwaje”, „Metro”, „Pociągi”), `aria-pressed` = the layer is visible. They toggle the same `hidden` set as the „Filtry” panel.
+- Active restrictions: list „Aktywne filtry” of removable chips („Linia {X}”, „Tylko linie z utrudnieniami”, „Ukryte: {warstwa}”) +
+  button „Wyczyść filtry” while the count is above zero. Reset = default layers, no `line`/`dir`/`alerts`/`hide`; city and `at` stay.
+  „Pokaż wszystko” inside the „Filtry” panel resets only layers and the alerts switch (the line is not toggled there).
+- Visible list („W widoku”): subtitle „{n} obiektów”, with overflow „Pierwsze 100 obiektów” (never „100+” as if it were a total) and the
+  hint „Przybliż mapę, aby zobaczyć więcej”. Empty frame: „W tym kadrze nic nie widać — oddal albo przesuń mapę.”, plus „Wyczyść filtry”
+  when any restriction is active.
 
 ## Page-level screens (`error.tsx`, `global-error.tsx`, `not-found.tsx`)
 
