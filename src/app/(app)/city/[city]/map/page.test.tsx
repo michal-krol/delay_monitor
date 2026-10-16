@@ -309,7 +309,7 @@ describe('CityMapPage — overview sheet (phone)', () => {
     expect(within(overview()).getByText('Liczę obiekty w kadrze…')).toBeInTheDocument()
     act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }, { kind: 'stop', id: '100101', label: 'Centrum 01' }], false))
     expect(within(overview()).getByText('1 pojazd · 1 przystanek')).toBeInTheDocument()
-    expect(within(overview()).getByText('Pozycje sprzed 13 s')).toBeInTheDocument()
+    expect(within(overview()).getByText('Pozycje sprzed 10 s')).toBeInTheDocument() // wiek GPS widocznego pojazdu, nie 13 s pobrania
     expect(within(overview()).getByRole('list', { name: 'Legenda rodzajów' })).toBeInTheDocument()
     // Pełna legenda z boku jest tylko na szerokim ekranie: na telefonie legenda leży w arkuszu.
     expect(screen.queryByText('Legenda')).toBeNull()
@@ -355,6 +355,63 @@ describe('CityMapPage — overview sheet (phone)', () => {
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     expect(within(overview()).getByText('Wczytywanie pozycji pojazdów…')).toBeInTheDocument()
     expect(within(overview()).queryByText(/sprzed/)).toBeNull()
+  })
+
+  it('the overview age is the median GPS age of the visible vehicles, not the fetch age', async () => {
+    state.vehicles = {
+      vehicles: [{ ...VEHICLE, ageSec: 10 }, { ...VEHICLE, id: 'v2', ageSec: 30 }, { ...VEHICLE, id: 'v3', ageSec: 100 }],
+      feed: { state: 'ready', ageMs: 2000 },
+      alertLines: [],
+      error: null,
+    }
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }, { kind: 'vehicle', id: 'v2', label: '20' }, { kind: 'vehicle', id: 'v3', label: '20' }], false))
+    expect(within(overview()).getByText('Pozycje sprzed 30 s')).toBeInTheDocument()
+    // Widoczne są tylko dwa: mediana liczy się z nich, nie z całego miasta.
+    act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }, { kind: 'vehicle', id: 'v3', label: '20' }], false))
+    expect(within(overview()).getByText('Pozycje sprzed 55 s')).toBeInTheDocument()
+  })
+
+  it('no visible vehicle means no age claim and no loading text once the feed answered (three distinct states)', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    act(() => map().onVisibleChange([{ kind: 'stop', id: '100101', label: 'Centrum 01' }], false))
+    expect(within(overview()).queryByText(/Pozycje sprzed/)).toBeNull() // nie podszywamy czasu pobrania pod wiek GPS
+    expect(within(overview()).getByText('Brak pojazdów w widoku')).toBeInTheDocument()
+    expect(within(overview()).queryByText(/Wczytywanie pozycji/)).toBeNull()
+  })
+
+  it('a ready feed with zero vehicles (night) is not "loading" forever', async () => {
+    state.vehicles = { vehicles: [], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    act(() => map().onVisibleChange([{ kind: 'stop', id: '100101', label: 'Centrum 01' }], false))
+    expect(within(overview()).queryByText('Wczytywanie pozycji pojazdów…')).toBeNull()
+    expect(within(overview()).getByText('Brak pojazdów w widoku')).toBeInTheDocument()
+  })
+
+  it('a failed refresh keeps the last positions and their growing GPS age in the note', async () => {
+    state.vehicles = { vehicles: [{ ...VEHICLE, ageSec: 130 }], feed: { state: 'failed', ageMs: 130_000 }, alertLines: [], error: 'x' }
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false))
+    expect(within(overview()).getByText('Nie udało się odświeżyć · Pozycje sprzed 2 min')).toBeInTheDocument()
+  })
+
+  it('an idle event with an unchanged view does not re-render the page', async () => {
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    const items = [{ kind: 'vehicle' as const, id: 'v1', label: '20' }, { kind: 'stop' as const, id: '100101', label: 'Centrum 01' }]
+    act(() => map().onVisibleChange(items, false))
+    const rendered = state.mapProps
+    act(() => map().onVisibleChange(items.map((item) => ({ ...item })), false)) // te same obiekty, nowa tablica (jak z każdego `idle`)
+    expect(state.mapProps).toBe(rendered)
+    act(() => map().onVisibleChange(items, true)) // przepełnienie to zmiana
+    expect(state.mapProps).not.toBe(rendered)
+    const afterOverflow = state.mapProps
+    act(() => map().onVisibleChange(items.slice(0, 1), true)) // inny skład to zmiana
+    expect(state.mapProps).not.toBe(afterOverflow)
   })
 
   it('on a wide screen there is no sheet: the legend and the locate control stay on the map', async () => {
@@ -724,6 +781,22 @@ describe('CityMapPage — my location', () => {
     expect(within(panel).getByText(/w linii prostej/)).toBeInTheDocument()
     expect(map().selected).toEqual({ lat: 52.2301, lon: 21.0101 })
     expect((state.mapProps as unknown as { focus: unknown }).focus).toMatchObject({ lat: 52.2301, lon: 21.0101 })
+  })
+
+  it('on a phone, closing "W pobliżu" opened by "Moja lokalizacja" returns focus to the locate button', async () => {
+    setWide(false)
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    const locate = screen.getByRole('button', { name: 'Moja lokalizacja' })
+    locate.focus()
+    fireEvent.click(locate)
+    await act(async () => geo.calls[0].ok(FIX))
+    const panel = await screen.findByRole('dialog', { name: 'W pobliżu' })
+    fireEvent.click(within(panel).getByRole('button', { name: 'Zamknij „W pobliżu”' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    // Arkusz przemontował się przy zmianie obiektu, więc to NOWY przycisk — i to on ma dostać fokus.
+    expect(screen.getByRole('button', { name: 'Moja lokalizacja' })).toHaveFocus()
   })
 
   it('nearby=1 with ready point opens nearby and removes the flag', async () => {

@@ -72,8 +72,16 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   widoku”: counts „{n} pojazd|pojazdy|pojazdów · {n} przystanek|przystanki|przystanków · {n} stacja|stacje|stacji kolejowa” (zero parts left
   out), loading „Liczę obiekty w kadrze…”, nothing „Brak obiektów w kadrze”, overflow „Pierwsze 100 obiektów” + „Przybliż mapę, aby zobaczyć
   więcej” (never a total). „Lista” opens the same sheet at `half`; list subtitle in the window panel is „{n} obiekt|obiekty|obiektów”.
-- Feed age of the whole reading: „Pozycje sprzed {N s|N min}” („Pozycje sprzed chwili” under 5 s); unknown age = no claim; loading „Wczytywanie
-  pozycji pojazdów…”; failed without data „Nie udało się pobrać pozycji pojazdów”; failed with data „Nie udało się odświeżyć · Pozycje sprzed …”.
+- Overview age = the **median GPS age (`ageSec`) of the vehicles currently visible** in the frame (even count: mean of the middle two): „Pozycje
+  sprzed {N s|N min}” („Pozycje sprzed chwili” under 5 s). Never the poller's fetch age presented as GPS age (it is a different, smaller number —
+  the thresholds 90/180 s exist because individual fixes lag). No visible vehicle with an age = no claim: loading „Wczytywanie pozycji
+  pojazdów…”; failed without data „Nie udało się pobrać pozycji pojazdów”; failed with data „Nie udało się odświeżyć · Pozycje sprzed …”;
+  feed ready, frame not empty but no vehicle in it (also night, zero vehicles) „Brak pojazdów w widoku”; empty frame says only „Brak obiektów w
+  kadrze”. Three states, three words (#7).
+- Ages grow: `useCityVehicles` adds the time since the last successful reading (`effectiveAgeMs`, one 10 s clock per page) to every `ageSec` and
+  to `feed.ageMs`, so after a failed refresh the age keeps rising and a vehicle reaches the 90 s fade, the 180 s hide and „Utracono pozycję”.
+- The scrollable list body of the overview has the accessible name „Obiekty w widoku”.
+- Vehicle card heading: „{tramwaj|autobus|metro|kolej} {X}”; mode `other` or no mode = „Linia {X}” (never „Inne 20”); no line = „Pojazd”.
 - Per-vehicle GPS age (card row „GPS pojazdu”, list rows): „Pozycja sprzed {N s|N min}” via `formatSince` (`formatAgo` ends in „temu” and does not
   read after „sprzed”). Over `HIDE_AFTER_SEC` (180 s) the card says „Utracono pozycję pojazdu — ostatnia sprzed {N min}”; gone from the feed:
   „Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.”. Never the browser’s fetch time.

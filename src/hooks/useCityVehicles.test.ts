@@ -65,6 +65,24 @@ describe('useCityVehicles', () => {
     expect(result.current.vehicles).toHaveLength(1)
   })
 
+  it('keeps ageing positions after a failed refresh, so a stale feed shows as growing age (#7)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 5000 } }))
+      .mockImplementation(() => Promise.reject(new Error('network')))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useCityVehicles('warszawa'))
+    await vi.waitFor(() => expect(result.current.vehicles).toHaveLength(1))
+    expect(result.current.vehicles[0].ageSec).toBe(12) // świeży odczyt: wiek z odpowiedzi, bez doliczeń
+    expect(result.current.lastSuccessAt).not.toBeNull()
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(result.current.error).toBe('network')
+    // 12 s z odpowiedzi + ~120 s od ostatniego udanego odczytu (zegar tyka co 10 s).
+    expect(result.current.vehicles[0].ageSec).toBeGreaterThanOrEqual(12 + 110)
+    expect(result.current.feed.ageMs).toBeGreaterThanOrEqual(5000 + 110_000)
+  })
+
   it('falls back to a generic error message for a non-Error rejection', async () => {
     const fetchMock = vi.fn().mockImplementationOnce(() => Promise.reject('boom'))
     vi.stubGlobal('fetch', fetchMock)

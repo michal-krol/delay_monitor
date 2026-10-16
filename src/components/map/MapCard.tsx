@@ -72,7 +72,7 @@ export function MapCard({
   const heading =
     selection.kind === 'vehicle'
       ? vehicle?.shortName !== null && vehicle?.shortName !== undefined
-        ? vehicle.mode !== null
+        ? vehicle.mode !== null && vehicle.mode !== 'other' // „Inne 20" nic nie mówi — jak bez rodzaju: „Linia 20"
           ? `${MODE_LABEL[vehicle.mode]} ${vehicle.shortName}`
           : `Linia ${vehicle.shortName}`
         : 'Pojazd'

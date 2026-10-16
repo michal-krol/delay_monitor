@@ -215,6 +215,22 @@ describe('TransitMap', () => {
     vi.unstubAllGlobals()
   })
 
+  it('re-aged vehicles at the same positions repaint once, without a glide (the hook re-ages them every tick)', async () => {
+    reducedMotion = false
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    const { rerender } = await mounted()
+    rerender(<TransitMap {...base} vehicles={[vehicle()]} />)
+    const setData = sources.get('vehicles')!.setData
+    setData.mockClear()
+    frames.length = 0
+    rerender(<TransitMap {...base} vehicles={[vehicle({ ageSec: 100 })]} />) // nowa tablica, ta sama pozycja, starszy wiek
+    expect(frames).toHaveLength(0)
+    expect(setData.mock.calls.at(-1)![0].features[0].properties.opacity).toBeLessThan(1)
+    vi.unstubAllGlobals()
+  })
+
   it('casing under the backbone is dark red for yellow metro and white otherwise; the route casing follows the route colour', async () => {
     const { map } = await mounted()
     const layer = (id: string) => map.addLayer.mock.calls.find(([l]: [{ id: string }]) => l.id === id)![0]

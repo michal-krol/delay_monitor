@@ -530,8 +530,14 @@ export function TransitMap({
     const source = mapRef.current?.getSource('vehicles') as GeoJSONSource | undefined
     const from = drawnRef.current
     drawnRef.current = new Map(target.features.map((f) => [String(f.properties.id), f.geometry.coordinates]))
-    // Płynnie tylko nowy ODCZYT pozycji — zmiana filtra/linii to skok, nie przejazd.
+    // Płynnie tylko nowy ODCZYT pozycji — zmiana filtra/linii to skok, nie przejazd. Samo postarzenie wieku (nowa tablica,
+    // te same punkty — `useCityVehicles` robi to co 10 s) przerysowuje raz, bez ~15 klatek animacji.
+    const moved = target.features.some((f) => {
+      const was = from.get(String(f.properties.id))
+      return was !== undefined && (was[0] !== f.geometry.coordinates[0] || was[1] !== f.geometry.coordinates[1])
+    })
     const glide =
+      moved &&
       lastVehiclesRef.current !== null &&
       lastVehiclesRef.current !== vehicles &&
       source !== undefined &&

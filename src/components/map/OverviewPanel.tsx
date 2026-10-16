@@ -8,17 +8,28 @@ import { CompactLegend } from './MapLegend'
 import { OVERFLOW_HINT, VisibleListBody } from './MapPanels'
 import { VISIBLE_LIMIT, type VisibleItem } from './mapData'
 
-/** Stan odczytu pozycji pojazdów miasta: `ageSec` = wiek całego odczytu (nie pojedynczego GPS), `null` = nieznany (#7). */
-export type OverviewFeed = { state: 'loading' | 'ready' | 'failed'; ageSec: number | null }
+/** Stan odczytu pozycji pojazdów miasta; wiek bierzemy z widocznych pojazdów (GPS), nie z czasu pobrania odczytu. */
+export type OverviewFeed = { state: 'loading' | 'ready' | 'failed' }
 
-/** Jedno zdanie o świeżości pozycji; `null` = nic do powiedzenia (znany jest tylko „gotowe" bez wieku — nie zmyślamy). */
-export function feedAgeNote({ state, ageSec }: OverviewFeed): string | null {
+/** Mediana wieku GPS widocznych pojazdów; `null` = żaden widoczny pojazd nie ma wieku (nie zmyślamy, #7). */
+export function medianPositionAgeSec(items: VisibleItem[] | null): number | null {
+  const ages = (items ?? []).flatMap((item) => (item.kind === 'vehicle' && item.ageSec !== undefined ? [item.ageSec] : [])).sort((a, b) => a - b)
+  if (ages.length === 0) return null
+  const mid = ages.length >> 1
+  return ages.length % 2 === 1 ? ages[mid] : Math.round((ages[mid - 1] + ages[mid]) / 2)
+}
+
+/** Jedno zdanie o pozycjach w kadrze; `null` = nic do powiedzenia (np. kadr jeszcze nieliczony). */
+export function feedAgeNote({ state }: OverviewFeed, items: VisibleItem[] | null): string | null {
+  const ageSec = medianPositionAgeSec(items)
   if (ageSec !== null) {
     const age = `Pozycje sprzed ${formatSince(ageSec)}`
     return state === 'failed' ? `Nie udało się odświeżyć · ${age}` : age
   }
   if (state === 'loading') return 'Wczytywanie pozycji pojazdów…'
-  return state === 'failed' ? 'Nie udało się pobrać pozycji pojazdów' : null
+  if (state === 'failed') return 'Nie udało się pobrać pozycji pojazdów'
+  // Pusty kadr mówi już „Brak obiektów w kadrze" (podsumowanie) — drugi raz nie powtarzamy.
+  return items !== null && items.length > 0 ? 'Brak pojazdów w widoku' : null
 }
 
 /** „1 pojazd · 2 przystanki · 1 stacja kolejowa"; zerowe części pomijamy. Przy przepełnieniu sumy nie znamy (limit, nie liczba). */
@@ -58,7 +69,7 @@ export function OverviewPanel({
   const headingId = useId()
   const [bodyRef, bodyTabIndex] = useScrollableFocus<HTMLDivElement>()
   const summary = items === null ? 'Liczę obiekty w kadrze…' : overflow ? `Pierwsze ${VISIBLE_LIMIT} obiektów` : items.length === 0 ? 'Brak obiektów w kadrze' : counts(items)
-  const age = feedAgeNote(feed)
+  const age = feedAgeNote(feed, items)
 
   return (
     <section aria-labelledby={headingId} className="flex min-h-0 flex-1 flex-col overflow-hidden">

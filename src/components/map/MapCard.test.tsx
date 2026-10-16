@@ -193,6 +193,11 @@ describe('MapCard — vehicle', () => {
     expect(chip).not.toBe(glyph(render(<BusIcon size={ICON_SIZE.chip} />).container))
   })
 
+  it('a vehicle of mode "other" is headed „Linia 20", not „Inne 20"', () => {
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ mode: 'other' })} city="warszawa" onClose={() => {}} />)
+    expect(screen.getByRole('heading', { name: 'Linia 20' })).toBeInTheDocument()
+  })
+
   it('colours the line badge by the served kind, not one re-derived from the number', () => {
     render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ mode: 'bus', shortName: '131', kind: 'night' })} city="warszawa" onClose={() => {}} />)
     expect(screen.getByText('131', { selector: 'span' })).toHaveStyle({ background: LINE_PALETTE.night.bg })

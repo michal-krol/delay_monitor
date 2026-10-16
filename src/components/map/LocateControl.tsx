@@ -1,5 +1,6 @@
 'use client'
 
+import type { Ref } from 'react'
 import { LocateIcon, ICON_SIZE } from '../icons'
 import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
 
@@ -10,7 +11,16 @@ const MESSAGE = 'glass-chrome-strong border border-surface-border shadow-md poin
  * Strona dostaje punkt w `onLocated`; stan żądania i odmowy jest tutaj, bez przycisku ponowienia
  * po odmowie (przeglądarka i tak nie zapyta drugi raz).
  */
-export function LocateControl({ onLocated, className = '' }: { onLocated: (point: UserPoint) => void; className?: string }) {
+export function LocateControl({
+  onLocated,
+  className = '',
+  buttonRef,
+}: {
+  onLocated: (point: UserPoint) => void
+  className?: string
+  /** Strona oddaje tu fokus, gdy arkusz z kontrolką się przemontuje (zmiana obiektu zabiera jej fokus). */
+  buttonRef?: Ref<HTMLButtonElement>
+}) {
   const { status, request } = useUserLocation()
 
   async function locate(): Promise<void> {
@@ -21,6 +31,7 @@ export function LocateControl({ onLocated, className = '' }: { onLocated: (point
   return (
     <div className={`pointer-events-none ${className}`}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => void locate()}
         aria-label="Moja lokalizacja"

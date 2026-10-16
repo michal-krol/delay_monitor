@@ -11,7 +11,7 @@ const ITEMS: VisibleItem[] = [
   { kind: 'stop', id: '100102', label: 'Centrum 02' },
   { kind: 'rail', id: '33605', label: 'Warszawa Centralna' },
 ]
-const READY = { state: 'ready' as const, ageSec: 13 }
+const READY = { state: 'ready' as const }
 
 function panel(over: Partial<Parameters<typeof OverviewPanel>[0]> = {}) {
   const props = { items: ITEMS, overflow: false, feed: READY, onOpen: vi.fn(), ...over }
@@ -31,7 +31,7 @@ describe('OverviewPanel', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     const region = screen.getByRole('region', { name: 'Pojazdy i przystanki w widoku' })
     expect(within(region).getByText('1 pojazd · 2 przystanki · 1 stacja kolejowa')).toBeInTheDocument()
-    expect(within(region).getByText('Pozycje sprzed 13 s')).toBeInTheDocument()
+    expect(within(region).getByText('Pozycje sprzed 12 s')).toBeInTheDocument()
     const legend = within(region).getByRole('list', { name: 'Legenda rodzajów' })
     expect(within(legend).getAllByRole('listitem')).toHaveLength(5)
     expect(document.body).toHaveFocus() // nie przejmuje fokusu (w odróżnieniu od PanelFrame)
@@ -81,14 +81,26 @@ describe('OverviewPanel', () => {
     expect(onClearFilters).toHaveBeenCalledOnce()
   })
 
-  it('an unknown feed age makes no claim (never "sprzed 0 s"), failed and loading have their own words', () => {
-    const { rerender } = render(<OverviewPanel items={ITEMS} overflow={false} feed={{ state: 'ready', ageSec: null }} onOpen={() => {}} />)
-    expect(screen.queryByText(/Pozycje sprzed/)).toBeNull() // wiersz pojazdu ma własny „Pozycja sprzed" (GPS), to inna liczba
-    rerender(<OverviewPanel items={ITEMS} overflow={false} feed={{ state: 'loading', ageSec: null }} onOpen={() => {}} />)
+  it('the age is the median GPS age of the visible vehicles (even count: mean of the middle two)', () => {
+    const vehicle = (id: string, ageSec: number): VisibleItem => ({ kind: 'vehicle', id, label: '20', ageSec })
+    const { rerender } = render(<OverviewPanel items={[vehicle('a', 10), vehicle('b', 300), vehicle('c', 20)]} overflow={false} feed={READY} onOpen={() => {}} />)
+    expect(screen.getByText('Pozycje sprzed 20 s')).toBeInTheDocument()
+    rerender(<OverviewPanel items={[vehicle('a', 10), vehicle('b', 30), vehicle('c', 20), vehicle('d', 400)]} overflow={false} feed={READY} onOpen={() => {}} />)
+    expect(screen.getByText('Pozycje sprzed 25 s')).toBeInTheDocument()
+  })
+
+  it('no visible vehicle age means no claim (never "sprzed 0 s"); loading, failed and "none in view" are three different words', () => {
+    const stopsOnly: VisibleItem[] = [{ kind: 'stop', id: '1', label: 'Centrum 01' }]
+    const { rerender } = render(<OverviewPanel items={stopsOnly} overflow={false} feed={READY} onOpen={() => {}} />)
+    expect(screen.queryByText(/Pozycje sprzed/)).toBeNull()
+    expect(screen.getByText('Brak pojazdów w widoku')).toBeInTheDocument()
+    rerender(<OverviewPanel items={null} overflow={false} feed={READY} onOpen={() => {}} />)
+    expect(screen.queryByText('Brak pojazdów w widoku')).toBeNull() // kadr jeszcze nieliczony: nie wiemy
+    rerender(<OverviewPanel items={stopsOnly} overflow={false} feed={{ state: 'loading' }} onOpen={() => {}} />)
     expect(screen.getByText('Wczytywanie pozycji pojazdów…')).toBeInTheDocument()
-    rerender(<OverviewPanel items={ITEMS} overflow={false} feed={{ state: 'failed', ageSec: null }} onOpen={() => {}} />)
+    rerender(<OverviewPanel items={stopsOnly} overflow={false} feed={{ state: 'failed' }} onOpen={() => {}} />)
     expect(screen.getByText('Nie udało się pobrać pozycji pojazdów')).toBeInTheDocument()
-    rerender(<OverviewPanel items={ITEMS} overflow={false} feed={{ state: 'failed', ageSec: 400 }} onOpen={() => {}} />)
+    rerender(<OverviewPanel items={[{ kind: 'vehicle', id: 'v', label: '20', ageSec: 400 }]} overflow={false} feed={{ state: 'failed' }} onOpen={() => {}} />)
     expect(screen.getByText('Nie udało się odświeżyć · Pozycje sprzed 7 min')).toBeInTheDocument()
   })
 })

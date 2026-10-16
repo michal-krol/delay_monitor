@@ -134,6 +134,10 @@ export default function CityMapPage() {
   const entryRef = useRef<{ flag: boolean; here: UserPoint | null } | null>(null)
   // Kamera jest wyśrodkowana na użytkowniku: ten kadr NIE trafia do `?at=` ani do localStorage (adr/0012, #4).
   const locatedViewRef = useRef(false)
+  // Arkusz z „Moją lokalizacją" jest przemontowywany przy każdej zmianie obiektu (`key`), więc fokus trzeba oddać ręcznie.
+  const locateButtonRef = useRef<HTMLButtonElement>(null)
+  const locateHadFocusRef = useRef(false)
+  const refocusLocateRef = useRef(false)
   const [listOpen, setListOpen] = useState(false)
   const [visible, setVisible] = useState<{ items: VisibleItem[]; overflow: boolean } | null>(null)
 
@@ -163,6 +167,13 @@ export default function CityMapPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- odtworzenie raz, przy wejściu
   }, [])
 
+  useEffect(() => {
+    if (nearby !== null) return
+    if (refocusLocateRef.current) locateButtonRef.current?.focus({ preventScroll: true })
+    refocusLocateRef.current = false
+    locateHadFocusRef.current = false
+  }, [nearby])
+
   const onViewChange = useCallback(
     (next: MapView) => {
       setView(next)
@@ -173,6 +184,15 @@ export default function CityMapPage() {
     },
     [city]
   )
+
+  // Mapa zgłasza kadr po KAŻDYM `idle` (na telefonie zawsze); ten sam skład to ten sam stan — bez ponownego renderu całej strony.
+  const onVisibleChange = useCallback((items: VisibleItem[], overflow: boolean) => {
+    setVisible((prev) =>
+      prev !== null && prev.overflow === overflow && prev.items.length === items.length && prev.items.every((item, i) => item.kind === items[i].kind && item.id === items[i].id)
+        ? prev
+        : { items, overflow }
+    )
+  }, [])
 
   // `?line=` to `routeId`; stare linki niosły numer linii („20") — dopasowujemy go dokładnie.
   const line = useMemo(() => {
@@ -336,6 +356,12 @@ export default function CityMapPage() {
     patchUrlParams({ nearby: null })
   }
 
+  /** „×"/Escape w „W pobliżu": arkusz przemontował się przy otwarciu, więc stary przycisk lokalizacji nie istnieje — fokus wraca na nowy. */
+  function closeNearby(): void {
+    refocusLocateRef.current = locateHadFocusRef.current
+    setNearby(null)
+  }
+
   function openNearby(point: NearbyPoint): void {
     if (point.kind === 'rail') {
       setSelection({ kind: 'rail', id: point.id, name: point.name, lat: point.lat, lon: point.lon })
@@ -491,7 +517,7 @@ export default function CityMapPage() {
         alertLines={vehiclesState.alertLines}
       />
     ) : nearby !== null ? (
-      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={() => setNearby(null)} />
+      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={closeNearby} />
     ) : listOpen && (isWide || line !== null) ? (
       // Telefon bez linii: „Lista" to przegląd rozwinięty do `half` (niżej), nie drugie okno z tą samą listą.
       <VisibleListPanel
@@ -524,10 +550,8 @@ export default function CityMapPage() {
     <OverviewPanel
       items={visibleItems}
       overflow={visible?.overflow ?? false}
-      feed={{
-        state: vehiclesFailed ? 'failed' : neverLoaded ? 'loading' : 'ready',
-        ageSec: vehiclesState.feed.ageMs === null ? null : Math.round(vehiclesState.feed.ageMs / 1000),
-      }}
+      // „Gotowe, ale bez pojazdów" (noc) to nie „wczytywanie": odróżnia je stan feedu z serwera.
+      feed={{ state: vehiclesFailed ? 'failed' : neverLoaded && vehiclesState.feed.state !== 'ready' ? 'loading' : 'ready' }}
       onOpen={openVisible}
       onClearFilters={filterCount > 0 ? clearFilters : undefined}
     />
@@ -558,7 +582,17 @@ export default function CityMapPage() {
   // (`above`), bo przy half/full by je zakrył (role=status, decyzja z PR3).
   const sheetOpen = !isWide && (card !== null || overviewPanel !== null)
   // „Moja lokalizacja": z arkuszem jedzie w jego slocie `above` (peek go nie zakrywa), bez — przy prawej krawędzi mapy.
-  const locateControl = <LocateControl className={sheetOpen ? 'relative self-end' : 'absolute right-3 top-[144px] z-10'} onLocated={showNearbyAt} />
+  const locateControl = (
+    <LocateControl
+      className={sheetOpen ? 'relative self-end' : 'absolute right-3 top-[144px] z-10'}
+      buttonRef={locateButtonRef}
+      onLocated={(point) => {
+        // Fokus na przycisku (albo już zgubiony przy „Spróbuj ponownie") wróci tu po zamknięciu „W pobliżu".
+        locateHadFocusRef.current = document.activeElement === locateButtonRef.current || document.activeElement === document.body
+        showNearbyAt(point)
+      }}
+    />
+  )
 
   const statusStack = (
     <>
@@ -630,7 +664,7 @@ export default function CityMapPage() {
                 setSelection(null)
                 openNearbyAround(point)
               }}
-              onVisibleChange={(items, overflow) => setVisible({ items, overflow })}
+              onVisibleChange={onVisibleChange}
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
               onViewChange={onViewChange}
