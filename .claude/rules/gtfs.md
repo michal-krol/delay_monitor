@@ -97,7 +97,12 @@ paths:
   `?stop=<stopId>` (first occurrence; with no valid `dir` the first direction that contains it), `?pane=route|timetable`
   (phones only), `?day=weekday|saturday|sunday|other` (read by the timetable screen). Written with `patchUrlParams`
   (`replaceState`, other params kept, defaults omitted); parsed against an allow-list/regex, resolved only against the
-  loaded `LineDetail` (`resolveLineView`), bad values fall back silently (#4). The page keeps its own `usePolling`
+  loaded `LineDetail` (`resolveLineView`), bad values fall back silently (#4). In-session choices (`dirChoice`, `stopChoice`,
+  `paneChoice`) win over later URL changes on the same mounted route (another route remounts via `key`). Only a direction
+  switch writes `dir`, and never for the first direction (switching back removes it); picking a stop or pane re-writes whatever
+  `dir` the URL already carries. A looped route repeats a stop: the URL holds the `stopId` (first occurrence on reload), the
+  picked row lives in local `stopIndexChoice` (valid while it matches the view's `stopId`, reset on a direction switch) and
+  drives the highlighted row and the timetable `offsetSec`. The page keeps its own `usePolling`
   (one `/api/gtfs/line` per line) and derives alerts with `deriveLineAlerts()` from `useLineDetail.ts` — never mount
   `useLineDetail` next to it. Unknown direction (id 2) never queries vehicles and links the map without `dir`.
 - **`schedule.routePatterns`** (stop sequence per direction + second `offsets` from the first

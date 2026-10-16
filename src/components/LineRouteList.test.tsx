@@ -118,6 +118,15 @@ describe('LineRouteList', () => {
     expect(rows()[1].contains(pressed[0])).toBe(true)
   })
 
+  it('selectedIndex overrides stopId matching: the SECOND occurrence is pressed, the first is not', () => {
+    const stops = [stop(0), stop(1, { stopId: 'dup' }), stop(2), stop(3, { stopId: 'dup' })]
+    setup({ stops, selectedStopId: 'dup', selectedIndex: 3 })
+    const pressed = screen.getAllByRole('button', { pressed: true })
+    expect(pressed).toHaveLength(1)
+    expect(rows()[3].contains(pressed[0])).toBe(true)
+    expect(within(rows()[1]).getAllByRole('button')[0].getAttribute('aria-pressed')).toBe('false')
+  })
+
   it('marks the selected row with aria-pressed, bold and a primary outline (not colour alone)', () => {
     setup({ selectedStopId: 's2' })
     const selected = within(rows()[2]).getAllByRole('button')[0]
@@ -180,11 +189,11 @@ describe('LineRouteList', () => {
     expect(within(row).getByRole('link').className).toContain('max-sm:min-h-11')
   })
 
-  it('reports the stopId on click and does not report on link click', () => {
+  it('reports the stopId and the row index on click and does not report on link click', () => {
     const { onSelectStop } = setup()
     fireEvent.click(within(rows()[2]).getByRole('button'))
     expect(onSelectStop).toHaveBeenCalledTimes(1)
-    expect(onSelectStop).toHaveBeenCalledWith('s2')
+    expect(onSelectStop).toHaveBeenCalledWith('s2', 2)
     const link = within(rows()[1]).getByRole('link')
     link.addEventListener('click', (e) => e.preventDefault())
     fireEvent.click(link)
@@ -210,8 +219,15 @@ describe('LineRouteList', () => {
     expect(screen.getAllByTestId('timeline-vehicle')).toHaveLength(1)
     const marker = within(rows()[1]).getByTestId('timeline-vehicle')
     expect(marker.textContent).toBe('Pojazd 1234, 3 min temu')
+    // Nazwę niesie sr-only tekst; `title` dublowałby go w czytniku i nie działa na dotyku.
+    expect(marker.hasAttribute('title')).toBe(false)
     expect(marker.style.top).toBe('40%')
     expect(within(rows()[0]).queryByTestId('timeline-vehicle')).toBeNull()
+  })
+
+  it('words a vehicle older than 90 min in hours (formatAgo), not „N min temu”', () => {
+    setup({ vehicles: [vehicle({ afterStopOrder: 1, ageSec: 7200 })] })
+    expect(screen.getByTestId('timeline-vehicle').textContent).toBe('Pojazd 1234, 2 h temu')
   })
 
   it('ignores a vehicle whose afterStopOrder is past the route', () => {

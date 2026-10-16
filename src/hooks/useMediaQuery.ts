@@ -4,6 +4,8 @@ import { useSyncExternalStore } from 'react'
 
 /** Próg Tailwinda `sm` (40rem): poniżej telefon (arkusz od dołu), od niego prawa kolumna/panel obok. */
 export const SM_UP = '(min-width: 40rem)'
+/** Tailwind `lg` (64rem): od niego panele desktopowe stoją obok siebie. */
+export const LG_UP = '(min-width: 64rem)'
 
 /** Preferencja systemu: bez animacji ruchu. Wszystkie efekty PR 6 wyłączają się pod tym zapytaniem. */
 export const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'

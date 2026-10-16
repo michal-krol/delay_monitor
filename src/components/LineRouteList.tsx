@@ -7,7 +7,7 @@ import { AccessibleIcon, ChevronRightIcon, VehicleHeadingIcon, ICON_SIZE } from 
 import { darkRingClass, lineColor } from './transitMode'
 import { stopDisplayName } from './stopName'
 import { hasCustomStroke, strokeFor } from './map/mapData'
-import { formatSecondsOfDay } from '@/lib/format'
+import { formatAgo, formatSecondsOfDay } from '@/lib/format'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { pluralPl } from '@/lib/plural'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
@@ -22,8 +22,10 @@ type Props = {
   selectedStopId: string | null
   /** Wybrany start kursu (sekundy doby): z nim wiersze pokazują godziny, bez niego przesunięcie „+N min”. */
   selectedBaseSec: number | null
-  /** Tylko zgłasza wybór — zero zapytań. */
-  onSelectStop: (stopId: string) => void
+  /** Wiersz do podświetlenia; ma pierwszeństwo przed dopasowaniem po `selectedStopId` (pętla powtarza przystanek). */
+  selectedIndex?: number
+  /** Tylko zgłasza wybór — zero zapytań. `index` = wiersz, w który kliknięto. */
+  onSelectStop: (stopId: string, index?: number) => void
   vehicles?: VehicleOnRoute[]
   mode: GtfsMode
   kind: LineKind
@@ -31,14 +33,12 @@ type Props = {
 
 const NO_VEHICLES: VehicleOnRoute[] = []
 
-const vehicleAge = (ageSec: number) => (ageSec > 60 ? `${Math.round(ageSec / 60)} min temu` : '')
-
 /**
  * Przebieg linii: oś (kropka + odcinek) | wybór przystanku | link do tablicy. Czysta prezentacja — dane i wybór
  * trzyma rodzic. Dwa osobne elementy interaktywne w wierszu (nigdy zagnieżdżone). GTFS: tylko „rozkład”, zero
  * opóźnień (#13); pojazd na osi to rzut pozycji na przebieg, nie ETA.
  */
-export function LineRouteList({ city, stops, selectedStopId, selectedBaseSec, onSelectStop, vehicles = NO_VEHICLES, mode, kind }: Props) {
+export function LineRouteList({ city, stops, selectedStopId, selectedIndex: selectedRow, selectedBaseSec, onSelectStop, vehicles = NO_VEHICLES, mode, kind }: Props) {
   if (stops.length === 0) {
     return (
       <p role="status" className="text-sm text-text-secondary">
@@ -50,7 +50,7 @@ export function LineRouteList({ city, stops, selectedStopId, selectedBaseSec, on
   // Paleta liczona raz. Czerń/granat (nocna/lokalna) giną na ciemnej karcie — jasny pierścień (ta sama reguła co plakietki).
   const palette = lineColor(mode, kind)
   const dotDarkRing = darkRingClass(kind) !== '' ? 'dark:ring-white/40' : 'dark:ring-slate-900'
-  const selectedIndex = selectedStopId === null ? -1 : stops.findIndex((s) => s.stopId === selectedStopId)
+  const selectedIndex = selectedRow ?? (selectedStopId === null ? -1 : stops.findIndex((s) => s.stopId === selectedStopId))
 
   return (
     <>
@@ -83,7 +83,6 @@ export function LineRouteList({ city, stops, selectedStopId, selectedBaseSec, on
                       .map((v) => (
                         <span
                           key={v.sideNumber + v.tripId}
-                          title={`Pojazd ${v.sideNumber}${v.ageSec > 60 ? ` · ${vehicleAge(v.ageSec)}` : ''}`}
                           data-testid="timeline-vehicle"
                           className={`absolute -left-[7px] grid h-4 w-4 place-items-center rounded-full text-white shadow ring-2 ring-white ${dotDarkRing}`}
                           style={{
@@ -99,7 +98,7 @@ export function LineRouteList({ city, stops, selectedStopId, selectedBaseSec, on
                           <VehicleHeadingIcon className="h-2.5 w-2.5 rotate-180" />
                           <span className="sr-only">
                             Pojazd {v.sideNumber}
-                            {v.ageSec > 60 ? `, ${vehicleAge(v.ageSec)}` : ''}
+                            {v.ageSec > 60 ? `, ${formatAgo(v.ageSec)}` : ''}
                           </span>
                         </span>
                       ))}
@@ -110,7 +109,7 @@ export function LineRouteList({ city, stops, selectedStopId, selectedBaseSec, on
               <div className="mb-2 flex min-w-0 flex-1 items-stretch gap-1">
                 <button
                   type="button"
-                  onClick={() => onSelectStop(stop.stopId)}
+                  onClick={() => onSelectStop(stop.stopId, index)}
                   aria-pressed={active}
                   // Wybór: obrys + pogrubienie + tło (nie sam kolor). Obrys jest zawsze, tylko przezroczysty — wtedy zanika płynnie (200 ms), bez pętli.
                   className={`press flex min-w-0 flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm outline-2 -outline-offset-2 transition-colors duration-[var(--duration-base)] focus-visible:outline-primary-text motion-reduce:transition-none max-sm:min-h-11 max-sm:items-center ${

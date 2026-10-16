@@ -22,14 +22,14 @@ import { LINE_KIND_LABEL, MODE_ICON, MODE_LABEL } from '@/components/transitMode
 import { formatAgo, formatSecondsOfDay } from '@/lib/format'
 import { dedupeAlerts } from '@/lib/gtfs/alertView'
 import { getCity } from '@/lib/gtfs/cities'
-import { lineViewPatch, parseLineViewState, resolveLineView, type LinePane, type LineViewState } from '@/lib/lineViewState'
 import { NAV_BACK_TYPES, NAV_FORWARD_TYPES } from '@/lib/navTransition'
+import { lineViewPatch, parseLineViewState, resolveLineView, type LinePane, type LineViewState } from '@/lib/lineViewState'
 import { pluralPl } from '@/lib/plural'
 import { patchUrlParams } from '@/lib/urlState'
 import { useCities } from '@/hooks/useCities'
 import { deriveLineAlerts, isLineLoading, lineRefreshMs, type LineResponse } from '@/hooks/useLineDetail'
 import { useLineVehicles, type LineVehiclesState } from '@/hooks/useLineVehicles'
-import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { LG_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { useNearViewport } from '@/hooks/useNearViewport'
 import { useRecentLines } from '@/hooks/useRecentLines'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
@@ -46,9 +46,6 @@ type PageLineResponse = LineResponse & {
 
 // Stała referencja: `stops` wchodzi do zależności `useMemo` mapy.
 const NO_STOPS: LineDetail['directions'][number]['stops'] = []
-
-/** Tailwind `lg` (64rem): od niego trasa i rozkład stoją obok siebie. SSR zakłada „szeroko” (bez mignięcia na desktopie). */
-const LG_UP = '(min-width: 64rem)'
 
 const PANES: { key: LinePane; label: string }[] = [
   { key: 'route', label: 'Trasa' },
@@ -81,6 +78,8 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   // `undefined` = idź za URL-em, inaczej wybór usera w tej sesji (jak w `TransitStopDetail`).
   const [dirChoice, setDirChoice] = useState<number | undefined>(undefined)
   const [stopChoice, setStopChoice] = useState<string | null | undefined>(undefined)
+  /** Który wiersz wybranego `stopId` (pętla powtarza przystanek; URL niesie tylko `stopId` = pierwsze wystąpienie). Ważny, dopóki pasuje do `stopId` widoku. */
+  const [stopIndexChoice, setStopIndexChoice] = useState<number | undefined>(undefined)
   const [paneChoice, setPaneChoice] = useState<LinePane | undefined>(undefined)
   /** Wybrany kurs (start z pierwszego przystanku) — zawsze lokalny, nigdy w URL-u; ważny tylko dla kierunku, w którym go wybrano. */
   const [base, setBase] = useState<{ directionId: number; sec: number } | null>(null)
@@ -127,7 +126,9 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   const resolved = resolveLineView(view, [...directions])
   const direction = resolved === null ? undefined : directions[resolved.directionIndex]
   const stops = direction?.stops ?? NO_STOPS
-  const selectedStop = resolved === null ? undefined : stops[resolved.stopIndex]
+  const pickedIndex = stopIndexChoice !== undefined && stops[stopIndexChoice]?.stopId === view.stopId ? stopIndexChoice : undefined
+  const selectedIndex = pickedIndex ?? resolved?.stopIndex ?? -1
+  const selectedStop = stops[selectedIndex]
   const pane = view.pane
   const selectedBaseSec = base !== null && direction?.directionId === base.directionId ? base.sec : null
 
@@ -181,16 +182,26 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   // MapLibre (WebGL, worker, kafelki) startuje dopiero, gdy sekcja zbliży się do ekranu — raz, bez odmontowania.
   const [mapSectionRef, mapNear] = useNearViewport()
 
+  // Każda akcja zapisuje TYLKO swoje klucze: `searchParams` z Next nie nadąża za `replaceState`, więc przepisywanie
+  // pozostałych (np. `dir` po zmianie kierunku) z tego stanu kasowałoby je z URL-a.
+  function writeUrl(next: LineViewState, keys: ('dir' | 'stop' | 'pane')[]): void {
+    const full = lineViewPatch(next)
+    patchUrlParams(Object.fromEntries(keys.map((key) => [key, full[key]])))
+  }
+
   function selectPane(next: LinePane): void {
     startTransition(() => setPaneChoice(next))
-    // Zapisujemy rozstrzygnięty kierunek i przystanek, nie surowe wartości z URL-a (zły `dir`/`stop` nie zostaje w linku).
-    patchUrlParams(
-      lineViewPatch({
+    // `dir`/`stop` zapisujemy tylko, gdy są w URL-u teraz (żywy `window.location`, nie `searchParams`), i to rozstrzygnięte —
+    // zła wartość z linku nie zostaje; `day` i obce parametry zostają (patch dotyka tylko trzech kluczy).
+    const live = new URLSearchParams(window.location.search)
+    writeUrl(
+      {
         ...view,
-        directionId: view.directionId === null ? null : (direction?.directionId ?? null),
-        stopId: view.stopId === null ? null : (selectedStop?.stopId ?? null),
+        directionId: live.has('dir') ? (direction?.directionId ?? null) : null,
+        stopId: live.has('stop') ? (selectedStop?.stopId ?? null) : null,
         pane: next,
-      })
+      },
+      ['dir', 'stop', 'pane']
     )
   }
 
@@ -199,20 +210,24 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
     const next = directions[(resolved.directionIndex + 1) % directions.length]
     setDirChoice(next.directionId)
     setStopChoice(null)
+    setStopIndexChoice(undefined)
     setBase(null)
-    patchUrlParams(lineViewPatch({ ...view, directionId: next.directionId, stopId: null }))
+    // Pierwszy kierunek to stan domyślny: powrót do niego usuwa `dir` z URL-a.
+    writeUrl({ ...view, directionId: next === directions[0] ? null : next.directionId, stopId: null }, ['dir', 'stop'])
   }
 
-  /** `openTimetable`: wybór z listy trasy — poniżej `lg` przystanek wybiera się po to, żeby zobaczyć jego rozkład. */
-  function selectStop(stopId: string, openTimetable: boolean): void {
+  /** `openTimetable`: wybór z listy trasy — poniżej `lg` przystanek wybiera się po to, żeby zobaczyć jego rozkład. `index`: wiersz (pętla). */
+  function selectStop(stopId: string, openTimetable: boolean, index?: number): void {
     if (direction === undefined) return
     const toTimetable = openTimetable && !lgUp && pane !== 'timetable'
     setStopChoice(stopId)
+    setStopIndexChoice(index)
     if (toTimetable) {
       startTransition(() => setPaneChoice('timetable'))
       segmentRef.current?.scrollIntoView?.({ block: 'nearest' })
     }
-    patchUrlParams(lineViewPatch({ ...view, directionId: direction.directionId, stopId, pane: toTimetable ? 'timetable' : pane }))
+    // `dir` zostaje tym, co niesie URL (wpisuje go tylko zmiana kierunku) — domyślnego kierunku nie dopisujemy.
+    writeUrl({ ...view, stopId, pane: toTimetable ? 'timetable' : pane }, ['stop', 'pane'])
   }
 
   // `MapView` montuje mapę od nowa przy każdej zmianie `onPinClick` (Trap 2, `maps.md`) — a `selectStop` zmienia tożsamość przy
@@ -221,7 +236,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   useEffect(() => {
     onPinRef.current = (id) => {
       const stop = stops[Number(id)]
-      if (stop !== undefined) selectStop(stop.stopId, false)
+      if (stop !== undefined) selectStop(stop.stopId, false, Number(id))
     }
   })
   const onMapPinClick = useCallback((id: string) => onPinRef.current(id), [])
@@ -295,7 +310,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
         backHref={`/city/${city}/lines`}
         crumbs={[
           { label: 'Linie', href: `/city/${city}/lines` },
-          { label: line?.longName ?? routeId },
+          { label: line?.longName ?? 'Linia' },
         ]}
       />
 
@@ -334,7 +349,10 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
           {alertCount > 0 && (
             <button
               type="button"
-              onClick={() => alertsRef.current?.scrollIntoView?.({ block: 'start' })}
+              onClick={() => {
+                alertsRef.current?.scrollIntoView?.({ block: 'start' })
+                alertsRef.current?.focus({ preventScroll: true })
+              }}
               className="press flex min-h-11 w-full items-center gap-2 rounded-xl border border-warning-text bg-surface-strong px-3 text-left text-sm font-medium text-warning-text focus-visible:outline-2 focus-visible:outline-primary-text"
             >
               <AlertCircleIcon size={ICON_SIZE.button} />
@@ -414,8 +432,9 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                         city={city}
                         stops={stops}
                         selectedStopId={selectedStop?.stopId ?? null}
+                        selectedIndex={selectedIndex}
                         selectedBaseSec={selectedBaseSec}
-                        onSelectStop={(stopId) => selectStop(stopId, true)}
+                        onSelectStop={(stopId, index) => selectStop(stopId, true, index)}
                         vehicles={showVehicles ? liveVehicles.vehicles : undefined}
                         mode={line.mode}
                         kind={line.kind}
@@ -497,7 +516,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
             </>
           )}
 
-          <div ref={alertsRef} className="glass scroll-mt-20 rounded-2xl p-4">
+          <div ref={alertsRef} tabIndex={-1} className="glass scroll-mt-20 rounded-2xl p-4 outline-none">
             <ContextAlerts alerts={alertList} state={alertsView.state} stale={alertsView.stale} scopeLabel={`Komunikaty linii ${line.line}`} />
           </div>
         </>
@@ -526,7 +545,7 @@ function VehiclesRow({ city, routeId, directionId, showVehicles, live }: { city:
   let status: ReactNode = null
   if (!showVehicles) {
     status = <p className="text-sm text-text-secondary">Kierunek nieznany — pokazujemy pojazdy bez rozróżnienia kierunku.</p>
-  } else if (live.error !== null && live.vehicles.length === 0) {
+  } else if ((live.error !== null || live.feed.state === 'failed') && live.vehicles.length === 0) {
     status = <p className="text-sm text-error-text">Nie udało się pobrać pozycji.</p>
   } else if (live.feed.state === 'loading') {
     status = <p className="text-sm text-text-secondary">Wczytywanie pozycji…</p>
