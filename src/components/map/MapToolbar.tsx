@@ -101,8 +101,8 @@ export function MapToolbar({
       </div>
       {vehicleLayers.length > 0 && (
         // Czipy = szybkie przełączniki TEGO SAMEGO zbioru `hidden` co panel „Filtry" (pressed = warstwa widoczna).
-        // Przewijane w poziomie, gdy cztery rodzaje się nie mieszczą (375 px); `p-0.5` żeby obrys fokusu nie był ucięty.
-        <div role="group" aria-label="Rodzaje pojazdów" className="flex gap-2 overflow-x-auto p-0.5 [scrollbar-width:none]">
+        // Przewijane w poziomie, gdy cztery rodzaje się nie mieszczą (375 px); `p-1` (offset 2 + obrys 2 px) żeby obrys fokusu nie był ucięty przez przewijany kontener.
+        <div role="group" aria-label="Rodzaje pojazdów" className="flex gap-2 overflow-x-auto p-1 [scrollbar-width:none]">
           {vehicleLayers.map((key) => (
             <button key={key} type="button" aria-pressed={!hidden.has(key)} onClick={() => onHiddenChange(toggleLayer(hidden, key))} className="chip-filter shrink-0 gap-2 px-3">
               <ModeChip mode={LAYER_MODE[key]} />

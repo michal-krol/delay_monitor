@@ -109,7 +109,7 @@ describe('design tokens', () => {
   it('no accent-gradient left in components/map and the map page: active states use --primary* (ADR 0011)', () => {
     // Gradient akcentu zostaje dla logo i ikon (`icons.tsx`); aktywny przycisk/chip/pole wyboru na mapie = `.chip-filter`, `.btn-primary`, `bg-primary`.
     const onMap = (file: string): boolean => !(file.startsWith('components/map/') || file === 'app/(app)/city/[city]/map/page.tsx')
-    expect(offenders(/accent-gradient|accent-indigo|accent-solid/, onMap)).toEqual([])
+    expect(offenders(/accent-gradient|accent-indigo|accent-solid|text-indigo-/, onMap)).toEqual([])
   })
 
   it('GTFS views never use status-green Tailwind classes (#13); the category green of zone buses comes from LINE_PALETTE, see adr/0005', () => {
