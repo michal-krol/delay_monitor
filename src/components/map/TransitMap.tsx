@@ -78,6 +78,36 @@ const VISIBLE_KIND: Record<string, VisibleItem['kind']> = { vehicles: 'vehicle',
 const GLIDE_MS = 1000
 const GLIDE_FRAME_MS = 66
 
+/** Świadome „skupienie" kamery (przelot do obiektu, korekta po zmianie paddingu): krótko, żeby arkusz i mapa jechały razem. */
+const CAMERA_MS = 320
+/**
+ * Pomiary arkusza i pasków przychodzą seriami (animacja uchwytu, zmiana rozmiaru okna) — kamera rusza dopiero,
+ * gdy wartości przestały się zmieniać, a nie przy każdej klatce.
+ */
+const INSET_SETTLE_MS = 120
+/** Zapas między obiektem a krawędzią wolnego obszaru przy kadrowaniu trasy. */
+const FIT_MARGIN = 16
+
+/** Zasłonięte pasy mapy w px: u góry pasek wyszukiwania i filtry, u dołu arkusz (telefon). Szeroki ekran: dół 0. */
+export type MapInsets = { top: number; bottom: number }
+const NO_INSETS: MapInsets = { top: 0, bottom: 0 }
+
+function cameraPadding({ top, bottom }: MapInsets) {
+  return { top, bottom, left: 0, right: 0 }
+}
+
+const prefersReducedMotion = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/**
+ * Jeden sposób ruszania kamerą na świadomy cel: `prefers-reduced-motion` = skok bez animacji, inaczej przelot (`fly`)
+ * albo płynny przejazd, oba ≤ `CAMERA_MS`. `padding` przesuwa środek kadru w wolny obszar (nad arkusz, pod pasek).
+ */
+function moveCamera(map: MapLibreMap, target: { center: [number, number]; zoom?: number; padding: ReturnType<typeof cameraPadding> }, fly: boolean): void {
+  if (prefersReducedMotion()) map.jumpTo(target)
+  else if (fly) map.flyTo({ ...target, duration: CAMERA_MS })
+  else map.easeTo({ ...target, duration: CAMERA_MS })
+}
+
 function backboneCollection(lines: BackboneLine[] | null): Data['backbone'] {
   return {
     type: 'FeatureCollection',
@@ -319,9 +349,16 @@ function applyHidden(map: MapLibreMap, hidden: ReadonlySet<LayerKey>): void {
   }
 }
 
-/** Kadr na trasę — z miejscem na pasek wyszukiwania u góry. */
-function fitRoute(map: MapLibreMap, bounds: NonNullable<RouteOverlay['bounds']>): void {
-  map.fitBounds(bounds, { padding: { top: 150, right: 40, bottom: 40, left: 40 }, maxZoom: 15 })
+/**
+ * Kadr na trasę — z miejscem na pasek wyszukiwania u góry i na arkusz u dołu. `absolutePadding`: padding KAMERY zostaje
+ * po każdym przelocie z `moveCamera`, a bez tej flagi MapLibre 6 dokładałby do niego margines kadru (górę liczyłoby dwa razy).
+ */
+function fitRoute(map: MapLibreMap, bounds: NonNullable<RouteOverlay['bounds']>, insets: MapInsets): void {
+  map.fitBounds(bounds, {
+    padding: { top: Math.max(150, insets.top + FIT_MARGIN), right: 40, bottom: Math.max(40, insets.bottom + FIT_MARGIN), left: 40 },
+    absolutePadding: true,
+    maxZoom: 15,
+  })
 }
 
 function pickHit(features: MapGeoJSONFeature[]): MapHit | null {
@@ -359,6 +396,7 @@ export function TransitMap({
   pinnedItems = [],
   onlyLines = null,
   listOpen = false,
+  insets = NO_INSETS,
   dark,
   onSelect,
   onViewChange,
@@ -391,6 +429,11 @@ export function TransitMap({
   onlyLines?: ReadonlySet<string> | null
   /** Lista „w widoku" otwarta — dopiero wtedy liczymy widoczne obiekty. */
   listOpen?: boolean
+  /**
+   * Pasy zasłonięte przez interfejs (`MapInsets`), zmierzone przez stronę i ustalone — nie z klatek animacji. Świadomy
+   * przelot i wybrany obiekt trafiają do wolnego obszaru. Żyją w refach: zmiana NIE tworzy mapy od nowa.
+   */
+  insets?: MapInsets
   dark: boolean
   onSelect: (hit: MapHit | null) => void
   onViewChange?: (view: MapView) => void
@@ -415,6 +458,11 @@ export function TransitMap({
   const onContextPointRef = useRef(onContextPoint)
   const onVisibleChangeRef = useRef(onVisibleChange)
   const listOpenRef = useRef(listOpen)
+  const insetsRef = useRef(insets)
+  /** Pozycja wybranego obiektu — cel korekty kamery po zmianie insetów. */
+  const selectedAtRef = useRef<{ lat: number; lon: number } | null>(null)
+  /** Insety, z którymi kamera była ostatnio ustawiona (`null` = padding kamery pochodzi z kadru trasy, nie z insetów). */
+  const appliedInsetsRef = useRef<MapInsets | null>(insets)
   /** Ostatnio narysowane pozycje pojazdów — punkt startu płynnego przejazdu. */
   const drawnRef = useRef(new Map<string, [number, number]>())
   const lastVehiclesRef = useRef<CityVehicle[] | null>(null)
@@ -425,6 +473,7 @@ export function TransitMap({
     onContextPointRef.current = onContextPoint
     onVisibleChangeRef.current = onVisibleChange
     listOpenRef.current = listOpen
+    insetsRef.current = insets
   })
 
   useEffect(() => {
@@ -461,7 +510,10 @@ export function TransitMap({
 
       mapInstance.on('style.load', () => {
         addLayers(mapInstance, dataRef.current, hiddenRef.current, darkRef.current, dimmedRef.current)
-        if (pendingFitRef.current !== null) fitRoute(mapInstance, pendingFitRef.current)
+        if (pendingFitRef.current !== null) {
+          fitRoute(mapInstance, pendingFitRef.current, insetsRef.current)
+          appliedInsetsRef.current = null
+        }
         pendingFitRef.current = null
       })
 
@@ -541,7 +593,7 @@ export function TransitMap({
       lastVehiclesRef.current !== null &&
       lastVehiclesRef.current !== vehicles &&
       source !== undefined &&
-      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      !prefersReducedMotion()
     lastVehiclesRef.current = vehicles
     if (source === undefined) return
     if (!glide) {
@@ -588,7 +640,9 @@ export function TransitMap({
   const followLon = follow?.lon
   useEffect(() => {
     if (followLat === undefined || followLon === undefined) return
-    mapRef.current?.easeTo({ center: [followLon, followLat], duration: GLIDE_MS })
+    // Z paddingiem insetów: śledzony pojazd zostaje w wolnym obszarze, a padding kamery jest znany (nie zostaje po kadrze trasy).
+    mapRef.current?.easeTo({ center: [followLon, followLat], duration: GLIDE_MS, padding: cameraPadding(insetsRef.current) })
+    appliedInsetsRef.current = insetsRef.current
   }, [followLat, followLon])
 
   useEffect(() => {
@@ -604,9 +658,28 @@ export function TransitMap({
   const selectedLat = selected?.lat
   const selectedLon = selected?.lon
   useEffect(() => {
-    dataRef.current.selected = selectedCollection(selectedLat === undefined || selectedLon === undefined ? null : { lat: selectedLat, lon: selectedLon })
+    const at = selectedLat === undefined || selectedLon === undefined ? null : { lat: selectedLat, lon: selectedLon }
+    selectedAtRef.current = at
+    dataRef.current.selected = selectedCollection(at)
     ;(mapRef.current?.getSource('selected') as GeoJSONSource | undefined)?.setData(dataRef.current.selected)
   }, [selectedLat, selectedLon])
+
+  // Zmiana insetów (arkusz zmienił wysokość, pasek urósł) przy wybranym obiekcie: łagodne przesunięcie, żeby obiekt został w
+  // wolnym obszarze. Bez wyboru kamera stoi (padding dostanie przy następnym skupieniu); to samo, gdy przelot już go niósł.
+  const insetTop = insets.top
+  const insetBottom = insets.bottom
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const map = mapRef.current
+      const at = selectedAtRef.current
+      const applied = appliedInsetsRef.current
+      if (map === null || at === null || (applied !== null && applied.top === insetTop && applied.bottom === insetBottom)) return
+      const next = { top: insetTop, bottom: insetBottom }
+      appliedInsetsRef.current = next
+      moveCamera(map, { center: [at.lon, at.lat], padding: cameraPadding(next) }, false)
+    }, INSET_SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [insetTop, insetBottom])
 
   const routeKey = route?.key ?? null
   useEffect(() => {
@@ -625,7 +698,10 @@ export function TransitMap({
     map.setPaintProperty('route-stops', 'circle-stroke-color', outlineFor(dataRef.current.routeColor))
     applyDim(map, route !== null)
     const bounds = route?.overlay.bounds
-    if (bounds !== null && bounds !== undefined) fitRoute(map, bounds)
+    if (bounds !== null && bounds !== undefined) {
+      fitRoute(map, bounds, insetsRef.current)
+      appliedInsetsRef.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nowy kadr tylko przy nowej linii/kierunku, nie przy każdym renderze
   }, [routeKey])
 
@@ -645,9 +721,10 @@ export function TransitMap({
   useEffect(() => {
     if (focus === null || mapRef.current === null) return
     const map = mapRef.current
-    // MapLibre sam skraca przelot przy `prefers-reduced-motion` (brak `essential`).
     // Bez `zoom` = przybliż do obiektu (nigdy nie oddalaj); z `zoom` = dokładnie ten kadr („całe miasto").
-    map.flyTo({ center: [focus.lon, focus.lat], zoom: focus.zoom ?? Math.max(map.getZoom(), MAP_ZOOM.focus) })
+    // Padding z insetów: obiekt ląduje w wolnym obszarze, nie pod arkuszem ani paskiem.
+    moveCamera(map, { center: [focus.lon, focus.lat], zoom: focus.zoom ?? Math.max(map.getZoom(), MAP_ZOOM.focus), padding: cameraPadding(insetsRef.current) }, true)
+    appliedInsetsRef.current = insetsRef.current
     // eslint-disable-next-line react-hooks/exhaustive-deps -- przelot tylko na nowy `nonce`, nie przy każdym renderze
   }, [focusNonce])
 

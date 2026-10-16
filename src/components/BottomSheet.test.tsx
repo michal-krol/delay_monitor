@@ -139,6 +139,63 @@ describe('BottomSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Zmień wysokość panelu (teraz: do połowy)' }))
     expect(sheet()).toHaveAttribute('data-snap', 'full')
   })
+
+  describe('visible height report (camera padding of the map under it)', () => {
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(50) // slot `above`
+    })
+
+    it('reports the panel share plus the `above` slot at peek and half, and keeps the last value at full', () => {
+      const onVisibleHeight = vi.fn()
+      render(
+        <BottomSheet above={<span>status</span>} onVisibleHeight={onVisibleHeight}>
+          <p>Treść</p>
+        </BottomSheet>
+      )
+      expect(onVisibleHeight).toHaveBeenLastCalledWith(200) // 25 % × 600 + 50
+      const handle = screen.getByRole('button', { name: /^Zmień wysokość panelu/ })
+      fireEvent.click(handle)
+      expect(onVisibleHeight).toHaveBeenLastCalledWith(380) // 55 % × 600 + 50
+      onVisibleHeight.mockClear()
+      sheet().scrollTop = 330
+      fireEvent.click(handle) // full: bez korekty
+      expect(sheet()).toHaveAttribute('data-snap', 'full')
+      expect(onVisibleHeight).not.toHaveBeenCalled()
+    })
+
+    it('measures again when the sheet or its `above` slot is resized', () => {
+      const observed: { cb: () => void; targets: Element[] }[] = []
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          entry = { cb: () => {}, targets: [] as Element[] }
+          constructor(cb: () => void) {
+            this.entry.cb = cb
+            observed.push(this.entry)
+          }
+          observe(el: Element) {
+            this.entry.targets.push(el)
+          }
+          disconnect() {}
+        }
+      )
+      const onVisibleHeight = vi.fn()
+      render(
+        <BottomSheet above={<span>status</span>} onVisibleHeight={onVisibleHeight}>
+          <p>Treść</p>
+        </BottomSheet>
+      )
+      expect(observed[0].targets).toHaveLength(2)
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(80) // chipy filtrów urosły
+      observed[0].cb()
+      expect(onVisibleHeight).toHaveBeenLastCalledWith(230)
+      vi.unstubAllGlobals()
+    })
+
+    it('reports nothing when nobody listens (Info sheets)', () => {
+      expect(() => render(<BottomSheet><p>Treść</p></BottomSheet>)).not.toThrow()
+    })
+  })
 })
 
 describe('BottomSheet CSS', () => {

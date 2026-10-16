@@ -152,3 +152,24 @@ the panel scrolls the container. Rules:
   with nothing to scroll, Chromium ends the scroll chain there and the sheet never moves).
 - Inline maps (`MapView` without `rich`) use `cooperativeGestures` with Polish strings so they
   don't trap page scroll; the enlarged dialog map keeps normal gestures.
+
+## Camera insets (transport map, PR10)
+
+`TransitMap` takes `insets: {top, bottom}` (px of map covered by UI) and uses them as MapLibre camera `padding` so a focused or
+selected object sits in the free area, not under the toolbar or the sheet.
+
+- **Measured, not guessed.** `top` = bottom edge of the toolbar container (`ResizeObserver` in the page, includes its top margin). `bottom` =
+  `BottomSheet`'s `onVisibleHeight`: share of the panel at the snap (`SHEET_SNAPS[snap] × clientHeight`) + height of the `above` slot (status stack
+  and locate control ride on the panel edge, so they count as covered). Reported when the snap changes (a drag only after the scroll settles) and when
+  the sheet or its `above` slot resizes. No sheet (wide screens, where the `aside` is a flex sibling and the map container already excludes it) = bottom 0,
+  no extra right padding.
+- **`full` is not reported** (user decision 2026-10-15): the camera keeps the last `peek`/`half` value — at 90 % there is no free area worth framing.
+- **Insets live in refs.** Changing them never re-creates the map (init effect has no inset deps; `pinsKey`/`routeKey` untouched). A change while
+  something is selected waits `INSET_SETTLE_MS` (120 ms, trailing) and then eases (`CAMERA_MS` 320 ms) to the selection with the new padding; with nothing
+  selected the camera stands. A deliberate focus (`flyTo`) carries the padding itself. `prefers-reduced-motion: reduce` = `jumpTo`, no animation.
+- **MapLibre 6 keeps camera padding on the transform** and by default ADDS `fitBounds` padding to it. `fitRoute` therefore passes
+  `absolutePadding: true` (top ≥ 150 or inset + 16, bottom ≥ 40 or inset + 16); without it a route fitted after a focus counts the toolbar twice.
+  `getCenter()` is the centre of the padded (free) area — what `?at=` stores.
+- **Privacy:** `onViewChange` never persists a view whose centre is within ~10 m of the user's last GPS point (`locatedViewRef` holds the point; geometry
+  at every `moveend`, no latch). A programmatic move away (route fit, vehicle follow) saves again with no extra code, and a stale `moveend` of an
+  interrupted animation cannot unblock the later arrival at the user.
