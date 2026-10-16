@@ -32,6 +32,8 @@ vi.mock('maplibre-gl', () => {
     setStyle: vi.fn(),
     flyTo: vi.fn(),
     jumpTo: vi.fn(),
+    isMoving: vi.fn(() => false),
+    getBounds: vi.fn(() => ({ contains: vi.fn(() => true) })),
     getZoom: vi.fn(() => 12),
     getCenter: vi.fn(() => ({ lat: 52.2, lng: 21.0 })),
     getCanvas: vi.fn(() => ({ style: {} as Record<string, string> })),
@@ -391,6 +393,35 @@ describe('TransitMap camera insets', () => {
     vi.advanceTimersByTime(500)
     expect(map.flyTo).toHaveBeenCalledTimes(1)
     expect(eased(map)).toEqual([])
+  })
+
+  it('a correcting ease waits for a focus flight in progress and never interrupts it (sheet remounts one render after the focus)', async () => {
+    const { map, rerender } = await mounted({ selected: AT, insets: { top: 80, bottom: 370 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    map.isMoving.mockReturnValue(true) // lot ruszył w render N ze starymi insetami (370)…
+    rerender(<TransitMap {...base} selected={AT} insets={{ top: 80, bottom: 370 }} focus={{ ...AT, nonce: 1 }} />)
+    expect(map.flyTo).toHaveBeenCalledTimes(1)
+    // …a nowy arkusz (peek) zgłasza swoją wysokość dopiero w render N+1.
+    rerender(<TransitMap {...base} selected={AT} insets={{ top: 80, bottom: 190 }} focus={{ ...AT, nonce: 1 }} />)
+    vi.advanceTimersByTime(600) // lot trwa: kilka cykli ponawiania, żadnego easeTo
+    expect(eased(map)).toEqual([])
+    map.isMoving.mockReturnValue(false) // lądowanie
+    vi.advanceTimersByTime(200)
+    expect(eased(map)).toHaveLength(1)
+    const [options] = map.easeTo.mock.calls.at(-1)!
+    expect(options).toMatchObject({ center: [AT.lon, AT.lat], padding: { top: 80, bottom: 190, left: 0, right: 0 } })
+    expect(options).not.toHaveProperty('zoom') // zoom lotu zostaje (ease po lądowaniu nie zmienia go)
+  })
+
+  it('an inset change after the user panned the selection out of view does not pull the camera back', async () => {
+    const { map, rerender } = await mounted({ selected: AT, insets: { top: 80, bottom: 120 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    map.getBounds.mockReturnValue({ contains: vi.fn(() => false) })
+    rerender(<TransitMap {...base} selected={AT} insets={INSETS} />)
+    vi.advanceTimersByTime(500)
+    expect(eased(map)).toEqual([])
+    expect(map.jumpTo).not.toHaveBeenCalled()
+    map.getBounds.mockReturnValue({ contains: vi.fn(() => true) }) // mock mapy jest wspólny dla testów
   })
 
   it('reduced motion uses no animation', async () => {

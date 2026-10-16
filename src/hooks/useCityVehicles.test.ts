@@ -36,6 +36,9 @@ describe('useCityVehicles', () => {
     await vi.waitFor(() => expect(result.current.vehicles).toHaveLength(1))
     expect(result.current.vehicles[0].sideNumber).toBe('3801')
     expect(result.current.feed).toEqual({ state: 'ready', ageMs: 5000 })
+    // Jeden zegar strony: ten sam `now`, z którego liczą się wieki pozycji, służy do wieku pobrania w nagłówku.
+    expect(result.current.now).toBeGreaterThan(0)
+    expect(result.current.now).toBeLessThanOrEqual(Date.now())
     expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/city-vehicles?city=warszawa')
   })
 

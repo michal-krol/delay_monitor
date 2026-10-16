@@ -57,7 +57,7 @@ const state = vi.hoisted(() => ({
     focus: { lat: number; lon: number } | null
     routeId: string | null; hidden: Set<string>; selected: unknown; onSelect: (hit: MapHit | null) => void; onViewChange: (view: MapView) => void },
 }))
-vi.mock('@/hooks/useCityVehicles', () => ({ useCityVehicles: () => ({ ...state.vehicles, lastSuccessAt: state.vehicles.lastSuccessAt ?? null }) }))
+vi.mock('@/hooks/useCityVehicles', () => ({ useCityVehicles: () => ({ ...state.vehicles, lastSuccessAt: state.vehicles.lastSuccessAt ?? null, now: Date.now() }) }))
 vi.mock('@/hooks/useCityStops', () => ({ useCityStops: () => state.stops }))
 vi.mock('@/hooks/useRailStations', () => ({
   useRailStations: () => state.rail,
@@ -488,6 +488,15 @@ describe('CityMapPage — camera insets', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ }))
     expect(sheet()).toHaveAttribute('data-snap', 'full')
     expect(map().insets.bottom).toBe(370)
+  })
+
+  it('switching from phone to wide drops the bottom inset to 0 (the sheet is gone)', async () => {
+    setWide(false)
+    const { rerender } = render(<CityMapPage />)
+    await waitFor(() => expect(map().insets.bottom).toBe(190))
+    setWide(true)
+    rerender(<CityMapPage />)
+    await waitFor(() => expect(map().insets.bottom).toBe(0))
   })
 
   it('a wide screen has no sheet: nothing is covered at the bottom (the aside is a flex sibling of the map)', async () => {
@@ -956,15 +965,15 @@ describe('CityMapPage — my location', () => {
     await screen.findByRole('dialog', { name: 'W pobliżu' })
     const userCoordinates = /52\.230|21\.010/
 
-    // Lot do użytkownika: najpierw spóźnione `moveend` z przerwanej animacji (daleko), potem dolot — dolot nie trafia nigdzie.
+    // Lot do użytkownika: spóźnione `moveend` z przerwanej animacji (daleko) NIE odblokowuje zapisu — blokadę zdejmuje tylko
+    // przeciągnięcie albo świadomy ruch programowy — więc dolot też nigdzie nie trafia.
     act(() => map().onViewChange(AT_USER))
-    expect(persistedText()).not.toMatch(userCoordinates)
     act(() => map().onViewChange({ center: { lat: 52.25, lon: 21.05 }, zoom: 14 }))
     act(() => map().onViewChange(AT_USER))
-    expect(window.location.search).toContain('at=52.25000')
+    expect(window.location.search).toBe('')
     expect(persistedText()).not.toMatch(userCoordinates)
 
-    // Śledzenie pojazdu przenosi kamerę (bez przeciągnięcia): ten kadr jest już zwykłym widokiem i się zapisuje.
+    // Śledzenie pojazdu przenosi kamerę (bez przeciągnięcia) i zdejmuje blokadę: ten kadr jest zwykłym widokiem.
     map().onSelect({ kind: 'vehicle', id: 'v1' })
     fireEvent.click(await screen.findByRole('button', { name: 'Śledź pojazd' }))
     await waitFor(() => expect(map().follow).not.toBeNull())
@@ -972,16 +981,72 @@ describe('CityMapPage — my location', () => {
     expect(window.location.search).toContain('at=52.20000')
     expect(window.localStorage.getItem('monitor.map.view.v1')).toContain('52.20000')
 
-    // Wybór linii (kadr trasy) — tak samo.
+    // Powrót w promień 150 px od użytkownika jest blokowany także po zdjęciu blokady.
+    act(() => map().onViewChange({ ...AT_USER, zoom: 17 }))
+    expect(window.location.search).toContain('at=52.20000')
+    expect(persistedText()).not.toMatch(userCoordinates)
+  })
+
+  it('a route fit (line select) lifts the block: the fitted view is saved', async () => {
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+    act(() => map().onViewChange(AT_USER))
+    map().onSelect({ kind: 'vehicle', id: 'v1' })
     fireEvent.click(await screen.findByRole('button', { name: 'Pokaż trasę na mapie' }))
-    await waitFor(() => expect(map().routeId).toBe('20')) // „W pobliżu" zasłania panel linii, ale mapa już kadruje trasę
+    await waitFor(() => expect(map().route).not.toBeNull()) // „W pobliżu" zasłania panel linii, ale mapa już kadruje trasę
     act(() => map().onViewChange({ center: { lat: 52.28, lon: 20.99 }, zoom: 13 }))
     expect(window.location.search).toContain('at=52.28000')
-
-    // Kamera znów na użytkowniku — nadal nic z jego pozycji.
     act(() => map().onViewChange({ ...AT_USER, zoom: 17 }))
     expect(window.location.search).toContain('at=52.28000')
-    expect(persistedText()).not.toMatch(userCoordinates)
+    expect(persistedText()).not.toMatch(/52\.230|21\.010/)
+  })
+
+  // 1 m ≈ 1/111320°; przy z16 150 px ≈ 220 m, a zoom o jeden poziom wokół punktu 100–150 px od środka przesuwa środek o ~40–55 m.
+  const northOfUser = (m: number) => ({ lat: 52.2301 + m / 111_320, lon: 21.0101 })
+
+  it('wheel, pinch and keyboard zoom right after locating never persist a centre a few tens of metres from the user', async () => {
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+    for (const metres of [40, 55, 150]) act(() => map().onViewChange({ center: northOfUser(metres), zoom: 16 }))
+    // Strzałki przesuwają kadr bez `dragstart`: nawet 1 km dalej nic nie jest zapisane, dopóki nie było przeciągnięcia.
+    act(() => map().onViewChange({ center: northOfUser(1000), zoom: 16 }))
+    expect(window.location.search).toBe('')
+    expect(window.localStorage.getItem('monitor.map.view.v1')).toBeNull()
+  })
+
+  it('after a drag the block is only the 150 px radius: a padded centre (100 px off) stays unsaved, a real move away saves', async () => {
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+    act(() => map().onUserMove())
+    act(() => map().onViewChange({ center: northOfUser(146), zoom: 16 })) // ~100 px od użytkownika
+    act(() => map().onViewChange({ center: northOfUser(40), zoom: 16 }))
+    expect(window.location.search).toBe('')
+    act(() => map().onViewChange({ center: northOfUser(2000), zoom: 16 })) // ~1400 px
+    expect(window.location.search).toContain('at=52.24')
+    expect(persistedText()).not.toMatch(/52\.2301/) // sama długość geograficzna jest wspólna (przesunięcie na północ), szerokość nie
+  })
+
+  it('a city view that happens to lie within 150 px of the user is not persisted either (fails closed)', async () => {
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    fireEvent.click(screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' }))
+    act(() => map().onViewChange({ center: { lat: 52.2297, lon: 21.0122 }, zoom: 12 }))
+    expect(window.location.search).toBe('')
   })
 
   it('nearby=1 start view centred on the user is not persisted either', async () => {
@@ -1007,7 +1072,8 @@ describe('CityMapPage — my location', () => {
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
-    await act(async () => geo.calls[0].ok(FIX))
+    // Użytkownik na obrzeżach: centrum miasta leży daleko od jego pozycji (blisko niej zapis jest blokowany, test niżej).
+    await act(async () => geo.calls[0].ok({ coords: { latitude: 52.4, longitude: 20.8, accuracy: 30 } } as GeolocationPosition))
     fireEvent.click(screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' }))
     act(() => map().onViewChange({ center: { lat: 52.2297, lon: 21.0122 }, zoom: 12 }))
     expect(window.location.search).toContain('at=52.22970')

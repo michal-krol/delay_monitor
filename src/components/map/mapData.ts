@@ -375,6 +375,15 @@ export function formatAt(camera: MapCamera): string {
   return `${camera.lat.toFixed(5)},${camera.lon.toFixed(5)},${camera.zoom.toFixed(1)}`
 }
 
+/** Promień prywatności widoku w pikselach: tyle od pozycji użytkownika kadr uznajemy za „na nim" (zoom wokół kursora/palca przesuwa środek o mniej niż połowę odległości gestu). */
+export const PRIVACY_RADIUS_PX = 150
+
+/** Czy środek kadru leży w promieniu `PRIVACY_RADIUS_PX` od `point` przy danym zoomie (m/px = 156543,03·cos φ / 2^zoom — zawyżone o 2× względem kafli 512 px, czyli ostrożnie). */
+export function isNearViewPoint(center: { lat: number; lon: number }, zoom: number, point: { lat: number; lon: number }): boolean {
+  const metersPerPx = (156543.03 * Math.cos((point.lat * Math.PI) / 180)) / 2 ** zoom
+  return distanceM(center, point) <= PRIVACY_RADIUS_PX * metersPerPx
+}
+
 /** Odległość po powierzchni Ziemi w metrach (haversine). */
 export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   const rad = Math.PI / 180

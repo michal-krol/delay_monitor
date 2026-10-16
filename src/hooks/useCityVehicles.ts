@@ -14,6 +14,8 @@ export type CityVehiclesState = {
   error: string | null
   /** Kiedy (ms epoch, zegar klienta) przyszedł ostatni udany odczyt; `null` = jeszcze żaden. */
   lastSuccessAt: number | null
+  /** Zegar strony (ms epoch, co 10 s) — ten sam, z którego liczą się wieki; do wieku pobrania w nagłówku, bez drugiego zegara. */
+  now: number
 }
 
 const REFRESH_MS = 15_000
@@ -24,7 +26,7 @@ type CityVehiclesResponse = { vehicles: CityVehicle[]; feed: { state: string; ag
 
 const NO_VEHICLES: CityVehicle[] = []
 const NO_ALERT_LINES: string[] = []
-const LOADING_STATE: Omit<CityVehiclesState, 'error' | 'lastSuccessAt'> = { vehicles: NO_VEHICLES, feed: { state: 'loading', ageMs: null }, alertLines: NO_ALERT_LINES }
+const LOADING_STATE: Omit<CityVehiclesState, 'error' | 'lastSuccessAt' | 'now'> = { vehicles: NO_VEHICLES, feed: { state: 'loading', ageMs: null }, alertLines: NO_ALERT_LINES }
 
 /**
  * Poll WSZYSTKICH pozycji pojazdów miasta (`/api/gtfs/city-vehicles`) co 15 s —
@@ -45,7 +47,7 @@ export function useCityVehicles(city: string): CityVehiclesState {
     () => data?.vehicles.map((v) => ({ ...v, ageSec: Math.round((effectiveAgeMs(v.ageSec * 1000, lastSuccessAt, now) ?? 0) / 1000) })) ?? NO_VEHICLES,
     [data, lastSuccessAt, now]
   )
-  if (data === null) return { ...LOADING_STATE, error, lastSuccessAt }
+  if (data === null) return { ...LOADING_STATE, error, lastSuccessAt, now }
   const ageMs = effectiveAgeMs(data.feed.ageMs ?? undefined, lastSuccessAt, now) ?? null
-  return { vehicles, feed: { state: data.feed.state, ageMs }, alertLines: data.alertLines ?? NO_ALERT_LINES, error, lastSuccessAt }
+  return { vehicles, feed: { state: data.feed.state, ageMs }, alertLines: data.alertLines ?? NO_ALERT_LINES, error, lastSuccessAt, now }
 }

@@ -669,15 +669,25 @@ export function TransitMap({
   const insetTop = insets.top
   const insetBottom = insets.bottom
   useEffect(() => {
-    const timer = setTimeout(() => {
+    let timer: ReturnType<typeof setTimeout>
+    const settle = (): void => {
       const map = mapRef.current
       const at = selectedAtRef.current
       const applied = appliedInsetsRef.current
       if (map === null || at === null || (applied !== null && applied.top === insetTop && applied.bottom === insetBottom)) return
+      // Trwa przelot (np. skupienie ze starymi insetami, nowy arkusz zgłasza wysokość render później): `easeTo` przerwałby go
+      // i zostawił pośredni zoom, więc czekamy na lądowanie i dopiero wtedy korygujemy sam padding.
+      if (map.isMoving()) {
+        timer = setTimeout(settle, INSET_SETTLE_MS)
+        return
+      }
+      // Użytkownik odsunął mapę od wybranego obiektu — nie ciągniemy kamery z powrotem.
+      if (!map.getBounds().contains([at.lon, at.lat])) return
       const next = { top: insetTop, bottom: insetBottom }
       appliedInsetsRef.current = next
       moveCamera(map, { center: [at.lon, at.lat], padding: cameraPadding(next) }, false)
-    }, INSET_SETTLE_MS)
+    }
+    timer = setTimeout(settle, INSET_SETTLE_MS)
     return () => clearTimeout(timer)
   }, [insetTop, insetBottom])
 

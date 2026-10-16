@@ -25,6 +25,7 @@ import {
   activeFilterCount,
   boundsContain,
   formatAt,
+  isNearViewPoint,
   nearbyPoints,
   parseAt,
   parseHidden,
@@ -46,7 +47,6 @@ import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useLineDetail } from '@/hooks/useLineDetail'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
-import { useNow } from '@/hooks/useNow'
 import { useShareUrl } from '@/hooks/useShareUrl'
 import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
 import { discoveryHref, type DiscoveryResult } from '@/lib/discovery'
@@ -57,11 +57,6 @@ import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 import { lineColor } from '@/components/transitMode'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
-
-/** Jak często odświeżamy wiek pobrania w nagłówku (jak odczyty pojazdów w `useCityVehicles`). */
-const AGE_TICK_MS = 10_000
-/** Kadr, którego środek leży tak blisko pozycji GPS (~10 m), uznajemy za wyśrodkowany na użytkowniku. */
-const ON_USER_DEG = 1e-4
 
 const LAST_VIEW_KEY = 'monitor.map.view.v1'
 /** `localStorage` to dane spoza aplikacji — schemat, nie asercja typu (AGENTS.md #4). */
@@ -138,15 +133,19 @@ export default function CityMapPage() {
   const [nearbyPending, setNearbyPending] = useState(false)
   const userLocation = useUserLocation()
   const entryRef = useRef<{ flag: boolean; here: UserPoint | null } | null>(null)
-  // Ostatnia pozycja GPS użytkownika (tylko w pamięci). Kadr wyśrodkowany na niej NIE trafia do `?at=` ani do localStorage
-  // (adr/0012, #4). Decyduje geometria przy każdym `moveend`, nie zatrzask: przesunięcie programowe (trasa, śledzenie) zdejmuje
-  // blokadę samo, a spóźnione `moveend` z przerwanej animacji nie odblokuje zapisu dolotu do użytkownika.
-  const locatedViewRef = useRef<{ lat: number; lon: number } | null>(null)
+  // Ostatnia pozycja GPS użytkownika (tylko w pamięci) i zatrzask. Kadr w pobliżu niej NIE trafia do `?at=` ani do localStorage
+  // (adr/0012, #4) — zapis blokuje którekolwiek: (a) zatrzask ustawiony przy „Mojej lokalizacji" (zoom kółkiem/szczypnięciem/klawiaturą
+  // i strzałki przesuwają środek bez `dragstart`), (b) środek kadru w promieniu `PRIVACY_RADIUS_PX` od punktu. Zatrzask zdejmuje WYŁĄCZNIE
+  // przeciągnięcie albo świadomy ruch programowy (`liftViewBlock`), nigdy `moveend` (spóźnione `moveend` z przerwanej animacji
+  // odblokowałoby zapis dolotu do użytkownika); promień zostaje zawsze (powrót w pobliże użytkownika).
+  const locatedViewRef = useRef<{ lat: number; lon: number; latched: boolean } | null>(null)
+  const liftViewBlock = (): void => {
+    if (locatedViewRef.current !== null) locatedViewRef.current.latched = false
+  }
   // Insety kamery (px): góra = pasek kontrolek nad mapą, dół = widoczny arkusz (tylko telefon). Mierzone, nie zgadywane.
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [topInset, setTopInset] = useState(0)
   const [sheetInset, setSheetInset] = useState(0)
-  const now = useNow(AGE_TICK_MS)
   // Arkusz z „Moją lokalizacją" jest przemontowywany przy każdej zmianie obiektu (`key`), więc fokus trzeba oddać ręcznie.
   const locateButtonRef = useRef<HTMLButtonElement>(null)
   const locateHadFocusRef = useRef(false)
@@ -203,7 +202,7 @@ export default function CityMapPage() {
     (next: MapView) => {
       setView(next)
       const here = locatedViewRef.current
-      if (here !== null && Math.abs(next.center.lat - here.lat) < ON_USER_DEG && Math.abs(next.center.lon - here.lon) < ON_USER_DEG) return
+      if (here !== null && (here.latched || isNearViewPoint(next.center, next.zoom, here))) return
       const at = formatAt({ ...next.center, zoom: next.zoom })
       patchUrlParams({ at })
       saveLastView(city, at)
@@ -350,6 +349,7 @@ export default function CityMapPage() {
   }
 
   function focusOn(lat: number, lon: number): void {
+    liftViewBlock()
     setFocus({ lat, lon, nonce: Date.now() })
   }
 
@@ -358,7 +358,7 @@ export default function CityMapPage() {
     setSelection(null)
     openNearbyAround(point)
     if (fly) focusOn(point.lat, point.lon)
-    locatedViewRef.current = { lat: point.lat, lon: point.lon }
+    locatedViewRef.current = { lat: point.lat, lon: point.lon, latched: true }
     // Ewentualne `?at=` (np. z linku) mogło już zawierać tę pozycję — usuwamy je razem z kadrem.
     patchUrlParams({ at: null })
   }
@@ -494,7 +494,7 @@ export default function CityMapPage() {
           ? 'pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne'
           : vehiclesState.lastSuccessAt !== null
             ? // Kiedy PRZEGLĄDARKA pobrała odczyt (rośnie z zegarem) — wiek GPS pojazdów jest osobno („Pozycje sprzed", ui-copy.md).
-              `pobrano ${formatAgo(Math.round((now - vehiclesState.lastSuccessAt) / 1000))}`
+              `pobrano ${formatAgo(Math.round((vehiclesState.now - vehiclesState.lastSuccessAt) / 1000))}`
             : 'pozycje pojazdów na żywo'
 
   const problems = [
@@ -507,6 +507,12 @@ export default function CityMapPage() {
   // Karta wybranego obiektu ma pierwszeństwo; po jej zamknięciu wraca panel linii.
   const selectionPinned = selection !== null ? pinnedItemFor(selection) : null
   const following = followId !== null && selection?.kind === 'vehicle' && selection.id === followId && liveVehicle !== null
+  // Kadr trasy (wybór linii) i śledzenie pojazdu przenoszą kamerę z dala od użytkownika — świadomie, bez przeciągnięcia.
+  const routeKey = route?.key ?? null
+  useEffect(() => {
+    if (routeKey !== null || following) liftViewBlock()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `liftViewBlock` czyta tylko ref
+  }, [routeKey, following])
   const card =
     selection !== null ? (
       <MapCard
@@ -699,7 +705,10 @@ export default function CityMapPage() {
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
               onViewChange={onViewChange}
-              onUserMove={() => setFollowId(null)}
+              onUserMove={() => {
+                setFollowId(null)
+                liftViewBlock()
+              }}
             />
           )}
 
@@ -756,7 +765,10 @@ export default function CityMapPage() {
           {/* Szeroki ekran: pozycja związana z `top-[200px]` wrappera legendy niżej — przesuwasz przycisk (albo „Moja lokalizacja"), przesuń legendę. */}
           <button
             type="button"
-            onClick={() => setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })}
+            onClick={() => {
+              liftViewBlock()
+              setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })
+            }}
             aria-label={`Pokaż całe miasto — ${feed.name}`}
             title="Pokaż całe miasto"
             className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"

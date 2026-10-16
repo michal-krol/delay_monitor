@@ -170,6 +170,14 @@ selected object sits in the free area, not under the toolbar or the sheet.
 - **MapLibre 6 keeps camera padding on the transform** and by default ADDS `fitBounds` padding to it. `fitRoute` therefore passes
   `absolutePadding: true` (top ≥ 150 or inset + 16, bottom ≥ 40 or inset + 16); without it a route fitted after a focus counts the toolbar twice.
   `getCenter()` is the centre of the padded (free) area — what `?at=` stores.
-- **Privacy:** `onViewChange` never persists a view whose centre is within ~10 m of the user's last GPS point (`locatedViewRef` holds the point; geometry
-  at every `moveend`, no latch). A programmatic move away (route fit, vehicle follow) saves again with no extra code, and a stale `moveend` of an
-  interrupted animation cannot unblock the later arrival at the user.
+- **A correcting ease never interrupts a flight and never pulls the camera back.** The settle timer re-arms while `map.isMoving()` (a focus flight
+  started with the previous sheet's insets, the new sheet reports one render later) and skips the ease when the selection is no longer inside
+  `getBounds()` (the user panned away). A focus with nothing selected keeps the padding it flew with.
+- **Privacy (fail closed):** `onViewChange` does not write `?at=` / `monitor.map.view.v1` while EITHER (a) the latch set by „Moja lokalizacja" /
+  `?nearby=1` is up, OR (b) the view centre is within `PRIVACY_RADIUS_PX` (150 px, `isNearViewPoint()` in `mapData.ts`; metres = 150 · 156543.03 · cos φ / 2^zoom)
+  of the user's last GPS point. The point lives only in the `locatedViewRef` ref. Wheel/pinch/keyboard zoom around an off-centre point moves the centre by up to
+  half the gesture offset (40–55 m at z16 for 100–150 px) and arrow keys pan without `dragstart` — hence the latch AND the radius. The latch is lifted ONLY by a
+  `dragstart`, `focusOn()` (any deliberate focus), a route fit (`route.key` set) or follow start — NEVER on `moveend`: a stale `moveend` of an animation the
+  locate flight interrupted would otherwise unblock the arrival at the user. The radius stays after the latch is gone, so returning near the user is blocked
+  again (a city view within 150 px of the user is therefore not persisted either — accepted, fails closed). Source-verified (maplibre 6.13): `getCenter()` is the
+  padded-area centre, so padding does not offset the stored centre; jsdom cannot test that.
