@@ -620,7 +620,8 @@ export default function CityMapPage() {
   // „Moja lokalizacja": z arkuszem jedzie w jego slocie `above` (peek go nie zakrywa), bez — przy prawej krawędzi mapy.
   const locateControl = (
     <LocateControl
-      className={sheetOpen ? 'relative self-end' : 'absolute right-3 top-[144px] z-10'}
+      className={sheetOpen ? 'relative shrink-0' : 'absolute right-3 top-[144px] z-10'}
+      messagesAbove={sheetOpen}
       buttonRef={locateButtonRef}
       onLocated={(point) => {
         // Fokus na przycisku (albo już zgubiony przy „Spróbuj ponownie") wróci tu po zamknięciu „W pobliżu".
@@ -742,16 +743,20 @@ export default function CityMapPage() {
               initialSnap={cardKey === 'overview:list' ? 'half' : 'peek'}
               onVisibleHeight={setSheetInset}
               above={
-                <>
-                  {statusStack}
-                  {outsideFeed && (
-                    <p role="status" className="glass-strong rounded-full px-4 py-1.5 text-xs text-text-secondary">
-                      Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
-                    </p>
-                  )}
-                  {/* Przycisk jedzie z arkuszem (ostatni = przy samej krawędzi), więc peek ani half go nie zakrywa. */}
+                // JEDEN rząd przy krawędzi arkusza: statusy po lewej (zajmują resztę szerokości i zawijają tekst), „Moja lokalizacja" po prawej,
+                // oba przy dolnej krawędzi. Dwa rzędy jeden nad drugim (PR10 T5) wypychały trwały komunikat pod nagłówek strony przy `full`
+                // (nad arkuszem ~55 px), a przycisk w rzędzie z nim zostaje widoczny także przy peek/half. `!`: sam rząd nie łapie gestów mapy.
+                <div className="pointer-events-none! flex w-full items-end justify-between gap-2">
+                  <div className="pointer-events-none flex min-w-0 flex-1 flex-col items-start gap-1.5">
+                    {statusStack}
+                    {outsideFeed && (
+                      <p role="status" className="glass-strong pointer-events-auto rounded-full px-4 py-1.5 text-xs text-text-secondary">
+                        Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
+                      </p>
+                    )}
+                  </div>
                   {locateControl}
-                </>
+                </div>
               }
             >
               {card ?? overviewPanel}

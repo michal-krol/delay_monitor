@@ -375,6 +375,20 @@ describe('CityMapPage — overview sheet (phone)', () => {
     expect(inside(screen.getByRole('button', { name: 'Moja lokalizacja' }), '.bottom-sheet__above')).toBe(true)
   })
 
+  it('statuses and the locate control share ONE bottom-aligned row of the above slot (a status never hides above the sheet edge)', async () => {
+    state.rail = { stations: null, error: true }
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    const locate = screen.getByRole('button', { name: 'Moja lokalizacja' })
+    const problem = await screen.findByText('Nie udało się wczytać stacji kolejowych — ponawiam.')
+    const row = locate.closest('.bottom-sheet__above > div') as HTMLElement // eslint-disable-line testing-library/no-node-access -- układ slotu nie ma ról
+    expect(row).not.toBeNull()
+    expect(row).toHaveClass('flex', 'items-end', 'justify-between')
+    expect(row).toContainElement(problem)
+    // Status po lewej zajmuje resztę szerokości i zawija tekst (`min-w-0 flex-1`), przycisk zostaje po prawej.
+    expect(problem.closest('.min-w-0.flex-1')).not.toBeNull() // eslint-disable-line testing-library/no-node-access -- układ slotu nie ma ról
+  })
+
   it('"Lista" opens the overview sheet at half and a second press brings it back to peek', async () => {
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())

@@ -4,7 +4,11 @@ import type { Ref } from 'react'
 import { LocateIcon, ICON_SIZE } from '../icons'
 import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
 
-const MESSAGE = 'glass-chrome-strong border border-surface-border shadow-md pointer-events-auto absolute right-14 top-0 w-max max-w-[min(18rem,calc(100vw-5rem))] rounded-xl px-3 py-1.5 text-sm'
+const MESSAGE_BASE = 'glass-chrome-strong border border-surface-border shadow-md pointer-events-auto w-max rounded-xl px-3 py-1.5 text-sm'
+/** Obok przycisku (szeroki ekran): wysuwa się w lewo od przycisku przy prawej krawędzi mapy. */
+const MESSAGE_BESIDE = `${MESSAGE_BASE} absolute right-14 top-0 max-w-[min(18rem,calc(100vw-5rem))]`
+/** W rzędzie slotu `above` arkusza (telefon): nad przyciskiem, w przepływie — nie nachodzi na statusy obok; węższy, żeby statusy miały miejsce. */
+const MESSAGE_ABOVE = `${MESSAGE_BASE} max-w-[min(18rem,60vw)]`
 
 /**
  * „Moja lokalizacja" (adr/0012): pozycja tylko po kliknięciu, jednorazowo, w pamięci providera.
@@ -15,9 +19,12 @@ export function LocateControl({
   onLocated,
   className = '',
   buttonRef,
+  messagesAbove = false,
 }: {
   onLocated: (point: UserPoint) => void
   className?: string
+  /** Komunikaty w przepływie nad przyciskiem (rząd slotu `above` arkusza); domyślnie wysuwają się w lewo od przycisku. */
+  messagesAbove?: boolean
   /** Strona oddaje tu fokus, gdy arkusz z kontrolką się przemontuje (zmiana obiektu zabiera jej fokus). */
   buttonRef?: Ref<HTMLButtonElement>
 }) {
@@ -28,8 +35,10 @@ export function LocateControl({
     if (point !== null) onLocated(point)
   }
 
+  const MESSAGE = messagesAbove ? MESSAGE_ABOVE : MESSAGE_BESIDE
+
   return (
-    <div className={`pointer-events-none ${className}`}>
+    <div className={`pointer-events-none ${messagesAbove ? 'flex flex-col-reverse items-end gap-1.5' : ''} ${className}`}>
       <button
         ref={buttonRef}
         type="button"

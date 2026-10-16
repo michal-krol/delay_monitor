@@ -666,9 +666,10 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
       return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2))
     })
 
-  // Od PR10 w slocie `above` jedzie też „Moja lokalizacja" — jako OSTATNIA (przy samej krawędzi, decyzja T5), więc przy „full”
-  // (nad arkuszem ~55 px) mieści się ona, a chipy i status wyżej mogą się uciąć. Status przy „full”: test.fixme niżej.
-  test('chipy filtrów i komunikaty statusu zostają nad arkuszem przy half, a „Moja lokalizacja" przy full', async ({ page }) => {
+  // Od PR10 w slocie `above` statusy i „Moja lokalizacja" stoją w JEDNYM rzędzie przy krawędzi arkusza (status po lewej, przycisk po prawej).
+  // Dwa rzędy jeden nad drugim wypychały trwały komunikat pod nagłówek strony przy „full” (nad arkuszem ~55 px, bug z 7a). Chipy filtrów
+  // leżą wyżej i przy „full” mogą się uciąć (decyzja usera, PR4) — tego nie sprawdzamy.
+  test('chipy filtrów i komunikaty statusu zostają nad arkuszem przy half; status i „Moja lokalizacja" także przy full', async ({ page }) => {
     await page.route('**/api/rail-stations/list**', (route) => route.abort())
     await openMap(page, `${CITY_MAP}?hide=busStops`)
     await openStopCard(page, 'Centrum')
@@ -676,7 +677,7 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     const problem = page.getByRole('status').filter({ hasText: 'Nie udało się wczytać stacji kolejowych — ponawiam.' })
     const locate = page.getByRole('button', { name: 'Moja lokalizacja' })
     await expect(problem).toBeAttached({ timeout: READY })
-    for (const [snap, visible] of [['half', [chips, problem, locate]], ['full', [locate]]] as const) {
+    for (const [snap, visible] of [['half', [chips, problem, locate]], ['full', [problem, locate]]] as const) {
       await clickHandleTo(page, snap)
       for (const locator of visible) {
         await expect(locator).toBeInViewport()
@@ -688,19 +689,35 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await expect(page).not.toHaveURL(/[?&]hide=/)
   })
 
-  // BUG (PR10 T5, zgłoszony w task-7a-report.md): przed T5 status był ostatni w stosie `above` i przy „full” widoczny (PR4); teraz przycisk
-  // lokalizacji zajmuje rząd przy krawędzi i trwały komunikat o awarii leży pod nagłówkiem strony (y=52..86 przy górze mapy 72).
-  test.fixme('komunikat o awarii zostaje widoczny także przy full (decyzja: status czy „Moja lokalizacja" przy krawędzi)', async ({ page }) => {
-    await page.route('**/api/rail-stations/list**', (route) => route.abort())
-    await openMap(page)
-    await openStopCard(page, 'Centrum')
-    const problem = page.getByRole('status').filter({ hasText: 'Nie udało się wczytać stacji kolejowych — ponawiam.' })
-    await expect(problem).toBeAttached({ timeout: READY })
-    await clickHandleTo(page, 'half')
-    await clickHandleTo(page, 'full')
-    await expect(problem).toBeInViewport()
-    expect(await uncovered(problem), 'full: zasłonięte').toBe(true)
-  })
+  // Wąski telefon (320 px): długi status zawija tekst w kolumnie obok przycisku — nie nachodzi na niego, a przycisk zachowuje cel 44 px.
+  // Odmowa lokalizacji (komunikat NAD przyciskiem, w przepływie) też nie nachodzi na status obok.
+  for (const width of [375, 320]) {
+    test(`${width} px: długi status zawija się obok „Moja lokalizacja", bez nachodzenia, cel 44 px`, async ({ page }) => {
+      await stubGeolocation(page, 'deny')
+      await page.route('**/api/rail-stations/list**', (route) => route.abort())
+      await page.setViewportSize({ width, height: 812 })
+      await openMap(page)
+      await openStopCard(page, 'Centrum')
+      const problem = page.getByRole('status').filter({ hasText: 'Nie udało się wczytać stacji kolejowych — ponawiam.' })
+      const locate = page.getByRole('button', { name: 'Moja lokalizacja' })
+      await expect(problem).toBeVisible({ timeout: READY })
+      await locate.click()
+      const denied = page.getByRole('status').filter({ hasText: 'Brak dostępu do lokalizacji' })
+      await expect(denied).toBeVisible()
+      const [p, l, d] = [(await problem.boundingBox())!, (await locate.boundingBox())!, (await denied.boundingBox())!]
+      const overlap = (a: typeof p, b: typeof p) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+      expect(overlap(p, l), 'status nachodzi na przycisk').toBe(false)
+      expect(overlap(p, d), 'status nachodzi na komunikat o odmowie').toBe(false)
+      expect(overlap(d, l), 'komunikat o odmowie nachodzi na przycisk').toBe(false)
+      expect(l.width).toBeGreaterThanOrEqual(44)
+      expect(l.height).toBeGreaterThanOrEqual(44)
+      expect(p.x + p.width).toBeLessThanOrEqual(width)
+      expect(d.x + d.width).toBeLessThanOrEqual(width)
+      expect(l.x + l.width).toBeLessThanOrEqual(width)
+      // Dolna krawędź statusu i przycisku w jednej linii (rząd wyrównany do krawędzi arkusza).
+      expect(Math.abs(p.y + p.height - (l.y + l.height))).toBeLessThanOrEqual(1)
+    })
+  }
 
   test('pełny arkusz: treść panelu przewija się w środku, niższy — nie', async ({ page }) => {
     await openMap(page)

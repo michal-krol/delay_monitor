@@ -66,6 +66,20 @@ describe('LocateControl', () => {
     expect(onLocated).not.toHaveBeenCalled()
   })
 
+  it('messagesAbove puts the message in the flow above the button instead of floating beside it (no overlap with neighbours in a row)', async () => {
+    const geo = stubGeolocation()
+    render(
+      <UserLocationProvider>
+        <LocateControl onLocated={vi.fn()} messagesAbove />
+      </UserLocationProvider>
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].fail(failure(1)))
+    const status = screen.getByRole('status')
+    expect(status).not.toHaveClass('absolute')
+    expect(status.parentElement).toHaveClass('flex-col-reverse') // eslint-disable-line testing-library/no-node-access -- układ, bez roli
+  })
+
   it('unavailable explains that the browser has no location', async () => {
     const { button } = setup()
     fireEvent.click(button())
