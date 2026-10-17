@@ -68,7 +68,7 @@ function AlertCard({ alert, onShowMap }: { alert: AlertRecord; onShowMap?: (aler
     <li className="min-w-0 rounded-lg border border-surface-border bg-surface text-sm has-[details[open]]:border-primary has-[details[open]]:bg-[color-mix(in_srgb,var(--primary-soft),var(--surface))]">
       <details className="group">
         <summary className="flex min-h-11 w-full cursor-pointer list-none flex-wrap items-start gap-x-2 gap-y-1 p-3 [&::-webkit-details-marker]:hidden">
-          <span className="min-w-[10rem] flex-1">
+          <span className="min-w-[min(10rem,100%)] flex-1">
             {alert.routes.length > 0 && (
               <span className="mb-1 flex flex-wrap gap-1">
                 {[...new Set(alert.routes)].map((route) => (

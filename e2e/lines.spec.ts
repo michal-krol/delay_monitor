@@ -701,6 +701,8 @@ test.describe('rozkład linii (PR8)', () => {
     for (const name of columns) {
       if (!lgUp(page)) await dayChips(page).getByRole('button', { name }).click()
       const column = dayColumn(page, name)
+      // Zmiana dnia idzie w `startTransition` (crossfade): kolumna pojawia się chwilę po kliknięciu.
+      await expect(column).toBeVisible()
       const own = (await column.getByRole('button').count()) + (await column.getByText('Brak kursów w tej kategorii dnia').count())
       expect(own, name).toBeGreaterThan(0)
     }
@@ -726,7 +728,7 @@ test.describe('rozkład linii (PR8)', () => {
   })
 
   for (const width of [375, 320]) {
-    test(`${width} px: rozkład w każdej kategorii nie przewija strony w poziomie, także przy tekście 200%`, async ({ page }, testInfo) => {
+    test(`${width} px: strona z rozkładem w każdej kategorii nie przewija się w poziomie, także przy tekście 200%`, async ({ page }, testInfo) => {
       test.skip(!isDesktop(testInfo), 'pomiar clientWidth na desktop-chromium; mobile ma własny viewport')
       await page.setViewportSize({ width, height: 812 })
       await openTimetableAt(page, '')
@@ -741,14 +743,9 @@ test.describe('rozkład linii (PR8)', () => {
         document.documentElement.style.fontSize = '200%'
       })
       await dayChips(page).getByRole('button', { name: 'Dni robocze' }).click()
-      // Przy 200% tekstu strona jako całość może przewijać się przez przycisk „Zmień kierunek” z PR7 (poza tym ekranem);
-      // rozkład (chipy dnia i kolumna) musi mieścić się w oknie.
-      const timetableOverflow = await page.evaluate(() => {
-        const limit = document.documentElement.clientWidth + 1
-        const scope = document.querySelector('[role="group"][aria-label="Kategoria dnia"]')?.parentElement
-        return [...(scope?.querySelectorAll('*') ?? [])].filter((n) => n.getBoundingClientRect().right > limit).length
-      })
-      expect(timetableOverflow).toBe(0)
+      // Cała strona, nie tylko rozkład: przycisk „Zmień kierunek” (PR7) zawija się pod nagłówek zamiast wypychać okno.
+      const { scrollWidth, clientWidth } = await overflow()
+      expect(scrollWidth, '200% tekstu').toBeLessThanOrEqual(clientWidth)
     })
   }
 
