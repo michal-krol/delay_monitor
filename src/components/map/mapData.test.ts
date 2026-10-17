@@ -4,6 +4,10 @@ import type { CityStop } from '@/lib/gtfs/query'
 import { LINE_PALETTE, lineColor } from '../transitMode'
 import {
   MODE_COLOR,
+  FADE_START_SEC,
+  HIDE_AFTER_SEC,
+  paintUnchanged,
+  positionsUnchanged,
   activeFilterCount,
   UNKNOWN_COLOR,
   boundsContain,
@@ -193,6 +197,33 @@ describe('interpolatePoints', () => {
     expect(frame.features[0].geometry.coordinates[1]).toBeCloseTo(52.1)
     expect(frame.features[1].geometry.coordinates).toEqual([21.5, 52.5])
     expect(interpolatePoints(new Map([['a', [21.0, 52.0]]]), to, 1)).toEqual(to)
+  })
+})
+
+describe('paintUnchanged / positionsUnchanged (the 10 s age clock hands the map a new array every tick)', () => {
+  const build = (vehicles: CityVehicle[]) => vehiclesToGeoJSON(vehicles, new Set(), null)
+
+  it('a re-aged reading that stays fully opaque paints identically (no setData needed)', () => {
+    expect(paintUnchanged(build([vehicle({ ageSec: 5 })]), build([vehicle({ ageSec: 15 })]))).toBe(true)
+    expect(paintUnchanged(build([vehicle({ ageSec: FADE_START_SEC })]), build([vehicle({ ageSec: 5 })]))).toBe(true)
+  })
+
+  it('the opacity step, a hidden vehicle, a move and a different list each change the paint', () => {
+    const fresh = build([vehicle()])
+    expect(paintUnchanged(fresh, build([vehicle({ ageSec: FADE_START_SEC + 10 })]))).toBe(false)
+    expect(paintUnchanged(fresh, build([vehicle({ ageSec: HIDE_AFTER_SEC + 1 })]))).toBe(false)
+    expect(paintUnchanged(fresh, build([vehicle({ lon: 21.1 })]))).toBe(false)
+    expect(paintUnchanged(fresh, build([vehicle(), vehicle({ id: 'v2' })]))).toBe(false)
+    expect(paintUnchanged(fresh, build([vehicle({ id: 'other' })]))).toBe(false)
+    expect(paintUnchanged(fresh, build([vehicle({ bearing: 90 })]))).toBe(false)
+  })
+
+  it('positionsUnchanged tolerates paint changes, removals and arrivals but not a moved vehicle', () => {
+    const before = build([vehicle({ id: 'a' }), vehicle({ id: 'b' })])
+    expect(positionsUnchanged(before, build([vehicle({ id: 'a', ageSec: FADE_START_SEC + 30 }), vehicle({ id: 'b' })]))).toBe(true)
+    expect(positionsUnchanged(before, build([vehicle({ id: 'a', ageSec: HIDE_AFTER_SEC + 1 }), vehicle({ id: 'b' })]))).toBe(true)
+    expect(positionsUnchanged(before, build([vehicle({ id: 'a' }), vehicle({ id: 'b' }), vehicle({ id: 'c', lon: 21.3 })]))).toBe(true)
+    expect(positionsUnchanged(before, build([vehicle({ id: 'a', lon: 21.1 }), vehicle({ id: 'b' })]))).toBe(false)
   })
 })
 

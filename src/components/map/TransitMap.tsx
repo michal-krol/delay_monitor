@@ -19,6 +19,8 @@ import {
   railToGeoJSON,
   stopsToGeoJSON,
   vehiclesToGeoJSON,
+  paintUnchanged,
+  positionsUnchanged,
   type LayerKey,
   type MapCamera,
   type PointCollection,
@@ -77,6 +79,7 @@ const VISIBLE_KIND: Record<string, VisibleItem['kind']> = { vehicles: 'vehicle',
 /** Płynny przejazd między odczytami (co 15 s): ~1 s, ~15 klatek. */
 const GLIDE_MS = 1000
 const GLIDE_FRAME_MS = 66
+type GlideRun = { raf: number; target: PointCollection }
 
 /** Świadome „skupienie" kamery (przelot do obiektu, korekta po zmianie paddingu): krótko, żeby arkusz i mapa jechały razem. */
 const CAMERA_MS = 320
@@ -463,9 +466,11 @@ export function TransitMap({
   const selectedAtRef = useRef<{ lat: number; lon: number } | null>(null)
   /** Insety, z którymi kamera była ostatnio ustawiona (`null` = padding kamery pochodzi z kadru trasy, nie z insetów). */
   const appliedInsetsRef = useRef<MapInsets | null>(insets)
-  /** Ostatnio narysowane pozycje pojazdów — punkt startu płynnego przejazdu. */
+  /** Pozycje z ostatniego celu przejazdu (nie z ostatniej klatki) — punkt startu następnego płynnego przejazdu. */
   const drawnRef = useRef(new Map<string, [number, number]>())
   const lastVehiclesRef = useRef<CityVehicle[] | null>(null)
+  /** Trwający płynny przejazd: kolejne klatki biorą `target` stąd, więc takt zegara może mu podmienić skład bez przerywania. */
+  const glideRef = useRef<GlideRun | null>(null)
   useEffect(() => {
     onSelectRef.current = onSelect
     onViewChangeRef.current = onViewChange
@@ -582,23 +587,32 @@ export function TransitMap({
 
   useEffect(() => {
     const target = vehiclesToGeoJSON(vehicles, hidden, routeId, onlyLines)
+    const previous = dataRef.current.vehicles
     dataRef.current.vehicles = target
+    const reading = lastVehiclesRef.current !== null && lastVehiclesRef.current !== vehicles
+    lastVehiclesRef.current = vehicles
+    // Zegar wieku (`useCityVehicles`, co 10 s) podaje nową tablicę z tymi samymi punktami i, poza progiem wygaszenia/ukrycia
+    // (`mapData`), tym samym obrazem: bez zmiany nie ma `setData` (ani `idle` z listą „W widoku"), a trwający przejazd biegnie dalej.
+    if (paintUnchanged(previous, target)) return
     const source = mapRef.current?.getSource('vehicles') as GeoJSONSource | undefined
+    const running = glideRef.current
     const from = drawnRef.current
     drawnRef.current = new Map(target.features.map((f) => [String(f.properties.id), f.geometry.coordinates]))
-    // Płynnie tylko nowy ODCZYT pozycji — zmiana filtra/linii to skok, nie przejazd. Samo postarzenie wieku (nowa tablica,
-    // te same punkty — `useCityVehicles` robi to co 10 s) przerysowuje raz, bez ~15 klatek animacji.
+    if (running !== null && positionsUnchanged(previous, target)) {
+      // Takt (postarzenie, ukrycie wygasłego, filtr) w trakcie przejazdu: nowy skład dostają kolejne klatki — bez przerwania i skoku do celu.
+      running.target = target
+      return
+    }
+    if (running !== null) {
+      cancelAnimationFrame(running.raf)
+      glideRef.current = null
+    }
+    // Płynnie tylko nowy ODCZYT pozycji — zmiana filtra/linii to skok, nie przejazd.
     const moved = target.features.some((f) => {
       const was = from.get(String(f.properties.id))
       return was !== undefined && (was[0] !== f.geometry.coordinates[0] || was[1] !== f.geometry.coordinates[1])
     })
-    const glide =
-      moved &&
-      lastVehiclesRef.current !== null &&
-      lastVehiclesRef.current !== vehicles &&
-      source !== undefined &&
-      !prefersReducedMotion()
-    lastVehiclesRef.current = vehicles
+    const glide = moved && reading && source !== undefined && !prefersReducedMotion()
     if (source === undefined) return
     if (!glide) {
       source.setData(target)
@@ -606,19 +620,27 @@ export function TransitMap({
     }
     const start = performance.now()
     let lastFrame = 0
-    let raf = 0
+    const run: GlideRun = { raf: 0, target }
+    glideRef.current = run
     const step = (now: number): void => {
       const t = Math.min(1, (now - start) / GLIDE_MS)
       if (t === 1 || now - lastFrame >= GLIDE_FRAME_MS) {
         lastFrame = now
-        source.setData(interpolatePoints(from, target, t))
+        source.setData(interpolatePoints(from, run.target, t))
       }
-      if (t < 1) raf = requestAnimationFrame(step)
+      if (t < 1) run.raf = requestAnimationFrame(step)
+      else glideRef.current = null
     }
-    raf = requestAnimationFrame(step)
+    run.raf = requestAnimationFrame(step)
     // ponytail: ~15 × setData całej warstwy na odczyt; przy >2 tys. pojazdów przejść na feature-state/shader.
-    return () => cancelAnimationFrame(raf)
   }, [vehicles, hidden, routeId, onlyLines])
+  // Przejazdu nie przerywa kolejne uruchomienie efektu (takt zegara) — kończy go dopiero odmontowanie.
+  useEffect(
+    () => () => {
+      if (glideRef.current !== null) cancelAnimationFrame(glideRef.current.raf)
+    },
+    []
+  )
 
   const pinnedItemsKey = pinnedItems.map((f) => `${f.lat},${f.lon}`).join('|')
   useEffect(() => {

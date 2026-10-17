@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as maplibregl from 'maplibre-gl'
 import { TransitMap, type MapHit } from './TransitMap'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
-import { MODE_COLOR, type LayerKey } from './mapData'
+import { FADE_START_SEC, HIDE_AFTER_SEC, MODE_COLOR, type LayerKey } from './mapData'
 import { LINE_PALETTE } from '../transitMode'
 
 const sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>()
@@ -235,6 +235,92 @@ describe('TransitMap', () => {
     expect(frames).toHaveLength(0)
     expect(setData.mock.calls.at(-1)![0].features[0].properties.opacity).toBeLessThan(1)
     vi.unstubAllGlobals()
+  })
+
+  describe('the 10 s age clock (PR10): ticks hand over a new array with unchanged positions', () => {
+    const cancel = vi.fn()
+    let frames: FrameRequestCallback[] = []
+
+    async function glidingTowards(lon: number) {
+      reducedMotion = false
+      frames = []
+      cancel.mockClear()
+      vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+      vi.stubGlobal('cancelAnimationFrame', cancel)
+      const view = await mounted()
+      view.rerender(<TransitMap {...base} vehicles={[vehicle(), vehicle({ id: 'b', lon: 21.05 })]} />)
+      const setData = sources.get('vehicles')!.setData
+      setData.mockClear()
+      frames.length = 0
+      view.rerender(<TransitMap {...base} vehicles={[vehicle({ lon }), vehicle({ id: 'b', lon: 21.05 })]} />)
+      const start = performance.now() // after the effect: its own start is earlier, so start + 1000 is past the end
+      frames.shift()!(start + 500) // połowa przejazdu
+      setData.mockClear()
+      cancel.mockClear()
+      return { ...view, setData, start }
+    }
+
+    afterEach(() => vi.unstubAllGlobals())
+
+    it('a tick that changes nothing visible (still fully opaque) calls no setData and schedules no frame', async () => {
+      reducedMotion = false
+      frames = []
+      vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+      vi.stubGlobal('cancelAnimationFrame', cancel)
+      const { rerender } = await mounted()
+      rerender(<TransitMap {...base} vehicles={[vehicle()]} />)
+      const setData = sources.get('vehicles')!.setData
+      setData.mockClear()
+      rerender(<TransitMap {...base} vehicles={[vehicle({ ageSec: 15 })]} />)
+      rerender(<TransitMap {...base} vehicles={[vehicle({ ageSec: 25 })]} />)
+      expect(setData).not.toHaveBeenCalled()
+      expect(frames).toHaveLength(0)
+    })
+
+    it('a tick during a glide does not cut it: no cancel, no snap to the end, the last frame still lands on the new reading', async () => {
+      const { rerender, setData, start } = await glidingTowards(21.2)
+      rerender(<TransitMap {...base} vehicles={[vehicle({ lon: 21.2, ageSec: 15 }), vehicle({ id: 'b', lon: 21.05, ageSec: 15 })]} />)
+      expect(cancel).not.toHaveBeenCalled()
+      expect(setData).not.toHaveBeenCalled()
+      expect(frames).toHaveLength(1)
+      frames.shift()!(start + 1000)
+      const [a] = setData.mock.calls.at(-1)![0].features
+      expect(a.geometry.coordinates[0]).toBe(21.2)
+    })
+
+    it('a tick during a glide that changes the paint (fade) lets the running frames draw it, without a snap', async () => {
+      const { rerender, setData, start } = await glidingTowards(21.2)
+      rerender(<TransitMap {...base} vehicles={[vehicle({ lon: 21.2, ageSec: FADE_START_SEC + 45 }), vehicle({ id: 'b', lon: 21.05 })]} />)
+      expect(cancel).not.toHaveBeenCalled()
+      expect(setData).not.toHaveBeenCalled()
+      frames.shift()!(start + 1000)
+      const [a, b] = setData.mock.calls.at(-1)![0].features
+      expect(a.geometry.coordinates[0]).toBe(21.2)
+      expect(a.properties.opacity).toBeCloseTo(0.5, 1)
+      expect(b.properties.opacity).toBe(1)
+    })
+
+    it('a vehicle that ages out mid-glide leaves with the next frame while the others keep gliding', async () => {
+      const { rerender, setData, start } = await glidingTowards(21.2)
+      rerender(<TransitMap {...base} vehicles={[vehicle({ lon: 21.2 }), vehicle({ id: 'b', lon: 21.05, ageSec: HIDE_AFTER_SEC + 10 })]} />)
+      expect(cancel).not.toHaveBeenCalled()
+      frames.shift()!(start + 1000)
+      const ids = setData.mock.calls.at(-1)![0].features.map((f: { properties: { id: string } }) => f.properties.id)
+      expect(ids).toEqual(['v1'])
+    })
+
+    it('unmounting cancels the running glide (the effect no longer does it on every tick)', async () => {
+      const { unmount } = await glidingTowards(21.2)
+      unmount()
+      expect(cancel).toHaveBeenCalledTimes(1)
+    })
+
+    it('a new reading mid-glide still replaces it (positions moved again)', async () => {
+      const { rerender } = await glidingTowards(21.2)
+      rerender(<TransitMap {...base} vehicles={[vehicle({ lon: 21.3 }), vehicle({ id: 'b', lon: 21.05 })]} />)
+      expect(cancel).toHaveBeenCalledTimes(1) // the old loop is cancelled (the stub keeps its queued frame), a new one is queued
+      expect(frames).toHaveLength(2)
+    })
   })
 
   it('casing under the backbone is dark red for yellow metro and white otherwise; the route casing follows the route colour', async () => {

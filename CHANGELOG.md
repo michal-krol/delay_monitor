@@ -192,6 +192,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Wiek pozycji pojazdu na mapie: „Pozycja sprzed N s” to wiek znacznika GPS (nie czas pobrania danych), rośnie
   razem z zegarem strony, od 90 s pojazd blednie, a po 180 s znika z mapy i listy. Zaznaczony pojazd bez świeżej
   pozycji pokazuje „Utracono pozycję pojazdu — ostatnia sprzed N min”. Nagłówek mapy podaje, kiedy dane pobrano.
+- Mapa transportu: zegar wieku pozycji (co 10 s) nie wysyła już całej warstwy pojazdów do mapy, gdy nic się nie
+  zmieniło na ekranie (pojazdy jeszcze nie bledną ani nie znikają), i nie przerywa płynnego przejazdu pojazdów
+  po nowym odczycie — wcześniej takt w ciągu pierwszej sekundy po odczycie ucinał przejazd i pojazdy skakały do celu.
 - Kamera mapy uwzględnia dolny arkusz i pasek kontrolek: wybrany obiekt ląduje w widocznej części mapy, a nie pod
   panelem (ruch ≤ 320 ms, przy ograniczeniu ruchu skok bez animacji).
 - Kontrolki mapy używają koloru głównego (`--primary`) zamiast gradientu akcentu; stan „wciśnięty” ma obrys także
