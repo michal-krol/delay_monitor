@@ -52,6 +52,7 @@ import { LOCATION_MAX_AGE_MS } from '@/components/UserLocationProvider'
 import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
 import { discoveryHref, type DiscoveryResult } from '@/lib/discovery'
 import { formatAgo } from '@/lib/format'
+import { pluralPl } from '@/lib/plural'
 import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
@@ -281,7 +282,10 @@ export default function CityMapPage() {
   // Celowo NIE przy każdym odczycie co 15 s — to byłby szum co kwadrans minuty.
   const vehiclesRef = useRef(vehiclesState.vehicles)
   vehiclesRef.current = vehiclesState.vehicles
+  const vehicleCountKnown = vehiclesState.lastSuccessAt !== null
   const vehicleCountAnnouncement = useMemo(() => {
+    // Nieznane („wczytywanie", „nie udało się") to nie zero (#7): cisza do pierwszego udanego odczytu.
+    if (!vehicleCountKnown) return ''
     const shown = vehiclesRef.current.filter(
       (v) =>
         v.ageSec <= HIDE_AFTER_SEC &&
@@ -289,9 +293,9 @@ export default function CityMapPage() {
         (line === null || v.routeId === line.routeId) &&
         (!alertsOnly || (v.shortName !== null && vehiclesState.alertLines.includes(v.shortName)))
     ).length
-    return `Na mapie ${shown} pojazdów`
+    return `Na mapie ${shown} ${pluralPl(shown, 'pojazd', 'pojazdy', 'pojazdów')}`
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tylko zmiana filtrów i pierwsze wczytanie, nie każdy odczyt
-  }, [hidden, line, alertsOnly, vehiclesState.vehicles.length === 0])
+  }, [hidden, line, alertsOnly, vehicleCountKnown])
 
   const feedArea = useMemo(() => (stopsState.stops === null ? null : stopsBounds(stopsState.stops)), [stopsState.stops])
   const outsideFeed = feedArea !== null && view !== null && !boundsContain(feedArea, view.center.lon, view.center.lat)
@@ -523,7 +527,8 @@ export default function CityMapPage() {
       : neverLoaded
         ? 'nie udało się pobrać pozycji pojazdów'
         : vehiclesFailed
-          ? 'pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne'
+          ? // Wiek ostatnich dobrych danych (ui-copy.md „Data age", #7): godzina w strefie miasta.
+            `pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne${vehiclesState.lastSuccessAt !== null ? ` · dane z ${new Date(vehiclesState.lastSuccessAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: feed.timezone })}` : ''}`
           : vehiclesState.lastSuccessAt !== null
             ? // Kiedy PRZEGLĄDARKA pobrała odczyt (rośnie z zegarem) — wiek GPS pojazdów jest osobno („Pozycje sprzed", ui-copy.md).
               `pobrano ${formatAgo(Math.round((vehiclesState.now - vehiclesState.lastSuccessAt) / 1000))}`
@@ -543,7 +548,6 @@ export default function CityMapPage() {
   const routeKey = route?.key ?? null
   useEffect(() => {
     if (routeKey !== null || following) liftViewBlock()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `liftViewBlock` czyta tylko ref
   }, [routeKey, following])
   const card =
     selection !== null ? (
@@ -815,7 +819,7 @@ export default function CityMapPage() {
             }}
             aria-label={`Pokaż całe miasto — ${feed.name}`}
             title="Pokaż całe miasto"
-            className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+            className="glass-chrome border border-surface-border shadow-md absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
           >
             <CityIcon size={ICON_SIZE.tile} />
           </button>

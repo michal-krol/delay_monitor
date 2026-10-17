@@ -37,6 +37,14 @@ describe('OverviewPanel', () => {
     expect(document.body).toHaveFocus() // nie przejmuje fokusu (w odróżnieniu od PanelFrame)
   })
 
+  it('the separator before the age travels with the age (a wrapped age never leaves a dangling "·" after the summary)', () => {
+    render(<OverviewPanel items={ITEMS} overflow={false} feed={READY} onOpen={() => {}} />)
+    const age = screen.getByText('Pozycje sprzed 12 s')
+    expect(age.textContent).toMatch(/^·\s*Pozycje sprzed 12 s$/)
+    // eslint-disable-next-line testing-library/no-node-access -- kolejność sąsiadów w akapicie to sedno testu
+    expect(screen.getByText('1 pojazd · 2 przystanki · 1 stacja kolejowa').nextSibling).toBe(age)
+  })
+
   it('expanding the overview sheet lists visible objects', () => {
     const onOpen = vi.fn()
     render(

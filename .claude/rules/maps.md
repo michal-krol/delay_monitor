@@ -168,6 +168,10 @@ selected object sits in the free area, not under the toolbar or the sheet.
   the sheet or its `above` slot resizes. No sheet (wide screens, where the `aside` is a flex sibling and the map container already excludes it) = bottom 0,
   no extra right padding.
 - **`full` is not reported** (user decision 2026-10-15): the camera keeps the last `peek`/`half` value — at 90 % there is no free area worth framing.
+- **Attribution rides above the sheet.** `TransitMap` publishes the bottom inset as `--map-inset-bottom` on its wrapper (`.transit-map`) and `globals.css` lifts
+  `.maplibregl-ctrl-bottom-right/-left` by it (unlayered like MapLibre's own CSS, two classes beat `bottom:0`). Without it the sheet (z-20) covers the
+  OpenFreeMap/OSM sources (licence requirement) at `peek`/`half`. No sheet = 0. At `full` the inset is the last `peek`/`half` one, so the attribution stays under the
+  sheet together with the whole map (90 % covered, accepted); the e2e check (`elementFromPoint` on the toggle and the OpenFreeMap link) runs at `peek` and `half`.
 - **The map is born with its padding.** `MapOptions` has no `padding`, so right after `new Map()` (before the `moveend` listener exists) `TransitMap` calls
   `setPadding(cameraPadding(insets))` and records them as applied: the `?nearby=1` entry and a reloaded `?at=` start centred in the free area, not the geometric
   centre, and the settle effect has nothing to correct.
@@ -208,6 +212,10 @@ Wording of every string: `ui-copy.md` („Map location”, „Map overview…”
 - **One search.** `UnifiedSearch variant="overlay"` replaces the place and line inputs; results are an opaque `role=group` panel
   (`data-search-results` lifts the toolbar above the sheet). The page calls `useCityLines` ONCE and passes it as `lineSource` — the field must not
   fetch the catalog a second time; a result never navigates away from the map, and a result without coordinates is a notice, never the camera at 0,0.
+  The overlay field has its own opaque `--sheet-surface` fill (`OVERLAY_FIELD_CLASS`; the `/search` page keeps `.glass`) and the mode chips / „Wyczyść filtry" carry
+  `chip-filter-map` — tile labels bled through the translucent `--surface-strong`. Escape is handled on the component root (field AND result rows): clears the phrase,
+  returns focus to the field, `preventDefault` so the card/panel beside it stays open. `NoPositionNotice` takes focus once per `notice` object (a module `WeakSet`):
+  the sheet's `above` slot is keyed and remounts it on every panel change, which must not steal focus.
 - **GPS only after a click.** `useUserLocation()` (`UserLocationProvider` in `(app)/layout.tsx`) — no call on mount, no `watchPosition`, denied is
   remembered (no re-prompt). A point older than `LOCATION_MAX_AGE_MS` (60 s, = `maximumAge`) is re-queried by the next click; a failed re-query drops it (#7,
   no stale position shown as current); a watchdog (15 s) ends a request whose callbacks never fire (prompt dismissed without a choice) as `error`, so

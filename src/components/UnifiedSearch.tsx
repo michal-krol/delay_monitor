@@ -14,7 +14,7 @@ import { HOVER } from './interaction'
 import { LineBadge } from './LineBadge'
 import { RecentLines } from './LineGrid'
 import { RecentPlaces } from './RecentPlaces'
-import { SEARCH_INPUT_CLASS } from './StationSearch'
+import { SEARCH_INPUT_BASE, SEARCH_INPUT_CLASS } from './StationSearch'
 import { MODE_ICON, MODE_LABEL } from './transitMode'
 
 type Kind = DiscoveryResult['kind']
@@ -36,7 +36,10 @@ const MAX_PENDING_ECHOES = 20
 const ROW_FOCUS = 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-text'
 const ROW_PRESSED = 'active:bg-black/10 dark:active:bg-white/15'
 
-const SEARCH_FIELD_CLASS = `${SEARCH_INPUT_CLASS} min-h-11 pl-10 pr-12 focus:ring-primary-text! [&::-webkit-search-cancel-button]:appearance-none`
+const SEARCH_FIELD_TAIL = 'min-h-11 pl-10 pr-12 focus:ring-primary-text! [&::-webkit-search-cancel-button]:appearance-none'
+const SEARCH_FIELD_CLASS = `${SEARCH_INPUT_CLASS} ${SEARCH_FIELD_TAIL}`
+/** Na mapie pole leży nad etykietami kafelków: własne, nieprzezroczyste tło (`--sheet-surface`) zamiast półprzezroczystego `.glass`. */
+const OVERLAY_FIELD_CLASS = `${SEARCH_INPUT_BASE} border border-surface-border bg-[var(--sheet-surface)] shadow-md ${SEARCH_FIELD_TAIL}`
 
 /** `overlay` (mapa): wyniki w nieprzezroczystym panelu nad mapą, z własnym przewijaniem; `--sheet-surface` = stabilne tło dla axe. */
 const OVERLAY_PANEL_CLASS =
@@ -331,6 +334,18 @@ export function UnifiedSearch({
       // Tab poza pole i panel zamyka panel (fokus przechodzi do konkretnego elementu). Brak `relatedTarget` (klik w niefokusowalny
       // obszar, Safari nie fokusuje przycisków) NIE zamyka: wtedy panel zniknąłby przed `click` na wyniku — tamte przypadki łapie `pointerdown` wyżej.
       onBlur={overlay ? (event) => event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && setDismissed(true) : undefined}
+      // Na mapie Escape z frazą — także z fokusem na wierszu wyniku — zamyka panel (czyści pole) i oddaje fokus polu;
+      // `preventDefault` chroni kartę/panel obok (`PanelFrame` ignoruje Escape z `defaultPrevented`), pusta fraza przepuszcza Escape dalej.
+      onKeyDown={
+        overlay
+          ? (event) => {
+              if (event.key !== 'Escape' || query === '') return
+              event.preventDefault()
+              change('')
+              focusInput()
+            }
+          : undefined
+      }
     >
       <form role="search" onSubmit={submit} className="relative">
         <SearchIcon size={ICON_SIZE.button} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-text-muted" />
@@ -343,20 +358,12 @@ export function UnifiedSearch({
           maxLength={100}
           aria-label="Stacja, przystanek lub linia"
           placeholder="Stacja, przystanek lub linia"
-          className={SEARCH_FIELD_CLASS}
+          className={overlay ? OVERLAY_FIELD_CLASS : SEARCH_FIELD_CLASS}
           value={query}
           onChange={(event) => change(event.target.value)}
           // Powrót do pola otwiera zamknięty panel (fokus albo ponowne dotknięcie pola, które już ma fokus — iOS).
           onFocus={() => setDismissed(false)}
           onClick={() => setDismissed(false)}
-          onKeyDown={(event) => {
-            // Na mapie Escape z frazą zamyka panel wyników (czyści pole); `preventDefault` chroni przed zamknięciem
-            // karty/panelu obok (`PanelFrame` ignoruje Escape z `defaultPrevented`), pusta fraza przepuszcza Escape dalej.
-            if (overlay && event.key === 'Escape' && query !== '') {
-              event.preventDefault()
-              change('')
-            }
-          }}
         />
         {query !== '' && (
           <button

@@ -175,6 +175,13 @@ describe('CityMapPage', () => {
     expect(screen.getByText(/pokazujemy ostatnie dostępne/)).toBeInTheDocument()
   })
 
+  it('a failed refresh with the last positions says from when they are (city time zone), not just that they are stale', () => {
+    // 2026-10-17 10:30 UTC = 12:30 w Warszawie (CEST).
+    state.vehicles = { vehicles: [VEHICLE], feed: { state: 'failed', ageMs: 400_000 }, alertLines: [], error: null, lastSuccessAt: Date.UTC(2026, 9, 17, 10, 30) }
+    render(<CityMapPage />)
+    expect(screen.getByText(/pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne · dane z 12:30$/)).toBeInTheDocument()
+  })
+
   it('restores filters and the line from the URL, shows them as removable chips', async () => {
     window.history.replaceState(null, '', '/city/warszawa/map?hide=busStops&line=20')
     render(<CityMapPage />)
@@ -1267,6 +1274,13 @@ describe('CityMapPage — my location', () => {
 })
 
 describe('CityMapPage — city reset and announcements', () => {
+  it('"Pokaż całe miasto" looks like the other map controls (glass-chrome with border and shadow, as „Moja lokalizacja")', async () => {
+    render(<CityMapPage />)
+    const button = screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' })
+    expect(button).toHaveClass('glass-chrome', 'border', 'border-surface-border', 'shadow-md')
+    expect(button).not.toHaveClass('glass')
+  })
+
   it('"Pokaż całe miasto" flies back to the city centre at the start zoom', async () => {
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
@@ -1275,10 +1289,38 @@ describe('CityMapPage — city reset and announcements', () => {
   })
 
   it('announces the vehicle count for screen readers when filters change, not on every reading', async () => {
+    state.vehicles.lastSuccessAt = Date.now()
     render(<CityMapPage />)
-    expect(screen.getByText('Na mapie 1 pojazdów')).toBeInTheDocument()
+    expect(screen.getByText('Na mapie 1 pojazd')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Filtry/ }))
     fireEvent.click(screen.getByRole('checkbox', { name: /Tramwaje/ }))
     expect(await screen.findByText('Na mapie 0 pojazdów')).toBeInTheDocument()
+  })
+
+  it('stays silent until the first successful load: unknown is not announced as 0', () => {
+    state.vehicles = { vehicles: [], feed: { state: 'loading', ageMs: null }, alertLines: [], error: null, lastSuccessAt: null }
+    const { container, rerender } = render(<CityMapPage />)
+    // Żywy region bez roli i bez tekstu: jedyny sposób to selektor.
+    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
+    const region = () => container.querySelector('p.sr-only[aria-live="polite"]')
+    expect(region()).toBeEmptyDOMElement()
+    state.vehicles = { vehicles: [], feed: { state: 'failed', ageMs: null }, alertLines: [], error: 'x', lastSuccessAt: null }
+    rerender(<CityMapPage />)
+    expect(region()).toBeEmptyDOMElement()
+    // Po udanym, ale pustym odczycie (noc) zero jest znane.
+    state.vehicles = { vehicles: [], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null, lastSuccessAt: Date.now() }
+    rerender(<CityMapPage />)
+    expect(region()).toHaveTextContent('Na mapie 0 pojazdów')
+  })
+
+  it('declines „pojazd" by the count (1 pojazd, 2 pojazdy, 5 pojazdów)', () => {
+    const many = (n: number) => Array.from({ length: n }, (_, i) => ({ ...VEHICLE, id: `v${i}` }))
+    state.vehicles = { vehicles: many(2), feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null, lastSuccessAt: Date.now() }
+    const { unmount } = render(<CityMapPage />)
+    expect(screen.getByText('Na mapie 2 pojazdy')).toBeInTheDocument()
+    unmount()
+    state.vehicles = { vehicles: many(5), feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null, lastSuccessAt: Date.now() }
+    render(<CityMapPage />)
+    expect(screen.getByText('Na mapie 5 pojazdów')).toBeInTheDocument()
   })
 })

@@ -232,6 +232,14 @@ describe('LinePanel', () => {
     expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
   })
 
+  it('direction switch and stop rows are 44 px touch targets (min-h-11)', () => {
+    const stop = { stopId: '1', groupId: '1', name: 'Pętla', code: null, street: null, wheelchair: 0 as const, lat: 52, lon: 21, offsetSec: 0, onRequest: false }
+    const direction = (directionId: number) => ({ directionId, headsign: null, origin: null, departures: [], shape: null, stops: [stop] })
+    render(<LinePanel {...props} detail={{ ...entry, directions: [direction(0), direction(1)] }} error={false} />)
+    expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveClass('min-h-11')
+    expect(screen.getByRole('button', { name: /Pętla/ })).toHaveClass('min-h-11')
+  })
+
   it('closes on Escape', () => {
     const onClose = vi.fn()
     render(<LinePanel {...props} onClose={onClose} detail={undefined} error={false} />)

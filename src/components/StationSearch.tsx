@@ -42,8 +42,8 @@ type Props = {
 }
 
 /** Wygląd pola wyszukiwania — wspólny dla stacji/przystanków, linii na mapie i listy linii. */
-export const SEARCH_INPUT_CLASS =
-  'glass w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted outline-none transition focus:ring-2 focus:ring-indigo-500'
+export const SEARCH_INPUT_BASE = 'w-full rounded-xl px-3.5 py-2.5 text-foreground placeholder:text-text-muted transition focus:outline-2 focus:outline-transparent focus:ring-2 focus:ring-indigo-500'
+export const SEARCH_INPUT_CLASS = `glass ${SEARCH_INPUT_BASE}`
 
 const DEFAULT_ENDPOINT = '/api/stations'
 const MAX_TILE_LINES = 6

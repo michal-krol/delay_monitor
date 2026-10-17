@@ -500,6 +500,39 @@ describe('UnifiedSearch variant="overlay" (map)', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
+  it('Escape on a focused result row closes the panel, returns focus to the field and does not close an enclosing PanelFrame', async () => {
+    found([rail('33605', 'Warszawa Centralna')])
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <PanelFrame title="A" closeLabel="Zamknij" onClose={onClose}>
+        <UnifiedSearch city="warszawa" onSelect={vi.fn()} variant="overlay" />
+      </PanelFrame>,
+    )
+    await user.type(screen.getByRole('searchbox'), 'cent')
+    const row = screen.getByRole('button', { name: /Warszawa Centralna/ })
+    row.focus()
+    await user.keyboard('{Escape}')
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByRole('group', { name: 'Wyniki wyszukiwania' })).toBeNull()
+    expect(screen.getByRole('searchbox')).toHaveFocus()
+  })
+
+  it('the field keeps a forced-colors focus indicator: a transparent outline next to the ring (the ring is removed there)', () => {
+    overlay()
+    expect(screen.getByRole('searchbox')).toHaveClass('focus:outline-2', 'focus:outline-transparent')
+  })
+
+  it('the overlay field has its own opaque surface (map labels must not bleed through), the page variant stays glass', () => {
+    const { unmount } = overlay()
+    const field = screen.getByRole('searchbox')
+    expect(field.className).toMatch(/--sheet-surface/)
+    expect(field.className).not.toMatch(/\bglass\b/)
+    unmount()
+    render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} />)
+    expect(screen.getByRole('searchbox').className).toMatch(/\bglass\b/)
+  })
+
   it('the clear button closes the panel', async () => {
     found([rail('33605', 'Warszawa Centralna')])
     const user = userEvent.setup()

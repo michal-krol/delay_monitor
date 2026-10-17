@@ -248,6 +248,15 @@ describe('MapCard — pinned items, nearby, disruptions', () => {
     expect(onNearby).toHaveBeenCalled()
   })
 
+  it('"Co jest w pobliżu?" and "Pokaż trasę na mapie" are 44 px touch targets (min-h-11)', () => {
+    railStatus.mockReturnValue({ status: null, error: false })
+    const { unmount } = render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} onNearby={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Co jest w pobliżu?' })).toHaveClass('min-h-11')
+    unmount()
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} onShowRoute={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Pokaż trasę na mapie' })).toHaveClass('min-h-11')
+  })
+
   it('shows the pressed star for a pinned item', () => {
     railStatus.mockReturnValue({ status: null, error: false })
     render(<MapCard selection={rail} vehicle={null} city="warszawa" onClose={() => {}} pinned onTogglePin={() => {}} />)

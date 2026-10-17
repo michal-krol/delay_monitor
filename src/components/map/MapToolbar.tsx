@@ -104,7 +104,7 @@ export function MapToolbar({
         // Przewijane w poziomie, gdy cztery rodzaje się nie mieszczą (375 px); `p-1` (offset 2 + obrys 2 px) żeby obrys fokusu nie był ucięty przez przewijany kontener.
         <div role="group" aria-label="Rodzaje pojazdów" className="flex gap-2 overflow-x-auto p-1 [scrollbar-width:none]">
           {vehicleLayers.map((key) => (
-            <button key={key} type="button" aria-pressed={!hidden.has(key)} onClick={() => onHiddenChange(toggleLayer(hidden, key))} className="chip-filter shrink-0 gap-2 px-3">
+            <button key={key} type="button" aria-pressed={!hidden.has(key)} onClick={() => onHiddenChange(toggleLayer(hidden, key))} className="chip-filter chip-filter-map shrink-0 gap-2 px-3">
               <ModeChip mode={LAYER_MODE[key]} />
               {LAYER_LABEL[key]}
             </button>
@@ -163,22 +163,28 @@ export function ActiveFilterChips({
           />
         ))}
       </ul>
-      <button type="button" onClick={onClear} className="chip-filter px-3 text-xs font-semibold">
+      <button type="button" onClick={onClear} className="chip-filter chip-filter-map px-3 text-xs font-semibold">
         Wyczyść filtry
       </button>
     </div>
   )
 }
 
+const FOCUSED_NOTICES = new WeakSet<object>()
+
 /**
  * Wynik wyszukiwania bez pozycji na mapie: komunikat z linkiem do szczegółów (kamera się nie rusza). Klikany wiersz
  * wyników znika razem z panelem, a tu nie otwiera się karta — fokus idzie do komunikatu (nie do pola: na telefonie
  * wyskoczyłaby klawiatura). Nowy obiekt `notice` = nowy komunikat = nowy fokus. Bez `aria-label`: nazwą jest jego tekst,
- * a drugi odczyt etykiety przy fokusie byłby powtórką.
+ * a drugi odczyt etykiety przy fokusie byłby powtórką. Fokus tylko raz na obiekt `notice`: na telefonie komunikat jedzie w
+ * slocie `above` arkusza z `key`, który przemontowuje go przy każdej zmianie panelu (np. „Lista") — przemontowanie tego samego
+ * komunikatu nie kradnie fokusu.
  */
 export function NoPositionNotice({ notice, onClose }: { notice: { name: string; href: string | null; linkLabel: string }; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
+    if (FOCUSED_NOTICES.has(notice)) return
+    FOCUSED_NOTICES.add(notice)
     ref.current?.focus()
   }, [notice])
   return (

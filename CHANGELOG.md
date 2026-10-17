@@ -218,6 +218,14 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   znów podnosi panel — wcześniej działał tylko uchwyt i nagłówek karty.
 - Mapa transportu na telefonie: trwały komunikat o awarii nie chowa się już pod nagłówkiem strony, gdy arkusz jest
   podniesiony do pełnej wysokości.
+- Mapa transportu: źródła danych mapy (OpenFreeMap / OpenStreetMap) nie chowają się pod dolnym arkuszem — przycisk
+  „Pokaż źródła danych mapy” leży nad nim; pole wyszukiwania i czipy rodzajów mają kryjące tło (etykiety mapy
+  nie prześwitują); „Zmień kierunek”, wiersze przystanków linii oraz „Co jest w pobliżu?” i „Pokaż trasę na mapie”
+  mają cel dotyku co najmniej 44 px; Escape na wyniku wyszukiwania zamyka listę wyników, a fokus wraca do pola;
+  komunikat „Brak pozycji na mapie” nie odbiera fokusu po przełączeniu panelu; przy nieudanym odświeżeniu pozycji
+  pojazdów nagłówek podaje godzinę ostatnich danych („· dane z 12:30”); czytnik ekranu milczy o liczbie pojazdów
+  do pierwszego udanego wczytania i odmienia „pojazd / pojazdy / pojazdów”; przyciski-ikony mają widoczny obrys
+  fokusu także w trybie wysokiego kontrastu.
 
 ### Bezpieczeństwo
 

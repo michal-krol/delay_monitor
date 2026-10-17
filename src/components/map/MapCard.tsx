@@ -103,7 +103,7 @@ export function MapCard({
         <button
           type="button"
           onClick={onNearby}
-          className="mt-2 w-full rounded-xl border border-surface-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+          className="mt-2 min-h-11 w-full rounded-xl border border-surface-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           Co jest w pobliżu?
         </button>
@@ -334,7 +334,7 @@ function VehicleBody({
             <button
               type="button"
               onClick={() => onShowRoute(vehicle.routeId!, vehicle.directionId)}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-surface-border px-4 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:hover:bg-white/10"
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-surface-border px-4 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:hover:bg-white/10"
             >
               Pokaż trasę na mapie
             </button>

@@ -83,7 +83,7 @@ export function LinePanel({
               <button
                 type="button"
                 onClick={() => onDirection(other.directionId)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-surface-border px-2.5 py-1 text-xs font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
               >
                 <SwapIcon size={ICON_SIZE.chip} />
                 Zmień kierunek
@@ -96,7 +96,7 @@ export function LinePanel({
                 <button
                   type="button"
                   onClick={() => onStop(stop)}
-                  className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <span className="w-6 shrink-0 text-right text-xs tabular-nums text-text-muted">{index + 1}</span>
                   <span className="min-w-0 flex-1 truncate">{stopDisplayName(stop.name, stop.code)}</span>

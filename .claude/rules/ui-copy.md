@@ -98,7 +98,10 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   it on wide screens — wording is the same.
 - Page header subtitle (`TopBar`): „{miasto} · pobrano {N s temu|przed chwilą}” — the glossary „Pobrano …” (browser fetch age, `lastSuccessAt`, grows with
   the page clock); it is NOT the GPS age („Pozycje sprzed …” in the overview, per vehicle). Other states unchanged: „wczytywanie pozycji pojazdów…”,
-  „nie udało się pobrać pozycji pojazdów”, „pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne”.
+  „nie udało się pobrać pozycji pojazdów”, „pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne · dane z {HH:mm}” (city time zone, from
+  `lastSuccessAt`; the age of the last good data, “Data age” above).
+- Screen-reader live region: „Na mapie {n} pojazd|pojazdy|pojazdów” (`pluralPl`), spoken after filter/line changes and the first load only; silent while
+  the count is unknown (before the first successful reading) — unknown never reads as 0 (#7). A healthy zero (night) is announced.
 
 ## Map search (`UnifiedSearch variant="overlay"`, `/city/<city>/map`)
 

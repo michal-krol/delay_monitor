@@ -80,10 +80,11 @@ export function OverviewPanel({
         <p className="mt-0.5 flex flex-wrap gap-x-2 text-sm text-text-secondary">
           <span>{summary}</span>
           {age !== null && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span className="text-text-muted">{age}</span>
-            </>
+            // Separator w tym samym elemencie co wiek: przy zawijaniu idą razem, więc „·” nie zostaje samotnie na końcu pierwszego wiersza.
+            <span className="text-text-muted">
+              <span aria-hidden="true">· </span>
+              {age}
+            </span>
           )}
         </p>
         {overflow && <p className="mt-0.5 text-xs text-text-muted">{OVERFLOW_HINT}</p>}

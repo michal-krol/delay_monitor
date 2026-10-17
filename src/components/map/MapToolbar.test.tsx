@@ -66,6 +66,8 @@ describe('MapToolbar on a phone', () => {
     expect(chips.map((chip) => chip.textContent)).toEqual(['Autobusy', 'Tramwaje', 'Pociągi'])
     expect(chips.map((chip) => chip.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'true'])
     expect(chips[0]).toHaveClass('chip-filter')
+    // Czipy leżą nad etykietami kafelków: opaque tło (`globals.css`), nie półprzezroczyste `--surface-strong`.
+    expect(chips[0]).toHaveClass('chip-filter-map')
   })
 
   it('shows no mode chip row without vehicles in the data', () => {
@@ -176,6 +178,23 @@ describe('NoPositionNotice', () => {
     render(<NoPositionNotice notice={notice} onClose={() => {}} />)
     expect(status()).toHaveFocus()
     expect(within(status()).getByRole('link', { name: 'Szczegóły stacji' })).toHaveAttribute('href', '/station/1')
+  })
+
+  it('takes focus once per notice object: a remount with the same notice (the keyed sheet slot) leaves focus alone, a new notice takes it', () => {
+    const first = { name: 'Stacja A', href: null, linkLabel: 'Szczegóły stacji' }
+    const second = { name: 'Stacja B', href: null, linkLabel: 'Szczegóły stacji' }
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    const { unmount } = render(<NoPositionNotice notice={first} onClose={() => {}} />)
+    expect(status()).toHaveFocus()
+    unmount()
+    outside.focus()
+    const { unmount: unmountAgain } = render(<NoPositionNotice notice={first} onClose={() => {}} />)
+    expect(outside).toHaveFocus()
+    unmountAgain()
+    render(<NoPositionNotice notice={second} onClose={() => {}} />)
+    expect(status()).toHaveFocus()
+    outside.remove()
   })
 
   it('has no aria-label (the text is the name: no double announcement) and a forced-colors-safe outline instead of a ring', () => {
