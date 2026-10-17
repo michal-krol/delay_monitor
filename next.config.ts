@@ -136,6 +136,10 @@ const nextConfig: NextConfig = {
   // w teście — pakiet e2e (playwright.config.ts) buduje bez standalone.
   output: process.env.E2E ? undefined : "standalone",
 
+  // `next dev` dopisywał blok „This is NOT the Next.js you know” do AGENTS.md w KAŻDYM checkoucie
+  // (stały brud +10 linii). Ten sam komunikat jest w AGENTS.md na stałe, więc generator jest zbędny.
+  agentRules: false,
+
   // Patrz `tracingRoot` wyżej. Oba muszą być równe -- inaczej Next ostrzega
   // i bierze `outputFileTracingRoot` (server/config.js).
   outputFileTracingRoot: tracingRoot,

@@ -8,6 +8,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Dodane
 
+- Sprzątanie worktree'ów agentów: `npm run clean:worktrees` pokazuje raport (SAFE / KEEP / UNSURE wg PR, brudnego drzewa,
+  niewypchniętych commitów i aktywności), a z `-- --apply` usuwa tylko SAFE: kopiuje niewersjonowane handoffy z `docs/`
+  do głównego checkoutu (z weryfikacją), kasuje ciężkie katalogi przed `git worktree remove` (długie ścieżki Windows),
+  gałąź tylko `git branch -d`. Przy okazji stare stemple bramki i logi testów. Skill `cleanup`, jedna linia w
+  `npm run status` i hook SessionEnd (tylko odświeża raport, niczego nie kasuje).
+- `next dev` nie dopisuje już bloku do `AGENTS.md` (`agentRules: false`) — koniec stałego brudu w głównym checkoucie.
+- Reguła: po otwarciu PR sesja włącza w aplikacji auto-fix (naprawa błędów CI, konfliktów przy merge i komentarzy).
 - Rozkład linii: zmiana kategorii dnia na telefonie przechodzi płynnym zanikiem (tak jak „Trasa”/„Rozkład”; bez
   ruchu przy ograniczonym ruchu).
 - Start na telefonie: nagłówek „Start”, pole „Stacja, przystanek lub linia” (prowadzi do wyszukiwania),

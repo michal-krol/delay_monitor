@@ -105,3 +105,11 @@ describe('korzeń śledzenia plików (standalone)', () => {
     expect(nextConfig.outputFileTracingRoot).toBe(nextConfig.turbopack?.root)
   })
 })
+
+describe('AGENTS.md', () => {
+  // `next dev` re-adds a managed block to AGENTS.md unless this is off; the text is already pinned in the file
+  // by hand, so the generator only leaves an uncommitted diff in every checkout.
+  it('next dev does not rewrite AGENTS.md (agentRules: false)', () => {
+    expect(nextConfig.agentRules).toBe(false)
+  })
+})
