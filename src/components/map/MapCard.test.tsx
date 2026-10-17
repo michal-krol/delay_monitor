@@ -153,6 +153,39 @@ describe('MapCard — vehicle', () => {
     expect(screen.getByRole('link', { name: /Rozkład linii/ })).toHaveAttribute('href', '/city/warszawa/line/20')
   })
 
+  it('puts the next stop and both primary actions before the details, so a peek sheet shows them', () => {
+    render(
+      <MapCard
+        selection={{ kind: 'vehicle', id: 'v1' }}
+        vehicle={vehicle({ nextStop: { name: 'Rondo ONZ', code: '02', groupId: '7002' } })}
+        city="warszawa"
+        onClose={() => {}}
+        onShowRoute={() => {}}
+        onToggleFollow={() => {}}
+      />
+    )
+    const follow = screen.getByRole('button', { name: 'Śledź pojazd' })
+    const route = screen.getByRole('button', { name: 'Pokaż trasę na mapie' })
+    const before = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    for (const later of [screen.getByText('Numer boczny'), screen.getByText(/Komunikacja miejska nie publikuje opóźnień/), screen.getByRole('link', { name: /Rozkład linii/ })]) {
+      expect(before(screen.getByText('Rondo ONZ 02'), later)).toBe(true)
+      expect(before(follow, later)).toBe(true)
+      expect(before(route, later)).toBe(true)
+    }
+    // Obie akcje w jednym rzędzie: razem jedna wysokość przycisku (44 px), nie dwie.
+    expect(follow.parentElement).toBe(route.parentElement) // eslint-disable-line testing-library/no-node-access -- układ rzędu
+    expect(follow).toHaveClass('min-h-11')
+    expect(route).toHaveClass('min-h-11')
+  })
+
+  it('a lost position keeps the route action up front and offers no follow', () => {
+    render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ ageSec: 181 })} city="warszawa" onClose={() => {}} onShowRoute={() => {}} onToggleFollow={() => {}} />)
+    const status = screen.getByRole('status')
+    const route = screen.getByRole('button', { name: 'Pokaż trasę na mapie' })
+    expect(status.compareDocumentPosition(route) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Śledź/ })).toBeNull()
+  })
+
   it('marks a fading position as stale and a vanished vehicle explicitly', () => {
     const { rerender } = render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ ageSec: 120, nextStop: null })} city="warszawa" onClose={() => {}} />)
     expect(screen.getByText('nieaktualna')).toBeInTheDocument()

@@ -1025,6 +1025,27 @@ for (const [label, viewport] of [
   })
 }
 
+// Karta pojazdu w arkuszu (telefon): główne akcje i następny przystanek mają być w całości widoczne już w `peek` (ref. 03-map-states, panel 02),
+// także na niskim ekranie 375×667 — `BottomSheet peek` karty pojazdu (`VEHICLE_PEEK` w `map/page.tsx`, 0,45).
+for (const height of [812, 667]) {
+  test(`telefon 375×${height}: karta pojazdu w peek pokazuje następny przystanek i obie akcje (44 px) nad dolnym paskiem`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height })
+    await openMap(page)
+    const list = await openVisibleList(page)
+    await list.getByRole('button', { name: /^Linia 20/ }).first().click({ timeout: READY })
+    const card = sheetOf(page).getByRole('dialog', { name: /^tramwaj 20$/i })
+    await expect(card).toBeVisible()
+    await expect(sheetOf(page)).toHaveAttribute('data-snap', 'peek')
+    for (const target of [card.getByText('Następny przystanek'), card.getByRole('button', { name: 'Śledź pojazd' }), card.getByRole('button', { name: 'Pokaż trasę na mapie' })]) {
+      await expect(target).toBeInViewport({ ratio: 1, timeout: READY })
+    }
+    for (const name of ['Śledź pojazd', 'Pokaż trasę na mapie']) {
+      expect((await card.getByRole('button', { name }).boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    }
+    await expect(card.getByText(/Pozycja sprzed /)).toBeInViewport({ ratio: 1 })
+  })
+}
+
 // ── PR10 (Task 7): „Moja lokalizacja" — GPS tylko po kliknięciu, punkt użytkownika nigdy w URL-u ani w localStorage (adr/0012) ──
 const USER = { latitude: 52.23418, longitude: 21.01937 } // Śródmieście; nietypowe cyfry, żeby dało się je wyszukać w adresie/storage
 const DENIED_TEXT = 'Brak dostępu do lokalizacji. Wyszukaj miejsce lub wybierz je na mapie'

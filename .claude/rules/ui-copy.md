@@ -82,7 +82,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   to `feed.ageMs`, so after a failed refresh the age keeps rising and a vehicle reaches the 90 s fade, the 180 s hide and „Utracono pozycję”.
 - The scrollable list body of the overview has the accessible name „Obiekty w widoku”.
 - Vehicle card heading: „{tramwaj|autobus|metro|kolej} {X}”; mode `other` or no mode = „Linia {X}” (never „Inne 20”); no line = „Pojazd”.
-- Per-vehicle GPS age (card row „GPS pojazdu”, list rows): „Pozycja sprzed {N s|N min}” via `formatSince` (`formatAgo` ends in „temu” and does not
+- Per-vehicle GPS age (card line under „Następny przystanek”, sr-only label „GPS pojazdu”; list rows): „Pozycja sprzed {N s|N min}” via `formatSince` (`formatAgo` ends in „temu” and does not
   read after „sprzed”). Over `HIDE_AFTER_SEC` (180 s) the card says „Utracono pozycję pojazdu — ostatnia sprzed {N min}”; gone from the feed:
   „Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.”. Never the browser’s fetch time.
 - Compact legend (`CompactLegend`, „Legenda rodzajów”): one chip per mode with `MODE_LABEL` (metro, tramwaj, autobus, kolej, inne).
@@ -91,7 +91,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Line panel alerts: `ContextAlerts` with „Komunikaty linii {X}” (wording as in „Context alerts” above); the panel's close is „Zakończ tryb
   linii”, direction switch „Zmień kierunek”, link „Rozkład linii”.
 - Map cards: close „Zamknij kartę”; nearby shortcut „Co jest w pobliżu?” (keyboard route to the same „W pobliżu” as a long press); vehicle
-  „Śledź pojazd” ↔ „Śledzę pojazd” (`aria-pressed`), „Pokaż trasę na mapie”; GPS row „Pozycja sprzed {…} · aktualna|nieaktualna” (stale after 90 s).
+  „Śledź pojazd” ↔ „Śledzę pojazd” (`aria-pressed`) and „Pokaż trasę” (visible; „na mapie” is sr-only, so the name stays „Pokaż trasę na mapie”) side by side, both before the details so they show at the vehicle sheet's taller peek; GPS row „Pozycja sprzed {…} · aktualna|nieaktualna” (stale after 90 s).
 - Sheet handle (`BottomSheet`): „Zmień wysokość panelu (teraz: niski|do połowy|pełny)”.
 - Outside the city feed area: `role=status` „Przystanki i pojazdy miejskie: tylko {miasto} i okolice”.
 - Sheet `above` row: statuses on the left (wrap), „Moja lokalizacja” on the right; its states (above) float over the button in the flow on phones, beside

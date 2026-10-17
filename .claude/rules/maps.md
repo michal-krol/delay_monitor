@@ -127,6 +127,10 @@ the panel scrolls the container. Rules:
   a drag scrolls the content instead of lifting the sheet. New scrollable panel content must
   use the `PanelFrame` body or carry `data-sheet-scroll`.
 - A new object remounts the sheet (`key`) so it opens at `initialSnap` (default `peek`).
+- `peek` is a prop (fraction, default 0.25; `half` 0.55, `full` 0.9 are fixed): the selected-vehicle card opens at `VEHICLE_PEEK` 0.45 (`map/page.tsx`) so the next
+  stop, GPS age and „Śledź pojazd” / „Pokaż trasę” fit above the bottom bar (e2e at 375×812 and 375×667; 0.40 cut the buttons at 667). The snap marks, `nearestSnap`
+  and the camera-inset report all use the sheet's own fraction — never read `SHEET_SNAPS.peek` elsewhere. The fraction is fixed for the sheet's life (another card = new `key`).
+  The card's body order is the peek budget: anything that must show at peek goes before „Numer boczny” and the explanation line in `VehicleBody`.
 - Things that must stay visible over the open sheet (filter chips, `role=status` messages) go in
   the `above` slot: it rides on the panel's top edge and scrolls with it. At `full` only about
   one row fits (~55 px on iPhone 15), so the transport map's slot is ONE bottom-aligned row — statuses left
