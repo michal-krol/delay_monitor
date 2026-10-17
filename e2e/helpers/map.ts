@@ -16,7 +16,10 @@ export async function openMap(page: Page, path = CITY_MAP): Promise<Locator> {
   // mobile-chromium w CI (Pixel 7, DPR 2,625, programowy WebGL) rysuje prawdziwe kafelki ~5× wolniej niż lokalnie:
   // testy mapy transportu szły tam 15–30 s już na zielonym dev (PR #140: tryb linii 22 s, arkusz 29,6 s), więc
   // każdy dodatkowy krok przebijał domyślne 30 s — w połowie kliku, bez żadnego elementu zasłaniającego cel.
-  test.slow(test.info().project.name === 'mobile-chromium', 'mapa transportu: kafelki w programowym WebGL przy DPR 2,625')
+  // To samo na całym CI (4 workery na 4 vCPU, programowy WebGL): 2026-10-17 na dev `linie każdego rodzaju` (922)
+  // i `okolica po kliknięciu` (1089) na desktop-chromium oraz `motyw` (1166) na mobile-safari kończyły się
+  // „Test timeout of 30000ms” bez żadnego błędu kroku, a lokalnie trwają 5–9 s. Stąd limit ×3 wszędzie w CI.
+  test.slow(!!process.env.CI || test.info().project.name === 'mobile-chromium', 'mapa transportu: kafelki w programowym WebGL, CI jest ~5× wolniejsze od lokalnie')
   await page.goto(path)
   const map = page.getByRole('region', { name: MAP_NAME })
   await expect(map).toBeVisible({ timeout: READY })
