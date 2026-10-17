@@ -27,14 +27,14 @@ const ESCAPABLE = new Set([' ', '\t', '\n', '"', "'", '\\', '$', '`', '>', '<', 
  * can ask for a reset explicitly — is untouched.
  *
  * @param {{ agent_id?: string, tool_input?: { command?: string } }} input
- * @param {{ env?: Record<string, string | undefined>, tmpdir?: string }} [options]
+ * @param {{ env?: Record<string, string | undefined>, tmpdir?: string, readFile?: (file: string) => string }} [options]
  */
-export function evaluateHookInput(input, { env = {}, tmpdir } = {}) {
+export function evaluateHookInput(input, { env = {}, tmpdir, readFile } = {}) {
   const command = input?.tool_input?.command
   if (!input?.agent_id || typeof command !== 'string') return { blocked: false }
   // The session scratchpad lives under the temp dir (`/tmp/claude-*/…`, %TEMP% on Windows).
   const allowedDirs = ['/tmp', tmpdir, env.TMPDIR, env.TEMP, env.TMP].filter(Boolean)
-  const result = classifyBashCommand(command, { allowedDirs, env })
+  const result = classifyBashCommand(command, { allowedDirs, env, readFile })
   return result.blocked
     ? { blocked: true, reason: `Blocked for subagents (AGENTS.md #15, ~/.claude/rules/subagents.md): ${result.reason}` }
     : result
@@ -42,23 +42,23 @@ export function evaluateHookInput(input, { env = {}, tmpdir } = {}) {
 
 /**
  * @param {string} command raw `tool_input.command`
- * @param {{ allowedDirs?: string[], env?: Record<string, string | undefined> }} [options]
+ * @param {{ allowedDirs?: string[], env?: Record<string, string | undefined>, readFile?: (file: string) => string }} [options]
  * @returns {{ blocked: false } | { blocked: true, reason: string }}
  */
-export function classifyBashCommand(command, { allowedDirs = [], env = {} } = {}) {
-  const ctx = { env, allowedDirs: allowedDirs.map((dir) => normalizePath(dir, env)).filter(Boolean) }
+export function classifyBashCommand(command, { allowedDirs = [], env = {}, readFile } = {}) {
+  const ctx = { env, readFile, allowedDirs: allowedDirs.map((dir) => normalizePath(dir, env)).filter(Boolean) }
   return checkScript(command, ctx, 0)
 }
 
 function checkScript(script, ctx, depth) {
   for (const cmd of splitCommands(tokenize(script))) {
-    const reason = checkCommand(cmd, ctx, depth)
+    const reason = checkCommand(cmd, ctx, depth, script)
     if (reason) return { blocked: true, reason }
   }
   return { blocked: false }
 }
 
-function checkCommand({ words, redirs }, ctx, depth) {
+function checkCommand({ words, redirs }, ctx, depth, script) {
   for (const { op, target } of redirs) {
     const isFdDup = op === '>&' && /^(\d+|-)$/.test(target)
     if ((OUTPUT_REDIRS.has(op) || (op === '>&' && !isFdDup)) && !isAllowedPath(target, ctx)) {
@@ -88,6 +88,12 @@ function checkCommand({ words, redirs }, ctx, depth) {
   }
   if (name === 'sed' && hasInPlaceFlag(rest, 'efl')) return `\`sed -i\` edits files in place. ${WRITE_HINT}`
   if (name === 'perl' && hasInPlaceFlag(rest, 'eEMmIdDxlC0F')) return `\`perl -i\` edits files in place. ${WRITE_HINT}`
+  if (name === 'patch' && !rest.some((arg) => /^(--dry-run|--check|-C)$/.test(arg))) {
+    return `\`patch\` applies a diff in place. ${WRITE_HINT}`
+  }
+  if (/^(awk|gawk|mawk|nawk)$/.test(name)) return checkAwk(rest, ctx)
+  const kind = interpreterKind(name)
+  if (kind) return checkInterpreter(kind, rest, ctx, script)
   if (name === 'git') return checkGit(rest)
   return null
 }
@@ -101,6 +107,9 @@ function checkGit(args) {
   if (sub === 'stash' || sub === 'reset' || sub === 'restore') {
     return `\`git ${sub}\` can discard uncommitted work. ${GIT_HINT}`
   }
+  if (sub === 'apply' && !subArgs.some((arg) => ['--check', '--stat', '--numstat', '--summary'].includes(arg))) {
+    return `\`git apply\` writes the patch into files. ${WRITE_HINT}`
+  }
   if (sub === 'checkout') {
     const dashDash = subArgs.indexOf('--')
     if ((dashDash !== -1 && dashDash < subArgs.length - 1) || subArgs.includes('.')) {
@@ -108,6 +117,95 @@ function checkGit(args) {
     }
   }
   return null
+}
+
+// Write APIs of the scripting languages an agent reaches for instead of Edit/Write. Scanned in
+// inline code (`-e`/`-c`/`-Command`), in stdin (heredoc, pipe) and in scripts under the temp dirs.
+// A heuristic: a script that names a temp dir, `tmpdir()` or a device is taken as writing only there.
+const WRITE_APIS = [
+  /\b(?:writeFile|appendFile|createWriteStream|copyFile|rename|truncate|outputFile|writeTextFile)(?:Sync)?\s*\(/, // node, deno
+  /\.cp(?:Sync)?\s*\(/, // fs.cp
+  /\bBun\.write\s*\(/,
+  /\bopen\b[^;\n]*?,\s*(?:mode\s*=\s*)?['"][rwxab+t]*[wax+][rwxab+t]*['"]/, // open(f, 'w') in python/ruby; 'r' alone is no match
+  /\bmode\s*=\s*['"][rwxab+t]*[wax+]/,
+  /\.write_(?:text|bytes)\s*\(/,
+  /\b(?:shutil\.(?:copy\w*|move)|os\.(?:replace|rename))\s*\(/,
+  /\binplace\s*=\s*True/,
+  /\b(?:File|IO)\.(?:write|binwrite|open\([^)]*['"][wa])/, // ruby
+  /\bopen\b[^;]*?,\s*['"]\s*\+?>/, // perl
+  /\b(?:Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Rename-Item|Tee-Object|Export-Csv|Export-Clixml)\b/i,
+  /\[(?:System\.)?IO\.File\]::(?:Write|Append|Copy|Move|Create|Open)/i,
+]
+const PS_REDIRECT = /(?:^|[^>\-=\d&])>>?\s*(?!&|\$null)[^\s>]/
+const ALLOWED_TARGET_HINT = /tmpdir|tempfile|mkdtemp|\$env:temp|\bTMPDIR\b|\/dev\/(?:stdout|stderr|null|tty)/i
+
+const INTERPRETERS = {
+  node: { code: /^(?:-[pe]{1,2}|--eval|--print)$/, valued: ['-r', '--require', '--import', '--loader', '--experimental-loader', '--env-file', '--input-type'] },
+  python: { code: /^-[A-Za-z]*c$/, valued: ['-W', '-X'], module: '-m' },
+  perl: { code: /^-[A-Za-z]*[eE]$/, valued: [] },
+  ruby: { code: /^-[A-Za-z]*e$/, valued: [] },
+  powershell: { code: /^-(?:c|command)$/i, valued: [], powershell: true },
+}
+
+function interpreterKind(name) {
+  if (/^node(js)?$/.test(name)) return 'node'
+  if (/^(python[\d.]*|py)$/.test(name)) return 'python'
+  if (name === 'pwsh' || name === 'powershell') return 'powershell'
+  return name === 'perl' || name === 'ruby' ? name : null
+}
+
+/**
+ * Code given inline, on stdin or as a script file under a temp dir is scanned for write APIs.
+ * Repo scripts (`node scripts/x.mjs`, `npm run …`) are never read: they may write build artefacts.
+ */
+function checkInterpreter(kind, args, ctx, script) {
+  const spec = INTERPRETERS[kind]
+  let code = null
+  let file = null
+  for (let i = 0; i < args.length && code === null && file === null; i += 1) {
+    const arg = args[i]
+    if (spec.code.test(arg)) {
+      code = spec.powershell ? args.slice(i + 1).join(' ') : (args[i + 1] ?? '')
+    } else if (spec.powershell && /^-(?:e|ec|encodedcommand)$/i.test(arg)) {
+      code = Buffer.from(args[i + 1] ?? '', 'base64').toString('utf16le')
+    } else if (spec.powershell && /^-file$/i.test(arg)) {
+      file = args[i + 1] ?? ''
+    } else if (arg === spec.module) {
+      return null // `python -m pytest`: a module, not ad-hoc code
+    } else if (spec.valued.includes(arg)) {
+      i += 1
+    } else if (!arg.startsWith('-')) {
+      file = arg
+    }
+  }
+  if (file === null && code === null) code = script // stdin: heredoc or pipe, seen as the raw command text
+  if (file !== null) {
+    if (!ctx.readFile || !isAllowedPath(file, ctx)) return null
+    try {
+      code = ctx.readFile(file)
+    } catch {
+      return null
+    }
+  }
+  return scanForWrites(code, ctx, kind === 'powershell') ? `\`${kind}\` code writes a file. ${WRITE_HINT}` : null
+}
+
+function checkAwk(args, ctx) {
+  if (args.some((arg, i) => arg === '-i' && args[i + 1] === 'inplace')) return `\`awk -i inplace\` edits files in place. ${WRITE_HINT}`
+  const writes = args.some((arg) => !arg.startsWith('-') && /\bprintf?\b[^;}()]*>>?/.test(arg) && !mentionsAllowedTarget(arg, ctx))
+  return writes ? `\`awk\` redirection writes a file. ${WRITE_HINT}` : null
+}
+
+function scanForWrites(code, ctx, powershell) {
+  if (typeof code !== 'string') return false
+  const hit = WRITE_APIS.some((re) => re.test(code)) || (powershell && PS_REDIRECT.test(code))
+  return hit && !mentionsAllowedTarget(code, ctx)
+}
+
+function mentionsAllowedTarget(text, ctx) {
+  if (ALLOWED_TARGET_HINT.test(text)) return true
+  const flat = text.replaceAll('\\', '/').replace(/\/{2,}/g, '/').toLowerCase()
+  return ctx.allowedDirs.some((dir) => new RegExp(`(?<![\\w.-])${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(flat))
 }
 
 /** Short-option clusters (`-ni`, `-pi`, `-i.bak`) up to the first option that takes a value. */
