@@ -147,6 +147,13 @@ Check response shape in the public schema, don't guess from fixtures (no key, no
 server via `webServer` without a PKP key, `GTFS_DATA_SOURCE=mock`. Locally on UI changes + in
 CI (outside the fast `quality` job: one `e2e-<project>` matrix job per Playwright project, aggregated by the job named `e2e` — the name the ruleset requires, do not rename).
 
+- CI runs the matrix only when the change can touch the built app or the suite: job `changes`
+  (`scripts/ci-scope.mjs`, logic `scripts/lib/ciScope.mjs`) diffs the PR against its base and skips
+  `e2e-tests` when EVERY changed file is on the allowlist (`*.md`, `adr/ docs/ scripts/ .claude/ .githooks/`,
+  `*.test.{ts,tsx,mjs}`, non-CI workflows, LICENSE). Unknown files, `package*.json`, configs, `src/`, `e2e/`,
+  `public/`, `fixtures/`, `data/` and `ci.yml` itself run it; pushes to `main`/`dev` always run it. The required
+  check `e2e` still reports: it passes on a skipped matrix only when `changes` succeeded and said "not needed".
+  `quality` is never conditional. A new file type that must not trigger e2e = add it to `SKIPPABLE` with a test.
 - Projects: `desktop-chromium`, `mobile-chromium` (`Pixel 7`), `mobile-safari`
   (`iPhone 15`). New viewport = entry in `playwright.config.ts`.
 - Outside CI `playwright.config.ts` builds with `--webpack` (Turbopack fails when
