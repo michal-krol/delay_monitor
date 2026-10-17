@@ -61,6 +61,8 @@ import { lineColor } from '@/components/transitMode'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 
 const LAST_VIEW_KEY = 'monitor.map.view.v1'
+/** Podwyższony `peek` arkusza z kartą pojazdu (telefon): następny przystanek i „Śledź pojazd” / „Pokaż trasę” mają być widoczne bez rozwijania (ref. 03-map-states). */
+const VEHICLE_PEEK = 0.45
 /** `localStorage` to dane spoza aplikacji — schemat, nie asercja typu (AGENTS.md #4). */
 const lastViewSchema = z.object({ city: z.string(), at: z.string() })
 
@@ -783,6 +785,7 @@ export default function CityMapPage() {
             <BottomSheet
               key={cardKey}
               initialSnap={cardKey === 'overview:list' ? 'half' : 'peek'}
+              peek={selection?.kind === 'vehicle' ? VEHICLE_PEEK : undefined}
               onVisibleHeight={setSheetInset}
               above={
                 // JEDEN rząd przy krawędzi arkusza: statusy po lewej (zajmują resztę szerokości i zawijają tekst), „Moja lokalizacja" po prawej,

@@ -508,6 +508,20 @@ describe('CityMapPage — camera insets', () => {
     expect(map().insets).toEqual({ top: 40, bottom: 370 }) // half: 55 % × 600 + 40
   })
 
+  it('a selected vehicle opens a taller peek, and the camera padding follows it (45 % instead of 25 %)', async () => {
+    state.vehicles = { vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
+    setWide(false)
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect(map().insets.bottom).toBe(190)
+    act(() => map().onSelect({ kind: 'vehicle', id: 'v1' }))
+    await waitFor(() => expect(map().insets.bottom).toBe(310)) // 45 % × 600 + slot `above`
+    expect(sheet()).toHaveAttribute('data-snap', 'peek')
+    // Zamknięcie karty wraca do przeglądu ze zwykłym peekiem.
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij kartę' }))
+    await waitFor(() => expect(map().insets.bottom).toBe(190))
+  })
+
   it('at full the bottom inset keeps its last peek/half value', async () => {
     setWide(false)
     render(<CityMapPage />)

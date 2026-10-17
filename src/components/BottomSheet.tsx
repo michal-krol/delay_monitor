@@ -1,11 +1,20 @@
 'use client'
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 export type SheetSnap = 'peek' | 'half' | 'full'
 
 /** Ułamek wysokości obszaru, który arkusz zajmuje w danym punkcie zaczepienia. */
 const SHEET_SNAPS: Record<SheetSnap, number> = { peek: 0.25, half: 0.55, full: 0.9 }
+const DEFAULT_PEEK = SHEET_SNAPS.peek
+
+/** Punkty zaczepienia z własnym `peek` (karta, której główne akcje muszą się zmieścić w niskim punkcie). */
+/** Najmniejszy odstęp `peek` od `half` (ułamek wysokości): bliżej granica najbliższego punktu i uchwyt przestają się czuć. */
+const MIN_PEEK_GAP = 0.1
+
+function snapFractions(peek: number): Record<SheetSnap, number> {
+  return { ...SHEET_SNAPS, peek: Math.min(peek, SHEET_SNAPS.half - MIN_PEEK_GAP) }
+}
 
 const ORDER: SheetSnap[] = ['peek', 'half', 'full']
 const SNAP_LABEL: Record<SheetSnap, string> = { peek: 'niski', half: 'do połowy', full: 'pełny' }
@@ -26,10 +35,11 @@ export function nextSnap(snap: SheetSnap): SheetSnap {
 }
 
 /** Punkt najbliższy pozycji przewinięcia; niezmierzony arkusz (`height` 0) = `peek`. */
-export function nearestSnap(scrollTop: number, height: number): SheetSnap {
+export function nearestSnap(scrollTop: number, height: number, peek = DEFAULT_PEEK): SheetSnap {
   if (height <= 0) return 'peek'
   const at = scrollTop / height
-  return ORDER.reduce((best, snap) => (Math.abs(SHEET_SNAPS[snap] - at) < Math.abs(SHEET_SNAPS[best] - at) ? snap : best))
+  const snaps = snapFractions(peek)
+  return ORDER.reduce((best, snap) => (Math.abs(snaps[snap] - at) < Math.abs(snaps[best] - at) ? snap : best))
 }
 
 /**
@@ -45,11 +55,17 @@ export function nearestSnap(scrollTop: number, height: number): SheetSnap {
 export function BottomSheet({
   children,
   initialSnap = 'peek',
+  peek = DEFAULT_PEEK,
   above,
   onVisibleHeight,
 }: {
   children: ReactNode
   initialSnap?: SheetSnap
+  /**
+   * Ułamek wysokości obszaru w punkcie `peek` (domyślnie 0,25; wyraźnie niżej niż `half`, 0,55). Wyższy tylko dla karty, której
+   * główne akcje inaczej nie zmieściłyby się nad dolnym paskiem (karta pojazdu). Stały przez życie arkusza — inny = nowy `key`.
+   */
+  peek?: number
   /**
    * Treść przyklejona nad górną krawędzią panelu i jadąca razem z nim (statusy, chipy filtrów
    * mapy) — inaczej arkusz przy half/full by ją zakrył. Przy `full` mieści się ok. jeden rząd.
@@ -65,6 +81,7 @@ export function BottomSheet({
   const ref = useRef<HTMLDivElement>(null)
   const aboveRef = useRef<HTMLDivElement>(null)
   const [snap, setSnap] = useState<SheetSnap>(initialSnap)
+  const snaps = useMemo(() => snapFractions(peek), [peek])
   const onVisibleHeightRef = useRef(onVisibleHeight)
   useEffect(() => {
     onVisibleHeightRef.current = onVisibleHeight
@@ -77,32 +94,32 @@ export function BottomSheet({
 
   useLayoutEffect(() => {
     const el = ref.current
-    el?.scrollTo({ top: SHEET_SNAPS[initialSnap] * el.clientHeight, behavior: 'instant' })
+    el?.scrollTo({ top: snaps[initialSnap] * el.clientHeight, behavior: 'instant' })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- punkt startowy tylko przy montowaniu; inny = nowy `key`
   }, [])
 
   useEffect(() => {
     const el = ref.current
     if (el === null || snap === 'full') return
-    const report = (): void => onVisibleHeightRef.current?.(Math.round(SHEET_SNAPS[snap] * el.clientHeight + (aboveRef.current?.offsetHeight ?? 0)))
+    const report = (): void => onVisibleHeightRef.current?.(Math.round(snaps[snap] * el.clientHeight + (aboveRef.current?.offsetHeight ?? 0)))
     report()
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(report)
     observer.observe(el)
     if (aboveRef.current !== null) observer.observe(aboveRef.current)
     return () => observer.disconnect()
-  }, [snap])
+  }, [snap, snaps])
 
   function cycle(): void {
     const el = ref.current
     if (el === null) return
     // Od rzeczywistej pozycji, nie od stanu — po przeciągnięciu stan mógł się jeszcze nie ustalić.
-    const next = nextSnap(targetRef.current ?? nearestSnap(el.scrollTop, el.clientHeight))
+    const next = nextSnap(targetRef.current ?? nearestSnap(el.scrollTop, el.clientHeight, peek))
     targetRef.current = next
     waitsRef.current = 0
     setSnap(next)
     // Bez `behavior`: płynność decyduje CSS (`scroll-behavior` tylko bez prefers-reduced-motion).
-    el.scrollTo({ top: SHEET_SNAPS[next] * el.clientHeight })
+    el.scrollTo({ top: snaps[next] * el.clientHeight })
   }
 
   /** Stan z pozycji dopiero po zatrzymaniu: w trakcie płynnego przewijania pozycja mija inne punkty. */
@@ -120,20 +137,20 @@ export function BottomSheet({
     const el = ref.current
     if (el === null) return
     const target = targetRef.current
-    if (target !== null && waitsRef.current < TARGET_PATIENCE_WAITS && Math.abs(el.scrollTop - SHEET_SNAPS[target] * el.clientHeight) > 2) {
+    if (target !== null && waitsRef.current < TARGET_PATIENCE_WAITS && Math.abs(el.scrollTop - snaps[target] * el.clientHeight) > 2) {
       waitsRef.current += 1
       settleRef.current = setTimeout(settle, SETTLE_MS)
       return
     }
     targetRef.current = null
-    setSnap(nearestSnap(el.scrollTop, el.clientHeight))
+    setSnap(nearestSnap(el.scrollTop, el.clientHeight, peek))
   }
 
   return (
     <div ref={ref} className="bottom-sheet" data-snap={snap} onScroll={onScroll}>
       <div className="bottom-sheet__spacer" aria-hidden="true">
         {ORDER.map((point) => (
-          <span key={point} className="bottom-sheet__snap" style={{ top: `${SHEET_SNAPS[point] * 100}%` }} />
+          <span key={point} className="bottom-sheet__snap" style={{ top: `${snaps[point] * 100}%` }} />
         ))}
       </div>
       <div className="bottom-sheet__panel">

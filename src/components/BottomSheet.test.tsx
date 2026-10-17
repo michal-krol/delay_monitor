@@ -18,6 +18,17 @@ describe('snap helpers', () => {
     expect(nearestSnap(800, 1000)).toBe('full')
     expect(nearestSnap(500, 0)).toBe('peek')
   })
+
+  it('nearestSnap honours a taller peek (vehicle card): 0.4 of 1000 is peek, 0.5 is already closer to half', () => {
+    expect(nearestSnap(400, 1000, 0.4)).toBe('peek')
+    expect(nearestSnap(460, 1000, 0.4)).toBe('peek')
+    expect(nearestSnap(480, 1000, 0.4)).toBe('half')
+  })
+
+  it('a peek closer than 0.10 to half is clamped, so the two snaps never collapse together', () => {
+    expect(nearestSnap(470, 1000, 0.54)).toBe('peek') // 0.54 → 0.45: 0.47 is nearer peek than half
+    expect(nearestSnap(510, 1000, 0.54)).toBe('half')
+  })
 })
 
 describe('BottomSheet', () => {
@@ -51,6 +62,20 @@ describe('BottomSheet', () => {
     expect(sheet()).toHaveAttribute('data-snap', 'half')
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 330 })
     expect(screen.getByRole('button', { name: 'Zmień wysokość panelu (teraz: do połowy)' })).toBeInTheDocument()
+  })
+
+  it('a custom `peek` fraction decides where the sheet starts and where the snap marks sit', () => {
+    render(
+      <BottomSheet peek={0.4}>
+        <p>Treść</p>
+      </BottomSheet>
+    )
+    expect(scrollTo).toHaveBeenCalledWith({ top: 240, behavior: 'instant' }) // 40 % × 600
+    // eslint-disable-next-line testing-library/no-node-access -- znaczniki zaczepienia są dekoracyjne (bez ról)
+    const marks = [...document.querySelectorAll<HTMLElement>('.bottom-sheet__snap')].map((el) => Math.round(Number.parseFloat(el.style.top)))
+    expect(marks).toEqual([40, 55, 90]) // procenty z ułamków arkusza
+    fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ }))
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 330 })
   })
 
   it('snap state follows the scroll only once it settles (drag), so a smooth scroll never flips it back mid-way', () => {
@@ -161,6 +186,16 @@ describe('BottomSheet', () => {
       fireEvent.click(handle) // full: bez korekty
       expect(sheet()).toHaveAttribute('data-snap', 'full')
       expect(onVisibleHeight).not.toHaveBeenCalled()
+    })
+
+    it('reports the taller peek of a custom `peek` fraction (camera padding follows the card, not a constant)', () => {
+      const onVisibleHeight = vi.fn()
+      render(
+        <BottomSheet peek={0.4} above={<span>status</span>} onVisibleHeight={onVisibleHeight}>
+          <p>Treść</p>
+        </BottomSheet>
+      )
+      expect(onVisibleHeight).toHaveBeenLastCalledWith(290) // 40 % × 600 + 50
     })
 
     it('measures again when the sheet or its `above` slot is resized', () => {
