@@ -49,7 +49,8 @@ test('„Powiększ mapę" zostaje w rogu mapy i ma obszar trafienia >= 44×44', 
 })
 
 test('minuty w rozkładzie linii mają >= 24×24 px (WCAG 2.5.8)', async ({ page }) => {
-  await page.goto('/city/warszawa/line/20')
+  // Telefon pokazuje jedną kategorię dnia; „wd” mocka jadą w dzisiejszej (bywa pusta), sobotnie zawsze w „Soboty”.
+  await page.goto('/city/warszawa/line/20?day=saturday')
   await showLineTimetable(page)
   const minute = page.getByRole('button', { pressed: false }).filter({ hasText: /^\d\d~?$/ }).first()
   await expect(minute).toBeVisible({ timeout: READY })
