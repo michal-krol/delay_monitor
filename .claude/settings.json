@@ -20,6 +20,11 @@
         "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-size.mjs\"" }]
       }
     ],
+    "SessionEnd": [
+      {
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/worktrees-report.mjs\"", "timeout": 30 }]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

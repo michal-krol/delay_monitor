@@ -31,6 +31,17 @@ function readPr() {
   }
 }
 
+// Written by `npm run clean:worktrees` and the SessionEnd hook; no gh call here, so status stays cheap.
+function cleanupNudge() {
+  try {
+    const common = git(['rev-parse', '--git-common-dir'])
+    const summary = JSON.parse(readFileSync(path.join(path.resolve(common ?? '.git'), 'clean-worktrees-summary.json'), 'utf8'))
+    return Date.now() - summary.at < 7 * 24 * 3_600_000 ? formatNudge(summary) : null
+  } catch {
+    return null
+  }
+}
+
 const aheadBehindOut = git(['rev-list', '--left-right', '--count', `${BASE}...HEAD`])
 console.log(
   formatStatus({

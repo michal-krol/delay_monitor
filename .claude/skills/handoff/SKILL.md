@@ -45,3 +45,8 @@ gh pr list --state open
 without `gh` or network (the PR line says why).
 
 After writing, update memory only for durable facts (decisions, constraints) — not the narrative.
+
+## Cleanup after the handoff
+
+A merged PR means this worktree is done: after the handoff is written and moved to the main checkout's `docs/`,
+run the `cleanup` skill (report first; it copies leftover gitignored `docs/*.md` itself, so nothing is lost).
