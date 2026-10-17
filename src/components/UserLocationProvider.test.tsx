@@ -85,6 +85,111 @@ describe('UserLocationProvider', () => {
     expect(geo.getCurrentPosition).toHaveBeenCalledTimes(1)
   })
 
+  it('a point older than 60 s is queried again; a fresh one is reused (maximumAge is not moot)', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    try {
+      const geo = stubGeolocation()
+      const { result } = renderHook(() => useUserLocation(), { wrapper })
+      await act(async () => {
+        const p = result.current.request()
+        geo.calls[0].ok(position(52.2, 21, 35))
+        await p
+      })
+      await act(async () => {
+        vi.advanceTimersByTime(59_000)
+        await result.current.request()
+      })
+      expect(geo.getCurrentPosition).toHaveBeenCalledTimes(1)
+      let second: unknown
+      await act(async () => {
+        vi.advanceTimersByTime(2_000)
+        const p = result.current.request()
+        geo.calls[1].ok(position(52.3, 21.1, 20))
+        second = await p
+      })
+      expect(geo.getCurrentPosition).toHaveBeenCalledTimes(2)
+      expect(second).toEqual({ lat: 52.3, lon: 21.1, accuracyM: 20 })
+      expect(result.current.point).toEqual({ lat: 52.3, lon: 21.1, accuracyM: 20 })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a failed re-query drops the stale point instead of showing it as current', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    try {
+      const geo = stubGeolocation()
+      const { result } = renderHook(() => useUserLocation(), { wrapper })
+      await act(async () => {
+        const p = result.current.request()
+        geo.calls[0].ok(position(52.2, 21, 35))
+        await p
+      })
+      await act(async () => {
+        vi.advanceTimersByTime(61_000)
+        const p = result.current.request()
+        geo.calls[1].fail(failure(3))
+        expect(await p).toBeNull()
+      })
+      expect(result.current.status).toBe('error')
+      expect(result.current.point).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a prompt dismissed without a choice ends in error after the watchdog, so a retry is possible', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    try {
+      const geo = stubGeolocation()
+      const { result } = renderHook(() => useUserLocation(), { wrapper })
+      let pending!: Promise<unknown>
+      act(() => {
+        pending = result.current.request()
+      })
+      expect(result.current.status).toBe('requesting')
+      await act(async () => {
+        vi.advanceTimersByTime(14_000)
+      })
+      expect(result.current.status).toBe('requesting')
+      await act(async () => {
+        vi.advanceTimersByTime(2_000)
+      })
+      await expect(pending).resolves.toBeNull()
+      expect(result.current.status).toBe('error')
+      // Późna odpowiedź po watchdogu nie zmienia stanu; ponowienie pyta przeglądarkę jeszcze raz.
+      await act(async () => geo.calls[0].ok(position(52.2, 21, 35)))
+      expect(result.current.status).toBe('error')
+      await act(async () => {
+        const p = result.current.request()
+        geo.calls[1].ok(position(50, 19, 80))
+        await p
+      })
+      expect(geo.getCurrentPosition).toHaveBeenCalledTimes(2)
+      expect(result.current.status).toBe('ready')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a synchronous throw from getCurrentPosition becomes error, not an unhandled rejection', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: () => {
+          throw new Error('SecurityError')
+        },
+      },
+      configurable: true,
+    })
+    const { result } = renderHook(() => useUserLocation(), { wrapper })
+    let value: unknown = 'unset'
+    await act(async () => {
+      value = await result.current.request()
+    })
+    expect(value).toBeNull()
+    expect(result.current.status).toBe('error')
+  })
+
   it('denied sets status and does not re-prompt', async () => {
     const geo = stubGeolocation()
     const { result } = renderHook(() => useUserLocation(), { wrapper })
