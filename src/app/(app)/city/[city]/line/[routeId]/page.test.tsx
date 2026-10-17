@@ -296,8 +296,8 @@ describe('LineDetailPage', () => {
     // Widoczny tekst jest nazwą przycisku (ikona dekoracyjna).
     expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toBeInTheDocument()
     // kolumny rozkładu obok siebie — sobota nie pod dniami roboczymi
-    expect(screen.getByRole('columnheader', { name: 'Dni robocze' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Soboty' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Dni robocze' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Soboty' })).toBeInTheDocument()
     // pełna trasa widoczna od razu (bez rozwijania), z linkiem do tablicy wybranego przystanku
     expect(screen.getByRole('link', { name: 'Odjazdy z przystanku' })).toHaveAttribute('href', '/city/warszawa/stop/100101?name=Centrum')
     expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()
@@ -335,7 +335,7 @@ describe('LineDetailPage', () => {
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     // wybór odjazdu 06:00 z przystanku startowego (Centrum)
-    await user.click(screen.getByRole('button', { name: '06:00' }))
+    await user.click(screen.getByRole('button', { name: '06:00, Dni robocze' }))
     // Rondo ONZ (+300 s) pokazuje 06:05 na trasie
     expect(screen.getByText('06:05')).toBeInTheDocument()
   })
@@ -443,13 +443,13 @@ describe('LineDetailPage — direction by id and URL state', () => {
     const user = userEvent.setup()
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
-    await user.click(screen.getByRole('button', { name: '06:00' }))
+    await user.click(screen.getByRole('button', { name: '06:00, Dni robocze' }))
     expect(screen.getByText('06:05')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
     expect(screen.getByText('Od: Centrum')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '06:00' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: '06:00, Dni robocze' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByText('06:05')).not.toBeInTheDocument()
   })
 
@@ -488,14 +488,14 @@ describe('LineDetailPage — direction by id and URL state', () => {
       render(<LineDetailPage />)
       await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
       expect(centrumButtons()[0]).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getByRole('button', { name: '06:00' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '06:00, Dni robocze' })).toBeInTheDocument()
 
       await user.click(centrumButtons()[1])
       expect(centrumButtons()[1]).toHaveAttribute('aria-pressed', 'true')
       expect(centrumButtons()[0]).toHaveAttribute('aria-pressed', 'false')
       // Rozkład przesunięty o offset DRUGIEGO wystąpienia (900 s): 06:00 → 06:15.
-      expect(screen.getByRole('button', { name: '06:15' })).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: '06:00' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '06:15, Dni robocze' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '06:00, Dni robocze' })).not.toBeInTheDocument()
       expect(search().get('stop')).toBe('100101')
     })
 
@@ -506,7 +506,7 @@ describe('LineDetailPage — direction by id and URL state', () => {
       await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
       await user.click(await screen.findByTestId('map-pin-2'))
       expect(centrumButtons()[1]).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getByRole('button', { name: '06:15' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '06:15, Dni robocze' })).toBeInTheDocument()
     })
 
     it('switching direction drops the picked occurrence', async () => {
@@ -895,7 +895,7 @@ describe('LineDetailPage — alerts', () => {
     expect(await screen.findByText('Nie udało się wczytać komunikatów')).toBeInTheDocument()
     expect(screen.queryByText('Brak komunikatów dla tego kontekstu')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Dni robocze' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Dni robocze' })).toBeInTheDocument()
     // #7: awaria ≠ „brak" → bez skrótu.
     expect(screen.queryByRole('button', { name: /komunikat/ })).not.toBeInTheDocument()
   })
@@ -981,7 +981,7 @@ describe('LineDetailPage — theme switch', () => {
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
     await user.click(screen.getByRole('button', { name: /Rondo ONZ/ })) // → Rozkład
-    await user.click(screen.getByRole('button', { name: '06:05' })) // kurs 06:00 z Centrum = 06:05 na Rondzie ONZ
+    await user.click(screen.getByRole('button', { name: '06:05, Dni robocze' })) // kurs 06:00 z Centrum = 06:05 na Rondzie ONZ
     const lineCalls = callsTo(fetchMock, '/api/gtfs/line').length
     const recents = () => setItem.mock.calls.filter(([key]) => key === 'monitor.recentLines.v1').length
     expect(recents()).toBe(1)
@@ -991,7 +991,7 @@ describe('LineDetailPage — theme switch', () => {
 
     expect(screen.getByRole('button', { name: 'Rozkład' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Rondo ONZ 02')
-    expect(screen.getByRole('button', { name: '06:05' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '06:05, Dni robocze' })).toHaveAttribute('aria-pressed', 'true')
     expect(search().has('dir')).toBe(false)
     expect(search().get('stop')).toBe('700201')
     expect(search().get('pane')).toBe('timetable')
@@ -1028,11 +1028,133 @@ describe.each([
     await user.click(screen.getByRole('button', { name: /Centrum 03/ }))
     expect(search().get('stop')).toBe('100103')
     expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Centrum 03')
-    expect(screen.getByRole('columnheader', { name: 'Dni robocze' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Dni robocze' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '1 komunikat' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Pojazdy na mapie' })).toHaveAttribute('href', '/city/warszawa/map?line=20&dir=1')
     if (mode === 'metro' || mode === 'rail') expect(await screen.findByText('Brak danych o pozycjach pojazdów')).toBeInTheDocument()
 
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/train'))).toBe(false)
+  })
+})
+
+// PR8 „09 Rozkład”: kategoria dnia z URL-a (`day`), jeden stan dla wszystkich trybów, offset przystanku, powrót z Trasy.
+describe.each([
+  ['bus', 'regular'],
+  ['tram', 'regular'],
+  ['metro', 'regular'],
+  ['rail', 'regular'],
+] as const)('LineDetailPage — timetable day, %s line', (mode, kind) => {
+  const lineBody = () => ({ ...LINE, line: { ...LINE.line, mode, kind } })
+  const chips = () => within(screen.getByRole('group', { name: 'Kategoria dnia' }))
+  const column = (name: string) => screen.getByRole('group', { name })
+
+  // lg = oba panele zamontowane (Rozkład widoczny bez przełącznika); telefon tylko tam, gdzie przełączamy Trasa ↔ Rozkład.
+  async function setupLine(lg = true) {
+    stubMatchMedia(lg)
+    const user = userEvent.setup()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    return user
+  }
+
+  it('shows „Dni robocze” by default', async () => {
+    stubFetch(lineBody())
+    await setupLine()
+    expect(chips().getByRole('button', { name: 'Dni robocze' })).toHaveAttribute('aria-pressed', 'true')
+    expect(column('Dni robocze')).not.toHaveClass('max-lg:hidden')
+  })
+
+  it('opens on the day carried by the URL', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?day=saturday')
+    stubFetch(lineBody())
+    await setupLine()
+    expect(chips().getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'true')
+    expect(column('Soboty')).not.toHaveClass('max-lg:hidden')
+    expect(column('Dni robocze')).toHaveClass('max-lg:hidden')
+  })
+
+  it('an unknown ?day= falls back to „Dni robocze” silently', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?day=holiday')
+    stubFetch(lineBody())
+    await setupLine()
+    expect(chips().getByRole('button', { name: 'Dni robocze' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('?day=other without such a category falls back to „Dni robocze”', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?day=other')
+    stubFetch(lineBody())
+    await setupLine()
+    expect(chips().queryByRole('button', { name: 'Inne dni' })).not.toBeInTheDocument()
+    expect(chips().getByRole('button', { name: 'Dni robocze' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('picking a day writes ?day= (the default removes it), keeps dir/stop/pane and other params, and clears the picked course', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?dir=1&stop=100103&pane=timetable&utm=x')
+    stubFetch(lineBody())
+    const user = await setupLine()
+    await user.click(within(column('Dni robocze')).getByRole('button', { name: /^06:/ }))
+    expect(within(column('Dni robocze')).getByRole('button', { pressed: true })).toBeInTheDocument()
+
+    await user.click(chips().getByRole('button', { name: 'Soboty' }))
+    expect(search().get('day')).toBe('saturday')
+    expect(search().get('dir')).toBe('1')
+    expect(search().get('stop')).toBe('100103')
+    expect(search().get('pane')).toBe('timetable')
+    expect(search().get('utm')).toBe('x')
+    await user.click(chips().getByRole('button', { name: 'Dni robocze' }))
+    expect(search().has('day')).toBe(false)
+    // wybrany kurs został wyczyszczony przy zmianie dnia
+    expect(within(column('Dni robocze')).queryByRole('button', { pressed: true })).not.toBeInTheDocument()
+  })
+
+  it('keeps the day when the direction changes, and the other direction brings its own set of courses', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?day=saturday')
+    stubFetch(lineBody())
+    const user = await setupLine()
+    expect(within(column('Soboty')).getByRole('button', { name: '08:00, Soboty' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
+    expect(search().get('day')).toBe('saturday')
+    expect(chips().getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'true')
+    // kierunek 1 nie ma sobót w danych
+    expect(within(column('Soboty')).getByText('Brak kursów w tej kategorii dnia')).toBeInTheDocument()
+    expect(within(column('Soboty')).queryByRole('button', { name: '08:00, Soboty' })).not.toBeInTheDocument()
+  })
+
+  it('a stop with another offset shifts the shown minutes, and the pick keeps its base time across stops', async () => {
+    stubFetch(lineBody())
+    const user = await setupLine()
+    await user.click(screen.getByRole('button', { name: /Rondo ONZ/ }))
+    // offset 300 s: 06:00 z Centrum = 06:05 na Rondzie ONZ
+    await user.click(within(column('Dni robocze')).getByRole('button', { name: '06:05, Dni robocze' }))
+    await user.click(screen.getByRole('button', { name: /Metro Politechnika/ }))
+    // offset 600 s: ten sam kurs (baza 06:00) = 06:10
+    expect(within(column('Dni robocze')).getByRole('button', { name: '06:10, Dni robocze' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('going Trasa → Rozkład → Trasa → Rozkład keeps the day, the stop and the pane in the URL', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?dir=1&stop=100103&day=sunday')
+    stubFetch(lineBody())
+    const user = await setupLine(false)
+    const view = () => within(screen.getByRole('group', { name: 'Widok linii' }))
+    await user.click(view().getByRole('button', { name: 'Rozkład' }))
+    expect(chips().getByRole('button', { name: 'Niedziele i święta' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(view().getByRole('button', { name: 'Trasa' }))
+    await user.click(view().getByRole('button', { name: 'Rozkład' }))
+    expect(chips().getByRole('button', { name: 'Niedziele i święta' })).toHaveAttribute('aria-pressed', 'true')
+    expect(search().get('day')).toBe('sunday')
+    expect(search().get('stop')).toBe('100103')
+    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Centrum 03')
+  })
+
+  it('a time after midnight stays on its operating day: 24:10 is „+1 dzień” and the pick reports the base time', async () => {
+    const lateTimes = [23 * 3600 + 50 * 60, 24 * 3600 + 600]
+    const late = { ...DIR0, departures: [{ category: 'weekday', times: lateTimes, frequencyBased: false }] }
+    stubFetch({ ...LINE, line: { ...LINE.line, mode, kind, directions: [late, DIR1] } })
+    const user = await setupLine()
+    await user.click(within(column('Dni robocze')).getByRole('button', { name: '00:10, Dni robocze, następny dzień' }))
+    expect(within(column('Dni robocze')).getByText('+1 dzień')).toBeInTheDocument()
+    // Rondo ONZ (+300 s) liczy od bazowego 24:10: oś pokazuje 00:15 następnej doby
+    expect(screen.getByText('00:15')).toBeInTheDocument()
   })
 })

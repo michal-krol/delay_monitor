@@ -62,6 +62,14 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Rozkład linii na telefonie: jedna kategoria dnia naraz („Dni robocze”, „Soboty”, „Niedziele i święta” oraz
+  „Inne dni”, gdy linia ma takie kursy) wybierana zawijanymi przyciskami, bez przewijania w bok. Godzina stoi po
+  lewej, minuty po prawej jako przyciski o wysokości min. 44 px; kursy po północy mają oznaczenie „+1 dzień”
+  i zostają po wieczornych godzinach — także gdy dopiero czas przejazdu do przystanku przekracza 24:00. Wybrana kategoria
+  jest w adresie (`?day=`, domyślne „Dni robocze” bez parametru), zmiana dnia czyści wybrany kurs, a Trasa ↔ Rozkład
+  zachowuje dzień i przystanek. Gdy piątek ma osobny rozkład, kolumna „Dni robocze” to mówi; rozkład oparty na
+  częstotliwości dostaje wyjaśnienie „~”. Od szerokości `lg` nadal wszystkie kolumny obok siebie. Zaznaczona minuta
+  używa koloru głównego zamiast gradientu. Rozkład, nie prognoza — bez „na czas” i bez opóźnień.
 - Katalog linii (`/city/<miasto>/lines`): nagłówek „Linie” z nazwą miasta pod spodem, pole „Numer linii lub
   przystanek końcowy” (z przyciskiem „Wyczyść wyszukiwanie”) i filtry rodzaju komunikacji „Wszystkie · Metro ·
   Tramwaje · Autobusy · Kolej miejska” — zawijane w kolejne wiersze, bez przewijania w bok, z `aria-pressed`.

@@ -629,3 +629,173 @@ test.describe('Katalog linii (PR9)', () => {
     await expect(first).toHaveJSProperty('open', !wasOpen)
   })
 })
+
+// ---------------------------------------------------------------------------------------------------------------
+// PR8 „09 Rozkład”: kategoria dnia w rozkładzie linii. Poniżej `lg` jedna kategoria naraz (chipy „Kategoria dnia”),
+// od `lg` wszystkie kolumny obok siebie. Linia 20 ma w mocku dni robocze i soboty (bez niedziel), kierunek 0 startuje
+// z „Centrum 01”; „Rondo ONZ” leży +6 min od startu. Kursy „wd” mocka jadą w DZISIEJSZEJ kategorii dnia (zależnej od dnia
+// tygodnia), sobotnie (token SbS) zawsze w „Soboty” — testy opierają się na sobocie i nie zakładają kursów w „Dni robocze”.
+// ---------------------------------------------------------------------------------------------------------------
+test.describe('rozkład linii (PR8)', () => {
+  const dayChips = (page: Page) => page.getByRole('group', { name: 'Kategoria dnia' })
+  const dayColumn = (page: Page, name: string) => page.getByRole('group', { name, exact: true })
+
+  async function openTimetableAt(page: Page, query: string) {
+    await gotoLine(page, LINE_20, query)
+    await openTimetable(page)
+    // Aktywna kolumna jest zawsze widoczna (od `lg` wszystkie), także pusta.
+    await expect(page.getByRole('group', { name: /^(Dni robocze|Soboty|Niedziele i święta)$/ }).first()).toBeVisible({ timeout: READY })
+  }
+
+  test('katalog → linia → przystanek → rozkład → sobota → wybór minuty → trasa z godzinami', async ({ page }) => {
+    await gotoLines(page)
+    await expandAll(page)
+    await page.getByRole('link', { name: /^Linia 20: / }).click()
+    await expect(page.getByRole('heading', { level: 1, name: LINE_20.longName })).toBeVisible({ timeout: READY })
+
+    // Przystanek z listy trasy: na telefonie przełącza na Rozkład, na desktopie oba panele już stoją obok siebie.
+    await routeList(page).getByRole('button', { name: /Rondo ONZ/ }).click()
+    await expect(capsule(page)).toContainText('Rondo ONZ')
+
+    if (lgUp(page)) {
+      await expect(dayChips(page)).toBeHidden()
+    } else {
+      await dayChips(page).getByRole('button', { name: 'Soboty' }).click()
+      await expect(dayChips(page).getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'true')
+    }
+    // Od `lg` klik w minutę innej kolumny sam przełącza dzień; poniżej `lg` aktywna jest już sobota.
+    const saturday = dayColumn(page, 'Soboty')
+    await saturday.getByRole('button', { name: '08:06, Soboty' }).click()
+    await expect(page).toHaveURL(/[?&]day=saturday/)
+    await expect(saturday.getByRole('button', { name: '08:06, Soboty' })).toHaveAttribute('aria-pressed', 'true')
+
+    if (!lgUp(page)) {
+      await paneButton(page, 'Trasa').click()
+      await expect(paneButton(page, 'Trasa')).toHaveAttribute('aria-pressed', 'true')
+    }
+    // Wybrany kurs: lista trasy pokazuje godziny (08:00 → 08:06 → 08:12) zamiast przesunięć „+N min”.
+    await expect(routeList(page)).toContainText('08:06')
+    await expect(routeList(page)).toContainText('08:12')
+    await expect(page).toHaveURL(/[?&]day=saturday/)
+  })
+
+  test('telefon: jedna kategoria naraz, desktop: wszystkie kolumny obok siebie', async ({ page }) => {
+    await openTimetableAt(page, '')
+    const columns = ['Dni robocze', 'Soboty', 'Niedziele i święta']
+    if (lgUp(page)) {
+      for (const name of columns) await expect(dayColumn(page, name)).toBeVisible()
+      const boxes = await Promise.all(columns.map((name) => dayColumn(page, name).boundingBox()))
+      expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x)
+      expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x)
+      expect(Math.abs(boxes[0]!.y - boxes[1]!.y)).toBeLessThan(2)
+    } else {
+      await expect(dayColumn(page, 'Dni robocze')).toBeVisible()
+      await expect(dayColumn(page, 'Soboty')).toBeHidden()
+      await dayChips(page).getByRole('button', { name: 'Niedziele i święta' }).click()
+      await expect(dayColumn(page, 'Niedziele i święta')).toBeVisible()
+      await expect(dayColumn(page, 'Dni robocze')).toBeHidden()
+      await expect(dayChips(page).getByRole('button', { name: 'Dni robocze' })).toBeVisible()
+    }
+    // Kursy „wd” mocka jadą w dzisiejszej kategorii, więc każda kategoria ma albo minuty, albo „Brak kursów w tej
+    // kategorii dnia” — nigdy pustą kolumnę (a sobota ma zawsze kursy z tokenu SbS).
+    for (const name of columns) {
+      if (!lgUp(page)) await dayChips(page).getByRole('button', { name }).click()
+      const column = dayColumn(page, name)
+      const own = (await column.getByRole('button').count()) + (await column.getByText('Brak kursów w tej kategorii dnia').count())
+      expect(own, name).toBeGreaterThan(0)
+    }
+  })
+
+  test('telefon: minuty i chipy dnia mają co najmniej 44 px', async ({ page }, testInfo) => {
+    test.skip(isDesktop(testInfo), 'cele dotyku dotyczą telefonu')
+    await openTimetableAt(page, '?day=saturday')
+    const size = async (target: ReturnType<Page['locator']>) => {
+      const box = await target.boundingBox()
+      return { w: Math.round(box?.width ?? 0), h: Math.round(box?.height ?? 0) }
+    }
+    for (const name of ['Dni robocze', 'Soboty', 'Niedziele i święta']) {
+      expect((await size(dayChips(page).getByRole('button', { name }))).h).toBeGreaterThanOrEqual(44)
+    }
+    const minutes = dayColumn(page, 'Soboty').getByRole('button')
+    expect(await minutes.count()).toBeGreaterThan(1)
+    for (let i = 0; i < (await minutes.count()); i++) {
+      const { w, h } = await size(minutes.nth(i))
+      expect(w).toBeGreaterThanOrEqual(44)
+      expect(h).toBeGreaterThanOrEqual(44)
+    }
+  })
+
+  for (const width of [375, 320]) {
+    test(`${width} px: rozkład w każdej kategorii nie przewija strony w poziomie, także przy tekście 200%`, async ({ page }, testInfo) => {
+      test.skip(!isDesktop(testInfo), 'pomiar clientWidth na desktop-chromium; mobile ma własny viewport')
+      await page.setViewportSize({ width, height: 812 })
+      await openTimetableAt(page, '')
+      const overflow = () =>
+        page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }))
+      for (const name of ['Dni robocze', 'Soboty', 'Niedziele i święta']) {
+        await dayChips(page).getByRole('button', { name }).click()
+        const { scrollWidth, clientWidth } = await overflow()
+        expect(scrollWidth, name).toBeLessThanOrEqual(clientWidth)
+      }
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '200%'
+      })
+      await dayChips(page).getByRole('button', { name: 'Dni robocze' }).click()
+      // Przy 200% tekstu strona jako całość może przewijać się przez przycisk „Zmień kierunek” z PR7 (poza tym ekranem);
+      // rozkład (chipy dnia i kolumna) musi mieścić się w oknie.
+      const timetableOverflow = await page.evaluate(() => {
+        const limit = document.documentElement.clientWidth + 1
+        const scope = document.querySelector('[role="group"][aria-label="Kategoria dnia"]')?.parentElement
+        return [...(scope?.querySelectorAll('*') ?? [])].filter((n) => n.getBoundingClientRect().right > limit).length
+      })
+      expect(timetableOverflow).toBe(0)
+    })
+  }
+
+  test('klawiatura: minuta wybiera się i odznacza Enterem, a chip dnia Spacją; fokus zostaje na elemencie', async ({ page }) => {
+    await openTimetableAt(page, '')
+    if (!lgUp(page)) {
+      const saturdayChip = dayChips(page).getByRole('button', { name: 'Soboty' })
+      await saturdayChip.focus()
+      await page.keyboard.press('Space')
+      await expect(saturdayChip).toHaveAttribute('aria-pressed', 'true')
+      await expect(saturdayChip).toBeFocused()
+    }
+    const minute = dayColumn(page, 'Soboty').getByRole('button').first()
+    await minute.focus()
+    await page.keyboard.press('Enter')
+    await expect(minute).toHaveAttribute('aria-pressed', 'true')
+    await expect(minute).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(minute).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('?day=saturday otwiera sobotę, a zmiana dnia zostawia kierunek i przystanek', async ({ page }) => {
+    await openTimetableAt(page, '?dir=1&stop=700201&day=saturday')
+    if (!lgUp(page)) {
+      await expect(dayChips(page).getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'true')
+      await dayChips(page).getByRole('button', { name: 'Dni robocze' }).click()
+      // Domyślna kategoria nie jest zapisywana w adresie.
+      await expect(page).not.toHaveURL(/[?&]day=/)
+    } else {
+      // Od `lg` nie ma chipów: klik w minutę soboty zostawia `day=saturday` i nie rusza reszty adresu.
+      await dayColumn(page, 'Soboty').getByRole('button').first().click()
+      await expect(page).toHaveURL(/[?&]day=saturday/)
+    }
+    await expect(page).toHaveURL(/[?&]dir=1/)
+    await expect(page).toHaveURL(/[?&]stop=700201/)
+    await expect(capsule(page)).toContainText('Rondo ONZ')
+  })
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    const mode = colorScheme === 'dark' ? 'ciemnym' : 'jasnym'
+
+    test(`a11y: rozkład linii 20, sobota z wybraną minutą w trybie ${mode} bez naruszeń serious/critical`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme })
+      await openTimetableAt(page, '?stop=700201&day=saturday')
+      await dayColumn(page, 'Soboty').getByRole('button', { name: '08:06, Soboty' }).click()
+      await expect(dayColumn(page, 'Soboty').getByRole('button', { name: '08:06, Soboty' })).toHaveAttribute('aria-pressed', 'true')
+      await expectNoBlockingViolations(page)
+    })
+  }
+})
