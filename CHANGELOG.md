@@ -218,6 +218,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Naprawione
 
+- Strona linii przy 320 px i tekście 200%: przycisk „Zmień kierunek” zawija się pod nagłówek kierunku zamiast
+  wypychać stronę w bok (cel dotyku 44 px bez zmian); ten sam błąd w karcie komunikatu, której treść miała
+  stałą minimalną szerokość w `rem`. Test e2e sprawdza teraz całą stronę, nie tylko rozkład.
+- Rozkład linii: zmiana kategorii dnia na telefonie przechodzi płynnym zanikiem (tak jak „Trasa”/„Rozkład”; bez
+  ruchu przy ograniczonym ruchu). Bez wybranego przystanku (kierunek bez przebiegu) tabliczka mówi, że nie ma
+  godzin do pokazania, zamiast zgadywać przesunięcie 0. Minuty rozkładu z częstotliwością mają „~” także w nazwie
+  dostępnej dla czytników („06:00~, Dni robocze, orientacyjnie”).
 - Dolny pasek nawigacji na telefonie: etykiety („Start”, „Mapa”, „Szukaj”, „Linie”) miały za mały kontrast
   (4,1–4,2:1 zamiast 4,5:1), gdy pod półprzezroczystym paskiem przewijała się nasycona plakietka linii
   (np. czarna nocna lub niebieska kolejowa) — widać to było na `/search` w jasnym motywie. Pasek jest teraz

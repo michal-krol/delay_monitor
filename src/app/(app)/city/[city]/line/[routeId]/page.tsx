@@ -487,7 +487,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                       )}
                       <LineTimetable
                         blocks={direction.departures}
-                        offsetSec={selectedStop?.offsetSec ?? 0}
+                        offsetSec={selectedStop?.offsetSec ?? null}
                         selectedBaseSec={selectedBaseSec}
                         day={view.day}
                         onDayChange={selectDay}

@@ -106,7 +106,7 @@ describe('timetableCellLabel', () => {
     expect(timetableCellLabel(6 * H + 480, 'Dni robocze', false)).toBe('06:08, Dni robocze')
     expect(timetableCellLabel(24 * H + 600, 'Soboty', false)).toBe('00:10, Soboty, następny dzień')
   })
-  it('says the time is approximate for a frequency-based timetable', () => {
-    expect(timetableCellLabel(6 * H, 'Dni robocze', true)).toBe('06:00, Dni robocze, orientacyjnie')
+  it('says the time is approximate for a frequency-based timetable, keeping the visible „~” in the name (WCAG 2.5.3)', () => {
+    expect(timetableCellLabel(6 * H, 'Dni robocze', true)).toBe('06:00~, Dni robocze, orientacyjnie')
   })
 })

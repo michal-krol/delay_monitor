@@ -55,6 +55,9 @@ Why: `adr/0007-efekty-ruchu.md`. Native first (View Transitions, CSS scroll-driv
   e2e failures); mounting/unmounting the boundaries by engine would reshape the tree after hydration. Safari is
   unlocked after real-iPhone click-QA — delete the `userAgentData` condition then.
 - **State changes only animate inside `startTransition`** (tab switches); plain `setState` does not start a transition.
+  `LineTimetable`'s day chips follow this: below `lg` the grid is a `TabCrossfade` (`name="line-day"`, `id` = active day, so a
+  day change swaps the grid and the chips stay put); from `lg` the id is constant — all columns are on screen and a remount would drop
+  focus from a minute button.
 - **Never hand-write `-webkit-backdrop-filter` in `globals.css`.** With a hand-written twin the build emitted ONLY the
   prefixed property and Chromium rendered no blur (also true for `.glass` before PR6). Write `backdrop-filter` alone
   (guard: `designTokens.test.ts`).

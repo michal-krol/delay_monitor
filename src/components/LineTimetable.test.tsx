@@ -1,7 +1,16 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>()
+  return {
+    ...actual,
+    ViewTransition: (props: { children?: React.ReactNode }) =>
+      actual.createElement('div', { 'data-testid': 'vt', 'data-props': JSON.stringify({ ...props, children: undefined }) }, props.children),
+  }
+})
+
 import { LineTimetable } from './LineTimetable'
 import type { LineDepartureBlock } from '@/lib/gtfs/query'
 import type { LineDay } from '@/lib/lineViewState'
@@ -14,7 +23,7 @@ const blocks: LineDepartureBlock[] = [
 
 type Over = Partial<{
   blocks: LineDepartureBlock[]
-  offsetSec: number
+  offsetSec: number | null
   selectedBaseSec: number | null
   day: LineDay
   onSelect: (baseSec: number | null) => void
@@ -133,8 +142,10 @@ describe('LineTimetable — cells', () => {
 
   it('marks frequency-based times as approximate — in the label, the glyph and a note', () => {
     renderTimetable({ blocks: [{ category: 'weekday', times: [6 * H], frequencyBased: true }] })
-    const minute = within(column('Dni robocze')).getByRole('button', { name: '06:00, Dni robocze, orientacyjnie' })
+    const minute = within(column('Dni robocze')).getByRole('button', { name: '06:00~, Dni robocze, orientacyjnie' })
     expect(minute).toHaveTextContent('00~')
+    // WCAG 2.5.3: the accessible name contains the whole visible text („00~”), not only the digits.
+    expect(minute.getAttribute('aria-label')).toContain(minute.textContent)
     expect(screen.getByText(/według częstotliwości/)).toBeInTheDocument()
   })
 })
@@ -205,5 +216,57 @@ describe('LineTimetable — selection', () => {
     const pressed = within(column('Dni robocze')).getByRole('button', { pressed: true })
     expect(pressed).toHaveClass('bg-primary', 'text-primary-fg')
     expect(pressed.outerHTML).not.toMatch(/accent-gradient|indigo-/)
+  })
+})
+
+describe('LineTimetable — no stop to show times for', () => {
+  it('shows a note instead of times shifted by an invented offset 0', () => {
+    renderTimetable({ offsetSec: null })
+    expect(screen.getByText('Brak przystanku, dla którego można pokazać godziny.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^06:00/ })).not.toBeInTheDocument()
+  })
+
+  it('still offers the day chips, so the choice of category is not lost', () => {
+    renderTimetable({ offsetSec: null })
+    expect(dayChips().getByRole('button', { name: 'Soboty' })).toBeInTheDocument()
+  })
+
+  it('treats a real offset 0 (the first stop) as a stop — times are shown', () => {
+    renderTimetable({ offsetSec: 0 })
+    expect(screen.queryByText('Brak przystanku, dla którego można pokazać godziny.')).not.toBeInTheDocument()
+    expect(within(column('Dni robocze')).getByRole('button', { name: '06:00, Dni robocze' })).toBeInTheDocument()
+  })
+})
+
+describe('LineTimetable — day crossfade', () => {
+  function stubMatchMedia(lgUp: boolean) {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: lgUp && query === '(min-width: 64rem)',
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('below lg a day change replaces the grid under one stable transition name; the chips stay put', () => {
+    stubMatchMedia(false)
+    const view = renderTimetable({ day: 'weekday' })
+    const columnBefore = column('Soboty')
+    const chipBefore = dayChips().getByRole('button', { name: 'Soboty' })
+    const vt = JSON.parse(screen.getByTestId('vt').getAttribute('data-props') ?? '{}')
+    expect(vt).toMatchObject({ name: 'line-day', share: 'auto', enter: 'auto', default: 'none' })
+
+    view.rerender(<LineTimetable blocks={blocks} offsetSec={0} selectedBaseSec={null} onSelect={() => {}} day="saturday" />)
+    expect(column('Soboty')).not.toBe(columnBefore)
+    expect(dayChips().getByRole('button', { name: 'Soboty' })).toBe(chipBefore)
+  })
+
+  it('from lg all columns stay mounted when the day changes — no remount, so focus in a column survives', () => {
+    stubMatchMedia(true)
+    const view = renderTimetable({ day: 'weekday' })
+    const columnBefore = column('Soboty')
+    view.rerender(<LineTimetable blocks={blocks} offsetSec={0} selectedBaseSec={null} onSelect={() => {}} day="saturday" />)
+    expect(column('Soboty')).toBe(columnBefore)
   })
 })

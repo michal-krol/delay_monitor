@@ -94,9 +94,12 @@ export function dayOffsetAria(offsetDays: number): string | null {
   return offsetDays === 1 ? 'następny dzień' : `+${offsetDays} dni`
 }
 
-/** Nazwa przycisku minuty: pełna godzina, kategoria, ewentualnie doba po północy i „orientacyjnie” (rozkład z częstotliwości). */
+/**
+ * Nazwa przycisku minuty: pełna godzina, kategoria, ewentualnie doba po północy i „orientacyjnie” (rozkład z częstotliwości).
+ * Widoczny tekst to minuty z „~” przy rozkładzie z częstotliwości — „~” zostaje też w nazwie (WCAG 2.5.3).
+ */
 export function timetableCellLabel(dispSec: number, dayLabel: string, frequencyBased: boolean): string {
-  const parts = [formatSecondsOfDay(dispSec), dayLabel]
+  const parts = [formatSecondsOfDay(dispSec) + (frequencyBased ? '~' : ''), dayLabel]
   const next = dayOffsetAria(dayOffsetOf(Math.floor(dispSec / 3600)))
   if (next !== null) parts.push(next)
   if (frequencyBased) parts.push('orientacyjnie')
