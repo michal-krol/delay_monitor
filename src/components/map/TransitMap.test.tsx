@@ -448,6 +448,17 @@ describe('TransitMap camera insets', () => {
     expect(map.jumpTo).not.toHaveBeenCalled()
   })
 
+  it('publishes the bottom inset as --map-inset-bottom on the wrapper, so CSS can lift the attribution above the sheet', async () => {
+    const { container, rerender } = await mounted({ insets: INSETS })
+    // eslint-disable-next-line testing-library/no-node-access -- wrapper mapy nie ma roli ani nazwy
+    const wrapper = container.firstElementChild as HTMLElement
+    expect(wrapper.style.getPropertyValue('--map-inset-bottom')).toBe('300px')
+    rerender(<TransitMap {...base} insets={{ top: 80, bottom: 120 }} />)
+    expect(wrapper.style.getPropertyValue('--map-inset-bottom')).toBe('120px')
+    rerender(<TransitMap {...base} />)
+    expect(wrapper.style.getPropertyValue('--map-inset-bottom')).toBe('0px')
+  })
+
   it('changing insets does not recreate the map', async () => {
     const { map, rerender } = await mounted({ insets: { top: 0, bottom: 0 } })
     rerender(<TransitMap {...base} insets={{ top: 80, bottom: 120 }} />)

@@ -613,6 +613,27 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     for (const snap of ['half', 'full', 'peek'] as const) await clickHandleTo(page, snap)
   })
 
+  test('atrybucja mapy (OpenFreeMap/OSM) leży nad arkuszem przeglądu i da się ją kliknąć — peek i połowa', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openMap(page)
+    // Na 375 px MapLibre pokazuje źródła rozwinięte (linki), na węższych zwija je do przycisku — sprawdzamy to, co faktycznie jest.
+    const link = page.getByRole('link', { name: 'OpenFreeMap' })
+    for (const snap of ['peek', 'half'] as const) {
+      if (snap === 'half') await clickHandleTo(page, 'half')
+      await expect(link).toBeVisible()
+      const box = (await link.boundingBox())!
+      const panelTop = (await sheet(page).locator('.bottom-sheet__panel').boundingBox())!.y
+      expect(box.y + box.height, `link OpenFreeMap pod krawędzią arkusza (${snap})`).toBeLessThanOrEqual(panelTop)
+      // Pod środkiem linku leży on sam, a nie arkusz ani kontrolka przykrywająca.
+      const onTop = await link.evaluate((el) => {
+        const rect = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+        return hit === el || el.contains(hit)
+      })
+      expect(onTop, `link OpenFreeMap przykryty (${snap})`).toBe(true)
+    }
+  })
+
   test('wyniki wyszukiwania i menu kontrolek leżą nad arkuszem, nie pod nim', async ({ page }) => {
     await openMap(page)
     await openStopCard(page, 'Centrum')

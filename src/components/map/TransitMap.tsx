@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap, MapGeoJSONFeature } from 'maplibre-gl'
 import { STYLE_DARK, STYLE_LIGHT, WORKER_URL } from '../MapView'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
@@ -743,7 +743,8 @@ export function TransitMap({
   }, [focusNonce])
 
   return (
-    <div className="absolute inset-0">
+    // `--map-inset-bottom` unosi atrybucję MapLibre nad arkusz (`globals.css`, „Atrybucja nad arkuszem"); 0 bez arkusza.
+    <div className="transit-map absolute inset-0" style={{ '--map-inset-bottom': `${insets.bottom}px` } as CSSProperties}>
       {/* Region z nazwą to canvas MapLibre (`Map.Title` wyżej) — drugi, zagnieżdżony byłby szumem dla czytnika. */}
       <div ref={containerRef} className="h-full w-full" />
     </div>
