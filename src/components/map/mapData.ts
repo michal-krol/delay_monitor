@@ -330,6 +330,32 @@ export function interpolatePoints(from: ReadonlyMap<string, [number, number]>, t
 }
 
 /**
+ * Czy dwa składy warstwy rysują się tak samo (te same punkty, te same współrzędne i właściwości w tej samej
+ * kolejności). Zegar wieku (`useCityVehicles`, co 10 s) podaje mapie nową tablicę przy KAŻDYM takcie, choć
+ * obraz zmienia się dopiero na progu wygaszenia/ukrycia — bez tego porównania każdy takt to `setData` całej
+ * warstwy i `idle` z przeliczeniem listy „W widoku".
+ */
+export function paintUnchanged(a: PointCollection, b: PointCollection): boolean {
+  if (a === b) return true
+  if (a.features.length !== b.features.length) return false
+  return a.features.every((f, i) => {
+    const g = b.features[i]
+    if (f.geometry.coordinates[0] !== g.geometry.coordinates[0] || f.geometry.coordinates[1] !== g.geometry.coordinates[1]) return false
+    const keys = Object.keys(f.properties)
+    return keys.length === Object.keys(g.properties).length && keys.every((key) => f.properties[key] === g.properties[key])
+  })
+}
+
+/** Czy żaden punkt obecny w obu składach się nie przesunął (zmiana wyglądu, zniknięcie i nowy punkt nie liczą się). */
+export function positionsUnchanged(from: PointCollection, to: PointCollection): boolean {
+  const before = new Map(from.features.map((f) => [String(f.properties.id), f.geometry.coordinates]))
+  return to.features.every((f) => {
+    const was = before.get(String(f.properties.id))
+    return was === undefined || (was[0] === f.geometry.coordinates[0] && was[1] === f.geometry.coordinates[1])
+  })
+}
+
+/**
  * Strzałka kierunku jazdy jako obraz SDF (kolor nadaje warstwa `icon-color`) — wielokąt Lucide
  * `navigation-2`, ten sam glif co `VehicleHeadingIcon` i marker w `MapView`. Piksele liczone wprost
  * (test parzysto-nieparzysty dla środka piksela) — bez canvasu, działa także w testach.
