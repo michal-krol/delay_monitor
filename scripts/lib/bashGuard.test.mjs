@@ -57,9 +57,36 @@ describe('classifyBashCommand — allowed', () => {
     'cmd 2>&1 >/dev/null',
     'tee < input.txt',
     'wc -l < src/a.ts',
-    'git apply < /tmp/fix.patch',
+    'git apply --check < /tmp/fix.patch',
     'grep -c x <<< "a > b"',
     'exec 3>&-',
+    // interpreters: reading, repo scripts and npm scripts stay allowed
+    'npm run vendor:maplibre',
+    'node scripts/check.mjs',
+    'node scripts/enrich-station-coords.mjs --force',
+    'node --version',
+    'node -p "require(\'@playwright/test/package.json\').version"',
+    'node -e "console.log(require(\'fs\').readFileSync(\'a.txt\', \'utf8\'))"',
+    'node -e "require(\'fs\').writeFileSync(\'/tmp/x.json\', \'{}\')"',
+    'node -e "require(\'fs\').writeFileSync(require(\'os\').tmpdir() + \'/x\', \'\')"',
+    'node -e "fs.writeFileSync(\'C:\\\\Users\\\\me\\\\AppData\\\\Local\\\\Temp\\\\x\', \'\')"',
+    'python3 -c "print(open(\'a.txt\').read())"',
+    'python3 -c "open(\'a.txt\', \'r\').read()"',
+    'python3 -c "open(\'x\')"',
+    'python -m pytest -q',
+    'python3 -c "open(\'/tmp/x\', \'w\').write(\'y\')"',
+    'perl -e \'open(F, "<a.txt"); print <F>\'',
+    'ruby -e \'puts File.read("a.txt")\'',
+    'powershell -NoProfile -Command "Get-ChildItem | Select-Object Name"',
+    'powershell -Command "Get-Content a.txt 2>&1"',
+    'pwsh -Command "Set-Content /tmp/x.txt hi"',
+    'awk \'{print $1}\' file',
+    'awk \'$1 > 5 {print $2}\' file',
+    'awk \'{print ($1 > 5)}\' file',
+    'awk \'{print > "/dev/stderr"}\' file',
+    'awk \'{print > "/tmp/out.txt"}\' file',
+    'git apply --stat fix.patch',
+    'patch --dry-run -p1 < /tmp/fix.patch',
   ])('%s', (command) => {
     expect(classify(command)).toEqual({ blocked: false })
   })
@@ -101,6 +128,93 @@ describe('classifyBashCommand — blocked file writes', () => {
     const result = classify(command)
     expect(result.blocked).toBe(true)
     expect(result.reason).toMatch(/Edit\/Write/)
+  })
+})
+
+const encodePs = (code) => Buffer.from(code, 'utf16le').toString('base64')
+
+describe('classifyBashCommand — blocked writes through interpreters', () => {
+  it.each([
+    // node: inline code, stdin, nested shell
+    'node -e "require(\'fs\').writeFileSync(\'src/a.ts\', \'x\')"',
+    'node --eval "fs.appendFileSync(\'README.md\', \'x\')"',
+    'node -pe "fs.writeFileSync(\'a\', \'b\')"',
+    'node -r dotenv/config -e "fs.writeFile(\'a\', \'b\', cb)"',
+    'nodejs -e "fs.copyFileSync(\'a\', \'b\')"',
+    'node -e "fs.promises.rename(\'a\', \'b\')"',
+    'node -e "fs.createWriteStream(\'out.txt\')"',
+    "node -e 'fs.cpSync(\"a\", \"b\")'",
+    heredoc("node - <<'EOF'", "require('fs').writeFileSync('src/a.ts', 'x')"),
+    heredoc('node <<EOF', "fs.writeFileSync('src/a.ts', 'x')"),
+    'echo "require(\'fs\').writeFileSync(\'a\', \'b\')" | node',
+    'bash -c "node -e \'fs.writeFileSync(1, 2)\'"',
+    'FOO=1 node -e "fs.writeFileSync(\'a\', \'b\')"',
+    // python
+    'python3 -c "open(\'a.py\', \'w\').write(\'x\')"',
+    'python3 -c "open(\'a.py\',\'a\')"',
+    'python -c "open(\'a\', mode=\'w\')"',
+    'python -c "open(\'a\', \'r+\')"',
+    'py -3 -c "open(\'a\', \'wb\')"',
+    'python3 -c "from pathlib import Path; Path(\'a\').write_text(\'x\')"',
+    'python3 -c "import shutil; shutil.copy(\'a\', \'b\')"',
+    'python3 -c "import os; os.replace(\'a\', \'b\')"',
+    'python3 -c "import fileinput; fileinput.input(\'a\', inplace=True)"',
+    heredoc("python3 - <<'PY'", "with open('f.py', 'w') as fh:\n    fh.write('x')", 'PY'),
+    // perl / ruby
+    "perl -e 'open(F, \">a.txt\"); print F \"x\"'",
+    "perl -e 'open(my $f, \">>\", \"a\") or die'",
+    "ruby -e 'File.write(\"a\", \"b\")'",
+    // awk
+    "awk '{print > \"out.txt\"}' in",
+    "awk '{print $1 >> \"log\"}' in",
+    "awk -i inplace '{print}' f",
+    "gawk -i inplace '{print}' f",
+    // PowerShell
+    'powershell -Command "Set-Content -Path a.txt -Value x"',
+    'pwsh -c "\'x\' | Out-File a.txt"',
+    'powershell -NoProfile -Command "Get-Date > a.txt"',
+    'powershell -Command "[IO.File]::WriteAllText(\'a\', \'b\')"',
+    'powershell.exe -Command "Add-Content a.txt hi"',
+    `powershell -EncodedCommand ${encodePs('Set-Content a.txt x')}`,
+    // patches
+    'git apply fix.patch',
+    'git apply < fix.patch',
+    'git apply --index fix.patch',
+    'git -C ../x apply fix.patch',
+    'patch -p1 < fix.patch',
+    'patch file < diff',
+  ])('%s', (command) => {
+    const result = classify(command)
+    expect(result.blocked).toBe(true)
+    expect(result.reason).toMatch(/Edit\/Write/)
+  })
+
+  describe('scripts in a temp dir are read and scanned (repo scripts are not)', () => {
+    const writes = "require('fs').writeFileSync('src/a.ts', 'x')"
+    const readFiles = (files) => (file) => {
+      if (!(file in files)) throw new Error(`unexpected read ${file}`)
+      return files[file]
+    }
+    const run = (command, files) => classifyBashCommand(command, { ...options, readFile: readFiles(files) })
+
+    it.each([
+      ['node /tmp/scratch/fix.js', { '/tmp/scratch/fix.js': writes }],
+      ['python3 /tmp/scratch/fix.py', { '/tmp/scratch/fix.py': "open('f.py', 'w').write('x')" }],
+      ['powershell -File /tmp/scratch/fix.ps1', { '/tmp/scratch/fix.ps1': 'Set-Content a.txt x' }],
+    ])('blocks %s', (command, files) => {
+      expect(run(command, files).blocked).toBe(true)
+    })
+
+    it('allows a temp-dir script that does not write, or an unreadable one', () => {
+      expect(run('node /tmp/scratch/look.js', { '/tmp/scratch/look.js': 'console.log(1)' })).toEqual({ blocked: false })
+      expect(run('node /tmp/scratch/gone.js', {})).toEqual({ blocked: false })
+      expect(classify('node /tmp/scratch/fix.js')).toEqual({ blocked: false }) // no readFile given
+    })
+
+    it('does not read repo scripts (relative or outside the temp dirs)', () => {
+      expect(run('node scripts/enrich-station-coords.mjs', {})).toEqual({ blocked: false })
+      expect(run('node /home/me/repo/scripts/x.mjs', {})).toEqual({ blocked: false })
+    })
   })
 })
 
