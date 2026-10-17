@@ -40,6 +40,8 @@ const state = vi.hoisted(() => ({
   },
   stops: { stops: null as unknown[] | null, error: false },
   rail: { stations: null as unknown[] | null, error: false },
+  /** Wywołania `useTransitBoard(city, stopIds, limit)` — podgląd odjazdów w „W pobliżu". */
+  boardCalls: [] as unknown[][],
   /** Odpowiedź `/api/search` (wyszukiwarka na mapie). */
   search: [] as unknown[],
   mapProps: null as null | {
@@ -63,7 +65,12 @@ vi.mock('@/hooks/useRailStations', () => ({
   useRailStations: () => state.rail,
   useRailStationStatus: () => ({ status: null, error: false }),
 }))
-vi.mock('@/hooks/useTransitBoard', () => ({ useTransitBoard: () => ({ data: null, error: null }) }))
+vi.mock('@/hooks/useTransitBoard', () => ({
+  useTransitBoard: (...args: unknown[]) => {
+    state.boardCalls.push(args)
+    return { data: null, error: null }
+  },
+}))
 vi.mock('@/components/map/TransitMap', () => ({
   TransitMap: (props: NonNullable<typeof state.mapProps>) => {
     state.mapProps = props
@@ -104,6 +111,7 @@ beforeEach(() => {
   state.rail = { stations: [STATION], error: false }
   state.mapProps = null
   state.search = []
+  state.boardCalls = []
   setWide(true)
   vi.stubGlobal(
     'fetch',
@@ -511,6 +519,18 @@ describe('CityMapPage — camera insets', () => {
     setWide(true)
     rerender(<CityMapPage />)
     await waitFor(() => expect(map().insets.bottom).toBe(0))
+  })
+
+  it('on a wide screen a status notice does not grow the top inset: only the control row is measured (no camera re-ease on toasts)', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.textContent?.includes('ponawiam') ? 100 : 40
+    })
+    state.rail = { stations: null, error: true }
+    setWide(true)
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect(screen.getByText(/Nie udało się wczytać stacji kolejowych/)).toBeInTheDocument()
+    expect(map().insets.top).toBe(40)
   })
 
   it('a wide screen has no sheet: nothing is covered at the bottom (the aside is a flex sibling of the map)', async () => {
@@ -1133,6 +1153,103 @@ describe('CityMapPage — my location', () => {
     expect(await screen.findByText('Brak dostępu do lokalizacji. Wyszukaj miejsce lub wybierz je na mapie')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pokaż moją lokalizację' })).toBeNull()
     expect(window.location.search).toBe('')
+  })
+
+  it('a position located elsewhere (provider, not this page) already keeps a view centred on the user out of the URL and storage', async () => {
+    const geo = stubGeolocation()
+    const { rerender } = render(<Primer />)
+    await waitFor(() => expect(geo.calls).toHaveLength(1))
+    await act(async () => geo.calls[0].ok(FIX))
+    await waitFor(() => expect(screen.getByTestId('loc-status')).toHaveTextContent('ready'))
+    rerender(<CityMapPage />) // bez `?nearby=1` i bez kliknięcia „Moja lokalizacja" na tej stronie
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+
+    act(() => map().onViewChange(AT_USER))
+    expect(persistedText()).not.toMatch(/52\.230|21\.010/)
+    act(() => map().onViewChange({ center: { lat: 52.3, lon: 21.1 }, zoom: 13 }))
+    expect(window.location.search).toContain('at=52.30000')
+  })
+
+  describe('picking a stop in "W pobliżu"', () => {
+    const FAR_STOP = { id: '100201', groupId: '1002', name: 'Dworzec', code: '01', lat: 52.233, lon: 21.0101, mode: 'bus' } // ~330 m od FIX, poza promieniem 150 px przy z16
+
+    it('opened from the GPS point keeps the view blocked (the fly-to ends far from the user but is still derived from them); a drag lifts it', async () => {
+      const geo = stubGeolocation()
+      state.stops = { stops: [STOP, FAR_STOP], error: false }
+      render(<CityMapPage />)
+      await waitFor(() => expect(state.mapProps).not.toBeNull())
+      fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+      await act(async () => geo.calls[0].ok(FIX))
+      const panel = await screen.findByRole('dialog', { name: 'W pobliżu' })
+      fireEvent.click(within(panel).getByRole('button', { name: /Dworzec/ }))
+      await screen.findByRole('dialog', { name: 'Dworzec 01' })
+
+      act(() => map().onViewChange({ center: { lat: 52.233, lon: 21.0101 }, zoom: 16 }))
+      expect(window.location.search).toBe('')
+      expect(persistedText()).not.toMatch(/52\.233/)
+
+      act(() => map().onUserMove())
+      act(() => map().onViewChange({ center: { lat: 52.233, lon: 21.0101 }, zoom: 16 }))
+      expect(window.location.search).toContain('at=52.23300')
+    })
+
+    it('opened from a point picked on the map (no GPS) is a normal focus and is saved', async () => {
+      const geo = stubGeolocation()
+      state.stops = { stops: [STOP, FAR_STOP], error: false }
+      render(<CityMapPage />)
+      await waitFor(() => expect(state.mapProps).not.toBeNull())
+      fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+      await act(async () => geo.calls[0].ok(FIX))
+      await screen.findByRole('dialog', { name: 'W pobliżu' })
+      act(() => map().onContextPoint({ lat: 52.2325, lon: 21.0101 })) // długie przytrzymanie: okolica z punktu na mapie, nie z GPS
+      fireEvent.click(within(await screen.findByRole('dialog', { name: 'W pobliżu' })).getByRole('button', { name: /Dworzec/ }))
+      await screen.findByRole('dialog', { name: 'Dworzec 01' })
+      act(() => map().onViewChange({ center: { lat: 52.233, lon: 21.0101 }, zoom: 16 }))
+      expect(window.location.search).toContain('at=52.23300')
+    })
+  })
+
+  it('the departure preview of "W pobliżu" is requested for a point picked on the map but never for the GPS point (stop ids would reveal the position)', async () => {
+    const geo = stubGeolocation()
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    act(() => map().onContextPoint({ lat: 52.2301, lon: 21.0101 }))
+    await screen.findByRole('dialog', { name: 'W pobliżu' })
+    expect(state.boardCalls.at(-1)).toEqual(['warszawa', ['100101'], 1])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij „W pobliżu”' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'W pobliżu' })).toBeNull())
+    state.boardCalls = []
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].ok(FIX))
+    const panel = await screen.findByRole('dialog', { name: 'W pobliżu' })
+    expect(within(panel).getByRole('button', { name: /Centrum 01/ })).toBeInTheDocument() // wiersze zostają
+    expect(state.boardCalls.length).toBeGreaterThan(0)
+    expect(state.boardCalls.every(([cityArg, ids]) => cityArg === null && (ids as string[]).length === 0)).toBe(true)
+  })
+
+  it('the nearby=1 notice goes away when the locate button is denied, and the flag is consumed', async () => {
+    const geo = stubGeolocation()
+    window.history.replaceState(null, '', '/city/warszawa/map?nearby=1')
+    render(<CityMapPage />)
+    await screen.findByRole('button', { name: 'Pokaż moją lokalizację' })
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    await act(async () => geo.calls[0].fail({ code: 1, message: 'x' } as GeolocationPositionError))
+    expect(await screen.findByText('Brak dostępu do lokalizacji. Wyszukaj miejsce lub wybierz je na mapie')).toBeInTheDocument()
+    expect(screen.queryByText('Okolica wymaga Twojej lokalizacji.')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Pokaż moją lokalizację' })).toBeNull()
+    expect(window.location.search).toBe('')
+  })
+
+  it('a position that arrives after the user left the page does not touch the new page URL', async () => {
+    const geo = stubGeolocation()
+    const { unmount } = render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
+    unmount()
+    window.history.replaceState(null, '', '/city/warszawa/lines?at=52.10000%2C21.10000%2C14.0&nearby=1')
+    await act(async () => geo.calls[0].ok(FIX))
+    expect(window.location.search).toBe('?at=52.10000%2C21.10000%2C14.0&nearby=1')
   })
 
   it('closing nearby keeps hidden/line filters', async () => {

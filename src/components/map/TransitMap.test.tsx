@@ -32,6 +32,7 @@ vi.mock('maplibre-gl', () => {
     setStyle: vi.fn(),
     flyTo: vi.fn(),
     jumpTo: vi.fn(),
+    setPadding: vi.fn(),
     isMoving: vi.fn(() => false),
     getBounds: vi.fn(() => ({ contains: vi.fn(() => true) })),
     getZoom: vi.fn(() => 12),
@@ -435,6 +436,16 @@ describe('TransitMap camera insets', () => {
     vi.advanceTimersByTime(500)
     expect(map.jumpTo).toHaveBeenLastCalledWith({ center: [AT.lon, AT.lat], padding: { top: 80, bottom: 400, left: 0, right: 0 } })
     expect(eased(map)).toEqual([])
+  })
+
+  it('creates the map with the current insets as camera padding (the initial centre is the centre of the free area)', async () => {
+    const { map } = await mounted({ insets: INSETS, selected: AT })
+    expect(map.setPadding).toHaveBeenCalledWith(PADDING)
+    // Stan startowy zna swoje insety: ustalone te same wartości nie ruszają kamery.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    vi.advanceTimersByTime(500)
+    expect(map.easeTo).not.toHaveBeenCalled()
+    expect(map.jumpTo).not.toHaveBeenCalled()
   })
 
   it('changing insets does not recreate the map', async () => {

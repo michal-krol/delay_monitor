@@ -48,6 +48,7 @@ import { useLineDetail } from '@/hooks/useLineDetail'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { LOCATION_MAX_AGE_MS } from '@/components/UserLocationProvider'
 import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
 import { discoveryHref, type DiscoveryResult } from '@/lib/discovery'
 import { formatAgo } from '@/lib/format'
@@ -129,10 +130,25 @@ export default function CityMapPage() {
   const { pinnedItems, loaded: pinsLoaded, addPinned, removePinned, replacePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
+  // Okolica z pozycji GPS: wiersze zostają, ale podgląd odjazdów (id przystanków w żądaniu) i zdejmowanie blokady widoku — nie (adr/0012).
+  const [nearbyFromGps, setNearbyFromGps] = useState(false)
   // `?nearby=1` bez gotowej pozycji (np. po F5): czeka na kliknięcie, GPS sam się nie uruchamia (adr/0012).
   const [nearbyPending, setNearbyPending] = useState(false)
   const userLocation = useUserLocation()
   const entryRef = useRef<{ flag: boolean; here: UserPoint | null } | null>(null)
+  // Pozycja z GPS może dojść po opuszczeniu strony albo zmianie miasta — wtedy nie wolno dotykać URL-a ani stanu (M6).
+  const aliveRef = useRef({ mounted: true, city })
+  aliveRef.current.city = city
+  useEffect(() => {
+    const alive = aliveRef.current // obiekt, nie węzeł DOM: ten sam przez cały czas życia strony
+    alive.mounted = true
+    return () => {
+      alive.mounted = false
+    }
+  }, [])
+  // Ostatni punkt z providera (także ustalony na innej stronie): reguła prywatności widoku nie zna tylko `locatedViewRef` (M2).
+  const userPointRef = useRef(userLocation.point)
+  userPointRef.current = userLocation.point
   // Ostatnia pozycja GPS użytkownika (tylko w pamięci) i zatrzask. Kadr w pobliżu niej NIE trafia do `?at=` ani do localStorage
   // (adr/0012, #4) — zapis blokuje którekolwiek: (a) zatrzask ustawiony przy „Mojej lokalizacji" (zoom kółkiem/szczypnięciem/klawiaturą
   // i strzałki przesuwają środek bez `dragstart`), (b) środek kadru w promieniu `PRIVACY_RADIUS_PX` od punktu. Zatrzask zdejmuje WYŁĄCZNIE
@@ -161,11 +177,12 @@ export default function CityMapPage() {
     setRouteParam(line !== null && GTFS_ROUTE_ID_PATTERN.test(line) ? line : null)
     setDirectionId(readUrlParam('dir') === '1' ? 1 : 0)
     setAlertsOnly(readUrlParam('alerts') === '1')
-    // `?nearby=1` (Start → „W pobliżu mnie"): gotowa pozycja z providera otwiera okolicę i zużywa flagę; bez niej
-    // (np. po F5) NIE pytamy o GPS — strona pokazuje przycisk (adr/0012). Mapa tworzy się asynchronicznie, więc
+    // `?nearby=1`: świeża (< `maximumAge`) pozycja z providera otwiera okolicę i zużywa flagę; bez niej (F5, stara pozycja)
+    // NIE pytamy o GPS — strona pokazuje przycisk (adr/0012). Mapa tworzy się asynchronicznie, więc
     // „skupienie" to kadr startowy na punkcie, a nie `focus` (ten przepadłby przed powstaniem mapy).
     // Wejście liczymy raz (ref): StrictMode odpala ten efekt dwa razy, a pierwszy przebieg zużywa flagę w URL-u.
-    entryRef.current ??= { flag: readUrlParam('nearby') === '1', here: readUrlParam('nearby') === '1' ? userLocation.point : null }
+    const freshPoint = userLocation.fixAt !== null && Date.now() - userLocation.fixAt < LOCATION_MAX_AGE_MS ? userLocation.point : null
+    entryRef.current ??= { flag: readUrlParam('nearby') === '1', here: readUrlParam('nearby') === '1' ? freshPoint : null }
     const { flag, here } = entryRef.current
     if (here !== null) {
       showNearbyAt(here, false)
@@ -186,6 +203,15 @@ export default function CityMapPage() {
     locateHadFocusRef.current = false
   }, [nearby])
 
+  // Odmowa/błąd z przycisku „Moja lokalizacja" (nie z komunikatu) też zużywa `?nearby=1`: przycisk komunikatu nic by już nie dał (M5).
+  const locationFailed = userLocation.status === 'denied' || userLocation.status === 'unavailable' || userLocation.status === 'error'
+  useEffect(() => {
+    if (!locationFailed || !nearbyPending) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reakcja na zewnętrzny stan (providera), flaga to też URL
+    setNearbyPending(false)
+    patchUrlParams({ nearby: null })
+  }, [locationFailed, nearbyPending])
+
   useEffect(() => {
     const el = toolbarRef.current
     if (el === null) return
@@ -201,8 +227,9 @@ export default function CityMapPage() {
   const onViewChange = useCallback(
     (next: MapView) => {
       setView(next)
+      // Promień sprawdzamy wobec obu punktów: z tej strony („Moja lokalizacja") i z providera (ustalonego np. na innej stronie).
       const here = locatedViewRef.current
-      if (here !== null && (here.latched || isNearViewPoint(next.center, next.zoom, here))) return
+      if (here?.latched || [here, userPointRef.current].some((p) => p !== null && isNearViewPoint(next.center, next.zoom, p))) return
       const at = formatAt({ ...next.center, zoom: next.zoom })
       patchUrlParams({ at })
       saveLastView(city, at)
@@ -341,22 +368,21 @@ export default function CityMapPage() {
 
   /** „Wyczyść filtry": domyślne warstwy, bez linii/kierunku/utrudnień; miasto (ścieżka) i `?at=` zostają. */
   function clearFilters(): void {
-    setHidden(new Set())
-    setAlertsOnly(false)
-    setRouteParam(null)
-    setDirectionId(0)
-    patchUrlParams({ hide: null, vehicles: null, rail: null, mode: null, line: null, dir: null, alerts: null })
+    changeHidden(new Set())
+    changeAlertsOnly(false)
+    chooseLine(null)
   }
 
-  function focusOn(lat: number, lon: number): void {
-    liftViewBlock()
+  /** `keepBlock`: skupienie z okolicy z GPS — widok nadal wynika z pozycji użytkownika, więc blokada zapisu zostaje (zdejmuje ją przeciągnięcie). */
+  function focusOn(lat: number, lon: number, keepBlock = false): void {
+    if (!keepBlock) liftViewBlock()
     setFocus({ lat, lon, nonce: Date.now() })
   }
 
   /** Okolica wokół pozycji użytkownika (przycisk „Moja lokalizacja", `?nearby=1`); współrzędne zostają w stanie strony, nie w URL-u ani w localStorage. */
   function showNearbyAt(point: { lat: number; lon: number }, fly = true): void {
     setSelection(null)
-    openNearbyAround(point)
+    openNearbyAround(point, true)
     if (fly) focusOn(point.lat, point.lon)
     locatedViewRef.current = { lat: point.lat, lon: point.lon, latched: true }
     // Ewentualne `?at=` (np. z linku) mogło już zawierać tę pozycję — usuwamy je razem z kadrem.
@@ -364,13 +390,19 @@ export default function CityMapPage() {
   }
 
   /** Każde otwarcie okolicy zużywa `?nearby=1`, żeby przycisk „Pokaż moją lokalizację" nie wracał po jej zamknięciu. */
-  function openNearbyAround(point: { lat: number; lon: number }): void {
+  function openNearbyAround(point: { lat: number; lon: number }, fromGps = false): void {
     setNearby({ lat: point.lat, lon: point.lon })
+    setNearbyFromGps(fromGps)
     consumeNearbyFlag()
   }
 
+  /** Strona żyje jeszcze w tym samym mieście — odpowiedź GPS po wyjściu z mapy nie rusza URL-a nowej strony. */
+  const stillHere = (forCity: string): boolean => aliveRef.current.mounted && aliveRef.current.city === forCity
+
   async function showMyLocation(): Promise<void> {
+    const asked = city
     const point = await userLocation.request()
+    if (!stillHere(asked)) return
     consumeNearbyFlag()
     if (point !== null) showNearbyAt(point)
   }
@@ -390,11 +422,11 @@ export default function CityMapPage() {
   function openNearby(point: NearbyPoint): void {
     if (point.kind === 'rail') {
       setSelection({ kind: 'rail', id: point.id, name: point.name, lat: point.lat, lon: point.lon })
-      focusOn(point.lat, point.lon)
+      focusOn(point.lat, point.lon, nearbyFromGps)
     } else {
       const { stop } = point
       setSelection(stopSelection(stop))
-      focusOn(stop.lat, stop.lon)
+      focusOn(stop.lat, stop.lon, nearbyFromGps)
     }
   }
 
@@ -549,7 +581,7 @@ export default function CityMapPage() {
         alertLines={vehiclesState.alertLines}
       />
     ) : nearby !== null ? (
-      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={closeNearby} />
+      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={closeNearby} departures={!nearbyFromGps} />
     ) : listOpen && (isWide || line !== null) ? (
       // Telefon bez linii: „Lista" to przegląd rozwinięty do `half` (niżej), nie drugie okno z tą samą listą.
       <VisibleListPanel
@@ -624,6 +656,7 @@ export default function CityMapPage() {
       messagesAbove={sheetOpen}
       buttonRef={locateButtonRef}
       onLocated={(point) => {
+        if (!stillHere(city)) return
         // Fokus na przycisku (albo już zgubiony przy „Spróbuj ponownie") wróci tu po zamknięciu „W pobliżu".
         locateHadFocusRef.current = document.activeElement === locateButtonRef.current || document.activeElement === document.body
         showNearbyAt(point)
@@ -631,20 +664,22 @@ export default function CityMapPage() {
     />
   )
 
-  const statusStack = (
-    <>
-      <ActiveFilterChips
-        hidden={hidden}
-        line={line}
-        alertsOnly={alertsOnly}
-        onClearLine={() => chooseLine(null)}
-        onAlertsOnly={changeAlertsOnly}
-        onHiddenChange={changeHidden}
-        onClear={clearFilters}
-      />
+  const filterChips = (
+    <ActiveFilterChips
+      hidden={hidden}
+      line={line}
+      alertsOnly={alertsOnly}
+      onClearLine={() => chooseLine(null)}
+      onAlertsOnly={changeAlertsOnly}
+      onHiddenChange={changeHidden}
+      onClear={clearFilters}
+    />
+  )
 
+  const notices = (
+    <>
       {noPosition !== null && <NoPositionNotice notice={noPosition} onClose={() => setNoPosition(null)} />}
-      {nearbyPending && nearby === null && userLocation.status !== 'requesting' && (
+      {nearbyPending && nearby === null && (userLocation.status === 'idle' || userLocation.status === 'ready') && (
         <div role="status" className="glass-strong pointer-events-auto flex w-max max-w-full flex-wrap items-center gap-x-3 rounded-xl px-3 py-1.5 text-sm">
           <span>Okolica wymaga Twojej lokalizacji.</span>
           <button type="button" onClick={() => void showMyLocation()} className="touch-44 relative min-h-9 font-medium text-primary-text underline underline-offset-2">
@@ -733,8 +768,11 @@ export default function CityMapPage() {
                 onShare={() => void share()}
               />
 
-              {!sheetOpen && statusStack}
+              {!sheetOpen && filterChips}
             </div>
+            {/* Komunikaty chwilowe (toast udostępniania, błędy pobierania, brak pozycji) poza mierzonym paskiem: ich pojawienie się
+                nie zmienia `insets.top`, więc nie przesuwa kamery. Szeroki ekran; na telefonie jadą w slocie `above` arkusza. */}
+            {!sheetOpen && <div className="pointer-events-none relative z-10 ml-3 mr-14 mt-2 flex shrink-0 flex-col items-start gap-2 sm:ml-4">{notices}</div>}
           </div>
 
           {sheetOpen && (
@@ -748,7 +786,8 @@ export default function CityMapPage() {
                 // (nad arkuszem ~55 px), a przycisk w rzędzie z nim zostaje widoczny także przy peek/half. `!`: sam rząd nie łapie gestów mapy.
                 <div className="pointer-events-none! flex w-full items-end justify-between gap-2">
                   <div className="pointer-events-none flex min-w-0 flex-1 flex-col items-start gap-1.5">
-                    {statusStack}
+                    {filterChips}
+                    {notices}
                     {outsideFeed && (
                       <p role="status" className="glass-strong pointer-events-auto rounded-full px-4 py-1.5 text-xs text-text-secondary">
                         Przystanki i pojazdy miejskie: tylko {feed.name} i okolice

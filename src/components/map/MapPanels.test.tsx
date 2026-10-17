@@ -34,6 +34,13 @@ describe('NearbyPanel', () => {
     expect(onOpen).toHaveBeenCalledWith(railPoint)
   })
 
+  it('departures={false} lists the points but sends no stop ids upstream (GPS-derived nearby)', () => {
+    transitBoard.mockReturnValue({ data: null, error: null })
+    render(<NearbyPanel points={[stopPoint, railPoint]} city="warszawa" onOpen={() => {}} onClose={() => {}} departures={false} />)
+    expect(transitBoard).toHaveBeenCalledWith(null, [], 1)
+    expect(screen.getByText('Centrum 01')).toBeInTheDocument()
+  })
+
   it('says nothing is around rather than showing an empty list, and does not fetch', () => {
     transitBoard.mockReturnValue({ data: null, error: null })
     const onClose = vi.fn()

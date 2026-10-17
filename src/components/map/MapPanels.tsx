@@ -22,14 +22,17 @@ export function NearbyPanel({
   city,
   onOpen,
   onClose,
+  departures = true,
 }: {
   points: NearbyPoint[]
   city: string
   onOpen: (point: NearbyPoint) => void
   onClose: () => void
+  /** `false` = bez podglądu odjazdów: id najbliższych przystanków w żądaniu zdradzałyby pozycję GPS (adr/0012). */
+  departures?: boolean
 }) {
-  // Najbliższy odjazd z 3 najbliższych przystanków — jedno żądanie (rozkład, nie „na czas").
-  const stopIds = points.flatMap((p) => (p.kind === 'stop' ? [p.stop.id] : [])).slice(0, 3)
+  // Najbliższy odjazd z 3 najbliższych przystanków — jedno żądanie (rozkład, nie „na czas”).
+  const stopIds = departures ? points.flatMap((p) => (p.kind === 'stop' ? [p.stop.id] : [])).slice(0, 3) : []
   const { data } = useTransitBoard(stopIds.length > 0 ? city : null, stopIds, 1)
   const nextDeparture = new Map((data?.stops ?? []).flatMap((s) => (s === null ? [] : [[s.stopId, s.departures[0]] as const])))
 

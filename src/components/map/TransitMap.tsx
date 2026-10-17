@@ -503,6 +503,10 @@ export function TransitMap({
           'AttributionControl.ToggleAttribution': 'Pokaż źródła danych mapy',
         },
       })
+      // `MapOptions` nie ma `padding`: kadr startowy (`?nearby=1`, `?at=`) ma stać w środku wolnego obszaru, a nie geometrycznym.
+      // Padding ustawiamy przed pierwszym `moveend`, więc nie trafia do `onViewChange`.
+      map.setPadding(cameraPadding(insetsRef.current))
+      appliedInsetsRef.current = insetsRef.current
       map.touchZoomRotate.disableRotation()
       map.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right')
       mapRef.current = map

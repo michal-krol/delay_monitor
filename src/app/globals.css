@@ -434,6 +434,13 @@ details[open] > summary .disclosure-chevron,
     scroll-behavior: smooth;
   }
 }
+/* Arkusz jest tylko na telefonie (`SM_UP` = 40rem). Serwer renderuje wariant telefonu, więc na szerokim ekranie
+   do hydracji nie może migać nad mapą (`useMediaQuery(SM_UP, false)`). */
+@media (min-width: 40rem) {
+  .bottom-sheet {
+    display: none;
+  }
+}
 .bottom-sheet__spacer {
   position: relative;
   height: 100%;
