@@ -160,12 +160,17 @@ the panel scrolls the container. Rules:
 `TransitMap` takes `insets: {top, bottom}` (px of map covered by UI) and uses them as MapLibre camera `padding` so a focused or
 selected object sits in the free area, not under the toolbar or the sheet.
 
-- **Measured, not guessed.** `top` = bottom edge of the toolbar container (`ResizeObserver` in the page, includes its top margin). `bottom` =
+- **Measured, not guessed.** `top` = bottom edge of the control row (`toolbarRef`: search, chips, buttons and the active-filter chips; `ResizeObserver` in the page,
+  includes its top margin). Transient notices on wide screens (share toast, fetch problems, no-position, `?nearby=1`) are a SIBLING below it, outside the measurement,
+  so they never re-ease the camera; on phones they ride in the sheet's `above` slot, which counts as covered by design. `bottom` =
   `BottomSheet`'s `onVisibleHeight`: share of the panel at the snap (`SHEET_SNAPS[snap] × clientHeight`) + height of the `above` slot (status stack
   and locate control ride on the panel edge, so they count as covered). Reported when the snap changes (a drag only after the scroll settles) and when
   the sheet or its `above` slot resizes. No sheet (wide screens, where the `aside` is a flex sibling and the map container already excludes it) = bottom 0,
   no extra right padding.
 - **`full` is not reported** (user decision 2026-10-15): the camera keeps the last `peek`/`half` value — at 90 % there is no free area worth framing.
+- **The map is born with its padding.** `MapOptions` has no `padding`, so right after `new Map()` (before the `moveend` listener exists) `TransitMap` calls
+  `setPadding(cameraPadding(insets))` and records them as applied: the `?nearby=1` entry and a reloaded `?at=` start centred in the free area, not the geometric
+  centre, and the settle effect has nothing to correct.
 - **Insets live in refs.** Changing them never re-creates the map (init effect has no inset deps; `pinsKey`/`routeKey` untouched). A change while
   something is selected waits `INSET_SETTLE_MS` (120 ms, trailing) and then eases (`CAMERA_MS` 320 ms) to the selection with the new padding; with nothing
   selected the camera stands. A deliberate focus (`flyTo`) carries the padding itself. `prefers-reduced-motion: reduce` = `jumpTo`, no animation.
@@ -176,12 +181,17 @@ selected object sits in the free area, not under the toolbar or the sheet.
   started with the previous sheet's insets, the new sheet reports one render later) and skips the ease when the selection is no longer inside
   `getBounds()` (the user panned away). A focus with nothing selected keeps the padding it flew with.
 - **Privacy (fail closed):** `onViewChange` does not write `?at=` / `monitor.map.view.v1` while EITHER (a) the latch set by „Moja lokalizacja" /
-  `?nearby=1` is up, OR (b) the view centre is within `PRIVACY_RADIUS_PX` (150 px, `isNearViewPoint()` in `mapData.ts`; metres = 150 · 156543.03 · cos φ / 2^zoom)
-  of the user's last GPS point. The point lives only in the `locatedViewRef` ref. Wheel/pinch/keyboard zoom around an off-centre point moves the centre by up to
+  `?nearby=1` is up, OR (b) the view centre is within `PRIVACY_RADIUS_PX` (`isNearViewPoint()` in `mapData.ts`; metres = 150 · 156543.03 · cos φ / 2^zoom)
+  of the user's last GPS point — the page's `locatedViewRef` AND the provider's point (`useUserLocation().point`, so a position obtained on another page counts too).
+  **The radius is generous on purpose:** 156543.03 is the 256-px-tile constant while MapLibre draws 512-px tiles, so "150" is really ~300 screen px (half a phone
+  frame and more), which keeps the user's own position out of any persisted frame. Kept, not "corrected" to 150 real px: that would persist frames that still
+  contain the user at the edge. Cost, accepted: at the default zoom 12 the radius is ~3.5 km, so a city view of a user in the city is not persisted. Wheel/pinch/keyboard zoom around an off-centre point moves the centre by up to
   half the gesture offset (40–55 m at z16 for 100–150 px) and arrow keys pan without `dragstart` — hence the latch AND the radius. The latch is lifted ONLY by a
   `dragstart`, `focusOn()` (any deliberate focus), a route fit (`route.key` set) or follow start — NEVER on `moveend`: a stale `moveend` of an animation the
-  locate flight interrupted would otherwise unblock the arrival at the user. The radius stays after the latch is gone, so returning near the user is blocked
-  again (a city view within 150 px of the user is therefore not persisted either — accepted, fails closed). Source-verified (maplibre 6.13): `getCenter()` is the
+  locate flight interrupted would otherwise unblock the arrival at the user. EXCEPTION: a focus issued from a „W pobliżu" opened from the GPS point
+  (`nearbyFromGps`, `focusOn(…, keepBlock)`) keeps the latch — the view is still derived from the user's position, even though the fly-to ends far outside the
+  radius; only a drag (or a non-GPS move) lifts it. The radius stays after the latch is gone, so returning near the user is blocked
+  again (a city view within the radius of the user is therefore not persisted either — accepted, fails closed). Source-verified (maplibre 6.13): `getCenter()` is the
   padded-area centre, so padding does not offset the stored centre; jsdom cannot test that.
 
 ## Phone overview, search, location and filters on the transport map (PR10)
@@ -192,15 +202,19 @@ Wording of every string: `ui-copy.md` („Map location”, „Map overview…”
   `peek`; „Lista” opens the same sheet at `half` (`cardKey` `overview:list`), it is not a second window. The map computes the frame (`listOpen || overview`
   in `TransitMap`). Wide screens have no sheet: the list is a window panel, the full `MapLegend` sits by the map, the object card is an `aside`
   (a flex sibling, so no extra camera padding).
-- **`above` slot row** (`map/page.tsx`): statuses (`statusStack`, „poza obszarem” notice) in a `min-w-0 flex-1` column + `LocateControl` with
+- **`above` slot row** (`map/page.tsx`): statuses (`filterChips` + `notices`, „poza obszarem” notice) in a `min-w-0 flex-1` column + `LocateControl` with
   `messagesAbove` (its messages stack in the flow above the button; beside it they floated over the statuses). Wide screens keep the control
   absolutely positioned (`top-[144px]`) and the legend below it (`top-[200px]`) — move them together.
 - **One search.** `UnifiedSearch variant="overlay"` replaces the place and line inputs; results are an opaque `role=group` panel
   (`data-search-results` lifts the toolbar above the sheet). The page calls `useCityLines` ONCE and passes it as `lineSource` — the field must not
   fetch the catalog a second time; a result never navigates away from the map, and a result without coordinates is a notice, never the camera at 0,0.
 - **GPS only after a click.** `useUserLocation()` (`UserLocationProvider` in `(app)/layout.tsx`) — no call on mount, no `watchPosition`, denied is
-  remembered (no re-prompt). `?nearby=1` without a point in memory (F5) shows a button, never asks. The point lives in the provider and in
-  `locatedViewRef`/page state only (privacy rule in „Camera insets”).
+  remembered (no re-prompt). A point older than `LOCATION_MAX_AGE_MS` (60 s, = `maximumAge`) is re-queried by the next click; a failed re-query drops it (#7,
+  no stale position shown as current); a watchdog (15 s) ends a request whose callbacks never fire (prompt dismissed without a choice) as `error`, so
+  „Spróbuj ponownie" works. `?nearby=1` without a FRESH point in memory (F5, stale) shows a button, never asks; the button disappears (and the flag is
+  consumed) when the locate control reports denied/unavailable/error. A GPS answer that arrives after the page was left (or the city changed) touches nothing.
+  The point lives in the provider and in `locatedViewRef`/page state only (privacy rule in „Camera insets”). „W pobliżu" from the GPS point lists rows but
+  skips the departure preview: the 3 nearest stop ids in `/api/gtfs/board?stops=` would tell the server where the user is (a point picked on the map keeps it).
 - **Mode chips are the same `hidden` set** as the „Filtry” panel (`changeHidden` → `?hide=`); one `activeFilterCount()` feeds the badge, the
   chips list and „Wyczyść filtry”. Chips exist only on phones and only for layers present in the vehicle data.
 - **Vehicle position age.** `ageSec` is GPS age grown by `useCityVehicles` (one clock per page). `FADE_START_SEC` 90 fades the dot, `HIDE_AFTER_SEC` 180

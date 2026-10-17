@@ -46,8 +46,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   bez śledzenia), a po odmowie nie pyta ponownie — pokazujemy komunikat i mapa działa dalej. Pozycja zostaje tylko
   w pamięci aplikacji: nie trafia do adresu, do `localStorage`, do logów ani na serwer, a widok wyśrodkowany na
   użytkowniku nie jest zapamiętywany. Decyzja: `adr/0012-gps-po-kliknieciu.md`.
-- „W pobliżu” z pozycji użytkownika (promień 500 m, odległości w linii prostej) oraz link `?nearby=1` ze Startu:
+- „W pobliżu” z pozycji użytkownika (promień 500 m, odległości w linii prostej) oraz wejście przez `?nearby=1`:
   po odświeżeniu strony pozycji już nie ma, więc zamiast cichego pytania jest przycisk „Pokaż moją lokalizację”.
+  Pozycja starsza niż minuta nie udaje bieżącej — kolejne kliknięcie pyta o nową, a pytanie, na które przeglądarka
+  nie odpowie, kończy się komunikatem z możliwością ponowienia. Okolica z GPS nie pokazuje podglądu odjazdów
+  (identyfikatory najbliższych przystanków w zapytaniu zdradzałyby położenie).
 - Mapa transportu na telefonie: przegląd w dolnym arkuszu — ile pojazdów, przystanków i stacji jest w kadrze,
   „Pozycje sprzed …” (mediana wieku GPS widocznych pojazdów) i zwarta legenda rodzajów. „Lista” rozwija arkusz
   do listy obiektów w kadrze.
