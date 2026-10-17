@@ -957,42 +957,6 @@ details[open] > summary .disclosure-chevron,
   }
 }
 
-/* Mikroanimacje z makiety Claude Design ("Czy dojadę? — Makieta dashboardu",
-   artboardy Main/EmptyState/ErrorStates) — przeniesione 1:1 co do wartości. */
-@keyframes floatIcon {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-@utility float {
-  animation: floatIcon 3.6s ease-in-out infinite;
-}
-
-@keyframes ringPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.35);
-  }
-  100% {
-    box-shadow: 0 0 0 18px rgba(56, 189, 248, 0);
-  }
-}
-/* Zwykła reguła, nie `@utility`: `::after` pulsu dziedziczy `border-radius` i
-   nadrzędnik ma tło w inline stylu — tak jak `.card-hover`. */
-.ring-pulse {
-  position: relative;
-}
-.ring-pulse::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  animation: ringPulse 2.4s ease-out infinite;
-}
-
 /* Zmiana opóźnienia (np. +3 min -> +4 min) sygnalizowana błyskiem tła wiersza,
    zamiast przeładowania tabeli (makieta §22) — dzięki temu aplikacja sprawia
    wrażenie działającej na żywo, a wzrok trafia dokładnie w to, co się zmieniło.

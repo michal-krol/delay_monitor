@@ -1,16 +1,19 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { pinnedItemFromOption, pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { Dashboard } from '@/components/Dashboard'
 import { EmptyState } from '@/components/EmptyState'
 import { RecentPlaces } from '@/components/RecentPlaces'
+import { InfoButton, InfoSheet, useBoardContext } from '@/components/InfoSheet'
 import { SearchDialog } from '@/components/SearchDialog'
+import { StartEntry } from '@/components/StartEntry'
 import type { StationOption } from '@/components/StationSearch'
 import { TopBar } from '@/components/TopBar'
 import { NetworkStatsCard } from '@/components/NetworkStatsCard'
 import { PageShell } from '@/components/aside'
+import { NAV_TAB_TYPES } from '@/lib/navTransition'
 import { STATION_ID_PATTERN } from '@/lib/validation'
 
 // `/` nie ma dynamicznego segmentu, więc build próbuje ją prerenderować
@@ -28,7 +31,7 @@ export default function Page() {
 
 const PULPIT_SUBTITLE = 'Przypięte stacje i przystanki z najbliższymi odjazdami'
 
-/** Dwie karty-szkielety Pulpitu przed odczytem przypiętych z `localStorage` — zamiast pustego ekranu. */
+/** Dwie karty-szkielety Startu przed odczytem przypiętych z `localStorage` — zamiast pustego ekranu. */
 function SkeletonCards() {
   return (
     <div aria-busy="true" data-testid="pulpit-skeleton" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-5">
@@ -40,11 +43,25 @@ function SkeletonCards() {
   )
 }
 
-/** Fallback granicy `Suspense` (trafia do HTML-a z prerenderu). */
+/** Statystyki sieci obok treści (od `sm`); na telefonie są w arkuszu „Informacje o sieci”. Klasa chowa kolumnę do hydracji (SSR = „szeroko”). */
+const NETWORK_ASIDE = (
+  <div className="max-sm:hidden">
+    <NetworkStatsCard />
+  </div>
+)
+
+/** Fallback granicy `Suspense` (trafia do HTML-a z prerenderu): wysokości jak prawdziwe wejście, żeby treść nie skakała (#7). */
 function PulpitSkeleton() {
   return (
-    <PageShell aside={<NetworkStatsCard />}>
+    <PageShell aside={NETWORK_ASIDE}>
       <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
+      <div aria-hidden="true" className="flex flex-col gap-3">
+        <div className="h-11 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="h-11 animate-pulse rounded-full bg-black/5 dark:bg-white/5" />
+          <div className="h-11 animate-pulse rounded-full bg-black/5 dark:bg-white/5" />
+        </div>
+      </div>
       <SkeletonCards />
     </PageShell>
   )
@@ -60,8 +77,11 @@ const PULPIT_BUTTON_CLASS =
 function PulpitPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
+  const mineHeadingId = useId()
   const { pinnedItems, loaded, addPinned, removePinned, movePinned, replacePinned, isPinned } = usePinned()
   const [adding, setAdding] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [editing, setEditing] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
   const undoRef = useRef<HTMLButtonElement>(null)
@@ -114,6 +134,13 @@ function PulpitPage() {
     setNotice(null)
   }
 
+  // Wejście do szukania (pole na Starcie i „Znajdź miejsce”): telefon przechodzi na `/search` jak zakładka dolnego paska,
+  // od `sm` otwiera okno z UnifiedSearch. Okno jest jedno: „Dodaj” otwiera je w trybie przypinania.
+  function openSearch(): void {
+    if (wide) setSearching(true)
+    else router.push('/search', { transitionTypes: NAV_TAB_TYPES })
+  }
+
   const rawFocus = searchParams.get('focus')
   const focusedStationId = rawFocus && STATION_ID_PATTERN.test(rawFocus) ? rawFocus : null
 
@@ -136,22 +163,50 @@ function PulpitPage() {
     router.replace(`/station/${focusedStationId}${query}`)
   }, [focusedStationId, loaded, pinnedItems, router])
 
-  // Ten sam korzeń co niżej (`PageShell`): po wczytaniu podmienia się treść, a nagłówek, przejście i karta statystyk
-  // nie montują się od nowa.
+  // Nagłówek, wejście na Start i „Moje miejsca” stoją w jednym korzeniu (`PageShell`) niezależnie od stanu pinów: po wczytaniu
+  // podmienia się tylko treść sekcji, a przejście i statystyki nie montują się od nowa.
+  const shell = (mine: ReactNode) => (
+    <PageShell aside={wide ? NETWORK_ASIDE : undefined}>
+      <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
+      <StartEntry onSearch={openSearch} />
+      {mine}
+      {loaded && <RecentPlaces limit={4} />}
+      {/* Telefon: statystyki sieci to nie główne zadanie — „Info” na końcu strony, treść w arkuszu (jedno miejsce naraz, ui-states.md). */}
+      {!wide && (
+        <div className="flex">
+          <InfoButton open={infoOpen} onClick={toggleInfo} />
+        </div>
+      )}
+      {infoOpen && (
+        <InfoSheet title="Informacje o sieci" onClose={closeInfo}>
+          <NetworkStatsCard defaultExpanded />
+        </InfoSheet>
+      )}
+      {/* Jedno okno: „Dodaj” przypina (onPick), pole „Stacja, przystanek lub linia” otwiera zwykłe szukanie. */}
+      <SearchDialog
+        open={adding || searching}
+        onClose={() => {
+          setAdding(false)
+          setSearching(false)
+        }}
+        onPick={adding ? pin : undefined}
+      />
+    </PageShell>
+  )
+
   if (!loaded) {
-    return (
-      <PageShell aside={<NetworkStatsCard />}>
-        <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
+    return shell(
+      <section aria-labelledby={mineHeadingId} className="flex flex-col gap-3">
+        <MineHeading id={mineHeadingId} />
         <SkeletonCards />
-      </PageShell>
+      </section>
     )
   }
   // Przekierowanie leci w efekcie wyżej; przez tę jedną klatkę nie ma po co
-  // pokazywać pulpitu, który zaraz zniknie.
+  // pokazywać startu, który zaraz zniknie.
   if (focusedStationId !== null) return null
 
-  // „Dodaj" przypina (okno w trybie przypinania); „Szukaj" w nagłówku dalej otwiera tablicę.
-  // Jedna grupa: na telefonie oba przyciski schodzą razem pod plakietkę świeżości, nie pojedynczo.
+  // „Dodaj” przypina (okno w trybie przypinania). Jedna grupa: na telefonie oba przyciski schodzą razem pod nagłówek sekcji, nie pojedynczo.
   const actions = (
     <div className="flex gap-2">
       {/* Bez czyszczenia komunikatu: „Cofnij” z edycji przetrwa otwarcie i zamknięcie okna bez wyboru. */}
@@ -166,13 +221,12 @@ function PulpitPage() {
     </div>
   )
 
-  return (
-    <PageShell aside={<NetworkStatsCard />}>
-      <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
-      <RecentPlaces limit={4} />
+  return shell(
+    <section aria-labelledby={mineHeadingId} className="flex flex-col gap-3">
+      <MineHeading id={mineHeadingId}>{actions}</MineHeading>
 
       {/* Zawsze w DOM: region `status` ogłasza zmianę treści, nie swoje pojawienie się. */}
-      <div className={notice === null ? undefined : 'mb-3 flex flex-wrap items-center gap-x-3 gap-y-1'}>
+      <div className={notice === null ? undefined : 'flex flex-wrap items-center gap-x-3 gap-y-1'}>
         <p role="status" className="text-sm text-text-secondary">
           {notice?.text}
         </p>
@@ -184,21 +238,22 @@ function PulpitPage() {
       </div>
 
       {pinnedItems.length === 0 ? (
-        <>
-          <div className="mb-5 flex flex-wrap items-center gap-2">{actions}</div>
-          <EmptyState />
-        </>
+        <EmptyState onFind={openSearch} />
       ) : (
-        <Dashboard
-          pinnedItems={pinnedItems}
-          onRemove={unpin}
-          onMove={movePinned}
-          onNormalize={replacePinned}
-          editing={editing}
-          actions={actions}
-        />
+        <Dashboard pinnedItems={pinnedItems} onRemove={unpin} onMove={movePinned} onNormalize={replacePinned} editing={editing} />
       )}
-      <SearchDialog open={adding} onClose={() => setAdding(false)} onPick={pin} />
-    </PageShell>
+    </section>
+  )
+}
+
+/** Nagłówek sekcji „Moje miejsca” z akcjami po prawej (zawijają się pod nagłówek na wąskim ekranie). */
+function MineHeading({ id, children }: { id: string; children?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h2 id={id} className="font-heading text-lg font-bold tracking-tight text-foreground">
+        Moje miejsca
+      </h2>
+      {children}
+    </div>
   )
 }

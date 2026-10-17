@@ -66,6 +66,15 @@ describe('NetworkStatsCard', () => {
     expect(screen.getByText(/7.?250/)).toBeInTheDocument()
   })
 
+  it('opens already expanded with defaultExpanded (the phone Info sheet), without a click', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STATS)))
+
+    render(<NetworkStatsCard defaultExpanded />)
+
+    expect(screen.getByRole('button', { name: /Dziś w Polsce/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(await screen.findByText(/7.?250/)).toBeInTheDocument()
+  })
+
   it('labels the trend „bez odwołań” (share of trains not cancelled), never „zgodnie z planem”', async () => {
     const history = [
       { at: '2026-09-29T08:00:00Z', onTimePct: 96 },

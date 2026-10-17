@@ -121,4 +121,25 @@ describe('recentPlaceHref', () => {
   it('swaps the metro platform colon for a path-safe dash', () => {
     expect(recentPlaceHref({ kind: 'gtfs', city: 'warszawa', id: '7014M:P1', name: 'Świętokrzyska' })).toBe('/city/warszawa/stop/7014M-P1')
   })
+
+  it('keeps the modes of a GTFS place so Start can show the right glyph', () => {
+    const { result } = renderHook(() => useRecentPlaces())
+    act(() => result.current.record({ ...group, modes: ['tram', 'bus'] }))
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null')[0].modes).toEqual(['tram', 'bus'])
+    const { result: reread } = renderHook(() => useRecentPlaces())
+    expect(reread.current.places[0]).toMatchObject({ modes: ['tram', 'bus'] })
+  })
+
+  it('an entry saved before modes existed is still valid (no modes = unknown)', () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([group]))
+    const { result } = renderHook(() => useRecentPlaces())
+    expect(result.current.places).toEqual([group])
+  })
+
+  it('a corrupt modes value drops only the modes, never the place', () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([{ ...group, modes: ['teleport'] }, { ...group, id: '2002', modes: 'tram' }]))
+    const { result } = renderHook(() => useRecentPlaces())
+    expect(result.current.places.map((place) => place.kind === 'gtfs' && place.modes)).toEqual([undefined, undefined])
+    expect(result.current.places).toHaveLength(2)
+  })
 })

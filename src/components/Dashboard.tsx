@@ -1,6 +1,5 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { useBoard } from '@/hooks/useBoard'
 import { StationCard } from './StationCard'
 import { TransitStopCard } from './TransitStopCard'
@@ -15,13 +14,11 @@ type Props = {
   /** Tryb „Edytuj ulubione": lista z ↑/↓ i odpinaniem zamiast kart. */
   editing?: boolean
   onMove?: (key: string, delta: -1 | 1) => void
-  /** Przyciski Pulpitu („Dodaj", „Edytuj ulubione") w wierszu plakietki świeżości. */
-  actions?: ReactNode
   /** Podmiana starego wpisu na znormalizowany (`usePinned().replacePinned`). */
   onNormalize?: (oldKey: string, next: PinnedItem) => void
 }
 
-export function Dashboard({ pinnedItems, onRemove, onNormalize, editing = false, onMove, actions }: Props) {
+export function Dashboard({ pinnedItems, onRemove, onNormalize, editing = false, onMove }: Props) {
   // Pulpit jest ponad miastami: stacja PKP i przystanek miejski (dowolnego
   // miasta) wiszą obok siebie na jednej siatce, w jednej kolejności użytkownika.
   // Stacje idą przez wspólny `useBoard` (jedno zapytanie), przystanki miejskie
@@ -47,11 +44,10 @@ export function Dashboard({ pinnedItems, onRemove, onNormalize, editing = false,
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="glass inline-flex rounded-full px-3.5 py-1.5">
           <BoardStatus fetchedAt={freshest?.fetchedAt} ageMs={freshest?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
         </div>
-        {actions}
       </div>
       {editing ? (
         <PinnedEditor pinnedItems={pinnedItems} onMove={(key, delta) => onMove?.(key, delta)} onRemove={onRemove} />

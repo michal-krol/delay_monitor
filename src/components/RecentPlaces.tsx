@@ -3,7 +3,8 @@
 import { useId } from 'react'
 import Link from 'next/link'
 import { recentPlaceHref, recentPlaceKey, useRecentPlaces } from '@/hooks/useRecentPlaces'
-import { ICON_SIZE, StopIcon, TrainIcon } from './icons'
+import { ICON_SIZE } from './icons'
+import { ModeGlyphs } from './transitMode'
 
 /** „Ostatnio oglądane" stacje i przystanki (z `localStorage`); nic nie renderuje, dopóki lista jest nieznana lub pusta. */
 export function RecentPlaces({
@@ -40,15 +41,16 @@ export function RecentPlaces({
       </div>
       <ul className="mt-1">
         {places.slice(0, limit).map((place) => {
-          const Icon = place.kind === 'pkp' ? TrainIcon : StopIcon
           return (
             <li key={recentPlaceKey(place)}>
               <Link
                 href={recentPlaceHref(place)}
                 className="flex min-h-11 items-center gap-2.5 rounded-lg px-2 text-sm text-foreground transition hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10"
               >
-                <Icon size={ICON_SIZE.button} className="shrink-0 opacity-70" />
-                <span className="min-w-0 truncate">{place.name}</span>
+                <span className="shrink-0 opacity-70">
+                  <ModeGlyphs modes={place.kind === 'pkp' ? ['rail'] : (place.modes ?? [])} size={ICON_SIZE.button} />
+                </span>
+                <span className="min-w-0 py-2 [overflow-wrap:anywhere]">{place.name}</span>
               </Link>
             </li>
           )

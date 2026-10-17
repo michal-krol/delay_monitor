@@ -81,9 +81,10 @@ function CarrierBars({ carriers }: { carriers: NetworkStats['topCarriers'] }) {
   )
 }
 
-export function NetworkStatsCard() {
+/** `defaultExpanded`: w arkuszu „Informacje o sieci" (telefon) karta jest jedyną treścią, więc od razu rozwinięta. */
+export function NetworkStatsCard({ defaultExpanded = false }: { defaultExpanded?: boolean }) {
   const { data, error } = useNetworkStats()
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const statistics = data?.statistics ?? null
 
   return (

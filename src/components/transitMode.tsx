@@ -1,5 +1,5 @@
 import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
-import { BusIcon, MetroIcon, OtherModeIcon, TrainIcon, TramIcon } from './icons'
+import { BusIcon, ICON_SIZE, MetroIcon, OtherModeIcon, StopIcon, TrainIcon, TramIcon } from './icons'
 
 /** Polskie nazwy rodzajów środka — jedno miejsce dla całej warstwy UI komunikacji miejskiej. */
 export const MODE_LABEL: Record<GtfsMode, string> = {
@@ -35,6 +35,50 @@ export const BUS_KIND_LABEL: Record<LineKind, string> = {
 }
 
 export const MODE_ICON = { metro: MetroIcon, tram: TramIcon, bus: BusIcon, rail: TrainIcon, other: OtherModeIcon } as const
+
+/** Rzeczownik rodzaju w liczbie pojedynczej, małą literą; GTFS rail to „kolej miejska”, nigdy słownictwo PKP (#13). */
+const modeNoun = (mode: GtfsMode): string => (mode === 'rail' ? 'kolej miejska' : MODE_LABEL[mode])
+const capitalise = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1)
+
+/** Rodzaj z wielkiej litery do podpisów miejsc i wyników. */
+export const modeKindLabel = (mode: GtfsMode): string => capitalise(modeNoun(mode))
+
+/** „Tramwaj, autobus” — rodzaje miejsca w jednym podpisie; pusty, gdy rodzajów (jeszcze) nie znamy. */
+export const modesLabel = (modes: readonly GtfsMode[]): string => capitalise(modes.map(modeNoun).join(', '))
+
+/**
+ * Dekoracyjne ikony trybów (obok widocznego tekstu) — jedyne miejsce, gdzie lista trybów zamienia się w glify.
+ * Bez znanych trybów (ładowanie, stary wpis) — neutralny znak przystanku, nigdy domyślny autobus.
+ */
+export function ModeGlyphs({ modes, size = ICON_SIZE.tile, className }: { modes: readonly GtfsMode[]; size?: number; className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 ${className ?? ''}`.trim()}>
+      {modes.length === 0 ? (
+        <span data-testid="stop-glyph" className="inline-flex">
+          <StopIcon size={size} />
+        </span>
+      ) : (
+        modes.map((mode) => {
+          const Icon = MODE_ICON[mode]
+          return (
+            <span key={mode} data-testid="mode-glyph" data-mode={mode} className="inline-flex">
+              <Icon size={size} />
+            </span>
+          )
+        })
+      )}
+    </span>
+  )
+}
+
+/** Kafelek z ikonami rodzajów (wynik wyszukiwania, karta miejsca). */
+export function ModeTile({ modes }: { modes: readonly GtfsMode[] }) {
+  return (
+    <span className="flex h-10 min-w-10 shrink-0 items-center justify-center gap-1 rounded-xl bg-primary-soft px-1.5 text-primary-text">
+      <ModeGlyphs modes={modes} />
+    </span>
+  )
+}
 
 export type LineColor = { bg: string; fg: string }
 

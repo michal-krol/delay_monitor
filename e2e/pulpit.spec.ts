@@ -18,7 +18,8 @@ async function seed(page: Page, pinnedItems: unknown[]): Promise<void> {
 }
 
 function cardHeadings(page: Page) {
-  return page.getByRole('main').getByRole('heading', { level: 2 })
+  // Tytuły kart (nie nagłówki sekcji „Moje miejsca” / „Ostatnio oglądane”).
+  return page.getByRole('article').getByRole('heading', { level: 2 })
 }
 
 test('„Dodaj" przypina wybraną stację i potwierdza, zostając na Pulpicie', async ({ page }) => {

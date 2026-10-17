@@ -190,6 +190,22 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Map: „Szacowana pozycja” (popup and caption) — never „na żywo”, „Live” or GPS wording for PKP; no marker and no
   caption when the resolver gives nothing. First-fetch error offers „Spróbuj ponownie” and „Szukaj stacji” (→ `/search`).
 
+## Start (`/`, `StartEntry`, `StationCard`, `TransitStopCard`, PR11)
+
+- H1 „Start”. Order on phones and desktop: H1 → search entry → „W pobliżu mnie” + „Otwórz mapę” → „Moje miejsca” (h2 + „Dodaj” / „Edytuj ulubione”) →
+  „Ostatnio oglądane” → on phones the „Info” button. The history keeps „Ostatnio oglądane” (it records places you OPENED, not searched; the mockup
+  says the same) — not „Ostatnio wyszukiwane”.
+- Search entry = a button named „Stacja, przystanek lub linia” (phone: goes to `/search`; from `sm`: opens the `UnifiedSearch` dialog). It is not an input.
+- Location: button „W pobliżu mnie” (`LocateIcon`); while asking „Ustalanie lokalizacji…” (`aria-busy`, clicks ignored); a fix opens `/map?nearby=1`.
+  Under the button (`aria-live`): denied „Brak dostępu do lokalizacji. Wyszukaj miejsce powyżej.”; no API „Lokalizacja nie jest dostępna w tej
+  przeglądarce”; failed „Nie udało się ustalić lokalizacji. Spróbuj ponownie lub wyszukaj miejsce.” (the same button retries). Nothing is shown before the click.
+- Empty „Moje miejsca”: „Nie masz jeszcze zapisanych miejsc. Znajdź stację lub przystanek i przypnij je gwiazdką — odjazdy pojawią się tutaj.” + button
+  „Znajdź miejsce”; never while the pins are still loading (skeleton, „Wczytywanie…”).
+- Place card: mode tile + full wrapping name (no `truncate`) + caption + two departures + link „Wszystkie odjazdy”. Caption PKP „Stacja kolejowa PKP”;
+  GTFS „{Tryb[, tryb]} · Rozkład — {miasto}” from the board's modes (`stopModes`: a pinned single stop shows the modes of ITS lines; unknown while loading =
+  „Rozkład — {miasto}” with the neutral stop glyph, never a bus). GTFS rail is „Kolej miejska”, never PKP wording (#13).
+- Phone „Info” on Start opens the sheet „Informacje o sieci” with „Dziś w Polsce” already expanded; from `sm` the same card stays in the right column.
+
 ## Place words (`gtfs.md`)
 
 - PKP: „stacja”. GTFS: bare name („Centrum”) = „zespół przystanków”; one stop = „przystanek {nr}”

@@ -55,4 +55,33 @@ describe('RecentPlaces', () => {
     render(<RecentPlaces limit={8} />)
     expect(screen.getByRole('link', { name: 'Centrum 02' })).toHaveAttribute('href', '/city/warszawa/stop/1001?przystanek=100102')
   })
+
+  it('marks each place with its own mode glyph: PKP rail, GTFS from the saved modes, never a default bus', () => {
+    seed([
+      pkp('1'),
+      { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum', modes: ['tram', 'bus'] },
+      { kind: 'gtfs', city: 'warszawa', id: '7014', name: 'Świętokrzyska', modes: ['metro'] },
+      { kind: 'gtfs', city: 'warszawa', id: '9009', name: 'Stary wpis' },
+    ])
+    render(<RecentPlaces limit={8} />)
+    const modesOf = (name: string) =>
+      within(screen.getByRole('link', { name }))
+        .queryAllByTestId('mode-glyph')
+        .map((node) => node.getAttribute('data-mode'))
+    expect(modesOf('Stacja 1')).toEqual(['rail'])
+    expect(modesOf('Centrum')).toEqual(['tram', 'bus'])
+    expect(modesOf('Świętokrzyska')).toEqual(['metro'])
+    // Wpis sprzed zapisu rodzajów: neutralny znak przystanku, nie autobus.
+    expect(modesOf('Stary wpis')).toEqual([])
+    expect(within(screen.getByRole('link', { name: 'Stary wpis' })).getByTestId('stop-glyph')).toBeInTheDocument()
+  })
+
+  it('a long name wraps in full instead of being cut off', () => {
+    const name = 'Warszawa Wschodnia Osobowa z bardzo długą nazwą testową'
+    seed([{ kind: 'pkp', id: '1', name }])
+    render(<RecentPlaces limit={8} />)
+    const text = within(screen.getByRole('link', { name })).getByText(name)
+    expect(text).not.toHaveClass('truncate')
+    expect(text).toHaveClass('[overflow-wrap:anywhere]')
+  })
 })

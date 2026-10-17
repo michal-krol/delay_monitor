@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import { AllDeparturesLink } from './AllDeparturesLink'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
-import { ChevronRightIcon, ICON_SIZE } from './icons'
 import { BoardRowList } from './BoardRowList'
 import { isPastRow } from './boardTime'
 import { PlaceTitle } from './PlaceTitle'
+import { ModeTile } from './transitMode'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { formatClockTime } from '@/lib/format'
@@ -35,22 +36,29 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
     return <ConfigErrorBanner />
   }
 
-  // Nagłówek i wiersze to osobne, prawdziwe linki — żadnej nakładki na całą kartę (zagnieżdżone cele dotyku).
+  const href = `/station/${stationId}?name=${encodeURIComponent(stationName)}`
+
+  // Nagłówek, wiersze i „Wszystkie odjazdy” to osobne, prawdziwe linki — żadnej nakładki na całą kartę (zagnieżdżone cele dotyku).
   return (
     <article className="glass card-press w-full rounded-2xl border border-surface-border p-5 max-sm:p-4">
-      <PlaceTitle kind="pkp" id={stationId}>
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">
-          <Link
-            href={`/station/${stationId}?name=${encodeURIComponent(stationName)}`}
-            transitionTypes={NAV_FORWARD_TYPES}
-            data-card-open
-            className="-mx-1 flex min-h-11 items-center justify-between gap-2 rounded-lg px-1 hover:underline focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-          >
-            <span className="min-w-0 truncate">{stationName}</span>
-            <ChevronRightIcon size={ICON_SIZE.button} className="shrink-0 text-text-muted" />
-          </Link>
-        </h2>
-      </PlaceTitle>
+      <div className="flex items-start gap-3">
+        <ModeTile modes={['rail']} />
+        <div className="min-w-0 flex-1">
+          <PlaceTitle kind="pkp" id={stationId}>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+              <Link
+                href={href}
+                transitionTypes={NAV_FORWARD_TYPES}
+                data-card-open
+                className="-mx-1 flex min-h-11 items-center rounded-lg px-1 [overflow-wrap:anywhere] hover:underline focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+              >
+                {stationName}
+              </Link>
+            </h2>
+          </PlaceTitle>
+          <p className="text-xs text-text-muted">Stacja kolejowa PKP</p>
+        </div>
+      </div>
 
       {error && !snapshot && (
         <p aria-live="polite" className="mt-1 text-xs text-error-text">
@@ -73,6 +81,8 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         showEmpty={snapshot !== null && departures.length === 0}
         emptyMessage="Brak odjazdów w najbliższych godzinach"
       />
+
+      <AllDeparturesLink href={href} />
     </article>
   )
 }
