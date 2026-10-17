@@ -249,24 +249,33 @@ describe('LineTimetable — day crossfade', () => {
   }
   afterEach(() => vi.unstubAllGlobals())
 
-  it('below lg a day change replaces the grid under one stable transition name; the chips stay put', () => {
+  it('below lg a day change replaces the grid under one stable transition name; the chips stay put', async () => {
     stubMatchMedia(false)
-    const view = renderTimetable({ day: 'weekday' })
+    renderTimetable()
     const columnBefore = column('Soboty')
     const chipBefore = dayChips().getByRole('button', { name: 'Soboty' })
     const vt = JSON.parse(screen.getByTestId('vt').getAttribute('data-props') ?? '{}')
     expect(vt).toMatchObject({ name: 'line-day', share: 'auto', enter: 'auto', default: 'none' })
 
-    view.rerender(<LineTimetable blocks={blocks} offsetSec={0} selectedBaseSec={null} onSelect={() => {}} day="saturday" />)
+    await userEvent.click(chipBefore)
     expect(column('Soboty')).not.toBe(columnBefore)
     expect(dayChips().getByRole('button', { name: 'Soboty' })).toBe(chipBefore)
   })
 
-  it('from lg all columns stay mounted when the day changes — no remount, so focus in a column survives', () => {
+  it('crossing the lg breakpoint (also the first client render on a phone) does not remount the grid', () => {
     stubMatchMedia(true)
-    const view = renderTimetable({ day: 'weekday' })
+    const view = renderTimetable()
     const columnBefore = column('Soboty')
-    view.rerender(<LineTimetable blocks={blocks} offsetSec={0} selectedBaseSec={null} onSelect={() => {}} day="saturday" />)
+    stubMatchMedia(false)
+    view.rerender(<LineTimetable blocks={blocks} offsetSec={0} selectedBaseSec={null} onSelect={() => {}} />)
+    expect(column('Soboty')).toBe(columnBefore)
+  })
+
+  it('from lg all columns stay mounted when the day changes — no remount, so focus in a column survives', async () => {
+    stubMatchMedia(true)
+    renderTimetable({ day: 'weekday' })
+    const columnBefore = column('Soboty')
+    await userEvent.click(within(column('Soboty')).getByRole('button', { name: '08:00, Soboty' }))
     expect(column('Soboty')).toBe(columnBefore)
   })
 })

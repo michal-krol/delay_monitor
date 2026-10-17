@@ -39,6 +39,8 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect, da
   const headingPrefix = useId()
   const lgUp = useMediaQuery(LG_UP, true)
   const [localDay, setLocalDay] = useState<LineDay>('weekday')
+  // Klucz crossfade'u rośnie tylko przy zmianie dnia na telefonie — nie zależy od `lgUp`, więc przejście progu (też hydracja) nie odmontowuje siatki.
+  const [fadeKey, setFadeKey] = useState(0)
   const columns = buildTimetableColumns(blocks)
   const activeDay = activeTimetableDay(columns, day ?? localDay)
 
@@ -46,6 +48,7 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect, da
   function changeDay(next: LineDay): void {
     startTransition(() => {
       if (day === undefined) setLocalDay(next)
+      if (!lgUp) setFadeKey((k) => k + 1)
       onDayChange?.(next)
     })
   }
@@ -70,9 +73,9 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect, da
       {offsetSec === null ? (
         <p className="py-2 text-sm text-text-secondary">Brak przystanku, dla którego można pokazać godziny.</p>
       ) : (
-        // Poniżej `lg` zmiana kategorii podmienia siatkę (klucz = dzień): stara i nowa treść to para wyjście/wejście. Od `lg`
-        // wszystkie kolumny stoją naraz, a klik w minutę innej kolumny nie może jej odmontować (fokus). Przekroczenie progu `lg` (też pierwszy render po hydracji na telefonie) odmontowuje siatkę raz — wybór kursu żyje w rodzicu, więc nic się nie gubi (najwyżej fokus na minucie).
-        <TabCrossfade id={lgUp ? 'all' : activeDay} name="line-day">
+        // Zmiana kategorii dnia na telefonie podmienia siatkę (nowy klucz): stara i nowa treść to para wyjście/wejście. Od `lg`
+        // klucz stoi w miejscu — wszystkie kolumny są naraz, a klik w minutę innej kolumny nie może jej odmontować (fokus).
+        <TabCrossfade id={String(fadeKey)} name="line-day">
           <div className={`grid gap-4 ${columns.length > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
             {columns.map((c) => {
               const active = c.day === activeDay

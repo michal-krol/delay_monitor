@@ -736,6 +736,7 @@ test.describe('rozkład linii (PR8)', () => {
         page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }))
       for (const name of ['Dni robocze', 'Soboty', 'Niedziele i święta']) {
         await dayChips(page).getByRole('button', { name }).click()
+        await expect(dayColumn(page, name)).toBeVisible()
         const { scrollWidth, clientWidth } = await overflow()
         expect(scrollWidth, name).toBeLessThanOrEqual(clientWidth)
       }
@@ -743,6 +744,7 @@ test.describe('rozkład linii (PR8)', () => {
         document.documentElement.style.fontSize = '200%'
       })
       await dayChips(page).getByRole('button', { name: 'Dni robocze' }).click()
+      await expect(dayColumn(page, 'Dni robocze')).toBeVisible()
       // Cała strona, nie tylko rozkład: przycisk „Zmień kierunek” (PR7) zawija się pod nagłówek zamiast wypychać okno.
       const { scrollWidth, clientWidth } = await overflow()
       expect(scrollWidth, '200% tekstu').toBeLessThanOrEqual(clientWidth)
