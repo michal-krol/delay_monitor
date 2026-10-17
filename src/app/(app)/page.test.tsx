@@ -5,6 +5,9 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { pinnedKey, type PinnedItem } from '@/hooks/usePinned'
+import type { UserLocationStatus } from '@/hooks/useUserLocation'
+import { stubDialogMethods } from '@/test-utils/dialog'
+import { NAV_FORWARD_OPTIONS, NAV_TAB_TYPES } from '@/lib/navTransition'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -13,6 +16,20 @@ let searchParamsSeed = ''
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace }),
   useSearchParams: () => new URLSearchParams(searchParamsSeed),
+}))
+
+// Szerokość: SM_UP = „szeroko” (desktop, domyślnie jak w SSR); `false` = telefon.
+let wide = true
+vi.mock('@/hooks/useMediaQuery', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/hooks/useMediaQuery')>()
+  return { ...original, useMediaQuery: (query: string, server: boolean) => (query === original.SM_UP ? wide : server) }
+})
+
+// GPS: provider ma własne testy; tu kontrakt strony — pytamy dopiero po kliknięciu.
+let locationStatus: UserLocationStatus = 'idle'
+const requestLocation = vi.fn()
+vi.mock('@/hooks/useUserLocation', () => ({
+  useUserLocation: () => ({ status: locationStatus, point: null, fixAt: null, request: requestLocation }),
 }))
 
 // Mutable seed read once per `render(<Page />)` (fresh component tree per
@@ -81,6 +98,10 @@ describe('Page (Pulpit)', () => {
   })
 
   beforeEach(() => {
+    wide = true
+    locationStatus = 'idle'
+    requestLocation.mockReset()
+    stubDialogMethods()
     push.mockClear()
     replace.mockClear()
     searchParamsSeed = ''
@@ -135,7 +156,7 @@ describe('Page (Pulpit)', () => {
 
     expect(screen.getByRole('button', { name: 'Dodaj' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edytuj ulubione' })).not.toBeInTheDocument()
-    expect(screen.getByText(/przypnij stację lub przystanek/)).toBeInTheDocument()
+    expect(screen.getByText(/przypnij je gwiazdką/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
 
@@ -143,7 +164,7 @@ describe('Page (Pulpit)', () => {
     render(<Page />)
 
     expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
-    expect(screen.queryByText(/przypnij stację lub przystanek/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/przypnij je gwiazdką/)).not.toBeInTheDocument()
   })
 
   it('„Dodaj" otwiera okno w trybie przypinania; wybór przypina stację i potwierdza, bez nawigacji', async () => {
@@ -238,7 +259,7 @@ describe('Page (Pulpit)', () => {
     await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
     await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu: Warszawa Centralna' }))
 
-    expect(screen.getByText(/przypnij stację lub przystanek/)).toBeInTheDocument()
+    expect(screen.getByText(/przypnij je gwiazdką/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gotowe' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cofnij' }))
     expect(screen.getByRole('list', { name: 'Kolejność przypiętych' })).toHaveTextContent('Warszawa Centralna')
@@ -309,41 +330,25 @@ describe('Page (Pulpit)', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
-  it('pokazuje „Ostatnio oglądane" nad kartami przypiętych, gdy są ostatnio oglądane', () => {
-    window.localStorage.setItem(
-      'monitor.recentPlaces.v1',
-      JSON.stringify([{ kind: 'pkp', id: '100', name: 'Ostatnia stacja' }])
-    )
+  it('pokazuje „Ostatnio oglądane” PO „Moje miejsca” i jej kartach, gdy są ostatnio oglądane', () => {
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '100', name: 'Ostatnia stacja' }]))
     render(<Page />)
 
-    const recentHeading = screen.getByRole('heading', { name: 'Ostatnio oglądane' })
+    const mine = screen.getByRole('heading', { name: 'Moje miejsca' })
     const pinnedHeading = screen.getByRole('heading', { name: 'Warszawa Centralna' })
-
-    expect(recentHeading).toBeInTheDocument()
-    expect(pinnedHeading).toBeInTheDocument()
-
-    // Recent heading comes before pinned heading in DOM
-    const positionBits = recentHeading.compareDocumentPosition(pinnedHeading)
-    expect(positionBits & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const recentHeading = screen.getByRole('heading', { name: 'Ostatnio oglądane' })
+    expect(mine.compareDocumentPosition(pinnedHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(pinnedHeading.compareDocumentPosition(recentHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('pokazuje „Ostatnio oglądane" nad stanem pustym, gdy brak przypiętych, ale są ostatnio oglądane', () => {
-    window.localStorage.setItem(
-      'monitor.recentPlaces.v1',
-      JSON.stringify([{ kind: 'pkp', id: '100', name: 'Ostatnia stacja' }])
-    )
+  it('pokazuje „Ostatnio oglądane” pod pustym stanem „Moje miejsca”, gdy brak przypiętych', () => {
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '100', name: 'Ostatnia stacja' }]))
     initialPinned = []
     render(<Page />)
 
+    const emptyStateText = screen.getByText(/przypnij je gwiazdką/)
     const recentHeading = screen.getByRole('heading', { name: 'Ostatnio oglądane' })
-    const emptyStateText = screen.getByText(/przypnij stację lub przystanek/)
-
-    expect(recentHeading).toBeInTheDocument()
-    expect(emptyStateText).toBeInTheDocument()
-
-    // Recent heading comes before empty state text in DOM
-    const positionBits = recentHeading.compareDocumentPosition(emptyStateText)
-    expect(positionBits & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(emptyStateText.compareDocumentPosition(recentHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('ukrywa sekcję „Ostatnio oglądane", gdy jej brak', () => {
@@ -373,5 +378,160 @@ describe('Page (Pulpit)', () => {
     expect(screen.getByRole('link', { name: 'Stacja 3' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Stacja 4' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Stacja 5' })).not.toBeInTheDocument()
+  })
+
+  describe('Start (PR11)', () => {
+    it('wejście do szukania: telefon prowadzi na /search (jak zakładka), bez otwierania okna', async () => {
+      wide = false
+      const user = userEvent.setup()
+      render(<Page />)
+
+      await user.click(screen.getByRole('button', { name: 'Stacja, przystanek lub linia' }))
+
+      expect(push).toHaveBeenCalledWith('/search', { transitionTypes: NAV_TAB_TYPES })
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('wejście do szukania: desktop otwiera okno UnifiedSearch (bez trybu przypinania), bez nawigacji', async () => {
+      const user = userEvent.setup()
+      render(<Page />)
+
+      await user.click(screen.getByRole('button', { name: 'Stacja, przystanek lub linia' }))
+
+      expect(screen.getByRole('dialog', { name: 'Szukaj stacji, przystanku lub linii' })).toBeInTheDocument()
+      expect(push).not.toHaveBeenCalled()
+    })
+
+    it('GPS nie rusza przy renderze ani przy rerenderze — tylko po kliknięciu', () => {
+      const { rerender } = render(<Page />)
+      rerender(<Page />)
+      expect(requestLocation).not.toHaveBeenCalled()
+    })
+
+    it('„W pobliżu mnie”: klik pyta o pozycję raz, a po sukcesie otwiera /map?nearby=1', async () => {
+      requestLocation.mockResolvedValue({ lat: 52.2, lon: 21, accuracyM: 20 })
+      const user = userEvent.setup()
+      render(<Page />)
+
+      await user.click(screen.getByRole('button', { name: 'W pobliżu mnie' }))
+
+      expect(requestLocation).toHaveBeenCalledTimes(1)
+      expect(push).toHaveBeenCalledWith('/map?nearby=1', NAV_FORWARD_OPTIONS)
+    })
+
+    it('spóźniona odpowiedź GPS po opuszczeniu Startu nie nawiguje na mapę', async () => {
+      let resolve: (value: { lat: number; lon: number; accuracyM: number }) => void = () => {}
+      requestLocation.mockReturnValue(new Promise((r) => (resolve = r)))
+      const user = userEvent.setup()
+      const { unmount } = render(<Page />)
+      await user.click(screen.getByRole('button', { name: 'W pobliżu mnie' }))
+      unmount()
+      resolve({ lat: 52.2, lon: 21, accuracyM: 20 })
+      await Promise.resolve()
+      expect(push).not.toHaveBeenCalled()
+    })
+
+    it('odmowa albo brak pozycji: opis pod przyciskiem, bez nawigacji, wyszukiwanie zostaje', async () => {
+      requestLocation.mockImplementation(async () => {
+        locationStatus = 'denied'
+        return null
+      })
+      const user = userEvent.setup()
+      const { rerender } = render(<Page />)
+      await user.click(screen.getByRole('button', { name: 'W pobliżu mnie' }))
+      rerender(<Page />)
+
+      expect(push).not.toHaveBeenCalled()
+      expect(screen.getByText('Brak dostępu do lokalizacji. Wyszukaj miejsce powyżej.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Stacja, przystanek lub linia' })).toBeEnabled()
+    })
+
+    it.each([
+      ['unavailable', 'Lokalizacja nie jest dostępna w tej przeglądarce'],
+      ['error', 'Nie udało się ustalić lokalizacji. Spróbuj ponownie lub wyszukaj miejsce.'],
+    ] as const)('stan %s ma własny opis, a „W pobliżu mnie” zostaje aktywne (ponowna próba)', (status, text) => {
+      locationStatus = status
+      render(<Page />)
+      expect(screen.getByText(text)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'W pobliżu mnie' })).toBeEnabled()
+    })
+
+    it('podczas pytania: „Ustalanie lokalizacji…”, aria-busy i kolejne kliknięcia nie wołają GPS', async () => {
+      locationStatus = 'requesting'
+      const user = userEvent.setup()
+      render(<Page />)
+
+      const button = screen.getByRole('button', { name: 'Ustalanie lokalizacji…' })
+      expect(button).toHaveAttribute('aria-busy', 'true')
+      await user.click(button)
+      expect(requestLocation).not.toHaveBeenCalled()
+      expect(screen.queryByText(/Brak dostępu|Nie udało się ustalić/)).toBeNull()
+    })
+
+    it('„Otwórz mapę” to zwykły link na /map (bez GPS)', () => {
+      render(<Page />)
+      expect(screen.getByRole('link', { name: 'Otwórz mapę' })).toHaveAttribute('href', '/map')
+      expect(requestLocation).not.toHaveBeenCalled()
+    })
+
+    it('pusty storage: krótka instrukcja i „Znajdź miejsce” (otwiera szukanie), bez „Edytuj ulubione” i bez dużej karty', async () => {
+      initialPinned = []
+      wide = false
+      const user = userEvent.setup()
+      render(<Page />)
+
+      expect(screen.getByRole('heading', { name: 'Moje miejsca' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Edytuj ulubione' })).toBeNull()
+      await user.click(screen.getByRole('button', { name: 'Znajdź miejsce' }))
+      expect(push).toHaveBeenCalledWith('/search', { transitionTypes: NAV_TAB_TYPES })
+    })
+
+    it('ładowanie pinów: szkielet bez „Znajdź miejsce” i bez fałszywego „Nie masz miejsc”, wejście do szukania już działa', () => {
+      pinnedLoaded = false
+      render(<Page />)
+      expect(screen.getByTestId('pulpit-skeleton')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Znajdź miejsce' })).toBeNull()
+      expect(screen.queryByText(/przypnij je gwiazdką/)).toBeNull()
+      expect(screen.getByRole('button', { name: 'Stacja, przystanek lub linia' })).toBeInTheDocument()
+    })
+
+    it('desktop: statystyki sieci stoją w kolumnie bocznej, bez przycisku „Info”', () => {
+      render(<Page />)
+      expect(screen.getByRole('button', { name: /Dziś w Polsce/ })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Info' })).toBeNull()
+    })
+
+    it('telefon: statystyk nie ma pod kartami; „Info” na końcu otwiera arkusz „Informacje o sieci” i zamyka się', async () => {
+      wide = false
+      const user = userEvent.setup()
+      render(<Page />)
+      expect(screen.queryByRole('button', { name: /Dziś w Polsce/ })).toBeNull()
+
+      await user.click(screen.getByRole('button', { name: 'Info' }))
+      const sheet = screen.getByRole('dialog', { name: 'Informacje o sieci' })
+      expect(within(sheet).getByRole('button', { name: /Dziś w Polsce/ })).toHaveAttribute('aria-expanded', 'true')
+
+      await user.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
+      expect(screen.queryByRole('dialog', { name: 'Informacje o sieci' })).toBeNull()
+    })
+
+    it('telefon: „Info” jest po „Moje miejsca” (główne zadania wyżej)', () => {
+      wide = false
+      render(<Page />)
+      const mine = screen.getByRole('heading', { name: 'Moje miejsca' })
+      const info = screen.getByRole('button', { name: 'Info' })
+      expect(mine.compareDocumentPosition(info) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('kolejność: H1 → wejście do szukania → okolica → „Moje miejsca”', () => {
+      render(<Page />)
+      const order = [
+        screen.getByRole('heading', { level: 1, name: 'Start' }),
+        screen.getByRole('button', { name: 'Stacja, przystanek lub linia' }),
+        screen.getByRole('button', { name: 'W pobliżu mnie' }),
+        screen.getByRole('heading', { name: 'Moje miejsca' }),
+      ]
+      for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
   })
 })

@@ -7,10 +7,11 @@ import { useTransitBoard } from '@/hooks/useTransitBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { TransitDepartureList } from './TransitDepartureList'
-import { stopsWithLines } from './stopName'
+import { stopModes, stopsWithLines } from './stopName'
+import { AllDeparturesLink } from './AllDeparturesLink'
 import { PlaceTitle } from './PlaceTitle'
+import { ModeTile, modesLabel } from './transitMode'
 import { CARD_ROWS } from './StationCard'
-import { ChevronRightIcon, ICON_SIZE } from './icons'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 
 type Props = {
@@ -54,28 +55,35 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onGrou
   const groupPath = `/city/${city}/stop/${encodeStopIdForPathSegment(board?.groupId ?? stopId)}`
   const href = member ? `${groupPath}?przystanek=${encodeURIComponent(stopId)}` : groupPath
 
-  // Nagłówek i wiersze to osobne, prawdziwe linki — żadnej nakładki na całą kartę (zagnieżdżone cele dotyku).
+  // Rodzaje z danych tablicy (przed odpowiedzią nieznane: neutralny znak przystanku, nigdy domyślny autobus).
+  const modes = stopModes(board, member ? stopId : null)
+  const modesText = modesLabel(modes)
+
+  // Nagłówek, wiersze i „Wszystkie odjazdy” to osobne, prawdziwe linki — żadnej nakładki na całą kartę (zagnieżdżone cele dotyku).
   const title = (
     <h2 className="text-lg font-semibold tracking-tight text-foreground">
       <Link
         href={href}
         transitionTypes={NAV_FORWARD_TYPES}
         data-card-open
-        className="-mx-1 flex min-h-11 items-center justify-between gap-2 rounded-lg px-1 hover:underline focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+        className="-mx-1 flex min-h-11 items-center rounded-lg px-1 [overflow-wrap:anywhere] hover:underline focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
       >
-        <span className="min-w-0 truncate">{name}</span>
-        <ChevronRightIcon size={ICON_SIZE.button} className="shrink-0 text-text-muted" />
+        {name}
       </Link>
     </h2>
   )
 
   return (
     <article className="glass card-press w-full rounded-2xl border border-surface-border p-5 max-sm:p-4">
-      {/* Nazwę przejścia ma tylko kafelek zespołu: przypięty pojedynczy przystanek tej samej grupy dałby duplikat
-          `view-transition-name`, który przerywa całe przejście. */}
-      {member ? title : <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>{title}</PlaceTitle>}
-
-      <p className="text-xs text-text-muted">Rozkład — {cityName}</p>
+      <div className="flex items-start gap-3">
+        <ModeTile modes={modes} />
+        <div className="min-w-0 flex-1">
+          {/* Nazwę przejścia ma tylko kafelek zespołu: przypięty pojedynczy przystanek tej samej grupy dałby duplikat
+              `view-transition-name`, który przerywa całe przejście. */}
+          {member ? title : <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>{title}</PlaceTitle>}
+          <p className="text-xs text-text-muted">{`${modesText === '' ? '' : `${modesText} · `}Rozkład — ${cityName}`}</p>
+        </div>
+      </div>
 
       {failed ? (
         <p className="mt-3 text-sm text-error-text">Nie udało się pobrać rozkładu.</p>
@@ -92,6 +100,8 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onGrou
           showStopCode={!member && stopsWithLines(board?.members).length > 1}
         />
       )}
+
+      <AllDeparturesLink href={href} name={name} />
     </article>
   )
 }

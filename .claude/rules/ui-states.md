@@ -48,6 +48,11 @@ data age, not a white screen. Error banner only for a configuration error (401).
   miss cap) + „Szukaj stacji”; empty `stops` = „PKP nie udostępnia teraz trasy…” (`role="status"`, h1 + the same two actions; not a finished journey); a failed
   refresh keeps the route and turns the age line „Pobrano … temu” into the warning. A finished journey shows the age
   neutrally. Collapsing/expanding the route (> 8 stops, `routeWindow.ts`) is local state — no fetch (#3).
+- Start (PR11, `/`): pins loading = skeleton under „Moje miejsca” (never „Nie masz miejsc”); empty = one instruction + „Znajdź miejsce”;
+  each card keeps its own state (a failed city card never hides the others; PKP cards share ONE `useBoard`, city cards one `useTransitBoard` each —
+  a width/theme change adds no request). Mode glyphs come from board data (`stopModes`), unknown = neutral stop glyph, never a bus. GPS only on the
+  click of „W pobliżu mnie”; nothing is read on render and nothing is shown before the click. `NetworkStatsCard` mounts in ONE place: right column
+  from `sm`, „Informacje o sieci” sheet on phones (not mounted while closed).
 - Trivia (weather, city stats, KPI tiles, direction chips, status legend) lives below or in sheets on phones:
   weather = `WeatherChip` in `TopBar` (`city` prop; sheet on phones, `useDropdown` popover from `sm`).
 - Phone layouts hide/compact things with responsive classes on ONE DOM (`max-sm:`), never a

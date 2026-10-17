@@ -135,4 +135,35 @@ describe('StationCard', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
+
+  it('names the place as a PKP station with a decorative rail glyph', () => {
+    renderCard(null)
+    expect(screen.getByText('Stacja kolejowa PKP')).toBeInTheDocument()
+    expect(screen.getByTestId('mode-glyph')).toHaveAttribute('data-mode', 'rail')
+    expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).toBeInTheDocument()
+  })
+
+  it('offers „Wszystkie odjazdy” as a full link to the station board, a separate link from the heading', () => {
+    renderCard(makeSnapshot({ departures: [departure()] }))
+    const all = screen.getByRole('link', { name: /Wszystkie odjazdy/ })
+    expect(all).toHaveAttribute('href', '/station/5100?name=Warszawa%20Centralna')
+    expect(within(screen.getByRole('heading')).queryByRole('link', { name: /Wszystkie odjazdy/ })).toBeNull()
+  })
+
+  it('keeps „Wszystkie odjazdy” even while loading or after a failed first fetch (the place is still openable)', () => {
+    const { unmount } = renderCard(null)
+    expect(screen.getByRole('link', { name: /Wszystkie odjazdy/ })).toBeInTheDocument()
+    unmount()
+    renderCard(null, { error: true })
+    expect(screen.getByRole('link', { name: /Wszystkie odjazdy/ })).toBeInTheDocument()
+  })
+
+  it('a long name wraps instead of being cut off', () => {
+    const name = 'Warszawa Wschodnia Osobowa z bardzo długą nazwą testową'
+    renderCard(null, { stationName: name })
+    const link = within(screen.getByRole('heading')).getByRole('link')
+    expect(link).toHaveTextContent(name)
+    expect(link).not.toHaveClass('truncate')
+    expect(link).toHaveClass('[overflow-wrap:anywhere]')
+  })
 })

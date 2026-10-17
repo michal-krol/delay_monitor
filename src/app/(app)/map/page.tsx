@@ -6,7 +6,7 @@ import { CityRedirect } from '@/components/CityRedirect'
 // (`line`, `dir`, `at`, `hide`, `alerts`, `nearby`) przechodzi dalej bez zmian — walidacja jest na stronie miasta (#4).
 const toCityMap = (city: string) => `/city/${city}/map${typeof window === 'undefined' ? '' : window.location.search}`
 
-/** `/map` bez segmentu — menu „Mapa" tu prowadzi (Start nie ma jeszcze wejścia „W pobliżu mnie", `?nearby=1` działa tylko ręcznie). */
+/** `/map` bez segmentu — menu „Mapa" tu prowadzi (Start ma wejście „W pobliżu mnie" → `?nearby=1`). */
 export default function MapIndex() {
   return <CityRedirect to={toCityMap} />
 }

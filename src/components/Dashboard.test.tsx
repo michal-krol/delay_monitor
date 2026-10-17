@@ -222,7 +222,7 @@ describe('Dashboard', () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Świętokrzyska' })).toBeInTheDocument()
-    expect(screen.getByText('Rozkład — warszawa')).toBeInTheDocument()
+    expect(screen.getByText('Metro · Rozkład — warszawa')).toBeInTheDocument()
   })
 
   it('drops stale snapshots for stations that are no longer pinnedItems', async () => {
@@ -289,5 +289,82 @@ describe('Dashboard', () => {
     const onNormalize = vi.fn()
     render(<Dashboard pinnedItems={[legacy]} onRemove={vi.fn()} onNormalize={onNormalize} />)
     expect(onNormalize).toHaveBeenCalledWith('gtfs:warszawa:100101', { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' })
+  })
+
+  describe('Start (PR11): modes, one failing card, subscriptions', () => {
+    const boardFor = (stopId: string, name: string, mode: string) => ({
+      data: { stops: [{ stopId, groupId: stopId, name, modes: [mode], departures: [], members: [] }], schedule: { state: 'ready' }, attribution: [] },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    const modesIn = (card: HTMLElement) => within(card).queryAllByTestId('mode-glyph').map((node) => node.getAttribute('data-mode'))
+
+    it.each([
+      ['bus', 'Autobus'],
+      ['tram', 'Tramwaj'],
+      ['metro', 'Metro'],
+      ['rail', 'Kolej miejska'],
+    ])('a pinned GTFS %s stop keeps its own mode glyph and never touches the PKP board', (mode, label) => {
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [], budget: undefined, status: 'ok' }))
+      vi.stubGlobal('fetch', fetchMock)
+      useTransitBoard.mockReturnValue(boardFor('9001', 'Przystanek testowy', mode))
+
+      render(<Dashboard pinnedItems={[{ kind: 'gtfs', city: 'warszawa', id: '9001', name: 'Przystanek testowy' }]} onRemove={vi.fn()} />)
+
+      const card = findCardByHeading('Przystanek testowy')
+      expect(modesIn(card)).toEqual([mode])
+      expect(card).toHaveTextContent(label + ' · Rozkład')
+      // Karta GTFS (także kolej miejska) nie uruchamia useBoard PKP: żadnego zapytania o tablicę stacji (#3, #13).
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/board'))).toEqual([])
+    })
+
+    it('a failed city card does not wipe the PKP card or the other city card', async () => {
+      useTransitBoard.mockImplementation((...args: unknown[]) => {
+        // beforeEach oddly returns the mock itself, which vitest calls as cleanup with no args.
+        const stopIds = (args[1] as string[] | undefined) ?? []
+        if (stopIds === undefined) throw new Error('ARGS ' + JSON.stringify(args))
+        return stopIds[0] === '9001' ? { data: null, error: 'network', loading: false, failed: true } : boardFor('9002', 'Drugi przystanek', 'tram')
+      })
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockImplementation(() =>
+          jsonResponse({
+            snapshots: [{ stationId: '5100', stationName: 'Warszawa Centralna', departures: [], arrivals: [], fetchedAt: '2026-08-01T20:24:11.827Z', ageMs: 0 }],
+            budget: undefined,
+            status: 'ok',
+          })
+        )
+      )
+
+      render(
+        <Dashboard
+          pinnedItems={[
+            { kind: 'pkp', id: '5100', name: 'Warszawa Centralna' },
+            { kind: 'gtfs', city: 'warszawa', id: '9001', name: 'Pierwszy przystanek' },
+            { kind: 'gtfs', city: 'warszawa', id: '9002', name: 'Drugi przystanek' },
+          ]}
+          onRemove={vi.fn()}
+        />
+      )
+
+      expect(within(findCardByHeading('Pierwszy przystanek')).getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
+      expect(within(findCardByHeading('Drugi przystanek')).queryByText('Nie udało się pobrać rozkładu.')).not.toBeInTheDocument()
+      expect(await within(findCardByHeading('Warszawa Centralna')).findByText('Brak odjazdów w najbliższych godzinach')).toBeInTheDocument()
+      // Karta z awarią nadal prowadzi do miejsca (nie jest martwa).
+      expect(within(findCardByHeading('Pierwszy przystanek')).getByRole('link', { name: /Wszystkie odjazdy/ })).toBeInTheDocument()
+    })
+
+    it('re-rendering with the same pins (new array, e.g. a width change or theme switch) adds no board request', async () => {
+      const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ snapshots: [null, null], budget: undefined, status: 'ok' }))
+      vi.stubGlobal('fetch', fetchMock)
+      const { rerender } = render(<Dashboard pinnedItems={[...PINNED_ITEMS]} onRemove={vi.fn()} />)
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+      rerender(<Dashboard pinnedItems={[...PINNED_ITEMS]} onRemove={vi.fn()} />)
+      rerender(<Dashboard pinnedItems={[...PINNED_ITEMS]} onRemove={vi.fn()} />)
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
   })
 })

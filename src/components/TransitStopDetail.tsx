@@ -25,7 +25,7 @@ import { LineBadge } from './LineBadge'
 import { MapView } from './MapView'
 import { MAP_ZOOM, formatAt } from './map/mapData'
 import { ScheduleStatus, scheduleNeedsAttention } from './ScheduleStatus'
-import { stopDisplayName, stopsWithLines } from './stopName'
+import { stopDisplayName, stopModes, stopsWithLines } from './stopName'
 import { TransitDepartureList } from './TransitDepartureList'
 import { TransitFetchStatus } from './TransitFetchStatus'
 import { LINE_KIND_LABEL, MODE_LABEL, MODE_ORDER } from './transitMode'
@@ -202,11 +202,14 @@ export function TransitStopDetail({
   const memberSettled = board?.requestedMember == null || effMember !== null || memberChoice !== undefined
   const recentId = board?.groupId ?? stopId
   const recentMember = activeMember?.id
+  // Klucz tekstowy zamiast tablicy: nowa tablica o tym samym składzie nie ma pisać do storage'u przy każdym odpytaniu.
+  const recentModesKey = stopModes(board, recentMember ?? null).join(',')
   const recentName = activeMember !== null ? stopDisplayName(stopName, activeMember.code ?? activeMember.platformCode) : stopName
   useEffect(() => {
     if (!boardLoaded || !memberSettled) return
-    recordRecentPlace({ kind: 'gtfs', city, id: recentId, name: recentName, ...(recentMember !== undefined && { member: recentMember }) })
-  }, [boardLoaded, memberSettled, city, recentId, recentMember, recentName, recordRecentPlace])
+    const modes = recentModesKey === '' ? [] : (recentModesKey.split(',') as GtfsMode[])
+    recordRecentPlace({ kind: 'gtfs', city, id: recentId, name: recentName, ...(recentMember !== undefined && { member: recentMember }), ...(modes.length > 0 && { modes }) })
+  }, [boardLoaded, memberSettled, city, recentId, recentMember, recentName, recentModesKey, recordRecentPlace])
 
   // Zmiana przystanku w zespole zachowuje poprzednią odpowiedź (`keepPreviousData`: piny i geometria zespołu nie znikają), ale jej
   // odjazdy dotyczą INNEGO zakresu — dopóki `activeMember` odpowiedzi nie zgadza się z wyborem, lista jest „wczytywana"

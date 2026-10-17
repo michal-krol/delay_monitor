@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
+import type { GtfsMode } from '@/lib/gtfs/types'
 import { CITY_ID_PATTERN, encodeStopIdForPathSegment, GTFS_STOP_ID_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
 
 const STORAGE_KEY = 'monitor.recentPlaces.v1'
@@ -15,7 +16,7 @@ export const MAX_RECENT_PLACES = 8
 export type RecentPlace =
   | { kind: 'pkp'; id: string; name: string }
   /** `id` = zespół (groupId); `member` = id jednego przystanku, wtedy `name` ma numer („Centrum 02"). */
-  | { kind: 'gtfs'; city: string; id: string; name: string; member?: string }
+  | { kind: 'gtfs'; city: string; id: string; name: string; member?: string; modes?: GtfsMode[] }
 
 /** Klucz tożsamości wpisu — zespół i jego pojedynczy przystanek to osobne wpisy. */
 export function recentPlaceKey(place: RecentPlace): string {
@@ -30,6 +31,8 @@ export function recentPlaceHref(place: RecentPlace): string {
 }
 
 const nameSchema = z.string().min(1).max(120)
+/** `modes` (rodzaje linii miejsca) wpisuje strona przystanku; uszkodzona wartość gubi same rodzaje, nie wpis — stare wpisy ich nie mają. */
+const modesSchema = z.array(z.enum(['metro', 'tram', 'bus', 'rail', 'other'])).max(5).optional().catch(undefined)
 const placeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('pkp'), id: z.string().regex(STATION_ID_PATTERN), name: nameSchema }),
   z.object({
@@ -38,6 +41,7 @@ const placeSchema = z.discriminatedUnion('kind', [
     id: z.string().regex(GTFS_STOP_ID_PATTERN),
     name: nameSchema,
     member: z.string().regex(GTFS_STOP_ID_PATTERN).optional(),
+    modes: modesSchema,
   }),
 ])
 

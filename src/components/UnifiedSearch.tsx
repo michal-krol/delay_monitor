@@ -15,7 +15,7 @@ import { LineBadge } from './LineBadge'
 import { RecentLines } from './LineGrid'
 import { RecentPlaces } from './RecentPlaces'
 import { SEARCH_INPUT_BASE, SEARCH_INPUT_CLASS } from './StationSearch'
-import { MODE_ICON, MODE_LABEL } from './transitMode'
+import { ModeTile, modeKindLabel } from './transitMode'
 
 type Kind = DiscoveryResult['kind']
 
@@ -45,18 +45,6 @@ const OVERLAY_FIELD_CLASS = `${SEARCH_INPUT_BASE} border border-surface-border b
 const OVERLAY_PANEL_CLASS =
   'absolute inset-x-0 top-full z-20 mt-2 max-h-[60dvh] overflow-y-auto overscroll-contain rounded-xl border border-surface-border bg-[var(--sheet-surface)] p-3 pt-1 shadow-lg'
 
-const modeKindLabel = (mode: GtfsMode) => (mode === 'rail' ? 'Kolej miejska' : MODE_LABEL[mode].charAt(0).toUpperCase() + MODE_LABEL[mode].slice(1))
-
-function ModeTile({ modes }: { modes: GtfsMode[] }) {
-  return (
-    <span className="flex h-10 min-w-10 shrink-0 items-center justify-center gap-1 rounded-xl bg-primary-soft px-1.5 text-primary-text">
-      {modes.map((mode) => {
-        const Icon = MODE_ICON[mode]
-        return <Icon key={mode} size={ICON_SIZE.tile} />
-      })}
-    </span>
-  )
-}
 
 function Row({ label, leading, onClick, children }: { label: string; leading: React.ReactNode; onClick: () => void; children: React.ReactNode }) {
   return (

@@ -165,11 +165,78 @@ describe('TransitStopCard', () => {
     expect(list).not.toHaveTextContent(/na czas|punktualnie|opóźn/i)
   })
 
-  it('no full-card overlay: the only links are the heading and the departures', () => {
+  it('no full-card overlay: the only links are the heading, the departures and „Wszystkie odjazdy”', () => {
     useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
     render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" />)
-    expect(screen.getAllByRole('link')).toHaveLength(2)
+    expect(screen.getAllByRole('link')).toHaveLength(3)
     expect(screen.queryByRole('link', { name: /Pokaż przystanek/ })).toBeNull()
+  })
+
+  describe('place mode marking (one glyph per mode, from the data, never a default bus)', () => {
+    const boardOf = (modes: string[], members: unknown[] = []) => ({
+      data: { stops: [{ stopId: '1001', groupId: '1001', name: 'Centrum', modes, departures: [], members }], schedule: { state: 'ready' }, attribution: [] },
+      error: null,
+      loading: false,
+      failed: false,
+    })
+    const modesOf = () => screen.queryAllByTestId('mode-glyph').map((node) => node.getAttribute('data-mode'))
+
+    it.each([
+      ['bus', 'Autobus'],
+      ['tram', 'Tramwaj'],
+      ['metro', 'Metro'],
+      ['rail', 'Kolej miejska'],
+    ])('%s → its own glyph and the label „%s · Rozkład — …”', (mode, label) => {
+      useTransitBoard.mockReturnValue(boardOf([mode]))
+      render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
+      expect(modesOf()).toEqual([mode])
+      expect(screen.getByText(label + ' · Rozkład — warszawa')).toBeInTheDocument()
+    })
+
+    it('a GTFS rail stop is a schedule card: no PKP words, no realization (#13)', () => {
+      useTransitBoard.mockReturnValue(boardOf(['rail']))
+      render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
+      expect(screen.queryByText(/PKP|Stacja kolejowa|na czas|opóźn/i)).toBeNull()
+    })
+
+    it('a group with several modes shows all of them', () => {
+      useTransitBoard.mockReturnValue(boardOf(['tram', 'bus']))
+      render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
+      expect(modesOf()).toEqual(['tram', 'bus'])
+      expect(screen.getByText('Tramwaj, autobus · Rozkład — warszawa')).toBeInTheDocument()
+    })
+
+    it('a pinned single stop shows the modes of ITS lines only', () => {
+      useTransitBoard.mockReturnValue(
+        boardOf(['tram', 'bus'], [
+          { id: '100101', lines: [{ routeId: '20', line: '20', mode: 'tram', kind: 'regular' }] },
+          { id: '100102', lines: [{ routeId: '128', line: '128', mode: 'bus', kind: 'regular' }] },
+        ])
+      )
+      render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member />)
+      expect(modesOf()).toEqual(['bus'])
+    })
+
+    it('while the board is loading the mode is unknown: neutral stop glyph, no mode words', () => {
+      useTransitBoard.mockReturnValue({ data: null, error: null, loading: true, failed: false })
+      render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
+      expect(modesOf()).toEqual([])
+      expect(screen.getByText(/^Rozkład — /)).toBeInTheDocument()
+    })
+
+    it('after a failed first fetch the card keeps its link and says so, without inventing a mode', () => {
+      useTransitBoard.mockReturnValue({ data: null, error: 'network', loading: false, failed: true })
+      render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
+      expect(modesOf()).toEqual([])
+      expect(screen.getByText('Nie udało się pobrać rozkładu.')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Wszystkie odjazdy/ })).toHaveAttribute('href', '/city/warszawa/stop/1001')
+    })
+
+    it('„Wszystkie odjazdy” of a pinned single stop returns to that stop, not the whole group', () => {
+      useTransitBoard.mockReturnValue(boardOf(['bus'], [{ id: '100102', lines: [{ routeId: '128', line: '128', mode: 'bus', kind: 'regular' }] }]))
+      render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member />)
+      expect(screen.getByRole('link', { name: /Wszystkie odjazdy/ })).toHaveAttribute('href', '/city/warszawa/stop/1001?przystanek=100102')
+    })
   })
 
   describe('legacy group pin saved under a member stop id', () => {

@@ -51,10 +51,37 @@ for (const width of [320, 375]) {
   })
 }
 
-test('pulpit na 375 px: karta „Dziś w Polsce" jest widoczna pod treścią', async ({ page }) => {
+test('pulpit na 375 px: statystyk sieci nie ma pod kartami, „Info” na końcu otwiera arkusz „Informacje o sieci”', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('button', { name: /Dziś w Polsce/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Dziś w Polsce/ })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Info', exact: true }).click()
+  const sheet = page.getByRole('dialog', { name: 'Informacje o sieci' })
+  await expect(sheet.getByRole('button', { name: /Dziś w Polsce/ })).toHaveAttribute('aria-expanded', 'true')
+  await sheet.getByRole('button', { name: 'Zamknij informacje' }).click()
+  await expect(sheet).toHaveCount(0)
 })
+
+// Start (PR11): na 320 i 375 px wejście do szukania, okolica i początek „Moje miejsca” bez poziomego przewijania.
+const START_PINS = [
+  { kind: 'pkp', id: '33605', name: 'Warszawa Centralna z bardzo długą nazwą testową dla zawijania' },
+  { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' },
+]
+for (const width of [320, 375]) {
+  test(`start na ${width} px: wejście, okolica i „Moje miejsca” w pierwszym ekranie, bez poziomego przewijania`, async ({ page }) => {
+    await page.addInitScript((value) => window.localStorage.setItem('monitor.favourites.v2', JSON.stringify(value)), START_PINS)
+    await page.setViewportSize({ width, height: 812 })
+    await page.goto('/')
+    const main = page.getByRole('main')
+    const barTop = (await page.getByRole('navigation', { name: 'Nawigacja główna' }).boundingBox())?.y ?? 812
+    for (const locator of [main.getByRole('button', { name: 'Stacja, przystanek lub linia' }), main.getByRole('button', { name: 'W pobliżu mnie' }), main.getByRole('heading', { name: 'Moje miejsca' })]) {
+      await expect(locator).toBeVisible()
+      const box = await locator.boundingBox()
+      expect((box?.y ?? 9999) + (box?.height ?? 0)).toBeLessThanOrEqual(barTop)
+    }
+    await expect(main.getByRole('article').first()).toBeVisible({ timeout: 45_000 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  })
+}
 
 test('linii na 375 px: karty „Trasa linii” i Rozkładu mają się zmieścić bez poziomego przewijania', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })

@@ -1,16 +1,16 @@
-import { AppTitle } from './AppTitle'
-import { AppLogo } from './icons'
-
-export function EmptyState() {
+/**
+ * Pusty stan „Moje miejsca” na Starcie: krótka instrukcja i jedna akcja, bez ozdobnej karty zajmującej pierwszy
+ * ekran. Nie pokazuje się, dopóki piny się wczytują (to szkielet, nie „Nie masz miejsc”, #7).
+ */
+export function EmptyState({ onFind }: { onFind: () => void }) {
   return (
-    <div className="glass mx-auto mt-16 max-sm:mt-2 flex max-w-md flex-col items-center gap-5 rounded-3xl px-8 py-12 max-sm:py-8 text-center">
-      <div className="float ring-pulse rounded-2xl">
-        <AppLogo size={64} />
-      </div>
-      <AppTitle />
-      <p className="-mt-2 text-sm text-text-muted">
-        Przyciskiem „Dodaj” przypnij stację lub przystanek, żeby śledzić odjazdy.
+    <div className="glass flex flex-col items-start gap-3 rounded-2xl border border-surface-border p-4">
+      <p className="text-sm text-text-secondary">
+        Nie masz jeszcze zapisanych miejsc. Znajdź stację lub przystanek i przypnij je gwiazdką — odjazdy pojawią się tutaj.
       </p>
+      <button type="button" onClick={onFind} className="btn-primary">
+        Znajdź miejsce
+      </button>
     </div>
   )
 }

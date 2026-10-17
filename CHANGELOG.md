@@ -8,6 +8,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Dodane
 
+- Start na telefonie: nagłówek „Start”, pole „Stacja, przystanek lub linia” (prowadzi do wyszukiwania),
+  „W pobliżu mnie” (lokalizację pytamy dopiero po kliknięciu; odmowa zostawia opis i wyszukiwanie) oraz
+  „Otwórz mapę”. Pod spodem „Moje miejsca” (pusty stan to krótka instrukcja i „Znajdź miejsce”, bez dużej
+  karty) i „Ostatnio oglądane”. Karty miejsc mają ikonę rodzaju (kolej, autobus, tramwaj, metro, kolej miejska —
+  z danych, nie „domyślny autobus”), pełną wielowierszową nazwę i link „Wszystkie odjazdy”; „Ostatnio oglądane”
+  pamiętają rodzaje przystanków. Statystyki sieci „Dziś w Polsce” przeniesione na telefonie do arkusza „Info”
+  (na desktopie zostają w prawej kolumnie). Bez nowych zapytań do PKP i bez zmian formatu zapisanych miejsc.
 - Komunikaty w kontekście linii i przystanku: odpowiedzi `/api/gtfs/line` i `/api/gtfs/board` niosą
   stan feedu komunikatów (`alertFeed`), więc ekran odróżnia awarię od „brak komunikatów”. Nowy komponent
   `ContextAlerts` (karty zwinięte domyślnie, pełna treść bez wewnętrznego przewijania, „Źródło komunikatu”,

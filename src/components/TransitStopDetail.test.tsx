@@ -202,18 +202,18 @@ describe('TransitStopDetail', () => {
       })
     }
 
-    it('records the whole zespół by groupId', () => {
+    it('records the whole zespół by groupId, with the modes of the zespół', () => {
       mockGroupBoard()
       // stopId ze ścieżki bywa przystankiem z deep-linku — zapisujemy id zespołu z odpowiedzi.
       render(<TransitStopDetail city="warszawa" stopId="100102" />)
-      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' }])
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum', modes: ['metro', 'tram'] }])
     })
 
-    it('records the selected przystanek with its number', () => {
+    it('records the selected przystanek with its number and the modes of ITS lines', () => {
       mockGroupBoard()
       search = 'przystanek=100102'
       render(<TransitStopDetail city="warszawa" stopId="1001" />)
-      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', member: '100102', name: 'Centrum 02' }])
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', member: '100102', name: 'Centrum 02', modes: ['metro'] }])
     })
 
     it('a deep link to one przystanek records only that przystanek, not the zespół first', () => {
@@ -224,7 +224,7 @@ describe('TransitStopDetail', () => {
         failed: false,
       })
       render(<TransitStopDetail city="warszawa" stopId="100102" />)
-      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', member: '100102', name: 'Centrum 02' }])
+      expect(stored()).toEqual([{ kind: 'gtfs', city: 'warszawa', id: '1001', member: '100102', name: 'Centrum 02', modes: ['metro'] }])
     })
 
     it('records nothing until the board has loaded', () => {

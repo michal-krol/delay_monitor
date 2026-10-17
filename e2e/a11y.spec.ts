@@ -50,7 +50,7 @@ test('a11y: pulpit z przypiętymi kartami bez naruszeń serious/critical', async
   })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Warszawa Centralna' })).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByText('Rozkład — Warszawa')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/Rozkład — Warszawa/)).toBeVisible({ timeout: 15_000 })
 
   const { violations } = await scanA11y(page)
 
