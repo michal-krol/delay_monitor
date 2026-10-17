@@ -26,3 +26,22 @@ export function needsE2e(changedFiles) {
     return !SKIPPABLE.some((pattern) => pattern.test(f))
   })
 }
+
+const ALL_PROJECTS = [
+  { project: 'desktop-chromium', browser: 'chromium' },
+  { project: 'mobile-chromium', browser: 'chromium' },
+  { project: 'mobile-safari', browser: 'webkit' },
+]
+
+/**
+ * The Playwright projects CI runs. WebKit (≈12 min, the slowest job; in 40 runs it never failed alone)
+ * runs where it gates something: every push to main/dev (Railway waits for CI) and PRs to main.
+ * A feature PR to dev gets the two chromium projects. Anything unknown runs everything.
+ *
+ * @param {{ event?: string, baseRef?: string }} ctx GitHub `event_name` and the PR's base branch
+ * @returns {{ include: { project: string, browser: string }[] }}
+ */
+export function e2eMatrix({ event, baseRef } = {}) {
+  const featurePrToDev = event === 'pull_request' && baseRef === 'dev'
+  return { include: featurePrToDev ? ALL_PROJECTS.filter((p) => p.browser !== 'webkit') : ALL_PROJECTS }
+}

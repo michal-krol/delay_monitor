@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { needsE2e } from './ciScope.mjs'
+import { e2eMatrix, needsE2e } from './ciScope.mjs'
 
 describe('needsE2e', () => {
   it('skips a change made only of docs, agent rules, scripts, hooks and unit tests', () => {
@@ -63,5 +63,29 @@ describe('needsE2e', () => {
 
   it('normalizes Windows separators', () => {
     expect(needsE2e(['.claude\rules\testing.md'])).toBe(false)
+  })
+})
+
+describe('e2eMatrix', () => {
+  const projects = (m) => m.include.map((p) => p.project)
+
+  it('runs WebKit on pushes (dev/main gate the deploy)', () => {
+    expect(projects(e2eMatrix({ event: 'push', baseRef: '' }))).toEqual(['desktop-chromium', 'mobile-chromium', 'mobile-safari'])
+  })
+
+  it('runs WebKit on a promotion PR to main', () => {
+    expect(projects(e2eMatrix({ event: 'pull_request', baseRef: 'main' }))).toContain('mobile-safari')
+  })
+
+  it('skips WebKit on a feature PR to dev', () => {
+    expect(projects(e2eMatrix({ event: 'pull_request', baseRef: 'dev' }))).toEqual(['desktop-chromium', 'mobile-chromium'])
+  })
+
+  it('unknown event or base runs everything (fail safe)', () => {
+    expect(projects(e2eMatrix({}))).toContain('mobile-safari')
+  })
+
+  it('every entry names its browser for the Playwright cache key', () => {
+    for (const p of e2eMatrix({ event: 'push' }).include) expect(['chromium', 'webkit']).toContain(p.browser)
   })
 })

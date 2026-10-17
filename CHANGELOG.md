@@ -14,6 +14,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   gałąź tylko `git branch -d`. Przy okazji stare stemple bramki i logi testów. Skill `cleanup`, jedna linia w
   `npm run status` i hook SessionEnd (tylko odświeża raport, niczego nie kasuje).
 - `next dev` nie dopisuje już bloku do `AGENTS.md` (`agentRules: false`) — koniec stałego brudu w głównym checkoucie.
+- Hook SessionEnd kopiuje niewersjonowane handoffy (`docs/*.md`) z worktree do głównego checkoutu (tylko kopia, bez usuwania, z
+  weryfikacją i sufiksem przy kolizji nazw).
+- CI: PR-y tylko z dokumentami, regułami, skryptami lub testami jednostkowymi pomijają macierz e2e; nowy push do PR-a anuluje
+  trwający przebieg; WebKit (Safari) działa przy pushu do `dev`/`main` i w PR-ach do `main`, a nie w każdym PR-ze do `dev`;
+  `quality` liczy się w trzech równoległych nogach; przegląd Claude tylko przy otwarciu PR (kolejny przez `@claude`);
+  aktualizacje GitHub Actions od Dependabota w jednym PR. Reguła `ui-copy.md` ładuje się tylko przy pracy nad UI
+  (~7,5 tys. tokenów mniej w każdej sesji).
 - Reguła: po otwarciu PR sesja włącza w aplikacji auto-fix (naprawa błędów CI, konfliktów przy merge i komentarzy).
 - Rozkład linii: zmiana kategorii dnia na telefonie przechodzi płynnym zanikiem (tak jak „Trasa”/„Rozkład”; bez
   ruchu przy ograniczonym ruchu).

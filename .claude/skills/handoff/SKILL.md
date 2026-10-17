@@ -9,10 +9,10 @@ description: Write the end-of-session handoff note for delay_monitor. Use when t
 
 - `E:\Claude_Code\delay_monitor\docs\session-handoffYYYYMMDD.md` — the **main checkout**
   (`docs/` is gitignored, AGENTS.md #11, so worktrees have no copy).
-- **In a worktree** (`.claude/worktrees/<name>`) the harness blocks writes outside it. Write to
-  the worktree's `docs/session-handoffYYYYMMDD.md` instead, then give the user a one-line
-  command to move it:
-  `mv .claude/worktrees/<name>/docs/session-handoffYYYYMMDD.md docs/` (run from the main checkout).
+- **In a worktree** (`.claude/worktrees/<name>`) the harness blocks writes outside it. Write to the worktree's
+  `docs/session-handoffYYYYMMDD.md`. The SessionEnd hook `handoff-sync.mjs` copies it to the main checkout's `docs/` when
+  the session ends (copy only; a name clash with different content gets the worktree name as suffix). Written after the
+  session ended? `npm run clean:worktrees -- --apply` rescues it before removing the worktree.
 - Today's date, no separators. A second handoff on the same day: suffix `b`
   (`session-handoff20260901b.md`).
 - Find the previous one: newest `session-handoff*.md` in that directory.
@@ -48,5 +48,5 @@ After writing, update memory only for durable facts (decisions, constraints) —
 
 ## Cleanup after the handoff
 
-A merged PR means this worktree is done: after the handoff is written and moved to the main checkout's `docs/`,
+A merged PR means this worktree is done: after the handoff is written (the hook copies it to the main checkout at session end),
 run the `cleanup` skill (report first; it copies leftover gitignored `docs/*.md` itself, so nothing is lost).

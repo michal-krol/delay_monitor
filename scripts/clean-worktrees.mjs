@@ -16,16 +16,16 @@
  * Handoffs (gitignored `docs/*.md`) are copied to the main checkout's `docs/` and verified byte for byte first.
  */
 import { spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import {
-  copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, writeFileSync,
+  existsSync, lstatSync, mkdtempSync, readdirSync, rmSync, rmdirSync, statSync, writeFileSync,
 } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { staleStamps, isStampName } from './lib/gate.mjs'
 import { git } from './lib/git.mjs'
+import { syncHandoffs } from './lib/handoffs.mjs'
 import {
-  classifyWorktree, formatReport, isManagedWorktree, parseWorktreeList, pickPr, planHandoffCopies, staleEntries,
+  classifyWorktree, formatReport, isManagedWorktree, parseWorktreeList, pickPr, staleEntries,
   summarize,
 } from './lib/worktreeCleanup.mjs'
 
@@ -176,8 +176,6 @@ if (!apply) {
 }
 
 // ---- apply: SAFE only, explicit paths, everything verified before and reported after ----
-const sha = (file) => createHash('sha256').update(readFileSync(file)).digest('hex')
-const docsOf = (dir) => (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).map((name) => ({ name, hash: sha(path.join(dir, name)) })) : [])
 
 function removeTree(dir) {
   try {
@@ -197,13 +195,8 @@ function removeWorktree(row) {
   if (!isManagedWorktree(mainRoot, row.path)) return `refused: ${row.path} is not under .claude/worktrees/`
   // 1. rescue handoffs
   const wtDocs = path.join(row.path, 'docs')
-  const mainDocs = path.join(mainRoot, 'docs')
-  const plan = planHandoffCopies(docsOf(wtDocs), docsOf(mainDocs), row.name)
-  if (plan.length > 0) mkdirSync(mainDocs, { recursive: true })
-  for (const { from, to } of plan) {
-    copyFileSync(path.join(wtDocs, from), path.join(mainDocs, to))
-    if (!readFileSync(path.join(wtDocs, from)).equals(readFileSync(path.join(mainDocs, to)))) return `handoff copy mismatch: ${to} — worktree kept`
-  }
+  const { copied: plan, error } = syncHandoffs({ wtPath: row.path, mainRoot, name: row.name })
+  if (error !== null) return `${error} — worktree kept`
   // 1b. gitignored files other than the known regenerable ones would be lost silently: keep the worktree instead
   const ignored = (git(['-C', row.path, 'status', '--porcelain', '--ignored']) ?? '').split('\n')
     .filter((l) => l.startsWith('!! ')).map((l) => l.slice(3).replace(/\/$/, ''))
