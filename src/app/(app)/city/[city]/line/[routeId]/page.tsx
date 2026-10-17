@@ -23,7 +23,7 @@ import { formatAgo, formatSecondsOfDay } from '@/lib/format'
 import { dedupeAlerts } from '@/lib/gtfs/alertView'
 import { getCity } from '@/lib/gtfs/cities'
 import { NAV_BACK_TYPES, NAV_FORWARD_TYPES } from '@/lib/navTransition'
-import { lineViewPatch, parseLineViewState, resolveLineView, type LinePane, type LineViewState } from '@/lib/lineViewState'
+import { lineViewPatch, parseLineViewState, resolveLineView, type LineDay, type LinePane, type LineViewState } from '@/lib/lineViewState'
 import { pluralPl } from '@/lib/plural'
 import { patchUrlParams } from '@/lib/urlState'
 import { useCities } from '@/hooks/useCities'
@@ -81,6 +81,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   /** Który wiersz wybranego `stopId` (pętla powtarza przystanek; URL niesie tylko `stopId` = pierwsze wystąpienie). Ważny, dopóki pasuje do `stopId` widoku. */
   const [stopIndexChoice, setStopIndexChoice] = useState<number | undefined>(undefined)
   const [paneChoice, setPaneChoice] = useState<LinePane | undefined>(undefined)
+  const [dayChoice, setDayChoice] = useState<LineDay | undefined>(undefined)
   /** Wybrany kurs (start z pierwszego przystanku) — zawsze lokalny, nigdy w URL-u; ważny tylko dla kierunku, w którym go wybrano. */
   const [base, setBase] = useState<{ directionId: number; sec: number } | null>(null)
   const segmentRef = useRef<HTMLDivElement>(null)
@@ -119,7 +120,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
     directionId: dirChoice !== undefined ? dirChoice : urlView.directionId,
     stopId: stopChoice !== undefined ? stopChoice : urlView.stopId,
     pane: paneChoice ?? urlView.pane,
-    day: urlView.day,
+    day: dayChoice ?? urlView.day,
   }
   const directions = line?.directions ?? []
   // Kopia tablicy: React Compiler uznaje argument wywołania za możliwie mutowany i odrzuca `useMemo` mapy niżej (`stops` pochodzi z `directions`).
@@ -184,7 +185,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
 
   // Każda akcja zapisuje TYLKO swoje klucze: `searchParams` z Next nie nadąża za `replaceState`, więc przepisywanie
   // pozostałych (np. `dir` po zmianie kierunku) z tego stanu kasowałoby je z URL-a.
-  function writeUrl(next: LineViewState, keys: ('dir' | 'stop' | 'pane')[]): void {
+  function writeUrl(next: LineViewState, keys: ('dir' | 'stop' | 'pane' | 'day')[]): void {
     const full = lineViewPatch(next)
     patchUrlParams(Object.fromEntries(keys.map((key) => [key, full[key]])))
   }
@@ -214,6 +215,13 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
     setBase(null)
     // Pierwszy kierunek to stan domyślny: powrót do niego usuwa `dir` z URL-a.
     writeUrl({ ...view, directionId: next === directions[0] ? null : next.directionId, stopId: null }, ['dir', 'stop'])
+  }
+
+  /** Zmiana kategorii dnia czyści wybrany kurs (jego godziny dotyczą poprzedniej kategorii); `dir`/`stop`/`pane` zostają. */
+  function selectDay(next: LineDay): void {
+    setDayChoice(next)
+    setBase(null)
+    writeUrl({ ...view, day: next }, ['day'])
   }
 
   /** `openTimetable`: wybór z listy trasy — poniżej `lg` przystanek wybiera się po to, żeby zobaczyć jego rozkład. `index`: wiersz (pętla). */
@@ -481,6 +489,8 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                         blocks={direction.departures}
                         offsetSec={selectedStop?.offsetSec ?? 0}
                         selectedBaseSec={selectedBaseSec}
+                        day={view.day}
+                        onDayChange={selectDay}
                         onSelect={(sec) => setBase(sec === null ? null : { directionId: direction.directionId, sec })}
                       />
                     </section>

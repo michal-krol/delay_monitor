@@ -95,7 +95,9 @@ paths:
 - **Line detail page view state** (`/city/<city>/line/<routeId>`, `src/lib/lineViewState.ts`): `?dir=<directionId>`
   (the direction's id, NOT its array index — a direction with id 1 may come first; default = first in the array),
   `?stop=<stopId>` (first occurrence; with no valid `dir` the first direction that contains it), `?pane=route|timetable`
-  (phones only), `?day=weekday|saturday|sunday|other` (read by the timetable screen). Written with `patchUrlParams`
+  (phones only), `?day=weekday|saturday|sunday|other` (the day category `LineTimetable` shows below `lg`; a category the
+line lacks — `other` — falls back to `weekday` in the component, the URL is left as is; picking a day clears the picked course
+and writes only `day`; the column/hour transformation is `src/lib/lineTimetable.ts`). Written with `patchUrlParams`
   (`replaceState`, other params kept, defaults omitted); parsed against an allow-list/regex, resolved only against the
   loaded `LineDetail` (`resolveLineView`), bad values fall back silently (#4). In-session choices (`dirChoice`, `stopChoice`,
   `paneChoice`) win over later URL changes on the same mounted route (another route remounts via `key`). Only a direction

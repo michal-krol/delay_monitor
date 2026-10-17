@@ -144,6 +144,15 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   list „przystanek” / „na żądanie” / „przystanek krańcowy”. Map section heading „Mapa trasy” (region name „Mapa trasy linii {line}”).
   Timetable status title (`ScheduleStatus`) „Rozkład jazdy linii {line}”. A repeated stop (loop) presses the row that was picked,
   not the first occurrence.
+- Timetable (`LineTimetable`, `src/lib/lineTimetable.ts`, PR8): below `lg` ONE day category at a time — wrapping chips, group „Kategoria dnia”
+  (`.chip-filter`, `aria-pressed`): „Dni robocze”, „Soboty”, „Niedziele i święta”, „Inne dni” (only when such departures exist); from `lg`
+  every column side by side (the chips are hidden, same DOM). Minute button text is the two-digit minute (+ „~” when frequency-based), its
+  name the full time: „{HH:mm}, {kategoria}[, następny dzień|, +N dni][, orientacyjnie]”. An hour past midnight shows its clock hour
+  (24 → „00”) with „+1 dzień” (further days „+N dni”) and keeps its place after the evening hours — never sorted by modulo 24.
+  Empty category „Brak kursów w tej kategorii dnia”; no departures at all „Brak kursów w rozkładzie.”. „Dni robocze” is the union of
+  Mon–Thu and the separate Friday timetable: when they differ the column says „Piątek ma osobny rozkład — pokazano godziny pn–czw i
+  piątku.”; no course of the union is ever called „Najbliższy”. Frequency-based column: „„~” — godziny orientacyjne, kursy jeżdżą
+  według częstotliwości.”. Still „rozkład”, never a delay (#13).
 - Aside (xl, `AsideCard` „Linia {line}”): labels „Rodzaj”, „Kierunki”, „Przystanki”, „Pierwszy / ostatni” (first–last departure of the
   selected direction); card „Pojazdy w trasie — {headsign}” lists „#{side} za „{stop}” · {formatAgo}” (age only past 60 s).
   Vehicle ages anywhere on this screen go through `formatAgo`, never a hand-built „N min temu”; the axis marker has an

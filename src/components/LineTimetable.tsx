@@ -1,13 +1,16 @@
-import { Fragment } from 'react'
-import { formatSecondsOfDay } from '@/lib/format'
-import type { LineDepartureBlock } from '@/lib/gtfs/query'
+'use client'
 
-/** Stałe kolumny tygodniowe — zawsze widoczne, nawet puste (spec 0b). */
-const WEEKLY = [
-  { label: 'Dni robocze', from: ['weekday', 'friday'] as const },
-  { label: 'Soboty', from: ['saturday'] as const },
-  { label: 'Niedziele i święta', from: ['sunday'] as const },
-] as const
+import { useId, useState } from 'react'
+import {
+  activeTimetableDay,
+  buildTimetableColumns,
+  dayOffsetLabel,
+  dayOffsetOf,
+  groupByHour,
+  timetableCellLabel,
+} from '@/lib/lineTimetable'
+import type { LineDepartureBlock } from '@/lib/gtfs/query'
+import type { LineDay } from '@/lib/lineViewState'
 
 type Props = {
   /** Odjazdy z przystanku startowego, per kategoria dnia. */
@@ -17,108 +20,104 @@ type Props = {
   /** Wybrany kurs (godzina z przystanku startowego) — podświetlony. `null` = brak. */
   selectedBaseSec: number | null
   onSelect: (baseSec: number | null) => void
-}
-
-type Column = { label: string; times: number[]; frequencyBased: boolean }
-
-function buildColumns(blocks: LineDepartureBlock[]): Column[] {
-  const byCat = new Map(blocks.map((b) => [b.category, b]))
-  const columns: Column[] = WEEKLY.map(({ label, from }) => {
-    const times = new Set<number>()
-    let frequencyBased = false
-    for (const cat of from) {
-      const b = byCat.get(cat)
-      if (b === undefined) continue
-      for (const t of b.times) times.add(t)
-      if (b.frequencyBased) frequencyBased = true
-    }
-    return { label, times: [...times].sort((a, b) => a - b), frequencyBased }
-  })
-  const other = byCat.get('other')
-  if (other !== undefined && other.times.length > 0) {
-    columns.push({ label: 'Inne dni', times: [...other.times].sort((a, b) => a - b), frequencyBased: other.frequencyBased })
-  }
-  return columns
+  /** Kategoria dnia widoczna poniżej `lg` (domyślnie dni robocze). Bez niej komponent trzyma wybór sam. */
+  day?: LineDay
+  onDayChange?: (day: LineDay) => void
 }
 
 const twoDigit = (n: number) => String(n).padStart(2, '0')
 
 /**
- * Tabliczka rozkładowa linii — trzy stałe kolumny tygodniowe (soboty/niedziele
- * OBOK dni roboczych, nie pod), wiersze per godzina. Klik w minutę wybiera kurs
- * — strona linii podświetla wtedy jego godzinę na każdym przystanku trasy.
+ * Tabliczka rozkładowa linii. Poniżej `lg` jedna kategoria dnia naraz (chipy „Dni robocze / Soboty / …”, bez
+ * przewijania w bok); od `lg` wszystkie kolumny obok siebie — to ten sam DOM, nieaktywne kolumny chowa CSS.
+ * Wiersz = godzina (24, 25… dla kursów po północy, z „+1 dzień”), minuty to przyciski ≥ 44 px na telefonie.
+ * Klik w minutę wybiera kurs — strona linii podświetla wtedy jego godzinę na każdym przystanku trasy.
  */
-export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect }: Props) {
-  const columns = buildColumns(blocks)
-  const hours = [
-    ...new Set(columns.flatMap((c) => c.times.map((t) => Math.floor((t + offsetSec) / 3600)))),
-  ].sort((a, b) => a - b)
+export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect, day, onDayChange }: Props) {
+  const headingPrefix = useId()
+  const [localDay, setLocalDay] = useState<LineDay>('weekday')
+  const columns = buildTimetableColumns(blocks)
+  const activeDay = activeTimetableDay(columns, day ?? localDay)
+
+  function changeDay(next: LineDay): void {
+    if (day === undefined) setLocalDay(next)
+    onDayChange?.(next)
+  }
+
+  if (columns.every((c) => c.times.length === 0)) {
+    return <p className="mt-3 text-sm text-text-secondary">Brak kursów w rozkładzie.</p>
+  }
 
   return (
-    <div className="mt-3 overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-surface-border">
-            {columns.map((c) => (
-              <Fragment key={c.label}>
-                <th className="w-10 px-2 py-2 text-right text-xs font-semibold text-text-muted">godz.</th>
-                <th className="px-2 py-2 text-left text-xs font-semibold text-text-secondary">{c.label}</th>
-              </Fragment>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {hours.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length * 2} className="px-2 py-3 text-sm text-text-secondary">
-                Brak kursów w rozkładzie.
-              </td>
-            </tr>
-          ) : (
-            hours.map((hour) => (
-              <tr key={hour} className="border-b border-surface-border align-baseline">
-                {columns.map((c) => {
-                  const cells = c.times
-                    .map((base) => ({ base, disp: base + offsetSec }))
-                    .filter((cell) => Math.floor(cell.disp / 3600) === hour)
-                    .sort((a, b) => a.disp - b.disp)
-                  return (
-                    <Fragment key={c.label}>
-                      <th scope="row" className="px-2 py-1.5 text-right font-bold tabular-nums text-foreground">
-                        {twoDigit(hour % 24)}
-                      </th>
-                      <td className="px-2 py-1.5">
-                        <span className="flex flex-wrap gap-x-1.5 gap-y-1">
+    <div className="mt-3">
+      <div role="group" aria-label="Kategoria dnia" className="mb-3 flex flex-wrap gap-2 lg:hidden">
+        {columns.map((c) => (
+          <button key={c.day} type="button" aria-pressed={c.day === activeDay} onClick={() => changeDay(c.day)} className="chip-filter">
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      <div className={`grid gap-4 ${columns.length > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+        {columns.map((c) => {
+          const active = c.day === activeDay
+          const headingId = `${headingPrefix}-${c.day}`
+          const rows = groupByHour(c.times, offsetSec)
+          return (
+            <div key={c.day} role="group" aria-labelledby={headingId} className={`min-w-0 ${active ? '' : 'max-lg:hidden'}`}>
+              <h3 id={headingId} className="mb-1 border-b border-surface-border pb-1.5 text-xs font-semibold text-text-secondary max-lg:sr-only">
+                {c.label}
+              </h3>
+              {c.fridayDiffers && (
+                <p className="mb-1 text-[13px] text-text-secondary">Piątek ma osobny rozkład — pokazano godziny pn–czw i piątku.</p>
+              )}
+              {c.frequencyBased && (
+                <p className="mb-1 text-[13px] text-text-secondary">„~” — godziny orientacyjne, kursy jeżdżą według częstotliwości.</p>
+              )}
+              {rows.length === 0 ? (
+                <p className="py-2 text-sm text-text-secondary">Brak kursów w tej kategorii dnia</p>
+              ) : (
+                <ul>
+                  {rows.map(({ hour, cells }) => {
+                    const nextDay = dayOffsetLabel(dayOffsetOf(hour))
+                    return (
+                      <li key={hour} className="flex items-start gap-2 border-b border-surface-border py-1">
+                        <span aria-hidden="true" className="w-14 shrink-0 pt-1.5 text-right tabular-nums max-lg:pt-3">
+                          <span className="font-bold text-foreground">{twoDigit(hour % 24)}</span>
+                          {nextDay !== null && <span className="block text-[13px] font-medium leading-tight text-text-secondary">{nextDay}</span>}
+                        </span>
+                        <div className="flex min-w-0 flex-wrap gap-1">
                           {cells.map((cell) => {
-                            const on = cell.base === selectedBaseSec
-                            const minute = twoDigit(Math.floor((cell.disp % 3600) / 60))
+                            const on = active && cell.base === selectedBaseSec
                             return (
                               <button
                                 key={cell.base}
                                 type="button"
                                 aria-pressed={on}
-                                aria-label={formatSecondsOfDay(cell.disp)}
-                                onClick={() => onSelect(on ? null : cell.base)}
-                                className={`inline-flex min-h-6 min-w-6 items-center justify-center rounded px-1 tabular-nums transition ${
-                                  on ? 'font-bold text-white' : 'text-text-secondary hover:text-foreground'
+                                aria-label={timetableCellLabel(cell.disp, c.label, c.frequencyBased)}
+                                onClick={() => {
+                                  if (!active) changeDay(c.day)
+                                  onSelect(on ? null : cell.base)
+                                }}
+                                className={`inline-flex min-h-6 min-w-6 items-center justify-center rounded px-1 tabular-nums transition max-lg:min-h-11 max-lg:min-w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-text ${
+                                  on ? 'bg-primary font-bold text-primary-fg' : 'text-text-secondary hover:text-foreground'
                                 }`}
-                                style={on ? { background: 'var(--accent-gradient)' } : undefined}
                               >
-                                {minute}
-                                {c.frequencyBased && <span className="text-text-muted">~</span>}
+                                {twoDigit(cell.minute)}
+                                {c.frequencyBased && <span aria-hidden="true">~</span>}
                               </button>
                             )
                           })}
-                        </span>
-                      </td>
-                    </Fragment>
-                  )
-                })}
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
