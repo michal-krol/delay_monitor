@@ -209,6 +209,9 @@ function removeWorktree(row) {
     .filter((l) => l.startsWith('!! ')).map((l) => l.slice(3).replace(/\/$/, ''))
     .filter((n) => ![...HEAVY_DIRS, 'docs', '.impeccable', 'next-env.d.ts'].includes(n) && !n.endsWith('.tsbuildinfo'))
   if (ignored.length > 0) return `other gitignored files (${ignored.join(', ')}) — copy them if needed, then delete the worktree by hand; kept`
+  // 1c. `docs/` is exempt above only because its top-level *.md are copied; anything else in it would be lost
+  const extraDocs = existsSync(wtDocs) ? readdirSync(wtDocs).filter((n) => !n.endsWith('.md') || statSync(path.join(wtDocs, n)).isDirectory()) : []
+  if (extraDocs.length > 0) return `docs/ holds more than top-level .md (${extraDocs.join(', ')}) — copy them if needed, then delete the worktree by hand; kept`
   // 2. heavy dirs first (deep .next / node_modules paths are what breaks `git worktree remove` on Windows)
   for (const d of HEAVY_DIRS) {
     const p = path.join(row.path, d)
