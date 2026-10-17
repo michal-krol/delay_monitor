@@ -34,6 +34,10 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+    # One PR for all Action bumps = one full CI run instead of one per Action.
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: /
     target-branch: dev

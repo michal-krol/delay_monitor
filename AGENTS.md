@@ -105,7 +105,8 @@ in English; human-facing (README, CHANGELOG, handoffs, ADRs) in Polish.
 After `gh pr create` (Claude desktop app): `ccd_pr` `get_status` (+ `bind_pr` if it does not report the PR), then
 `set_monitor` `auto_fix: true` with the PR url (wakes the session on CI failures, merge conflicts and review comments;
 also `address_comments: true`); never poll CI. After the PR merges the worktree is done: handoff, then the `cleanup`
-skill (`npm run clean:worktrees` — report first, deletes only SAFE with `-- --apply`; details in `testing.md`).
+skill (`npm run clean:worktrees` — report first, deletes only SAFE with `-- --apply`; details in `worktrees.md`).
+A SessionEnd hook already copies the worktree's `docs/*.md` handoffs to the main checkout.
 
 ### 13. GTFS is a separate domain, not an extension of PKP → `gtfs.md`
 No delay field anywhere — always „rozkład", never „na czas". GTFS IDs never go into outgoing

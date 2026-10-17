@@ -1,3 +1,16 @@
+---
+paths:
+  - "src/components/**"
+  - "src/app/**/*.tsx"
+  - "src/hooks/**"
+  - "src/lib/**/*format*"
+  - "src/lib/**/*plural*"
+  - "src/lib/**/*countdown*"
+  - "src/lib/lineTimetable.ts"
+  - "src/lib/linesView.ts"
+  - "e2e/**"
+---
+
 # UI copy glossary (Polish strings, English rule)
 
 Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie udało się pobrać…”,

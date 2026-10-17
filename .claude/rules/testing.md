@@ -90,31 +90,6 @@ and eslint errors, Vitest/Playwright summaries. First line names the full log
   bump → recapture the fixture, don't hand-edit it. Unrecognized output falls back to its
   last 60 lines.
 
-## Worktree cleanup (`scripts/clean-worktrees.mjs`, skill `cleanup`)
-
-Measured 2026-10-17: 34 worktrees under `.claude/worktrees/` = 15.2 GB, 32 stale (PR merged). Each is 300–600 MB
-(`.next`, `test-results`; `node_modules` in 4 of them — most likely branches that change the lockfile and need
-`npm ci` in the worktree (`deps:check` above); not verified per worktree); 4 were > 1.1 GB. `git worktree remove` failed on 13 ("Filename too long" in deep
-`.next`/`node_modules`, "Permission denied"/"busy" while the Claude app held the folder).
-
-- `npm run clean:worktrees` = report; `-- --apply` deletes SAFE only. Classifier = `scripts/lib/worktreeCleanup.mjs`
-  (tested): signal is the PR (`gh pr list --state all`) plus "remote branch == local HEAD / HEAD in `origin/dev`" —
-  never `git branch -d` / `merge-base --is-ancestor` alone, squash merges make both say "not merged".
-- KEEP: current worktree, `--skip <name>` (running session), git-locked, git files touched < 30 min ago
-  (`--idle-minutes`), dirty tree, open PR, no PR with unique commits, unpushed commits. UNSURE (gh down, no PR and
-  unknown) is reported, never deleted.
-- Removal order: copy gitignored `docs/*.md` to the main checkout's `docs/` (verified; AGENTS.md #11), delete
-  `.next`/`node_modules`/`test-results`, `git worktree remove` (a "modified or untracked files" refusal is respected;
-  only path-length/lock errors fall back to a plain delete + `git worktree prune`), `git branch -d` (never `-D`).
-  Only `.claude/worktrees/<name>` paths pass `isManagedWorktree()`.
-- Also: gate stamps > 14 d, `$TMPDIR/claude-test-output` logs > 24 h, empty unregistered dirs (`rmdir`, never recursive).
-- Triggers: on demand (skill `cleanup`), a nudge line in `npm run status` read from
-  `<git common dir>/clean-worktrees-summary.json`, and the SessionEnd hook `worktrees-report.mjs`, which only
-  refreshes that summary. Nothing deletes without `--apply`.
-- Cheaper footprint: `next dev` no longer rewrites `AGENTS.md` (`agentRules: false`, guarded in `next.config.test.ts`).
-  Per-worktree `.next` (webpack e2e build, ~300 MB) is the main cost; sharing it was not attempted
-  (each worktree builds its own tree), so it goes with the worktree.
-
 ## #8 Fixtures don't reflect live API scale
 
 The mock has **real** station IDs (Warszawa Centralna `33605`, Kraków Główny `80416`, Gdańsk
@@ -147,6 +122,20 @@ Check response shape in the public schema, don't guess from fixtures (no key, no
 server via `webServer` without a PKP key, `GTFS_DATA_SOURCE=mock`. Locally on UI changes + in
 CI (outside the fast `quality` job: one `e2e-<project>` matrix job per Playwright project, aggregated by the job named `e2e` — the name the ruleset requires, do not rename).
 
+- CI runs the matrix only when the change can touch the built app or the suite: job `changes`
+  (`scripts/ci-scope.mjs`, logic `scripts/lib/ciScope.mjs`) diffs the PR against its base and skips
+  `e2e-tests` when EVERY changed file is on the allowlist (`*.md`, `adr/ docs/ scripts/ .claude/ .githooks/`,
+  `*.test.{ts,tsx,mjs}`, non-CI workflows, LICENSE). Unknown files, `package*.json`, configs, `src/`, `e2e/`,
+  `public/`, `fixtures/`, `data/` and `ci.yml` itself run it; pushes to `main`/`dev` always run it. The required
+  check `e2e` still reports: it passes on a skipped matrix only when `changes` succeeded and said "not needed".
+  `quality` is never conditional. A new file type that must not trigger e2e = add it to `SKIPPABLE` with a test.
+- Which projects run (`e2eMatrix()`, same module): `desktop-chromium` + `mobile-chromium` always; `mobile-safari` (WebKit, ~12 min, the
+  slowest job) only on pushes to `main`/`dev` and PRs to `main`. Measured 2026-10-17 on 40 runs: WebKit never failed alone, and Railway
+  waits for CI, so a WebKit-only regression stops on the push to `dev` before staging deploys. Wall time of a feature PR ~12 → ~7 min.
+- `ci.yml` has a `concurrency` group per ref: a new push to a PR cancels its running CI (never pushes to `main`/`dev`). `quality`
+  is an aggregator over three parallel legs (`static`, `unit-warsaw`, `unit-utc-coverage`); the ruleset names `quality` and `e2e`.
+- Known flake (2026-10-17): `e2e/map.spec.ts:922` (and sometimes `:1089`) on `desktop-chromium`, red in 22 of 40 runs — fix or quarantine
+  with `.skip` + dated issue, do not re-run until green.
 - Projects: `desktop-chromium`, `mobile-chromium` (`Pixel 7`), `mobile-safari`
   (`iPhone 15`). New viewport = entry in `playwright.config.ts`.
 - Outside CI `playwright.config.ts` builds with `--webpack` (Turbopack fails when

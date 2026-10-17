@@ -19,7 +19,9 @@ name: Claude review
 on:
   pull_request:
     branches: [dev]
-    types: [opened, synchronize]
+    # Jeden przegląd na PR (2026-10-17): `synchronize` odpalał go po każdej poprawce i auto-fixie.
+    # Kolejny na życzenie: komentarz z `@claude` (job `mention` niżej).
+    types: [opened]
   # Wzmianki `@claude`. Uwaga: `issue_comment` GitHub uruchamia z wersji workflow na
   # gałęzi domyślnej (main) — działa dopiero po wydaniu dev→main.
   issue_comment:
