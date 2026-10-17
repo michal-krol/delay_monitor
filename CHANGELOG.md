@@ -198,7 +198,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   w trybie wysokiego kontrastu.
 - Na telefonie komunikaty o stanie i przycisk „Moja lokalizacja” stoją w jednym rzędzie przy krawędzi arkusza.
 - Mapa transportu na telefonie: karta wybranego pojazdu pokazuje już w niskim położeniu arkusza następny
-  przystanek, wiek pozycji GPS oraz przyciski „Śledź pojazd” i „Pokaż trasę” (wcześniej były widoczne dopiero
+  przystanek, wiek pozycji GPS oraz przyciski „Śledź pojazd” i „Pokaż trasę na mapie” (wcześniej były widoczne dopiero
   po rozwinięciu). Ten arkusz otwiera się wyżej (45 % mapy zamiast 25 %), a kamera ustawia pojazd nad nim
   według zmierzonej wysokości. Szczegóły (numer boczny, objaśnienie, „Rozkład linii”) zostały niżej.
 

@@ -91,7 +91,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Line panel alerts: `ContextAlerts` with „Komunikaty linii {X}” (wording as in „Context alerts” above); the panel's close is „Zakończ tryb
   linii”, direction switch „Zmień kierunek”, link „Rozkład linii”.
 - Map cards: close „Zamknij kartę”; nearby shortcut „Co jest w pobliżu?” (keyboard route to the same „W pobliżu” as a long press); vehicle
-  „Śledź pojazd” ↔ „Śledzę pojazd” (`aria-pressed`) and „Pokaż trasę” (visible; „na mapie” is sr-only, so the name stays „Pokaż trasę na mapie”) side by side, both before the details so they show at the vehicle sheet's taller peek; GPS row „Pozycja sprzed {…} · aktualna|nieaktualna” (stale after 90 s).
+  „Śledź pojazd” ↔ „Śledzę pojazd” (`aria-pressed`) and „Pokaż trasę na mapie” side by side (44 px from `.chip-filter`), both before the details so they show at the vehicle sheet's taller peek; GPS row „Pozycja sprzed {…} · aktualna|nieaktualna” (stale after 90 s). Line disruption on the vehicle card: „Utrudnienia na linii” in the GPS-age row (visible at peek).
 - Sheet handle (`BottomSheet`): „Zmień wysokość panelu (teraz: niski|do połowy|pełny)”.
 - Outside the city feed area: `role=status` „Przystanki i pojazdy miejskie: tylko {miasto} i okolice”.
 - Sheet `above` row: statuses on the left (wrap), „Moja lokalizacja” on the right; its states (above) float over the button in the flow on phones, beside

@@ -283,19 +283,32 @@ function VehicleBody({
   const canShowRoute = vehicle.routeId !== null && onShowRoute !== undefined
   // Kolejność = kolejność ważności: na telefonie arkusz stoi w podwyższonym `peek` (`map/page.tsx`) i pokazuje tylko górę treści,
   // więc następny przystanek, wiek GPS i dwie główne akcje idą pierwsze; szczegóły (rodzaj, numer boczny, objaśnienie) niżej.
+  // Ostrzeżenie w `peek`: w wierszu wieku GPS (zawija się pod spodem tylko, gdy nie mieści się obok), bez dokładania wysokości.
+  const disruption = disrupted && (
+    <span className="inline-flex items-center gap-1.5 font-medium text-amber-900 dark:text-amber-100">
+      <AlertCircleIcon size={ICON_SIZE.inline} />
+      Utrudnienia na linii
+    </span>
+  )
   return (
     <>
       {lost ? (
-        <p role="status" className="text-sm font-medium text-warning-text">{`Utracono pozycję pojazdu — ostatnia sprzed ${formatSince(vehicle.ageSec)}`}</p>
+        <>
+          <p role="status" className="text-sm font-medium text-warning-text">{`Utracono pozycję pojazdu — ostatnia sprzed ${formatSince(vehicle.ageSec)}`}</p>
+          {disruption && <p className="mt-1 text-xs">{disruption}</p>}
+        </>
       ) : (
         <dl className="text-sm">
           <dt className="text-xs text-text-muted">Następny przystanek</dt>
           <dd className="font-semibold">{vehicle.nextStop !== null ? stopDisplayName(vehicle.nextStop.name, vehicle.nextStop.code) : 'nie wiadomo'}</dd>
           <dt className="sr-only">GPS pojazdu</dt>
-          <dd className="text-xs text-text-secondary">
-            {/* Wiek znacznika GPS z feedu (`ageSec`), nie czas, kiedy przeglądarka pobrała odczyt. */}
-            Pozycja sprzed {formatSince(vehicle.ageSec)} ·{' '}
-            <span className={fresh ? 'text-primary-text' : 'text-warning-text'}>{fresh ? 'aktualna' : 'nieaktualna'}</span>
+          <dd className="flex flex-wrap items-center gap-x-3 text-xs text-text-secondary">
+            <span>
+              {/* Wiek znacznika GPS z feedu (`ageSec`), nie czas, kiedy przeglądarka pobrała odczyt. */}
+              Pozycja sprzed {formatSince(vehicle.ageSec)} ·{' '}
+              <span className={fresh ? 'text-primary-text' : 'text-warning-text'}>{fresh ? 'aktualna' : 'nieaktualna'}</span>
+            </span>
+            {disruption}
           </dd>
         </dl>
       )}
@@ -307,14 +320,14 @@ function VehicleBody({
               aria-pressed={following}
               onClick={onToggleFollow}
               // `aria-pressed` stylizuje `.chip-filter` (wypełnienie/obrys `--primary*`, także w trybie wysokiego kontrastu).
-              className="chip-filter min-h-11 flex-1 px-3 text-sm font-semibold"
+              className="chip-filter flex-1 px-3 text-sm font-semibold"
             >
               {following ? 'Śledzę pojazd' : 'Śledź pojazd'}
             </button>
           )}
           {canShowRoute && (
-            <button type="button" onClick={() => onShowRoute(vehicle.routeId!, vehicle.directionId)} className="chip-filter min-h-11 flex-1 px-3 text-sm font-semibold">
-              Pokaż trasę{' '}<span className="sr-only">na mapie</span>
+            <button type="button" onClick={() => onShowRoute(vehicle.routeId!, vehicle.directionId)} className="chip-filter flex-1 px-3 text-sm font-semibold">
+              Pokaż trasę na mapie
             </button>
           )}
         </div>
@@ -323,12 +336,6 @@ function VehicleBody({
         <div className="mt-4">
           <LineBadge line={vehicle.shortName} mode={vehicle.mode} kind={vehicleKind(vehicle)} />
         </div>
-      )}
-      {disrupted && (
-        <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
-          <AlertCircleIcon size={ICON_SIZE.button} />
-          Utrudnienia na tej linii — szczegóły w rozkładzie linii.
-        </p>
       )}
       {!lost && (
         <dl className="mt-3 text-sm">

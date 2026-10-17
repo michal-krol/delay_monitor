@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 export type SheetSnap = 'peek' | 'half' | 'full'
 
@@ -9,8 +9,11 @@ const SHEET_SNAPS: Record<SheetSnap, number> = { peek: 0.25, half: 0.55, full: 0
 const DEFAULT_PEEK = SHEET_SNAPS.peek
 
 /** Punkty zaczepienia z własnym `peek` (karta, której główne akcje muszą się zmieścić w niskim punkcie). */
+/** Najmniejszy odstęp `peek` od `half` (ułamek wysokości): bliżej granica najbliższego punktu i uchwyt przestają się czuć. */
+const MIN_PEEK_GAP = 0.1
+
 function snapFractions(peek: number): Record<SheetSnap, number> {
-  return { ...SHEET_SNAPS, peek }
+  return { ...SHEET_SNAPS, peek: Math.min(peek, SHEET_SNAPS.half - MIN_PEEK_GAP) }
 }
 
 const ORDER: SheetSnap[] = ['peek', 'half', 'full']
@@ -78,7 +81,7 @@ export function BottomSheet({
   const ref = useRef<HTMLDivElement>(null)
   const aboveRef = useRef<HTMLDivElement>(null)
   const [snap, setSnap] = useState<SheetSnap>(initialSnap)
-  const snaps = snapFractions(peek)
+  const snaps = useMemo(() => snapFractions(peek), [peek])
   const onVisibleHeightRef = useRef(onVisibleHeight)
   useEffect(() => {
     onVisibleHeightRef.current = onVisibleHeight
@@ -98,14 +101,14 @@ export function BottomSheet({
   useEffect(() => {
     const el = ref.current
     if (el === null || snap === 'full') return
-    const report = (): void => onVisibleHeightRef.current?.(Math.round(snapFractions(peek)[snap] * el.clientHeight + (aboveRef.current?.offsetHeight ?? 0)))
+    const report = (): void => onVisibleHeightRef.current?.(Math.round(snaps[snap] * el.clientHeight + (aboveRef.current?.offsetHeight ?? 0)))
     report()
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(report)
     observer.observe(el)
     if (aboveRef.current !== null) observer.observe(aboveRef.current)
     return () => observer.disconnect()
-  }, [snap, peek])
+  }, [snap, snaps])
 
   function cycle(): void {
     const el = ref.current

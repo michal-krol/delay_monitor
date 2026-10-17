@@ -174,8 +174,8 @@ describe('MapCard — vehicle', () => {
     }
     // Obie akcje w jednym rzędzie: razem jedna wysokość przycisku (44 px), nie dwie.
     expect(follow.parentElement).toBe(route.parentElement) // eslint-disable-line testing-library/no-node-access -- układ rzędu
-    expect(follow).toHaveClass('min-h-11')
-    expect(route).toHaveClass('min-h-11')
+    expect(follow).toHaveClass('chip-filter') // 44 px z `--control-min`
+    expect(route).toHaveClass('chip-filter') // 44 px z `--control-min`
   })
 
   it('a lost position keeps the route action up front and offers no follow', () => {
@@ -287,7 +287,7 @@ describe('MapCard — pinned items, nearby, disruptions', () => {
     expect(screen.getByRole('button', { name: 'Co jest w pobliżu?' })).toHaveClass('min-h-11')
     unmount()
     render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} onShowRoute={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Pokaż trasę na mapie' })).toHaveClass('min-h-11')
+    expect(screen.getByRole('button', { name: 'Pokaż trasę na mapie' })).toHaveClass('chip-filter') // 44 px z `--control-min`
   })
 
   it('shows the pressed star for a pinned item', () => {
@@ -298,9 +298,9 @@ describe('MapCard — pinned items, nearby, disruptions', () => {
 
   it('flags a vehicle whose line has an active disruption', () => {
     const { rerender } = render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} alertLines={['20']} />)
-    expect(screen.getByText(/Utrudnienia na tej linii/)).toBeInTheDocument()
+    expect(screen.getByText(/Utrudnienia na linii/)).toBeInTheDocument()
     rerender(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle()} city="warszawa" onClose={() => {}} alertLines={['9']} />)
-    expect(screen.queryByText(/Utrudnienia na tej linii/)).toBeNull()
+    expect(screen.queryByText(/Utrudnienia na linii/)).toBeNull()
   })
 
   it('shows stop alerts from the timetable board', () => {

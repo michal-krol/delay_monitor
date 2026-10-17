@@ -24,6 +24,11 @@ describe('snap helpers', () => {
     expect(nearestSnap(460, 1000, 0.4)).toBe('peek')
     expect(nearestSnap(480, 1000, 0.4)).toBe('half')
   })
+
+  it('a peek closer than 0.10 to half is clamped, so the two snaps never collapse together', () => {
+    expect(nearestSnap(470, 1000, 0.54)).toBe('peek') // 0.54 → 0.45: 0.47 is nearer peek than half
+    expect(nearestSnap(510, 1000, 0.54)).toBe('half')
+  })
 })
 
 describe('BottomSheet', () => {
