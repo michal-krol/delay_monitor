@@ -63,6 +63,19 @@ async function stationReady(page: Page): Promise<void> {
   await page.waitForTimeout(500)
 }
 
+
+const LINE_TIMETABLE = '/city/warszawa/line/20?pane=timetable'
+
+/** Telefon, rozkład linii 20 po hydracji: chip „Soboty” gotowy do kliknięcia. */
+async function lineTimetableReady(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto(LINE_TIMETABLE)
+  const chips = page.getByRole('group', { name: 'Kategoria dnia' })
+  await expect(chips.getByRole('button', { name: 'Dni robocze' })).toHaveAttribute('aria-pressed', 'true', { timeout: READY })
+  // Hydracja: klik przed nią przepada bez śladu.
+  await page.waitForTimeout(500)
+}
+
 test.describe('view transitions (motion allowed)', () => {
   test('Pulpit card → station starts a nav-forward transition and morphs the title', async ({ page }) => {
     await page.goto('/')
@@ -94,6 +107,15 @@ test.describe('view transitions (motion allowed)', () => {
     const recorded = await transitions(page)
     expect(recorded).toHaveLength(1)
     expect(recorded[0].types).toEqual([])
+  })
+
+  test('phone: a day-category chip in the line timetable starts one transition under its own name', async ({ page }) => {
+    await lineTimetableReady(page)
+    await resetTransitions(page)
+    await page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Soboty' }).click()
+    await expect(page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'true')
+    await expect.poll(async () => (await transitions(page)).length).toBe(1)
+    await expect.poll(async () => (await transitions(page))[0]?.pseudo?.some((name) => name.includes('line-day'))).toBe(true)
   })
 })
 
@@ -156,6 +178,15 @@ test.describe('reduced motion', () => {
     await expect(page.getByRole('tab', { name: 'Przyjazdy' })).toHaveAttribute('aria-selected', 'true')
     await page.getByRole('link', { name: 'Wróć do Startu' }).click()
     await expect(page.getByRole('heading', { name: 'Start' })).toBeVisible({ timeout: READY })
+    await page.waitForTimeout(500)
+    expect(await transitions(page)).toEqual([])
+  })
+
+  test('phone: a day-category chip in the line timetable starts no view transition', async ({ page }) => {
+    await lineTimetableReady(page)
+    await resetTransitions(page)
+    await page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Soboty' }).click()
+    await expect(page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'true')
     await page.waitForTimeout(500)
     expect(await transitions(page)).toEqual([])
   })

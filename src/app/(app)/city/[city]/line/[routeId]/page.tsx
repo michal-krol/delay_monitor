@@ -339,14 +339,14 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
           </div>
 
           {direction !== undefined && (
-            <div className="glass flex items-start gap-3 rounded-2xl p-4">
-              <div className="min-w-0 flex-1">
+            <div className="glass flex flex-wrap items-start gap-3 rounded-2xl p-4">
+              <div className="min-w-0 flex-[1_1_9rem]">
                 <p className="text-xs font-medium text-text-muted">Kierunek</p>
                 <p className="text-lg font-bold leading-snug text-foreground [overflow-wrap:anywhere]">{headsign}</p>
                 {direction.origin != null && direction.origin !== '' && <p className="mt-0.5 text-sm text-text-secondary [overflow-wrap:anywhere]">{`Od: ${direction.origin}`}</p>}
               </div>
               {directions.length >= 2 && (
-                <button type="button" onClick={switchDirection} className="chip-filter shrink-0 gap-2 text-primary-text">
+                <button type="button" onClick={switchDirection} className="chip-filter max-w-full shrink-0 gap-2 text-center text-primary-text">
                   <SwapIcon size={ICON_SIZE.button} />
                   Zmień kierunek
                 </button>
@@ -487,7 +487,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                       )}
                       <LineTimetable
                         blocks={direction.departures}
-                        offsetSec={selectedStop?.offsetSec ?? 0}
+                        offsetSec={selectedStop?.offsetSec ?? null}
                         selectedBaseSec={selectedBaseSec}
                         day={view.day}
                         onDayChange={selectDay}
