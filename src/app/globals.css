@@ -353,6 +353,16 @@ dialog.info-sheet[open] {
     outline: 2px solid var(--primary-text);
     outline-offset: 2px;
   }
+  /* Czip nad mapą (czipy rodzajów, „Wyczyść filtry"): etykiety kafelków prześwitywały przez półprzezroczyste `--surface-strong`.
+     Tło kryjące `--sheet-surface`; stan wciśnięty = `--primary-soft` położony na nim (w ciemnym motywie sam jest przezroczysty). */
+  .chip-filter-map {
+    background-color: var(--sheet-surface);
+    box-shadow: var(--surface-shadow);
+  }
+  .chip-filter-map:is([aria-pressed="true"], [data-active]) {
+    background-color: var(--sheet-surface);
+    background-image: linear-gradient(var(--primary-soft), var(--primary-soft));
+  }
 
   .btn-primary {
     display: inline-flex;
@@ -432,6 +442,13 @@ details[open] > summary .disclosure-chevron,
 @media (prefers-reduced-motion: no-preference) {
   .bottom-sheet {
     scroll-behavior: smooth;
+  }
+}
+/* Arkusz jest tylko na telefonie (`SM_UP` = 40rem). Serwer renderuje wariant telefonu, więc na szerokim ekranie
+   do hydracji nie może migać nad mapą (`useMediaQuery(SM_UP, false)`). */
+@media (min-width: 40rem) {
+  .bottom-sheet {
+    display: none;
   }
 }
 .bottom-sheet__spacer {
@@ -611,6 +628,15 @@ details[open] > summary .disclosure-chevron,
 }
 .dark .maplibregl-ctrl-attrib-button {
   filter: invert(1);
+}
+/* Atrybucja nad arkuszem (PR10): arkusz (`.bottom-sheet`, z-20) leży nad dolnymi rogami mapy i zakrywałby źródła OpenFreeMap/OSM
+   (wymóg licencji). `TransitMap` publikuje na swoim wrapperze zmierzony dolny inset (`--map-inset-bottom`, px zakryte przez arkusz
+   + slot `above`; 0 bez arkusza), a dolne kontenery kontrolek MapLibre unosimy o tyle. Niewarstwowane (jak CSS MapLibre'a), a dwie
+   klasy w selektorze biją `.maplibregl-ctrl-bottom-*{bottom:0}` niezależnie od kolejności. Przy `full` inset nie jest zgłaszany
+   (maps.md „Camera insets") — wtedy atrybucja zostaje pod arkuszem razem z całą mapą. */
+.transit-map .maplibregl-ctrl-bottom-right,
+.transit-map .maplibregl-ctrl-bottom-left {
+  bottom: var(--map-inset-bottom, 0px);
 }
 
 /* Poświata na elementach hero (decyzja #11) — parametr koloru przez CSS var,

@@ -2,53 +2,19 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { LinePanel } from './LinePanel'
-import { LineSearch } from './LineSearch'
 import { MapFilters } from './MapFilters'
-import { MapLegend } from './MapLegend'
+import { CompactLegend, MapLegend } from './MapLegend'
 import { MapMoreMenu } from './MapMoreMenu'
 import { PanelFrame } from './PanelFrame'
 import { MODE_COLOR, outlineFilter, type LayerKey } from './mapData'
+import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import { ON_REQUEST_TITLE } from '../OnRequestBadge'
-import { BUS_KIND_LABEL, BUS_KIND_ORDER, lineColor } from '../transitMode'
+import { BUS_KIND_LABEL, BUS_KIND_ORDER, MODE_ICON, MODE_LABEL, MODE_ORDER, lineColor } from '../transitMode'
+import { BusIcon, ICON_SIZE, OtherModeIcon } from '../icons'
 
 const line = (routeId: string, name = routeId, longName = ''): LineListEntry => ({
   routeId, line: name, longName, mode: 'bus', kind: 'regular',
-})
-
-describe('LineSearch', () => {
-  const lines = [line('120'), line('20'), line('159', '159', 'Małe Siekierki — CH Blue City'), line('M1', 'M1')]
-
-  it('ranks the exact number first, then prefixes, then names; selects with Enter', () => {
-    const onSelect = vi.fn()
-    render(<LineSearch lines={lines} onSelect={onSelect} />)
-    const input = screen.getByRole('combobox', { name: 'Szukaj linii' })
-    fireEvent.change(input, { target: { value: '20' } })
-    expect(screen.getAllByRole('option').map((o) => o.getAttribute('aria-label'))).toEqual(['Linia 20'])
-    fireEvent.change(input, { target: { value: '1' } })
-    expect(screen.getAllByRole('option').map((o) => o.getAttribute('aria-label'))).toEqual(['Linia 120', 'Linia 159, Małe Siekierki — CH Blue City'])
-    fireEvent.keyDown(input, { key: 'ArrowDown' })
-    fireEvent.keyDown(input, { key: 'ArrowDown' })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    expect(onSelect).toHaveBeenCalledWith(lines[2])
-    expect(input).toHaveValue('')
-  })
-
-  it('finds by destination name, diacritics-insensitive', () => {
-    render(<LineSearch lines={lines} onSelect={() => {}} />)
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'siekierki' } })
-    expect(screen.getAllByRole('option')).toHaveLength(1)
-  })
-
-  it('tells loading apart from "no such line"', () => {
-    const { rerender } = render(<LineSearch lines={null} onSelect={() => {}} />)
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '999' } })
-    expect(screen.getByRole('status')).toHaveTextContent('Wczytywanie linii…')
-    rerender(<LineSearch lines={lines} onSelect={() => {}} />)
-    expect(screen.getByRole('status')).toHaveTextContent('Nie znaleziono linii')
-    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' })
-    expect(screen.queryByRole('status')).toBeNull()
-  })
 })
 
 describe('MapFilters', () => {
@@ -94,32 +60,43 @@ describe('MapFilters', () => {
 })
 
 describe('MapFilters on a phone', () => {
-  it('icon-only below sm: the „Filtry" label stays for screen readers, the count stays visible', () => {
+  it('shows the „Filtry" label next to the icon (a full 44 px button, not icon-only) and keeps the count visible', () => {
     render(<MapFilters hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={[]} onChange={() => {}} />)
     const button = screen.getByRole('button', { name: /^Filtry/ })
     expect(button).toHaveTextContent('1 aktywnych ograniczeń')
-    expect(within(button).getByText('Filtry')).toHaveClass('max-sm:sr-only')
+    expect(within(button).getByText('Filtry')).not.toHaveClass('sr-only')
+    expect(button).toHaveClass('control-44')
+  })
+
+  it('counts the active line too (one count definition shared with the chips)', () => {
+    render(<MapFilters hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={[]} onChange={() => {}} lineActive />)
+    expect(screen.getByRole('button', { name: /^Filtry/ })).toHaveTextContent('2 aktywnych ograniczeń')
+  })
+
+  it('uses the primary tokens for checkboxes and the badge, never the old accent', () => {
+    render(<MapFilters hidden={new Set<LayerKey>(['busStops'])} vehicleLayers={['buses']} onChange={() => {}} />)
+    const button = screen.getByRole('button', { name: /^Filtry/ })
+    fireEvent.click(button)
+    expect(button.innerHTML).toMatch(/bg-primary/)
+    expect(screen.getByRole('checkbox', { name: /Autobusy/ })).toHaveClass('accent-primary')
+    expect(button.innerHTML).not.toMatch(/accent-solid/)
   })
 })
 
 describe('MapMoreMenu', () => {
-  function setup(listOpen = false) {
-    const onToggleList = vi.fn()
+  function setup() {
     const onShare = vi.fn()
-    render(<MapMoreMenu listOpen={listOpen} onToggleList={onToggleList} onShare={onShare} />)
-    return { onToggleList, onShare, button: screen.getByRole('button', { name: 'Więcej' }) }
+    render(<MapMoreMenu onShare={onShare} />)
+    return { onShare, button: screen.getByRole('button', { name: 'Więcej' }) }
   }
 
-  it('opens, toggles the list and closes after the choice', () => {
-    const { onToggleList, button } = setup(true)
+  it('holds only the share action (Lista lives next to Filtry)', () => {
+    const { button } = setup()
     expect(button).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(button)
     const menu = screen.getByRole('list', { name: 'Więcej' })
-    const list = within(menu).getByRole('button', { name: 'Lista' })
-    expect(list).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(list)
-    expect(onToggleList).toHaveBeenCalledOnce()
-    expect(screen.queryByRole('list', { name: 'Więcej' })).toBeNull()
+    expect(within(menu).queryByRole('button', { name: 'Lista' })).toBeNull()
+    expect(within(menu).getAllByRole('button')).toHaveLength(1)
   })
 
   it('shares the view and closes', () => {
@@ -145,7 +122,7 @@ describe('MapMoreMenu', () => {
 describe('MapLegend', () => {
   it('describes kinds of objects, never "live" as a category', () => {
     render(<MapLegend />)
-    for (const label of ['Stacja kolejowa', 'Stacja metra', 'Przystanek tramwajowy', 'Przystanek autobusowy', 'Autobus', 'Tramwaj', 'Pociąg']) {
+    for (const label of ['Stacja kolejowa', 'Stacja metra', 'Przystanek tramwajowy', 'Przystanek autobusowy', 'Autobus', 'Tramwaj', 'Metro', 'Pociąg']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     expect(screen.queryByText(/na żywo/)).toBeNull()
@@ -155,7 +132,7 @@ describe('MapLegend', () => {
     const { container } = render(<MapLegend />)
     // eslint-disable-next-line testing-library/no-node-access, testing-library/no-container -- dekoracyjne kształty legendy (aria-hidden), bez roli
     const arrows = [...container.querySelectorAll<HTMLElement>('span[style*="drop-shadow"]')]
-    expect(arrows).toHaveLength(3) // autobus, tramwaj, pociąg
+    expect(arrows).toHaveLength(4) // autobus, tramwaj, metro, pociąg
     expect(arrows[0].style.filter).toBe(outlineFilter(MODE_COLOR.bus))
     // Ten sam glif co na mapie (Lucide navigation-2 z `VehicleHeadingIcon`), nie trójkąt z obramowań.
     // eslint-disable-next-line testing-library/no-node-access -- jak wyżej
@@ -183,9 +160,56 @@ const css = (hex: string) => {
   return el.style.background
 }
 
+describe('CompactLegend', () => {
+  // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna ikona (aria-hidden), bez roli
+  const glyph = (root: ParentNode) => root.querySelector('svg')!.innerHTML
+  it('legend uses MODE_ICON for bus tram metro rail and OtherModeIcon for other', () => {
+    render(<CompactLegend />)
+    const items = within(screen.getByRole('list', { name: 'Legenda rodzajów' })).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual(MODE_ORDER.map((mode) => MODE_LABEL[mode]))
+    MODE_ORDER.forEach((mode, i) => {
+      const Icon = MODE_ICON[mode]
+      expect(glyph(items[i])).toBe(glyph(render(<Icon size={ICON_SIZE.chip} />).container))
+    })
+    // `other` ma własny glif i nigdy nie wraca do autobusu.
+    expect(MODE_ICON.other).toBe(OtherModeIcon)
+    expect(glyph(items[MODE_ORDER.indexOf('other')])).not.toBe(glyph(render(<BusIcon size={ICON_SIZE.chip} />).container))
+  })
+
+  it('takes the swatch colour from lineColor for each mode', () => {
+    render(<CompactLegend />)
+    const items = within(screen.getByRole('list', { name: 'Legenda rodzajów' })).getAllByRole('listitem')
+    MODE_ORDER.forEach((mode, i) => {
+      // eslint-disable-next-line testing-library/no-node-access -- dekoracyjna próbka (aria-hidden), bez roli
+      expect(items[i].querySelector<HTMLElement>('[aria-hidden="true"]')!.style.background).toBe(css(lineColor(mode, 'regular').bg))
+    })
+  })
+})
+
 describe('LinePanel', () => {
   const entry = line('20', '20')
-  const props = { line: entry, directionId: 0, vehiclesOnLine: 0, city: 'warszawa', onDirection: () => {}, onStop: () => {}, onClose: () => {} }
+  const props = {
+    line: entry, directionId: 0, vehiclesOnLine: 0, city: 'warszawa', onDirection: () => {}, onStop: () => {}, onClose: () => {},
+    alerts: [] as AlertRecord[], alertsState: 'ready' as const, alertsStale: false,
+  }
+
+  it('LinePanel shows ContextAlerts loading/ready-empty/failed/stale', () => {
+    const alert = { id: 'a1', routes: ['20'], effect: 'DETOUR', link: '', title: 'Objazd linii 20', body: 'Remont torowiska' }
+    const { rerender } = render(<LinePanel {...props} detail={undefined} error={false} alerts={[]} alertsState="loading" />)
+    expect(screen.getByText('Komunikaty linii 20')).toBeInTheDocument()
+    expect(screen.getByText('Wczytywanie komunikatów…')).toBeInTheDocument()
+    rerender(<LinePanel {...props} detail={undefined} error={false} alertsState="ready" />)
+    expect(screen.getByText('Brak komunikatów dla tego kontekstu')).toBeInTheDocument()
+    rerender(<LinePanel {...props} detail={undefined} error={false} alertsState="failed" />)
+    expect(screen.getByText('Nie udało się wczytać komunikatów')).toBeInTheDocument()
+    expect(screen.queryByText('Brak komunikatów dla tego kontekstu')).toBeNull()
+    rerender(<LinePanel {...props} detail={undefined} error={false} alerts={[alert]} alertsState="failed" alertsStale />)
+    expect(screen.getByText('Nie udało się odświeżyć. Pokazujemy ostatnie dane')).toBeInTheDocument()
+    expect(screen.getByText('Objazd linii 20')).toBeInTheDocument()
+    // Ostatnia lista zostaje: „Rozwiń komunikat”, bez przycisku „Na mapie” (linia już jest na mapie).
+    expect(screen.getByText('Rozwiń komunikat')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Na mapie' })).toBeNull()
+  })
 
   it('tells loading, failure and an unknown route apart, always keeping the timetable link', () => {
     const { rerender } = render(<LinePanel {...props} detail={undefined} error={false} />)
@@ -206,6 +230,14 @@ describe('LinePanel', () => {
     expect(screen.getByText('— —')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'do' })).toBeInTheDocument()
     expect(screen.getByText('na żądanie')).toHaveAttribute('title', ON_REQUEST_TITLE)
+  })
+
+  it('direction switch and stop rows are 44 px touch targets (min-h-11)', () => {
+    const stop = { stopId: '1', groupId: '1', name: 'Pętla', code: null, street: null, wheelchair: 0 as const, lat: 52, lon: 21, offsetSec: 0, onRequest: false }
+    const direction = (directionId: number) => ({ directionId, headsign: null, origin: null, departures: [], shape: null, stops: [stop] })
+    render(<LinePanel {...props} detail={{ ...entry, directions: [direction(0), direction(1)] }} error={false} />)
+    expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toHaveClass('min-h-11')
+    expect(screen.getByRole('button', { name: /Pętla/ })).toHaveClass('min-h-11')
   })
 
   it('closes on Escape', () => {
@@ -233,25 +265,6 @@ describe('Escape inside a panel page — the innermost open thing closes first',
     expect(button).toHaveAttribute('aria-expanded', 'false')
     expect(onClose).not.toHaveBeenCalled()
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(onClose).toHaveBeenCalledOnce()
-  })
-
-  it('LineSearch with a query consumes Escape; with an empty query the panel closes', () => {
-    const onClose = vi.fn()
-    render(
-      <>
-        <LineSearch lines={[line('20')]} onSelect={() => {}} />
-        <PanelFrame title="A" closeLabel="Zamknij" onClose={onClose}>
-          x
-        </PanelFrame>
-      </>,
-    )
-    const input = screen.getByRole('combobox')
-    fireEvent.change(input, { target: { value: '20' } })
-    fireEvent.keyDown(input, { key: 'Escape' })
-    expect(input).toHaveValue('')
-    expect(onClose).not.toHaveBeenCalled()
-    fireEvent.keyDown(input, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledOnce()
   })
 })

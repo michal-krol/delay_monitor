@@ -29,6 +29,14 @@ describe('IconButton', () => {
     expect(screen.getByRole('button')).toHaveClass('touch-44', 'relative')
   })
 
+  it('keeps a focus indicator in forced-colors: an outline, not a ring over outline-none', () => {
+    render(<IconButton label="Zamknij" onClick={vi.fn()}>×</IconButton>)
+    const button = screen.getByRole('button')
+    expect(button).toHaveClass('focus-visible:outline-2', 'focus-visible:outline-primary-text')
+    expect(button).not.toHaveClass('focus-visible:outline-none')
+    expect(button.className).not.toMatch(/focus-visible:ring/)
+  })
+
   it('has a 44 px target in the large size', () => {
     render(<IconButton label="Zamknij" onClick={vi.fn()} size="lg">×</IconButton>)
     expect(screen.getByRole('button')).toHaveClass('h-11', 'w-11')

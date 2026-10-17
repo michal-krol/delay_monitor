@@ -4,10 +4,12 @@ import type { CityStop } from '@/lib/gtfs/query'
 import { LINE_PALETTE, lineColor } from '../transitMode'
 import {
   MODE_COLOR,
+  activeFilterCount,
   UNKNOWN_COLOR,
   boundsContain,
   arrowImage,
   distanceM,
+  isNearViewPoint,
   nearbyPoints,
   formatAt,
   interpolatePoints,
@@ -53,6 +55,15 @@ describe('parseHidden / serializeHidden', () => {
   })
 })
 
+describe('activeFilterCount', () => {
+  it('filter count = hidden + line + alerts', () => {
+    expect(activeFilterCount({ hidden: new Set(), line: false, alertsOnly: false })).toBe(0)
+    expect(activeFilterCount({ hidden: new Set<LayerKey>(['busStops', 'trams']), line: false, alertsOnly: false })).toBe(2)
+    expect(activeFilterCount({ hidden: new Set<LayerKey>(['busStops', 'trams']), line: true, alertsOnly: true })).toBe(4)
+    expect(activeFilterCount({ hidden: new Set(), line: true, alertsOnly: false })).toBe(1)
+  })
+})
+
 describe('vehiclesToGeoJSON', () => {
   it('colours by mode, not by route colour, and labels with the line number', () => {
     const [feature] = vehiclesToGeoJSON([vehicle()], new Set(), null).features
@@ -88,6 +99,20 @@ describe('vehiclesToGeoJSON', () => {
       null
     ).features
     expect(features.map((f) => [f.properties.id, f.properties.opacity])).toEqual([['a', 0.5]])
+  })
+
+  it('vehicle age 91s is faded, 181s is hidden', () => {
+    const features = vehiclesToGeoJSON(
+      [vehicle({ id: 'fresh', ageSec: 90 }), vehicle({ id: 'faded', ageSec: 91 }), vehicle({ id: 'edge', ageSec: 180 }), vehicle({ id: 'gone', ageSec: 181 })],
+      new Set(),
+      null
+    ).features
+    const opacity = Object.fromEntries(features.map((f) => [f.properties.id, f.properties.opacity]))
+    expect(opacity.fresh).toBe(1)
+    expect(opacity.faded).toBeLessThan(1)
+    expect(opacity.faded).toBeGreaterThan(0.9)
+    expect(opacity.edge).toBe(0)
+    expect(opacity).not.toHaveProperty('gone')
   })
 
   it('keeps only lines with disruptions when asked', () => {
@@ -252,5 +277,24 @@ describe('MODE_COLOR / strokeFor', () => {
     const filter = outlineFilter(MODE_COLOR.metro)
     expect(filter.match(/drop-shadow/g)).toHaveLength(4)
     expect(filter).toContain(LINE_PALETTE.metro.fg)
+  })
+})
+
+describe('isNearViewPoint (privacy radius in screen pixels)', () => {
+  const user = { lat: 52.2301, lon: 21.0101 }
+  const metresNorth = (m: number) => ({ lat: user.lat + m / 111_320, lon: user.lon })
+
+  it('treats 40-55 m at z16 (a zoom gesture off-centre by 100-150 px) as near', () => {
+    expect(isNearViewPoint(metresNorth(40), 16, user)).toBe(true)
+    expect(isNearViewPoint(metresNorth(55), 16, user)).toBe(true)
+  })
+
+  it('the radius shrinks in metres as the zoom grows and grows as it falls (always ~150 px)', () => {
+    expect(isNearViewPoint(metresNorth(500), 16, user)).toBe(false) // 150 px at z16 is ~220 m
+    expect(isNearViewPoint(metresNorth(500), 13, user)).toBe(true) // 150 px at z13 is ~1.8 km
+  })
+
+  it('a point far away is not near at any sensible zoom', () => {
+    expect(isNearViewPoint({ lat: 52.3, lon: 21.1 }, 12, user)).toBe(false)
   })
 })

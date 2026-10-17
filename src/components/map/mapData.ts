@@ -164,6 +164,19 @@ export function serializeHidden(hidden: ReadonlySet<LayerKey>): string | null {
   return keys.length === 0 ? null : keys.join(',')
 }
 
+/** Ukrywa/pokazuje jedną warstwę — jeden przełącznik dla panelu „Filtry" i czipów rodzajów (ten sam zbiór `hidden`). */
+export function toggleLayer(hidden: ReadonlySet<LayerKey>, key: LayerKey): Set<LayerKey> {
+  const next = new Set(hidden)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  return next
+}
+
+/** Liczba aktywnych ograniczeń: ukryte warstwy + wybrana linia + „tylko linie z utrudnieniami" — jedna definicja dla licznika „Filtry", listy czipów i „Wyczyść filtry". */
+export function activeFilterCount({ hidden, line, alertsOnly }: { hidden: ReadonlySet<LayerKey>; line: boolean; alertsOnly: boolean }): number {
+  return hidden.size + (line ? 1 : 0) + (alertsOnly ? 1 : 0)
+}
+
 type Point = { type: 'Feature'; geometry: { type: 'Point'; coordinates: [number, number] }; properties: Record<string, string | number> }
 export type PointCollection = { type: 'FeatureCollection'; features: Point[] }
 
@@ -362,6 +375,18 @@ export function formatAt(camera: MapCamera): string {
   return `${camera.lat.toFixed(5)},${camera.lon.toFixed(5)},${camera.zoom.toFixed(1)}`
 }
 
+/**
+ * Promień prywatności widoku: tyle od pozycji użytkownika kadr uznajemy za „na nim" (zoom wokół kursora/palca przesuwa środek o mniej niż połowę odległości gestu).
+ * Liczony stałą kafla 256 px, a MapLibre rysuje kafle 512 px — realnie to ~300 px ekranu. Celowo hojnie (fail closed, `maps.md`).
+ */
+export const PRIVACY_RADIUS_PX = 150
+
+/** Czy środek kadru leży w promieniu `PRIVACY_RADIUS_PX` od `point` przy danym zoomie (m/px = 156543,03·cos φ / 2^zoom — 2× więcej niż przy kaflach 512 px, czyli ostrożnie). */
+export function isNearViewPoint(center: { lat: number; lon: number }, zoom: number, point: { lat: number; lon: number }): boolean {
+  const metersPerPx = (156543.03 * Math.cos((point.lat * Math.PI) / 180)) / 2 ** zoom
+  return distanceM(center, point) <= PRIVACY_RADIUS_PX * metersPerPx
+}
+
 /** Odległość po powierzchni Ziemi w metrach (haversine). */
 export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   const rad = Math.PI / 180
@@ -399,5 +424,11 @@ export function nearbyPoints(
 }
 
 /** Punkt widoczny w kadrze — wiersz listy „w widoku". */
-export type VisibleItem = { kind: 'vehicle' | 'stop' | 'rail'; id: string; label: string }
+export type VisibleItem = {
+  kind: 'vehicle' | 'stop' | 'rail'
+  id: string
+  label: string
+  /** Wiek pozycji GPS pojazdu (dokłada strona z odczytu co 15 s; mapa go nie zna). */
+  ageSec?: number
+}
 export const VISIBLE_LIMIT = 100

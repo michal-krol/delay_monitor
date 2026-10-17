@@ -31,6 +31,10 @@ vi.mock('maplibre-gl', () => {
     triggerRepaint: vi.fn(),
     setStyle: vi.fn(),
     flyTo: vi.fn(),
+    jumpTo: vi.fn(),
+    setPadding: vi.fn(),
+    isMoving: vi.fn(() => false),
+    getBounds: vi.fn(() => ({ contains: vi.fn(() => true) })),
     getZoom: vi.fn(() => 12),
     getCenter: vi.fn(() => ({ lat: 52.2, lng: 21.0 })),
     getCanvas: vi.fn(() => ({ style: {} as Record<string, string> })),
@@ -81,6 +85,7 @@ async function mounted(props: Partial<Props> = {}) {
   return { ...view, map }
 }
 
+const NO_PADDING = { top: 0, bottom: 0, left: 0, right: 0 }
 let reducedMotion = true
 window.matchMedia = ((query: string) => ({ matches: query.includes('reduce') && reducedMotion })) as unknown as typeof window.matchMedia
 
@@ -155,12 +160,13 @@ describe('TransitMap', () => {
   })
 
   it('flies to a new focus, switches the basemap with the theme, and reports view changes', async () => {
+    reducedMotion = false
     const onViewChange = vi.fn()
     const { map, rerender } = await mounted({ onViewChange })
     rerender(<TransitMap {...base} onViewChange={onViewChange} focus={{ lat: 50.06, lon: 19.94, nonce: 1 }} />)
-    expect(map.flyTo).toHaveBeenCalledWith({ center: [19.94, 50.06], zoom: 16 })
+    expect(map.flyTo).toHaveBeenCalledWith({ center: [19.94, 50.06], zoom: 16, padding: NO_PADDING, duration: 320 })
     rerender(<TransitMap {...base} onViewChange={onViewChange} focus={{ lat: 52.23, lon: 21.01, nonce: 2, zoom: 12 }} />)
-    expect(map.flyTo).toHaveBeenLastCalledWith({ center: [21.01, 52.23], zoom: 12 })
+    expect(map.flyTo).toHaveBeenLastCalledWith({ center: [21.01, 52.23], zoom: 12, padding: NO_PADDING, duration: 320 })
     rerender(<TransitMap {...base} onViewChange={onViewChange} dark />)
     expect(map.setStyle).toHaveBeenCalledWith('https://tiles.openfreemap.org/styles/dark')
     handlers.get('moveend')!({})
@@ -215,6 +221,22 @@ describe('TransitMap', () => {
     vi.unstubAllGlobals()
   })
 
+  it('re-aged vehicles at the same positions repaint once, without a glide (the hook re-ages them every tick)', async () => {
+    reducedMotion = false
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    const { rerender } = await mounted()
+    rerender(<TransitMap {...base} vehicles={[vehicle()]} />)
+    const setData = sources.get('vehicles')!.setData
+    setData.mockClear()
+    frames.length = 0
+    rerender(<TransitMap {...base} vehicles={[vehicle({ ageSec: 100 })]} />) // nowa tablica, ta sama pozycja, starszy wiek
+    expect(frames).toHaveLength(0)
+    expect(setData.mock.calls.at(-1)![0].features[0].properties.opacity).toBeLessThan(1)
+    vi.unstubAllGlobals()
+  })
+
   it('casing under the backbone is dark red for yellow metro and white otherwise; the route casing follows the route colour', async () => {
     const { map } = await mounted()
     const layer = (id: string) => map.addLayer.mock.calls.find(([l]: [{ id: string }]) => l.id === id)![0]
@@ -247,7 +269,7 @@ describe('TransitMap', () => {
     // Kolor rodzaju z jednej palety — `route_color` z feedu (M1 `#0000BB`) jest ignorowany.
     expect(backbone.data.features.map((f: { properties: { color: string } }) => f.properties.color)).toEqual([MODE_COLOR.metro, MODE_COLOR.rail])
     rerender(<TransitMap {...base} onUserMove={onUserMove} follow={{ lat: 52.3, lon: 21.3 }} />)
-    expect(map.easeTo).toHaveBeenCalledWith({ center: [21.3, 52.3], duration: 1000 })
+    expect(map.easeTo).toHaveBeenCalledWith({ center: [21.3, 52.3], duration: 1000, padding: NO_PADDING })
     handlers.get('dragstart')!({})
     expect(onUserMove).toHaveBeenCalled()
   })
@@ -308,5 +330,178 @@ describe('TransitMap', () => {
     rerender(<TransitMap {...base} selected={{ lat: 52.1, lon: 21.1 }} />)
     const ring = sources.get('selected')!.setData.mock.calls.at(-1)![0]
     expect(ring.features[0].geometry.coordinates).toEqual([21.1, 52.1])
+  })
+})
+
+describe('TransitMap camera insets', () => {
+  const INSETS = { top: 80, bottom: 300 }
+  const PADDING = { top: 80, bottom: 300, left: 0, right: 0 }
+  const AT = { lat: 52.1, lon: 21.1 }
+  const eased = (map: { easeTo: ReturnType<typeof vi.fn> }) => map.easeTo.mock.calls.filter(([o]) => o.duration !== 1000)
+
+  beforeEach(() => {
+    reducedMotion = false
+    vi.clearAllMocks()
+    sources.clear()
+    layers.clear()
+    handlers.clear()
+    rendered = []
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('focus passes padding derived from insets to flyTo', async () => {
+    const { map, rerender } = await mounted({ insets: INSETS })
+    rerender(<TransitMap {...base} insets={INSETS} focus={{ lat: 50.06, lon: 19.94, nonce: 1 }} />)
+    const [options] = map.flyTo.mock.calls[0]
+    expect(options).toMatchObject({ center: [19.94, 50.06], zoom: 16, padding: PADDING })
+    expect(options.duration).toBeLessThanOrEqual(320)
+    expect(map.jumpTo).not.toHaveBeenCalled()
+  })
+
+  it('inset change while selected eases with padding (≤320 ms), once the values settle', async () => {
+    const { map, rerender } = await mounted({ selected: AT, insets: { top: 80, bottom: 120 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    // Arkusz jedzie: kolejne pomiary nie ruszają kamery, dopiero ustalona wartość.
+    rerender(<TransitMap {...base} selected={AT} insets={{ top: 80, bottom: 200 }} />)
+    vi.advanceTimersByTime(60)
+    rerender(<TransitMap {...base} selected={AT} insets={INSETS} />)
+    vi.advanceTimersByTime(60)
+    expect(map.easeTo).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(200)
+    expect(map.easeTo).toHaveBeenCalledTimes(1)
+    const [options] = map.easeTo.mock.calls[0]
+    expect(options).toMatchObject({ center: [AT.lon, AT.lat], padding: PADDING })
+    expect(options.duration).toBeLessThanOrEqual(320)
+    expect(options).not.toHaveProperty('zoom')
+  })
+
+  it('inset change without a selection leaves the camera alone', async () => {
+    const { map, rerender } = await mounted({ insets: { top: 80, bottom: 120 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    rerender(<TransitMap {...base} insets={INSETS} />)
+    vi.advanceTimersByTime(500)
+    expect(eased(map)).toEqual([])
+    expect(map.flyTo).not.toHaveBeenCalled()
+    expect(map.jumpTo).not.toHaveBeenCalled()
+  })
+
+  it('a focus already carries the new padding, so the settle timer does not repeat it', async () => {
+    const { map, rerender } = await mounted({ selected: AT, insets: { top: 80, bottom: 120 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    rerender(<TransitMap {...base} selected={AT} insets={INSETS} focus={{ ...AT, nonce: 1 }} />)
+    vi.advanceTimersByTime(500)
+    expect(map.flyTo).toHaveBeenCalledTimes(1)
+    expect(eased(map)).toEqual([])
+  })
+
+  it('a correcting ease waits for a focus flight in progress and never interrupts it (sheet remounts one render after the focus)', async () => {
+    const { map, rerender } = await mounted({ selected: AT, insets: { top: 80, bottom: 370 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    map.isMoving.mockReturnValue(true) // lot ruszył w render N ze starymi insetami (370)…
+    rerender(<TransitMap {...base} selected={AT} insets={{ top: 80, bottom: 370 }} focus={{ ...AT, nonce: 1 }} />)
+    expect(map.flyTo).toHaveBeenCalledTimes(1)
+    // …a nowy arkusz (peek) zgłasza swoją wysokość dopiero w render N+1.
+    rerender(<TransitMap {...base} selected={AT} insets={{ top: 80, bottom: 190 }} focus={{ ...AT, nonce: 1 }} />)
+    vi.advanceTimersByTime(600) // lot trwa: kilka cykli ponawiania, żadnego easeTo
+    expect(eased(map)).toEqual([])
+    map.isMoving.mockReturnValue(false) // lądowanie
+    vi.advanceTimersByTime(200)
+    expect(eased(map)).toHaveLength(1)
+    const [options] = map.easeTo.mock.calls.at(-1)!
+    expect(options).toMatchObject({ center: [AT.lon, AT.lat], padding: { top: 80, bottom: 190, left: 0, right: 0 } })
+    expect(options).not.toHaveProperty('zoom') // zoom lotu zostaje (ease po lądowaniu nie zmienia go)
+  })
+
+  it('an inset change after the user panned the selection out of view does not pull the camera back', async () => {
+    const { map, rerender } = await mounted({ selected: AT, insets: { top: 80, bottom: 120 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    map.getBounds.mockReturnValue({ contains: vi.fn(() => false) })
+    rerender(<TransitMap {...base} selected={AT} insets={INSETS} />)
+    vi.advanceTimersByTime(500)
+    expect(eased(map)).toEqual([])
+    expect(map.jumpTo).not.toHaveBeenCalled()
+    map.getBounds.mockReturnValue({ contains: vi.fn(() => true) }) // mock mapy jest wspólny dla testów
+  })
+
+  it('reduced motion uses no animation', async () => {
+    reducedMotion = true
+    const { map, rerender } = await mounted({ selected: AT, insets: { top: 80, bottom: 120 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    rerender(<TransitMap {...base} selected={AT} insets={INSETS} focus={{ lat: 50.06, lon: 19.94, nonce: 1 }} />)
+    expect(map.jumpTo).toHaveBeenCalledWith({ center: [19.94, 50.06], zoom: 16, padding: PADDING })
+    expect(map.flyTo).not.toHaveBeenCalled()
+    rerender(<TransitMap {...base} selected={AT} insets={{ top: 80, bottom: 400 }} focus={{ lat: 50.06, lon: 19.94, nonce: 1 }} />)
+    vi.advanceTimersByTime(500)
+    expect(map.jumpTo).toHaveBeenLastCalledWith({ center: [AT.lon, AT.lat], padding: { top: 80, bottom: 400, left: 0, right: 0 } })
+    expect(eased(map)).toEqual([])
+  })
+
+  it('creates the map with the current insets as camera padding (the initial centre is the centre of the free area)', async () => {
+    const { map } = await mounted({ insets: INSETS, selected: AT })
+    expect(map.setPadding).toHaveBeenCalledWith(PADDING)
+    // Stan startowy zna swoje insety: ustalone te same wartości nie ruszają kamery.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    vi.advanceTimersByTime(500)
+    expect(map.easeTo).not.toHaveBeenCalled()
+    expect(map.jumpTo).not.toHaveBeenCalled()
+  })
+
+  it('publishes the bottom inset as --map-inset-bottom on the wrapper, so CSS can lift the attribution above the sheet', async () => {
+    const { container, rerender } = await mounted({ insets: INSETS })
+    // eslint-disable-next-line testing-library/no-node-access -- wrapper mapy nie ma roli ani nazwy
+    const wrapper = container.firstElementChild as HTMLElement
+    expect(wrapper.style.getPropertyValue('--map-inset-bottom')).toBe('300px')
+    rerender(<TransitMap {...base} insets={{ top: 80, bottom: 120 }} />)
+    expect(wrapper.style.getPropertyValue('--map-inset-bottom')).toBe('120px')
+    rerender(<TransitMap {...base} />)
+    expect(wrapper.style.getPropertyValue('--map-inset-bottom')).toBe('0px')
+  })
+
+  it('changing insets does not recreate the map', async () => {
+    const { map, rerender } = await mounted({ insets: { top: 0, bottom: 0 } })
+    rerender(<TransitMap {...base} insets={{ top: 80, bottom: 120 }} />)
+    rerender(<TransitMap {...base} insets={INSETS} />)
+    rerender(<TransitMap {...base} />)
+    expect(maplibregl.Map).toHaveBeenCalledTimes(1)
+    expect(map.remove).not.toHaveBeenCalled()
+  })
+
+  it('frames a route inside the free area: the bottom inset is added to the margin and replaces any earlier padding', async () => {
+    const overlay = { line: { type: 'FeatureCollection' as const, features: [] }, stops: { type: 'FeatureCollection' as const, features: [] }, bounds: [[21, 52], [21.1, 52.1]] as [[number, number], [number, number]] }
+    const { map, rerender } = await mounted({ insets: INSETS })
+    rerender(<TransitMap {...base} insets={INSETS} route={{ key: '20:0', overlay, color: '#dc2626' }} />)
+    const [, options] = map.fitBounds.mock.calls[0]
+    expect(options).toMatchObject({ maxZoom: 15, absolutePadding: true })
+    expect(options.padding.bottom).toBe(INSETS.bottom + 16)
+    expect(options.padding.top).toBeGreaterThanOrEqual(INSETS.top)
+  })
+
+  it('theme switch keeps selection and layers', async () => {
+    const overlay = { line: { type: 'FeatureCollection' as const, features: [] }, stops: { type: 'FeatureCollection' as const, features: [] }, bounds: [[21, 52], [21.1, 52.1]] as [[number, number], [number, number]] }
+    const props = { selected: AT, hidden: new Set<LayerKey>(['busStops']), route: { key: '20:0', overlay, color: '#dc2626' }, follow: { lat: 52.3, lon: 21.3 } }
+    const { map, rerender } = await mounted(props)
+    // Prawdziwy `setStyle` wyrzuca źródła i warstwy; ponowne dodanie robi `style.load`.
+    map.setStyle.mockImplementation(() => {
+      sources.clear()
+      layers.clear()
+    })
+    for (const camera of [map.flyTo, map.jumpTo, map.easeTo, map.fitBounds, map.addSource, map.setLayoutProperty, map.setPaintProperty]) camera.mockClear()
+
+    rerender(<TransitMap {...base} {...props} dark />)
+    expect(map.setStyle).toHaveBeenCalledWith('https://tiles.openfreemap.org/styles/dark')
+    handlers.get('style.load')!({})
+
+    const ring = map.addSource.mock.calls.find(([id]: [string]) => id === 'selected')[1]
+    expect(ring.data.features[0].geometry.coordinates).toEqual([AT.lon, AT.lat])
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('stops-busStops', 'visibility', 'none')
+    expect(map.setPaintProperty).toHaveBeenCalledWith('stops-busStops', 'circle-opacity', 0.25)
+    expect(layers.has('selected')).toBe(true)
+    // Motyw nie rusza kamery: ani przelotu, ani ponownego kadru trasy, ani drugiego „follow".
+    expect(map.flyTo).not.toHaveBeenCalled()
+    expect(map.jumpTo).not.toHaveBeenCalled()
+    expect(map.easeTo).not.toHaveBeenCalled()
+    expect(map.fitBounds).not.toHaveBeenCalled()
   })
 })

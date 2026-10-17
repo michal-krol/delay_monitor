@@ -7,24 +7,25 @@ import { z } from 'zod'
 import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
-import { StationSearch, type StationOption } from '@/components/StationSearch'
-import { CityIcon, CloseIcon, ListIcon, ShareIcon, ICON_SIZE } from '@/components/icons'
+import { UnifiedSearch } from '@/components/UnifiedSearch'
+import { CityIcon, ICON_SIZE } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
-import { LineSearch } from '@/components/map/LineSearch'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { stopDisplayName } from '@/components/stopName'
-import { MapFilters } from '@/components/map/MapFilters'
+import { LocateControl } from '@/components/map/LocateControl'
 import { MapLegend } from '@/components/map/MapLegend'
-import { MapMoreMenu } from '@/components/map/MapMoreMenu'
-import { PinnedMenu, NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
+import { NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
+import { OverviewPanel } from '@/components/map/OverviewPanel'
+import { ActiveFilterChips, MapToolbar, NoPositionNotice } from '@/components/map/MapToolbar'
 import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
 import {
   HIDE_AFTER_SEC,
-  LAYER_LABEL,
   MAP_ZOOM,
   VEHICLE_LAYERS,
+  activeFilterCount,
   boundsContain,
   formatAt,
+  isNearViewPoint,
   nearbyPoints,
   parseAt,
   parseHidden,
@@ -38,6 +39,7 @@ import {
   type VisibleItem,
 } from '@/components/map/mapData'
 import { useCities } from '@/hooks/useCities'
+import { useCityLines } from '@/hooks/useCityLines'
 import { useCityStops } from '@/hooks/useCityStops'
 import type { CityStop } from '@/lib/gtfs/query'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
@@ -46,10 +48,13 @@ import { useLineDetail } from '@/hooks/useLineDetail'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
+import { LOCATION_MAX_AGE_MS } from '@/components/UserLocationProvider'
+import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
+import { discoveryHref, type DiscoveryResult } from '@/lib/discovery'
 import { formatAgo } from '@/lib/format'
+import { pluralPl } from '@/lib/plural'
 import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
-import type { GtfsMode } from '@/lib/gtfs/types'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
 import { lineColor } from '@/components/transitMode'
@@ -106,7 +111,8 @@ export default function CityMapPage() {
   const [selection, setSelection] = useState<MapSelection | null>(null)
   const [focus, setFocus] = useState<{ lat: number; lon: number; nonce: number; zoom?: number } | null>(null)
   const [view, setView] = useState<MapView | null>(null)
-  const [searchTab, setSearchTab] = useState<'place' | 'line'>('place')
+  // Wynik wyszukiwarki bez pozycji na mapie: komunikat z linkiem do szczegółów (kamera się nie rusza).
+  const [noPosition, setNoPosition] = useState<{ name: string; href: string | null; linkLabel: string } | null>(null)
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
   // Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon.
@@ -115,9 +121,9 @@ export default function CityMapPage() {
   const vehiclesState = useCityVehicles(city)
   const stopsState = useCityStops(city)
   const railState = useRailStations()
-  const lines = useCityList<LineListEntry>(`/api/gtfs/lines?city=${encodeURIComponent(city)}`, (json) =>
-    json.lines === null ? null : Object.values(json.lines as Record<GtfsMode, LineListEntry[]>).flat()
-  )
+  // Jedno pobranie katalogu linii: zasila stronę i (jako `lineSource`) wyszukiwarkę — ten sam ranking `rankLines`.
+  const lineState = useCityLines(city)
+  const lines = lineState.lines
   const backbone = useCityList<BackboneLine>(`/api/gtfs/backbone?city=${encodeURIComponent(city)}`, (json) => json.lines as BackboneLine[] | null)
   const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
@@ -125,6 +131,42 @@ export default function CityMapPage() {
   const { pinnedItems, loaded: pinsLoaded, addPinned, removePinned, replacePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
   const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
+  // Okolica z pozycji GPS: wiersze zostają, ale podgląd odjazdów (id przystanków w żądaniu) i zdejmowanie blokady widoku — nie (adr/0012).
+  const [nearbyFromGps, setNearbyFromGps] = useState(false)
+  // `?nearby=1` bez gotowej pozycji (np. po F5): czeka na kliknięcie, GPS sam się nie uruchamia (adr/0012).
+  const [nearbyPending, setNearbyPending] = useState(false)
+  const userLocation = useUserLocation()
+  const entryRef = useRef<{ flag: boolean; here: UserPoint | null } | null>(null)
+  // Pozycja z GPS może dojść po opuszczeniu strony albo zmianie miasta — wtedy nie wolno dotykać URL-a ani stanu (M6).
+  const aliveRef = useRef({ mounted: true, city })
+  aliveRef.current.city = city
+  useEffect(() => {
+    const alive = aliveRef.current // obiekt, nie węzeł DOM: ten sam przez cały czas życia strony
+    alive.mounted = true
+    return () => {
+      alive.mounted = false
+    }
+  }, [])
+  // Ostatni punkt z providera (także ustalony na innej stronie): reguła prywatności widoku nie zna tylko `locatedViewRef` (M2).
+  const userPointRef = useRef(userLocation.point)
+  userPointRef.current = userLocation.point
+  // Ostatnia pozycja GPS użytkownika (tylko w pamięci) i zatrzask. Kadr w pobliżu niej NIE trafia do `?at=` ani do localStorage
+  // (adr/0012, #4) — zapis blokuje którekolwiek: (a) zatrzask ustawiony przy „Mojej lokalizacji" (zoom kółkiem/szczypnięciem/klawiaturą
+  // i strzałki przesuwają środek bez `dragstart`), (b) środek kadru w promieniu `PRIVACY_RADIUS_PX` od punktu. Zatrzask zdejmuje WYŁĄCZNIE
+  // przeciągnięcie albo świadomy ruch programowy (`liftViewBlock`), nigdy `moveend` (spóźnione `moveend` z przerwanej animacji
+  // odblokowałoby zapis dolotu do użytkownika); promień zostaje zawsze (powrót w pobliże użytkownika).
+  const locatedViewRef = useRef<{ lat: number; lon: number; latched: boolean } | null>(null)
+  const liftViewBlock = (): void => {
+    if (locatedViewRef.current !== null) locatedViewRef.current.latched = false
+  }
+  // Insety kamery (px): góra = pasek kontrolek nad mapą, dół = widoczny arkusz (tylko telefon). Mierzone, nie zgadywane.
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const [topInset, setTopInset] = useState(0)
+  const [sheetInset, setSheetInset] = useState(0)
+  // Arkusz z „Moją lokalizacją" jest przemontowywany przy każdej zmianie obiektu (`key`), więc fokus trzeba oddać ręcznie.
+  const locateButtonRef = useRef<HTMLButtonElement>(null)
+  const locateHadFocusRef = useRef(false)
+  const refocusLocateRef = useRef(false)
   const [listOpen, setListOpen] = useState(false)
   const [visible, setVisible] = useState<{ items: VisibleItem[]; overflow: boolean } | null>(null)
 
@@ -136,21 +178,74 @@ export default function CityMapPage() {
     setRouteParam(line !== null && GTFS_ROUTE_ID_PATTERN.test(line) ? line : null)
     setDirectionId(readUrlParam('dir') === '1' ? 1 : 0)
     setAlertsOnly(readUrlParam('alerts') === '1')
-    // Kadr: link `?at=` > ostatni widok w tej przeglądarce > centrum miasta.
-    setInitialCamera(parseAt(readUrlParam('at')) ?? readLastView(city) ?? { ...feed.mapCenter, zoom: MAP_ZOOM.initial })
+    // `?nearby=1`: świeża (< `maximumAge`) pozycja z providera otwiera okolicę i zużywa flagę; bez niej (F5, stara pozycja)
+    // NIE pytamy o GPS — strona pokazuje przycisk (adr/0012). Mapa tworzy się asynchronicznie, więc
+    // „skupienie" to kadr startowy na punkcie, a nie `focus` (ten przepadłby przed powstaniem mapy).
+    // Wejście liczymy raz (ref): StrictMode odpala ten efekt dwa razy, a pierwszy przebieg zużywa flagę w URL-u.
+    const freshPoint = userLocation.fixAt !== null && Date.now() - userLocation.fixAt < LOCATION_MAX_AGE_MS ? userLocation.point : null
+    entryRef.current ??= { flag: readUrlParam('nearby') === '1', here: readUrlParam('nearby') === '1' ? freshPoint : null }
+    const { flag, here } = entryRef.current
+    if (here !== null) {
+      showNearbyAt(here, false)
+      patchUrlParams({ nearby: null })
+    } else if (flag) setNearbyPending(true)
+    // Kadr: pozycja z `?nearby=1` > link `?at=` > ostatni widok w tej przeglądarce > centrum miasta.
+    setInitialCamera(
+      here !== null ? { lat: here.lat, lon: here.lon, zoom: MAP_ZOOM.focus } : (parseAt(readUrlParam('at')) ?? readLastView(city) ?? { ...feed.mapCenter, zoom: MAP_ZOOM.initial })
+    )
     setMounted(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- odtworzenie raz, przy wejściu
+  }, [])
+
+  useEffect(() => {
+    if (nearby !== null) return
+    if (refocusLocateRef.current) locateButtonRef.current?.focus({ preventScroll: true })
+    refocusLocateRef.current = false
+    locateHadFocusRef.current = false
+  }, [nearby])
+
+  // Odmowa/błąd z przycisku „Moja lokalizacja" (nie z komunikatu) też zużywa `?nearby=1`: przycisk komunikatu nic by już nie dał (M5).
+  const locationFailed = userLocation.status === 'denied' || userLocation.status === 'unavailable' || userLocation.status === 'error'
+  useEffect(() => {
+    if (!locationFailed || !nearbyPending) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reakcja na zewnętrzny stan (providera), flaga to też URL
+    setNearbyPending(false)
+    patchUrlParams({ nearby: null })
+  }, [locationFailed, nearbyPending])
+
+  useEffect(() => {
+    const el = toolbarRef.current
+    if (el === null) return
+    // Dolna krawędź kontrolek względem mapy (z górnym marginesem): tyle kadru zasłaniają pasek, wyszukiwarka i chipy.
+    const measure = (): void => setTopInset(Math.round(el.offsetTop + el.offsetHeight))
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   const onViewChange = useCallback(
     (next: MapView) => {
       setView(next)
+      // Promień sprawdzamy wobec obu punktów: z tej strony („Moja lokalizacja") i z providera (ustalonego np. na innej stronie).
+      const here = locatedViewRef.current
+      if (here?.latched || [here, userPointRef.current].some((p) => p !== null && isNearViewPoint(next.center, next.zoom, p))) return
       const at = formatAt({ ...next.center, zoom: next.zoom })
       patchUrlParams({ at })
       saveLastView(city, at)
     },
     [city]
   )
+
+  // Mapa zgłasza kadr po KAŻDYM `idle` (na telefonie zawsze); ten sam skład to ten sam stan — bez ponownego renderu całej strony.
+  const onVisibleChange = useCallback((items: VisibleItem[], overflow: boolean) => {
+    setVisible((prev) =>
+      prev !== null && prev.overflow === overflow && prev.items.length === items.length && prev.items.every((item, i) => item.kind === items[i].kind && item.id === items[i].id && item.label === items[i].label)
+        ? prev
+        : { items, overflow }
+    )
+  }, [])
 
   // `?line=` to `routeId`; stare linki niosły numer linii („20") — dopasowujemy go dokładnie.
   const line = useMemo(() => {
@@ -187,7 +282,10 @@ export default function CityMapPage() {
   // Celowo NIE przy każdym odczycie co 15 s — to byłby szum co kwadrans minuty.
   const vehiclesRef = useRef(vehiclesState.vehicles)
   vehiclesRef.current = vehiclesState.vehicles
+  const vehicleCountKnown = vehiclesState.lastSuccessAt !== null
   const vehicleCountAnnouncement = useMemo(() => {
+    // Nieznane („wczytywanie", „nie udało się") to nie zero (#7): cisza do pierwszego udanego odczytu.
+    if (!vehicleCountKnown) return ''
     const shown = vehiclesRef.current.filter(
       (v) =>
         v.ageSec <= HIDE_AFTER_SEC &&
@@ -195,9 +293,9 @@ export default function CityMapPage() {
         (line === null || v.routeId === line.routeId) &&
         (!alertsOnly || (v.shortName !== null && vehiclesState.alertLines.includes(v.shortName)))
     ).length
-    return `Na mapie ${shown} pojazdów`
+    return `Na mapie ${shown} ${pluralPl(shown, 'pojazd', 'pojazdy', 'pojazdów')}`
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tylko zmiana filtrów i pierwsze wczytanie, nie każdy odczyt
-  }, [hidden, line, alertsOnly, vehiclesState.vehicles.length === 0])
+  }, [hidden, line, alertsOnly, vehicleCountKnown])
 
   const feedArea = useMemo(() => (stopsState.stops === null ? null : stopsBounds(stopsState.stops)), [stopsState.stops])
   const outsideFeed = feedArea !== null && view !== null && !boundsContain(feedArea, view.center.lon, view.center.lat)
@@ -224,7 +322,9 @@ export default function CityMapPage() {
     () =>
       visible?.items.map((item) => {
         const v = item.kind === 'vehicle' ? vehiclesById.get(item.id) : undefined
-        return v?.headsign ? { ...item, label: `${item.label || '—'} → ${v.headsign}` } : item
+        if (v === undefined) return item
+        // Wiek GPS dokładamy z odczytu co 15 s (mapa go nie zna) — wiersz mówi „Pozycja sprzed …".
+        return { ...item, ageSec: v.ageSec, ...(v.headsign ? { label: `${item.label || '—'} → ${v.headsign}` } : {}) }
       }) ?? null,
     [visible, vehiclesById]
   )
@@ -259,9 +359,10 @@ export default function CityMapPage() {
 
   function openLineStop(stop: LineRouteStop): void {
     const known = stopsState.stops?.find((s) => s.id === stop.stopId)
-    const mode = known?.mode ?? (line?.mode === 'tram' || line?.mode === 'metro' ? line.mode : 'bus')
+    // Rodzaj przystanku z listy miasta, a gdy jej brak — rodzaj linii (kolej miejska i „inne" nie udają autobusu).
+    const mode = known?.mode ?? line?.mode ?? 'other'
     setSelection({ kind: 'stop', id: stop.stopId, groupId: stop.groupId, name: stop.name, code: stop.code, mode, lat: stop.lat, lon: stop.lon })
-    setFocus({ lat: stop.lat, lon: stop.lon, nonce: Date.now() })
+    focusOn(stop.lat, stop.lon)
   }
 
   function changeAlertsOnly(next: boolean): void {
@@ -269,18 +370,67 @@ export default function CityMapPage() {
     patchUrlParams({ alerts: next ? '1' : null })
   }
 
-  function focusOn(lat: number, lon: number): void {
+  /** „Wyczyść filtry": domyślne warstwy, bez linii/kierunku/utrudnień; miasto (ścieżka) i `?at=` zostają. */
+  function clearFilters(): void {
+    changeHidden(new Set())
+    changeAlertsOnly(false)
+    chooseLine(null)
+  }
+
+  /** `keepBlock`: skupienie z okolicy z GPS — widok nadal wynika z pozycji użytkownika, więc blokada zapisu zostaje (zdejmuje ją przeciągnięcie). */
+  function focusOn(lat: number, lon: number, keepBlock = false): void {
+    if (!keepBlock) liftViewBlock()
     setFocus({ lat, lon, nonce: Date.now() })
+  }
+
+  /** Okolica wokół pozycji użytkownika (przycisk „Moja lokalizacja", `?nearby=1`); współrzędne zostają w stanie strony, nie w URL-u ani w localStorage. */
+  function showNearbyAt(point: { lat: number; lon: number }, fly = true): void {
+    setSelection(null)
+    openNearbyAround(point, true)
+    if (fly) focusOn(point.lat, point.lon)
+    locatedViewRef.current = { lat: point.lat, lon: point.lon, latched: true }
+    // Ewentualne `?at=` (np. z linku) mogło już zawierać tę pozycję — usuwamy je razem z kadrem.
+    patchUrlParams({ at: null })
+  }
+
+  /** Każde otwarcie okolicy zużywa `?nearby=1`, żeby przycisk „Pokaż moją lokalizację" nie wracał po jej zamknięciu. */
+  function openNearbyAround(point: { lat: number; lon: number }, fromGps = false): void {
+    setNearby({ lat: point.lat, lon: point.lon })
+    setNearbyFromGps(fromGps)
+    consumeNearbyFlag()
+  }
+
+  /** Strona żyje jeszcze w tym samym mieście — odpowiedź GPS po wyjściu z mapy nie rusza URL-a nowej strony. */
+  const stillHere = (forCity: string): boolean => aliveRef.current.mounted && aliveRef.current.city === forCity
+
+  async function showMyLocation(): Promise<void> {
+    const asked = city
+    const point = await userLocation.request()
+    if (!stillHere(asked)) return
+    consumeNearbyFlag()
+    if (point !== null) showNearbyAt(point)
+  }
+
+  function consumeNearbyFlag(): void {
+    if (!nearbyPending) return
+    setNearbyPending(false)
+    patchUrlParams({ nearby: null })
+  }
+
+  /** „×"/Escape w „W pobliżu": arkusz przemontował się przy otwarciu, więc stary przycisk lokalizacji nie istnieje — fokus wraca na nowy. */
+  function closeNearby(): void {
+    refocusLocateRef.current = locateHadFocusRef.current
+    setNearby(null)
   }
 
   function openNearby(point: NearbyPoint): void {
     if (point.kind === 'rail') {
       setSelection({ kind: 'rail', id: point.id, name: point.name, lat: point.lat, lon: point.lon })
-      focusOn(point.lat, point.lon)
+      focusOn(point.lat, point.lon, nearbyFromGps)
     } else {
       const { stop } = point
       setSelection(stopSelection(stop))
-      focusOn(stop.lat, stop.lon)
+      focusOn(stop.lat, stop.lon, nearbyFromGps)
     }
   }
 
@@ -335,16 +485,38 @@ export default function CityMapPage() {
     if (station !== undefined) setSelection({ kind: 'rail', id: station.id, name: station.name, lat: station.lat, lon: station.lon })
   }
 
-  function onSearchSelect(option: StationOption): void {
-    const lat = option.lat ?? null
-    const lon = option.lon ?? null
-    if (option.kind === 'rail') {
-      setSelection({ kind: 'rail', id: option.id, name: option.name, lat, lon })
-    } else {
-      // Zespół przystankowy: odjazdy całego zespołu; stacja metra (rodzic) ma w warstwie swój punkt.
-      setSelection({ kind: 'stop', id: option.id, groupId: option.id, name: option.name, code: null, mode: option.mode ?? 'bus', lat, lon })
+  /** Wybór z wyszukiwarki: nigdy nie wychodzi z mapy; bez pozycji kamera stoi (nigdy 0,0), a komunikat linkuje do szczegółów. */
+  function onSearchPick(result: DiscoveryResult): void {
+    setNoPosition(null)
+    if (result.kind === 'line') {
+      // Panel linii jest ostatni w kolejności kart — zwalniamy to, co go przesłania.
+      setSelection(null)
+      setNearby(null)
+      setListOpen(false)
+      chooseLine(result.line)
+      return
     }
-    if (lat !== null && lon !== null) setFocus({ lat, lon, nonce: Date.now() })
+    if (result.kind === 'rail') {
+      const { id, name } = result.station
+      const lat = result.station.lat ?? null
+      const lon = result.station.lon ?? null
+      if (lat === null || lon === null) return setNoPosition({ name, href: discoveryHref(result), linkLabel: 'Szczegóły stacji' })
+      setSelection({ kind: 'rail', id, name, lat, lon })
+      return focusOn(lat, lon)
+    }
+    // Zespół przystanków: konkretne przystanki z listy miasta (po `groupId`), środek ich pozycji; wynik niesie ten sam
+    // środek z serwera (`groupCentroid`, ta sama reguła) — na wypadek, gdy lista przystanków jeszcze się wczytuje. Numeru przystanku nie zgadujemy (`code: null`).
+    const { stop } = result
+    const members = stopsState.stops?.filter((s) => s.groupId === stop.id) ?? []
+    const at =
+      members.length > 0
+        ? { lat: members.reduce((sum, s) => sum + s.lat, 0) / members.length, lon: members.reduce((sum, s) => sum + s.lon, 0) / members.length }
+        : stop.lat !== undefined && stop.lon !== undefined
+          ? { lat: stop.lat, lon: stop.lon }
+          : null
+    if (at === null) return setNoPosition({ name: stop.name, href: discoveryHref(result), linkLabel: 'Szczegóły przystanku' })
+    setSelection({ kind: 'stop', id: stop.id, groupId: stop.id, name: stop.name, code: null, mode: stop.mode ?? members[0]?.mode ?? 'other', lat: at.lat, lon: at.lon })
+    focusOn(at.lat, at.lon)
   }
 
   const neverLoaded = vehiclesState.vehicles.length === 0
@@ -355,9 +527,11 @@ export default function CityMapPage() {
       : neverLoaded
         ? 'nie udało się pobrać pozycji pojazdów'
         : vehiclesFailed
-          ? 'pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne'
-          : vehiclesState.feed.ageMs !== null
-            ? `pozycje pojazdów: ${formatAgo(Math.round(vehiclesState.feed.ageMs / 1000))}`
+          ? // Wiek ostatnich dobrych danych (ui-copy.md „Data age", #7): godzina w strefie miasta.
+            `pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne${vehiclesState.lastSuccessAt !== null ? ` · dane z ${new Date(vehiclesState.lastSuccessAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: feed.timezone })}` : ''}`
+          : vehiclesState.lastSuccessAt !== null
+            ? // Kiedy PRZEGLĄDARKA pobrała odczyt (rośnie z zegarem) — wiek GPS pojazdów jest osobno („Pozycje sprzed", ui-copy.md).
+              `pobrano ${formatAgo(Math.round((vehiclesState.now - vehiclesState.lastSuccessAt) / 1000))}`
             : 'pozycje pojazdów na żywo'
 
   const problems = [
@@ -365,16 +539,22 @@ export default function CityMapPage() {
     railState.error && 'Nie udało się wczytać stacji kolejowych — ponawiam.',
   ].filter((p): p is string => typeof p === 'string')
 
+  const filterCount = activeFilterCount({ hidden, line: line !== null, alertsOnly })
   const vehiclesOnLine = line === null ? 0 : vehiclesState.vehicles.filter((v) => v.routeId === line.routeId && v.ageSec <= HIDE_AFTER_SEC).length
   // Karta wybranego obiektu ma pierwszeństwo; po jej zamknięciu wraca panel linii.
   const selectionPinned = selection !== null ? pinnedItemFor(selection) : null
   const following = followId !== null && selection?.kind === 'vehicle' && selection.id === followId && liveVehicle !== null
+  // Kadr trasy (wybór linii) i śledzenie pojazdu przenoszą kamerę z dala od użytkownika — świadomie, bez przeciągnięcia.
+  const routeKey = route?.key ?? null
+  useEffect(() => {
+    if (routeKey !== null || following) liftViewBlock()
+  }, [routeKey, following])
   const card =
     selection !== null ? (
       <MapCard
         key={`${selection.kind}:${selection.id}`}
         selection={selection}
-        vehicle={liveVehicle}
+        vehicle={selectedVehicle}
         city={city}
         onClose={() => {
           setSelection(null)
@@ -397,7 +577,7 @@ export default function CityMapPage() {
         onNearby={
           selection.kind !== 'vehicle' && selection.lat !== null && selection.lon !== null
             ? () => {
-                setNearby({ lat: selection.lat!, lon: selection.lon! })
+                openNearbyAround({ lat: selection.lat!, lon: selection.lon! })
                 setSelection(null)
               }
             : undefined
@@ -405,14 +585,23 @@ export default function CityMapPage() {
         alertLines={vehiclesState.alertLines}
       />
     ) : nearby !== null ? (
-      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={() => setNearby(null)} />
-    ) : listOpen ? (
-      <VisibleListPanel items={visibleItems} overflow={visible?.overflow ?? false} onOpen={openVisible} onClose={() => setListOpen(false)} />
+      <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={closeNearby} departures={!nearbyFromGps} />
+    ) : listOpen && (isWide || line !== null) ? (
+      // Telefon bez linii: „Lista" to przegląd rozwinięty do `half` (niżej), nie drugie okno z tą samą listą.
+      <VisibleListPanel
+        items={visibleItems}
+        overflow={visible?.overflow ?? false}
+        onOpen={openVisible}
+        onClose={() => setListOpen(false)}
+        onClearFilters={filterCount > 0 ? clearFilters : undefined}
+      />
     ) : line !== null ? (
       <LinePanel
         line={line}
         detail={lineDetail.detail}
         alerts={lineDetail.alerts}
+        alertsState={lineDetail.alertsState}
+        alertsStale={lineDetail.alertsStale}
         error={lineDetail.error}
         directionId={directionId}
         vehiclesOnLine={vehiclesOnLine}
@@ -422,17 +611,34 @@ export default function CityMapPage() {
         onClose={() => chooseLine(null)}
       />
     ) : null
-  // Nowy obiekt w arkuszu = nowy `key` → arkusz startuje znów w `peek`.
+  // Telefon bez karty, okolicy i linii: przegląd w arkuszu (`peek`; „Lista" rozwija go do `half`). Mapa liczy wtedy kadr
+  // (`listOpen` w `TransitMap`) — z tego żyje podsumowanie. Szeroki ekran nie ma arkusza: lista i legenda zostają z boku.
+  const overview = !isWide && card === null
+  const overviewPanel = overview ? (
+    <OverviewPanel
+      items={visibleItems}
+      overflow={visible?.overflow ?? false}
+      // „Gotowe, ale bez pojazdów" (noc) to nie „wczytywanie": odróżnia je stan feedu z serwera.
+      feed={{ state: vehiclesFailed ? 'failed' : neverLoaded && vehiclesState.feed.state !== 'ready' ? 'loading' : 'ready' }}
+      onOpen={openVisible}
+      onClearFilters={filterCount > 0 ? clearFilters : undefined}
+    />
+  ) : null
+  // Nowy obiekt w arkuszu = nowy `key` → arkusz startuje znów w `peek` (przegląd z otwartą listą: w `half`).
   const cardKey =
-    selection !== null ? `${selection.kind}:${selection.id}` : nearby !== null ? 'nearby' : listOpen ? 'list' : `line:${line?.routeId}`
+    selection !== null
+      ? `${selection.kind}:${selection.id}`
+      : nearby !== null
+        ? 'nearby'
+        : overview
+          ? listOpen
+            ? 'overview:list'
+            : 'overview'
+          : listOpen
+            ? 'list'
+            : `line:${line?.routeId}`
 
-  const placeSearch = (
-    <StationSearch endpoint={`/api/search?city=${encodeURIComponent(city)}&rail=all`} placeholder="Szukaj stacji lub przystanku…" onSelect={onSearchSelect} wide />
-  )
-  const lineSearch = <LineSearch lines={lines} onSelect={chooseLine} />
-  const filters = (
-    <MapFilters hidden={hidden} vehicleLayers={vehicleLayers} onChange={changeHidden} alertsOnly={alertsOnly} onAlertsOnly={changeAlertsOnly} />
-  )
+  const search = <UnifiedSearch city={city} variant="overlay" lineSource={lineState} onSelect={onSearchPick} />
 
   function toggleList(): void {
     setListOpen((open) => !open)
@@ -440,34 +646,51 @@ export default function CityMapPage() {
     setNearby(null)
   }
 
-  // Chipy filtrów i statusy: pod kontrolkami, a gdy na telefonie jest arkusz — na jego krawędzi (`above`),
-  // bo przy half/full by je zakrył (role=status, decyzja z PR3).
-  const sheetOpen = !isWide && card !== null
-  const statusStack = (
-    <>
-      {(hidden.size > 0 || line !== null || alertsOnly) && (
-        <ul className="pointer-events-auto flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
-          {line !== null && (
-            <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={() => chooseLine(null)} />
-          )}
-          {alertsOnly && (
-            <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => changeAlertsOnly(false)} />
-          )}
-          {[...hidden].map((key) => (
-            <Chip
-              key={key}
-              label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
-              removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
-              onRemove={() => {
-                const next = new Set(hidden)
-                next.delete(key)
-                changeHidden(next)
-              }}
-            />
-          ))}
-        </ul>
-      )}
+  // Chipy filtrów i statusy: pod kontrolkami, a gdy jest arkusz (telefon: zawsze, przegląd też) — na jego krawędzi
+  // (`above`), bo przy half/full by je zakrył (role=status, decyzja z PR3).
+  const sheetOpen = !isWide && (card !== null || overviewPanel !== null)
+  // Insety kamery: dół tylko przy otwartym arkuszu (telefon; szeroki ekran ma panel obok mapy — kontener mapy już go wyłącza,
+  // więc bez dodatkowego paddingu z prawej). Zamknięty arkusz = 0; `sheetInset` zostaje do następnego zgłoszenia.
+  const bottomInset = sheetOpen ? sheetInset : 0
+  const insets = useMemo(() => ({ top: topInset, bottom: bottomInset }), [topInset, bottomInset])
+  // „Moja lokalizacja": z arkuszem jedzie w jego slocie `above` (peek go nie zakrywa), bez — przy prawej krawędzi mapy.
+  const locateControl = (
+    <LocateControl
+      className={sheetOpen ? 'relative shrink-0' : 'absolute right-3 top-[144px] z-10'}
+      messagesAbove={sheetOpen}
+      buttonRef={locateButtonRef}
+      onLocated={(point) => {
+        if (!stillHere(city)) return
+        // Fokus na przycisku (albo już zgubiony przy „Spróbuj ponownie") wróci tu po zamknięciu „W pobliżu".
+        locateHadFocusRef.current = document.activeElement === locateButtonRef.current || document.activeElement === document.body
+        showNearbyAt(point)
+      }}
+    />
+  )
 
+  const filterChips = (
+    <ActiveFilterChips
+      hidden={hidden}
+      line={line}
+      alertsOnly={alertsOnly}
+      onClearLine={() => chooseLine(null)}
+      onAlertsOnly={changeAlertsOnly}
+      onHiddenChange={changeHidden}
+      onClear={clearFilters}
+    />
+  )
+
+  const notices = (
+    <>
+      {noPosition !== null && <NoPositionNotice notice={noPosition} onClose={() => setNoPosition(null)} />}
+      {nearbyPending && nearby === null && (userLocation.status === 'idle' || userLocation.status === 'ready') && (
+        <div role="status" className="glass-strong pointer-events-auto flex w-max max-w-full flex-wrap items-center gap-x-3 rounded-xl px-3 py-1.5 text-sm">
+          <span>Okolica wymaga Twojej lokalizacji.</span>
+          <button type="button" onClick={() => void showMyLocation()} className="touch-44 relative min-h-9 font-medium text-primary-text underline underline-offset-2">
+            Pokaż moją lokalizację
+          </button>
+        </div>
+      )}
       {shareStatus !== 'idle' && (
         <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
           {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
@@ -512,102 +735,74 @@ export default function CityMapPage() {
               follow={following ? liveVehicle : null}
               pinnedItems={pinnedPoints}
               onlyLines={onlyLines}
-              listOpen={listOpen}
+              listOpen={listOpen || overview}
+              insets={insets}
               onContextPoint={(point) => {
                 setSelection(null)
-                setNearby(point)
+                openNearbyAround(point)
               }}
-              onVisibleChange={(items, overflow) => setVisible({ items, overflow })}
+              onVisibleChange={onVisibleChange}
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
               onViewChange={onViewChange}
-              onUserMove={() => setFollowId(null)}
+              onUserMove={() => {
+                setFollowId(null)
+                liftViewBlock()
+              }}
             />
           )}
 
           <div className="pointer-events-none absolute inset-0 flex flex-col">
             {/* Nad arkuszem (`.bottom-sheet`, z-20) tylko wtedy, gdy coś tu jest rozwinięte (wyniki wyszukiwania,
                 Filtry, Przypięte, Więcej) — inaczej lista otwierała się pod panelem; zwinięte zostają pod nim. */}
-            <div className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 sm:ml-4 sm:mt-4">
-              <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
-                {isWide ? (
-                  <>
-                    <div className="w-72">{placeSearch}</div>
-                    <div className="w-52">{lineSearch}</div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        aria-pressed={listOpen}
-                        onClick={toggleList}
-                        className={`glass inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${
-                          listOpen ? 'text-white' : 'text-foreground hover:bg-black/5 dark:hover:bg-white/10'
-                        }`}
-                        style={listOpen ? { background: 'var(--accent-gradient)' } : undefined}
-                      >
-                        <ListIcon size={ICON_SIZE.button} />
-                        Lista
-                      </button>
-                      <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                      {filters}
-                      <button
-                        type="button"
-                        onClick={() => void share()}
-                        aria-label="Udostępnij ten widok mapy"
-                        className="glass grid min-h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-                      >
-                        <ShareIcon size={ICON_SIZE.button} />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  // Telefon: dwa rzędy — zakładki i przyciski (ich panele otwierają się w lewo od prawej
-                  // krawędzi), pod nimi pole na całą szerokość. „Lista” i „Udostępnij” są w „Więcej”.
-                  <div className="flex w-full flex-col gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="glass flex w-max rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label="Czego szukasz">
-                        {(['place', 'line'] as const).map((tab) => (
-                          <button
-                            key={tab}
-                            type="button"
-                            aria-pressed={searchTab === tab}
-                            onClick={() => setSearchTab(tab)}
-                            className={`min-h-9 rounded-lg px-3.5 py-1.5 ${searchTab === tab ? 'text-white' : 'text-text-secondary'}`}
-                            style={searchTab === tab ? { background: 'var(--accent-gradient)' } : undefined}
-                          >
-                            {tab === 'place' ? 'Przystanek' : 'Linia'}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="ml-auto flex gap-2">
-                        {filters}
-                        <PinnedMenu pinnedItems={pinnedPoints} onOpen={openPinned} />
-                        <MapMoreMenu listOpen={listOpen} onToggleList={toggleList} onShare={() => void share()} />
-                      </div>
-                    </div>
-                    {searchTab === 'place' ? placeSearch : lineSearch}
-                  </div>
-                )}
-              </div>
+            <div ref={toolbarRef} className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
+              <MapToolbar
+                isWide={isWide}
+                search={search}
+                hidden={hidden}
+                vehicleLayers={vehicleLayers}
+                onHiddenChange={changeHidden}
+                alertsOnly={alertsOnly}
+                onAlertsOnly={changeAlertsOnly}
+                lineActive={line !== null}
+                listOpen={listOpen}
+                onToggleList={toggleList}
+                pinnedPoints={pinnedPoints}
+                onOpenPinned={openPinned}
+                onShare={() => void share()}
+              />
 
-              {!sheetOpen && statusStack}
+              {!sheetOpen && filterChips}
             </div>
+            {/* Komunikaty chwilowe (toast udostępniania, błędy pobierania, brak pozycji) poza mierzonym paskiem: ich pojawienie się
+                nie zmienia `insets.top`, więc nie przesuwa kamery. Szeroki ekran; na telefonie jadą w slocie `above` arkusza. */}
+            {!sheetOpen && <div className="pointer-events-none relative z-10 ml-3 mr-14 mt-2 flex shrink-0 flex-col items-start gap-2 sm:ml-4">{notices}</div>}
           </div>
 
           {sheetOpen && (
             <BottomSheet
               key={cardKey}
+              initialSnap={cardKey === 'overview:list' ? 'half' : 'peek'}
+              onVisibleHeight={setSheetInset}
               above={
-                <>
-                  {statusStack}
-                  {outsideFeed && (
-                    <p role="status" className="glass-strong rounded-full px-4 py-1.5 text-xs text-text-secondary">
-                      Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
-                    </p>
-                  )}
-                </>
+                // JEDEN rząd przy krawędzi arkusza: statusy po lewej (zajmują resztę szerokości i zawijają tekst), „Moja lokalizacja" po prawej,
+                // oba przy dolnej krawędzi. Dwa rzędy jeden nad drugim (PR10 T5) wypychały trwały komunikat pod nagłówek strony przy `full`
+                // (nad arkuszem ~55 px), a przycisk w rzędzie z nim zostaje widoczny także przy peek/half. `!`: sam rząd nie łapie gestów mapy.
+                <div className="pointer-events-none! flex w-full items-end justify-between gap-2">
+                  <div className="pointer-events-none flex min-w-0 flex-1 flex-col items-start gap-1.5">
+                    {filterChips}
+                    {notices}
+                    {outsideFeed && (
+                      <p role="status" className="glass-strong pointer-events-auto rounded-full px-4 py-1.5 text-xs text-text-secondary">
+                        Przystanki i pojazdy miejskie: tylko {feed.name} i okolice
+                      </p>
+                    )}
+                  </div>
+                  {locateControl}
+                </div>
               }
             >
-              {card}
+              {card ?? overviewPanel}
             </BottomSheet>
           )}
 
@@ -615,16 +810,23 @@ export default function CityMapPage() {
             {vehicleCountAnnouncement}
           </p>
 
-          {/* Pozycja związana z `top-44`/`sm:top-36` wrappera legendy niżej — przesuwasz przycisk, przesuń legendę. */}
+          {/* Szeroki ekran: pozycja związana z `top-[200px]` wrappera legendy niżej — przesuwasz przycisk (albo „Moja lokalizacja"), przesuń legendę. */}
           <button
             type="button"
-            onClick={() => setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })}
+            onClick={() => {
+              liftViewBlock()
+              setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })
+            }}
             aria-label={`Pokaż całe miasto — ${feed.name}`}
             title="Pokaż całe miasto"
-            className="glass absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+            className="glass-chrome border border-surface-border shadow-md absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
           >
             <CityIcon size={ICON_SIZE.tile} />
           </button>
+
+          {/* Szeroki ekran: 144 px = pod „Pokaż całe miasto" (132 px) + 12 px; komunikaty wysuwają się w lewo od przycisku.
+              Telefon: przycisk leży w slocie `above` arkusza (wyżej), nie tu. */}
+          {!sheetOpen && locateControl}
 
           {outsideFeed && !sheetOpen && (
             <p role="status" className="glass-strong absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-xs text-text-secondary">
@@ -632,13 +834,12 @@ export default function CityMapPage() {
             </p>
           )}
 
-          {(isWide || card === null) && (
-            // `sm:top-36` (144 px) = pod kontrolkami prawego rogu: zoom MapLibre (10–68 px) i „Pokaż całe
-            // miasto” (`top-[88px]` + `h-11` = 132 px) + 12 px odstępu. Od `top-3` rozwinięta legenda
-            // przykrywała je na niskich ekranach (800×600, 375×667). Poniżej `sm` (= `SM_UP`)
-            // przyciski Lista/Filtry/Udostępnij schodzą do drugiego rzędu (114–158 px przy 375 px),
-            // stąd `top-44` (176 px) — przy 144 px legenda zakrywała ich dolne 14 px.
-            <div className="pointer-events-none absolute bottom-8 right-3 top-44 z-10 flex flex-col justify-end sm:right-4 sm:top-36">
+          {isWide && (
+            // Pełna legenda tylko na szerokim ekranie (telefon: `CompactLegend` w arkuszu przeglądu). `top-[200px]` =
+            // pod kontrolkami prawego rogu: zoom MapLibre (10–68 px), „Pokaż całe miasto” (`top-[88px]` + `h-11` =
+            // 132 px) i „Moja lokalizacja” (`top-[144px]` + `h-11` = 188 px) + 12 px odstępu. Od `top-3` rozwinięta
+            // legenda przykrywała je na niskich ekranach (800×600).
+            <div className="pointer-events-none absolute bottom-8 right-3 top-[200px] z-10 flex flex-col justify-end sm:right-4">
               <MapLegend />
             </div>
           )}
@@ -648,16 +849,5 @@ export default function CityMapPage() {
         {isWide && card !== null && <aside className="flex w-aside shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
       </div>
     </div>
-  )
-}
-
-function Chip({ label, removeLabel, onRemove }: { label: string; removeLabel: string; onRemove: () => void }) {
-  return (
-    <li className="glass-strong inline-flex items-center gap-1 rounded-full py-1 pl-3 pr-1 text-xs font-medium">
-      {label}
-      <button type="button" onClick={onRemove} aria-label={removeLabel} className="touch-44 relative -my-1 grid h-9 w-9 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10">
-        <CloseIcon size={ICON_SIZE.chip} />
-      </button>
-    </li>
   )
 }

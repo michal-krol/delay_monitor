@@ -36,6 +36,9 @@ describe('useCityVehicles', () => {
     await vi.waitFor(() => expect(result.current.vehicles).toHaveLength(1))
     expect(result.current.vehicles[0].sideNumber).toBe('3801')
     expect(result.current.feed).toEqual({ state: 'ready', ageMs: 5000 })
+    // Jeden zegar strony: ten sam `now`, z którego liczą się wieki pozycji, służy do wieku pobrania w nagłówku.
+    expect(result.current.now).toBeGreaterThan(0)
+    expect(result.current.now).toBeLessThanOrEqual(Date.now())
     expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/city-vehicles?city=warszawa')
   })
 
@@ -63,6 +66,24 @@ describe('useCityVehicles', () => {
     await vi.advanceTimersByTimeAsync(15_000)
     await vi.waitFor(() => expect(result.current.error).toBe('network'))
     expect(result.current.vehicles).toHaveLength(1)
+  })
+
+  it('keeps ageing positions after a failed refresh, so a stale feed shows as growing age (#7)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => jsonResponse({ vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 5000 } }))
+      .mockImplementation(() => Promise.reject(new Error('network')))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useCityVehicles('warszawa'))
+    await vi.waitFor(() => expect(result.current.vehicles).toHaveLength(1))
+    expect(result.current.vehicles[0].ageSec).toBe(12) // świeży odczyt: wiek z odpowiedzi, bez doliczeń
+    expect(result.current.lastSuccessAt).not.toBeNull()
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(result.current.error).toBe('network')
+    // 12 s z odpowiedzi + ~120 s od ostatniego udanego odczytu (zegar tyka co 10 s).
+    expect(result.current.vehicles[0].ageSec).toBeGreaterThanOrEqual(12 + 110)
+    expect(result.current.feed.ageMs).toBeGreaterThanOrEqual(5000 + 110_000)
   })
 
   it('falls back to a generic error message for a non-Error rejection', async () => {

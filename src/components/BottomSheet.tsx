@@ -46,6 +46,7 @@ export function BottomSheet({
   children,
   initialSnap = 'peek',
   above,
+  onVisibleHeight,
 }: {
   children: ReactNode
   initialSnap?: SheetSnap
@@ -54,9 +55,20 @@ export function BottomSheet({
    * mapy) — inaczej arkusz przy half/full by ją zakrył. Przy `full` mieści się ok. jeden rząd.
    */
   above?: ReactNode
+  /**
+   * Ile pikseli od dołu mapy zasłania arkusz: widoczny panel w danym punkcie + slot `above` (statusy, kontrolka lokalizacji).
+   * Zgłaszane przy `peek` i `half` — po zmianie punktu (przy przeciąganiu dopiero po ustaniu przewijania) oraz zmianie
+   * rozmiaru. Przy `full` NIE (świadome odstępstwo:kamera zostaje przy ostatniej wartości z `peek`/`half`).
+   */
+  onVisibleHeight?: (px: number) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const aboveRef = useRef<HTMLDivElement>(null)
   const [snap, setSnap] = useState<SheetSnap>(initialSnap)
+  const onVisibleHeightRef = useRef(onVisibleHeight)
+  useEffect(() => {
+    onVisibleHeightRef.current = onVisibleHeight
+  })
   // Cel trwającej animacji uchwytu: szybkie drugie dotknięcie idzie od niego dalej (peek → half → full).
   const targetRef = useRef<SheetSnap | null>(null)
   const waitsRef = useRef(0)
@@ -68,6 +80,18 @@ export function BottomSheet({
     el?.scrollTo({ top: SHEET_SNAPS[initialSnap] * el.clientHeight, behavior: 'instant' })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- punkt startowy tylko przy montowaniu; inny = nowy `key`
   }, [])
+
+  useEffect(() => {
+    const el = ref.current
+    if (el === null || snap === 'full') return
+    const report = (): void => onVisibleHeightRef.current?.(Math.round(SHEET_SNAPS[snap] * el.clientHeight + (aboveRef.current?.offsetHeight ?? 0)))
+    report()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(report)
+    observer.observe(el)
+    if (aboveRef.current !== null) observer.observe(aboveRef.current)
+    return () => observer.disconnect()
+  }, [snap])
 
   function cycle(): void {
     const el = ref.current
@@ -113,7 +137,11 @@ export function BottomSheet({
         ))}
       </div>
       <div className="bottom-sheet__panel">
-        {above !== undefined && <div className="bottom-sheet__above">{above}</div>}
+        {above !== undefined && (
+          <div ref={aboveRef} className="bottom-sheet__above">
+            {above}
+          </div>
+        )}
         <button type="button" className="bottom-sheet__handle" aria-label={`Zmień wysokość panelu (teraz: ${SNAP_LABEL[snap]})`} onClick={cycle}>
           <span className="bottom-sheet__grip" />
         </button>

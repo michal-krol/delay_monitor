@@ -34,6 +34,13 @@ describe('NearbyPanel', () => {
     expect(onOpen).toHaveBeenCalledWith(railPoint)
   })
 
+  it('departures={false} lists the points but sends no stop ids upstream (GPS-derived nearby)', () => {
+    transitBoard.mockReturnValue({ data: null, error: null })
+    render(<NearbyPanel points={[stopPoint, railPoint]} city="warszawa" onOpen={() => {}} onClose={() => {}} departures={false} />)
+    expect(transitBoard).toHaveBeenCalledWith(null, [], 1)
+    expect(screen.getByText('Centrum 01')).toBeInTheDocument()
+  })
+
   it('says nothing is around rather than showing an empty list, and does not fetch', () => {
     transitBoard.mockReturnValue({ data: null, error: null })
     const onClose = vi.fn()
@@ -61,13 +68,24 @@ describe('VisibleListPanel', () => {
         onClose={() => {}}
       />
     )
-    expect(screen.getByText('4+ obiektów')).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Stacje kolejowe', 'Przystanki', 'Pojazdy'])
     const vehicles = screen.getAllByRole('button', { name: /^Linia/ }).map((b) => b.textContent)
     expect(vehicles).toEqual(['Linia 20', 'Linia 128'])
     fireEvent.click(screen.getByRole('button', { name: 'Centrum 01' }))
     expect(onOpen).toHaveBeenCalledWith({ kind: 'stop', id: '100101', label: 'Centrum 01' })
-    expect(screen.getByText(/przybliż, żeby zobaczyć resztę/)).toBeInTheDocument()
+  })
+
+  it('overflow shows „Przybliż mapę, aby zobaczyć więcej" and no exact total', () => {
+    const items = [{ kind: 'vehicle' as const, id: 'a', label: '20' }]
+    const { rerender } = render(<VisibleListPanel items={items} overflow onOpen={() => {}} onClose={() => {}} />)
+    expect(screen.getByText('Przybliż mapę, aby zobaczyć więcej')).toBeInTheDocument()
+    expect(screen.getByText('Pierwsze 100 obiektów')).toBeInTheDocument()
+    // Żadnego „N+" udającego liczbę: przy przepełnieniu nie znamy sumy.
+    expect(screen.queryByText(/\d\+/)).toBeNull()
+
+    rerender(<VisibleListPanel items={items} overflow={false} onOpen={() => {}} onClose={() => {}} />)
+    expect(screen.getByText('1 obiekt')).toBeInTheDocument()
+    expect(screen.queryByText('Przybliż mapę, aby zobaczyć więcej')).toBeNull()
   })
 
   it('tells "still counting" apart from "nothing in view"', () => {
@@ -75,6 +93,22 @@ describe('VisibleListPanel', () => {
     expect(screen.getByText('Liczę obiekty w kadrze…')).toBeInTheDocument()
     rerender(<VisibleListPanel items={[]} overflow={false} onOpen={() => {}} onClose={() => {}} />)
     expect(screen.getByText(/W tym kadrze nic nie widać/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Wyczyść filtry' })).toBeNull()
+  })
+
+  it('empty list after filter offers Wyczyść filtry', () => {
+    const onClearFilters = vi.fn()
+    render(<VisibleListPanel items={[]} overflow={false} onOpen={() => {}} onClose={() => {}} onClearFilters={onClearFilters} />)
+    expect(screen.getByText(/W tym kadrze nic nie widać/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Wyczyść filtry' }))
+    expect(onClearFilters).toHaveBeenCalledOnce()
+  })
+
+  it('no clear button while the count is still being computed or the list has rows', () => {
+    const { rerender } = render(<VisibleListPanel items={null} overflow={false} onOpen={() => {}} onClose={() => {}} onClearFilters={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Wyczyść filtry' })).toBeNull()
+    rerender(<VisibleListPanel items={[{ kind: 'stop', id: '1', label: 'A' }]} overflow={false} onOpen={() => {}} onClose={() => {}} onClearFilters={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Wyczyść filtry' })).toBeNull()
   })
 })
 

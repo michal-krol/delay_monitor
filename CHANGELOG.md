@@ -42,6 +42,23 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   tej samej frazy.
 - Gwiazdka przypięcia robi jedno krótkie „puknięcie” w chwili przypięcia (nie przy wczytaniu strony ani
   odświeżeniu danych); przy ograniczonym ruchu nie animuje się wcale.
+- Mapa transportu: przycisk „Moja lokalizacja”. Przeglądarka pyta o położenie dopiero po kliknięciu (jednorazowo,
+  bez śledzenia), a po odmowie nie pyta ponownie — pokazujemy komunikat i mapa działa dalej. Pozycja zostaje tylko
+  w pamięci aplikacji: nie trafia do adresu, do `localStorage`, do logów ani na serwer, a widok wyśrodkowany na
+  użytkowniku nie jest zapamiętywany. Decyzja: `adr/0012-gps-po-kliknieciu.md`.
+- „W pobliżu” z pozycji użytkownika (promień 500 m, odległości w linii prostej) oraz wejście przez `?nearby=1`:
+  po odświeżeniu strony pozycji już nie ma, więc zamiast cichego pytania jest przycisk „Pokaż moją lokalizację”.
+  Pozycja starsza niż minuta nie udaje bieżącej — kolejne kliknięcie pyta o nową, a pytanie, na które przeglądarka
+  nie odpowie, kończy się komunikatem z możliwością ponowienia. Okolica z GPS nie pokazuje podglądu odjazdów
+  (identyfikatory najbliższych przystanków w zapytaniu zdradzałyby położenie).
+- Mapa transportu na telefonie: przegląd w dolnym arkuszu — ile pojazdów, przystanków i stacji jest w kadrze,
+  „Pozycje sprzed …” (mediana wieku GPS widocznych pojazdów) i zwarta legenda rodzajów. „Lista” rozwija arkusz
+  do listy obiektów w kadrze.
+- Mapa transportu: „Lista” i „Filtry” są zawsze widoczne (nie w menu „Więcej”), a pod nimi czipy rodzajów
+  pojazdów (Autobusy, Tramwaje, Metro, Pociągi) przełączają te same warstwy co panel „Filtry”. Licznik na „Filtry”
+  i przycisk „Wyczyść filtry” liczą warstwy, linię i „tylko linie z utrudnieniami”; reset zostawia miasto i kadr.
+- Panel linii na mapie pokazuje komunikaty tej linii („Komunikaty linii 20”) w tej samej odpowiedzi co przebieg,
+  bez dodatkowych zapytań.
 
 ### Zmienione
 
@@ -169,6 +186,17 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Decyzja o braku service workera i powiadomień push: `adr/0008-pwa-bez-service-workera.md`.
 - Skróty w menu ikony zainstalowanej aplikacji (Pulpit, Odjazdy, Mapa, Linie) mają własne
   ikony — te same znaki co w dolnym pasku nawigacji — zamiast wspólnego logo aplikacji.
+- Mapa transportu ma jedno pole wyszukiwania „Stacja, przystanek lub linia” zamiast dwóch (miejsce i linia): wynik
+  zostaje na mapie, a wynik bez współrzędnych daje komunikat „Brak pozycji na mapie” z linkiem do szczegółów
+  zamiast skoku kamery w złe miejsce.
+- Wiek pozycji pojazdu na mapie: „Pozycja sprzed N s” to wiek znacznika GPS (nie czas pobrania danych), rośnie
+  razem z zegarem strony, od 90 s pojazd blednie, a po 180 s znika z mapy i listy. Zaznaczony pojazd bez świeżej
+  pozycji pokazuje „Utracono pozycję pojazdu — ostatnia sprzed N min”. Nagłówek mapy podaje, kiedy dane pobrano.
+- Kamera mapy uwzględnia dolny arkusz i pasek kontrolek: wybrany obiekt ląduje w widocznej części mapy, a nie pod
+  panelem (ruch ≤ 320 ms, przy ograniczeniu ruchu skok bez animacji).
+- Kontrolki mapy używają koloru głównego (`--primary`) zamiast gradientu akcentu; stan „wciśnięty” ma obrys także
+  w trybie wysokiego kontrastu.
+- Na telefonie komunikaty o stanie i przycisk „Moja lokalizacja” stoją w jednym rzędzie przy krawędzi arkusza.
 
 ### Naprawione
 
@@ -188,6 +216,21 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   pustej ramki.
 - Mapa transportu na telefonie (Android/Chrome): przeciągnięcie karty w dolnym panelu za jej treść
   znów podnosi panel — wcześniej działał tylko uchwyt i nagłówek karty.
+- Mapa transportu na telefonie: trwały komunikat o awarii nie chowa się już pod nagłówkiem strony, gdy arkusz jest
+  podniesiony do pełnej wysokości.
+- Mapa transportu: źródła danych mapy (OpenFreeMap / OpenStreetMap) nie chowają się pod dolnym arkuszem — przycisk
+  „Pokaż źródła danych mapy” leży nad nim; pole wyszukiwania i czipy rodzajów mają kryjące tło (etykiety mapy
+  nie prześwitują); „Zmień kierunek”, wiersze przystanków linii oraz „Co jest w pobliżu?” i „Pokaż trasę na mapie”
+  mają cel dotyku co najmniej 44 px; Escape na wyniku wyszukiwania zamyka listę wyników, a fokus wraca do pola;
+  komunikat „Brak pozycji na mapie” nie odbiera fokusu po przełączeniu panelu; przy nieudanym odświeżeniu pozycji
+  pojazdów nagłówek podaje godzinę ostatnich danych („· dane z 12:30”); czytnik ekranu milczy o liczbie pojazdów
+  do pierwszego udanego wczytania i odmienia „pojazd / pojazdy / pojazdów”; przyciski-ikony mają widoczny obrys
+  fokusu także w trybie wysokiego kontrastu.
+
+### Bezpieczeństwo
+
+- Nagłówek `Permissions-Policy` zezwala na geolokalizację tylko dla własnej strony (`geolocation=(self)`);
+  kamera, mikrofon, płatności i USB pozostają wyłączone. Współrzędne użytkownika nie są nigdzie zapisywane.
 
 ## [1.2.0] — 2026-10-07
 

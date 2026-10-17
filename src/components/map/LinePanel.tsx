@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { ArrowRightIcon, ChevronRightIcon, SwapIcon, ICON_SIZE } from '../icons'
-import { AlertBanner } from '../AlertBanner'
+import { ContextAlerts } from '../ContextAlerts'
 import { LineBadge } from '../LineBadge'
 import { OnRequestBadge } from '../OnRequestBadge'
 import { MODE_LABEL } from '../transitMode'
 import type { AlertRecord } from '@/lib/gtfs/alerts'
+import type { ContextAlertsState } from '@/lib/gtfs/alertView'
 import type { LineDetail, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import { PanelFrame } from './PanelFrame'
 import { stopDisplayName } from '../stopName'
@@ -19,7 +20,9 @@ import { stopDisplayName } from '../stopName'
 export function LinePanel({
   line,
   detail,
-  alerts = [],
+  alerts,
+  alertsState,
+  alertsStale,
   error,
   directionId,
   vehiclesOnLine,
@@ -31,8 +34,11 @@ export function LinePanel({
   line: LineListEntry
   /** `undefined` = wczytuje się, `null` = rozkład nie zna przebiegu tej linii. */
   detail: LineDetail | null | undefined
-  /** Aktywne utrudnienia tej linii (`/api/gtfs/line`). */
-  alerts?: AlertRecord[]
+  /** Komunikaty tej linii z tej samej odpowiedzi `/api/gtfs/line` co przebieg (`useLineDetail`) — bez osobnego pollera. */
+  alerts: AlertRecord[]
+  alertsState: ContextAlertsState['state']
+  /** `failed`, ale ostatnia dobra lista istnieje. */
+  alertsStale: boolean
   error: boolean
   directionId: number
   vehiclesOnLine: number
@@ -55,11 +61,9 @@ export function LinePanel({
       bodyLabel="Przystanki linii"
       focusKey={line.routeId}
     >
-      {alerts.length > 0 && (
-        <div className="mb-3">
-          <AlertBanner alerts={alerts} />
-        </div>
-      )}
+      <div className="mb-3">
+        <ContextAlerts alerts={alerts} state={alertsState} stale={alertsStale} scopeLabel={`Komunikaty linii ${line.line}`} />
+      </div>
       {detail === undefined && error && <p className="text-sm text-error-text">Nie udało się pobrać przebiegu linii.</p>}
       {detail === undefined && !error && (
         <ul className="space-y-2" aria-hidden="true">
@@ -79,7 +83,7 @@ export function LinePanel({
               <button
                 type="button"
                 onClick={() => onDirection(other.directionId)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-surface-border px-2.5 py-1 text-xs font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+                className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-surface-border px-3 py-1 text-xs font-medium text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
               >
                 <SwapIcon size={ICON_SIZE.chip} />
                 Zmień kierunek
@@ -92,7 +96,7 @@ export function LinePanel({
                 <button
                   type="button"
                   onClick={() => onStop(stop)}
-                  className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <span className="w-6 shrink-0 text-right text-xs tabular-nums text-text-muted">{index + 1}</span>
                   <span className="min-w-0 flex-1 truncate">{stopDisplayName(stop.name, stop.code)}</span>
@@ -105,8 +109,7 @@ export function LinePanel({
       )}
       <Link
         href={`/city/${city}/line/${line.routeId}`}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-        style={{ background: 'var(--accent-gradient)' }}
+        className="btn-primary mt-4 w-full text-sm"
       >
         Rozkład linii
         <ChevronRightIcon size={ICON_SIZE.inline} />

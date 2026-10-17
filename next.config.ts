@@ -125,7 +125,8 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    // geolocation=(self): GPS tylko z naszego origin i dopiero po kliknięciu (adr/0012).
+    value: "camera=(), microphone=(), geolocation=(self), payment=(), usb=()",
   },
 ];
 

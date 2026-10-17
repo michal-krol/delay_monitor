@@ -55,6 +55,81 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Browser fetch age: „Pobrano {N s temu|przed chwilą}” (not the age of the source feed); stale after a failed refresh:
   „Nie udało się odświeżyć · dane z {HH:mm}” (city time zone).
 
+## Map location (`LocateControl`, `/city/<city>/map`, adr/0012)
+
+- Control: accessible name and tooltip „Moja lokalizacja” (`LocateIcon`); GPS only after the click (`aria-busy` while asking).
+- States (`role="status"` beside the button): asking „Szukam lokalizacji…” (the one allowed exception to „Wczytywanie…” — it is
+  a device lookup the user triggered, not a fetch of our data); denied „Brak dostępu do lokalizacji. Wyszukaj
+  miejsce lub wybierz je na mapie” (no retry button — the browser will not prompt again); no API „Lokalizacja nie jest dostępna
+  w tej przeglądarce”; failed „Nie udało się ustalić lokalizacji” + „Spróbuj ponownie”.
+- `?nearby=1` without a position in memory (after F5): „Okolica wymaga Twojej lokalizacji.” + button „Pokaż moją lokalizację”
+  (the click is the only GPS call; the flag is removed as soon as „W pobliżu” is opened, so closing it never brings the button back).
+- „W pobliżu” subtitle: „Promień 500 m · w linii prostej” — distances are straight-line, never walking time.
+
+## Map overview and vehicle position age (`OverviewPanel`, `MapCard`, `/city/<city>/map`)
+
+- Phone overview (nothing selected, no nearby, no line) = bottom sheet at `peek`, a region (not a dialog) named „Pojazdy i przystanki w
+  widoku”: counts „{n} pojazd|pojazdy|pojazdów · {n} przystanek|przystanki|przystanków · {n} stacja|stacje|stacji kolejowa” (zero parts left
+  out), loading „Liczę obiekty w kadrze…”, nothing „Brak obiektów w kadrze”, overflow „Pierwsze 100 obiektów” + „Przybliż mapę, aby zobaczyć
+  więcej” (never a total). „Lista” opens the same sheet at `half`; list subtitle in the window panel is „{n} obiekt|obiekty|obiektów”.
+- Overview age = the **median GPS age (`ageSec`) of the vehicles currently visible** in the frame (even count: mean of the middle two): „Pozycje
+  sprzed {N s|N min}” („Pozycje sprzed chwili” under 5 s). Never the poller's fetch age presented as GPS age (it is a different, smaller number —
+  the thresholds 90/180 s exist because individual fixes lag). No visible vehicle with an age = no claim: loading „Wczytywanie pozycji
+  pojazdów…”; failed without data „Nie udało się pobrać pozycji pojazdów”; failed with data „Nie udało się odświeżyć · Pozycje sprzed …”;
+  feed ready, frame not empty but no vehicle in it (also night, zero vehicles) „Brak pojazdów w widoku”; empty frame says only „Brak obiektów w
+  kadrze”. Three states, three words (#7).
+- Ages grow: `useCityVehicles` adds the time since the last successful reading (`effectiveAgeMs`, one 10 s clock per page) to every `ageSec` and
+  to `feed.ageMs`, so after a failed refresh the age keeps rising and a vehicle reaches the 90 s fade, the 180 s hide and „Utracono pozycję”.
+- The scrollable list body of the overview has the accessible name „Obiekty w widoku”.
+- Vehicle card heading: „{tramwaj|autobus|metro|kolej} {X}”; mode `other` or no mode = „Linia {X}” (never „Inne 20”); no line = „Pojazd”.
+- Per-vehicle GPS age (card row „GPS pojazdu”, list rows): „Pozycja sprzed {N s|N min}” via `formatSince` (`formatAgo` ends in „temu” and does not
+  read after „sprzed”). Over `HIDE_AFTER_SEC` (180 s) the card says „Utracono pozycję pojazdu — ostatnia sprzed {N min}”; gone from the feed:
+  „Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.”. Never the browser’s fetch time.
+- Compact legend (`CompactLegend`, „Legenda rodzajów”): one chip per mode with `MODE_LABEL` (metro, tramwaj, autobus, kolej, inne).
+- GTFS stop by mode (`STOP_LABEL` in `MapCard`): „Stacja metra”, „Przystanek tramwajowy”, „Przystanek autobusowy”, „Stacja kolei miejskiej”
+  (GTFS rail, not PKP), „Przystanek” (other); an unknown vehicle run is „inne”, never a bus.
+- Line panel alerts: `ContextAlerts` with „Komunikaty linii {X}” (wording as in „Context alerts” above); the panel's close is „Zakończ tryb
+  linii”, direction switch „Zmień kierunek”, link „Rozkład linii”.
+- Map cards: close „Zamknij kartę”; nearby shortcut „Co jest w pobliżu?” (keyboard route to the same „W pobliżu” as a long press); vehicle
+  „Śledź pojazd” ↔ „Śledzę pojazd” (`aria-pressed`), „Pokaż trasę na mapie”; GPS row „Pozycja sprzed {…} · aktualna|nieaktualna” (stale after 90 s).
+- Sheet handle (`BottomSheet`): „Zmień wysokość panelu (teraz: niski|do połowy|pełny)”.
+- Outside the city feed area: `role=status` „Przystanki i pojazdy miejskie: tylko {miasto} i okolice”.
+- Sheet `above` row: statuses on the left (wrap), „Moja lokalizacja” on the right; its states (above) float over the button in the flow on phones, beside
+  it on wide screens — wording is the same.
+- Page header subtitle (`TopBar`): „{miasto} · pobrano {N s temu|przed chwilą}” — the glossary „Pobrano …” (browser fetch age, `lastSuccessAt`, grows with
+  the page clock); it is NOT the GPS age („Pozycje sprzed …” in the overview, per vehicle). Other states unchanged: „wczytywanie pozycji pojazdów…”,
+  „nie udało się pobrać pozycji pojazdów”, „pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne · dane z {HH:mm}” (city time zone, from
+  `lastSuccessAt`; the age of the last good data, “Data age” above).
+- Screen-reader live region: „Na mapie {n} pojazd|pojazdy|pojazdów” (`pluralPl`), spoken after filter/line changes and the first load only; silent while
+  the count is unknown (before the first successful reading) — unknown never reads as 0 (#7). A healthy zero (night) is announced.
+
+## Map search (`UnifiedSearch variant="overlay"`, `/city/<city>/map`)
+
+- Wording of the field, groups and states: see „Search” below (one field, no Przystanek/Linia tabs). Map-specific: results float
+  over the map in an opaque `role="group"` panel named „Wyniki wyszukiwania”, only while the field is not empty (no recents, no
+  instruction under an empty field). Picking a result clears the field and stays on the map.
+- Result without a position on the map: `role="status"` „Brak pozycji na mapie: {name}.” + link „Szczegóły stacji” (PKP) /
+  „Szczegóły przystanku” (zespół) to the board page, close button „Zamknij komunikat”; the camera does not move. Focus goes to
+  this notice (the picked row unmounted and no card opens), never back to the field (it would raise the phone keyboard).
+- A zespół is placed at the centroid of its stops from the city stop list; with no members there it falls back to the result's
+  own `lat/lon` (the server's `groupCentroid`) — same point, not a second rule; neither = the notice above. The notice has no
+  `aria-label` (its text is the name — a label would be read twice on focus); its focus indicator is an `outline`, not a `ring`.
+- The results panel also closes (the phrase stays) on a press outside the field+panel (a tap on the map) and when focus moves out
+  to another element; focusing/tapping the field or typing reopens it.
+
+## Map filters (`MapToolbar`, `MapFilters`, `VisibleListPanel`, `/city/<city>/map`)
+
+- Always visible under the search field on phones (no menu): „Lista” (`aria-pressed`) and „Filtry” (badge = `activeFilterCount`:
+  hidden layers + the chosen line + „Tylko linie z utrudnieniami”; sr-only suffix „ aktywnych ograniczeń”). „Więcej” keeps only „Udostępnij widok”.
+- Mode chips (phones, group „Rodzaje pojazdów”): one `.chip-filter` per vehicle layer present, label = `LAYER_LABEL` („Autobusy”,
+  „Tramwaje”, „Metro”, „Pociągi”), `aria-pressed` = the layer is visible. They toggle the same `hidden` set as the „Filtry” panel.
+- Active restrictions: list „Aktywne filtry” of removable chips („Linia {X}”, „Tylko linie z utrudnieniami”, „Ukryte: {warstwa}”) +
+  button „Wyczyść filtry” while the count is above zero. Reset = default layers, no `line`/`dir`/`alerts`/`hide`; city and `at` stay.
+  „Pokaż wszystko” inside the „Filtry” panel resets only layers and the alerts switch (the line is not toggled there).
+- Visible list („W widoku”): subtitle „{n} obiektów”, with overflow „Pierwsze 100 obiektów” (never „100+” as if it were a total) and the
+  hint „Przybliż mapę, aby zobaczyć więcej”. Empty frame: „W tym kadrze nic nie widać — oddal albo przesuń mapę.”, plus „Wyczyść filtry”
+  when any restriction is active.
+
 ## Transit line (`/city/[city]/line/[routeId]`, GTFS only — #13)
 
 - Mode word from `MODE_LABEL[mode]` with `MODE_ICON` (never a hardcoded „Autobus”); h1 = the line's long name; in every
@@ -128,7 +203,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Row context: PKP „Stacja kolejowa PKP”; stop group „Zespół przystanków · {miasto}”; line „{Metro|Tramwaj|Autobus|Kolej miejska} · {miasto}”
   — GTFS rail is „Kolej miejska”, never „Stacja kolejowa PKP” (#13: it never opens a PKP connection).
 - States: 1–2 characters „Wpisz co najmniej 3 znaki, aby znaleźć miejsca” (lines still listed); loading „Wczytywanie…” (glossary: still
-  loading; never „Szukam…”); a failed source „Nie udało się wczytać {stacji kolejowych|przystanków|linii}” + „Spróbuj ponownie”; healthy zero
+  loading; never „Szukam…”; the one exception is the locate status „Szukam lokalizacji…”, see „Map location”); a failed source „Nie udało się wczytać {stacji kolejowych|przystanków|linii}” + „Spróbuj ponownie”; healthy zero
   results „Brak wyników dla tej frazy” (places searched, 3+ characters) — with 1–2 characters only lines were searched, so „Brak linii dla tej
   frazy”; neither is shown while a source loads or after a failure. Cap hint „Pokazano do 8 wyników — doprecyzuj frazę” (also at exactly 8 rows);
   offline „Brak połączenia — wyniki mogą być nieaktualne”.
