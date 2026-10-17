@@ -226,9 +226,9 @@ describe('LineTimetable — no stop to show times for', () => {
     expect(screen.queryByRole('button', { name: /^06:00/ })).not.toBeInTheDocument()
   })
 
-  it('still offers the day chips, so the choice of category is not lost', () => {
+  it('offers no day chips — they would only change the URL while nothing is shown', () => {
     renderTimetable({ offsetSec: null })
-    expect(dayChips().getByRole('button', { name: 'Soboty' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Kategoria dnia' })).not.toBeInTheDocument()
   })
 
   it('treats a real offset 0 (the first stop) as a stop — times are shown', () => {

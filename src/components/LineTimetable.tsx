@@ -56,19 +56,22 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect, da
 
   return (
     <div className="mt-3">
-      <div role="group" aria-label="Kategoria dnia" className="mb-3 flex flex-wrap gap-2 lg:hidden">
-        {columns.map((c) => (
-          <button key={c.day} type="button" aria-pressed={c.day === activeDay} onClick={() => changeDay(c.day)} className="chip-filter">
-            {c.label}
-          </button>
-        ))}
-      </div>
+      {/* Bez przystanku nie ma co przełączać: chipy zmieniałyby tylko adres. */}
+      {offsetSec !== null && (
+        <div role="group" aria-label="Kategoria dnia" className="mb-3 flex flex-wrap gap-2 lg:hidden">
+          {columns.map((c) => (
+            <button key={c.day} type="button" aria-pressed={c.day === activeDay} onClick={() => changeDay(c.day)} className="chip-filter">
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {offsetSec === null ? (
         <p className="py-2 text-sm text-text-secondary">Brak przystanku, dla którego można pokazać godziny.</p>
       ) : (
         // Poniżej `lg` zmiana kategorii podmienia siatkę (klucz = dzień): stara i nowa treść to para wyjście/wejście. Od `lg`
-        // wszystkie kolumny stoją naraz, a klik w minutę innej kolumny nie może jej odmontować (fokus).
+        // wszystkie kolumny stoją naraz, a klik w minutę innej kolumny nie może jej odmontować (fokus). Przekroczenie progu `lg` (też pierwszy render po hydracji na telefonie) odmontowuje siatkę raz — wybór kursu żyje w rodzicu, więc nic się nie gubi (najwyżej fokus na minucie).
         <TabCrossfade id={lgUp ? 'all' : activeDay} name="line-day">
           <div className={`grid gap-4 ${columns.length > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
             {columns.map((c) => {
