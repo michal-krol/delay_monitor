@@ -980,9 +980,7 @@ details[open] > summary .disclosure-chevron,
    (nudności, zawroty). Wszystkie te efekty są czysto wizualne — informacja
    („pociąg jest tutaj", „brak stacji") jest już w treści obok. */
 @media (prefers-reduced-motion: reduce) {
-  .delay-changed,
-  .float,
-  .ring-pulse::after {
+  .delay-changed {
     animation: none;
   }
   .card-hover:hover {

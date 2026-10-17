@@ -196,7 +196,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   „Ostatnio oglądane” → on phones the „Info” button. The history keeps „Ostatnio oglądane” (it records places you OPENED, not searched; the mockup
   says the same) — not „Ostatnio wyszukiwane”.
 - Search entry = a button named „Stacja, przystanek lub linia” (phone: goes to `/search`; from `sm`: opens the `UnifiedSearch` dialog). It is not an input.
-- Location: button „W pobliżu mnie” (`LocateIcon`); while asking „Ustalanie lokalizacji…” (`aria-busy`, clicks ignored); a fix opens `/map?nearby=1`.
+- Location: button „W pobliżu mnie” (`LocateIcon`); while asking „Ustalanie lokalizacji…” (`aria-busy`, clicks ignored; the map control keeps „Szukam lokalizacji…” — two surfaces, a second deliberate exception to „Wczytywanie…”); a fix opens `/map?nearby=1`.
   Under the button (`aria-live`): denied „Brak dostępu do lokalizacji. Wyszukaj miejsce powyżej.”; no API „Lokalizacja nie jest dostępna w tej
   przeglądarce”; failed „Nie udało się ustalić lokalizacji. Spróbuj ponownie lub wyszukaj miejsce.” (the same button retries). Nothing is shown before the click.
 - Empty „Moje miejsca”: „Nie masz jeszcze zapisanych miejsc. Znajdź stację lub przystanek i przypnij je gwiazdką — odjazdy pojawią się tutaj.” + button

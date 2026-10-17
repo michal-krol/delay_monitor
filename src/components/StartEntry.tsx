@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useUserLocation, type UserLocationStatus } from '@/hooks/useUserLocation'
@@ -27,11 +28,19 @@ export function StartEntry({ onSearch }: { onSearch: () => void }) {
   const router = useRouter()
   const { status, request } = useUserLocation()
   const requesting = status === 'requesting'
+  // Odpowiedź GPS po opuszczeniu Startu nie może nikogo przenieść na mapę (maps.md: spóźniona odpowiedź nic nie dotyka).
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   async function findNearby(): Promise<void> {
     if (requesting) return
     const point = await request()
-    if (point !== null) router.push('/map?nearby=1', NAV_FORWARD_OPTIONS)
+    if (point !== null && mounted.current) router.push('/map?nearby=1', NAV_FORWARD_OPTIONS)
   }
 
   return (
@@ -45,12 +54,12 @@ export function StartEntry({ onSearch }: { onSearch: () => void }) {
           type="button"
           onClick={() => void findNearby()}
           aria-busy={requesting}
-          className="chip-filter gap-2 px-3 text-primary-text"
+          className="chip-filter gap-2 px-2 py-2 text-center leading-tight text-primary-text"
         >
           <LocateIcon size={ICON_SIZE.button} className="shrink-0" />
           {requesting ? 'Ustalanie lokalizacji…' : 'W pobliżu mnie'}
         </button>
-        <Link href="/map" className="chip-filter gap-2 px-3 text-primary-text">
+        <Link href="/map" className="chip-filter gap-2 px-2 py-2 text-center leading-tight text-primary-text">
           <MapIcon size={ICON_SIZE.button} className="shrink-0" />
           Otwórz mapę
         </Link>

@@ -4,7 +4,7 @@ import { ChevronRightIcon, ICON_SIZE } from './icons'
 import { FOCUS_RING, HOVER } from './interaction'
 
 /** „Wszystkie odjazdy” na karcie Startu: pełny link do tablicy miejsca (≥ 44 px), osobny od nagłówka karty. */
-export function AllDeparturesLink({ href }: { href: string }) {
+export function AllDeparturesLink({ href, name }: { href: string; name: string }) {
   return (
     <Link
       href={href}
@@ -12,7 +12,9 @@ export function AllDeparturesLink({ href }: { href: string }) {
       data-card-open
       className={`-mx-2 mt-1 flex min-h-11 items-center justify-between gap-2 rounded-lg px-2 text-sm font-medium text-primary-text ${HOVER} ${FOCUS_RING}`}
     >
-      Wszystkie odjazdy
+      <span>
+        Wszystkie odjazdy<span className="sr-only"> — {name}</span>
+      </span>
       <ChevronRightIcon size={ICON_SIZE.button} className="shrink-0" />
     </Link>
   )

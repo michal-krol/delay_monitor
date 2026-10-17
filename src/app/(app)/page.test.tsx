@@ -419,6 +419,18 @@ describe('Page (Pulpit)', () => {
       expect(push).toHaveBeenCalledWith('/map?nearby=1', NAV_FORWARD_OPTIONS)
     })
 
+    it('spóźniona odpowiedź GPS po opuszczeniu Startu nie nawiguje na mapę', async () => {
+      let resolve: (value: { lat: number; lon: number; accuracyM: number }) => void = () => {}
+      requestLocation.mockReturnValue(new Promise((r) => (resolve = r)))
+      const user = userEvent.setup()
+      const { unmount } = render(<Page />)
+      await user.click(screen.getByRole('button', { name: 'W pobliżu mnie' }))
+      unmount()
+      resolve({ lat: 52.2, lon: 21, accuracyM: 20 })
+      await Promise.resolve()
+      expect(push).not.toHaveBeenCalled()
+    })
+
     it('odmowa albo brak pozycji: opis pod przyciskiem, bez nawigacji, wyszukiwanie zostaje', async () => {
       requestLocation.mockImplementation(async () => {
         locationStatus = 'denied'

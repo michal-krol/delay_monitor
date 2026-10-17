@@ -101,7 +101,7 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onGrou
         />
       )}
 
-      <AllDeparturesLink href={href} />
+      <AllDeparturesLink href={href} name={name} />
     </article>
   )
 }

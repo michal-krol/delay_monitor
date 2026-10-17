@@ -82,7 +82,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         emptyMessage="Brak odjazdów w najbliższych godzinach"
       />
 
-      <AllDeparturesLink href={href} />
+      <AllDeparturesLink href={href} name={stationName} />
     </article>
   )
 }
