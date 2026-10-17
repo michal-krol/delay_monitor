@@ -5,7 +5,10 @@
  */
 import { spawnSync } from 'node:child_process'
 import { formatStatus, parseAheadBehind, parsePorcelain, summarizeChecks } from './lib/status.mjs'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { git } from './lib/git.mjs'
+import { formatNudge } from './lib/worktreeCleanup.mjs'
 
 const BASE = 'origin/dev'
 
@@ -43,6 +46,7 @@ function cleanupNudge() {
 }
 
 const aheadBehindOut = git(['rev-list', '--left-right', '--count', `${BASE}...HEAD`])
+const nudge = cleanupNudge()
 console.log(
   formatStatus({
     branch: git(['branch', '--show-current']) || '(detached)',
@@ -51,5 +55,5 @@ console.log(
     aheadBehind: aheadBehindOut === null ? null : parseAheadBehind(aheadBehindOut),
     dirty: parsePorcelain(git(['status', '--porcelain']) ?? ''),
     pr: readPr(),
-  }),
+  }) + (nudge ? `\n${nudge}` : ''),
 )
