@@ -466,7 +466,7 @@ export function TransitMap({
   const selectedAtRef = useRef<{ lat: number; lon: number } | null>(null)
   /** Insety, z którymi kamera była ostatnio ustawiona (`null` = padding kamery pochodzi z kadru trasy, nie z insetów). */
   const appliedInsetsRef = useRef<MapInsets | null>(insets)
-  /** Ostatnio narysowane pozycje pojazdów — punkt startu płynnego przejazdu. */
+  /** Pozycje z ostatniego celu przejazdu (nie z ostatniej klatki) — punkt startu następnego płynnego przejazdu. */
   const drawnRef = useRef(new Map<string, [number, number]>())
   const lastVehiclesRef = useRef<CityVehicle[] | null>(null)
   /** Trwający płynny przejazd: kolejne klatki biorą `target` stąd, więc takt zegara może mu podmienić skład bez przerywania. */
