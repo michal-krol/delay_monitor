@@ -12,8 +12,12 @@ export function git(args, env) {
   return r.status === 0 ? r.stdout.trim() : null
 }
 
-/** Runs a command with inherited stdio; returns its exit code (1 when it could not start). */
+/** Runs a quality command without leaking the invoking Git hook's repository into nested tests. */
 export function run(cmd, args) {
-  const r = spawnSync(cmd, args, { stdio: 'inherit', shell })
+  const localNames = git(['rev-parse', '--local-env-vars'])
+  if (localNames === null) return 1
+  const env = { ...process.env }
+  for (const name of localNames.split('\n')) delete env[name]
+  const r = spawnSync(cmd, args, { stdio: 'inherit', shell, env })
   return r.status ?? 1
 }

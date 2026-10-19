@@ -200,7 +200,8 @@ describe('MapCard — vehicle', () => {
 
   it('colours the line badge by the served kind, not one re-derived from the number', () => {
     render(<MapCard selection={{ kind: 'vehicle', id: 'v1' }} vehicle={vehicle({ mode: 'bus', shortName: '131', kind: 'night' })} city="warszawa" onClose={() => {}} />)
-    expect(screen.getByText('131', { selector: 'span' })).toHaveStyle({ background: LINE_PALETTE.night.bg })
+    // Check the category colour, independent of jsdom's expanded background shorthand.
+    expect(screen.getByText('131', { selector: 'span' })).toHaveStyle({ backgroundColor: LINE_PALETTE.night.bg })
   })
 
   it('handles a vehicle without a line', () => {
