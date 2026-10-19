@@ -6,6 +6,18 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Poprawione
+
+- Kopia workera MapLibre jest zgodna z wersją 6.14.0 po aktualizacji zależności.
+- Test koloru kategorii linii sprawdza kolor tła niezależnie od serializacji skrótu CSS w JSDOM.
+- Polecenia bramki nie przekazują zmiennych repozytorium Git do testów uruchamianych z hooka.
+  Testy tworzące tymczasowe repozytoria nie mogą przez odziedziczone `GIT_DIR` zmienić konfiguracji projektu.
+
+### Dodane
+
+- Punkt odniesienia refaktoru UI: macierz zachowania funkcji, decyzja o oddzielnych układach telefonu
+  i dashboardu oraz lokalne zbieranie zrzutów obu motywów z metadanymi i liczbą żądań API.
+
 ## [1.3.0] — 2026-10-17
 
 ### Dodane
