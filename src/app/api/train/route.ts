@@ -117,6 +117,16 @@ async function loadTrainDetail(scheduleId: string, orderId: string, operatingDat
   }
 }
 
+/**
+ * IP klienta dla limitu per IP. Bierzemy OSTATNI wpis `x-forwarded-for` -- ten
+ * dopisuje proxy Railway; wpisy z lewej mogą być podstawione przez klienta.
+ * `null` bez nagłówka (dev) albo przy nieprawdopodobnie długiej wartości.
+ */
+function clientIp(request: Request): string | null {
+  const last = request.headers.get('x-forwarded-for')?.split(',').pop()?.trim()
+  return last !== undefined && last.length > 0 && last.length <= 64 ? last : null
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const scheduleId = searchParams.get('scheduleId')
@@ -154,7 +164,7 @@ export async function GET(request: Request) {
     if (pending === undefined) {
       // Dołączenie do trwającego pobrania nie kosztuje kolejnego zapytania do
       // PKP -- limit liczy się tylko przy zakładaniu NOWEGO pobrania.
-      if (!consumeMissBudget(isBackground)) {
+      if (!consumeMissBudget(isBackground, clientIp(request))) {
         return NextResponse.json(
           { error: 'Chwilowo zbyt wiele zapytań o szczegóły połączeń. Spróbuj ponownie za kilka minut.' },
           { status: 503 }

@@ -1,3 +1,4 @@
+import { createTtlCache } from '@/lib/cache'
 import { logEvent } from '@/lib/log'
 
 /**
@@ -49,6 +50,24 @@ export const FOREGROUND_RESERVE = 7
 const HOUR_MS = 3_600_000
 
 /**
+ * Ile realnych misses w godzinie może zużyć JEDEN klient (IP). Bez tego anonimowy
+ * klient wysyłający poprawne formatem, zmyślone scheduleId/orderId (po 2 zapytania
+ * PKP każde, nigdy nie trafiają w cache) zjadał wspólny limit `HOURLY_MISS_CAP`
+ * wszystkim innym. 8 ≈ realne użycie (kilka kliknięć + odświeżenia), a trzech
+ * takich klientów dopiero wyczerpuje wspólne 21. Globalny limit zostaje bez zmian
+ * (OWNER DECISION wyżej).
+ */
+export const PER_IP_HOURLY_MISS_CAP = 8
+
+/**
+ * Klucz = `godzina|ip`, więc okno resetuje się samo; TTL + limit wpisów
+ * (AGENTS.md #5). Przy zalewie ponad `maxEntries` różnych IP najstarsze liczniki
+ * wypadają (FIFO) -- limit globalny nadal działa.
+ */
+const newIpMisses = () => createTtlCache<number>({ ttlMs: HOUR_MS, maxEntries: 2000 })
+let ipMisses = newIpMisses()
+
+/**
  * Licznik miss w oknie bieżącej godziny epoki -- zerowany, gdy zmienia się
  * `Math.floor(Date.now() / HOUR_MS)`, więc nie trzeba osobnego timera do
  * resetu (jedna replika, stan w pamięci procesu, AGENTS.md #5).
@@ -71,8 +90,14 @@ function currentMissWindow(): typeof missWindow {
  * `ConnectionDetails`) jest dodatkowo ograniczone do `HOURLY_MISS_CAP -
  * FOREGROUND_RESERVE` -- ostatnie sloty zostają dla pierwszego wczytania.
  */
-export function consumeMissBudget(background: boolean): boolean {
+export function consumeMissBudget(background: boolean, ip: string | null = null): boolean {
   const window = currentMissWindow()
+  // `ip === null` (brak nagłówka: dev/testy) nie jest limitowane per IP --
+  // zbiłoby wszystkich bezimiennych w jeden kubełek.
+  const ipKey = ip === null ? null : `${window.hour}|${ip}`
+  if (ipKey !== null && (ipMisses.get(ipKey) ?? 0) >= PER_IP_HOURLY_MISS_CAP) {
+    return false
+  }
   const limit = background ? HOURLY_MISS_CAP - FOREGROUND_RESERVE : HOURLY_MISS_CAP
   if (window.count >= limit) {
     if (!window.loggedCapReached) {
@@ -82,10 +107,12 @@ export function consumeMissBudget(background: boolean): boolean {
     return false
   }
   window.count += 1
+  if (ipKey !== null) ipMisses.set(ipKey, (ipMisses.get(ipKey) ?? 0) + 1)
   return true
 }
 
 /** Wyłącznie do testów -- resetuje moduł między przypadkami (ten sam wzorzec co inne moduły ze stanem na poziomie modułu w tej bazie kodu, np. `board/networkStats.ts`). */
 export function resetMissWindowForTests(): void {
   missWindow = { hour: -1, count: 0, loggedCapReached: false }
+  ipMisses = newIpMisses()
 }

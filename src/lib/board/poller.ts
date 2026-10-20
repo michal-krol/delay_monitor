@@ -76,14 +76,16 @@ const MAX_FORCED_RUNS_PER_WINDOW = 10
 
 /**
  * Domyślny twardy sufit liczby jednocześnie obserwowanych stacji w `interest`/
- * `snapshots`. TTL (`interestTtlMs`) sam ogranicza CZAS życia wpisu, ale nie
- * jego LICZBĘ w tym oknie -- bez tego seria żądań o różne, tylko poprawnie
- * sformatowane ID stacji (walidacja formatu w `/api/board` nie sprawdza, że
- * stacja naprawdę istnieje) rosłaby bez ograniczenia przez całe okno TTL
- * (AGENTS.md #5: cache musi mieć TTL I limit wpisów, nie gołą `Map`). Margines
- * wielokrotnie wyższy niż realna liczba stacji w sieci PKP (rzędu tysięcy).
+ * `snapshots`. TTL (`interestTtlMs`) ogranicza CZAS życia wpisu, ale nie jego
+ * LICZBĘ (AGENTS.md #5: cache musi mieć TTL I limit wpisów). Sufit to też
+ * bezpiecznik budżetu PKP (AGENTS.md #3): poller pyta `/operations` o CAŁY
+ * `interest`, a anonimowy klient wypełnia go poprawnie sformatowanymi, prawdziwymi
+ * ID (po `MAX_STATIONS` na żądanie w `/api/board`). Przy 5000 cykl rozciągał się
+ * na `MAX_OPERATIONS_PAGES` (6) stron, czyli ~240 zapytań/h przy limicie 100/h
+ * (wspólny klucz ze stagingiem). 200 stacji mieści się w 2-3 stronach, a realny
+ * użytkownik ma ich kilka.
  */
-const DEFAULT_MAX_WATCHED_STATIONS = 5000
+const DEFAULT_MAX_WATCHED_STATIONS = 200
 
 export type PollerConfig = {
   pollIntervalMs: number
@@ -688,14 +690,21 @@ export function createPoller(deps: PollerDeps): Poller {
 
       for (const stationId of stationIds) {
         // Eksmisja tylko dla faktycznie nowej stacji przy pełnej pojemności --
-        // odświeżenie już obserwowanej nigdy nie powiększa `interest`, więc nie
-        // ma czego eksmitować. FIFO po kolejności wstawienia (`Map` zachowuje ją
-        // z definicji), nie LRU -- ten sam kompromis co `createTtlCache()`.
+        // odświeżenie już obserwowanej nigdy nie powiększa `interest`. Wyrzucamy
+        // stację z najstarszym `timestamp` (nie pierwszą wstawioną: `set` na
+        // istniejącym kluczu nie zmienia jego pozycji w `Map`). Skan O(n), n ≤ sufit.
         if (!interest.has(stationId) && interest.size >= maxWatchedStations) {
-          const oldest = interest.keys().next()
-          if (oldest.done === false) {
-            interest.delete(oldest.value)
-            snapshots.delete(oldest.value)
+          let oldestId: string | null = null
+          let oldestTs = Infinity
+          for (const [id, ts] of interest) {
+            if (ts < oldestTs) {
+              oldestTs = ts
+              oldestId = id
+            }
+          }
+          if (oldestId !== null) {
+            interest.delete(oldestId)
+            snapshots.delete(oldestId)
           }
         }
         interest.set(stationId, timestamp)
