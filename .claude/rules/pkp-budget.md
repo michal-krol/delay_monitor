@@ -24,6 +24,11 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
   interval, `PAGINATION_MIN_HOURLY_BUDGET` and `getBudget()`, so `/api/train`, `/schedules` and
   network-stats consumption is no longer invisible to it. The hour window is approximated by the
   clock hour; if PKP's window is rolling, the min can stay pessimistic until the hour changes.
+- **Poller `interest` ceiling = 200 stations** (`DEFAULT_MAX_WATCHED_STATIONS`, evicts the oldest
+  `timestamp`). The poller asks `/operations` for the whole set, and anonymous clients can fill it with
+  real IDs (20 per `/api/board` request); at the old 5000 a cycle stretched to `MAX_OPERATIONS_PAGES`
+  (6) ≈ 240 req/h vs the 100/h key. Known residual: a flood still evicts real users' stations
+  (they come back on the next poll) — a per-IP limit on `/api/board` is not built.
 - **Outside the poller cycle, count separately:**
   - `/api/train` — synchronous fetch when clicking a train not yet seen, plus a background
     refresh while the connection page stays open (`usePolling`, every 5 min on a visible tab
@@ -37,7 +42,9 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
     tracked in `src/lib/pkp/trainMissBudget.ts` (module-state counter keyed by epoch hour, single
     replica — AGENTS.md #5) — kept out of `route.ts` itself because a Next.js route module may
     only export route fields (`GET`, ...); a test-only export there broke `.next/types` and
-    `next build`. A cache hit, a
+    `next build`. Per-IP: `PER_IP_HOURLY_MISS_CAP = 8` per client IP per hour (last `x-forwarded-for` entry, the one
+    Railway's proxy appends; no header = not limited), checked before the global counter, so one client's
+    invented IDs can't drain the shared 21. A cache hit, a
     remembered 404, or joining an already in-flight request never counts toward the cap or
     calls PKP; only starting a genuine new fetch does. The last `FOREGROUND_RESERVE = 7` misses
     of the hour are reserved for foreground requests (first load or a user-initiated retry —
