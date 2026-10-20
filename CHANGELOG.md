@@ -6,6 +6,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Zmienione
+
+- Wspólna paleta jasnego i ciemnego motywu: jednolite tło, nieprzezroczyste karty i lżejsze cienie.
+  Manrope obejmuje także tekst główny, a tekst pomocniczy ma co najmniej 13 px.
+  Kolory statusów i rodzajów transportu zachowują dotychczasowe znaczenie.
+
 ### Poprawione
 
 - Kopia workera MapLibre jest zgodna z wersją 6.14.0 po aktualizacji zależności.

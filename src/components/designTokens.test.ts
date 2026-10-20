@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { MODE_COLOR } from './map/mapData'
 import { ACCENT_GRADIENT } from './icons'
 import { LINE_PALETTE } from './transitMode'
+import { THEME_BG } from '@/lib/siteMeta'
 
 /**
  * Strażnik tokenów (PR 7): kolory statusu, błędu i obramowania powierzchni mają
@@ -299,6 +300,40 @@ describe('F0 foundation: primary colour, shared classes, motion', () => {
   const themes = { light: themeTokens(css, ':root'), dark: themeTokens(css, '.dark') }
   const PRIMARY = ['--primary', '--primary-fg', '--primary-soft', '--primary-text']
 
+  it('content surfaces are opaque, so text contrast does not depend on content behind a card', () => {
+    for (const [theme, tokens] of Object.entries(themes)) {
+      for (const surface of ['--surface', '--surface-strong', '--sheet-surface']) {
+        expect(parseColor(tokens[surface])[3], `${theme} ${surface}`).toBe(1)
+      }
+    }
+  })
+
+  it('body, supporting text and semantic status text meet AA on every content surface', () => {
+    for (const [theme, tokens] of Object.entries(themes)) {
+      const textTokens = ['--foreground', '--text-secondary', '--text-muted', '--error-text', '--warning-text',
+        ...['onTime', 'delayed', 'cancelled', 'unknown', 'notStarted', 'enRoute'].map(status => `--status-${status}-text`)]
+      for (const surface of ['--bg-base', '--surface', '--surface-strong', '--sheet-surface']) {
+        const background = over(parseColor(tokens[surface]), parseColor(tokens['--bg-base']))
+        for (const text of textTokens) {
+          expect(contrast(parseColor(tokens[text]), background), `${theme} ${text} on ${surface}`).toBeGreaterThanOrEqual(4.5)
+        }
+      }
+    }
+  })
+
+  it('browser theme colours track the actual page canvas', () => {
+    expect(THEME_BG.light).toBe(themes.light['--bg-base'])
+    expect(THEME_BG.dark).toBe(themes.dark['--bg-base'])
+  })
+
+  it('Manrope is shared by body and headings, with a scalable 13px supporting-text floor', () => {
+    const theme = blockOf(css, '@theme inline')
+    expect(theme).toContain('--font-sans: var(--font-manrope)')
+    expect(theme).toContain('--text-xs: 0.8125rem;')
+    expect(theme).toContain('--text-xs--line-height: 1.125rem;')
+    expect(blockOf(css, 'body {')).toContain('font-family: var(--font-sans)')
+  })
+
   function colours(theme: 'light' | 'dark') {
     const t = themes[theme]
     const base = parseColor(t['--bg-base'])
@@ -363,10 +398,12 @@ describe('F0 foundation: primary colour, shared classes, motion', () => {
     expect(block).toContain('.glass-chrome-nav')
   })
 
-  it('primary fill against --bg-base is >= 3:1 in both themes (active outline/non-text)', () => {
+  it('primary fill against the page and control surfaces is >= 3:1 in both themes (selected segment/chip)', () => {
     for (const theme of ['light', 'dark'] as const) {
-      const c = colours(theme)
-      expect(contrast(c.primary, c.base), theme).toBeGreaterThanOrEqual(3)
+      const tokens = themes[theme]
+      for (const surface of ['--bg-base', '--surface', '--surface-strong', '--sheet-surface']) {
+        expect(contrast(parseColor(tokens['--primary']), parseColor(tokens[surface])), `${theme} on ${surface}`).toBeGreaterThanOrEqual(3)
+      }
     }
   })
 

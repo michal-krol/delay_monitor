@@ -6,4 +6,4 @@ export const APP_DESCRIPTION = 'Opóźnienia pociągów na wybranych stacjach w 
  * `--bg-base` jasnego i ciemnego motywu (globals.css) — kolor paska przeglądarki (`viewport` w layout.tsx,
  * `ThemeColorSync`) i tło manifestu PWA. CSS nie importuje TS, więc zgodność pilnuje `siteMeta.test.ts`.
  */
-export const THEME_BG = { light: '#eef0f8', dark: '#070b14' } as const
+export const THEME_BG = { light: '#f1f4fa', dark: '#0b1220' } as const

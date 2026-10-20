@@ -24,7 +24,7 @@ export function RecentPlaces({
   const Heading = headingLevel
   return (
     <section aria-labelledby={headingId} className="mt-4">
-      <div className="flex items-center justify-between gap-2 px-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <Heading id={headingId} className="text-xs font-semibold tracking-wide text-text-secondary uppercase">
           Ostatnio oglądane
         </Heading>

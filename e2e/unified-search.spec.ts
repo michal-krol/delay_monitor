@@ -351,6 +351,28 @@ test('zmiana motywu systemu przy wynikach zachowuje frazę, wyniki i fokus oraz 
   expect(calls.urls.length).toBe(before)
 })
 
+test('historia wyszukiwania mieści się przy 320 px i tekście 200%, a Wyczyść oddaje fokus', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 })
+  await page.addInitScript(() => {
+    localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '33605', name: 'Warszawa Centralna' }]))
+  })
+  for (const theme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: theme })
+    await page.goto('/search')
+    const clear = page.getByRole('button', { name: 'Wyczyść', exact: true })
+    await expect(clear).toBeVisible()
+    await expect(page.locator('html')).toHaveClass(new RegExp(theme))
+    // iOS: zamykamy istniejącą podpowiedź instalacji, zanim powiększymy treść pod nią.
+    const installHint = page.getByRole('button', { name: 'Zamknij podpowiedź instalacji' })
+    if (await installHint.isVisible()) await installHint.click()
+    await page.evaluate(() => document.fonts.ready)
+    await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+    await clear.click()
+    await expect(searchField(page.getByRole('main'))).toBeFocused()
+  }
+})
+
 test('ręczny przełącznik motywu na /search zachowuje frazę i wyniki bez nowego zapytania', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
   const calls = await countSearchCalls(page)

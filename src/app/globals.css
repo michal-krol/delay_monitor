@@ -4,52 +4,34 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* Bez tego przeglądarka (i axe-core, który liczy kontrast względem
-     DOMYŚLNEGO płótna, gdy żaden przodek nie ma nieprzezroczystego
-     `background-color` -- `body` niżej ma tylko `background-image`
-     (gradient), a `.glass`/`.glass-strong` są celowo półprzezroczyste)
-     zakłada jasne płótno nawet w `.dark`. Złapane przez e2e a11y w trybie
-     ciemnym: realnie renderowane tło było poprawnie ciemne (zmierzone
-     ręcznie), ale axe zgłaszał kontrast względem założonego #ffffff. */
+  /* Jawne płótno i motyw także dla natywnych kontrolek oraz pomiarów kontrastu. */
   color-scheme: light;
 
-  /* Jasny motyw — równie "śmiały" jak ciemny: nasycone akcenty, widoczne
-     poświaty, nie wyciszony pastel sprzed redesignu. */
-  --bg-gradient:
-    radial-gradient(1100px 600px at 85% -10%, rgba(56, 189, 248, 0.16), transparent 60%),
-    radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.14), transparent 55%),
-    linear-gradient(180deg, #f6f7fc 0%, #eef0f8 100%);
-  /* Opaque fallback za `--bg-gradient` (samo `background-image`, bez własnego
-     `background-color`) -- patrz komentarz przy `color-scheme` niżej: axe
-     nie czyta pikseli gradientu, więc każda przezroczysta karta (`.glass`)
-     dalej w drzewie potrzebuje NIEPRZEZROCZYSTEGO przodka do policzenia
-     kontrastu, nie samego `color-scheme`. Ten sam odcień co ostatni stop
-     gradientu -- wizualnie niewidoczny, leży pod obrazem. */
-  --bg-base: #eef0f8;
-  /* Karty treści prawie kryjące (PR 6): bez rozmycia, kontrast i koszt GPU; szkło to tylko pływający chrome (`glass-chrome`). */
-  --surface: rgba(255, 255, 255, 0.9);
-  --surface-strong: rgba(255, 255, 255, 0.95);
+  /* ADR 0013, PR 02: spokojne płótno i nieprzezroczyste powierzchnie z prototypu v9.
+     Kolory transportu i statusów pozostają osobnymi paletami semantycznymi. */
+  --bg-base: #f1f4fa;
+  /* Wspólny token pełnoekranowego SearchDialog; bez gradientu pod listą wyników. */
+  --bg-gradient: none;
+  --surface: #ffffff;
+  --surface-strong: #f6f8fc;
   /* Nieprzezroczyste tło arkusza od dołu (`BottomSheet`) — szkło nad mapą psuło kontrast treści. */
   --sheet-surface: #ffffff;
-  --surface-border: rgba(15, 23, 42, 0.08);
-  --surface-shadow: 0 8px 30px rgba(15, 23, 42, 0.1);
-  --sidebar-bg: rgba(255, 255, 255, 0.75);
+  --surface-border: #dce3ee;
+  --surface-shadow: 0 2px 8px rgba(11, 23, 61, 0.04);
+  --sidebar-bg: rgba(255, 255, 255, 0.96);
   /* Dolny pasek telefonu: treść przewija się pod nim, więc etykiety muszą trzymać 4,5:1 nad NAJGORSZĄ plakietką linii
      (czerń/granat; przy 0,75 było 4,12:1). Alfa ≥ 0,85 — liczy to `designTokens.test.ts`. */
-  --bottom-nav-bg: rgba(255, 255, 255, 0.9);
-  --sidebar-border: rgba(15, 23, 42, 0.06);
-  --foreground: #0f172a;
-  --text-secondary: #475569;
-  /* #64748b dawało 4,22:1 na tle karty `glass` (zmierzone w przeglądarce na
-     rgb(239,241,250)) — poniżej progu WCAG AA 4,5:1, a to token setek etykiet.
-     #5b6878 daje 5,04:1 i nadal jest wyraźnie ciszsze od --text-secondary. */
-  --text-muted: #5b6878;
+  --bottom-nav-bg: rgba(255, 255, 255, 0.96);
+  --sidebar-border: var(--surface-border);
+  --foreground: #14213a;
+  --text-secondary: #526176;
+  --text-muted: #5c6b7d;
   /* Kolor główny (F0, D5): nasycony błękit na aktywne segmenty, przyciski główne i pastylkę nawigacji.
      `--primary` to WYPEŁNIENIE (biały tekst, ≥ 4,5:1); `--primary-text` to błękit jako TEKST na tle strony/karty/
      `--primary-soft`. Kontrasty liczy `designTokens.test.ts` z tych wartości. Gradient akcentu zostaje dla logo i ikon. */
   --primary: #1d4ed8;
   --primary-fg: #ffffff;
-  --primary-soft: #dbeafe;
+  --primary-soft: #e8efff;
   --primary-text: #1d4ed8;
   --nav-active-bg: var(--primary-soft);
   --nav-active-text: var(--primary-text);
@@ -69,37 +51,30 @@
   /* Jeden kolor tekstu błędu w całej appce (wcześniej red-600/400 i red-700/300
      na przemian). red-700: 6,0:1 na tle karty `glass` w jasnym motywie. */
   --error-text: #b91c1c;
-  /* Jeden kolor „wymaga uwagi, ale nie błąd” (dane sprzed chwili, utrudnienia, degradacja);
-     wcześniej amber-600/700 i dark:amber-400 na przemian. amber-700: 5,0:1 na `glass`. */
-  --warning-text: #b45309;
+  /* Ostrzeżenia czytelne także bez karty, na płótnie strony (minimum 4,5:1). */
+  --warning-text: #9a3c08;
 }
 
 .dark {
   color-scheme: dark;
 
-  --bg-gradient:
-    radial-gradient(1100px 600px at 85% -10%, rgba(56, 189, 248, 0.1), transparent 60%),
-    radial-gradient(900px 500px at -5% 20%, rgba(99, 102, 241, 0.1), transparent 55%),
-    linear-gradient(180deg, #0a0f1c 0%, #070b14 100%);
-  --bg-base: #070b14;
-  --surface: rgba(15, 23, 42, 0.8);
-  --surface-strong: rgba(15, 23, 42, 0.9);
-  --sheet-surface: #0f172a;
-  --surface-border: rgba(255, 255, 255, 0.08);
-  --surface-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-  --sidebar-bg: rgba(6, 10, 20, 0.6);
-  --bottom-nav-bg: rgba(6, 10, 20, 0.9);
-  --sidebar-border: rgba(255, 255, 255, 0.06);
-  --foreground: #f1f5f9;
-  --text-secondary: #94a3b8;
-  /* jw. — na ciemnym tle karty (rgb(11,18,32)) #64748b dawało tylko 3,94:1.
-     #7a8798 daje 5,12:1, wciąż wyraźnie poniżej --text-secondary (7,30:1). */
-  --text-muted: #7a8798;
+  --bg-base: #0b1220;
+  --surface: #141f32;
+  --surface-strong: #19263c;
+  --sheet-surface: #141f32;
+  --surface-border: #2c3b53;
+  --surface-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --sidebar-bg: rgba(20, 31, 50, 0.96);
+  --bottom-nav-bg: rgba(20, 31, 50, 0.96);
+  --foreground: #f0f4fb;
+  --text-secondary: #b1bed1;
+  --text-muted: #a2b1c7;
   /* Ciemny: wypełnienie jaśniejsze niż w jasnym (≥ 3:1 względem tła), tekst jeszcze jaśniejszy. */
-  --primary: #2563eb;
+  /* Odrobinę jaśniejsze wypełnienie zachowuje 3:1 także na --surface-strong. */
+  --primary: #2567eb;
   --primary-fg: #ffffff;
-  --primary-soft: rgba(96, 165, 250, 0.18);
-  --primary-text: #93c5fd;
+  --primary-soft: #1d3357;
+  --primary-text: #a7caff;
   --nav-active-bg: var(--primary-soft);
   --nav-active-text: var(--primary-text);
 
@@ -116,7 +91,7 @@
   --warning-text: #fbbf24;
   /* Nieprzezroczyste tło kontrolek MapLibre (popup, zoom, atrybucja) -- patrz
      komentarz przy regułach `.maplibregl-*` niżej. */
-  --map-surface: #0f172a;
+  --map-surface: var(--sheet-surface);
 }
 
 /* Statusy: identyczne wartości w obu motywach — samowystarczalna, nasycona
@@ -259,6 +234,10 @@ dialog.info-sheet[open] {
      2026-09-29: 320 px przy 1280, 380 px od ok. 1520. */
   --spacing-aside: clamp(20rem, 25vw, 23.75rem);
   --font-heading: var(--font-manrope), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-manrope), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Minimum tekstu pomocniczego w obu układach; rem zachowuje powiększanie tekstu. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
 }
 
 /* Niewidoczny obszar trafienia 44×44 px (WCAG 2.5.5) wokół małego przycisku;
@@ -513,7 +492,8 @@ details[open] > summary .disclosure-chevron,
   overscroll-behavior: auto;
 }
 
-/* Karta treści: prawie kryjąca, BEZ `backdrop-filter` (PR 6). Pływające paski, menu i kontrolki mapy: `glass-chrome*` niżej. */
+/* Nazwy zachowane dla istniejących konsumentów: treść ma pełne tło bez rozmycia.
+   Szkło jest zarezerwowane dla pływających pasków i kontrolek (`glass-chrome*`). */
 @utility glass {
   background-color: var(--surface);
   border: 1px solid var(--surface-border);
@@ -555,24 +535,8 @@ details[open] > summary .disclosure-chevron,
   }
 }
 
-/* MapLibre wendoruje własny CSS (importowany wyżej) z twardo wpisanym
-   `background:#fff` na popupie (`.maplibregl-popup-content`/`-tip`) — treść
-   popupu (np. `TransitStopCard`/`TransitDepartureList`) renderuje się przez
-   nasz własny CSS, więc w ciemnym motywie dostaje jasny tekst (`--text-secondary`
-   kalibrowane pod CIEMNE tło, patrz komentarz przy tokenie wyżej) na białej
-   karcie MapLibre'a -- realne naruszenie WCAG AA (zmierzone przez axe:
-   2,56:1 zamiast wymaganych 4,5:1), złapane przez e2e a11y w trybie ciemnym.
-
-   Pierwsza próba naprawy dała `background-color: var(--surface-strong)` —
-   nie starczyło, bo `--surface-strong` w `.dark` to `rgba(15,23,42,0.75)`,
-   PRZEZROCZYSTE. Axe liczy kontrast tekstu względem najbliższego przodka
-   z NIEPRZEZROCZYSTYM `background-color` (patrz komentarz przy `color-scheme:
-   light` w `:root` wyżej — ten sam mechanizm, inne miejsce); przy braku
-   takiego przodka zakłada białe płótno, niezależnie od tego, co faktycznie
-   renderuje się pod spodem (kafelki mapy, nie strona appki). Półprzezroczyste
-   tło popupu tej asercji nigdy nie spełni, choćby wizualnie wyglądało dobrze.
-   Naprawa: osobny, w pełni opaque kolor tylko dla popupu (nie `--surface-strong`,
-   które ma zostać przezroczyste dla `.glass-strong` gdzie indziej w appce). */
+/* MapLibre dostarcza białe tła popupów i kontrolek. W ciemnym motywie pełne
+   tło arkusza zapewnia kontrast niezależnie od kafelków pod spodem. */
 .dark .maplibregl-popup-content {
   background-color: var(--map-surface);
   backdrop-filter: blur(24px) saturate(150%);
@@ -1149,16 +1113,7 @@ details[open] > summary .disclosure-chevron,
 body {
   color: var(--foreground);
   background-color: var(--bg-base);
-  background-image: var(--bg-gradient);
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    "Noto Sans",
-    Arial,
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
 @keyframes info-sheet-in {
