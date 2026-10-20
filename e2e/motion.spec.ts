@@ -72,6 +72,8 @@ async function lineTimetableReady(page: Page): Promise<void> {
   await page.goto(LINE_TIMETABLE)
   const chips = page.getByRole('group', { name: 'Kategoria dnia' })
   await expect(chips.getByRole('button', { name: 'Dni robocze' })).toHaveAttribute('aria-pressed', 'true', { timeout: READY })
+  // A named transition is captured only when its timetable grid intersects the viewport.
+  await page.getByRole('heading', { name: 'Dni robocze', level: 3, exact: true }).locator('..').scrollIntoViewIfNeeded()
   // Hydracja: klik przed nią przepada bez śladu.
   await page.waitForTimeout(500)
 }
@@ -198,16 +200,16 @@ test.describe('reduced motion', () => {
     expect(await dot.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
   })
 
-  test('phone: the header keeps the app name, the board name copy stays hidden', async ({ page }) => {
+  test('phone: reduced motion keeps the page title visible after scrolling', async ({ page }) => {
     test.skip((page.viewportSize()?.width ?? 1280) >= 640, 'nagłówek telefonu')
     // Niski ekran: mock ma kilka wierszy, a przy 839 px strona w ogóle się nie przewija.
     await page.setViewportSize({ width: 375, height: 520 })
     await stationReady(page)
     await page.evaluate(() => window.scrollTo(0, 400))
     await page.waitForTimeout(400)
-    const context = page.getByTestId('header-context-title')
-    await expect(context).toBeAttached()
-    expect(await context.evaluate((element) => getComputedStyle(element).display)).toBe('none')
+    const title = page.getByRole('banner').getByText('Warszawa Centralna', { exact: true })
+    await expect(title).toBeVisible()
+    expect(await title.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
   })
 })
 
@@ -237,20 +239,17 @@ test.describe('motion allowed: live feedback', () => {
     await expect.poll(animationName).toBe('livePulse')
   })
 
-  test('phone: the header swaps the app name for the board name after scrolling', async ({ page }) => {
+  test('phone: the page title stays visible before and after scrolling', async ({ page }) => {
     test.skip((page.viewportSize()?.width ?? 1280) >= 640, 'nagłówek telefonu')
     // Niski ekran: mock ma kilka wierszy, a przy 839 px strona w ogóle się nie przewija.
     await page.setViewportSize({ width: 375, height: 520 })
     await stationReady(page)
-    const context = page.getByTestId('header-context-title')
-    const app = page.getByTestId('header-app-title')
-    await expect(context).toBeAttached()
-    const opacity = (locator: typeof context) => locator.evaluate((element) => Number(getComputedStyle(element).opacity))
-    expect(await opacity(context)).toBeLessThan(0.1)
-    expect(await opacity(app)).toBeGreaterThan(0.9)
+    const title = page.getByRole('banner').getByText('Warszawa Centralna', { exact: true })
+    await expect(title).toBeVisible()
+    const before = await title.boundingBox()
     await page.evaluate(() => window.scrollTo(0, 400))
-    await expect.poll(() => opacity(context)).toBeGreaterThan(0.9)
-    expect(await opacity(app)).toBeLessThan(0.1)
+    await expect(title).toBeVisible()
+    expect(await title.boundingBox()).toEqual(before)
   })
 })
 
