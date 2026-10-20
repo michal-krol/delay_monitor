@@ -70,12 +70,14 @@ export async function GET(request: Request) {
   // ── stacje kolejowe (prefiks nazwy miasta) ──────────────────────────────
   try {
     const stations = await client.searchStations(query)
-    for (const station of stations) {
-      if (allRail || (city !== null && station.name.startsWith(city.railStationPrefix))) {
-        // Brak/awaria pliku współrzędnych nie wywala wyszukiwarki — wynik bez pozycji.
-        const coords = await getStationCoordinates(station.id).catch(() => null)
-        results.push({ id: station.id, name: station.name, kind: 'rail', mode: 'rail', ...coords })
-      }
+    const matching = stations.filter(
+      (station) => allRail || (city !== null && station.name.startsWith(city.railStationPrefix))
+    )
+    // Tylko tyle, ile i tak zmieści się w odpowiedzi -- bez `await` współrzędnych dla reszty.
+    for (const station of matching.slice(0, MAX_SUGGESTIONS)) {
+      // Brak/awaria pliku współrzędnych nie wywala wyszukiwarki — wynik bez pozycji.
+      const coords = await getStationCoordinates(station.id).catch(() => null)
+      results.push({ id: station.id, name: station.name, kind: 'rail', mode: 'rail', ...coords })
     }
   } catch {
     // Awaria słownika stacji nie wywala wyszukiwarki — miejskie mogą się udać.
