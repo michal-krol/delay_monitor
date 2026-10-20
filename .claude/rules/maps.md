@@ -19,7 +19,7 @@ paths:
 
 # #6 Network only at the edges — and the map exception with its traps
 
-All HTTP lives in edge clients: `src/lib/pkp/client.ts` (PKP), `src/lib/weather/client.ts`
+All HTTP lives in edge clients: `src/lib/pkp/http.ts` (PKP, via `client.ts`), `src/lib/weather/client.ts`
 (Open-Meteo, keyless) and the GTFS feed clients `src/lib/gtfs/client.ts` (static feed, range
 requests), `vehicleClient.ts` and `alertClient.ts` (live JSON feeds). Domain logic (`lib/board/`,
 `lib/weather/format.ts`) = pure functions over the `PkpClient` interface or a plain payload,

@@ -16,7 +16,7 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
 - Missing `X-RateLimit-*` header = "unknown", never "zero" (treating it as zero once pushed the
   poller permanently onto the emergency interval).
 - **One budget for all keyed requests.** The live client records the `X-RateLimit-*` headers of
-  every response that carries the API key (`fetchJson` `onResponse`, before the status check —
+  every response that carries the API key (`http.ts` `fetchJson` `onResponse`, before the status check —
   a 429's headers count) and exposes the lowest `hourly`/`daily` seen this clock hour via
   `PkpClient.getLastBudget()`; `null` = unknown, and a previous hour's value is dropped, not
   reused. `apiKey: null` public endpoints (dictionaries) are another pool and never update it.
@@ -31,7 +31,7 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
     focus; a failed background refresh retries after 5 min — the 90 s response cache makes a
     tighter poll pointless anyway). Layered caches
     (`createTtlCache()`): 90 s response cache (route.ts), 24 h route cache inside
-    `getTrainDetail` (`client.ts` `fetchRoute` — the operation/realization call is never
+    `getTrainDetail` (`nationalSchedules.ts` `fetchRoute` — the operation/realization call is never
     cached, only the static schedule route), 10 min "not found" cache for a PKP 404 so a
     repeated click on a dead link doesn't refetch. Hourly cache-miss cap: `HOURLY_MISS_CAP = 21`,
     tracked in `src/lib/pkp/trainMissBudget.ts` (module-state counter keyed by epoch hour, single
@@ -57,7 +57,7 @@ Basic key: 100/h **and** 1000/day. Poller @90 s ≈ 40/h — real headroom, not 
     routes the realistic worst case is 21×2 + ~40 + ~7 ≈ 89/h; the 110/h case remains only right
     after a restart. If the key stays at 100/h and that matters, lower the cap to
     `floor((90 − 40 − 7) / 3) = 14`.
-  - **National timetable snapshot** (`getSchedules` in `client.ts`): ONE `/schedules` request
+  - **National timetable snapshot** (`getSchedules` in `nationalSchedules.ts`): ONE `/schedules` request
     without `stations` (whole country, today+tomorrow, `fullRoute=true`), valid 12 h and per
     date window → 2–3 requests/day regardless of users or stations. Measured 2026-09-29: 43 MB,
     9 014 routes, 161 k stops, ~1.4 s download, ~1.7 s parse+index (blocks the event loop once per

@@ -20,7 +20,7 @@ etc.): read the linked rule file before changing code in its area.** General wor
 
 | Path | What |
 |---|---|
-| `src/lib/pkp/` | PKP edge client (`client.ts`), Zod schema, time normalization, mock |
+| `src/lib/pkp/` | PKP edge client (`client.ts` composes `http.ts` transport + budget, `nationalSchedules.ts`, `stationDirectory.ts`), Zod schema, time normalization, mock |
 | `src/lib/board/` | poller, board transform, realization logic, station stats, caches |
 | `src/lib/gtfs/` | GTFS domain: loader/index (`schedule.ts`), city registry, vehicles, alerts |
 | `src/lib/weather/` | Open-Meteo edge client + pure formatting |
@@ -72,7 +72,7 @@ Bad URL params ignored silently. Security headers guarded by `next.config.test.t
 No horizontal scaling. Long-lived caches use `createTtlCache()` (TTL + limit), never a bare `Map`.
 
 ### 6. Network only at the edges → `maps.md`
-HTTP only in edge clients: `src/lib/pkp/client.ts`, `src/lib/weather/client.ts` and the GTFS feed
+HTTP only in edge clients: `src/lib/pkp/http.ts` (via `client.ts`), `src/lib/weather/client.ts` and the GTFS feed
 clients (`src/lib/gtfs/client.ts`, `vehicleClient.ts`, `alertClient.ts`); domain logic is pure.
 Deliberate exception: map tiles from `tiles.openfreemap.org` (the only foreign CSP origin).
 MapLibre traps (worker URL in prod builds, popup toggling, `pinsKey`, container positioning):

@@ -8,30 +8,17 @@ import {
   disruptionsResponseSchema,
   operationsResponseSchema,
   operationsStatisticsResponseSchema,
-  rawRouteSchema,
   rawTrainOperationSchema,
-  schedulesResponseSchema,
-  stationSearchResponseSchema,
 } from './schema'
-import { normalizeForSearch } from '../search'
 import { createTtlCache } from '../cache'
-import { warsawDateString } from './time'
+import { BASE_URL, PkpApiError, createPkpTransport, parseBudget, type RateLimitBudget } from './http'
+import { createNationalSchedules, scheduleDateWindow } from './nationalSchedules'
+import { createStationDirectory } from './stationDirectory'
 import { logEvent } from '@/lib/log'
 
-const BASE_URL = 'https://pdp-api.plk-sa.pl'
-const REQUEST_TIMEOUT_MS = 8000
-const STATION_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000
-/**
- * Rozkład jest pobierany OGÓLNOPOLSKO (bez `stations`), jedno zapytanie na okno dat, i ważny pół doby --
- * czyli 2-3 zapytania na dobę niezależnie od liczby użytkowników i ich stacji. Zmierzone na żywym API
- * (2026-09-29): 43 MB, 9 014 tras, 161 tys. przystanków, ok. 1,4 s, ok. 125 MB sterty po sparsowaniu
- * (replika ma 8 GB, dotąd max 1,8 GB). Poprzednio klucz cache'u = zestaw stacji wszystkich aktywnych
- * użytkowników, więc każda zmiana tego zestawu (także czyjeś odejście) kosztowała nowe pobranie.
- */
-const NATIONAL_SCHEDULES_TTL_MS = 12 * 60 * 60 * 1000
-/** Po nieudanym odświeżeniu (przy zachowanej starej migawce) nie ponawiamy 43 MB co cykl pollera. */
-const NATIONAL_SCHEDULES_RETRY_AFTER_FAILURE_MS = 10 * 60 * 1000
-const ONE_DAY_MS = 24 * 60 * 60 * 1000
+// Transport (`http.ts`) jest właścicielem tych symboli; stąd re-eksport, żeby publiczna powierzchnia klienta się nie zmieniła.
+export { PkpApiError, mergeBudgets, type RateLimitBudget } from './http'
+
 /**
  * W przeciwieństwie do /schedules (24h — trasa/przewoźnik się nie zmieniają),
  * utrudnienia zmieniają się w czasie. Zmierzone empirycznie na żywym API
@@ -46,66 +33,9 @@ const DISRUPTIONS_CACHE_MAX_ENTRIES = 200
 /** Przewoźnicy/kategorie zmieniają się rzadko (patrz `validFrom`/`validTo` w odpowiedzi przewoźników) -- ta sama długość co słownik stacji. */
 const NAME_DICTIONARIES_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
-/**
- * Odstęp z jitterem przed jedynym ponowieniem po 5xx -- natychmiastowe
- * ponowienie najczęściej trafia w tę samą awarię po stronie API i zjada drugie
- * zapytanie z limitu na nic. Świadomie w `fetchJsonWithRetry` (niżej), nie w
- * pojedynczym call-site jak wcześniej w `poller.ts` -- każde wywołanie PKP
- * (słownik stacji, rozkłady, realizacja, szczegóły przejazdu) ma dostawać tę
- * samą odporność, nie tylko to, które akurat ktoś owinął ręcznie.
- */
-const RETRY_BASE_DELAY_MS = 500
-const RETRY_JITTER_MS = 1000
-
-/** Trasa rozkładowa (schedules/route) jest statyczną daną rozkładową jak /schedules — ta sama długość TTL. */
-const ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
-const ROUTE_CACHE_MAX_ENTRIES = 500
-
 /** Maksimum dopuszczone przez swagger dla `/operations` (domyślne API to 1000) — patrz `getOperations()`. */
 const OPERATIONS_PAGE_SIZE = 5000
 
-/**
- * Pozostały budżet zapytań wg nagłówków API. `null` znaczy „nie wiadomo",
- * a nie „zero" — brak nagłówka nie może wyglądać jak wyczerpany limit.
- */
-export type RateLimitBudget = {
-  /** Ile zapytań zostało w oknie godzinowym. `null` = nie wiadomo (brak nagłówka), NIGDY „zero" — patrz AGENTS.md #3. */
-  hourly: number | null
-  daily: number | null
-  /**
-   * Sufity przypisane do klucza. Też z nagłówków (zweryfikowane na żywym API:
-   * `X-RateLimit-Hourly-Limit: 100`, `X-RateLimit-Daily-Limit: 1000`), więc
-   * nigdzie nie musimy ich wpisywać na sztywno ani zgadywać poziomu klucza.
-   * `null` znaczy „nie wiadomo" dokładnie tak samo jak wyżej.
-   */
-  hourlyLimit: number | null
-  dailyLimit: number | null
-}
-
-const HOUR_MS = 60 * 60 * 1000
-
-function minKnown(a: number | null | undefined, b: number | null | undefined): number | null {
-  if (a == null) return b ?? null
-  if (b == null) return a
-  return Math.min(a, b)
-}
-
-/**
- * Łączy dwie obserwacje budżetu z TEGO SAMEGO okna godzinowego. Pozostałe
- * zapytania w oknie tylko zmniejszają „ile zostało", więc wygrywa niższa
- * wartość; `null` („nie wiadomo") nigdy nie wygrywa z liczbą i nigdy nie staje
- * się zerem (AGENTS.md #3). Sufity bierzemy z `a` (świeższa obserwacja).
- * `b === null` zwraca `a` bez zmian.
- */
-export function mergeBudgets(a: RateLimitBudget, b: RateLimitBudget | null): RateLimitBudget {
-  if (b === null) return a
-  return {
-    hourly: minKnown(a.hourly, b.hourly),
-    daily: minKnown(a.daily, b.daily),
-    hourlyLimit: a.hourlyLimit ?? b.hourlyLimit ?? null,
-    dailyLimit: a.dailyLimit ?? b.dailyLimit ?? null,
-  }
-}
 
 export type GetOperationsResult = {
   trains: RawTrainOperation[]
@@ -268,73 +198,6 @@ export interface PkpClient {
   getDataVersion(): Promise<DataVersion>
 }
 
-export class PkpApiError extends Error {
-  readonly status: number
-
-  constructor(message: string, status: number) {
-    super(message)
-    this.name = 'PkpApiError'
-    this.status = status
-  }
-}
-
-/**
- * `apiKey: null` pomija nagłówek `X-API-Key` -- używane przez
- * `getNameDictionaries()`: te dwa endpointy są publiczne, a wysłanie klucza
- * mimo to (zweryfikowane na żywo) przełącza żądanie z darmowej, anonimowej
- * puli limitów na tę samą pulę 100/h co `/operations` -- dokładnie ten koszt,
- * którego to wywołanie ma unikać.
- */
-async function fetchWithTimeout(url: string, apiKey: string | null): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  try {
-    return await fetch(url, {
-      headers: apiKey === null ? {} : { 'X-API-Key': apiKey },
-      signal: controller.signal,
-    })
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-/**
- * `fetchWithTimeout` + sprawdzenie statusu + parsowanie JSON-a — dokładnie ten
- * sam wzorzec powtarzał się w trzech miejscach (słownik stacji, rozkłady,
- * realizacja). Zwraca też surowy `response`, bo `getOperations` potrzebuje
- * z niego nagłówków budżetu po odczytaniu ciała.
- */
-async function fetchJson(
-  url: string,
-  apiKey: string | null,
-  errorMessage: string,
-  onResponse?: (response: Response) => void
-): Promise<{ json: unknown; response: Response }> {
-  const response = await fetchWithTimeout(url, apiKey)
-  // Przed sprawdzeniem statusu: nagłówki 429 to najważniejsza obserwacja budżetu.
-  onResponse?.(response)
-  if (!response.ok) {
-    throw new PkpApiError(`${errorMessage}: ${response.status}`, response.status)
-  }
-  const json = await response.json()
-  return { json, response }
-}
-
-function parseRemaining(raw: string | null): number | null {
-  if (raw === null || raw.trim() === '') return null
-  const value = Number(raw)
-  return Number.isFinite(value) ? value : null
-}
-
-function parseBudget(response: Response): RateLimitBudget {
-  return {
-    hourly: parseRemaining(response.headers.get('X-RateLimit-Hourly-Remaining')),
-    daily: parseRemaining(response.headers.get('X-RateLimit-Daily-Remaining')),
-    hourlyLimit: parseRemaining(response.headers.get('X-RateLimit-Hourly-Limit')),
-    dailyLimit: parseRemaining(response.headers.get('X-RateLimit-Daily-Limit')),
-  }
-}
-
 /**
  * Identyfikatory stacji pochodzą z parametru URL `/api/board`, czyli spoza
  * aplikacji. Wklejone surowo do zapytania pozwalałyby dopisać własne parametry
@@ -350,209 +213,31 @@ function encodeStationIds(stationIds: string[]): string {
   return stationIds.map((id) => encodeURIComponent(id)).join(',')
 }
 
-/** Stacja z nazwą znormalizowaną raz, przy budowaniu cache'u słownika. */
-type IndexedStation = { station: Station; normalizedName: string }
-
-/**
- * Ogólnopolski rozkład na okno dat z indeksami zbudowanymi raz przy wczytaniu
- * (nigdy skan całej listy na żądanie). `windowKey` = `dateFrom|dateTo`.
- */
-type NationalSchedules = {
-  windowKey: string
-  expiresAt: number
-  meta: Omit<GetSchedulesResult, 'routes'>
-  /** ID stacji -> trasy przez nią przechodzące (każda trasa raz na stację). */
-  byStation: Map<string, RawRoute[]>
-  /** `scheduleId|orderId` -> trasa; służy `/api/train` zamiast `/schedules/route/...`. */
-  byRoute: Map<string, RawRoute>
-}
-
-function indexNationalSchedules(windowKey: string, result: GetSchedulesResult): NationalSchedules {
-  const byStation = new Map<string, RawRoute[]>()
-  const byRoute = new Map<string, RawRoute>()
-  for (const route of result.routes) {
-    byRoute.set(`${route.scheduleId}|${route.orderId}`, route)
-    // Trasa może przejeżdżać przez stację więcej niż raz (pętla) -- do indeksu tylko raz.
-    for (const stationId of new Set(route.stations.map((stop) => stop.stationId))) {
-      const bucket = byStation.get(stationId)
-      if (bucket === undefined) byStation.set(stationId, [route])
-      else bucket.push(route)
-    }
-  }
-  const { carrierNames, categoryNames, stationNames, usedFullRouteFallback } = result
-  return {
-    windowKey,
-    expiresAt: Date.now() + NATIONAL_SCHEDULES_TTL_MS,
-    meta: { carrierNames, categoryNames, stationNames, usedFullRouteFallback },
-    byStation,
-    byRoute,
-  }
-}
-
 export function createLiveClient(
   apiKey: string,
   now: () => Date = () => new Date(),
   sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   random: () => number = Math.random
 ): PkpClient {
-  let stationListCache: { stations: IndexedStation[]; ids: ReadonlySet<string>; expiresAt: number } | null = null
-  // Jedna migawka ogólnopolskiego rozkładu (okno dat w kluczu) + indeksy budowane raz przy wczytaniu.
-  let nationalSchedules: NationalSchedules | null = null
-  let lastRefreshFailure: { at: number; error: unknown } | null = null
+  const transport = createPkpTransport({ apiKey, now, sleep, random })
+  const { fetchJson, fetchPublicJson } = transport
+  const stations = createStationDirectory(fetchJson)
+  const schedules = createNationalSchedules(fetchJson, now)
   const disruptionsCache = createTtlCache<GetDisruptionsResult>({
     ttlMs: DISRUPTIONS_CACHE_TTL_MS,
     maxEntries: DISRUPTIONS_CACHE_MAX_ENTRIES,
   })
-  const routeCache = createTtlCache<RawRoute>({
-    ttlMs: ROUTE_CACHE_TTL_MS,
-    maxEntries: ROUTE_CACHE_MAX_ENTRIES,
-  })
-  // Ten sam wzorzec co stationListCache/stationListInFlight -- jeden blob,
-  // nie klucz-po-kluczu, więc zwykły TtlCache (klucz -> wartość) tu nie pasuje.
+  // Jeden blob, nie klucz-po-kluczu, więc zwykły TtlCache (klucz -> wartość) tu nie pasuje.
   let nameDictionariesCache: { value: NameDictionaries; expiresAt: number } | null = null
+  // Uchwyty na trwające pobrania (cache przed `await`, zapis po nim -- patrz `nationalSchedules.ts`).
   let nameDictionariesInFlight: Promise<NameDictionaries> | null = null
-
-  /**
-   * Ostatni znany budżet z odpowiedzi z kluczem, z numerem godziny zegarowej,
-   * w której go zapamiętano. ponytail: okno godzinowe PKP przybliżone godziną
-   * zegarową; gdyby było kroczące, min zostanie zaniżony najwyżej do końca
-   * godziny (poller tylko zwolni), a po zmianie godziny stan sam się czyści.
-   */
-  let lastBudget: { budget: RateLimitBudget; hour: number } | null = null
-  const currentHour = () => Math.floor(now().getTime() / HOUR_MS)
-
-  function noteBudget(response: Response): void {
-    const next = parseBudget(response)
-    // Odpowiedź bez żadnych nagłówków nic nie mówi — nie nadpisuj, nie zeruj.
-    if (next.hourly === null && next.daily === null) return
-    const hour = currentHour()
-    lastBudget = { budget: mergeBudgets(next, lastBudget?.hour === hour ? lastBudget.budget : null), hour }
-  }
-
-  /**
-   * Uchwyty na trwające pobrania.
-   *
-   * Cache sprawdzamy przed `await`, a zapisujemy po nim — bez tych uchwytów
-   * równoległe żądania (odświeżenie kilku kart naraz, zimny start, wygaśnięcie
-   * cache'u po dobie) trafiają wszystkie w pustą pamięć i każde odpala własne
-   * pobranie. Osiem równoległych zapytań to osiem pozycji z limitu zamiast
-   * jednej. Kolejni chętni dołączają się do już trwającego pobrania.
-   */
-  let stationListInFlight: Promise<IndexedStation[]> | null = null
-  let nationalSchedulesInFlight: { windowKey: string; promise: Promise<NationalSchedules> } | null = null
   const disruptionsInFlight = new Map<string, Promise<GetDisruptionsResult>>()
-  const routeInFlight = new Map<string, Promise<RawRoute>>()
-
-  /**
-   * Zaobserwowane na żywo (staging): PKP bywa chwilowo wolne i przekracza
-   * `REQUEST_TIMEOUT_MS` (`fetchWithTimeout` przerywa żądanie przez
-   * `AbortController`) -- to samo przejściowe zjawisko co 5xx, ale bez tego
-   * warunku w ogóle nie było ponawiane. Rozpoznanie po `name`, nie po
-   * `instanceof DOMException` -- Node/undici i przeglądarka zgadzają się co
-   * do `name: 'AbortError'`, ale globalny `DOMException` bywał niedostępny
-   * w starszych środowiskach Node, więc sprawdzanie `instanceof` jest tu
-   * niepotrzebnym dodatkowym ryzykiem.
-   */
-  function isAbortError(err: unknown): boolean {
-    return err instanceof Error && err.name === 'AbortError'
-  }
-
-  /**
-   * `fetchJson` + jedno ponowienie na 5xx lub na timeout (AbortError), z
-   * odstępem i jitterem. Wcześniej to ponowienie żyło tylko wokół
-   * `getOperations` w `poller.ts` -- `/schedules` miał inną (catch-i-degraduj),
-   * a `getTrainDetail` (patrz `/api/train`) nie miał żadnej. Jeden wspólny
-   * wrapper na poziomie `fetchJson` daje tę samą odporność każdemu zapytaniu
-   * do PKP, nie tylko temu, które akurat ktoś owinął ręcznie.
-   */
-  async function fetchJsonWithRetry(url: string, key: string | null, errorMessage: string): Promise<{ json: unknown; response: Response }> {
-    // Klucz `null` = endpoint publiczny, anonimowa pula -- nie liczy się do naszego budżetu.
-    const onResponse = key === null ? undefined : noteBudget
-    try {
-      return await fetchJson(url, key, errorMessage, onResponse)
-    } catch (err) {
-      if ((err instanceof PkpApiError && err.status >= 500) || isAbortError(err)) {
-        await sleep(RETRY_BASE_DELAY_MS + random() * RETRY_JITTER_MS)
-        return fetchJson(url, key, errorMessage, onResponse)
-      }
-      throw err
-    }
-  }
-
-  /**
-   * Trasa rozkładowa (schedules/route) jest statyczną daną rozkładową dla
-   * danej pary scheduleId/orderId — w przeciwieństwie do realizacji (operations)
-   * nie zmienia się między wywołaniami `getTrainDetail` dla tego samego
-   * pociągu. Cache + in-flight dedup, jak przy `getSchedules`.
-   *
-   * Brak trasy (404, mniejszość pociągów) NIE jest cache'owany — może się
-   * pojawić później, więc odrzucenie leci dalej bez zapisu.
-   */
-  async function fetchRoute(scheduleId: string, orderId: string): Promise<RawRoute> {
-    const cacheKey = `${scheduleId}|${orderId}`
-    const cached = routeCache.get(cacheKey)
-    if (cached !== undefined) {
-      return cached
-    }
-
-    // Trasa z migawki rozkładu (fullRoute=true) to ten sam kształt co `/schedules/route/...`, więc zimny miss
-    // `/api/train` nie płaci osobnego zapytania. Migawka bez pełnych tras (fallback po awarii PKP) się nie nadaje.
-    const fromSnapshot = nationalSchedules !== null && !nationalSchedules.meta.usedFullRouteFallback ? nationalSchedules.byRoute.get(cacheKey) : undefined
-    if (fromSnapshot !== undefined) return fromSnapshot
-
-    const pending = routeInFlight.get(cacheKey)
-    if (pending !== undefined) {
-      return pending
-    }
-
-    const routeUrl = `${BASE_URL}/api/v1/schedules/route/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}`
-    const request = fetchJsonWithRetry(routeUrl, apiKey, 'Pobranie trasy pociągu nie powiodło się')
-      .then(({ json }) => {
-        const route = rawRouteSchema.parse(json)
-        routeCache.set(cacheKey, route)
-        return route
-      })
-      .finally(() => {
-        routeInFlight.delete(cacheKey)
-      })
-    routeInFlight.set(cacheKey, request)
-    return request
-  }
-
-  async function fetchAllStations(): Promise<IndexedStation[]> {
-    const cached = stationListCache
-    if (cached !== null && cached.expiresAt > Date.now()) {
-      return cached.stations
-    }
-
-    if (stationListInFlight === null) {
-      stationListInFlight = loadStationList().finally(() => {
-        stationListInFlight = null
-      })
-    }
-    return stationListInFlight
-  }
-
-  async function loadStationList(): Promise<IndexedStation[]> {
-    const url = `${BASE_URL}/api/v1/dictionaries/stations?pageSize=10000`
-    const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie listy stacji nie powiodło się')
-    const stations = stationSearchResponseSchema.parse(json).stations
-      .filter((station) => station.name !== '')
-      .map((station) => ({ station, normalizedName: normalizeForSearch(station.name) }))
-    stationListCache = {
-      stations,
-      ids: new Set(stations.map((entry) => entry.station.id)),
-      expiresAt: Date.now() + STATION_LIST_CACHE_TTL_MS,
-    }
-    return stations
-  }
 
   async function loadNameDictionaries(): Promise<NameDictionaries> {
     const [carriers, categories] = await Promise.all([
-      fetchJsonWithRetry(`${BASE_URL}/api/v1/dictionaries/carriers`, null, 'Pobranie słownika przewoźników nie powiodło się'),
-      fetchJsonWithRetry(
+      fetchPublicJson(`${BASE_URL}/api/v1/dictionaries/carriers`, 'Pobranie słownika przewoźników nie powiodło się'),
+      fetchPublicJson(
         `${BASE_URL}/api/v1/dictionaries/commercial-categories`,
-        null,
         'Pobranie słownika kategorii handlowych nie powiodło się'
       ),
     ])
@@ -564,126 +249,9 @@ export function createLiveClient(
     return value
   }
 
-  /**
-   * `/schedules` domyślnie zwraca tylko dzisiejsze kursy (`dateFrom`/`dateTo`
-   * domyślnie = dziś). Pociąg odjeżdżający tuż po północy formalnie kursuje
-   * "jutro" — bez jawnego okna dat taki pociąg nie miał dopasowanej trasy
-   * (pusta nazwa, przewoźnik, peron/tor), mimo że `/operations` już go
-   * pokazywał w widoku 2h naprzód. Jawne żądanie dziś+jutro (wg kalendarza
-   * warszawskiego, nie strefy procesu — patrz `time.ts`) domyka tę lukę bez
-   * dodatkowego zapytania: to wciąż jedno wywołanie `/schedules` na cykl.
-   */
-  function scheduleDateWindow(): { dateFrom: string; dateTo: string } {
-    const instant = now()
-    return {
-      dateFrom: warsawDateString(instant),
-      dateTo: warsawDateString(new Date(instant.getTime() + ONE_DAY_MS)),
-    }
-  }
-
-  /**
-   * Bez `stations` = cały kraj. Identyfikatory stacji z zewnątrz (URL `/api/board`) nigdy nie trafiają do tego
-   * zapytania -- filtrują wynik dopiero w pamięci (AGENTS.md #4), więc nie ma czego wstrzykiwać.
-   */
-  async function loadNationalSchedules(dateFrom: string, dateTo: string): Promise<GetSchedulesResult> {
-    const baseUrl = `${BASE_URL}/api/v1/schedules?dateFrom=${dateFrom}&dateTo=${dateTo}`
-    // fullRoute=true: /operations celowo NIE dokłada już pełnej trasy (patrz
-    // getOperations niżej) — origin/destination do „Kierunku" idą stąd.
-    // Koszt jednorazowy: migawka żyje pół doby (NATIONAL_SCHEDULES_TTL_MS), w przeciwieństwie do
-    // /operations pobieranego co cykl pollera.
-    const { json } = await fetchJsonWithRetry(`${baseUrl}&fullRoute=true`, apiKey, 'Pobranie rozkładu nie powiodło się')
-    let parsed = schedulesResponseSchema.parse(json)
-
-    /**
-     * Obejście awarii po stronie PKP, stwierdzonej 2026-08-30: `fullRoute=true`
-     * zaczęło zwracać komplet tras z kraju (10 498 zamiast 694 dla jednej
-     * stacji, 2,5 MB zamiast 522 KB) i przy tym GUBIĆ listę `stations` w każdej
-     * z nich. Bez przystanków nie ma planowych godzin, peronu, kierunku ani
-     * estymaty z poprzedniej stacji — czyli trasy są formalnie obecne, a
-     * praktycznie bezużyteczne. Schemat tego nie zgłasza, bo `stations` jest
-     * `.nullish()` i brak zamienia się w `[]` (świadomie: to granica zaufania).
-     *
-     * Wariant bez `fullRoute` działa i niesie przystanek obserwowanej stacji
-     * wraz z jego godzinami i peronem — traci tylko pełną trasę, czyli
-     * „Kierunek" i estymatę upstream. Lepsze to niż tablica bez godzin.
-     *
-     * Świadomie jako FALLBACK, nie jako domyślne zachowanie: gdy PKP naprawi
-     * `fullRoute`, kierunek i estymata wracają same, bez zmiany w kodzie.
-     * Koszt: jedno dodatkowe zapytanie na odświeżenie migawki (co 12 h), czyli
-     * w praktyce kilka na dobę — patrz AGENTS.md #3. (Historycznie test 2026-08-30
-     * dotyczył jednej stacji; dziś pytamy o cały kraj, więc „komplet tras" jest
-     * normą, a sygnałem awarii pozostaje wyłącznie brak przystanków.)
-     */
-    let usedFullRouteFallback = false
-    if (parsed.routes.length > 0 && !parsed.routes.some((route) => route.stations.length > 0)) {
-      logEvent('error', 'pkp.schedules_full_route_empty', { routes: parsed.routes.length })
-      usedFullRouteFallback = true
-      const fallback = await fetchJsonWithRetry(baseUrl, apiKey, 'Pobranie rozkładu nie powiodło się')
-      parsed = schedulesResponseSchema.parse(fallback.json)
-    }
-
-    return {
-      routes: parsed.routes,
-      carrierNames: parsed.carrierNames,
-      categoryNames: parsed.categoryNames,
-      stationNames: parsed.stationNames,
-      usedFullRouteFallback,
-    }
-  }
-
-  /**
-   * Bieżąca migawka albo jej odświeżenie (jedno zapytanie na raz, także przy wielu równoległych `getSchedules`).
-   * Nieudane odświeżenie NIE kasuje ostatniej dobrej migawki tego samego okna dat: jest serwowana dalej,
-   * a kolejna próba dopiero po `NATIONAL_SCHEDULES_RETRY_AFTER_FAILURE_MS` (AGENTS.md #7). Bez żadnej migawki
-   * błąd leci wyżej -- „nie wiadomo" to nie pusty rozkład.
-   */
-  async function ensureNationalSchedules(): Promise<NationalSchedules> {
-    // Okno dat MUSI wejść do klucza i MUSI być policzone raz, tutaj -- patrz komentarz w git blame `getSchedules`:
-    // migawka z 14:00 nie może obsługiwać dnia następnego, a przebieg o północy nie może zapisać wyniku
-    // pod wczorajszym kluczem.
-    const { dateFrom, dateTo } = scheduleDateWindow()
-    const windowKey = `${dateFrom}|${dateTo}`
-    const current = nationalSchedules
-    if (current !== null && current.windowKey === windowKey && current.expiresAt > Date.now()) return current
-
-    if (nationalSchedulesInFlight !== null && nationalSchedulesInFlight.windowKey === windowKey) {
-      return nationalSchedulesInFlight.promise
-    }
-
-    // Po porażce nie próbujemy znowu co tik pollera (43 MB, do 2 zapytań z limitu) -- także gdy nie ma
-    // pasującej migawki (zmiana okna po północy, zimny start). Wtedy błąd leci wyżej, a poller ma swój `lastGoodRoutes`.
-    if (lastRefreshFailure !== null && Date.now() - lastRefreshFailure.at < NATIONAL_SCHEDULES_RETRY_AFTER_FAILURE_MS) {
-      if (current !== null && current.windowKey === windowKey) return current
-      throw lastRefreshFailure.error
-    }
-
-    const promise = loadNationalSchedules(dateFrom, dateTo)
-      .then((result) => {
-        const indexed = indexNationalSchedules(windowKey, result)
-        lastRefreshFailure = null
-        // Wolne pobranie starszego okna (przebieg sprzed północy) nie może nadpisać nowszej migawki.
-        if (nationalSchedules === null || nationalSchedules.windowKey <= windowKey) nationalSchedules = indexed
-        return indexed
-      })
-      .catch((err: unknown) => {
-        lastRefreshFailure = { at: Date.now(), error: err }
-        if (current !== null && current.windowKey === windowKey) {
-          logEvent('warn', 'pkp.schedules_refresh_failed_serving_stale', {}, err)
-          return current
-        }
-        throw err
-      })
-      .finally(() => {
-        // Nie kasujemy uchwytu nowszego okna, który w międzyczasie go zastąpił.
-        if (nationalSchedulesInFlight?.windowKey === windowKey) nationalSchedulesInFlight = null
-      })
-    nationalSchedulesInFlight = { windowKey, promise }
-    return promise
-  }
-
   async function loadDisruptions(stationIds: string[], dateFrom: string, dateTo: string, cacheKey: string): Promise<GetDisruptionsResult> {
     const url = `${BASE_URL}/api/v1/disruptions?stations=${encodeStationIds(stationIds)}&dateFrom=${dateFrom}&dateTo=${dateTo}&dictionaries=true`
-    const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie utrudnień nie powiodło się')
+    const { json } = await fetchJson(url, 'Pobranie utrudnień nie powiodło się')
     const parsed = disruptionsResponseSchema.parse(json)
     const result: GetDisruptionsResult = { disruptions: parsed.disruptions, disruptionTypes: parsed.disruptionTypes }
     disruptionsCache.set(cacheKey, result)
@@ -691,23 +259,13 @@ export function createLiveClient(
   }
 
   return {
-    getLastBudget(): RateLimitBudget | null {
-      return lastBudget !== null && lastBudget.hour === currentHour() ? lastBudget.budget : null
-    },
+    getLastBudget: transport.getLastBudget,
 
-    getCachedStationIds(): ReadonlySet<string> | null {
-      if (stationListCache === null || stationListCache.expiresAt <= Date.now()) return null
-      return stationListCache.ids
-    },
+    getCachedStationIds: stations.getCachedIds,
 
-    async searchStations(query: string): Promise<Station[]> {
-      const stations = await fetchAllStations()
-      const normalized = normalizeForSearch(query)
-      if (normalized === '') return stations.map((entry) => entry.station)
-      return stations
-        .filter((entry) => entry.normalizedName.includes(normalized))
-        .map((entry) => entry.station)
-    },
+    searchStations: stations.search,
+
+    getSchedules: schedules.getSchedules,
 
     async getOperations(stationIds: string[], page = 1): Promise<GetOperationsResult> {
       // Świadomie BEZ fullRoutes=true: dokładałoby pełną trasę (śr. 15
@@ -724,24 +282,12 @@ export function createLiveClient(
       // bo każda to osobne zapytanie z limitu 100/h i decyzja „ile stron"
       // należy do niego.
       const url = `${BASE_URL}/api/v1/operations?stations=${encodeStationIds(stationIds)}&withPlanned=true&pageSize=${OPERATIONS_PAGE_SIZE}&page=${page}`
-      const { json, response } = await fetchJsonWithRetry(url, apiKey, 'Pobranie realizacji nie powiodło się')
+      const { json, response } = await fetchJson(url, 'Pobranie realizacji nie powiodło się')
       const parsed = operationsResponseSchema.parse(json)
       // `truncated` = są kolejne strony. Klient sam ich NIE dociąga — zwraca flagę,
       // a poller decyduje (budżet, limit stron), czy iść po następną.
       const truncated = parsed.pagination?.hasNextPage === true
       return { trains: parsed.trains, stationNames: parsed.stations, budget: parseBudget(response), truncated }
-    },
-
-    async getSchedules(stationIds: string[]): Promise<GetSchedulesResult> {
-      const snapshot = await ensureNationalSchedules()
-      // Suma tras przez którąkolwiek z żądanych stacji, każda raz (trasa 30 przez 5100 i 4900 nie dubluje się).
-      // NIE zwracamy całego kraju: `stationStats` liczy surową listę tras (AGENTS.md #9) i liczyłby cudze pociągi.
-      // Rekordy tego samego przejazdu z różnymi `orderId` (po jednym na dzień) zostają osobno.
-      const routes = new Set<RawRoute>()
-      for (const stationId of stationIds) {
-        for (const route of snapshot.byStation.get(stationId) ?? []) routes.add(route)
-      }
-      return { ...snapshot.meta, routes: [...routes] }
     },
 
     async getTrainDetail(scheduleId: string, orderId: string, operatingDate: string): Promise<TrainDetailResult> {
@@ -755,8 +301,8 @@ export function createLiveClient(
       // realizacji. Stąd allSettled zamiast Promise.all: brak trasy to `null`,
       // nie odrzucenie całego żądania.
       const [operationResult, routeResult] = await Promise.allSettled([
-        fetchJsonWithRetry(operationUrl, apiKey, 'Pobranie szczegółów przejazdu nie powiodło się'),
-        fetchRoute(scheduleId, orderId),
+        fetchJson(operationUrl, 'Pobranie szczegółów przejazdu nie powiodło się'),
+        schedules.fetchRoute(scheduleId, orderId),
       ])
 
       if (operationResult.status === 'rejected') throw operationResult.reason
@@ -778,7 +324,7 @@ export function createLiveClient(
       // Ani odpowiedź realizacji, ani trasy nie niosą nazw stacji — tylko ID.
       // Pełny słownik stacji jest już cache'owany 24h dla searchStations, więc
       // to nie jest dodatkowe zapytanie poza pierwszym rozgrzaniem.
-      const allStations = await fetchAllStations()
+      const allStations = await stations.all()
       const stationNames = Object.fromEntries(allStations.map((entry) => [entry.station.id, entry.station.name]))
 
       return { operation, route, stationNames }
@@ -800,13 +346,13 @@ export function createLiveClient(
 
     async getOperationsStatistics(date: string): Promise<OperationsStatistics> {
       const url = `${BASE_URL}/api/v1/operations/statistics?date=${encodeURIComponent(date)}`
-      const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie statystyk sieci nie powiodło się')
+      const { json } = await fetchJson(url, 'Pobranie statystyk sieci nie powiodło się')
       return operationsStatisticsResponseSchema.parse(json)
     },
 
     async getDailyCarrierCounts(date: string): Promise<Record<string, number>> {
       const url = `${BASE_URL}/api/v1/schedules/routes/${encodeURIComponent(date)}`
-      const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie listy tras dnia nie powiodło się')
+      const { json } = await fetchJson(url, 'Pobranie listy tras dnia nie powiodło się')
       const { routes } = dailyRoutesResponseSchema.parse(json)
       const counts: Record<string, number> = {}
       for (const route of routes) {
@@ -819,12 +365,12 @@ export function createLiveClient(
     async getDisruptionCount(dateFrom: string, dateTo: string): Promise<number> {
       // Bez `stations=` -- zasięg ogólnopolski, tak jak `getOperationsStatistics()`.
       const url = `${BASE_URL}/api/v1/disruptions?dateFrom=${encodeURIComponent(dateFrom)}&dateTo=${encodeURIComponent(dateTo)}`
-      const { json } = await fetchJsonWithRetry(url, apiKey, 'Pobranie liczby utrudnień nie powiodło się')
+      const { json } = await fetchJson(url, 'Pobranie liczby utrudnień nie powiodło się')
       return disruptionsCountResponseSchema.parse(json)
     },
 
     async getDisruptions(stationIds: string[], dateFrom?: string, dateTo?: string): Promise<GetDisruptionsResult> {
-      const window = dateFrom !== undefined && dateTo !== undefined ? { dateFrom, dateTo } : scheduleDateWindow()
+      const window = dateFrom !== undefined && dateTo !== undefined ? { dateFrom, dateTo } : scheduleDateWindow(now)
       const cacheKey = `${[...stationIds].sort().join(',')}|${window.dateFrom}|${window.dateTo}`
       const cached = disruptionsCache.get(cacheKey)
       if (cached !== undefined) {
@@ -847,9 +393,8 @@ export function createLiveClient(
       // Bez cache'u świadomie: to pytanie brzmi „czy dane się właśnie zmieniły",
       // więc zapamiętana odpowiedź nie miałaby sensu. Dławienie częstotliwości
       // należy do wywołującego (patrz `poller.ts`), nie tutaj.
-      const { json } = await fetchJsonWithRetry(
+      const { json } = await fetchJson(
         `${BASE_URL}/api/v1/data-version`,
-        apiKey,
         'Pobranie wersji danych nie powiodło się'
       )
       return dataVersionResponseSchema.parse(json)
