@@ -27,7 +27,7 @@ npm run check                               # typecheck && lint && test; green â
 npm run status                              # branch, HEAD, ahead/behind origin/dev, dirty, PR + CI
 TZ=UTC npm run test                         # time logic (#1); CI runs Europe/Warsaw + UTC
 npm run e2e                                 # UI changes (#16)
-PKP_CONTRACT=1 npm run test -- contract     # touching src/lib/pkp/schema.ts or query params in client.ts
+PKP_CONTRACT=1 npm run test -- contract     # touching src/lib/pkp/schema.ts or query params in client.ts / nationalSchedules.ts / stationDirectory.ts
 GTFS_CONTRACT=1 npm run test -- gtfs/contract
 ```
 
