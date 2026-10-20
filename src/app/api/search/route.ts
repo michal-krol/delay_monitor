@@ -64,6 +64,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ stations: [], sources })
   }
 
+  const needle = query.toLocaleLowerCase('pl')
+  const compareByQuery = (a: { name: string }, b: { name: string }) => {
+    const ap = a.name.toLocaleLowerCase('pl').startsWith(needle) ? 0 : 1
+    const bp = b.name.toLocaleLowerCase('pl').startsWith(needle) ? 0 : 1
+    return ap - bp || a.name.localeCompare(b.name, 'pl')
+  }
   const results: SearchOption[] = []
   let railState: SearchSources['rail'] = 'ready'
 
@@ -74,6 +80,9 @@ export async function GET(request: Request) {
       (station) => allRail || (city !== null && station.name.startsWith(city.railStationPrefix))
     )
     // Tylko tyle, ile i tak zmieści się w odpowiedzi -- bez `await` współrzędnych dla reszty.
+    // Słownik zwraca trafienia w kolejności katalogu, więc najpierw porządek jak w końcowym
+    // sortowaniu (prefiks, potem alfabet) -- inaczej cięcie gubiłoby lepsze trafienia.
+    matching.sort(compareByQuery)
     for (const station of matching.slice(0, MAX_SUGGESTIONS)) {
       // Brak/awaria pliku współrzędnych nie wywala wyszukiwarki — wynik bez pozycji.
       const coords = await getStationCoordinates(station.id).catch(() => null)
@@ -110,12 +119,7 @@ export async function GET(request: Request) {
   }
 
   // Dopasowania od początku nazwy pierwsze, potem alfabetycznie.
-  const needle = query.toLocaleLowerCase('pl')
-  results.sort((a, b) => {
-    const ap = a.name.toLocaleLowerCase('pl').startsWith(needle) ? 0 : 1
-    const bp = b.name.toLocaleLowerCase('pl').startsWith(needle) ? 0 : 1
-    return ap - bp || a.name.localeCompare(b.name, 'pl')
-  })
+  results.sort(compareByQuery)
 
   // `loading` mówi wyszukiwarce, żeby ponowiła — rozkład miejski jeszcze się
   // wczytuje, więc same stacje kolejowe to niepełny wynik. Bez miasta nie ma
