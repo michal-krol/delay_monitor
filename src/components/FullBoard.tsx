@@ -4,12 +4,12 @@ import { startTransition, useEffect, useId, useMemo, useRef, useState, type Reac
 import Link from 'next/link'
 import { useBoard } from '@/hooks/useBoard'
 import { useStationWeather } from '@/hooks/useStationWeather'
+import { useHeaderWeather, useHeaderWeatherContext } from './pageHeader'
 import { useRecentPlaces } from '@/hooks/useRecentPlaces'
 import { ConfigErrorBanner } from './ConfigErrorBanner'
 import { BoardStatus } from './BoardStatus'
 import { BoardTable, StatusLegend } from './BoardTable'
 import { ActionGrid } from './ActionGrid'
-import { BoardMoreMenu } from './BoardMoreMenu'
 import { DirectionSelect } from './DirectionSelect'
 import { InfoButton, InfoSheet, STICKY_TABS_BAR, useBoardContext } from './InfoSheet'
 import { PopularDestinations, StationAside } from './StationAside'
@@ -18,16 +18,15 @@ import { StationThumb } from './StationThumb'
 import { BoardHeading } from './BoardHeading'
 import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
-import { AlertCircleIcon, ArrowLeftIcon, ChevronRightIcon, CloseIcon, MapIcon, ICON_SIZE } from './icons'
+import { AlertCircleIcon, ChevronRightIcon, CloseIcon, MapIcon, ICON_SIZE } from './icons'
 import { PinStar } from './PinStar'
-import { ICON_BUTTON_CLASS, IconButton } from './IconButton'
+import { IconButton } from './IconButton'
 import { MAP_ZOOM } from './map/mapData'
 import { formatAt } from './map/mapCamera'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useCityContext } from '@/hooks/useCityContext'
 import { pluralPl } from '@/lib/plural'
 import type { MapRailStation } from '@/lib/weather/coordinates'
-import { NAV_BACK_TYPES } from '@/lib/navTransition'
 import { onTablistKeyDown } from './tablistKeys'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
@@ -47,11 +46,7 @@ type Props = {
    * strona nadrzędna (`TopBar`), nie tablica.
    */
   embedded?: boolean
-  /**
-   * Telefon: górny rząd karty to ← nazwa ★ ⋮ („Więcej”: „Udostępnij”, „Informacje o stacji”) zamiast osobnego
-   * wiersza `TopBar` (strona chowa go `hideOnPhone`) — nazwa (h1, `PlaceTitle`) stoi raz. Tylko gdy `!embedded`.
-   */
-  phoneBack?: { href: string; label: string }
+
 }
 
 export type Direction = 'departures' | 'arrivals'
@@ -149,7 +144,7 @@ function DisruptionNotice({ count, open, onOpen }: { count: number; open: boolea
   )
 }
 
-export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true, onTogglePin, embedded = false, phoneBack }: Props) {
+export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true, onTogglePin, embedded = false }: Props) {
   const [direction, setDirection] = useState<Direction>('departures')
   // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
   useHeaderTitle(embedded ? null : stationName)
@@ -161,7 +156,10 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
   // Kontekst w kolumnie (`wide`) albo w arkuszu „Info” — jedno miejsce naraz, patrz `useBoardContext`.
   const { wide, infoOpen, toggleInfo, openInfo, closeInfo } = useBoardContext()
   const { data, error, lastSuccessAt, refresh } = useBoard([stationId])
-  const weather = useStationWeather(stationId)
+  const ownWeather = useStationWeather(embedded ? '' : stationId)
+  const hostWeather = useHeaderWeatherContext()
+  const weather = embedded ? hostWeather?.weather ?? { status: 'unavailable' as const } : ownWeather
+  useHeaderWeather(embedded ? null : weather, stationName)
   const snapshot = data?.snapshots[0] ?? null
   const configError = data?.status === 'configError'
 
@@ -299,11 +297,6 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
 
           <div className="flex flex-wrap items-start justify-between gap-4 max-sm:flex-nowrap max-sm:items-center max-sm:gap-2">
             <div className="flex min-w-0 items-center gap-4 max-sm:gap-2">
-              {phoneBack !== undefined && !wide && (
-                <Link href={phoneBack.href} transitionTypes={NAV_BACK_TYPES} aria-label={phoneBack.label} className={`${ICON_BUTTON_CLASS} h-11 w-11`}>
-                  <ArrowLeftIcon size={ICON_SIZE.button} />
-                </Link>
-              )}
               <div className="shrink-0 max-sm:hidden">
                 <StationThumb stationName={stationName} />
               </div>
@@ -321,7 +314,6 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
               <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij ze Startu' : 'Przypnij do Startu'} className="max-sm:h-11 max-sm:w-11">
                 <PinStar pinned={isPinned} settled={pinsLoaded} size={ICON_SIZE.button} />
               </IconButton>
-              {phoneBack !== undefined && !wide && <BoardMoreMenu infoLabel="Informacje o stacji" onInfo={openInfo} />}
             </div>
           </div>
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TransitStopPage from './page'
@@ -88,6 +88,7 @@ describe('TransitStopPage', () => {
     const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
     expect(within(nav).getByRole('link', { name: 'Odjazdy / Przyjazdy' })).toHaveAttribute('href', '/city/warszawa')
     expect(within(nav).getByText('Świętokrzyska')).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(screen.getByRole('button', { name: 'Więcej opcji strony' }))
     expect(screen.getAllByRole('button', { name: 'Udostępnij' })).toHaveLength(1)
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })

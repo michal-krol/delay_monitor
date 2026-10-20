@@ -1,3 +1,4 @@
+import { changeTheme } from './helpers/page-options'
 import type { Page } from '@playwright/test'
 import { test, expect } from './helpers/test'
 import { CITY_MAP, RAIL_ROW, READY, STOP_ROW, expectNoBlockingA11y, isPhone, lineRow, mapSearch, openMap, openVisibleList, pickResult, searchResults, stubGeolocation } from './helpers/map'
@@ -148,7 +149,7 @@ test.describe('ruch ograniczony (prefers-reduced-motion)', () => {
     await openMap(page)
     await pickResult(page, 'Centrum', STOP_ROW)
     await expect(page.getByRole('dialog', { name: 'Centrum' })).toBeVisible()
-    await page.getByRole('button', { name: 'Przełącz na tryb ciemny' }).click()
+    await changeTheme(page, 'Przełącz na tryb ciemny')
     await expect(page.locator('html')).toHaveClass(/dark/)
     await page.waitForTimeout(500)
     expect(await page.evaluate(() => (window as unknown as { __vt: number }).__vt)).toBe(0)

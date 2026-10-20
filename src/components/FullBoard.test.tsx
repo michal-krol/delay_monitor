@@ -597,7 +597,7 @@ describe('FullBoard', () => {
 
   it('wide screen keeps the desktop top: KPI tiles, no direction select, no „Więcej” menu', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
-    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Startu' }} />)
+    render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
     expect(screen.getByTestId('station-stats')).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Kierunek' })).not.toBeInTheDocument()
@@ -676,23 +676,19 @@ describe('FullBoard', () => {
       expect(within(sheet).getByRole('heading', { name: 'Legenda statusów' })).toBeInTheDocument()
     })
 
-    it('top row is ← name ★ ⋮: „Więcej” holds „Udostępnij” and „Informacje o stacji” (opens the sheet); name once', async () => {
+    it('keeps one heading and pin; Info opens context without duplicate chrome actions', async () => {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [SNAPSHOT], budget: undefined, status: 'ok' })))
       const user = userEvent.setup()
-      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} phoneBack={{ href: '/', label: 'Wróć do Startu' }} />)
+      render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
       await screen.findByText('EIC 1')
-      expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
+      expect(screen.queryByRole('link', { name: 'Wróć do Startu' })).not.toBeInTheDocument()
       expect(screen.getAllByRole('heading', { name: 'Warszawa Centralna' })).toHaveLength(1)
       expect(screen.getByRole('button', { name: 'Przypnij do Startu' })).toBeInTheDocument()
       // „Udostępnij” nie stoi już osobno w karcie — jest w menu.
       expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
 
-      const more = screen.getByRole('button', { name: 'Więcej' })
-      await user.click(more)
-      const menu = screen.getByRole('list', { name: 'Więcej' })
-      expect(within(menu).getByRole('button', { name: 'Udostępnij' })).toBeInTheDocument()
-      await user.click(within(menu).getByRole('button', { name: 'Informacje o stacji' }))
-      expect(screen.queryByRole('list', { name: 'Więcej' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Więcej' })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Info' }))
       expect(screen.getByRole('dialog', { name: 'Informacje o stacji' })).toBeInTheDocument()
     })
 

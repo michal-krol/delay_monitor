@@ -21,6 +21,8 @@ import { countdownLabel } from '@/lib/countdown'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { usePolling } from '@/hooks/usePolling'
 import { useStationWeather } from '@/hooks/useStationWeather'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
+import { useHeaderWeather } from './pageHeader'
 import { useScrollableFocus } from '@/hooks/useScrollableFocus'
 import { AsideCard } from './aside'
 import { WeatherCard } from './StationAside'
@@ -201,6 +203,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
   // to identyfikator PKP, ten sam, którym kluczuje `/api/weather`). Pusty ciąg
   // przed odpowiedzią = hook nie bije w API (AGENTS.md #3).
   const originWeather = useStationWeather(data?.stops[0]?.stationId ?? '')
+  useHeaderWeather(originWeather, data?.stops[0]?.stationName ?? '')
 
   // Każda próba (udana lub nie) odświeża `now`, żeby wiek danych liczył się od
   // chwili próby, nie od ostatniego tiku zegara odliczania (patrz niżej).
@@ -434,7 +437,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                     {/* Bez `aria-live`: licznik tyka co 30 s, to nie komunikat dla czytnika. */}
                     <p data-testid="data-age" className={`text-xs ${ageWarning ? 'text-warning-text' : 'text-text-muted'}`}>
-                      {refreshFailed && 'Nie udało się odświeżyć — pokazujemy ostatnie dane · '}Pobrano {formatAgo(dataAgeSec)}
+                      {refreshFailed && 'Nie udało się odświeżyć — pokazujemy ostatnie dane · '}Pobrano {formatAgo(dataAgeSec)}{lastSuccessAt !== null && ` · ${formatDataTimestamp(lastSuccessAt)}`}
                     </p>
                     {refreshFailed && (
                       <button type="button" onClick={refresh} className="chip-filter control-44">
@@ -601,7 +604,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
             {/* `tabIndex`/`aria-label`: od `xl` kolumna bywa przewijalna (`xl:overflow-y-auto`), a nie ma w niej
                 fokusowalnej treści — axe `scrollable-region-focusable`; fokusowalna tylko, gdy faktycznie się przewija. */}
             <aside ref={asideRef} tabIndex={asideTabIndex} aria-label="Podsumowanie połączenia" className="flex flex-col gap-6 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:sticky xl:top-6 xl:max-h-[calc(100dvh_-_3rem)] xl:overflow-y-auto">
-              <AsideCard title={`Pogoda dziś — ${data.stops[0].stationName}`}>
+              <AsideCard title={`Pogoda dziś — ${data.stops[0].stationName}`} className="max-sm:hidden">
                 <WeatherCard weather={originWeather} />
               </AsideCard>
 

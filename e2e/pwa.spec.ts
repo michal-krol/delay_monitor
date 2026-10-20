@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { scanA11y } from './helpers/axe'
+import { changeTheme } from './helpers/page-options'
+import { THEME_BG } from '../src/lib/siteMeta'
 
 // PWA bez service workera: manifest + ikony wystarczą do instalowalności (ADR / PR2 mobile-shell).
 test('manifest: 200, display standalone, ikony PNG odpowiadają 200', async ({ page, request }) => {
@@ -41,11 +43,11 @@ test('theme-color idzie za ręcznie wybranym motywem, nie tylko za systemowym', 
   await expect(themeColors).toHaveCount(2)
 
   // Na telefonie i komputerze przełącznik jest w innym nagłówku — klikamy widoczny.
-  await page.getByRole('button', { name: 'Przełącz na tryb ciemny' }).filter({ visible: true }).click()
-  for (const meta of await themeColors.all()) await expect(meta).toHaveAttribute('content', '#070b14')
+  await changeTheme(page, 'Przełącz na tryb ciemny')
+  for (const meta of await themeColors.all()) await expect(meta).toHaveAttribute('content', THEME_BG.dark)
 
-  await page.getByRole('button', { name: 'Przełącz na tryb jasny' }).filter({ visible: true }).click()
-  for (const meta of await themeColors.all()) await expect(meta).toHaveAttribute('content', '#eef0f8')
+  await changeTheme(page, 'Przełącz na tryb jasny')
+  for (const meta of await themeColors.all()) await expect(meta).toHaveAttribute('content', THEME_BG.light)
 })
 
 // Matryca motywu (next-themes: klucz `theme` w localStorage, klasa `dark` na <html>, domyślnie „system”).
@@ -60,8 +62,6 @@ test.describe('motyw: system a ręczny wybór', () => {
     await page.waitForLoadState('networkidle') // klik przed hydracją przepada bez śladu
   }
   // Na telefonie i komputerze przełącznik jest w innym nagłówku — klikamy widoczny.
-  const toggle = (page: Page, name: 'Przełącz na tryb jasny' | 'Przełącz na tryb ciemny') =>
-    page.getByRole('button', { name }).filter({ visible: true })
 
   test('system ciemny bez ręcznego wyboru → <html class="dark">; system jasny → bez klasy', async ({ page }) => {
     await open(page, 'dark')
@@ -72,7 +72,7 @@ test.describe('motyw: system a ręczny wybór', () => {
 
   test('ręcznie jasny przy systemie ciemnym zostaje jasny po przeładowaniu i po Wstecz', async ({ page }) => {
     await open(page, 'dark')
-    await toggle(page, 'Przełącz na tryb jasny').click()
+    await changeTheme(page, 'Przełącz na tryb jasny')
     await expect(page.locator('html')).not.toHaveClass(DARK)
     expect(await page.evaluate(() => window.localStorage.getItem('theme'))).toBe('light')
 
@@ -98,7 +98,7 @@ test.describe('motyw: system a ręczny wybór', () => {
 
   test('zmiana motywu systemu przy ręcznym wyborze nic nie zmienia', async ({ page }) => {
     await open(page, 'light')
-    await toggle(page, 'Przełącz na tryb ciemny').click()
+    await changeTheme(page, 'Przełącz na tryb ciemny')
     await expect(page.locator('html')).toHaveClass(DARK)
     // System ciemny, potem znów jasny: gdyby wybór nie był ręczny, UI wróciłby do jasnego.
     await page.emulateMedia({ colorScheme: 'dark' })

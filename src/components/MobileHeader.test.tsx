@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { MobileHeader } from './MobileHeader'
 
@@ -9,9 +9,11 @@ describe('MobileHeader', () => {
     expect(screen.queryByRole('button', { name: 'Szukaj' })).toBeNull()
   })
 
-  it('links the app name to the home page and holds the theme toggle', () => {
+  it('links the app name to home and exposes the theme inside page options', () => {
     render(<MobileHeader />)
     expect(screen.getByRole('link', { name: /Monitor opóźnień/ })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('button', { name: /tryb/i })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Więcej opcji strony' }))
     expect(screen.getByRole('button', { name: /tryb/i })).toBeInTheDocument()
   })
 

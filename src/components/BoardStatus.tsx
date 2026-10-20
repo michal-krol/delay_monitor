@@ -2,6 +2,7 @@ import type { BoardApiResponse } from '@/hooks/useBoard'
 import { effectiveAgeMs, formatAge, formatAgo } from '@/lib/format'
 import { useNow } from '@/hooks/useNow'
 import { LiveDot } from './LiveDot'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
 
 type Props = {
   fetchedAt: string | undefined
@@ -99,7 +100,7 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
           title={`Ostatnia aktualizacja: ${formatLastUpdated(fetchedAt)}`}
           className="inline-flex items-center rounded-full underline decoration-dotted underline-offset-2 transition hover:text-foreground touch-44 relative"
         >
-          Aktualizacja {formatAgo(ageMs / 1000)}
+          Aktualizacja {formatDataTimestamp(fetchedAt)} · {formatAgo(ageMs / 1000)}
           {' '}
           <span className="sr-only">— odśwież teraz</span>
           {/* Tryb aplikacji: brak odświeżania przeglądarki i brak podpowiedzi `title` na dotyk — przycisk mówi sam. */}

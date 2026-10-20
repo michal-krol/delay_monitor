@@ -12,7 +12,6 @@ import { TransitStopDetail } from '@/components/TransitStopDetail'
 import { PageShell } from '@/components/aside'
 import { RecentPlaces } from '@/components/RecentPlaces'
 import { ArrowLeftIcon, ICON_SIZE } from '@/components/icons'
-import { ShareButton } from '@/components/ShareButton'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { useCities } from '@/hooks/useCities'
 import { useCityContext } from '@/hooks/useCityContext'
@@ -76,12 +75,12 @@ export default function CityPage() {
       <TopBar
         city={city}
         compact={hasSelection}
+        share={hasSelection}
         title={`Odjazdy i przyjazdy — ${cityName}`}
         subtitle="Stacje kolejowe i przystanki komunikacji miejskiej"
         actions={
           <>
             {/* „Udostępnij" tylko z wybraną stacją/przystankiem — sam ekran miasta to wyszukiwarka. */}
-            {hasSelection && <ShareButton />}
             <CityPicker compact={hasSelection} cities={cities} current={city} />
           </>
         }

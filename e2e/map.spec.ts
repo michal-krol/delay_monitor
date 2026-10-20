@@ -1,3 +1,4 @@
+import { changeTheme } from './helpers/page-options'
 import { test, expect, type Locator, type Page } from './helpers/test'
 import { scanA11y } from './helpers/axe'
 import { showBoardMap } from './helpers/info'
@@ -1181,14 +1182,18 @@ test('motyw jasny → ciemny → jasny: zaznaczenie i ukryte warstwy zostają, p
   const html = page.locator('html')
   await expect(html).toHaveClass(/light/)
   const settled = dataCalls.length
+  const canvas = await map.elementHandle()
 
   for (const [button, theme] of [['Przełącz na tryb ciemny', 'dark'], ['Przełącz na tryb jasny', 'light']] as const) {
-    await page.getByRole('button', { name: button }).click()
+    await changeTheme(page, button)
     await expect(html).toHaveClass(new RegExp(theme))
     await expect(card).toBeVisible() // zaznaczony pojazd zostaje
     await expect(page).toHaveURL(/[?&]hide=buses(&|$)/) // ukryta warstwa zostaje
     await expect(page.getByRole('list', { name: 'Aktywne filtry' }).getByText('Ukryte: autobusy')).toBeVisible()
     await expectTilesRendered(map) // nowy podkład narysowany, kamera i warstwy nie zniknęły
+    await page.setViewportSize({ width: theme === 'dark' ? 1440 : 375, height: 900 })
+    await expect(card).toBeVisible()
+    expect(await map.evaluate((element, original) => element === original, canvas)).toBe(true)
   }
   await page.waitForTimeout(1_000)
   expect(dataCalls.slice(settled), 'przełączenie motywu wywołało zapytania o dane').toEqual([])

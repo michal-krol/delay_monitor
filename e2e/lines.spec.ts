@@ -1,3 +1,4 @@
+import { openPageOptions } from './helpers/page-options'
 import { test, expect, type Page } from './helpers/test'
 import { scanA11y } from './helpers/axe'
 
@@ -359,13 +360,18 @@ test.describe('linia (PR7)', () => {
     page.on('request', (request) => {
       if (request.url().includes('/api/gtfs/line')) lineRequests += 1
     })
-    const toggle = page.getByRole('button', { name: /^Przełącz na tryb/ }).first()
+    const options = await openPageOptions(page)
+    const toggle = options.getByRole('button', { name: /^Przełącz na tryb/ })
     const nameBefore = await toggle.getAttribute('aria-label')
     await toggle.click()
     await expect(toggle).not.toHaveAttribute('aria-label', nameBefore ?? '')
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-label', nameBefore ?? '')
 
+    await page.keyboard.press('Escape')
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await expect(routeList(page).getByRole('button', { pressed: true })).toHaveCount(1)
+    await page.setViewportSize({ width: 375, height: 812 })
     expect(new URL(page.url()).search).toBe(before)
     await expect(routeList(page).getByRole('button', { pressed: true })).toHaveCount(1)
     expect(await routeList(page).getByRole('button', { pressed: true }).innerText()).toBe(selectedText)

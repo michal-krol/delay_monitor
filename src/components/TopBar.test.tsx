@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { TopBar } from './TopBar'
@@ -37,8 +37,10 @@ describe('TopBar', () => {
     expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })
 
-  it('wariant powrotu: share pokazuje „Udostępnij” obok przełącznika motywu, brak share go ukrywa', () => {
+  it('share enables sharing in page options; without share only theme and sources remain', () => {
     const { rerender } = render(<TopBar backLabel="Wróć" onBack={vi.fn()} crumbs={CRUMBS} share />)
+    expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Więcej opcji strony' }))
     expect(screen.getByRole('button', { name: 'Udostępnij' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Przełącz na tryb/ })).toBeInTheDocument()
 

@@ -309,12 +309,11 @@ describe('StationAside', () => {
       )
     }
 
-    it('kolejność briefu §8: utrudnienia → statystyki → pogoda → mapa → legenda; bez listy kierunków (filtr jest nad tablicą)', () => {
+    it('kolejność briefu §8: utrudnienia → statystyki → mapa → legenda; pogoda w nagłówku; bez listy kierunków (filtr jest nad tablicą)', () => {
       renderInSheet()
       expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
         'Utrudnienia na tej stacji',
         'Statystyki stacji dzisiaj',
-        'Pogoda dziś — Warszawa Centralna',
         'Mapa',
         'Legenda statusów',
       ])

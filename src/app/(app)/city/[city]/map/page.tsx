@@ -503,6 +503,7 @@ export default function CityMapPage() {
     <div data-map-view="" className="flex h-[calc(100dvh-var(--header-h)-var(--bottom-nav-h))] min-w-0 flex-1 flex-col overflow-hidden">
       <div className="px-4 py-1 sm:px-8 sm:py-5">
         <TopBar
+          city={city}
           compact
           title="Mapa transportu"
           subtitle={`${feed.name} · ${freshness}`}

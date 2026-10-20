@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
 import { useTheme } from 'next-themes'
 import type { StationInsights, StationStats } from '@/lib/board/stationStats'
 import type { UseStationWeatherResult } from '@/hooks/useStationWeather'
@@ -238,12 +239,12 @@ export function WeatherCard({ weather }: { weather: UseStationWeatherResult }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-text-muted">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--status-onTime-bg)' }} aria-hidden="true" />
           Open-Meteo
         </span>
-        <span>Aktualizacja: {formatClockTime(fetchedAt)}</span>
+        <span>Aktualizacja: {formatDataTimestamp(fetchedAt)}</span>
       </div>
     </div>
   )
@@ -336,7 +337,6 @@ export function StationAside({
             </div>
           </div>
         </InfoSection>
-        {weatherCard}
         {map}
         <InfoSection title="Legenda statusów" collapsible>
           <StatusLegendList />
