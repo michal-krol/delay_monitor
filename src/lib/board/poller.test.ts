@@ -444,6 +444,45 @@ describe('createPoller', () => {
     expect(lastCallStations).toEqual(expect.arrayContaining(['b', 'c', 'd']))
   })
 
+  it('evicts the least recently registered station, not the first inserted one', async () => {
+    // Odświeżenie `interest.set` nie zmienia pozycji klucza w Map, więc FIFO po
+    // kolejności wstawienia wyrzuciłoby świeżo odświeżoną "a" zamiast stałej "b".
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const client = makePkpClient({ getOperations })
+    const poller = createPoller({
+      client,
+      config: { pollIntervalMs: 90000, interestTtlMs: 300000, maxWatchedStations: 3 },
+      stationNames: new Map(),
+    })
+
+    poller.registerInterest(['a', 'b', 'c'])
+    await vi.advanceTimersByTimeAsync(50000)
+    poller.registerInterest(['a']) // "a" odświeżona, najstarsza jest teraz "b"
+    await vi.advanceTimersByTimeAsync(50000)
+    poller.registerInterest(['d'])
+    await vi.advanceTimersByTimeAsync(0)
+
+    const lastCallStations = getOperations.mock.calls[getOperations.mock.calls.length - 1][0] as string[]
+    expect(lastCallStations).not.toContain('b')
+    expect(lastCallStations).toEqual(expect.arrayContaining(['a', 'c', 'd']))
+  })
+
+  it('defaults the watched-station ceiling to a value that fits the PKP budget', async () => {
+    // Sufit 5000 pozwalał anonimowemu klientowi wypełnić `interest` całą siecią
+    // i rozciągnąć cykl na MAX_OPERATIONS_PAGES stron (~240 zapytań/h przy 100/h).
+    const getOperations = vi.fn().mockResolvedValue({ trains: [], stationNames: {}, budget: { hourly: 99, daily: 999 } })
+    const client = makePkpClient({ getOperations })
+    const poller = createPoller({ client, config: { pollIntervalMs: 90000, interestTtlMs: 36_000_000 }, stationNames: new Map() })
+
+    for (let batch = 0; batch < 30; batch += 1) {
+      poller.registerInterest(Array.from({ length: 20 }, (_, i) => `${batch * 20 + i + 1}`))
+      await vi.advanceTimersByTimeAsync(50000)
+    }
+
+    const lastCallStations = getOperations.mock.calls[getOperations.mock.calls.length - 1][0] as string[]
+    expect(lastCallStations.length).toBeLessThanOrEqual(200)
+  })
+
   it('still fetches immediately for the first few new stations', async () => {
     // Limit nie moze psuc normalnego uzycia: dodanie kilku przypiętych stacji
     // ma nadal dawac dane od razu, bez czekania na kolejny przebieg.

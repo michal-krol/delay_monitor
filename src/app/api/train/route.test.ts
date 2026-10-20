@@ -715,4 +715,76 @@ describe('GET /api/train', () => {
       vi.useRealTimers()
     })
   })
+
+  describe('per-IP miss cap', () => {
+    // Musi się zgadzać z PER_IP_HOURLY_MISS_CAP w trainMissBudget.ts.
+    const PER_IP_CAP = 8
+
+    function request(orderId: number, ip: string | null, operatingDate = '2026-08-06') {
+      return new Request(`http://localhost/api/train?scheduleId=2026&orderId=${orderId}&operatingDate=${operatingDate}`, {
+        headers: ip === null ? {} : { 'x-forwarded-for': ip },
+      })
+    }
+
+    it('one IP inventing IDs is cut off before it drains the shared hourly cap', async () => {
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      for (let i = 0; i < PER_IP_CAP; i++) {
+        stubDetail()
+        expect((await GET(request(5000 + i, '203.0.113.7'))).status).toBe(200)
+      }
+      const over = await GET(request(5000 + PER_IP_CAP, '203.0.113.7'))
+
+      expect(over.status).toBe(503)
+      expect(getTrainDetail).toHaveBeenCalledTimes(PER_IP_CAP)
+
+      // Inny klient nadal ma swoją część wspólnego limitu 21.
+      stubDetail()
+      expect((await GET(request(6000, '198.51.100.9'))).status).toBe(200)
+    })
+
+    it('uses the proxy-appended (last) x-forwarded-for entry, not a client-supplied first one', async () => {
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      for (let i = 0; i < PER_IP_CAP; i++) {
+        stubDetail()
+        await GET(request(7000 + i, `10.0.0.${i}, 203.0.113.7`))
+      }
+
+      expect((await GET(request(7100, '10.9.9.9, 203.0.113.7'))).status).toBe(503)
+    })
+
+    it('a rejected request does not consume the shared cap, and cache hits stay free', async () => {
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      stubDetail()
+      await GET(request(8000, '203.0.113.7'))
+      for (let i = 1; i < PER_IP_CAP; i++) {
+        stubDetail()
+        await GET(request(8000 + i, '203.0.113.7'))
+      }
+      expect((await GET(request(9000, '203.0.113.7'))).status).toBe(503)
+      // Trafienie cache'u tego samego IP nadal działa po wyczerpaniu limitu.
+      expect((await GET(request(8000, '203.0.113.7'))).status).toBe(200)
+      expect(getTrainDetail).toHaveBeenCalledTimes(PER_IP_CAP)
+    })
+
+    it('the per-IP window resets in the next hour', async () => {
+      getTrainDetail.mockClear()
+      const { GET } = await import('./route')
+
+      for (let i = 0; i < PER_IP_CAP; i++) {
+        stubDetail()
+        await GET(request(9100 + i, '203.0.113.7'))
+      }
+      expect((await GET(request(9200, '203.0.113.7'))).status).toBe(503)
+
+      vi.setSystemTime(new Date('2026-08-06T13:00:00+02:00'))
+      stubDetail()
+      expect((await GET(request(9200, '203.0.113.7'))).status).toBe(200)
+    })
+  })
 })

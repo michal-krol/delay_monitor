@@ -65,27 +65,7 @@ export function mergeBudgets(a: RateLimitBudget, b: RateLimitBudget | null): Rat
 }
 
 /**
- * `apiKey: null` pomija nagłówek `X-API-Key` -- używane przez
- * `getNameDictionaries()`: te dwa endpointy są publiczne, a wysłanie klucza
- * mimo to (zweryfikowane na żywo) przełącza żądanie z darmowej, anonimowej
- * puli limitów na tę samą pulę 100/h co `/operations` -- dokładnie ten koszt,
- * którego to wywołanie ma unikać.
- */
-async function fetchWithTimeout(url: string, apiKey: string | null): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  try {
-    return await fetch(url, {
-      headers: apiKey === null ? {} : { 'X-API-Key': apiKey },
-      signal: controller.signal,
-    })
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-/**
- * `fetchWithTimeout` + sprawdzenie statusu + parsowanie JSON-a — dokładnie ten
+ * `fetch` z timeoutem + sprawdzenie statusu + parsowanie JSON-a — dokładnie ten
  * sam wzorzec powtarzał się w trzech miejscach (słownik stacji, rozkłady,
  * realizacja). Zwraca też surowy `response`, bo `getOperations` potrzebuje
  * z niego nagłówków budżetu po odczytaniu ciała.
@@ -96,14 +76,27 @@ async function fetchJsonOnce(
   errorMessage: string,
   onResponse?: (response: Response) => void
 ): Promise<{ json: unknown; response: Response }> {
-  const response = await fetchWithTimeout(url, apiKey)
-  // Przed sprawdzeniem statusu: nagłówki 429 to najważniejsza obserwacja budżetu.
-  onResponse?.(response)
-  if (!response.ok) {
-    throw new PkpApiError(`${errorMessage}: ${response.status}`, response.status)
+  // Jeden timer obejmuje nagłówki ORAZ ciało -- PKP, które odpowie nagłówkami
+  // i zawiesi strumień, inaczej blokowałoby `response.json()` bez końca.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    // `apiKey: null` pomija nagłówek `X-API-Key` (endpointy publiczne): wysłanie
+    // klucza przełączyłoby żądanie z anonimowej puli na nasze 100/h.
+    const response = await fetch(url, {
+      headers: apiKey === null ? {} : { 'X-API-Key': apiKey },
+      signal: controller.signal,
+    })
+    // Przed sprawdzeniem statusu: nagłówki 429 to najważniejsza obserwacja budżetu.
+    onResponse?.(response)
+    if (!response.ok) {
+      throw new PkpApiError(`${errorMessage}: ${response.status}`, response.status)
+    }
+    const json = await response.json()
+    return { json, response }
+  } finally {
+    clearTimeout(timer)
   }
-  const json = await response.json()
-  return { json, response }
 }
 
 function parseRemaining(raw: string | null): number | null {
@@ -123,7 +116,7 @@ export function parseBudget(response: Response): RateLimitBudget {
 
 /**
  * Zaobserwowane na żywo (staging): PKP bywa chwilowo wolne i przekracza
- * `REQUEST_TIMEOUT_MS` (`fetchWithTimeout` przerywa żądanie przez
+ * `REQUEST_TIMEOUT_MS` (`fetchJsonOnce` przerywa żądanie przez
  * `AbortController`) -- to samo przejściowe zjawisko co 5xx, ale bez tego
  * warunku w ogóle nie było ponawiane. Rozpoznanie po `name`, nie po
  * `instanceof DOMException` -- Node/undici i przeglądarka zgadzają się co

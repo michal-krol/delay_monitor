@@ -239,7 +239,7 @@ describe('createLiveClient', () => {
 
   it('waits with jitter before retrying once on a PKP timeout (AbortError), not just a 5xx', async () => {
     // Zaobserwowane na żywo (staging): PKP bywa chwilowo wolne i przekracza
-    // 8s timeout (fetchWithTimeout) -- to samo przejściowe zjawisko co 5xx,
+    // 8s timeout (fetchJsonOnce) -- to samo przejściowe zjawisko co 5xx,
     // ale wcześniej w ogóle nie było ponawiane, więc chwilowe spowolnienie
     // od razu kończyło się twardą awarią (500 z /api/train) bez żadnej próby.
     const fetchMock = vi
@@ -741,6 +741,38 @@ describe('createLiveClient', () => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
       const [, secondInit] = fetchMock.mock.calls[1]
       expect(secondInit.signal.aborted).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('also aborts when the headers arrive but the response body hangs', async () => {
+    // Timer czyszczony po nagłówkach zostawiał `response.json()` bez limitu:
+    // zawieszone ciało blokowałoby cykl pollera (tickInFlight) bez końca.
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn().mockImplementation(
+        (_url: string, init: { signal: AbortSignal }) =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            json: () =>
+              new Promise((_resolve, reject) => {
+                init.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+              }),
+          })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const client = createLiveClient('secret-key', () => new Date(), vi.fn().mockResolvedValue(undefined), () => 0)
+      const assertion = expect(client.getOperations(['5100'])).rejects.toThrowError(/abort/i)
+
+      await vi.advanceTimersByTimeAsync(8000)
+      await vi.advanceTimersByTimeAsync(500)
+      await vi.advanceTimersByTimeAsync(8000)
+      await assertion
+      expect(fetchMock).toHaveBeenCalledTimes(2)
     } finally {
       vi.useRealTimers()
     }

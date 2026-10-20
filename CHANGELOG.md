@@ -14,6 +14,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Poprawione
 
+- Poller obserwuje najwyżej 200 stacji naraz (było 5000) i wyrzuca tę o najstarszym czasie rejestracji.
+  Anonimowy klient nie może już wypełnić pollera całą siecią i rozciągnąć cyklu do 6 stron `/operations`
+  (~240 zapytań/h przy limicie 100/h).
+- `/api/train` ogranicza liczbę chybień cache do 8 na godzinę dla jednego adresu IP, więc zmyślone
+  identyfikatory jednego klienta nie zużywają wspólnego limitu 21/h.
+- Timeout zapytań do PKP obejmuje także odczyt ciała odpowiedzi, a wyszukiwarka dociąga współrzędne
+  tylko dla wyników, które mieszczą się w odpowiedzi.
 - Kopia workera MapLibre jest zgodna z wersją 6.14.0 po aktualizacji zależności.
 - Test koloru kategorii linii sprawdza kolor tła niezależnie od serializacji skrótu CSS w JSDOM.
 - Polecenia bramki nie przekazują zmiennych repozytorium Git do testów uruchamianych z hooka.
