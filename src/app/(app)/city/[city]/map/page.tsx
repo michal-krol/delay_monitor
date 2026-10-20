@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { BottomSheet } from '@/components/BottomSheet'
@@ -352,7 +352,8 @@ export default function CityMapPage() {
   const following = followId !== null && selection?.kind === 'vehicle' && selection.id === followId && liveVehicle !== null
   // Kadr trasy (wybór linii) i śledzenie pojazdu przenoszą kamerę z dala od użytkownika — świadomie, bez przeciągnięcia.
   const routeKey = route?.key ?? null
-  useEffect(() => {
+  // Layout effect: blokada ma zejść w tym samym commicie, w którym mapa dostaje trasę/śledzenie, zanim przyjdzie kolejny `moveend` (zwykły efekt bywa odroczony).
+  useLayoutEffect(() => {
     if (routeKey !== null || following) liftViewBlock()
   }, [routeKey, following, liftViewBlock])
   const card =
