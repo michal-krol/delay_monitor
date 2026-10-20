@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
-import { z } from 'zod'
 import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
@@ -16,87 +15,41 @@ import { LocateControl } from '@/components/map/LocateControl'
 import { MapLegend } from '@/components/map/MapLegend'
 import { NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
 import { OverviewPanel } from '@/components/map/OverviewPanel'
-import { ActiveFilterChips, MapToolbar, NoPositionNotice } from '@/components/map/MapToolbar'
-import { TransitMap, type MapHit, type MapView } from '@/components/map/TransitMap'
+import { ActiveFilterChips, MapToolbar } from '@/components/map/MapToolbar'
+import { MapNotices } from '@/components/MapNotices'
+import { pinnedMapPoints, stopSelection, vehicleFreshness } from '@/components/map/mapPageStatus'
+import { TransitMap, type MapHit } from '@/components/map/TransitMap'
 import {
   HIDE_AFTER_SEC,
   MAP_ZOOM,
   VEHICLE_LAYERS,
   activeFilterCount,
   boundsContain,
-  formatAt,
-  isNearViewPoint,
-  nearbyPoints,
-  parseAt,
   parseHidden,
-  routeOverlay,
   serializeHidden,
   stopsBounds,
   vehicleLayerKey,
   type LayerKey,
-  type MapCamera,
-  type NearbyPoint,
   type VisibleItem,
 } from '@/components/map/mapData'
+import { nearbyPoints, type NearbyPoint } from '@/components/map/mapCamera'
 import { useCities } from '@/hooks/useCities'
 import { useCityLines } from '@/hooks/useCityLines'
 import { useCityStops } from '@/hooks/useCityStops'
-import type { CityStop } from '@/lib/gtfs/query'
 import { useCityVehicles } from '@/hooks/useCityVehicles'
 import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
-import { useLineDetail } from '@/hooks/useLineDetail'
-import { fetchJson, usePolling } from '@/hooks/usePolling'
+import { useCityList } from '@/hooks/useCityList'
+import { useMapLine } from '@/hooks/useMapLine'
 import { useRailStations } from '@/hooks/useRailStations'
 import { useShareUrl } from '@/hooks/useShareUrl'
-import { LOCATION_MAX_AGE_MS } from '@/components/UserLocationProvider'
-import { useUserLocation, type UserPoint } from '@/hooks/useUserLocation'
+import { useMapCamera } from '@/hooks/useMapCamera'
 import { discoveryHref, type DiscoveryResult } from '@/lib/discovery'
-import { formatAgo } from '@/lib/format'
 import { pluralPl } from '@/lib/plural'
 import { getCity } from '@/lib/gtfs/cities'
-import type { BackboneLine, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
+import type { BackboneLine, LineRouteStop } from '@/lib/gtfs/query'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
-import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
-import { lineColor } from '@/components/transitMode'
+import { CITY_ID_PATTERN } from '@/lib/validation'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
-
-const LAST_VIEW_KEY = 'monitor.map.view.v1'
-/** `localStorage` to dane spoza aplikacji — schemat, nie asercja typu (AGENTS.md #4). */
-const lastViewSchema = z.object({ city: z.string(), at: z.string() })
-
-/** Ostatni widok mapy tego miasta w tej przeglądarce; brak / uszkodzony wpis = `null`. */
-function readLastView(city: string): MapCamera | null {
-  try {
-    const parsed = lastViewSchema.safeParse(JSON.parse(window.localStorage.getItem(LAST_VIEW_KEY) ?? 'null'))
-    return parsed.success && parsed.data.city === city ? parseAt(parsed.data.at) : null
-  } catch {
-    return null
-  }
-}
-
-function saveLastView(city: string, at: string): void {
-  try {
-    window.localStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ city, at }))
-  } catch {
-    // Prywatne okno / zablokowany storage — wygoda, nie funkcja; bez zapisu.
-  }
-}
-
-/** Jedno pobranie listy z `url` (wybór pola przez `pick`), ponawiane drabinką `usePolling`, dopóki rozkład się wczytuje (`null`). */
-function useCityList<T>(url: string, pick: (json: Record<string, unknown>) => T[] | null): T[] | null {
-  // Opakowanie `{ items }`, bo `null` z `pick` („rozkład się wczytuje") ma napędzać ponawianie, a nie znaczyć „brak odpowiedzi".
-  const { data } = usePolling<{ items: T[] | null }>(url, async () => ({ items: pick(await fetchJson<Record<string, unknown>>(url)) }), {
-    refreshMs: null,
-    isLoading: (result) => result.items === null,
-  })
-  return data?.items ?? null
-}
-
-
-/** Zaznaczenie przystanku z listy przystanków miasta (jedno miejsce zamiast kilku kopii literału). */
-function stopSelection(stop: CityStop): Extract<MapSelection, { kind: 'stop' }> {
-  return { kind: 'stop', id: stop.id, groupId: stop.groupId, name: stop.name, code: stop.code, mode: stop.mode, lat: stop.lat, lon: stop.lon }
-}
 
 export default function CityMapPage() {
   const params = useParams<{ city: string }>()
@@ -106,14 +59,9 @@ export default function CityMapPage() {
 
   const { cities } = useCities()
   const [hidden, setHidden] = useState<Set<LayerKey>>(() => new Set())
-  const [routeParam, setRouteParam] = useState<string | null>(null)
-  const [directionId, setDirectionId] = useState(0)
   const [selection, setSelection] = useState<MapSelection | null>(null)
-  const [focus, setFocus] = useState<{ lat: number; lon: number; nonce: number; zoom?: number } | null>(null)
-  const [view, setView] = useState<MapView | null>(null)
   // Wynik wyszukiwarki bez pozycji na mapie: komunikat z linkiem do szczegółów (kamera się nie rusza).
   const [noPosition, setNoPosition] = useState<{ name: string; href: string | null; linkLabel: string } | null>(null)
-  const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
   // Szeroki ekran (panel obok mapy) vs telefon (arkusz od dołu). Na serwerze: telefon.
   const isWide = useMediaQuery(SM_UP, false)
@@ -124,41 +72,30 @@ export default function CityMapPage() {
   // Jedno pobranie katalogu linii: zasila stronę i (jako `lineSource`) wyszukiwarkę — ten sam ranking `rankLines`.
   const lineState = useCityLines(city)
   const lines = lineState.lines
+  const { line, lineDetail, route, directionId, chooseLine, changeDirection } = useMapLine(city, lines)
   const backbone = useCityList<BackboneLine>(`/api/gtfs/backbone?city=${encodeURIComponent(city)}`, (json) => json.lines as BackboneLine[] | null)
-  const [initialCamera, setInitialCamera] = useState<MapCamera | null>(null)
   const [followId, setFollowId] = useState<string | null>(null)
   const { share, status: shareStatus } = useShareUrl()
   const { pinnedItems, loaded: pinsLoaded, addPinned, removePinned, replacePinned, isPinned } = usePinned()
   const [alertsOnly, setAlertsOnly] = useState(false)
-  const [nearby, setNearby] = useState<{ lat: number; lon: number } | null>(null)
-  // Okolica z pozycji GPS: wiersze zostają, ale podgląd odjazdów (id przystanków w żądaniu) i zdejmowanie blokady widoku — nie (adr/0012).
-  const [nearbyFromGps, setNearbyFromGps] = useState(false)
-  // `?nearby=1` bez gotowej pozycji (np. po F5): czeka na kliknięcie, GPS sam się nie uruchamia (adr/0012).
-  const [nearbyPending, setNearbyPending] = useState(false)
-  const userLocation = useUserLocation()
-  const entryRef = useRef<{ flag: boolean; here: UserPoint | null } | null>(null)
-  // Pozycja z GPS może dojść po opuszczeniu strony albo zmianie miasta — wtedy nie wolno dotykać URL-a ani stanu (M6).
-  const aliveRef = useRef({ mounted: true, city })
-  aliveRef.current.city = city
-  useEffect(() => {
-    const alive = aliveRef.current // obiekt, nie węzeł DOM: ten sam przez cały czas życia strony
-    alive.mounted = true
-    return () => {
-      alive.mounted = false
-    }
-  }, [])
-  // Ostatni punkt z providera (także ustalony na innej stronie): reguła prywatności widoku nie zna tylko `locatedViewRef` (M2).
-  const userPointRef = useRef(userLocation.point)
-  userPointRef.current = userLocation.point
-  // Ostatnia pozycja GPS użytkownika (tylko w pamięci) i zatrzask. Kadr w pobliżu niej NIE trafia do `?at=` ani do localStorage
-  // (adr/0012, #4) — zapis blokuje którekolwiek: (a) zatrzask ustawiony przy „Mojej lokalizacji" (zoom kółkiem/szczypnięciem/klawiaturą
-  // i strzałki przesuwają środek bez `dragstart`), (b) środek kadru w promieniu `PRIVACY_RADIUS_PX` od punktu. Zatrzask zdejmuje WYŁĄCZNIE
-  // przeciągnięcie albo świadomy ruch programowy (`liftViewBlock`), nigdy `moveend` (spóźnione `moveend` z przerwanej animacji
-  // odblokowałoby zapis dolotu do użytkownika); promień zostaje zawsze (powrót w pobliże użytkownika).
-  const locatedViewRef = useRef<{ lat: number; lon: number; latched: boolean } | null>(null)
-  const liftViewBlock = (): void => {
-    if (locatedViewRef.current !== null) locatedViewRef.current.latched = false
-  }
+  const {
+    userLocation,
+    initialCamera,
+    view,
+    focus,
+    nearby,
+    setNearby,
+    nearbyFromGps,
+    nearbyPending,
+    focusOn,
+    flyTo,
+    liftViewBlock,
+    recordView,
+    openNearbyAround,
+    showNearbyAt,
+    showMyLocation,
+    stillHere,
+  } = useMapCamera({ city, mapCenter: feed.mapCenter, clearSelection: () => setSelection(null) })
   // Insety kamery (px): góra = pasek kontrolek nad mapą, dół = widoczny arkusz (tylko telefon). Mierzone, nie zgadywane.
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [topInset, setTopInset] = useState(0)
@@ -174,27 +111,7 @@ export default function CityMapPage() {
     // Odtworzenie stanu z URL-a, dostępnego tylko po zamontowaniu; zły parametr po cichu ignorowany (AGENTS #4).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHidden(parseHidden(readUrlParam))
-    const line = readUrlParam('line')
-    setRouteParam(line !== null && GTFS_ROUTE_ID_PATTERN.test(line) ? line : null)
-    setDirectionId(readUrlParam('dir') === '1' ? 1 : 0)
     setAlertsOnly(readUrlParam('alerts') === '1')
-    // `?nearby=1`: świeża (< `maximumAge`) pozycja z providera otwiera okolicę i zużywa flagę; bez niej (F5, stara pozycja)
-    // NIE pytamy o GPS — strona pokazuje przycisk (adr/0012). Mapa tworzy się asynchronicznie, więc
-    // „skupienie" to kadr startowy na punkcie, a nie `focus` (ten przepadłby przed powstaniem mapy).
-    // Wejście liczymy raz (ref): StrictMode odpala ten efekt dwa razy, a pierwszy przebieg zużywa flagę w URL-u.
-    const freshPoint = userLocation.fixAt !== null && Date.now() - userLocation.fixAt < LOCATION_MAX_AGE_MS ? userLocation.point : null
-    entryRef.current ??= { flag: readUrlParam('nearby') === '1', here: readUrlParam('nearby') === '1' ? freshPoint : null }
-    const { flag, here } = entryRef.current
-    if (here !== null) {
-      showNearbyAt(here, false)
-      patchUrlParams({ nearby: null })
-    } else if (flag) setNearbyPending(true)
-    // Kadr: pozycja z `?nearby=1` > link `?at=` > ostatni widok w tej przeglądarce > centrum miasta.
-    setInitialCamera(
-      here !== null ? { lat: here.lat, lon: here.lon, zoom: MAP_ZOOM.focus } : (parseAt(readUrlParam('at')) ?? readLastView(city) ?? { ...feed.mapCenter, zoom: MAP_ZOOM.initial })
-    )
-    setMounted(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- odtworzenie raz, przy wejściu
   }, [])
 
   useEffect(() => {
@@ -203,15 +120,6 @@ export default function CityMapPage() {
     refocusLocateRef.current = false
     locateHadFocusRef.current = false
   }, [nearby])
-
-  // Odmowa/błąd z przycisku „Moja lokalizacja" (nie z komunikatu) też zużywa `?nearby=1`: przycisk komunikatu nic by już nie dał (M5).
-  const locationFailed = userLocation.status === 'denied' || userLocation.status === 'unavailable' || userLocation.status === 'error'
-  useEffect(() => {
-    if (!locationFailed || !nearbyPending) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reakcja na zewnętrzny stan (providera), flaga to też URL
-    setNearbyPending(false)
-    patchUrlParams({ nearby: null })
-  }, [locationFailed, nearbyPending])
 
   useEffect(() => {
     const el = toolbarRef.current
@@ -225,19 +133,6 @@ export default function CityMapPage() {
     return () => observer.disconnect()
   }, [])
 
-  const onViewChange = useCallback(
-    (next: MapView) => {
-      setView(next)
-      // Promień sprawdzamy wobec obu punktów: z tej strony („Moja lokalizacja") i z providera (ustalonego np. na innej stronie).
-      const here = locatedViewRef.current
-      if (here?.latched || [here, userPointRef.current].some((p) => p !== null && isNearViewPoint(next.center, next.zoom, p))) return
-      const at = formatAt({ ...next.center, zoom: next.zoom })
-      patchUrlParams({ at })
-      saveLastView(city, at)
-    },
-    [city]
-  )
-
   // Mapa zgłasza kadr po KAŻDYM `idle` (na telefonie zawsze); ten sam skład to ten sam stan — bez ponownego renderu całej strony.
   const onVisibleChange = useCallback((items: VisibleItem[], overflow: boolean) => {
     setVisible((prev) =>
@@ -246,20 +141,6 @@ export default function CityMapPage() {
         : { items, overflow }
     )
   }, [])
-
-  // `?line=` to `routeId`; stare linki niosły numer linii („20") — dopasowujemy go dokładnie.
-  const line = useMemo(() => {
-    if (routeParam === null || lines === null) return null
-    return lines.find((l) => l.routeId === routeParam) ?? lines.find((l) => l.line === routeParam) ?? null
-  }, [routeParam, lines])
-
-  const lineDetail = useLineDetail(city, line?.routeId ?? null)
-  const route = useMemo(() => {
-    const directions = lineDetail.detail?.directions ?? []
-    const direction = directions.find((d) => d.directionId === directionId) ?? directions[0]
-    if (line === null || direction === undefined) return null
-    return { key: `${line.routeId}:${direction.directionId}`, overlay: routeOverlay(direction), color: lineColor(line.mode, line.kind).bg }
-  }, [line, lineDetail.detail, directionId])
 
   const vehiclesById = useMemo(() => new Map(vehiclesState.vehicles.map((v) => [v.id, v])), [vehiclesState.vehicles])
   const selectedVehicle = selection?.kind === 'vehicle' ? (vehiclesById.get(selection.id) ?? null) : null
@@ -302,20 +183,7 @@ export default function CityMapPage() {
 
   const onlyLines = useMemo(() => (alertsOnly ? new Set(vehiclesState.alertLines) : null), [alertsOnly, vehiclesState.alertLines])
 
-  // Przypięte (Pulpit) z pozycją na mapie: stacje z listy kolei, przystanki tego miasta z listy przystanków.
-  const pinnedPoints = useMemo<PinnedPoint[]>(() => {
-    const points: PinnedPoint[] = []
-    for (const fav of pinnedItems) {
-      const hit =
-        fav.kind === 'pkp'
-          ? railState.stations?.find((s) => s.id === fav.id)
-          : fav.city === city
-            ? stopsState.stops?.find((s) => s.id === fav.id || s.groupId === fav.id)
-            : undefined
-      if (hit !== undefined) points.push({ key: pinnedKey(fav), name: fav.name, lat: hit.lat, lon: hit.lon })
-    }
-    return points
-  }, [pinnedItems, railState.stations, stopsState.stops, city])
+  const pinnedPoints = useMemo(() => pinnedMapPoints(pinnedItems, city, railState.stations, stopsState.stops), [pinnedItems, railState.stations, stopsState.stops, city])
 
   // Pojazdy w liście z kierunkiem — dwa „20" obok siebie muszą się dać odróżnić.
   const visibleItems = useMemo<VisibleItem[] | null>(
@@ -339,22 +207,11 @@ export default function CityMapPage() {
     patchUrlParams({ hide: serializeHidden(next), vehicles: null, rail: null, mode: null })
   }, [])
 
-  function chooseLine(next: LineListEntry | null, nextDirection = 0): void {
-    setRouteParam(next?.routeId ?? null)
-    setDirectionId(nextDirection)
-    patchUrlParams({ line: next?.routeId ?? null, dir: next !== null && nextDirection === 1 ? '1' : null })
-  }
-
   function showRoute(routeId: string, vehicleDirection: number | null): void {
     const target = lines?.find((l) => l.routeId === routeId) ?? null
     if (target === null) return
     setSelection(null)
     chooseLine(target, vehicleDirection === 1 ? 1 : 0)
-  }
-
-  function changeDirection(next: number): void {
-    setDirectionId(next)
-    patchUrlParams({ dir: next === 1 ? '1' : null })
   }
 
   function openLineStop(stop: LineRouteStop): void {
@@ -375,46 +232,6 @@ export default function CityMapPage() {
     changeHidden(new Set())
     changeAlertsOnly(false)
     chooseLine(null)
-  }
-
-  /** `keepBlock`: skupienie z okolicy z GPS — widok nadal wynika z pozycji użytkownika, więc blokada zapisu zostaje (zdejmuje ją przeciągnięcie). */
-  function focusOn(lat: number, lon: number, keepBlock = false): void {
-    if (!keepBlock) liftViewBlock()
-    setFocus({ lat, lon, nonce: Date.now() })
-  }
-
-  /** Okolica wokół pozycji użytkownika (przycisk „Moja lokalizacja", `?nearby=1`); współrzędne zostają w stanie strony, nie w URL-u ani w localStorage. */
-  function showNearbyAt(point: { lat: number; lon: number }, fly = true): void {
-    setSelection(null)
-    openNearbyAround(point, true)
-    if (fly) focusOn(point.lat, point.lon)
-    locatedViewRef.current = { lat: point.lat, lon: point.lon, latched: true }
-    // Ewentualne `?at=` (np. z linku) mogło już zawierać tę pozycję — usuwamy je razem z kadrem.
-    patchUrlParams({ at: null })
-  }
-
-  /** Każde otwarcie okolicy zużywa `?nearby=1`, żeby przycisk „Pokaż moją lokalizację" nie wracał po jej zamknięciu. */
-  function openNearbyAround(point: { lat: number; lon: number }, fromGps = false): void {
-    setNearby({ lat: point.lat, lon: point.lon })
-    setNearbyFromGps(fromGps)
-    consumeNearbyFlag()
-  }
-
-  /** Strona żyje jeszcze w tym samym mieście — odpowiedź GPS po wyjściu z mapy nie rusza URL-a nowej strony. */
-  const stillHere = (forCity: string): boolean => aliveRef.current.mounted && aliveRef.current.city === forCity
-
-  async function showMyLocation(): Promise<void> {
-    const asked = city
-    const point = await userLocation.request()
-    if (!stillHere(asked)) return
-    consumeNearbyFlag()
-    if (point !== null) showNearbyAt(point)
-  }
-
-  function consumeNearbyFlag(): void {
-    if (!nearbyPending) return
-    setNearbyPending(false)
-    patchUrlParams({ nearby: null })
   }
 
   /** „×"/Escape w „W pobliżu": arkusz przemontował się przy otwarciu, więc stary przycisk lokalizacji nie istnieje — fokus wraca na nowy. */
@@ -521,18 +338,7 @@ export default function CityMapPage() {
 
   const neverLoaded = vehiclesState.vehicles.length === 0
   const vehiclesFailed = vehiclesState.error !== null || vehiclesState.feed.state === 'failed'
-  const freshness =
-    neverLoaded && !vehiclesFailed
-      ? 'wczytywanie pozycji pojazdów…'
-      : neverLoaded
-        ? 'nie udało się pobrać pozycji pojazdów'
-        : vehiclesFailed
-          ? // Wiek ostatnich dobrych danych (ui-copy.md „Data age", #7): godzina w strefie miasta.
-            `pozycje pojazdów nieaktualne — pokazujemy ostatnie dostępne${vehiclesState.lastSuccessAt !== null ? ` · dane z ${new Date(vehiclesState.lastSuccessAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: feed.timezone })}` : ''}`
-          : vehiclesState.lastSuccessAt !== null
-            ? // Kiedy PRZEGLĄDARKA pobrała odczyt (rośnie z zegarem) — wiek GPS pojazdów jest osobno („Pozycje sprzed", ui-copy.md).
-              `pobrano ${formatAgo(Math.round((vehiclesState.now - vehiclesState.lastSuccessAt) / 1000))}`
-            : 'pozycje pojazdów na żywo'
+  const freshness = vehicleFreshness({ vehicleCount: vehiclesState.vehicles.length, failed: vehiclesFailed, lastSuccessAt: vehiclesState.lastSuccessAt, now: vehiclesState.now }, feed.timezone)
 
   const problems = [
     stopsState.error && 'Nie udało się wczytać przystanków — ponawiam.',
@@ -548,7 +354,7 @@ export default function CityMapPage() {
   const routeKey = route?.key ?? null
   useEffect(() => {
     if (routeKey !== null || following) liftViewBlock()
-  }, [routeKey, following])
+  }, [routeKey, following, liftViewBlock])
   const card =
     selection !== null ? (
       <MapCard
@@ -681,27 +487,14 @@ export default function CityMapPage() {
   )
 
   const notices = (
-    <>
-      {noPosition !== null && <NoPositionNotice notice={noPosition} onClose={() => setNoPosition(null)} />}
-      {nearbyPending && nearby === null && (userLocation.status === 'idle' || userLocation.status === 'ready') && (
-        <div role="status" className="glass-strong pointer-events-auto flex w-max max-w-full flex-wrap items-center gap-x-3 rounded-xl px-3 py-1.5 text-sm">
-          <span>Okolica wymaga Twojej lokalizacji.</span>
-          <button type="button" onClick={() => void showMyLocation()} className="touch-44 relative min-h-9 font-medium text-primary-text underline underline-offset-2">
-            Pokaż moją lokalizację
-          </button>
-        </div>
-      )}
-      {shareStatus !== 'idle' && (
-        <p role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm">
-          {shareStatus === 'copied' ? 'Skopiowano link do tego widoku.' : 'Nie udało się skopiować — skopiuj adres z paska przeglądarki.'}
-        </p>
-      )}
-      {problems.map((problem) => (
-        <p key={problem} role="status" className="glass-strong pointer-events-auto w-max max-w-full rounded-xl px-3 py-1.5 text-sm text-error-text">
-          {problem}
-        </p>
-      ))}
-    </>
+    <MapNotices
+      noPosition={noPosition}
+      onCloseNoPosition={() => setNoPosition(null)}
+      needsLocation={nearbyPending && nearby === null && (userLocation.status === 'idle' || userLocation.status === 'ready')}
+      onShowLocation={() => void showMyLocation()}
+      shareStatus={shareStatus}
+      problems={problems}
+    />
   )
 
   return (
@@ -718,7 +511,7 @@ export default function CityMapPage() {
 
       <div className="relative flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
-          {mounted && initialCamera !== null && (
+          {initialCamera !== null && (
             <TransitMap
               key={city}
               ariaLabel={`Mapa transportu — ${feed.name}`}
@@ -744,7 +537,7 @@ export default function CityMapPage() {
               onVisibleChange={onVisibleChange}
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
-              onViewChange={onViewChange}
+              onViewChange={recordView}
               onUserMove={() => {
                 setFollowId(null)
                 liftViewBlock()
@@ -813,10 +606,7 @@ export default function CityMapPage() {
           {/* Szeroki ekran: pozycja związana z `top-[200px]` wrappera legendy niżej — przesuwasz przycisk (albo „Moja lokalizacja"), przesuń legendę. */}
           <button
             type="button"
-            onClick={() => {
-              liftViewBlock()
-              setFocus({ ...feed.mapCenter, zoom: MAP_ZOOM.initial, nonce: Date.now() })
-            }}
+            onClick={() => flyTo(feed.mapCenter.lat, feed.mapCenter.lon, MAP_ZOOM.initial)}
             aria-label={`Pokaż całe miasto — ${feed.name}`}
             title="Pokaż całe miasto"
             className="glass-chrome border border-surface-border shadow-md absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
