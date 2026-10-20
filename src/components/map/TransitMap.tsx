@@ -22,12 +22,12 @@ import {
   paintUnchanged,
   positionsUnchanged,
   type LayerKey,
-  type MapCamera,
   type PointCollection,
   type RouteOverlay,
   type VisibleItem,
   VISIBLE_LIMIT,
 } from './mapData'
+import type { MapCamera } from './mapCamera'
 
 const FONT = ['Noto Sans Regular']
 

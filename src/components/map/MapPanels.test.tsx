@@ -2,7 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PinnedMenu, NearbyPanel, VisibleListPanel } from './MapPanels'
-import type { NearbyPoint } from './mapData'
+import type { NearbyPoint } from './mapCamera'
 
 const transitBoard = vi.fn()
 vi.mock('@/hooks/useTransitBoard', () => ({ useTransitBoard: (...args: unknown[]) => transitBoard(...args) }))
