@@ -20,7 +20,7 @@ export function useDropdown({ focusTriggerOnEscape }: { focusTriggerOnEscape: bo
   /** `focusTrigger` — po wyborze pozycji, która znika razem z menu (fokus nie spada na `<body>`). */
   const close = useCallback((options?: { focusTrigger?: boolean }) => {
     setOpen(false)
-    if (options?.focusTrigger) buttonRef.current?.focus()
+    if (options?.focusTrigger) buttonRef.current?.focus({ preventScroll: true })
   }, [])
 
   useEffect(() => {

@@ -91,8 +91,8 @@ describe('BoardStatus', () => {
     const onRefresh = vi.fn()
     render(<BoardStatus fetchedAt={FETCHED_AT} ageMs={1000} lastSuccessAt={NOW - 40_000} data={makeData()} error={false} onRefresh={onRefresh} />)
 
-    const button = screen.getByRole('button', { name: 'Aktualizacja 41 s temu — odśwież teraz' })
-    expect(button).toHaveTextContent('Aktualizacja 41 s temu')
+    const button = screen.getByRole('button', { name: /Aktualizacja 01\.08\.2026,.*41 s temu — odśwież teraz/ })
+    expect(button).toHaveTextContent(/Aktualizacja 01\.08\.2026,.*41 s temu/)
     expect(button).toHaveAttribute('title', expect.stringContaining('01.08.2026'))
     button.click()
     expect(onRefresh).toHaveBeenCalledTimes(1)

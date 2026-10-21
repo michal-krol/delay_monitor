@@ -21,7 +21,8 @@ vi.mock('next/navigation', () => ({
 
 // Karty prawej kolumny mają własne testy i własne zapytania — tu sprawdzamy tylko, że strona je montuje.
 vi.mock('@/components/WeatherChip', () => ({
-  WeatherChip: ({ city }: { city: string }) => <div data-testid="weather-chip">{city}</div>,
+  CityWeatherChip: ({ city }: { city: string }) => <div data-testid="weather-chip">{city}</div>,
+  WeatherChip: () => null,
 }))
 vi.mock('@/components/CityTransitWidget', () => ({
   CityTransitWidget: ({ city, cityName }: { city: string; cityName: string }) => (

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import Page from './page'
@@ -95,6 +95,7 @@ describe('Page (/connection/...)', () => {
     expect(screen.getByRole('button', { name: 'Wróć do tablicy' })).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
     expect(within(nav).getByText('IC 5100')).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(screen.getByRole('button', { name: 'Więcej opcji strony' }))
     expect(screen.getAllByRole('button', { name: 'Udostępnij' })[0]).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })

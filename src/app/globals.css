@@ -160,7 +160,7 @@
    spadają do 0. Treść rezerwuje `--bottom-nav-h` w `(app)/layout.tsx`, a kotwice
    i `scrollIntoView` omijają paski przez `scroll-padding` niżej. */
 :root {
-  --header-h: calc(3rem + env(safe-area-inset-top));
+  --header-h: calc(3.75rem + env(safe-area-inset-top));
   --bottom-nav-h: calc(3.5rem + env(safe-area-inset-bottom));
 }
 @media (min-width: 40rem) {

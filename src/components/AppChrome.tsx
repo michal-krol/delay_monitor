@@ -56,7 +56,7 @@ export function AppChrome() {
 
   return (
     <>
-      <MobileHeader />
+      <MobileHeader key={pathname} />
       <Sidebar activeItem={activeItemFromPath(pathname)} onSearch={openSearch} />
       <BottomNav onSearch={openSearch} />
       <OfflineBanner />

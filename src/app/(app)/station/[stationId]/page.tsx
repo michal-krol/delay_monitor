@@ -45,7 +45,6 @@ export default function Page() {
       <FullBoard
         stationId={stationId}
         stationName={stationName}
-        phoneBack={{ href: '/', label: 'Wróć do Startu' }}
         isPinned={isPinned(key)}
         pinsLoaded={pinsLoaded}
         onTogglePin={() => (isPinned(key) ? removePinned(key) : addPinned(pinnedItem))}

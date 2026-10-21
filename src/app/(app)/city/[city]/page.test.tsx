@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityPage from './page'
@@ -186,6 +186,7 @@ describe('CityPage', () => {
     search = 'stop=7014M&name=%C5%9Awi%C4%99tokrzyska'
     const { unmount } = render(<CityPage />)
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Więcej opcji strony' }))
     expect(screen.getAllByRole('button', { name: 'Udostępnij' })).toHaveLength(1)
     expect(screen.getByRole('heading', { level: 2, name: 'Świętokrzyska' })).toBeInTheDocument()
     unmount()

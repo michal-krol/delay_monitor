@@ -1,3 +1,4 @@
+import { openPageOptions } from './helpers/page-options'
 import { test, expect } from '@playwright/test'
 
 // Jeden h1 na stronę (AGENTS.md #16, C7) + jeden górny rząd na stronach
@@ -49,8 +50,8 @@ for (const { name, path, back } of DETAIL_PAGES) {
   test(`jeden górny rząd: ${name}`, async ({ page }, testInfo) => {
     await page.goto(path)
     // Stacja na telefonie: ← nazwa ★ ⋮ w karcie (nazwa raz), pasek ze ścieżką jest schowany.
-    if (name === 'stacja' && testInfo.project.name !== 'desktop-chromium') {
-      await expect(page.getByRole('link', { name: back, exact: true })).toBeVisible({ timeout: 45_000 })
+    if (testInfo.project.name !== 'desktop-chromium') {
+      await expect(page.getByRole(name === 'połączenie' ? 'button' : 'link', { name: back, exact: true })).toBeVisible({ timeout: 45_000 })
       await expect(page.getByRole('navigation', { name: 'Ścieżka nawigacji' })).toHaveCount(0)
       const overflowPhone = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
       expect(overflowPhone).toBeLessThanOrEqual(0)
@@ -64,7 +65,7 @@ for (const { name, path, back } of DETAIL_PAGES) {
     // jeden na ekran, nad wierszem „wstecz".
     const backControl = page.getByRole(name === 'połączenie' ? 'button' : 'link', { name: back, exact: true })
     await expect(backControl).toBeVisible()
-    const theme = page.getByRole('button', { name: /Przełącz na tryb/ })
+    const theme = page.getByRole('button', { name: 'Więcej opcji strony' }).filter({ visible: true })
     await expect(theme).toHaveCount(1)
     const [backBox, themeBox] = await Promise.all([backControl.boundingBox(), theme.boundingBox()])
     if (testInfo.project.name === 'desktop-chromium') {
@@ -86,7 +87,7 @@ const SHARE_PAGES = [
   { name: 'ekran miasta z przystankiem', path: '/city/warszawa?stop=1001&name=Centrum', menu: false },
 ]
 
-for (const { name, path, menu } of SHARE_PAGES) {
+for (const { name, path } of SHARE_PAGES) {
   test(`porażka kopiowania linku nie przepełnia strony: ${name}`, async ({ page }) => {
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
@@ -99,7 +100,7 @@ for (const { name, path, menu } of SHARE_PAGES) {
     await page.goto(path)
     // Sama strona (nie wąski viewport) nie może się przewijać poziomo — przed i po kliknięciu.
     const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-    if (menu) await page.getByRole('button', { name: 'Więcej' }).click({ timeout: 45_000 })
+    await openPageOptions(page)
     await expect(page.getByRole('button', { name: 'Udostępnij', exact: true })).toBeVisible({ timeout: 45_000 })
     expect(await overflow()).toBeLessThanOrEqual(0)
 
@@ -109,7 +110,7 @@ for (const { name, path, menu } of SHARE_PAGES) {
     await expect(status).toBeVisible()
     expect(await overflow()).toBeLessThanOrEqual(0)
     // Sam komunikat i przełącznik motywu mieszczą się w oknie (dokument mógłby ukrywać przepełnienie).
-    for (const box of await Promise.all([status.boundingBox(), page.getByRole('button', { name: /Przełącz na tryb/ }).boundingBox()])) {
+    for (const box of await Promise.all([status.boundingBox(), page.getByRole('button', { name: 'Więcej opcji strony' }).filter({ visible: true }).boundingBox()])) {
       expect(box!.x).toBeGreaterThanOrEqual(0)
       expect(box!.x + box!.width).toBeLessThanOrEqual(375)
     }
@@ -121,6 +122,7 @@ for (const { name, path, menu } of SHARE_PAGES) {
 test('akcje nagłówka zawijają się zamiast przepełniać stronę (320 px)', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 812 })
   await page.goto('/city/warszawa?stop=1001&name=Centrum')
+  await openPageOptions(page)
   await expect(page.getByRole('button', { name: 'Udostępnij', exact: true })).toBeVisible({ timeout: 45_000 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
 })

@@ -2,6 +2,7 @@
 
 import { useNow } from '@/hooks/useNow'
 import { formatAgo } from '@/lib/format'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
 
 /** Wiek podajemy co najwyżej do sekundy, ale tykanie co 30 s wystarcza (jak `BoardStatus`). */
 const AGE_TICK_MS = 30_000
@@ -27,8 +28,8 @@ export function TransitFetchStatus({
   const now = useNow(AGE_TICK_MS)
   if (lastSuccessAt === null) return null
   const label = refreshFailed
-    ? `Nie udało się odświeżyć · dane z ${new Date(lastSuccessAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone })}`
-    : `Pobrano ${formatAgo(Math.max(0, now - lastSuccessAt) / 1000)}`
+    ? `Nie udało się odświeżyć · dane z ${formatDataTimestamp(lastSuccessAt, timeZone)}`
+    : `Pobrano ${formatAgo(Math.max(0, now - lastSuccessAt) / 1000)} · ${formatDataTimestamp(lastSuccessAt, timeZone)}`
   return (
     <p className="mt-2 text-sm text-text-secondary">
       <button

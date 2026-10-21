@@ -231,19 +231,20 @@ test('karta wiersza przy tekście 200 %: peron w osobnym rzędzie pod pociągiem
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
-test('karta stacji na telefonie: ← nazwa ★ ⋮ w jednym rzędzie, bez okruszków i KPI; „Udostępnij” w „Więcej”', async ({ page }) => {
+test('stacja: powrót i opcje w nagłówku, jedna nazwa h1 i dostępne Info', async ({ page }) => {
   await firstBoardTime(page, STATION)
   const heading = page.getByRole('heading', { name: 'Warszawa Centralna' })
   await expect(heading).toHaveCount(1)
   await expect(page.getByRole('navigation', { name: 'Ścieżka nawigacji' })).toHaveCount(0)
   await expect(page.getByTestId('station-stats')).toHaveCount(0)
-  const row = [page.getByRole('link', { name: 'Wróć do Startu' }), heading, page.getByRole('button', { name: 'Przypnij do Startu' }), page.getByRole('button', { name: 'Więcej' })]
+  const row = [page.getByRole('link', { name: 'Wróć do Startu' }).filter({ visible: true }), page.getByRole('button', { name: 'Więcej opcji strony' }).filter({ visible: true })]
   const boxes = await Promise.all(row.map((locator) => locator.boundingBox()))
   for (const box of boxes) expect(Math.abs(box!.y + box!.height / 2 - (boxes[0]!.y + boxes[0]!.height / 2)), 'jeden górny rząd').toBeLessThanOrEqual(12)
-  await page.getByRole('button', { name: 'Więcej' }).click()
+  await page.getByRole('button', { name: 'Więcej opcji strony' }).filter({ visible: true }).click()
   const menu = page.getByRole('list', { name: 'Więcej' })
   await expect(menu.getByRole('button', { name: 'Udostępnij' })).toBeVisible()
-  await menu.getByRole('button', { name: 'Informacje o stacji' }).click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Info', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Informacje o stacji' })).toBeVisible()
 })
 
@@ -287,7 +288,6 @@ test('„Info” = modalny arkusz: kolejność sekcji, blokada tła i przewijani
   expect(await sheet.getByRole('heading', { level: 3 }).allTextContents()).toEqual([
     'Utrudnienia na tej stacji',
     'Statystyki stacji dzisiaj',
-    'Pogoda dziś — Warszawa Centralna',
     'Mapa',
     'Legenda statusów',
   ])

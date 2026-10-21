@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { PageHeaderProvider } from './pageHeader'
 
 /**
  * Nazwa bieżącej tablicy (stacji/przystanku) dla nagłówka telefonu: przy przewijaniu nazwa aplikacji
@@ -14,7 +15,7 @@ export function HeaderTitleProvider({ children }: { children: ReactNode }) {
   const [title, setTitle] = useState<string | null>(null)
   return (
     <SetTitleContext.Provider value={setTitle}>
-      <TitleContext.Provider value={title}>{children}</TitleContext.Provider>
+      <TitleContext.Provider value={title}><PageHeaderProvider>{children}</PageHeaderProvider></TitleContext.Provider>
     </SetTitleContext.Provider>
   )
 }

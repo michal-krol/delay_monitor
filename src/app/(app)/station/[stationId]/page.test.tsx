@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import Page from './page'
 
@@ -76,6 +76,7 @@ describe('Page (/station/[stationId])', () => {
     expect(screen.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
     const nav = screen.getByRole('navigation', { name: 'Ścieżka nawigacji' })
     expect(within(nav).getByText('Warszawa Centralna')).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(screen.getByRole('button', { name: 'Więcej opcji strony' }))
     expect(screen.getByRole('button', { name: 'Udostępnij' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Zamknij' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)

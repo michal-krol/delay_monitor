@@ -787,7 +787,7 @@ describe('TransitStopDetail', () => {
       unmount()
       mockStop(board, {}, { lastSuccessAt: Date.now(), error: 'network' })
       render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-      expect(screen.getByRole('button', { name: /^Nie udało się odświeżyć · dane z \d{2}:\d{2}/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Nie udało się odświeżyć · dane z \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/ })).toBeInTheDocument()
       expect(screen.getByText('Kabaty')).toBeInTheDocument()
     })
 

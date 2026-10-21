@@ -7,9 +7,9 @@ import { ArrowLeftIcon, ICON_SIZE } from './icons'
 import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
 import { ICON_BUTTON_CLASS, ICON_BUTTON_MD_SIZE, IconButton } from './IconButton'
 import { PageTitle } from './PageTitle'
-import { ShareButton } from './ShareButton'
-import { ThemeToggle } from './ThemeToggle'
-import { WeatherChip } from './WeatherChip'
+import { CityWeatherChip, WeatherChip } from './WeatherChip'
+import { useHeaderWeatherContext, usePageHeader } from './pageHeader'
+import { PageMoreMenu } from './PageMoreMenu'
 
 type HeaderVariant = {
   title: string
@@ -23,7 +23,7 @@ type HeaderVariant = {
   backHref?: never
   onBack?: never
   crumbs?: never
-  share?: never
+  share?: boolean
 }
 
 /**
@@ -58,11 +58,19 @@ type Props = (HeaderVariant | BackVariant) & {
 
 export function TopBar(props: Props) {
   const back = props.backLabel === undefined ? null : props
+  const sharedWeather = useHeaderWeatherContext()
+  usePageHeader({
+    title: back === null ? props.title! : back.crumbs.at(-1)?.label ?? '',
+    backLabel: back?.backLabel,
+    backHref: back?.backHref,
+    onBack: back?.onBack,
+    share: props.share,
+  })
 
   return (
     // Wariant nagłówka zawija rząd (kontrolki schodzą pod tytuł na wąskim ekranie
     // zamiast wychodzić poza stronę); wariant z ← zostaje w jednym rzędzie.
-    <div className={`relative flex items-center justify-between gap-4 ${back?.hideOnPhone === true ? 'max-sm:hidden' : ''} ${back === null ? (props.compact ? 'flex-nowrap sm:flex-wrap sm:gap-y-2' : 'flex-wrap gap-y-2') : ''}`}>
+    <div className={`relative flex items-center justify-between gap-4 ${back !== null ? 'max-sm:hidden' : ''} ${back === null ? (props.compact ? 'flex-nowrap sm:flex-wrap sm:gap-y-2' : 'flex-wrap gap-y-2') : ''}`}>
       {back !== null ? (
         <div className="flex min-w-0 items-center gap-3">
           {back.backHref !== undefined ? (
@@ -86,11 +94,13 @@ export function TopBar(props: Props) {
       {/* Z tytułem grupa (Udostępnij + wybór miasta + motyw) może się zawinąć — na 375 px bywa szersza niż
           wiersz i wystawała poza stronę (e2e headings.spec, WebKit na Linuksie). Z „wstecz” skraca się breadcrumb. */}
       <div className={`flex items-center gap-2 ${back === null ? 'ml-auto min-w-0 flex-wrap justify-end' : 'shrink-0'}`}>
-        {props.city !== undefined && <WeatherChip city={props.city} />}
-        {back === null ? props.actions : back.share === true && <ShareButton />}
+        {props.city !== undefined ? <CityWeatherChip city={props.city} /> : (
+          <span className="hidden sm:contents"><WeatherChip weather={sharedWeather?.weather ?? { status: 'unavailable' }} locationName={sharedWeather?.name ?? ''} /></span>
+        )}
+        {back === null && props.actions}
         {/* Poniżej `sm` przełącznik motywu jest w `MobileHeader` — jeden na ekran. */}
         <span className="hidden sm:contents">
-          <ThemeToggle />
+          <PageMoreMenu share={props.share} />
         </span>
       </div>
     </div>

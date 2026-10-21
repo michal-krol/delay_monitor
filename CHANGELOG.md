@@ -8,6 +8,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Nagłówek telefonu łączy powrót, nazwę strony, pogodę i menu opcji. Motyw, udostępnianie
+  oraz opisy źródeł danych są dostępne w menu strony także na komputerze.
+- Pogoda nagłówka korzysta z danych bieżącej strony. Zmiana szerokości i otwarcie szczegółów
+  nie pobierają jej ponownie; osadzona tablica korzysta z pogody miasta.
+- Aktualizacja danych PKP, pobranie miejskich odjazdów i pogoda pokazują pełną datę oraz godzinę.
+  Nagłówek rośnie wraz z tekstem, a przyklejone kontrolki uwzględniają jego wysokość.
+
 - Wspólna paleta jasnego i ciemnego motywu: jednolite tło, nieprzezroczyste karty i lżejsze cienie.
   Manrope obejmuje także tekst główny, a tekst pomocniczy ma co najmniej 13 px.
   Kolory statusów i rodzajów transportu zachowują dotychczasowe znaczenie.

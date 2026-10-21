@@ -1,3 +1,4 @@
+import { changeTheme } from './helpers/page-options'
 import { test, expect, type Locator, type Page } from './helpers/test'
 import { scanA11y } from './helpers/axe'
 import { showBoardMap } from './helpers/info'
@@ -120,7 +121,7 @@ test('stacja PKP: mapa lokalizacji pokazuje jeden pin po wczytaniu pogody (ten s
   // po zwrocie /api/weather (available:true + location), nie po samym mount. Pogodę serwuje
   // `WEATHER_DATA_SOURCE=mock` (playwright.config.ts) — zero ruchu do Open-Meteo; jedyny
   // zewnętrzny ruch to kafelki OpenFreeMap (świadomy wyjątek, AGENTS.md #6).
-  await expect(page.getByText(/°C/)).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('button', { name: /^Pogoda: .*°C/ }).filter({ visible: true })).toBeVisible({ timeout: 20_000 })
 
   const map = page.getByRole('region', { name: 'Mapa stacji Warszawa Centralna' })
   await expect(map).toBeVisible()
@@ -483,7 +484,7 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     const field = await mapSearch(page).boundingBox()
     expect(field!.width).toBeGreaterThanOrEqual(280)
     // Przyciski zostają przy prawej krawędzi: panele „Filtry"/„Więcej" otwierają się w lewo.
-    const more = await page.getByRole('button', { name: 'Więcej' }).boundingBox()
+    const more = await page.getByRole('button', { name: 'Więcej', exact: true }).boundingBox()
     expect(more!.x + more!.width).toBeCloseTo(field!.x + field!.width, 0)
     const { scrollWidth, clientWidth } = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
@@ -503,7 +504,7 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     const list = page.getByRole('button', { name: 'Lista', exact: true })
     const listCenter = await center(list)
     expect(await center(page.getByRole('button', { name: /Filtry/ }))).toBeCloseTo(listCenter, 0)
-    expect(await center(page.getByRole('button', { name: 'Więcej' }))).toBeCloseTo(listCenter, 0)
+    expect(await center(page.getByRole('button', { name: 'Więcej', exact: true }))).toBeCloseTo(listCenter, 0)
     const field = await box(mapSearch(page))
     expect(field.y + field.height).toBeLessThanOrEqual((await box(list)).y + 1)
     const chips = page.getByRole('group', { name: 'Rodzaje pojazdów' })
@@ -1174,21 +1175,26 @@ test('motyw jasny → ciemny → jasny: zaznaczenie i ukryte warstwy zostają, p
   const map = await openMap(page, `${CITY_MAP}?hide=buses`)
   const list = await openVisibleList(page)
   await list.getByRole('button', { name: /^Linia 20/ }).first().click({ timeout: READY })
-  const card = dock(page).getByRole('dialog', { name: /^tramwaj 20$/i })
+  // The selected object moves between the desktop aside and phone sheet on resize.
+  const card = page.getByRole('dialog', { name: /^tramwaj 20$/i })
   await expect(card).toBeVisible()
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(1_000)
   const html = page.locator('html')
   await expect(html).toHaveClass(/light/)
   const settled = dataCalls.length
+  const canvas = await map.elementHandle()
 
   for (const [button, theme] of [['Przełącz na tryb ciemny', 'dark'], ['Przełącz na tryb jasny', 'light']] as const) {
-    await page.getByRole('button', { name: button }).click()
+    await changeTheme(page, button)
     await expect(html).toHaveClass(new RegExp(theme))
     await expect(card).toBeVisible() // zaznaczony pojazd zostaje
     await expect(page).toHaveURL(/[?&]hide=buses(&|$)/) // ukryta warstwa zostaje
     await expect(page.getByRole('list', { name: 'Aktywne filtry' }).getByText('Ukryte: autobusy')).toBeVisible()
     await expectTilesRendered(map) // nowy podkład narysowany, kamera i warstwy nie zniknęły
+    await page.setViewportSize({ width: theme === 'dark' ? 1440 : 375, height: 900 })
+    await expect(card).toBeVisible()
+    expect(await map.evaluate((element, original) => element === original, canvas)).toBe(true)
   }
   await page.waitForTimeout(1_000)
   expect(dataCalls.slice(settled), 'przełączenie motywu wywołało zapytania o dane').toEqual([])

@@ -1,28 +1,54 @@
 'use client'
 
 import Link from 'next/link'
-import { AppLogo } from './icons'
-import { ThemeToggle } from './ThemeToggle'
+import { useEffect, useRef } from 'react'
+import { AppLogo, ArrowLeftIcon, ICON_SIZE } from './icons'
+import { IconButton, ICON_BUTTON_CLASS } from './IconButton'
 import { useContextTitle } from './headerTitle'
+import { useHeaderWeatherContext, usePageHeaderContext } from './pageHeader'
+import { PageMoreMenu } from './PageMoreMenu'
+import { WeatherChip } from './WeatherChip'
+import { NAV_BACK_TYPES } from '@/lib/navTransition'
 
 /**
- * Cienki nagłówek telefonu (poniżej `sm`): logo i motyw. Nawigacja i jedyna akcja „Szukaj" są w dolnym
- * pasku (`BottomNav`). Wysokość = `--header-h` (z uwzględnieniem wcięcia u góry ekranu).
+ * Nagłówek telefonu (poniżej `sm`): powrót, tytuł, pogoda i opcje strony. Nawigacja i jedyna akcja „Szukaj" są w dolnym
+ * pasku (`BottomNav`). Pomiar wysokości zasila `--header-h`, także przy powiększonym tekście i safe area.
  */
 export function MobileHeader() {
   const contextTitle = useContextTitle()
+  const page = usePageHeaderContext()
+  const weather = useHeaderWeatherContext()
+  const headerRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const header = headerRef.current
+    if (header === null || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const height = header.getBoundingClientRect().height
+      if (height > 0) document.documentElement.style.setProperty('--header-h', `${height}px`)
+      else document.documentElement.style.removeProperty('--header-h')
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(header)
+    measure()
+    return () => { observer.disconnect(); document.documentElement.style.removeProperty('--header-h') }
+  }, [])
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between gap-2 glass-chrome border-b px-(--page-gutter) sm:hidden"
+      ref={headerRef}
+      className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between gap-2 border-b bg-surface px-(--page-gutter) pb-2 sm:hidden"
       style={{
-        height: 'var(--header-h)',
         // Kotwica: pasek stoi w miejscu podczas przesunięcia treści (`globals.css`, „View transitions”).
         viewTransitionName: 'site-header',
-        paddingTop: 'env(safe-area-inset-top)',
+        paddingTop: 'calc(0.5rem + env(safe-area-inset-top))',
         borderColor: 'var(--sidebar-border)',
       }}
     >
-      <Link href="/" className="flex min-h-11 min-w-0 items-center gap-2.5">
+      {page?.backHref !== undefined ? (
+        <Link href={page.backHref} transitionTypes={NAV_BACK_TYPES} aria-label={page.backLabel} className={`${ICON_BUTTON_CLASS} h-[44px] w-[44px] shrink-0`}><ArrowLeftIcon size={ICON_SIZE.button} /></Link>
+      ) : page?.onBack !== undefined ? (
+        <IconButton label={page.backLabel ?? 'Wróć'} onClick={page.onBack} size="lg" className="h-[44px] w-[44px] shrink-0"><ArrowLeftIcon size={ICON_SIZE.button} /></IconButton>
+      ) : null}
+      {page !== null ? <span className="min-w-[min(10ch,100%)] flex-1 text-sm font-bold leading-snug break-words">{contextTitle ?? page.title}</span> : <Link href="/" className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5">
         <AppLogo size={28} />
         {/* Nazwa aplikacji i (przy tablicy) nazwa tablicy w jednej komórce siatki: przy przewijaniu jedna płynnie
             ustępuje drugiej (CSS scroll-driven, `globals.css`), bez zmiany układu. Kopia nazwy tablicy jest
@@ -35,9 +61,10 @@ export function MobileHeader() {
             </span>
           )}
         </span>
-      </Link>
-      <div className="flex shrink-0 items-center gap-2">
-        <ThemeToggle />
+      </Link>}
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <WeatherChip weather={weather?.weather ?? { status: 'unavailable' }} locationName={weather?.name ?? ''} />
+        <PageMoreMenu share={page?.share} />
       </div>
     </header>
   )

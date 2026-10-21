@@ -47,7 +47,7 @@ export function PageShell({ children, aside }: { children: ReactNode; aside?: Re
     <NavTransition>
       {/* Kolumna na węższych ekranach (aside pod treścią), wiersz od `xl`. */}
       <div className="flex min-w-0 flex-1 flex-col xl:flex-row">
-        <main className="flex min-w-0 flex-1 flex-col gap-5 px-(--page-gutter) py-5 sm:px-8 sm:py-7">{children}</main>
+        <main className="flex min-w-0 flex-1 flex-col gap-5 px-(--page-gutter) py-2 sm:px-8 sm:py-7">{children}</main>
         {aside !== undefined && <PageAside>{aside}</PageAside>}
       </div>
     </NavTransition>

@@ -29,9 +29,8 @@ data age, not a white screen. Error banner only for a configuration error (401).
   refresh clock restarts). `/api/board` reads the poller snapshot — zero PKP cost (#3).
 - Phone controls sit in ONE equal-width grid, `ActionGrid` (`src/components/ActionGrid.tsx`, ≥ 44 px
   rows, `col-span-*` for wider items): the board's tabs + „Info” today. Don't hand-lay another row of
-  buttons; the station card's top row on phones is ← name ★ ⋮ (`FullBoard` `phoneBack`; „Więcej” =
-  `BoardMoreMenu`: „Udostępnij”, „Informacje o stacji”; the page's `TopBar` gets `hideOnPhone`), so the
-  name (h1, `PlaceTitle`) appears once. KPI tiles are not above the phone board — only in „Info”. Phone order:
+  buttons. ADR 0013 PR03: MobileHeader owns back/title/weather/page options; the station card owns its
+  name (h1, `PlaceTitle`) and pin. Page options own theme/share/data sources; station information stays under „Info”. KPI tiles are not above the phone board — only in „Info”. Phone order:
   header card (+ „Na mapie” row) → disruption notice (only with messages) → sticky Odjazdy/Przyjazdy + „Info” →
   `DirectionSelect` (options from row headsigns, 0 PKP requests) → data age (`BoardStatus`) → rows.
   Budget (`e2e/boards-mobile.spec.ts`): at 375×812 the first two departures sit above the bottom bar with no
@@ -54,7 +53,10 @@ data age, not a white screen. Error banner only for a configuration error (401).
   click of „W pobliżu mnie”; nothing is read on render and nothing is shown before the click. `NetworkStatsCard` mounts in ONE place: right column
   from `sm`, „Informacje o sieci” sheet on phones (not mounted while closed).
 - Trivia (weather, city stats, KPI tiles, direction chips, status legend) lives below or in sheets on phones:
-  weather = `WeatherChip` in `TopBar` (`city` prop; sheet on phones, `useDropdown` popover from `sm`).
+  weather = presentational `WeatherChip`: MobileHeader on phones, TopBar on desktop. CityWeatherChip owns city
+  weather; FullBoard/ConnectionDetails own station/origin weather and publish the same result through pageHeader.
+  Embedded boards consume host weather without fetching; opening details or changing width/theme adds no request.
+  The phone Info sheet does not repeat weather. --header-h tracks measured header height, including safe area.
 - Phone layouts hide/compact things with responsive classes on ONE DOM (`max-sm:`), never a
   second copy of a widget — duplicate text breaks `getByText` and screen readers. Content that
   moves between places (board context: aside from `sm`, „Info” sheet on phones) renders in ONE

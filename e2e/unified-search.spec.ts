@@ -1,3 +1,4 @@
+import { changeTheme } from './helpers/page-options'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { scanA11y } from './helpers/axe'
 import { isDesktop, openSearch, searchField } from './helpers/search'
@@ -383,7 +384,7 @@ test('ręczny przełącznik motywu na /search zachowuje frazę i wyniki bez nowe
   await expect(main.getByRole('button', { name: RAIL_ROW })).toBeVisible({ timeout: READY })
   const before = calls.urls.length
 
-  await page.getByRole('button', { name: 'Przełącz na tryb ciemny' }).filter({ visible: true }).click()
+  await changeTheme(page, 'Przełącz na tryb ciemny')
   await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
   await page.waitForTimeout(600)
   await expect(searchField(main)).toHaveValue('Centr')
