@@ -12,6 +12,7 @@ const MAX_QUERY_LENGTH = 100
 const MIN_QUERY_LENGTH = 3
 
 type SearchSources = {
+  trains: 'ready' | 'unavailable'
   rail: 'ready' | 'failed'
   transit: 'ready' | 'loading' | 'failed' | 'disabled'
 }
@@ -60,11 +61,12 @@ export async function GET(request: Request) {
   const allRail = allRailParam || city === null
 
   if (query.length < MIN_QUERY_LENGTH || query.length > MAX_QUERY_LENGTH) {
-    const sources: SearchSources = { rail: 'ready', transit: city === null ? 'disabled' : 'ready' }
-    return NextResponse.json({ stations: [], sources })
+    const sources: SearchSources = { rail: 'ready', transit: city === null ? 'disabled' : 'ready', trains: 'ready' }
+    return NextResponse.json({ stations: [], trains: [], sources })
   }
 
   const needle = query.toLocaleLowerCase('pl')
+  const trainSearch = client.searchCachedTrains(query)
   const compareByQuery = (a: { name: string }, b: { name: string }) => {
     const ap = a.name.toLocaleLowerCase('pl').startsWith(needle) ? 0 : 1
     const bp = b.name.toLocaleLowerCase('pl').startsWith(needle) ? 0 : 1
@@ -126,7 +128,8 @@ export async function GET(request: Request) {
   // czego wczytywać (`false`).
   return NextResponse.json({
     stations: results.slice(0, MAX_SUGGESTIONS),
+    trains: trainSearch.trains,
     loading: city !== null && schedule === null,
-    sources: { rail: railState, transit: transitState } satisfies SearchSources,
+    sources: { rail: railState, transit: transitState, trains: trainSearch.state } satisfies SearchSources,
   })
 }

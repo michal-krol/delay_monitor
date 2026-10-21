@@ -52,11 +52,24 @@ afterEach(() => {
 })
 
 describe('useUnifiedSearch', () => {
+  it('validates train hits independently, and distinguishes an old response from an empty train source', async () => {
+    const train = { scheduleId: '10', orderId: '20', operatingDate: '2026-10-21', nationalNumber: '123', name: null, origin: null, destination: null }
+    fetchMock.mockImplementationOnce(() => places([rail('1', 'Warszawa')], { ...SOURCES_OK, trains: 'ready' }, { trains: [train, { ...train, scheduleId: '../bad' }] }))
+    const { result, rerender } = renderHook(({ query }) => useUnifiedSearch({ city: null, query }), { initialProps: { query: '123' } })
+    await advance(300)
+    expect(result.current.results).toContainEqual({ kind: 'train', train })
+    expect(result.current.results.filter((hit) => hit.kind === 'train')).toHaveLength(1)
+    expect(result.current.sources.trains).toBe('ready')
+    rerender({ query: '124' })
+    await advance(300)
+    expect(result.current.sources.trains).toBe('unavailable')
+    expect(result.current.sources.rail).toBe('ready')
+  })
   it('<3 chars: no places request, lines still found locally from 1 char', async () => {
     const { result } = renderHook(() => useUnifiedSearch({ city: 'warszawa', query: '12' }))
     await advance(2000)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(result.current.sources).toEqual({ rail: 'idle', transit: 'idle', lines: 'ready' })
+    expect(result.current.sources).toEqual({ rail: 'idle', transit: 'idle', lines: 'ready', trains: 'idle' })
     expect(result.current.results.map((r) => r.kind)).toEqual(['line'])
     expect(result.current.results[0]).toMatchObject({ kind: 'line', city: 'warszawa', line: { routeId: '128' } })
   })
@@ -121,7 +134,7 @@ describe('useUnifiedSearch', () => {
     fetchMock.mockImplementation(() => places([stop('100101', '128 Centrum')], { rail: 'failed', transit: 'ready' }))
     const { result } = renderHook(() => useUnifiedSearch({ city: 'warszawa', query: '128' }))
     await advance(300)
-    expect(result.current.sources).toEqual({ rail: 'failed', transit: 'ready', lines: 'ready' })
+    expect(result.current.sources).toEqual({ rail: 'failed', transit: 'ready', lines: 'ready', trains: 'unavailable' })
     expect(result.current.results.map((r) => r.kind)).toEqual(['stop', 'line'])
   })
 
@@ -175,10 +188,10 @@ describe('useUnifiedSearch', () => {
     mockUseCityLines.mockReturnValue(lineState(null, 'ready'))
     fetchMock.mockImplementation(() => places([rail('33605', 'Warszawa Centralna')], { rail: 'ready', transit: 'disabled' }))
     const { result } = renderHook(() => useUnifiedSearch({ city: null, query: 'war' }))
-    expect(result.current.sources).toEqual({ rail: 'loading', transit: 'disabled', lines: 'disabled' })
+    expect(result.current.sources).toEqual({ rail: 'loading', transit: 'disabled', lines: 'disabled', trains: 'loading' })
     await advance(300)
     expect(urls()).toEqual(['/api/search?q=war&rail=all'])
-    expect(result.current.sources).toEqual({ rail: 'ready', transit: 'disabled', lines: 'disabled' })
+    expect(result.current.sources).toEqual({ rail: 'ready', transit: 'disabled', lines: 'disabled', trains: 'unavailable' })
     expect(result.current.results).toEqual([{ kind: 'rail', station: rail('33605', 'Warszawa Centralna') }])
   })
 
@@ -243,7 +256,7 @@ describe('useUnifiedSearch', () => {
     fetchMock.mockImplementationOnce(() => places([rail('1', 'Warszawa')]))
     const { result } = renderHook(() => useUnifiedSearch({ city: 'warszawa', query: 'war' }))
     await advance(300)
-    expect(result.current.sources).toEqual({ rail: 'failed', transit: 'failed', lines: 'failed' })
+    expect(result.current.sources).toEqual({ rail: 'failed', transit: 'failed', lines: 'failed', trains: 'failed' })
     const retry = result.current.retry
     act(() => retry())
     expect(result.current.sources.rail).toBe('loading')
@@ -255,6 +268,7 @@ describe('useUnifiedSearch', () => {
   })
 
   it('retry does not refetch healthy sources', async () => {
+    fetchMock.mockImplementation(() => places([], { ...SOURCES_OK, trains: 'ready' }, { trains: [] }))
     const refresh = vi.fn()
     mockUseCityLines.mockReturnValue(lineState([entry('128')], 'ready', refresh))
     const { result } = renderHook(() => useUnifiedSearch({ city: 'warszawa', query: 'war' }))

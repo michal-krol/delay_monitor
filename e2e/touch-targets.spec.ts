@@ -113,7 +113,7 @@ test.describe('PR5: cele dotyku na telefonie', () => {
     const main = page.getByRole('main')
     const row = main.getByRole('button', { name: /^Warszawa Centralna, Stacja kolejowa PKP/ })
     await expect(row).toBeVisible({ timeout: READY })
-    expect(Math.round(await hitHeight(main.getByRole('searchbox', { name: 'Stacja, przystanek lub linia' })))).toBeGreaterThanOrEqual(44)
+    expect(Math.round(await hitHeight(main.getByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })))).toBeGreaterThanOrEqual(44)
     expect(Math.round(await hitHeight(main.getByRole('button', { name: 'Wyczyść' })))).toBeGreaterThanOrEqual(44)
     const rows = main.locator('section').getByRole('button')
     await expect(rows.first()).toBeVisible()

@@ -6,6 +6,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Dodane
+
+- Wspólna wyszukiwarka znajduje pociągi po nazwie lub numerze. Wynik pokazuje datę kursowania
+  i relację; wybór otwiera szczegóły konkretnego kursu, również z mapy.
+  Wyszukiwanie korzysta z wczytanego rozkładu, a niedostępność tego źródła nie ukrywa miejsc i linii.
+
 ### Zmienione
 
 - Nagłówek telefonu łączy powrót, nazwę strony, pogodę i menu opcji. Motyw, udostępnianie

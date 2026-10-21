@@ -19,8 +19,9 @@ import { ModeTile, modeKindLabel } from './transitMode'
 
 type Kind = DiscoveryResult['kind']
 
-const ALL_KINDS: ReadonlyArray<Kind> = ['rail', 'stop', 'line']
+const ALL_KINDS: ReadonlyArray<Kind> = ['train', 'rail', 'stop', 'line']
 const GROUPS: ReadonlyArray<{ kind: Kind; title: string }> = [
+  { kind: 'train', title: 'Pociągi' },
   { kind: 'rail', title: 'Stacje kolejowe' },
   { kind: 'stop', title: 'Przystanki' },
   { kind: 'line', title: 'Linie' },
@@ -69,6 +70,19 @@ const contextClass = 'block text-xs break-words text-text-secondary'
 function ResultRow({ result, cityName, onSelect }: { result: DiscoveryResult; cityName: (id: string) => string | null; onSelect: (result: DiscoveryResult) => void }) {
   const select = () => onSelect(result)
   switch (result.kind) {
+    case 'train': {
+      const { train } = result
+      const title = [train.nationalNumber, train.name].filter(Boolean).join(' · ') || 'Pociąg'
+      const date = train.operatingDate.split('-').reverse().join('.')
+      const relation = `${train.origin ?? 'Nieznany początek'} → ${train.destination ?? 'Nieznany cel'}`
+      const context = `${date} · ${relation}`
+      return (
+        <Row label={`${title}, ${context}`} leading={<ModeTile modes={['rail']} />} onClick={select}>
+          <span className={nameClass}>{title}</span>
+          <span className={contextClass}>{context}</span>
+        </Row>
+      )
+    }
     case 'rail': {
       const { name } = result.station
       const context = 'Stacja kolejowa PKP'
@@ -121,8 +135,8 @@ type Message = { text: string; tone: 'neutral' | 'muted' | 'error' }
 const TONE_CLASS: Record<Message['tone'], string> = { neutral: 'text-text-secondary', muted: 'text-text-muted', error: 'text-error-text' }
 
 /**
- * Wspólne pole „Stacja, przystanek lub linia": jedno pole, wyniki w trzech grupach (stacje PKP, przystanki
- * miasta, linie miasta) jako zwykła lista przycisków — bez combobox/listbox. Enter w polu nie wybiera wyniku.
+ * Wspólne pole: wyniki pociągów, stacji PKP, przystanków i linii miasta jako zwykła lista przycisków.
+ * Enter w polu nie wybiera wyniku; konkretne dni kursowania pozostają osobnymi wynikami.
  * Routing zostaje po stronie konsumenta (`onSelect`); pole trzyma własną frazę, `initialQuery` tylko ją synchronizuje.
  */
 export function UnifiedSearch({
@@ -216,16 +230,19 @@ export function UnifiedSearch({
 
   const trimmed = query.trim()
   const has = (kind: Kind) => kinds.includes(kind)
+  const searchLabel = has('train') ? 'Stacja, przystanek, linia lub pociąg' : 'Stacja, przystanek lub linia'
   const shown = results.filter((result) => has(result.kind))
   // Źródło ukrytego rodzaju nie liczy się do stanu (jego awaria nie jest widoczna dla użytkownika).
   const visibleSources: Array<{ state: SearchSourceState; failed: string }> = [
+    ...(has('train') ? [{ state: sources.trains, failed: 'pociągów' }] : []),
     ...(has('rail') ? [{ state: sources.rail, failed: 'stacji kolejowych' }] : []),
     ...(has('stop') ? [{ state: sources.transit, failed: 'przystanków' }] : []),
     ...(has('line') ? [{ state: sources.lines, failed: 'linii' }] : []),
   ]
   const failedSources = visibleSources.filter((source) => source.state === 'failed')
   const loading = visibleSources.some((source) => source.state === 'loading')
-  const placesWanted = has('rail') || has('stop')
+  const trainsUnavailable = has('train') && sources.trains === 'unavailable'
+  const placesWanted = has('rail') || has('stop') || has('train')
   const needsCity = (has('stop') && sources.transit === 'disabled') || (has('line') && sources.lines === 'disabled')
   // „Brak wyników” tylko gdy przeszukano miejsca (od 3 znaków); same linie (od 1 znaku, gdy lista gotowa) = „Brak linii”.
   const placesSearched = placesWanted && trimmed.length >= MIN_PLACES_QUERY
@@ -238,18 +255,19 @@ export function UnifiedSearch({
     if (placesWanted && trimmed.length < MIN_PLACES_QUERY) messages.push({ text: 'Wpisz co najmniej 3 znaki, aby znaleźć miejsca', tone: 'neutral' })
     if (loading) messages.push({ text: 'Wczytywanie…', tone: 'neutral' })
     for (const source of failedSources) messages.push({ text: `Nie udało się wczytać ${source.failed}`, tone: 'error' })
+    if (trainsUnavailable) messages.push({ text: 'Wyszukiwanie pociągów jest chwilowo niedostępne', tone: 'muted' })
     if (needsCity) {
       if (citiesState === 'loading') messages.push({ text: 'Wczytywanie miast…', tone: 'neutral' })
       else if (citiesState === 'failed') messages.push({ text: 'Nie udało się wczytać listy miast', tone: 'error' })
       else messages.push({ text: 'Brak skonfigurowanych miast', tone: 'muted' })
     }
-    if (shown.length === 0 && failedSources.length === 0 && !loading && !needsCity) {
+    if (shown.length === 0 && failedSources.length === 0 && !loading && !needsCity && !trainsUnavailable) {
       if (placesSearched) messages.push({ text: 'Brak wyników dla tej frazy', tone: 'neutral' })
       else if (linesSearched) messages.push({ text: 'Brak linii dla tej frazy', tone: 'neutral' })
     }
     if (!online) messages.push({ text: 'Brak połączenia — wyniki mogą być nieaktualne', tone: 'muted' })
   }
-  const canRetry = failedSources.length > 0 || (trimmed !== '' && cityListFailed)
+  const canRetry = failedSources.length > 0 || trainsUnavailable || (trimmed !== '' && cityListFailed)
 
   const empty = trimmed === ''
   // Na mapie puste pole to samo pole: ani ostatnie, ani instrukcja, ani wyniki (panel żyje tylko przy frazie).
@@ -283,7 +301,7 @@ export function UnifiedSearch({
           type="button"
           onClick={() => {
             // Jeden przycisk ponawia wszystko, co zawiodło; po udanym ponowieniu znika, więc fokus idzie do pola.
-            if (failedSources.length > 0) retry()
+            if (failedSources.length > 0 || trainsUnavailable) retry()
             if (cityListFailed) retryCities()
             focusInput()
           }}
@@ -344,8 +362,8 @@ export function UnifiedSearch({
           autoFocus={autoFocus}
           autoComplete="off"
           maxLength={100}
-          aria-label="Stacja, przystanek lub linia"
-          placeholder="Stacja, przystanek lub linia"
+          aria-label={searchLabel}
+          placeholder={searchLabel}
           className={overlay ? OVERLAY_FIELD_CLASS : SEARCH_FIELD_CLASS}
           value={query}
           onChange={(event) => change(event.target.value)}
@@ -398,7 +416,7 @@ export function UnifiedSearch({
       )}
       {showInstruction && (
         <p className="mt-4 px-1 text-sm text-text-secondary">
-          {has('line') ? 'Wpisz nazwę stacji, przystanku albo numer linii' : 'Wpisz nazwę stacji lub przystanku'}
+          {has('train') ? 'Wpisz nazwę miejsca, numer linii albo nazwę lub numer pociągu' : has('line') ? 'Wpisz nazwę stacji, przystanku albo numer linii' : 'Wpisz nazwę stacji lub przystanku'}
         </p>
       )}
     </div>

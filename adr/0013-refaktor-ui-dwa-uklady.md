@@ -106,6 +106,11 @@ Nazwy scenariuszy w tabeli wskazują pliki `e2e/<nazwa>.spec.ts`.
 
 Każdy etap ekranowy obejmuje telefon i desktop. PR 11 nie odracza napraw desktopu.
 Następny etap zaczyna od aktualnego `dev` po integracji poprzedniego, na gałęzi `codex/…`.
+Za zgodą właściciela z 2026-10-21 PR 04 i PR 05 mogą powstawać równolegle na bazie PR 03,
+z integracją 04 → 05. PR 04 jest jedynym właścicielem kontraktu, komponentów i tekstów
+wyszukiwania (także `StartEntry` oraz adaptera mapy). PR 05 obejmuje kompozycję Startu,
+karty i statystyki; nie zmienia powłoki, storage ani plików wyszukiwania. Po integracji
+PR 04 gałąź PR 05 aktualizuje bazę i ponownie sprawdza szukanie oraz przypinanie.
 Terra wymaga potwierdzonej dostępności dla danej sesji; w razie braku zadanie przejmuje Sol.
 Luna nie ustala samodzielnie semantyki danych ani architektury. Model i rozumowanie
 dobieramy do ryzyka; nie uruchamiamy wielu implementerów na tych samych plikach.

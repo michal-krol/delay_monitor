@@ -256,7 +256,7 @@ describe('CityMapPage', () => {
   it('on a phone: one search field replaces the Przystanek/Linia tabs; the card is a bottom sheet', async () => {
     setWide(false)
     render(<CityMapPage />)
-    expect(screen.getAllByRole('searchbox', { name: 'Stacja, przystanek lub linia' })).toHaveLength(1)
+    expect(screen.getAllByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })).toHaveLength(1)
     expect(screen.queryByRole('group', { name: 'Czego szukasz' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Przystanek' })).toBeNull()
 
@@ -326,7 +326,7 @@ describe('CityMapPage — line mode', () => {
     state.vehicles = { vehicles: [{ ...VEHICLE, directionId: 1 }], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
-    await screen.findByRole('searchbox', { name: 'Stacja, przystanek lub linia' })
+    await screen.findByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })
     map().onSelect({ kind: 'vehicle', id: 'v1' })
     fireEvent.click(await screen.findByRole('button', { name: 'Pokaż trasę na mapie' }))
     expect(await screen.findByRole('dialog', { name: 'Linia 20' })).toBeInTheDocument()
@@ -549,7 +549,7 @@ describe('CityMapPage — camera insets', () => {
 })
 
 describe('CityMapPage — unified search', () => {
-  const field = () => screen.getByRole('searchbox', { name: 'Stacja, przystanek lub linia' })
+  const field = () => screen.getByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })
   const MEMBER_2 = { id: '100102', groupId: '1001', name: 'Centrum', code: '02', lat: 52.25, lon: 21.03, mode: 'bus' }
   const linesCalls = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).startsWith('/api/gtfs/lines'))
 

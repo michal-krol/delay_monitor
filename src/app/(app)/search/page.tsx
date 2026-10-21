@@ -16,7 +16,7 @@ import { patchUrlParams } from '@/lib/urlState'
 /** Tyle znaków ma pole (`maxLength` w `UnifiedSearch`); dłuższe `?q=` z adresu ucinamy tak samo. */
 const MAX_QUERY = 100
 
-const SUBTITLE = 'Stacje, przystanki i linie'
+const SUBTITLE = 'Stacje, przystanki, linie i pociągi'
 
 // `useSearchParams()` wymaga granicy <Suspense> przy prerenderze statycznym (jak w `(app)/page.tsx`);
 // fallback trafia do HTML-a, więc to ten sam szkielet co po hydracji — nie pusty ekran (#7).

@@ -2,14 +2,16 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
 import { lineKindFrom, modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
+import type { TrainSearchResult } from '@/lib/pkp/trainSearch'
 
 const searchStations = vi.fn(async () => [
   { id: '33605', name: 'Warszawa Centralna' },
   { id: '7500', name: 'Warszawa Zachodnia' },
   { id: '80416', name: 'Kraków Główny' },
 ])
+const searchCachedTrains = vi.fn<(query: string) => TrainSearchResult>(() => ({ trains: [], state: 'unavailable' }))
 vi.mock('@/lib/board/instance', () => ({
-  client: { searchStations: () => searchStations() },
+  client: { searchStations: () => searchStations(), searchCachedTrains: (q: string) => searchCachedTrains(q) },
 }))
 
 let schedule: GtfsSchedule | null = null
@@ -63,6 +65,21 @@ async function call(qs: string) {
 }
 
 describe('GET /api/search', () => {
+  it('adds cached concrete courses without changing the station envelope', async () => {
+    const train = { scheduleId: '10', orderId: '20', operatingDate: '2026-10-21', name: null, nationalNumber: '123', origin: null, destination: null }
+    searchCachedTrains.mockReturnValueOnce({ trains: [train], state: 'ready' })
+    const { body } = await call('q=123')
+    expect(body.trains).toEqual([train])
+    expect(body.sources.trains).toBe('ready')
+    expect(Array.isArray(body.stations)).toBe(true)
+  })
+  it('reports unavailable train snapshots independently from successful places', async () => {
+    const { body } = await call('q=war')
+    expect(body.trains).toEqual([])
+    expect(body.sources.trains).toBe('unavailable')
+    expect(body.stations.length).toBeGreaterThan(0)
+    expect(searchCachedTrains).toHaveBeenCalledWith('war')
+  })
   it('rejects an unknown city with 400, no echo of the value', async () => {
     const { response, body } = await call('city=zz&q=abc')
     expect(response.status).toBe(400)
@@ -119,7 +136,7 @@ describe('GET /api/search', () => {
     // (mock słownika ignoruje frazę — liczy się, że Kraków nie jest odsiany prefiksem miasta)
     expect(body.stations.map((s: { name: string }) => s.name)).toContain('Kraków Główny')
     expect(body.stations.every((s: { kind: string }) => s.kind === 'rail')).toBe(true)
-    expect(body.sources).toEqual({ rail: 'ready', transit: 'disabled' })
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'disabled', trains: 'unavailable' })
     expect(body.loading).toBe(false)
     expect(getGtfsPoller).not.toHaveBeenCalled()
   })
@@ -147,14 +164,14 @@ describe('GET /api/search', () => {
     const { body } = await call('city=warszawa&q=war')
     expect(Array.isArray(body.stations)).toBe(true)
     expect(body.loading).toBe(false)
-    expect(body.sources).toEqual({ rail: 'ready', transit: 'ready' })
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'ready', trains: 'unavailable' })
   })
 
   it('rail failure with ready GTFS → sources.rail failed, transit stops still returned', async () => {
     searchStations.mockRejectedValueOnce(new Error('upstream down'))
     const { response, body } = await call('city=warszawa&q=swi')
     expect(response.status).toBe(200)
-    expect(body.sources).toEqual({ rail: 'failed', transit: 'ready' })
+    expect(body.sources).toEqual({ rail: 'failed', transit: 'ready', trains: 'unavailable' })
     expect(body.stations.some((s: { kind: string }) => s.kind === 'transit')).toBe(true)
     expect(JSON.stringify(body)).not.toContain('upstream down')
   })
@@ -164,7 +181,7 @@ describe('GET /api/search', () => {
     schedule = null
     pollerState = 'loading'
     const { body } = await call('city=warszawa&q=war')
-    expect(body.sources).toEqual({ rail: 'ready', transit: 'loading' })
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'loading', trains: 'unavailable' })
     expect(body.loading).toBe(true)
     // Nierozpoznany stan „nie gotowy” też znaczy „wczytuje się”.
     pollerState = 'something-new'
@@ -178,7 +195,7 @@ describe('GET /api/search', () => {
     schedule = null
     pollerState = 'failed'
     const { body } = await call('city=warszawa&q=war')
-    expect(body.sources).toEqual({ rail: 'ready', transit: 'failed' })
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'failed', trains: 'unavailable' })
     expect(body.loading).toBe(true)
     schedule = kept
     pollerState = 'loading'
@@ -195,12 +212,12 @@ describe('GET /api/search', () => {
     getGtfsPoller.mockClear()
     searchStations.mockClear()
     expect((await call('city=warszawa&q=ab')).body).toEqual({
-      stations: [],
-      sources: { rail: 'ready', transit: 'ready' },
+      stations: [], trains: [],
+      sources: { rail: 'ready', transit: 'ready', trains: 'ready' },
     })
     expect((await call('q=ab')).body).toEqual({
-      stations: [],
-      sources: { rail: 'ready', transit: 'disabled' },
+      stations: [], trains: [],
+      sources: { rail: 'ready', transit: 'disabled', trains: 'ready' },
     })
     expect(searchStations).not.toHaveBeenCalled()
     expect(getGtfsPoller).not.toHaveBeenCalled()
@@ -209,6 +226,6 @@ describe('GET /api/search', () => {
   it('rail=all with city unaffected', async () => {
     const { body } = await call('city=warszawa&q=kra&rail=all')
     expect(body.stations.map((s: { name: string }) => s.name)).toContain('Kraków Główny')
-    expect(body.sources).toEqual({ rail: 'ready', transit: 'ready' })
+    expect(body.sources).toEqual({ rail: 'ready', transit: 'ready', trains: 'unavailable' })
   })
 })

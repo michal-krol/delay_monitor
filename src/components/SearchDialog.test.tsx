@@ -59,7 +59,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const FIELD = { name: 'Stacja, przystanek lub linia' }
+const FIELD = { name: /^Stacja, przystanek/ }
 const NO_LINES = { city: 'warszawa', schedule: { state: 'ready' }, lines: { metro: [], tram: [], bus: [], rail: [], other: [] }, attribution: [] }
 const EMPTY_SEARCH = { stations: [], sources: { rail: 'ready', transit: 'ready' } }
 const RAIL = { id: '33605', name: 'Warszawa Zachodnia', kind: 'rail', mode: 'rail' }
@@ -89,7 +89,7 @@ describe('SearchDialog', () => {
     const input = await screen.findByRole('searchbox', FIELD)
     expect(dialog.showModal).toHaveBeenCalledTimes(1)
     expect(input).toHaveFocus()
-    expect(screen.getByRole('dialog', { name: 'Szukaj stacji, przystanku lub linii' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Szukaj stacji, przystanku, linii lub pociągu' })).toBeInTheDocument()
   })
 
   it('mounts no content while closed', () => {
@@ -184,7 +184,10 @@ describe('SearchDialog', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     usePathname.mockReturnValue('/city/warszawa/lines')
     window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
-    stubFetch({ search: { stations: [RAIL, STOP], sources: { rail: 'ready', transit: 'ready' } }, lines: withLine })
+    stubFetch({ search: {
+      stations: [RAIL, STOP], sources: { rail: 'ready', transit: 'ready', trains: 'ready' },
+      trains: [{ scheduleId: '10', orderId: '20', operatingDate: '2026-10-21', nationalNumber: '123', name: 'Testowy', origin: null, destination: null }],
+    }, lines: withLine })
     const onClose = vi.fn()
     const onPick = vi.fn()
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -196,6 +199,8 @@ describe('SearchDialog', () => {
     const stop = await screen.findByRole('button', { name: /^Centrum, Zespół przystanków/ })
     expect(screen.queryByRole('heading', { name: 'Linie' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Linia / })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Pociągi' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Testowy/ })).not.toBeInTheDocument()
     await user.click(stop)
     expect(onPick).toHaveBeenLastCalledWith(expect.objectContaining({ id: '1001', kind: 'transit' }), 'warszawa')
     await user.click(screen.getByRole('button', { name: /^Warszawa Zachodnia/ }))

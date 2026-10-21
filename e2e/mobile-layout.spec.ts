@@ -73,7 +73,7 @@ for (const width of [320, 375]) {
     await page.goto('/')
     const main = page.getByRole('main')
     const barTop = (await page.getByRole('navigation', { name: 'Nawigacja główna' }).boundingBox())?.y ?? 812
-    for (const locator of [main.getByRole('button', { name: 'Stacja, przystanek lub linia' }), main.getByRole('button', { name: 'W pobliżu mnie' }), main.getByRole('heading', { name: 'Moje miejsca' })]) {
+    for (const locator of [main.getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' }), main.getByRole('button', { name: 'W pobliżu mnie' }), main.getByRole('heading', { name: 'Moje miejsca' })]) {
       await expect(locator).toBeVisible()
       const box = await locator.boundingBox()
       expect((box?.y ?? 9999) + (box?.height ?? 0)).toBeLessThanOrEqual(barTop)

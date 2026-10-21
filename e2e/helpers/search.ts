@@ -1,8 +1,8 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
-export const SEARCH_DIALOG = 'Szukaj stacji, przystanku lub linii'
+export const SEARCH_DIALOG = 'Szukaj stacji, przystanku, linii lub pociągu'
 /** Nazwa pola wspólnej wyszukiwarki (`UnifiedSearch`) — to samo w oknie desktopu i na stronie `/search`. */
-export const SEARCH_FIELD = 'Stacja, przystanek lub linia'
+export const SEARCH_FIELD = /^Stacja, przystanek(?:, linia lub pociąg| lub linia)$/
 
 export const isDesktop = (project: string) => project === 'desktop-chromium'
 

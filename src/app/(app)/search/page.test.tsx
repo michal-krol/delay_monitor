@@ -69,7 +69,7 @@ describe('/search page', () => {
     render(<Page />)
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     expect(screen.getByRole('heading', { level: 1, name: 'Szukaj' })).toBeInTheDocument()
-    expect(screen.getByText('Stacje, przystanki i linie')).toBeInTheDocument()
+    expect(screen.getByText('Stacje, przystanki, linie i pociągi')).toBeInTheDocument()
     expect(await screen.findByRole('searchbox', { name: 'pole' })).toHaveAttribute('type', 'search')
     expect(screen.getByTestId('unified')).toHaveAttribute('data-autofocus', 'true')
   })

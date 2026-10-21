@@ -75,8 +75,8 @@ test('tablica → szczegóły → wstecz: bezpośrednie wejście na stację wrac
 test('start: znajdź miejsce → przypnij → Wstecz → karta z odjazdami na Starcie', async ({ page }, testInfo) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
-  await page.getByRole('main').getByRole('button', { name: 'Stacja, przystanek lub linia' }).click()
-  const surface = isDesktop(testInfo.project.name) ? page.getByRole('dialog', { name: 'Szukaj stacji, przystanku lub linii' }) : page.getByRole('main')
+  await page.getByRole('main').getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' }).click()
+  const surface = isDesktop(testInfo.project.name) ? page.getByRole('dialog', { name: 'Szukaj stacji, przystanku, linii lub pociągu' }) : page.getByRole('main')
   await searchField(surface).fill('Centralna')
   await surface.getByRole('button', { name: /^Warszawa Centralna/ }).first().click({ timeout: 45_000 })
   await expect(page).toHaveURL(/\/station\/33605/)
@@ -126,7 +126,7 @@ test('start: odmowa lokalizacji zostawia opis i wyszukiwanie', async ({ page, co
   await page.getByRole('button', { name: 'W pobliżu mnie' }).click()
   await expect(page.getByText('Brak dostępu do lokalizacji. Wyszukaj miejsce powyżej.')).toBeVisible()
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('main').getByRole('button', { name: 'Stacja, przystanek lub linia' })).toBeEnabled()
+  await expect(page.getByRole('main').getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' })).toBeEnabled()
 })
 
 test('start: desktop zachowuje kolumnę boczną ze statystykami, telefon ma „Info”', async ({ page }, testInfo) => {

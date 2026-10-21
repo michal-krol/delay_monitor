@@ -176,7 +176,7 @@ describe('AppChrome search', () => {
       <>
         <AppChrome />
         <main>
-          <input type="search" aria-label="Stacja, przystanek lub linia" />
+          <input type="search" aria-label="Stacja, przystanek, linia lub pociąg" />
         </main>
       </>,
     )
