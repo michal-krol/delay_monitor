@@ -18,6 +18,7 @@ import type { PkpClient } from '@/lib/pkp/client'
  */
 export function makePkpClient(overrides: Partial<PkpClient> = {}): PkpClient {
   return {
+    searchCachedTrains: vi.fn(() => ({ trains: [], state: 'unavailable' as const })),
     searchStations: vi.fn().mockResolvedValue([]),
     getOperations: vi.fn().mockResolvedValue({
       trains: [],

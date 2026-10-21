@@ -182,7 +182,7 @@ function PulpitPage() {
           <NetworkStatsCard defaultExpanded />
         </InfoSheet>
       )}
-      {/* Jedno okno: „Dodaj” przypina (onPick), pole „Stacja, przystanek lub linia” otwiera zwykłe szukanie. */}
+      {/* Jedno okno: „Dodaj” przypina (onPick), pole „Stacja, przystanek, linia lub pociąg” otwiera zwykłe szukanie. */}
       <SearchDialog
         open={adding || searching}
         onClose={() => {

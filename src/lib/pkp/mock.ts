@@ -15,6 +15,7 @@ import { matchesStationName, normalizeForSearch } from '../search'
 import { once } from '../cache'
 import type { MockBudget } from '../config'
 import { warsawDateString } from './time'
+import { createTrainSearchIndex, type TrainSearchIndex } from './trainSearch'
 
 const FIXTURES_DIR = path.join(process.cwd(), 'fixtures')
 const FIXTURE_ANCHOR = new Date('2026-08-01T12:00:00+02:00').getTime()
@@ -93,6 +94,12 @@ export function createMockClient({ budget = 'default' }: MockClientOptions = {})
   // odczycie fixture'ów i pozwala `/api/board` odsiać nieznane identyfikatory
   // bez czekania na wejście/wyjście.
   let cachedStationIds: ReadonlySet<string> | null = null
+  let trainSearch: { day: string; index: TrainSearchIndex } | null = null
+  // Fixture I/O happens once at initialization, never in the synchronous search getter.
+  void loadSchedules().then((data) => {
+    const day = warsawDateString(new Date())
+    trainSearch = { day, index: createTrainSearchIndex(data.routes.map((route) => ({ ...route, operatingDates: [day] })), data.stationNames) }
+  }).catch(() => {})
 
   async function stations() {
     const data = await loadStations()
@@ -110,6 +117,10 @@ export function createMockClient({ budget = 'default' }: MockClientOptions = {})
   void stations().catch(() => {})
 
   return {
+    searchCachedTrains(query) {
+      const day = warsawDateString(new Date())
+      return trainSearch?.day === day ? { trains: trainSearch.index.search(query, day, day), state: 'ready' } : { trains: [], state: 'unavailable' }
+    },
     getCachedStationIds(): ReadonlySet<string> | null {
       return cachedStationIds
     },
@@ -153,6 +164,9 @@ export function createMockClient({ budget = 'default' }: MockClientOptions = {})
       // (patrz `stationStats.ts`) -- bez tego mock pokazywałby zero odjazdów
       // przy pełnej tablicy.
       const operatingDates = [warsawDateString(new Date())]
+      if (trainSearch?.day !== operatingDates[0]) {
+        trainSearch = { day: operatingDates[0], index: createTrainSearchIndex(schedules.routes.map((route) => ({ ...route, operatingDates })), schedules.stationNames) }
+      }
       const routes = schedules.routes
         .filter((route) => relevantTrainIds.has(`${route.scheduleId}-${route.orderId}`))
         .map((route) => ({ ...route, operatingDates }))

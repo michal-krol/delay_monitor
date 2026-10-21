@@ -5,6 +5,7 @@ import { createTtlCache } from '../cache'
 import { warsawDateString } from './time'
 import { BASE_URL, type FetchJson } from './http'
 import { logEvent } from '@/lib/log'
+import { createTrainSearchIndex, type TrainSearchIndex, type TrainSearchResult } from './trainSearch'
 
 /**
  * Rozkład jest pobierany OGÓLNOPOLSKO (bez `stations`), jedno zapytanie na okno dat, i ważny pół doby --
@@ -34,6 +35,7 @@ type NationalSchedules = {
   byStation: Map<string, RawRoute[]>
   /** `scheduleId|orderId` -> trasa; służy `/api/train` zamiast `/schedules/route/...`. */
   byRoute: Map<string, RawRoute>
+  trainSearch: TrainSearchIndex
 }
 
 function indexNationalSchedules(windowKey: string, result: GetSchedulesResult): NationalSchedules {
@@ -55,6 +57,8 @@ function indexNationalSchedules(windowKey: string, result: GetSchedulesResult): 
     meta: { carrierNames, categoryNames, stationNames, usedFullRouteFallback },
     byStation,
     byRoute,
+    // Fallback may contain only a route fragment, so its endpoints are not the train's relation.
+    trainSearch: createTrainSearchIndex(result.routes, usedFullRouteFallback ? {} : stationNames),
   }
 }
 
@@ -76,6 +80,7 @@ export function scheduleDateWindow(now: () => Date): { dateFrom: string; dateTo:
 }
 
 export type NationalSchedulesStore = {
+  searchCachedTrains(query: string): TrainSearchResult
   getSchedules(stationIds: string[]): Promise<GetSchedulesResult>
   fetchRoute(scheduleId: string, orderId: string): Promise<RawRoute>
 }
@@ -197,6 +202,13 @@ export function createNationalSchedules(fetchJson: FetchJson, now: () => Date): 
   }
 
   return {
+    searchCachedTrains(query: string): TrainSearchResult {
+      const { dateFrom, dateTo } = scheduleDateWindow(now)
+      if (nationalSchedules === null || nationalSchedules.windowKey !== `${dateFrom}|${dateTo}`) {
+        return { trains: [], state: 'unavailable' }
+      }
+      return { trains: nationalSchedules.trainSearch.search(query, dateFrom, dateTo), state: 'ready' }
+    },
     async getSchedules(stationIds: string[]): Promise<GetSchedulesResult> {
       const snapshot = await ensureNationalSchedules()
       // Suma tras przez którąkolwiek z żądanych stacji, każda raz (trasa 30 przez 5100 i 4900 nie dubluje się).

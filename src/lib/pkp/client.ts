@@ -13,6 +13,7 @@ import {
 import { createTtlCache } from '../cache'
 import { BASE_URL, PkpApiError, createPkpTransport, parseBudget, type RateLimitBudget } from './http'
 import { createNationalSchedules, scheduleDateWindow } from './nationalSchedules'
+import type { TrainSearchResult } from './trainSearch'
 import { createStationDirectory } from './stationDirectory'
 import { logEvent } from '@/lib/log'
 
@@ -123,6 +124,8 @@ export type TrainDetailResult = {
 }
 
 export interface PkpClient {
+  /** Memory only: never loads or refreshes the national timetable. */
+  searchCachedTrains(query: string): TrainSearchResult
   searchStations(query: string): Promise<Station[]>
   /**
    * Jedna strona realizacji. `page` (od 1) domyślnie 1 — poller sam dociąga
@@ -266,6 +269,7 @@ export function createLiveClient(
     searchStations: stations.search,
 
     getSchedules: schedules.getSchedules,
+    searchCachedTrains: schedules.searchCachedTrains,
 
     async getOperations(stationIds: string[], page = 1): Promise<GetOperationsResult> {
       // Świadomie BEZ fullRoutes=true: dokładałoby pełną trasę (śr. 15

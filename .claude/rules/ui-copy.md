@@ -120,7 +120,8 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 
 - Wording of the field, groups and states: see „Search” below (one field, no Przystanek/Linia tabs). Map-specific: results float
   over the map in an opaque `role="group"` panel named „Wyniki wyszukiwania”, only while the field is not empty (no recents, no
-  instruction under an empty field). Picking a result clears the field and stays on the map.
+  instruction under an empty field). Picking clears the field; place/line results stay on the map,
+  while a concrete train course opens its connection details (ADR 0013 PR04).
 - Result without a position on the map: `role="status"` „Brak pozycji na mapie: {name}.” + link „Szczegóły stacji” (PKP) /
   „Szczegóły przystanku” (zespół) to the board page, close button „Zamknij komunikat”; the camera does not move. Focus goes to
   this notice (the picked row unmounted and no card opens), never back to the field (it would raise the phone keyboard).
@@ -217,7 +218,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - H1 „Start”. Order on phones and desktop: H1 → search entry → „W pobliżu mnie” + „Otwórz mapę” → „Moje miejsca” (h2 + „Dodaj” / „Edytuj ulubione”) →
   „Ostatnio oglądane” → on phones the „Info” button. The history keeps „Ostatnio oglądane” (it records places you OPENED, not searched; the mockup
   says the same) — not „Ostatnio wyszukiwane”.
-- Search entry = a button named „Stacja, przystanek lub linia” (phone: goes to `/search`; from `sm`: opens the `UnifiedSearch` dialog). It is not an input.
+- Search entry = a button named „Stacja, przystanek, linia lub pociąg” (phone: goes to `/search`; from `sm`: opens the `UnifiedSearch` dialog). It is not an input.
 - Location: button „W pobliżu mnie” (`LocateIcon`); while asking „Ustalanie lokalizacji…” (`aria-busy`, clicks ignored; the map control keeps „Szukam lokalizacji…” — two surfaces, a second deliberate exception to „Wczytywanie…”); a fix opens `/map?nearby=1`.
   Under the button (`aria-live`): denied „Brak dostępu do lokalizacji. Wyszukaj miejsce powyżej.”; no API „Lokalizacja nie jest dostępna w tej
   przeglądarce”; failed „Nie udało się ustalić lokalizacji. Spróbuj ponownie lub wyszukaj miejsce.” (the same button retries). Nothing is shown before the click.
@@ -237,11 +238,15 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 
 ## Search (`UnifiedSearch`, `/search`, desktop dialog)
 
-- Field label and placeholder: „Stacja, przystanek lub linia”; groups „Stacje kolejowe”, „Przystanki”, „Linie”.
+- Field label and placeholder: „Stacja, przystanek, linia lub pociąg”; dialog „Szukaj stacji, przystanku, linii lub pociągu”.
+  Groups: „Pociągi”, „Stacje kolejowe”, „Przystanki”, „Linie”. Pinning retains the place-only field „Stacja, przystanek lub linia” and never offers trains or lines.
+- Train rows include number/name, full operating date and relation. Missing endpoints: „Nieznany początek” / „Nieznany cel”.
+  Missing current snapshot: „Wyszukiwanie pociągów jest chwilowo niedostępne” + „Spróbuj ponownie”, never a confirmed empty result.
+  Timetable search never implies punctuality. Map train selection opens the course details; places and lines keep the map context.
 - Row context: PKP „Stacja kolejowa PKP”; stop group „Zespół przystanków · {miasto}”; line „{Metro|Tramwaj|Autobus|Kolej miejska} · {miasto}”
   — GTFS rail is „Kolej miejska”, never „Stacja kolejowa PKP” (#13: it never opens a PKP connection).
 - States: 1–2 characters „Wpisz co najmniej 3 znaki, aby znaleźć miejsca” (lines still listed); loading „Wczytywanie…” (glossary: still
-  loading; never „Szukam…”; the one exception is the locate status „Szukam lokalizacji…”, see „Map location”); a failed source „Nie udało się wczytać {stacji kolejowych|przystanków|linii}” + „Spróbuj ponownie”; healthy zero
+  loading; never „Szukam…”; the one exception is the locate status „Szukam lokalizacji…”, see „Map location”); a failed source „Nie udało się wczytać {pociągów|stacji kolejowych|przystanków|linii}” + „Spróbuj ponownie”; healthy zero
   results „Brak wyników dla tej frazy” (places searched, 3+ characters) — with 1–2 characters only lines were searched, so „Brak linii dla tej
   frazy”; neither is shown while a source loads or after a failure. Cap hint „Pokazano do 8 wyników — doprecyzuj frazę” (also at exactly 8 rows);
   offline „Brak połączenia — wyniki mogą być nieaktualne”.

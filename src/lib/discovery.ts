@@ -1,4 +1,5 @@
 import type { StationOption } from '@/components/StationSearch'
+import type { TrainSearchHit } from '@/lib/pkp/trainSearch'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import { normalizeForSearch } from '@/lib/search'
 import {
@@ -7,18 +8,20 @@ import {
   GTFS_ROUTE_ID_PATTERN,
   GTFS_STOP_ID_PATTERN,
   STATION_ID_PATTERN,
+  OPERATING_DATE_PATTERN,
 } from '@/lib/validation'
 
 /**
- * Wynik wspólnej wyszukiwarki („Stacja, przystanek lub linia"): stacja PKP,
- * przystanek GTFS miasta albo linia GTFS miasta. Czysty kontrakt — bez sieci i Reacta.
+ * Wynik wspólnej wyszukiwarki („Stacja, przystanek, linia lub pociąg"): stacja PKP,
+ * przystanek GTFS miasta, linia GTFS miasta albo konkretny kurs PKP. Czysty kontrakt — bez sieci i Reacta.
  */
 export type DiscoveryResult =
+  | { kind: 'train'; train: TrainSearchHit }
   | { kind: 'rail'; station: StationOption }
   | { kind: 'stop'; city: string; stop: StationOption }
   | { kind: 'line'; city: string; line: LineListEntry }
 
-/** Maksymalna liczba wyników w jednej grupie (stacje / przystanki / linie). */
+/** Maksymalna liczba wyników w jednej grupie. */
 export const MAX_PER_GROUP = 8
 
 /**
@@ -47,6 +50,11 @@ export function rankLines(lines: LineListEntry[], query: string, limit = MAX_PER
  */
 export function discoveryHref(result: DiscoveryResult): string | null {
   switch (result.kind) {
+    case 'train': {
+      const { scheduleId, orderId, operatingDate } = result.train
+      if (!STATION_ID_PATTERN.test(scheduleId) || !STATION_ID_PATTERN.test(orderId) || !OPERATING_DATE_PATTERN.test(operatingDate)) return null
+      return `/connection/${encodeURIComponent(scheduleId)}/${encodeURIComponent(orderId)}/${encodeURIComponent(operatingDate)}`
+    }
     case 'rail': {
       const { id, name } = result.station
       if (!STATION_ID_PATTERN.test(id)) return null
@@ -68,6 +76,8 @@ export function discoveryHref(result: DiscoveryResult): string | null {
 /** Stabilny klucz wyniku (React `key`, deduplikacja); stacja PKP i przystanek o tym samym id się nie zlewają. */
 export function discoveryKey(result: DiscoveryResult): string {
   switch (result.kind) {
+    case 'train':
+      return `train:${result.train.scheduleId}:${result.train.orderId}:${result.train.operatingDate}`
     case 'rail':
       return `rail:${result.station.id}`
     case 'stop':

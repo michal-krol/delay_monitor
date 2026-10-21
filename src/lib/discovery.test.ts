@@ -14,6 +14,14 @@ function line(
 
 const numbers = (lines: LineListEntry[]) => lines.map((l) => l.line)
 
+it('links and keys a train by the concrete run, rejecting hostile identifiers', () => {
+  const train = { scheduleId: '10', orderId: '20', operatingDate: '2026-10-21', name: null, nationalNumber: '123', origin: null, destination: null }
+  expect(discoveryHref({ kind: 'train', train })).toBe('/connection/10/20/2026-10-21')
+  expect(discoveryKey({ kind: 'train', train })).not.toBe(discoveryKey({ kind: 'train', train: { ...train, operatingDate: '2026-10-22' } }))
+  expect(discoveryHref({ kind: 'train', train: { ...train, orderId: '../bad' } })).toBeNull()
+  expect(discoveryHref({ kind: 'train', train: { ...train, operatingDate: '2026-10-21/other' } })).toBeNull()
+})
+
 describe('rankLines', () => {
   it('exact number before prefix: 20 before 200/N20', () => {
     const lines = [line('200'), line('N20', 'bus', 'Aleja 20'), line('20', 'tram'), line('201')]

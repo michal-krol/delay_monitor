@@ -5,9 +5,11 @@ import { z } from 'zod'
 import type { StationOption } from '@/components/StationSearch'
 import { discoveryKey, MAX_PER_GROUP, rankLines, type DiscoveryResult } from '@/lib/discovery'
 import { GTFS_STOP_ID_PATTERN, STATION_ID_PATTERN } from '@/lib/validation'
+import { OPERATING_DATE_PATTERN } from '@/lib/validation'
+import type { TrainSearchHit } from '@/lib/pkp/trainSearch'
 import { useCityLines, type CityLinesState } from './useCityLines'
 
-export type SearchSourceState = 'idle' | 'loading' | 'ready' | 'failed' | 'disabled'
+export type SearchSourceState = 'idle' | 'loading' | 'ready' | 'failed' | 'disabled' | 'unavailable'
 
 const DEBOUNCE_MS = 300
 const MIN_PLACES_QUERY = 3
@@ -41,17 +43,28 @@ const sourcesSchema = z.object({
 })
 
 type Places = { stations: StationOption[]; rail: 'ready' | 'failed'; transit: 'ready' | 'loading' | 'failed' | 'disabled' }
+  & { trains: TrainSearchHit[]; trainsState: 'ready' | 'unavailable' }
+
+const trainSchema = z.object({
+  scheduleId: z.string().regex(STATION_ID_PATTERN),
+  orderId: z.string().regex(STATION_ID_PATTERN),
+  operatingDate: z.string().regex(OPERATING_DATE_PATTERN),
+  name: z.string().max(200).nullable(), nationalNumber: z.string().max(40).nullable(),
+  origin: z.string().max(200).nullable(), destination: z.string().max(200).nullable(),
+})
 
 /** `null` = zły kształt całej koperty (traktowane jak błąd). */
 function parsePlaces(body: unknown): Places | null {
   if (typeof body !== 'object' || body === null) return null
-  const { stations, sources, loading } = body as { stations?: unknown; sources?: unknown; loading?: unknown }
+  const { stations, sources, loading, trains } = body as { stations?: unknown; sources?: unknown; loading?: unknown; trains?: unknown }
   if (!Array.isArray(stations)) return null
   const parsedSources = sourcesSchema.safeParse(sources)
   const rail = parsedSources.success ? parsedSources.data.rail : 'ready'
   // Starsza odpowiedź bez `sources`: tylko `loading: true` mówi o niepełnym wyniku.
   const transit = parsedSources.success ? parsedSources.data.transit : loading === true ? 'loading' : 'ready'
   return {
+    trains: Array.isArray(trains) ? trains.flatMap((hit) => { const parsed = trainSchema.safeParse(hit); return parsed.success ? [parsed.data] : [] }) : [],
+    trainsState: Array.isArray(trains) && typeof sources === 'object' && sources !== null && 'trains' in sources && sources.trains === 'ready' ? 'ready' : 'unavailable',
     stations: stations.flatMap((element) => {
       const parsed = stationSchema.safeParse(element)
       return parsed.success ? [parsed.data] : []
@@ -78,13 +91,13 @@ function capped(results: DiscoveryResult[]): DiscoveryResult[] {
 }
 
 /**
- * Wspólna wyszukiwarka „Stacja, przystanek lub linia": miejsca z `/api/search` (od 3 znaków, debounce) i linie
+ * Wspólna wyszukiwarka „Stacja, przystanek, linia lub pociąg": miejsca z `/api/search` (od 3 znaków, debounce) i linie
  * filtrowane lokalnie z listy linii miasta (od 1 znaku). Źródła zawodzą niezależnie — wynik jednego nie znika
  * przez błąd drugiego. Odpowiedź nigdy nie trafia do wyniku, jeśli dotyczy innej frazy/miasta niż bieżące.
  */
 export function useUnifiedSearch({ city, query, lineSource }: { city: string | null; query: string; lineSource?: CityLinesState }): {
   results: DiscoveryResult[]
-  sources: { rail: SearchSourceState; transit: SearchSourceState; lines: SearchSourceState }
+  sources: { rail: SearchSourceState; transit: SearchSourceState; lines: SearchSourceState; trains: SearchSourceState }
   retry: () => void
 } {
   const trimmed = query.trim()
@@ -131,6 +144,7 @@ export function useUnifiedSearch({ city, query, lineSource }: { city: string | n
   const places = current?.places ?? null
 
   const rail: SearchSourceState = !placesActive ? 'idle' : current === null ? 'loading' : places === null ? 'failed' : places.rail
+  const trains: SearchSourceState = !placesActive ? 'idle' : current === null ? 'loading' : places === null ? 'failed' : places.trainsState
   const transit: SearchSourceState =
     city === null ? 'disabled' : !placesActive ? 'idle' : current === null ? 'loading' : places === null ? 'failed' : places.transit
   // Decyzja: lista linii to statyczny rozkład (`refreshMs: null`), więc zachowana lista po nieudanym odświeżeniu
@@ -145,6 +159,7 @@ export function useUnifiedSearch({ city, query, lineSource }: { city: string | n
     const lineResults: DiscoveryResult[] =
       city === null || sourceLines === null ? [] : rankLines(sourceLines, trimmed).map((line) => ({ kind: 'line', city, line }))
     return [
+      ...capped((places?.trains ?? []).map((train) => ({ kind: 'train', train }))),
       ...capped(found.filter((result) => result.kind === 'rail')),
       ...capped(found.filter((result) => result.kind === 'stop')),
       ...capped(lineResults),
@@ -154,12 +169,12 @@ export function useUnifiedSearch({ city, query, lineSource }: { city: string | n
   // Najświeższy stan dla `retry` bez zmiany jego tożsamości.
   const latest = useRef({ placesFailed: false, linesFailed: false, refresh: linesSource.refresh })
   useEffect(() => {
-    latest.current = { placesFailed: rail === 'failed' || transit === 'failed', linesFailed: lines === 'failed', refresh: linesSource.refresh }
+    latest.current = { placesFailed: rail === 'failed' || transit === 'failed' || trains === 'failed' || trains === 'unavailable', linesFailed: lines === 'failed', refresh: linesSource.refresh }
   })
   const retry = useCallback(() => {
     if (latest.current.placesFailed) setAttempt((count) => count + 1)
     if (latest.current.linesFailed) latest.current.refresh()
   }, [])
 
-  return { results, sources: { rail, transit, lines }, retry }
+  return { results, sources: { rail, transit, lines, trains }, retry }
 }

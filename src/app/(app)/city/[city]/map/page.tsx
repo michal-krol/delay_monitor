@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { notFound, useParams } from 'next/navigation'
+import { notFound, useParams, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
@@ -52,6 +52,7 @@ import { CITY_ID_PATTERN } from '@/lib/validation'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 
 export default function CityMapPage() {
+  const router = useRouter()
   const params = useParams<{ city: string }>()
   const city = typeof params.city === 'string' ? params.city : ''
   const feed = CITY_ID_PATTERN.test(city) ? getCity(city) : null
@@ -302,8 +303,13 @@ export default function CityMapPage() {
     if (station !== undefined) setSelection({ kind: 'rail', id: station.id, name: station.name, lat: station.lat, lon: station.lon })
   }
 
-  /** Wybór z wyszukiwarki: nigdy nie wychodzi z mapy; bez pozycji kamera stoi (nigdy 0,0), a komunikat linkuje do szczegółów. */
+  /** Kurs otwiera szczegóły; miejsca i linie wybierają kontekst mapy bez wymyślania pozycji. */
   function onSearchPick(result: DiscoveryResult): void {
+    if (result.kind === 'train') {
+      const href = discoveryHref(result)
+      if (href !== null) router.push(href)
+      return
+    }
     setNoPosition(null)
     if (result.kind === 'line') {
       // Panel linii jest ostatni w kolejności kart — zwalniamy to, co go przesłania.

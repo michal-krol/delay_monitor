@@ -3,7 +3,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
 import { scanA11y } from './helpers/axe'
 import { isDesktop, openSearch, searchField } from './helpers/search'
 
-// Wspólne wyszukiwanie „Stacja, przystanek lub linia" (`UnifiedSearch`): na telefonie strona `/search`
+// Wspólne wyszukiwanie „Stacja, przystanek, linia lub pociąg" (`UnifiedSearch`): na telefonie strona `/search`
 // (wejście z dolnego paska), od `sm` okno (Ctrl+K). Te same scenariusze biegną na obu powierzchniach;
 // to, co dotyczy adresu (`?q=`, Wstecz), tylko na telefonie. Mock: stacja PKP „Warszawa Centralna" (33605),
 // zespół „Centrum" (1001), linie warszawskie z `fixtures/gtfs/warszawa/routes.txt`.
@@ -266,7 +266,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     test('puste pole: instrukcja', async ({ page }) => {
       const main = await openPage(page)
-      await expect(main.getByText('Wpisz nazwę stacji, przystanku albo numer linii')).toBeVisible()
+      await expect(main.getByText('Wpisz nazwę miejsca, numer linii albo nazwę lub numer pociągu')).toBeVisible()
       await expectNoBlocking(page)
     })
 

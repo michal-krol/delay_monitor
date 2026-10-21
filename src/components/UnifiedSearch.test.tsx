@@ -41,9 +41,9 @@ const line = (routeId: string, number: string, longName: string, mode: GtfsMode 
   line: { routeId, line: number, longName, mode, kind: 'regular' } satisfies LineListEntry,
 })
 
-type Sources = Record<'rail' | 'transit' | 'lines', SearchSourceState>
+type Sources = Record<'rail' | 'transit' | 'lines' | 'trains', SearchSourceState>
 function found(results: DiscoveryResult[], sources: Partial<Sources> = {}, retry = vi.fn()) {
-  mockSearch.mockReturnValue({ results, sources: { rail: 'ready', transit: 'ready', lines: 'ready', ...sources }, retry })
+  mockSearch.mockReturnValue({ results, sources: { rail: 'ready', transit: 'ready', lines: 'ready', trains: 'ready', ...sources }, retry })
   return retry
 }
 
@@ -60,6 +60,16 @@ beforeEach(() => {
 })
 
 describe('UnifiedSearch', () => {
+  it('offers a concrete train with its operating date and relation', async () => {
+    const result = { kind: 'train', train: { scheduleId: '10', orderId: '20', operatingDate: '2026-10-21', nationalNumber: '123', name: 'Łódzki', origin: 'Łódź Fabryczna', destination: 'Warszawa Centralna' } } as DiscoveryResult
+    found([result])
+    const onSelect = vi.fn()
+    render(<UnifiedSearch city="warszawa" onSelect={onSelect} initialQuery="123" />)
+    const group = screen.getByRole('region', { name: 'Pociągi' })
+    expect(within(group).getByText(/21.10.2026/)).toHaveTextContent('Łódź Fabryczna')
+    await userEvent.click(within(group).getByRole('button'))
+    expect(onSelect).toHaveBeenCalledWith(result)
+  })
   it('groups results by kind with headings', () => {
     found([rail('33605', 'Warszawa Centralna'), stop('1001', 'Centrum'), line('128', '128', 'Pl. Piłsudskiego – Szczęśliwice')])
     render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} initialQuery="cen" />)
@@ -68,7 +78,7 @@ describe('UnifiedSearch', () => {
     const railGroup = screen.getByRole('region', { name: 'Stacje kolejowe' })
     expect(within(railGroup).getByText('Warszawa Centralna')).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Linie' })).queryByText('Warszawa Centralna')).toBeNull()
-    expect(screen.getByRole('searchbox', { name: 'Stacja, przystanek lub linia' })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })).toBeInTheDocument()
   })
 
   it('enter in the field does not pick the first result', async () => {
@@ -414,7 +424,7 @@ describe('UnifiedSearch', () => {
 
   it('empty field without recents shows the instruction; recents={false} hides recents', async () => {
     const { unmount } = render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} />)
-    expect(await screen.findByText('Wpisz nazwę stacji, przystanku albo numer linii')).toBeInTheDocument()
+    expect(await screen.findByText('Wpisz nazwę miejsca, numer linii albo nazwę lub numer pociągu')).toBeInTheDocument()
     unmount()
     window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
     render(<UnifiedSearch city="warszawa" onSelect={vi.fn()} recents={false} />)
@@ -452,7 +462,7 @@ describe('UnifiedSearch variant="overlay" (map)', () => {
     window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '1', name: 'Stacja 1' }]))
     found([rail('33605', 'Warszawa Centralna')])
     overlay()
-    expect(screen.getByRole('searchbox', { name: 'Stacja, przystanek lub linia' })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })).toBeInTheDocument()
     expect(screen.queryByRole('heading')).toBeNull()
     expect(screen.queryByRole('button', { name: /Warszawa Centralna|Wyczyść/ })).toBeNull()
     expect(screen.queryByText(/Wpisz nazwę/)).toBeNull()

@@ -72,7 +72,7 @@ let pickOption: { id: string; name: string; kind?: 'rail' | 'transit' } = { id: 
 vi.mock('@/components/SearchDialog', () => ({
   SearchDialog: ({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick?: (option: typeof pickOption, city: string | null) => void }) =>
     open ? (
-      <div role="dialog" aria-label={onPick ? 'Przypnij do Startu' : 'Szukaj stacji, przystanku lub linii'}>
+      <div role="dialog" aria-label={onPick ? 'Przypnij do Startu' : 'Szukaj stacji, przystanku, linii lub pociągu'}>
         <button
           type="button"
           onClick={() => {
@@ -386,7 +386,7 @@ describe('Page (Pulpit)', () => {
       const user = userEvent.setup()
       render(<Page />)
 
-      await user.click(screen.getByRole('button', { name: 'Stacja, przystanek lub linia' }))
+      await user.click(screen.getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' }))
 
       expect(push).toHaveBeenCalledWith('/search', { transitionTypes: NAV_TAB_TYPES })
       expect(screen.queryByRole('dialog')).toBeNull()
@@ -396,9 +396,9 @@ describe('Page (Pulpit)', () => {
       const user = userEvent.setup()
       render(<Page />)
 
-      await user.click(screen.getByRole('button', { name: 'Stacja, przystanek lub linia' }))
+      await user.click(screen.getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' }))
 
-      expect(screen.getByRole('dialog', { name: 'Szukaj stacji, przystanku lub linii' })).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Szukaj stacji, przystanku, linii lub pociągu' })).toBeInTheDocument()
       expect(push).not.toHaveBeenCalled()
     })
 
@@ -443,7 +443,7 @@ describe('Page (Pulpit)', () => {
 
       expect(push).not.toHaveBeenCalled()
       expect(screen.getByText('Brak dostępu do lokalizacji. Wyszukaj miejsce powyżej.')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Stacja, przystanek lub linia' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' })).toBeEnabled()
     })
 
     it.each([
@@ -492,7 +492,7 @@ describe('Page (Pulpit)', () => {
       expect(screen.getByTestId('pulpit-skeleton')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Znajdź miejsce' })).toBeNull()
       expect(screen.queryByText(/przypnij je gwiazdką/)).toBeNull()
-      expect(screen.getByRole('button', { name: 'Stacja, przystanek lub linia' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' })).toBeInTheDocument()
     })
 
     it('desktop: statystyki sieci stoją w kolumnie bocznej, bez przycisku „Info”', () => {
@@ -527,7 +527,7 @@ describe('Page (Pulpit)', () => {
       render(<Page />)
       const order = [
         screen.getByRole('heading', { level: 1, name: 'Start' }),
-        screen.getByRole('button', { name: 'Stacja, przystanek lub linia' }),
+        screen.getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' }),
         screen.getByRole('button', { name: 'W pobliżu mnie' }),
         screen.getByRole('heading', { name: 'Moje miejsca' }),
       ]

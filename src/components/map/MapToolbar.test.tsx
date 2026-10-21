@@ -10,7 +10,7 @@ type Props = React.ComponentProps<typeof MapToolbar>
 function setup(overrides: Partial<Props> = {}) {
   const props: Props = {
     isWide: false,
-    search: <input aria-label="Stacja, przystanek lub linia" />,
+    search: <input aria-label="Stacja, przystanek, linia lub pociąg" />,
     hidden: new Set<LayerKey>(),
     vehicleLayers: ['buses', 'trams', 'trains'],
     onHiddenChange: vi.fn(),

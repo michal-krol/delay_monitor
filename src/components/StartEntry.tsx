@@ -47,7 +47,7 @@ export function StartEntry({ onSearch }: { onSearch: () => void }) {
     <div className="flex flex-col gap-3">
       <button type="button" onClick={onSearch} className={SEARCH_ENTRY_CLASS}>
         <SearchIcon size={ICON_SIZE.button} className="shrink-0" />
-        Stacja, przystanek lub linia
+        Stacja, przystanek, linia lub pociąg
       </button>
       <ActionGrid cols={2}>
         <button
