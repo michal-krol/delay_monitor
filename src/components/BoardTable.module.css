@@ -1,0 +1,105 @@
+/* Scope the station board refinement without changing the shared mobile table layout. */
+.table td[data-cell="train"],
+.table td[data-cell="direction"] {
+  overflow-wrap: anywhere;
+}
+
+.table td[data-cell="direction"] > span:first-child {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+.via > button { display: none; }
+
+@media (min-width: 40rem) {
+  .table {
+    table-layout: fixed;
+  }
+
+  .table th:nth-child(1) { width: 7rem; }
+  .table th:nth-child(2) { width: 22%; }
+  .table th:nth-child(3) { width: auto; }
+  .table th:nth-child(4) { width: 3.5rem; }
+  .table th:nth-child(5) { width: 22%; }
+  .table th:nth-child(6) { width: 1.25rem; }
+
+  .table td[data-cell="status"] {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .table td[data-cell="time"] > span > span:first-child {
+    flex-wrap: wrap;
+  }
+}
+
+@container (max-width: 30rem) {
+  .table,
+  .table tbody { display: block; }
+
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .table tr[data-status] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) fit-content(55%);
+    grid-template-areas:
+      "direction time"
+      "train train"
+      "status status"
+      "platform chevron";
+    gap: 0.125rem 0.5rem;
+    align-items: start;
+    margin-bottom: 0.25rem;
+    padding: 0.5rem;
+    border: 1px solid var(--surface-border);
+    border-radius: 0.75rem;
+  }
+
+  .table td { min-width: 0; padding: 0; }
+  .table td[data-cell="direction"] { grid-area: direction; }
+  .table td[data-cell="time"] { grid-area: time; box-shadow: none !important; }
+  .table td[data-cell="train"] { grid-area: train; }
+  .table td[data-cell="status"] { grid-area: status; }
+  .table td[data-cell="platform"] { grid-area: platform; }
+  .table td[data-cell="chevron"] { grid-area: chevron; justify-self: end; }
+
+  .via > button { display: block; }
+  .via:not([data-expanded]) > span { display: none; }
+
+  .identity {
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+  }
+
+  .identityText {
+    display: contents;
+  }
+
+  .identityText > span:last-child {
+    flex-basis: 100%;
+  }
+
+  @container (max-width: 15em) {
+    .table tr[data-status] {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "direction direction"
+        "time time"
+        "train train"
+        "status status"
+        "platform chevron";
+    }
+  }
+}

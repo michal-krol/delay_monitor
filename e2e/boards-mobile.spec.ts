@@ -168,7 +168,7 @@ async function firstRowBoxes(page: Page) {
   return { row, ...boxes }
 }
 
-test('karta wiersza 375 px: godzina po prawej od kierunku, status pod pociągiem, peron i tor w osobnym rzędzie, bez przewoźnika', async ({ page }) => {
+test('karta wiersza 375 px: godzina po prawej od kierunku, status pod pociągiem, peron i tor w osobnym rzędzie, przewoźnik widoczny', async ({ page }) => {
   await firstBoardTime(page, STATION)
   const { row, time, direction, status, train, platform } = await firstRowBoxes(page)
   expect(time.x).toBeGreaterThanOrEqual(direction.x + direction.width - 1)
@@ -176,11 +176,10 @@ test('karta wiersza 375 px: godzina po prawej od kierunku, status pod pociągiem
   expect(status.y).toBeGreaterThanOrEqual(train.y + train.height - 1)
   expect(platform.y).toBeGreaterThanOrEqual(status.y + status.height - 1)
   await expect(row.locator('td[data-cell="platform"]')).toContainText(/Peron .* · Tor/)
-  // Przewoźnik jest tylko w tabeli: w karcie jego linia jest schowana (`hidden sm:flex`).
-  await expect(row.locator('td[data-cell="train"] .hidden')).toBeHidden()
+  await expect(row.locator('td[data-cell="train"]')).toContainText(/Koleje|Intercity/)
 })
 
-test('przewoźnik tylko w tabeli (1024 px), podpisy „Peron/tor” tylko w karcie (375 px)', async ({ page }) => {
+test('przewoźnik widoczny w tabeli i karcie, podpisy „Peron/tor” tylko w karcie (375 px)', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 812 })
   await firstBoardTime(page, STATION)
   const row = page.locator('.board-table tbody tr[data-status]').first()
@@ -189,7 +188,7 @@ test('przewoźnik tylko w tabeli (1024 px), podpisy „Peron/tor” tylko w karc
   await expect(carrier).toBeVisible()
   await expect(row.locator('td[data-cell="platform"]')).not.toContainText(/Peron/, { useInnerText: true })
   await page.setViewportSize({ width: 375, height: 812 })
-  await expect(carrier).toBeHidden()
+  await expect(carrier).toBeVisible()
   await expect(row.locator('td[data-cell="platform"]')).toContainText(/Peron/)
 })
 

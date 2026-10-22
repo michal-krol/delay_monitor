@@ -17,6 +17,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Tablica stacji PKP pokazuje pełne nazwy stacji, pociągów, przewoźników i kierunków.
+  W wąskim panelu używa kart z rozwijanymi stacjami pośrednimi, a tabela na komputerze
+  ma więcej miejsca obok panelu informacji. Rozwinięcie nie pobiera danych ponownie.
+
 - Tablica przystanku miejskiego pokazuje odjazdy przed informacjami pomocniczymi,
   a przy kursach innego dnia podaje datę. Numer linii otwiera rozkład właściwego kierunku i przystanku.
 

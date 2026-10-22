@@ -32,6 +32,7 @@ import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
 import { formatClockTime } from '@/lib/format'
 import { zonedHour } from '@/lib/pkp/time'
+import styles from './FullBoard.module.css'
 
 type Props = {
   stationId: string
@@ -288,7 +289,7 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
   )
 
   return (
-    <div className="grid items-start gap-5 max-sm:gap-2 xl:grid-cols-[minmax(0,1fr)_var(--spacing-aside)]">
+    <div className="grid items-start gap-5 max-sm:gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
       {/* Telefon, kolejno (spec 02): karta nagłówka z „Na mapie” → powiadomienie o utrudnieniach → sekcja tablicy
           (zakładki → filtr kierunku → wiek danych → wiersze). KPI, pogoda, ruch i legenda tylko w arkuszu „Info”. */}
       <div className="flex min-w-0 flex-col gap-5 max-sm:gap-2">
@@ -302,7 +303,7 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
               </div>
               <div className="min-w-0">
                 {/* Nazwany element przejścia z kafelka Pulpitu; osadzona tablica (ekran miasta) nie przychodzi z Pulpitu. */}
-                <BoardHeading className="max-sm:line-clamp-2 max-sm:text-lg max-sm:leading-tight" embedded={embedded} kind="pkp" id={stationId}>
+                <BoardHeading className="wrap-anywhere max-sm:text-lg max-sm:leading-tight" embedded={embedded} kind="pkp" id={stationId}>
                   {stationName}
                 </BoardHeading>
                 {/* Od `sm` wiek danych pod tytułem; na telefonie stoi nad wierszami (niżej). */}
@@ -337,13 +338,13 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
               </div>
             )}
 
-            <section className="glass rounded-2xl p-5 max-sm:p-4">
+            <section className="glass @container rounded-2xl p-5 max-sm:p-4">
               {/* Na telefonie pasek przykleja się pod nagłówkiem aplikacji: zakładki, legenda i „Info”
                   zostają pod ręką przy przewijaniu długiej tablicy. Nieprzezroczysty, bo wiersze jadą pod nim. */}
               <ActionGrid
                 cols={3}
                 testId="board-tabs-bar"
-                className={`sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 ${STICKY_TABS_BAR}`}
+                className={`sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 ${STICKY_TABS_BAR} ${styles.controls}`}
               >
                 <div
                   role="tablist"
@@ -380,7 +381,7 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
               {/* Telefon: filtr kierunku (`DirectionSelect`) tuż pod zakładkami, potem wiek danych — kolejność ze spec 02.
                   Chipy kosztowały ~55 px, więc selektor zastępuje je na telefonie. */}
               {!wide && (
-                <div className="mt-2">
+                <div className="mt-2 [&_select]:min-w-0 [&_select]:max-w-full">
                   <DirectionSelect direction={direction} rows={allRows} value={destinationFilter} onChange={setDestinationFilter} />
                 </div>
               )}

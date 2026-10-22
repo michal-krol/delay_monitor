@@ -1,0 +1,16 @@
+@container (max-width: 15em) {
+  .controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .controls [role="tablist"] {
+    grid-column: 1;
+    flex-wrap: wrap;
+  }
+
+  .controls [role="tab"] {
+    flex: 1 1 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+}
