@@ -52,6 +52,24 @@ async function call(qs: string) {
 }
 
 describe('GET /api/gtfs/line', () => {
+  it.each(['trip=t0&date=2026-02-31', 'trip=t0', 'date=2026-09-02', 'trip=%00&date=2026-09-02', 'stop=..%2Fetc&dir=0', 'stop=100101&dir=-1'])('rejects malformed course selection before accessing pollers: %s', async (selection) => {
+    getGtfsPoller.mockClear()
+    expect((await call(`city=warszawa&route=20&${selection}`)).response.status).toBe(400)
+    expect(getGtfsPoller).not.toHaveBeenCalled()
+  })
+  it('returns concrete trip and timetable additively without dropping the line contract', async () => {
+    const { body } = await call('city=warszawa&route=20&trip=t0&date=2026-09-02&stop=100101&dir=0')
+    expect(body.course.tripId).toBe('t0')
+    expect(body.course.stops.map((s: { sequence: number }) => s.sequence)).toEqual([1, 2])
+    expect(body.timetable[0]).toMatchObject({ tripId: 't0', sequence: 1, occurrence: 0 })
+    expect(body.line.directions).toHaveLength(2)
+    expect(JSON.stringify(body)).not.toMatch(/delayMinutes|actualAt/)
+  })
+  it('unknown trip is course=null; it never hides a known line', async () => {
+    const { body } = await call('city=warszawa&route=20&trip=missing&date=2026-09-02')
+    expect(body.course).toBeNull()
+    expect(body.line).not.toBeNull()
+  })
   it('rejects a malformed city with 400', async () => {
     expect((await call('city=..%2Fx&route=20')).response.status).toBe(400)
   })

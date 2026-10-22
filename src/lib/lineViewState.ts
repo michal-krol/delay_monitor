@@ -1,4 +1,4 @@
-import { GTFS_STOP_ID_PATTERN } from '@/lib/validation'
+import { GTFS_SEQUENCE_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 
 /**
  * Stan widoku linii GTFS w URL-u (`?dir=&stop=&pane=&day=`). Wartości pochodzą
@@ -14,6 +14,7 @@ export type LineViewState = {
   stopId: string | null
   pane: LinePane
   day: LineDay
+  stopOccurrence?: number
 }
 
 export const DEFAULT_LINE_VIEW: LineViewState = {
@@ -28,11 +29,13 @@ const DAYS: ReadonlySet<string> = new Set<LineDay>(['weekday', 'saturday', 'sund
 const DIRECTION_ID_PATTERN = /^\d{1,2}$/
 
 export function parseLineViewState(params: { get(name: string): string | null }): LineViewState {
+  const occurrence = params.get('occ')
   const dir = params.get('dir')
   const stop = params.get('stop')
   const pane = params.get('pane')
   const day = params.get('day')
   return {
+    ...(occurrence !== null && GTFS_SEQUENCE_PATTERN.test(occurrence) && Number(occurrence) > 0 && Number(occurrence) <= 65535 ? { stopOccurrence: Number(occurrence) } : {}),
     directionId: dir !== null && DIRECTION_ID_PATTERN.test(dir) ? Number(dir) : null,
     stopId: stop !== null && GTFS_STOP_ID_PATTERN.test(stop) ? stop : null,
     pane: pane !== null && PANES.has(pane) ? (pane as LinePane) : DEFAULT_LINE_VIEW.pane,
@@ -67,6 +70,7 @@ export function resolveLineView(
   let directionIndex = directions.findIndex((d) => d.directionId === state.directionId)
   if (directionIndex < 0) directionIndex = Math.max(0, directions.findIndex(hasStop))
 
-  const stopIndex = stopId === null ? -1 : directions[directionIndex].stops.findIndex((s) => s.stopId === stopId)
+  const matching = directions[directionIndex].stops.flatMap((s, index) => s.stopId === stopId ? [index] : [])
+  const stopIndex = matching[state.stopOccurrence ?? 0] ?? matching[0] ?? -1
   return { directionIndex, stopIndex: Math.max(0, stopIndex) }
 }

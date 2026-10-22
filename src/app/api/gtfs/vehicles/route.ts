@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getGtfsPoller, peekVehiclePoller } from '@/lib/gtfs/instance'
-import { projectVehicle } from '@/lib/gtfs/vehicleProject'
-import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN } from '@/lib/validation'
+import { projectTripVehicle, projectVehicle } from '@/lib/gtfs/vehicleProject'
+import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, GTFS_TRIP_ID_PATTERN } from '@/lib/validation'
 
 /**
  * Pozycje pojazdów JEDNEJ linii i kierunku, rzutowane na sekwencję przystanków
@@ -15,6 +15,8 @@ export async function GET(request: Request) {
   const city = searchParams.get('city') ?? ''
   const route = searchParams.get('route') ?? ''
   const directionRaw = searchParams.get('direction') ?? ''
+  const trip = searchParams.get('trip')
+  if (trip !== null && !GTFS_TRIP_ID_PATTERN.test(trip)) return NextResponse.json({ error: 'Nieprawidłowy kurs' }, { status: 400 })
 
   if (!CITY_ID_PATTERN.test(city)) {
     return NextResponse.json({ error: 'Nieprawidłowe miasto' }, { status: 400 })
@@ -47,8 +49,8 @@ export async function GET(request: Request) {
       // rzut na trasę — ~1,5 tys. pozycji miasta, z których jedna linia to ~1%.
       vehicles = vehiclePoller
         .getPositions()
-        .filter((p) => schedule.tripPatternRef.get(p.tripId)?.routeIdx === routeIdx)
-        .map((p) => projectVehicle(schedule, p, now))
+        .filter((p) => schedule.tripPatternRef.get(p.tripId)?.routeIdx === routeIdx && (trip === null || p.tripId === trip))
+        .map((p) => trip === null ? projectVehicle(schedule, p, now) : projectTripVehicle(schedule, p, now))
         .filter((v): v is NonNullable<typeof v> => v !== null && v.directionId === direction)
     }
   }

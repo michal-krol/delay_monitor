@@ -23,11 +23,11 @@ const LOADING_STATE: Omit<LineVehiclesState, 'error'> = { vehicles: [], feed: { 
  * spoza {0,1} (nieznany kierunek przebiegu) = brak zapytania — endpoint i tak go
  * nie przyjmuje.
  */
-export function useLineVehicles(city: string, routeId: string, directionId: number): LineVehiclesState {
-  const key = directionId === 0 || directionId === 1 ? JSON.stringify([city, routeId, directionId]) : null
+export function useLineVehicles(city: string, routeId: string, directionId: number, tripId?: string): LineVehiclesState {
+  const key = directionId === 0 || directionId === 1 ? JSON.stringify(tripId === undefined ? [city, routeId, directionId] : [city, routeId, directionId, tripId]) : null
   const { data, error } = usePolling<LineVehiclesResponse>(
     key,
-    () => fetchJson(`/api/gtfs/vehicles?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}&direction=${directionId}`),
+    () => fetchJson(`/api/gtfs/vehicles?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}&direction=${directionId}${tripId === undefined ? '' : `&trip=${encodeURIComponent(tripId)}`}`),
     { refreshMs: REFRESH_MS }
   )
   if (data === null) return { ...LOADING_STATE, error }

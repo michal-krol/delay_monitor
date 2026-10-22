@@ -127,6 +127,38 @@ const LINE = {
 
 const lineWith = (directions: unknown[], extra: Record<string, unknown> = {}) => ({ ...LINE, line: { ...LINE.line, directions }, ...extra })
 
+describe('concrete timetable variant stop', () => {
+  it('ignores unknown actual stop IDs and out-of-range loop occurrences', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?stop=zzz&occ=5')
+    stubFetch(lineWith([DIR0], { supportsCourses: true, courseStopCounts: { '0': { '100101': 1, '700201': 1 } }, timetableStop: { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01' }, timetable: [] }))
+    render(<LineDetailPage />)
+    expect(await screen.findByRole('button', { name: /Centrum 01/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+  it('keeps variant stop across pane changes and reload', async () => {
+    stubMatchMedia(false)
+    window.history.replaceState(null, '', '/city/warszawa/line/20?stop=999901&occ=1&pane=timetable')
+    stubFetch(lineWith([DIR0], { supportsCourses: true, timetableStop: { stopId: '999901', groupId: '9999', name: 'Wariant', code: '01' }, timetable: [{ tripId: 'variant', serviceDate: '2026-09-05', sequence: 7, occurrence: 1, departureSec: 30000, category: 'saturday' }] }))
+    const { unmount } = render(<LineDetailPage />)
+    expect(await screen.findByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Wariant 01')
+    await userEvent.click(within(screen.getByRole('group', { name: 'Widok linii' })).getByRole('button', { name: 'Trasa' }))
+    expect(window.location.search).toContain('stop=999901')
+    expect(window.location.search).toContain('occ=1')
+    await userEvent.click(within(screen.getByRole('group', { name: 'Widok linii' })).getByRole('button', { name: 'Rozkład' }))
+    expect(await screen.findByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Wariant 01')
+    unmount()
+    render(<LineDetailPage />)
+    expect(await screen.findByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Wariant 01')
+  })
+  it('preserves a variant-only stop and occurrence absent from the representative direction', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/line/20?stop=999901&occ=1&pane=timetable')
+    stubFetch(lineWith([DIR0], { supportsCourses: true, timetableStop: { stopId: '999901', groupId: '9999', name: 'Wariant', code: '01' }, timetable: [{ tripId: 'variant', serviceDate: '2026-09-05', sequence: 7, occurrence: 1, departureSec: 30000, category: 'saturday' }] }))
+    render(<LineDetailPage />)
+    expect(await screen.findByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Wariant 01')
+    expect(screen.getByRole('link', { name: /08:20.*2026-09-05/ })).toHaveAttribute('href', '/city/warszawa/line/20?trip=variant&date=2026-09-05&stop=999901&seq=7')
+    expect(screen.getByRole('button', { name: /Centrum 01/ })).toHaveAttribute('aria-pressed', 'false')
+  })
+})
+
 const ALERT = { id: 'a', routes: ['20'], effect: 'DETOUR', link: 'https://www.wtp.waw.pl/x/', title: 'Utrudnienia na linii 20', body: 'Treść.' }
 
 const VEHICLES_READY = {

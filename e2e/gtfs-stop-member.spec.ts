@@ -26,7 +26,7 @@ test('przystanek miejski: przełącznik przystanków zespołu', async ({ page })
   // Wybór przystanku: nagłówek dostaje podtytuł, tab jest zaznaczony.
   await stop02.click()
   await expect(stop02).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByText(/^Centrum 02/).first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Centrum 02', exact: true })).toBeVisible()
 
   // Powrót do całego zespołu — odjazdy tagowane numerem przystanku.
   await page.getByRole('tab', { name: /Cały zespół/ }).click()
@@ -39,7 +39,7 @@ test('przystanek miejski: przełącznik przystanków zespołu', async ({ page })
 
 test('przystanek miejski: deep-link przystanku od razu go podświetla', async ({ page }) => {
   await page.goto('/city/warszawa/stop/100101')
-  await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Centrum 01', exact: true })).toBeVisible()
   await expect(page.getByRole('tab', { name: /^Centrum 01/ })).toHaveAttribute('aria-selected', 'true', {
     timeout: READY,
   })
@@ -85,11 +85,11 @@ test('przystanek metra z dwukropkiem w ID: link z linii prowadzi do tablicy, nie
 
   await link.click()
   await expect(page).not.toHaveTitle(/404/)
-  await expect(page.getByRole('heading', { name: 'Świętokrzyska', exact: true })).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('heading', { name: 'Świętokrzyska P1', exact: true })).toBeVisible({ timeout: READY })
 
   await page.reload()
   await expect(page).not.toHaveTitle(/404/)
-  await expect(page.getByRole('heading', { name: 'Świętokrzyska', exact: true })).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('heading', { name: 'Świętokrzyska P1', exact: true })).toBeVisible({ timeout: READY })
 })
 
 test('a11y: szczegóły przystanku miejskiego bez naruszeń serious/critical', async ({ page }) => {
@@ -130,8 +130,8 @@ test('zmiana motywu zachowuje przystanek i zakładkę i nie pobiera rozkładu po
     const body = (await response.json()) as { schedule: { state: string }; stops: ({ alerts: unknown[] | null } | null)[] }
     return body.schedule.state === 'ready' && body.stops.every((stop) => stop === null || stop.alerts !== null)
   })
-  await page.goto(`${CENTRUM}?przystanek=100102&tab=lines`)
-  await expect(page.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+  await page.goto(`${CENTRUM}?przystanek=100102&tab=schedule`)
+  await expect(page.getByRole('tab', { name: 'Rozkład' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
   await settled
   let boardRequests = 0
   page.on('request', (request) => {
@@ -143,5 +143,5 @@ test('zmiana motywu zachowuje przystanek i zakładkę i nie pobiera rozkładu po
   // WebKit: wolniejsze pierwsze odpowiedzi — zwykłe ponowienie drabinką bywa w tym oknie, więc zliczamy tylko w Chromium.
   if (browserName !== 'webkit') expect(boardRequests).toBe(0)
   await expect(page.getByRole('tab', { name: /^Centrum 02/ })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Rozkład' })).toHaveAttribute('aria-selected', 'true')
 })

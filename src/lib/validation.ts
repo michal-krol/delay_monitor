@@ -67,3 +67,14 @@ export function decodeStopIdFromPathSegment(pathSegment: string): string {
  * Ten regex to tani strażnik formatu i długości.
  */
 export const GTFS_ROUTE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,39}$/
+
+/** Opaque feed key used only in memory; encoded in our query strings, never an upstream URL. */
+export const GTFS_TRIP_ID_PATTERN = /^[^\u0000-\u0020\u007f]{1,200}$/
+export const GTFS_SEQUENCE_PATTERN = /^\d{1,5}$/
+export const GTFS_DIRECTION_PATTERN = /^[012]$/
+
+export function isGtfsServiceDate(value: string): boolean {
+  if (!OPERATING_DATE_PATTERN.test(value)) return false
+  const epoch = Date.parse(`${value}T12:00:00Z`)
+  return Number.isFinite(epoch) && new Date(epoch).toISOString().slice(0, 10) === value
+}
