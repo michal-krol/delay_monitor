@@ -683,6 +683,7 @@ describe('FullBoard', () => {
       await screen.findByText('EIC 1')
       expect(screen.queryByRole('link', { name: 'Wróć do Startu' })).not.toBeInTheDocument()
       expect(screen.getAllByRole('heading', { name: 'Warszawa Centralna' })).toHaveLength(1)
+      expect(screen.getByRole('heading', { name: 'Warszawa Centralna' })).not.toHaveClass('max-sm:line-clamp-2')
       expect(screen.getByRole('button', { name: 'Przypnij do Startu' })).toBeInTheDocument()
       // „Udostępnij” nie stoi już osobno w karcie — jest w menu.
       expect(screen.queryByRole('button', { name: 'Udostępnij' })).not.toBeInTheDocument()

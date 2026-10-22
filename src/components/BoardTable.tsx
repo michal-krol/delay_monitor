@@ -15,6 +15,7 @@ import { TimePair, connectionHref } from './TimePair'
 import { isPastRow } from './boardTime'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
 import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
+import styles from './BoardTable.module.css'
 
 /** Opisy dla legendy statusów -- zweryfikowane wprost w `resolveStopStatus()` (`lib/board/realization.ts`), nie zgadywane. */
 const STATUS_DESCRIPTIONS: Record<RealizationStatus, string> = {
@@ -161,7 +162,7 @@ export function BoardTable({ stationName, direction, rows, now, loading }: Props
   return (
     <div className="mt-3 @container">
       <div className="overflow-x-auto">
-        <table className="board-table w-full text-left text-sm">
+        <table className={`board-table w-full text-left text-sm ${styles.table}`}>
           <caption className="sr-only">
             {direction === 'departures' ? 'Odjazdy' : 'Przyjazdy'} — {stationName}
           </caption>
@@ -283,14 +284,13 @@ function PlatformTrack({ row }: { row: BoardApiRow }) {
 
 function TrainIdentity({ row }: { row: BoardApiRow }) {
   return (
-    <span className="flex items-center gap-2">
-      <CategoryBadge category={row.category} categoryName={row.categoryName} />
-      <span className="min-w-0">
-        <span className="block truncate font-semibold text-foreground">{row.trainLabel}</span>
-        {/* Przewoźnik tylko w tabeli: karta na telefonie ma pod pociągiem tylko status, a peron w osobnym dolnym rzędzie. */}
-        <span className="hidden min-w-0 items-center gap-1 text-xs text-text-muted sm:flex">
+    <span className={`flex items-center gap-2 ${styles.identity}`}>
+      <span className="shrink-0"><CategoryBadge category={row.category} categoryName={row.categoryName} /></span>
+      <span className={`min-w-0 ${styles.identityText}`}>
+        <span className="block font-semibold text-foreground">{row.trainLabel}</span>
+        <span className="flex min-w-0 items-start gap-1 text-xs text-text-muted">
           <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
-          <span className="min-w-0 truncate">{row.carrierName ?? (row.carrier || '—')}</span>
+          <span className="min-w-0">{row.carrierName ?? (row.carrier || '—')}</span>
         </span>
       </span>
     </span>
@@ -298,6 +298,7 @@ function TrainIdentity({ row }: { row: BoardApiRow }) {
 }
 
 function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }: RowProps) {
+  const [viaExpanded, setViaExpanded] = useState(false)
   // Pociąg, którego planowy czas już minął — cały wiersz wizualnie
   // przygaszony (łącznie z przewoźnikiem i plakietką statusu), żeby
   // odróżnić go od nadchodzących, bez zmiany danych. Wyjątek: pociąg
@@ -329,10 +330,7 @@ function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }:
       <td data-cell="time" className="py-2.5 pr-3 pl-3 whitespace-nowrap" style={{ boxShadow: `inset 3px 0 0 0 ${accentColor(row.status)}` }}>
         <TimePair row={row} now={now} />
       </td>
-      {/* `truncate` nie kurczy komórki (min-content = pełna nazwa przewoźnika), więc w wąskiej tabeli
-          (kontener < 42rem, np. FullBoard przy oknie 1280 px) limit jest niższy — inaczej tabela 600 px
-          przewijała się w karcie 565 px. Tylko w trybie tabeli (`sm:`): karta na telefonie ma własną siatkę. */}
-      <td data-cell="train" className="max-w-[13rem] py-2.5 pr-3 sm:@max-2xl:max-w-[10rem]">
+      <td data-cell="train" className="py-2.5 pr-3">
         {canOpenDetails ? (
           <button
             type="button"
@@ -352,15 +350,17 @@ function BoardRow({ row, direction, now, onOpen, delayChanged, animateNumbers }:
           <TrainIdentity row={row} />
         )}
       </td>
-      {/* Ta sama pułapka co wyżej, ale bez stałego limitu: „przez Warszawa Wschodnia, Wołomin, Tłuszcz
-          · +15 przystanków" rozpychało kolumnę do pełnych 18rem i tabela przewijała się przy 1280 px
-          (QA 2026-10-01). `w-full max-w-0` (tylko tryb tabeli): komórka nie wnosi min-content, a
-          kolumna bierze miejsce, które zostaje po pozostałych — `truncate` skraca do niego tekst.
-          Pozostałe kolumny dostają przez to tylko min-content, stąd `@2xl:whitespace-nowrap` na
-          peronie i statusie: w szerokiej tabeli bez łamania („jeszcze nie wyjechał"), w wąskiej jak dawniej. */}
-      <td data-cell="direction" className="py-2.5 pr-3 sm:w-full sm:max-w-0">
-        <span className="block truncate font-medium text-foreground">{row.headsign ?? '—'}</span>
-        {via !== null && <span className="block truncate text-xs text-text-muted">{via}</span>}
+      <td data-cell="direction" className="py-2.5 pr-3">
+        <span className="block font-medium text-foreground">{row.headsign ?? '—'}</span>
+        {via !== null && (
+          <span className={`block text-xs text-text-muted ${styles.via}`} data-expanded={viaExpanded || undefined}>
+            <button type="button" aria-expanded={viaExpanded} className="min-h-11 text-left underline decoration-dotted underline-offset-2"
+              onClick={(event) => { event.stopPropagation(); setViaExpanded(!viaExpanded) }}>
+              Przystanki pośrednie ({(row.via?.length ?? 0) + (row.viaRemaining ?? 0)})
+            </button>
+            <span>{via}</span>
+          </span>
+        )}
       </td>
       <td data-cell="platform" className="py-2.5 pr-3 @2xl:whitespace-nowrap">
         <PlatformTrack row={row} />

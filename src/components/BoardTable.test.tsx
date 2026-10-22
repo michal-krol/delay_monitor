@@ -60,6 +60,16 @@ function renderTable(rows: BoardApiRow[]) {
   return render(<BoardTable stationName="Warszawa Zachodnia" direction="departures" rows={rows} now={NOW} loading={false} />)
 }
 
+describe('BoardTable — full station information', () => {
+  it('wraps train, carrier, direction and intermediate stops instead of clipping them', () => {
+    const carrierName = 'Koleje Mazowieckie — KM spółka z ograniczoną odpowiedzialnością'
+    renderTable([row({ carrierName, headsign: 'Gorzów Wielkopolski Wschodni', via: ['Warszawa Wschodnia', 'Nowy Dwór Mazowiecki'], viaRemaining: 3 })])
+    for (const text of ['EIC 1', carrierName, 'Gorzów Wielkopolski Wschodni', 'przez Warszawa Wschodnia, Nowy Dwór Mazowiecki · +3 przystanków']) {
+      expect(screen.getByText(text)).not.toHaveClass('truncate')
+    }
+  })
+})
+
 describe('BoardTable — godzina: PLAN / PROGNOZA / FAKT', () => {
   it('shows the planned time alone when nothing is known beyond the plan', () => {
     renderTable([row()])

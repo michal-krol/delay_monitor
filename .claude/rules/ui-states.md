@@ -36,6 +36,7 @@ data age, not a white screen. Error banner only for a configuration error (401).
   Budget (`e2e/boards-mobile.spec.ts`): at 375×812 the first two departures sit above the bottom bar with no
   notice showing; anything new above the board must pay for itself. „Na mapie” = coordinates from
   `useRailStations` (static list, 0 PKP, no weather); unknown location is text, not a control.
+- ADR0013 PR08 station board: full station/train/carrier/destination names wrap. The station table uses a scoped card layout below30rem of available container width, including narrow desktop windows. Cards show the carrier and a local, initially collapsed „Przystanki pośrednie (N)” control; expansion exposes all supplied intermediate names without fetching, retaining keyboard focus. Wider tables show the intermediate names immediately. Preserve the normal phone first-two-departures budget.
 - Transit line page (PR7): loading = skeleton (`aria-busy`, one h1 „Przebieg linii”, never „Nie znaleziono linii”); first-fetch error =
   retry + back to the catalog; a failed refresh keeps the route and turns „Pobrano … temu” into the warning. Four independent
   states, each with its own copy: schedule/route, vehicles (loading / failed / no feed for the mode / healthy zero), alerts

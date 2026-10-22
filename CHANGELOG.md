@@ -14,6 +14,10 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Tablica stacji PKP pokazuje pełne nazwy stacji, pociągów, przewoźników i kierunków.
+  W wąskim panelu używa kart z rozwijanymi stacjami pośrednimi, a tabela na komputerze
+  ma więcej miejsca obok panelu informacji. Rozwinięcie nie pobiera danych ponownie.
+
 - Start pokazuje do trzech dostępnych kursów w każdej karcie przypiętego miejsca.
   Statystyki sieci są domyślnie zwinięte pod miejscami na telefonie i w bocznej kolumnie
   na dużym ekranie. Rozwinięcie, zmiana szerokości i motywu zachowują panel bez ponownego pobierania.
