@@ -9,11 +9,11 @@ import { PlaceTitle } from './PlaceTitle'
 import { ModeTile } from './transitMode'
 import type { BoardApiSnapshot } from '@/hooks/useBoard'
 import { useSnapshotNow } from '@/hooks/useSnapshotNow'
-import { formatClockTime } from '@/lib/format'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 
 /** Ile kursów pokazuje karta Pulpitu — reszta jest na tablicy stacji. */
-export const CARD_ROWS = 2
+export const CARD_ROWS = 3
 
 type Props = {
   stationId: string
@@ -40,7 +40,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
 
   // Nagłówek, wiersze i „Wszystkie odjazdy” to osobne, prawdziwe linki — żadnej nakładki na całą kartę (zagnieżdżone cele dotyku).
   return (
-    <article className="glass card-press w-full rounded-2xl border border-surface-border p-5 max-sm:p-4">
+    <article className="glass card-press min-w-0 w-full rounded-2xl border border-surface-border p-5 max-sm:p-4">
       <div className="flex items-start gap-3">
         <ModeTile modes={['rail']} />
         <div className="min-w-0 flex-1">
@@ -70,7 +70,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
         // czerwony błąd kłamałby, że dane zniknęły (#7: rosnący wiek danych,
         // nie pusty ekran).
         <p aria-live="polite" className="mt-1 text-xs text-text-muted">
-          Nie udało się odświeżyć · dane z {formatClockTime(snapshot.fetchedAt)}
+          Nie udało się odświeżyć · dane z {formatDataTimestamp(snapshot.fetchedAt)}
         </p>
       )}
 

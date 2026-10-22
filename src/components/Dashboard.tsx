@@ -44,15 +44,17 @@ export function Dashboard({ pinnedItems, onRemove, onNormalize, editing = false,
 
   return (
     <div>
+      {stationIds.length > 0 && (
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="glass inline-flex rounded-full px-3.5 py-1.5">
           <BoardStatus fetchedAt={freshest?.fetchedAt} ageMs={freshest?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
         </div>
       </div>
+      )}
       {editing ? (
         <PinnedEditor pinnedItems={pinnedItems} onMove={(key, delta) => onMove?.(key, delta)} onRemove={onRemove} />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-5">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-3 sm:gap-4">
           {pinnedItems.map((pinnedItem) =>
             pinnedItem.kind === 'pkp' ? (
               <StationCard

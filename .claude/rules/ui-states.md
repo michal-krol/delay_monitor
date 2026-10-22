@@ -50,8 +50,8 @@ data age, not a white screen. Error banner only for a configuration error (401).
 - Start (PR11, `/`): pins loading = skeleton under „Moje miejsca” (never „Nie masz miejsc”); empty = one instruction + „Znajdź miejsce”;
   each card keeps its own state (a failed city card never hides the others; PKP cards share ONE `useBoard`, city cards one `useTransitBoard` each —
   a width/theme change adds no request). Mode glyphs come from board data (`stopModes`), unknown = neutral stop glyph, never a bus. GPS only on the
-  click of „W pobliżu mnie”; nothing is read on render and nothing is shown before the click. `NetworkStatsCard` mounts in ONE place: right column
-  from `sm`, „Informacje o sieci” sheet on phones (not mounted while closed).
+  click of „W pobliżu mnie”; nothing is read on render and nothing is shown before the click. `NetworkStatsCard` mounts once in the Start CSS grid: below places/history by default, right column
+  from `xl`. Initially collapsed on every width; expanding, resizing and changing theme preserve the instance and add no fetch.
 - Trivia (weather, city stats, KPI tiles, direction chips, status legend) lives below or in sheets on phones:
   weather = presentational `WeatherChip`: MobileHeader on phones, TopBar on desktop. CityWeatherChip owns city
   weather; FullBoard/ConnectionDetails own station/origin weather and publish the same result through pageHeader.

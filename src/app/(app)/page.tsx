@@ -6,7 +6,7 @@ import { pinnedItemFromOption, pinnedKey, usePinned, type PinnedItem } from '@/h
 import { Dashboard } from '@/components/Dashboard'
 import { EmptyState } from '@/components/EmptyState'
 import { RecentPlaces } from '@/components/RecentPlaces'
-import { InfoButton, InfoSheet, useBoardContext } from '@/components/InfoSheet'
+import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { SearchDialog } from '@/components/SearchDialog'
 import { StartEntry } from '@/components/StartEntry'
 import type { StationOption } from '@/components/StationSearch'
@@ -34,35 +34,42 @@ const PULPIT_SUBTITLE = 'Przypięte stacje i przystanki z najbliższymi odjazdam
 /** Dwie karty-szkielety Startu przed odczytem przypiętych z `localStorage` — zamiast pustego ekranu. */
 function SkeletonCards() {
   return (
-    <div aria-busy="true" data-testid="pulpit-skeleton" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-5">
+    <div aria-busy="true" data-testid="pulpit-skeleton" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-3 sm:gap-4">
       <span className="sr-only">Wczytywanie…</span>
       {[0, 1].map((i) => (
-        <div key={i} aria-hidden="true" className="h-48 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
+        <div key={i} aria-hidden="true" className="h-72 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
       ))}
     </div>
   )
 }
 
-/** Statystyki sieci obok treści (od `sm`); na telefonie są w arkuszu „Informacje o sieci”. Klasa chowa kolumnę do hydracji (SSR = „szeroko”). */
-const NETWORK_ASIDE = (
-  <div className="max-sm:hidden">
-    <NetworkStatsCard />
-  </div>
-)
+/** Jedna kopia statystyk: po głównych zadaniach telefonu, od xl w kolumnie kontekstowej. */
+function StartLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:items-start">
+      <div className="flex min-w-0 flex-col gap-5">{children}</div>
+      <aside aria-label="Statystyki sieci kolejowej" className="min-w-0 xl:sticky xl:top-7 xl:self-start">
+        <NetworkStatsCard />
+      </aside>
+    </div>
+  )
+}
 
 /** Fallback granicy `Suspense` (trafia do HTML-a z prerenderu): wysokości jak prawdziwe wejście, żeby treść nie skakała (#7). */
 function PulpitSkeleton() {
   return (
-    <PageShell aside={NETWORK_ASIDE}>
+    <PageShell>
       <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
-      <div aria-hidden="true" className="flex flex-col gap-3">
-        <div className="h-11 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
-        <div className="grid grid-cols-2 gap-2">
-          <div className="h-11 animate-pulse rounded-full bg-black/5 dark:bg-white/5" />
-          <div className="h-11 animate-pulse rounded-full bg-black/5 dark:bg-white/5" />
+      <StartLayout>
+        <div aria-hidden="true" className="flex flex-col gap-3">
+          <div className="h-11 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="h-11 animate-pulse rounded-full bg-black/5 dark:bg-white/5" />
+            <div className="h-11 animate-pulse rounded-full bg-black/5 dark:bg-white/5" />
+          </div>
         </div>
-      </div>
-      <SkeletonCards />
+        <SkeletonCards />
+      </StartLayout>
     </PageShell>
   )
 }
@@ -72,12 +79,12 @@ type Notice = { text: string; undo?: { pinnedItem: PinnedItem; index: number } }
 
 /** Wygląd przycisków Pulpitu („Dodaj", „Edytuj ulubione", „Cofnij") — jak „Udostępnij". */
 const PULPIT_BUTTON_CLASS =
-  'touch-44 relative inline-flex h-9 items-center rounded-full border border-surface-border px-3.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10'
+  'touch-44 relative inline-flex min-h-11 items-center rounded-full border border-surface-border px-3.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10'
 
 function PulpitPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { wide, infoOpen, toggleInfo, closeInfo } = useBoardContext()
+  const wide = useMediaQuery(SM_UP, true)
   const mineHeadingId = useId()
   const { pinnedItems, loaded, addPinned, removePinned, movePinned, replacePinned, isPinned } = usePinned()
   const [adding, setAdding] = useState(false)
@@ -166,22 +173,13 @@ function PulpitPage() {
   // Nagłówek, wejście na Start i „Moje miejsca” stoją w jednym korzeniu (`PageShell`) niezależnie od stanu pinów: po wczytaniu
   // podmienia się tylko treść sekcji, a przejście i statystyki nie montują się od nowa.
   const shell = (mine: ReactNode) => (
-    <PageShell aside={wide ? NETWORK_ASIDE : undefined}>
+    <PageShell>
       <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
-      <StartEntry onSearch={openSearch} />
-      {mine}
-      {loaded && <RecentPlaces limit={4} />}
-      {/* Telefon: statystyki sieci to nie główne zadanie — „Info” na końcu strony, treść w arkuszu (jedno miejsce naraz, ui-states.md). */}
-      {!wide && (
-        <div className="flex">
-          <InfoButton open={infoOpen} onClick={toggleInfo} />
-        </div>
-      )}
-      {infoOpen && (
-        <InfoSheet title="Informacje o sieci" onClose={closeInfo}>
-          <NetworkStatsCard defaultExpanded />
-        </InfoSheet>
-      )}
+      <StartLayout>
+        <StartEntry onSearch={openSearch} />
+        {mine}
+        {loaded && <RecentPlaces limit={4} />}
+      </StartLayout>
       {/* Jedno okno: „Dodaj” przypina (onPick), pole „Stacja, przystanek, linia lub pociąg” otwiera zwykłe szukanie. */}
       <SearchDialog
         open={adding || searching}
@@ -208,7 +206,7 @@ function PulpitPage() {
 
   // „Dodaj” przypina (okno w trybie przypinania). Jedna grupa: na telefonie oba przyciski schodzą razem pod nagłówek sekcji, nie pojedynczo.
   const actions = (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {/* Bez czyszczenia komunikatu: „Cofnij” z edycji przetrwa otwarcie i zamknięcie okna bez wyboru. */}
       <button ref={addRef} type="button" onClick={() => setAdding(true)} className={PULPIT_BUTTON_CLASS}>
         Dodaj

@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { StationCard } from './StationCard'
 import { formatClockTime } from '@/lib/format'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
 import type { BoardApiRow, BoardApiSnapshot } from '@/hooks/useBoard'
 
 function makeSnapshot(overrides: Partial<BoardApiSnapshot> = {}): BoardApiSnapshot {
@@ -47,13 +48,14 @@ describe('StationCard', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('shows at most the 2 nearest upcoming departures', () => {
-    const rows = [1, 2, 3].map((n) => departure({ orderId: String(n), trainNumber: String(n), trainLabel: `EIC ${n}`, plannedAt: new Date(Date.now() + n * 10 * 60000).toISOString() }))
+  it('shows the 3 nearest upcoming departures without adding a fourth', () => {
+    const rows = [1, 2, 3, 4].map((n) => departure({ orderId: String(n), trainNumber: String(n), trainLabel: `EIC ${n}`, plannedAt: new Date(Date.now() + n * 10 * 60000).toISOString() }))
     renderCard(makeSnapshot({ departures: rows }))
     const list = screen.getByRole('list')
     expect(list).toHaveTextContent('EIC 1')
     expect(list).toHaveTextContent('EIC 2')
-    expect(list).not.toHaveTextContent('EIC 3')
+    expect(list).toHaveTextContent('EIC 3')
+    expect(list).not.toHaveTextContent('EIC 4')
   })
 
   it('shows the planned departure time large', () => {
@@ -121,7 +123,7 @@ describe('StationCard', () => {
     // Ostatni dobry snapshot zostaje na ekranie — błąd odświeżenia nie
     // zastępuje danych czerwonym komunikatem, tylko wiekiem danych (#7).
     expect(screen.queryByText('Nie udało się pobrać danych')).not.toBeInTheDocument()
-    expect(screen.getByText(`Nie udało się odświeżyć · dane z ${formatClockTime(fetchedAt)}`)).toBeInTheDocument()
+    expect(screen.getByText(`Nie udało się odświeżyć · dane z ${formatDataTimestamp(fetchedAt)}`)).toBeInTheDocument()
     expect(screen.getByText('Kraków')).toBeInTheDocument()
   })
 

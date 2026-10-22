@@ -20,13 +20,13 @@ type Props = {
 /** Treść wiersza: ta sama kolumna godziny co tablica (`TimePair`), kierunek główny, status przy kursie. */
 function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
   return (
-    // Metadane pod kierunkiem biorą też szerokość statusu — długa plakietka („jeszcze nie wyjechał”) ucinała peron.
-    <span className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3">
-      <span className="row-span-2">
+    // Wąska karta układa status pod kierunkiem; próg zależy od miejsca i wielkości tekstu.
+    <span className="grid grid-cols-[auto_minmax(0,1fr)] @min-[20rem]:grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3">
+      <span className="@min-[20rem]:row-span-2">
         <TimePair row={row} now={now} compact />
       </span>
       <span className="min-w-0 truncate font-medium text-foreground">{row.headsign ?? '—'}</span>
-      <span className="text-right">
+      <span className="col-span-2 min-w-0 @min-[20rem]:col-span-1 @min-[20rem]:text-right">
         <DelayBadge
           status={row.status}
           delayMinutes={row.delayMinutes}
@@ -35,7 +35,7 @@ function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
         />
       </span>
       {/* Sam skrót przewoźnika (na prośbę usera): pełna nazwa prawna jest na karcie zawsze za długa. */}
-      <span className="col-span-2 min-w-0 truncate text-xs text-text-muted">
+      <span className="col-span-2 min-w-0 truncate text-xs text-text-muted @min-[20rem]:col-start-2">
         <span className="mr-1 inline-block align-[-2px]">
           <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
         </span>
@@ -54,7 +54,7 @@ function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
 export function BoardRowList({ rows, now, loading, showEmpty, emptyMessage }: Props) {
   const listRef = useRowAnimation<HTMLUListElement>()
   return (
-    <ul ref={listRef} className="mt-3 divide-y divide-surface-border">
+    <ul ref={listRef} className="@container mt-3 divide-y divide-surface-border">
       {loading && (
         <>
           <li className="sr-only">Wczytywanie…</li>

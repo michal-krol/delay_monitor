@@ -129,15 +129,13 @@ test('start: odmowa lokalizacji zostawia opis i wyszukiwanie', async ({ page, co
   await expect(page.getByRole('main').getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' })).toBeEnabled()
 })
 
-test('start: desktop zachowuje kolumnę boczną ze statystykami, telefon ma „Info”', async ({ page }, testInfo) => {
+test('start: jeden zwinięty panel statystyk bez Info', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Start' })).toBeVisible()
-  if (isDesktop(testInfo.project.name)) {
-    await expect(page.getByRole('complementary', { name: 'Panel kontekstowy' }).getByRole('button', { name: /Dziś w Polsce/ })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Info', exact: true })).toHaveCount(0)
-  } else {
-    await expect(page.getByRole('button', { name: 'Info', exact: true })).toBeVisible()
-  }
+  const stats = page.getByRole('complementary', { name: 'Statystyki sieci kolejowej' }).getByRole('button', { name: /Dziś w Polsce/ })
+  await expect(stats).toBeVisible()
+  await expect(stats).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('button', { name: 'Info', exact: true })).toHaveCount(0)
 })
 
 test('start: axe w obu motywach z przypiętym zestawem (PKP + przystanek miejski)', async ({ page }) => {
