@@ -52,7 +52,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 
 ## Transit stop (`TransitStopDetail`, `TransitDepartureList`, GTFS only — #13)
 
-- Tabs, in this order: „Odjazdy”, „Linie”, „Rozkład”, „Komunikaty” (URL `?tab=departures|lines|schedule|alerts`; the
+- Tabs, in this order: „Odjazdy”, „Rozkład”, „Komunikaty” (URL `?tab=departures|schedule|alerts`; legacy `lines` falls back to departures; the
   default is not written). Line filter chip „Wszystkie”; empty result: „Brak odjazdów linii {X} wśród najbliższych 50
   odjazdów.” + action „Wszystkie linie”; real empty: „Brak kolejnych odjazdów w rozkładzie na dziś i jutro.”.
 - Departure row: big time + „wg rozkładu” (+ „za N min · wg rozkładu” inside the hour); never „na czas”, never a
@@ -63,7 +63,9 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Alerts tab scope label: „Komunikaty linii obsługujących ten przystanek|zespół” („Komunikaty” before the board is
   known); shortcut above the list „{n} komunikat|komunikaty|komunikatów” (deduplicated, opens the tab).
 - Unknown stop on a ready schedule: „Nie znaleziono przystanku” + link „Szukaj przystanku” (`/search`); a loading schedule is loading, not this.
-- Alerts tab marker: a dot, accessible text „Komunikaty, {n}”; no separate „utrudnienia” wording (GTFS says „komunikaty”). Lines tab without a board: „Wczytywanie…” / „Nie udało się pobrać rozkładu.”; board without lines: „Brak linii w rozkładzie.”
+- Alerts tab marker: a dot, accessible text „Komunikaty, {n}”; no separate „utrudnienia” wording (GTFS says „komunikaty”). The contextual lines list is not a separate board tab.
+- Line badge opens the full timetable at the departure's direction/stop/occurrence; the separate time link is „Wybierz kurs …”. Civil dates outside today are visible (`DD.MM.YYYY`), independent of the GTFS service date.
+- Concrete course: „Kurs linii {X}”, „Dzień kursowania: … · wg rozkładu”, „Wróć do odjazdów”, „Rozkład: {stop}”. Missing geometry: „Schemat połączeń między przystankami — brak geometrii trasy.” Missing course: „Ten kurs nie jest dostępny w aktualnym rozkładzie.”
 - Map preview section heading: „Lokalizacja przystanku”; map region name „Mapa zespołu przystanków {name}” / „Mapa przystanku {name}”.
 - Browser fetch age: „Pobrano {N s temu|przed chwilą}” (not the age of the source feed); stale after a failed refresh:
   „Nie udało się odświeżyć · dane z {HH:mm}” (city time zone).

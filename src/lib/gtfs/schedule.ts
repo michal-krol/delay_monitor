@@ -20,7 +20,7 @@ import { logEvent } from '@/lib/log'
 import { serviceDayNoonEpoch } from '@/lib/pkp/time'
 import { headerIndex, parseCsvLine } from './csv'
 import { parseGtfsSeconds, serviceCategory, type ServiceCategory } from './schema'
-import type { GtfsRoute, GtfsSchedule } from './types'
+import type { CoursePattern, CourseTemplate, GtfsRoute, GtfsSchedule } from './types'
 
 export type ParsedStop = {
   id: string
@@ -137,7 +137,7 @@ function gtfsWeekday(date: string): number {
 }
 
 /** Zbiór aktywnych `service_id` dla jednej daty: `calendar` z naniesionymi wyjątkami z `calendar_dates`. */
-function activeServices(date: string, calendars: ParsedCalendar[], calendarDates: ParsedCalendarDate[]): Set<string> {
+export function activeServices(date: string, calendars: ParsedCalendar[], calendarDates: ParsedCalendarDate[]): Set<string> {
   const yyyymmdd = date.replace(/-/g, '')
   const weekday = gtfsWeekday(date)
   const active = new Set<string>()
@@ -272,6 +272,10 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     string,
     { routeIdx: number; direction: number; headsignIdx: number; category: number; exceptional: boolean; shapeId: string | null }
   >()
+  const serviceByTrip = new Map(input.trips.map((trip) => [trip.tripId, trip.serviceId]))
+  const courseTemplates = new Map<string, CourseTemplate>()
+  const courseTripsByRoute = new Map<number, string[]>()
+  const coursePatterns = new Map<string, CoursePattern>()
 
   const pushTrip = (
     baseTripId: string,
@@ -407,6 +411,17 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
       const meta = tripMetaById.get(patternTripId)
       if (meta !== undefined && meta.routeIdx >= 0 && !meta.exceptional) {
         const sorted = [...patternStops].sort((a, b) => a.seq - b.seq)
+        const departureSec = sorted[0].depSec
+        const signature = `${meta.shapeId ?? ''}|${sorted.map((p) => `${p.stopIdx}:${p.depSec - departureSec}:${p.seq}:${Number(p.onRequest)}`).join(',')}`
+        let pattern = coursePatterns.get(signature)
+        if (pattern === undefined) {
+          pattern = { stops: sorted.map((p) => p.stopIdx), offsets: sorted.map((p) => p.depSec - departureSec), sequences: sorted.map((p) => p.seq), onRequest: sorted.map((p) => Number(p.onRequest)), shapeId: meta.shapeId }
+          coursePatterns.set(signature, pattern)
+        }
+        courseTemplates.set(patternTripId, { routeIdx: meta.routeIdx, directionId: meta.direction, headsignIdx: meta.headsignIdx, category: meta.category, serviceId: serviceByTrip.get(patternTripId) ?? '', departureSec, pattern })
+        const routeTrips = courseTripsByRoute.get(meta.routeIdx) ?? []
+        routeTrips.push(patternTripId)
+        courseTripsByRoute.set(meta.routeIdx, routeTrips)
         registerPattern(`${meta.routeIdx}:${meta.direction}`, sorted, meta.headsignIdx, meta.shapeId)
         runRouteG.push(meta.routeIdx)
         runDirG.push(meta.direction)
@@ -516,6 +531,7 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
   if (input.shapeLines !== undefined) {
     const neededShapeIds = new Set<string>()
     for (const pick of patternPick.values()) if (pick.shapeId !== null) neededShapeIds.add(pick.shapeId)
+    for (const pattern of coursePatterns.values()) if (pattern.shapeId !== null) neededShapeIds.add(pattern.shapeId)
 
     if (neededShapeIds.size > 0) {
       // Wołane DOPIERO teraz — po pełnym wyczerpaniu `stopTimeLines` powyżej
@@ -717,6 +733,11 @@ export async function buildSchedule(input: BuildScheduleInput): Promise<GtfsSche
     routePatterns,
     routeFrequency,
     tripPatternRef,
+    courseTemplates,
+    courseTripsByRoute,
+    courseShapes: shapeById,
+    courseCalendars: input.calendars,
+    courseCalendarDates: input.calendarDates,
     runRoute,
     runDir,
     runCat,

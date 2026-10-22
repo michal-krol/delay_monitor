@@ -31,6 +31,14 @@ function dep(over: Partial<Dep> = {}): Dep {
 }
 
 describe('TransitDepartureList', () => {
+  it('separates timetable and concrete-course links with midnight date and no nested links', () => {
+    render(<TransitDepartureList city="warszawa" now={Date.parse('2026-09-02T23:30:00+02:00')} departures={[dep({ plannedAt: '2026-09-03T00:05:00+02:00', stopSequence: 3, directionId: 1 })]} />)
+    expect(screen.getByRole('link', { name: 'Linia 20' })).toHaveAttribute('href', '/city/warszawa/line/20?stop=100101&pane=timetable&dir=1')
+    expect(screen.getByRole('link', { name: /Wybierz kurs/ })).toHaveAttribute('href', '/city/warszawa/line/20?trip=t&date=2026-09-02&stop=100101&seq=3')
+    expect(screen.getByText('03.09.2026')).toBeInTheDocument()
+    // eslint-disable-next-line testing-library/no-node-access -- verifies invalid nested interactive markup, not user-facing lookup
+    expect(document.querySelector('a a')).toBeNull()
+  })
   it('shows the clock time straight from the ISO offset, the headsign and the line', () => {
     render(<TransitDepartureList departures={[dep()]} />)
     expect(screen.getByText('14:30')).toBeInTheDocument()

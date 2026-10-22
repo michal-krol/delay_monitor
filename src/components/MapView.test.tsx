@@ -63,6 +63,19 @@ function markerElementAt(callIndex: number): HTMLElement {
 }
 
 describe('MapView', () => {
+  it('updates selected stop without rebuilding map and supports keyboard selection', async () => {
+    const pins = [{ id: 'a', lat: 52, lon: 21, label: 'A' }, { id: 'b', lat: 52.01, lon: 21, label: 'B' }]
+    const click = vi.fn()
+    const { rerender } = render(<MapView dark={false} pins={pins} ariaLabel="Mapa" selectedPinId="a" onPinClick={click} />)
+    await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
+    expect(markerElementAt(0)).toHaveAttribute('aria-pressed', 'true')
+    rerender(<MapView dark={false} pins={pins} ariaLabel="Mapa" selectedPinId="b" onPinClick={click} />)
+    expect(markerElementAt(0)).toHaveAttribute('aria-pressed', 'false')
+    expect(markerElementAt(1)).toHaveAttribute('aria-pressed', 'true')
+    expect(maplibregl.Map).toHaveBeenCalledTimes(1)
+    fireEvent.keyDown(markerElementAt(1), { key: 'Enter' })
+    expect(click).toHaveBeenCalledWith('b')
+  })
   beforeEach(() => {
     vi.clearAllMocks()
   })

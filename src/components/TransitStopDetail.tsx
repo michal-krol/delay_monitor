@@ -41,10 +41,9 @@ import { StatTile } from './StatTile'
 import { onTablistKeyDown } from './tablistKeys'
 import { pluralPl } from '@/lib/plural'
 
-type StopTab = 'departures' | 'lines' | 'schedule' | 'alerts'
+type StopTab = 'departures' | 'schedule' | 'alerts'
 const STOP_TABS: { key: StopTab; label: string }[] = [
   { key: 'departures', label: 'Odjazdy' },
-  { key: 'lines', label: 'Linie' },
   { key: 'schedule', label: 'Rozkład' },
   { key: 'alerts', label: 'Komunikaty' },
 ]
@@ -180,8 +179,10 @@ export function TransitStopDetail({
   const memberIndex = Math.max(0, memberIds.indexOf(effMember))
   const activeMember = effMember !== null ? members.find((m) => m.id === effMember) ?? null : null
   const stopName = board?.name ?? initialName ?? stopId
+  const titleMember = activeMember ?? (members.length === 1 ? members[0] : null)
+  const displayTitle = titleMember === null ? stopName : stopDisplayName(stopName, titleMember.code ?? titleMember.platformCode)
   // Nazwa tablicy do nagłówka telefonu (przy przewijaniu); osadzona tablica ma własny nagłówek strony.
-  useHeaderTitle(embedded ? null : stopName)
+  useHeaderTitle(embedded ? null : displayTitle)
   // Widok całego zespołu (kilka przystanków, żaden niewybrany) mówi „zespół"; jeden
   // przystanek — wybrany albo jedyny w zespole — mówi „przystanek".
   const wholeGroup = activeMember === null && members.length > 1
@@ -361,6 +362,7 @@ export function TransitStopDetail({
   )
   const asideCards = wide ? (
     <>
+      {summaryTiles}
       {mapCard}
       {trafficCard}
       {linesCard}
@@ -411,7 +413,7 @@ export function TransitStopDetail({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <BoardHeading embedded={embedded} kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>
-                  {stopName}
+                  {displayTitle}
                 </BoardHeading>
                 {board?.wheelchairNote != null && (
                   <span className="text-warning-text">
@@ -431,10 +433,9 @@ export function TransitStopDetail({
                   Zespół przystanków · {members.length} {pluralPl(members.length, 'przystanek', 'przystanki', 'przystanków')}
                 </p>
               )}
-              {activeMember !== null && (
+              {activeMember?.street != null && (
                 <p className="mt-0.5 text-sm font-medium text-primary-text">
-                  {stopDisplayName(stopName, activeMember.code ?? activeMember.platformCode)}
-                  {activeMember.street !== null && <span className="text-text-secondary"> · {activeMember.street}</span>}
+                  {activeMember.street}
                 </p>
               )}
               {board !== null && board.modes.length > 0 && (
@@ -552,7 +553,6 @@ export function TransitStopDetail({
 
         {/* Telefon: KPI w arkuszu „Info” (spec 04) — nad zakładkami nie ma miejsca na odjazdy. */}
         {/* SSR zakłada „szeroko”: `max-sm:hidden` chowa KPI na telefonie jeszcze przed hydracją (bez mignięcia kafelków). */}
-        {wide && <div className="max-sm:hidden">{summaryTiles}</div>}
 
         <section className="glass rounded-2xl p-5 max-sm:p-4">
           {/* Telefon: zakładki i filtr linii przyklejone pod nagłówkiem aplikacji. Zakładki to segment, który
@@ -565,7 +565,7 @@ export function TransitStopDetail({
               role="tablist"
               aria-label="Widok przystanku"
               onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => selectTab(STOP_TABS[index].key))}
-              className="segment grid w-full grid-cols-2 min-[360px]:grid-cols-4 sm:inline-grid sm:w-auto sm:self-start"
+              className="segment grid w-full grid-cols-3 sm:inline-grid sm:w-auto sm:self-start"
             >
               {STOP_TABS.map((tab) => (
                 <button
@@ -640,6 +640,7 @@ export function TransitStopDetail({
                     ) : undefined
                   }
                   city={city}
+                  returnTo={`${pathname}?${searchParams}`}
                   showStopCode={activeMember === null && members.length > 1}
                   now={now}
                   fetchedAt={lastSuccessAt}
@@ -648,36 +649,6 @@ export function TransitStopDetail({
                 {!refreshFailed && fetchStatus}
               </>
             )}
-
-            {activeTab === 'lines' &&
-              (linesByMode.length === 0 ? (
-                <p className="text-sm text-text-secondary">{board === null ? (failed || error !== null ? 'Nie udało się pobrać rozkładu.' : 'Wczytywanie…') : 'Brak linii w rozkładzie.'}</p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {linesByMode.map(([mode, lines]) => (
-                    <div key={mode}>
-                      <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">
-                        {MODE_LABEL[mode]}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {lines.map((line) => (
-                          <span key={line.routeId} className="inline-flex items-center gap-1.5">
-                            <LineBadge
-                              line={line.line}
-                              mode={line.mode}
-                              kind={line.kind}
-                              href={`/city/${city}/line/${encodeURIComponent(line.routeId)}`}
-                            />
-                            {LINE_KIND_LABEL[line.kind] !== '' && (
-                              <span className="text-xs text-text-muted">{LINE_KIND_LABEL[line.kind]}</span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
 
             {activeTab === 'alerts' && (
               <ContextAlerts

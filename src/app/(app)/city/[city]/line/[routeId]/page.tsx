@@ -10,6 +10,9 @@ import { ContextAlerts } from '@/components/ContextAlerts'
 import { LineBadge } from '@/components/LineBadge'
 import { LineRouteList } from '@/components/LineRouteList'
 import { LineTimetable } from '@/components/LineTimetable'
+import { TransitCourseView } from '@/components/TransitCourseView'
+import { ConcreteTimetable } from '@/components/ConcreteTimetable'
+import { parseCourseView } from '@/lib/courseView'
 import { MapView, type MapMover, type MapPin } from '@/components/MapView'
 import { ScheduleStatus } from '@/components/ScheduleStatus'
 import { TabCrossfade } from '@/components/TabCrossfade'
@@ -40,6 +43,8 @@ import { CITY_ID_PATTERN, GTFS_ROUTE_ID_PATTERN, encodeStopIdForPathSegment } fr
 
 /** Odpowiedź `/api/gtfs/line`: typ z hooka (stan komunikatów) + pola, których strona używa dodatkowo. */
 type PageLineResponse = LineResponse & {
+  supportsCourses?: boolean
+  courseStopCounts?: Record<string, Record<string, number>>
   schedule: TransitBoardResponse['schedule']
   attribution: string[]
 }
@@ -60,6 +65,7 @@ function afterStopName(stops: typeof NO_STOPS, index: number): string {
 
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
+  const searchParams = useSearchParams()
   const city = typeof params.city === 'string' ? params.city : ''
   const routeId = typeof params.routeId === 'string' ? params.routeId : ''
 
@@ -68,7 +74,8 @@ export default function LineDetailPage() {
   }
 
   // `key`: wybór kierunku, przystanku i widoku nie przechodzi na inną linię.
-  return <LineDetailView key={`${city}/${routeId}`} city={city} routeId={routeId} />
+  const course = parseCourseView(searchParams)
+  return course !== null ? <TransitCourseView key={`${city}/${routeId}/${course.tripId}/${course.serviceDate}`} city={city} routeId={routeId} selection={course} returnTo={searchParams.get('from')} /> : <LineDetailView key={`${city}/${routeId}`} city={city} routeId={routeId} />
 }
 
 function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
@@ -117,6 +124,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   // Stan widoku: URL (`dir`, `stop`, `pane`, `day`) nadpisany wyborami z tej sesji; dane rozstrzygają, co jest poprawne.
   const urlView = parseLineViewState(searchParams)
   const view: LineViewState = {
+    ...urlView,
     directionId: dirChoice !== undefined ? dirChoice : urlView.directionId,
     stopId: stopChoice !== undefined ? stopChoice : urlView.stopId,
     pane: paneChoice ?? urlView.pane,
@@ -127,8 +135,15 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   const resolved = resolveLineView(view, [...directions])
   const direction = resolved === null ? undefined : directions[resolved.directionIndex]
   const stops = direction?.stops ?? NO_STOPS
+  const concreteTimetable = data?.supportsCourses === true && direction !== undefined && !direction.departures.some((block) => block.frequencyBased)
+  const actualCount = urlView.stopId === null ? undefined : data?.courseStopCounts?.[String(direction?.directionId)]?.[urlView.stopId]
+  const validActualStop = data?.courseStopCounts === undefined || typeof actualCount === 'number' && actualCount > 0
+  const timetableStopId = concreteTimetable && stopChoice === undefined && urlView.stopId !== null && validActualStop ? urlView.stopId : (stopChoice ?? stops[resolved?.stopIndex ?? 0]?.stopId ?? null)
+  const requestedOccurrence = urlView.stopOccurrence ?? 0
+  const timetableOccurrence = stopChoice === undefined ? (validActualStop && (actualCount === undefined || requestedOccurrence < actualCount) ? requestedOccurrence : 0) : stops.slice(0, stopIndexChoice ?? 0).filter((s) => s.stopId === stopChoice).length
   const pickedIndex = stopIndexChoice !== undefined && stops[stopIndexChoice]?.stopId === view.stopId ? stopIndexChoice : undefined
-  const selectedIndex = pickedIndex ?? resolved?.stopIndex ?? -1
+  const representativeMatches = stops.flatMap((s, index) => s.stopId === timetableStopId ? [index] : [])
+  const selectedIndex = concreteTimetable ? (pickedIndex ?? representativeMatches[timetableOccurrence] ?? -1) : (pickedIndex ?? resolved?.stopIndex ?? -1)
   const selectedStop = stops[selectedIndex]
   const pane = view.pane
   const selectedBaseSec = base !== null && direction?.directionId === base.directionId ? base.sec : null
@@ -199,7 +214,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
       {
         ...view,
         directionId: live.has('dir') ? (direction?.directionId ?? null) : null,
-        stopId: live.has('stop') ? (selectedStop?.stopId ?? null) : null,
+        stopId: live.has('stop') ? (concreteTimetable ? timetableStopId : selectedStop?.stopId ?? null) : null,
         pane: next,
       },
       ['dir', 'stop', 'pane']
@@ -213,6 +228,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
     setStopChoice(null)
     setStopIndexChoice(undefined)
     setBase(null)
+    patchUrlParams({ occ: null })
     // Pierwszy kierunek to stan domyślny: powrót do niego usuwa `dir` z URL-a.
     writeUrl({ ...view, directionId: next === directions[0] ? null : next.directionId, stopId: null }, ['dir', 'stop'])
   }
@@ -230,6 +246,8 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
     const toTimetable = openTimetable && !lgUp && pane !== 'timetable'
     setStopChoice(stopId)
     setStopIndexChoice(index)
+    const pickedOccurrence = index === undefined ? 0 : stops.slice(0, index).filter((s) => s.stopId === stopId).length
+    patchUrlParams({ occ: pickedOccurrence > 0 ? String(pickedOccurrence) : null })
     if (toTimetable) {
       startTransition(() => setPaneChoice('timetable'))
       segmentRef.current?.scrollIntoView?.({ block: 'nearest' })
@@ -451,11 +469,12 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                   </TabCrossfade>
                 )}
 
-                {(lgUp || pane === 'timetable') && (
+                {(concreteTimetable || lgUp || pane === 'timetable') && (
                   <TabCrossfade id="timetable" name={lgUp ? 'line-pane-timetable' : 'line-pane'}>
                     <section className={`glass rounded-2xl p-4 ${pane === 'timetable' ? '' : 'max-lg:hidden'}`}>
                       <h2 className="text-sm font-bold text-foreground">Rozkład</h2>
                       {/* Kapsuła kontekstu: stała pozycja, zmienia się tylko tekst. */}
+                      {!concreteTimetable && <>
                       <div
                         role="group"
                         aria-label="Wybrany rozkład"
@@ -485,14 +504,15 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                           <ChevronRightIcon size={ICON_SIZE.inline} />
                         </Link>
                       )}
-                      <LineTimetable
+                      </>}
+                      {data?.supportsCourses !== true || direction.departures.some((block) => block.frequencyBased) ? <LineTimetable
                         blocks={direction.departures}
                         offsetSec={selectedStop?.offsetSec ?? null}
                         selectedBaseSec={selectedBaseSec}
                         day={view.day}
                         onDayChange={selectDay}
                         onSelect={(sec) => setBase(sec === null ? null : { directionId: direction.directionId, sec })}
-                      />
+                      /> : <ConcreteTimetable city={city} routeId={routeId} directionId={direction.directionId} stopId={timetableStopId} occurrence={timetableOccurrence} day={view.day} onDayChange={selectDay} />}
                     </section>
                   </TabCrossfade>
                 )}

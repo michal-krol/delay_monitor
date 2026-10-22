@@ -11,6 +11,11 @@ const parse = (query: string) => parseLineViewState(new URLSearchParams(query))
 const view = (patch: Partial<LineViewState>): LineViewState => ({ ...DEFAULT_LINE_VIEW, ...patch })
 
 describe('parseLineViewState', () => {
+  it('restores the second occurrence of a loop stop and ignores invalid occurrence', () => {
+    const state = parse('stop=A&occ=1')
+    expect(resolveLineView(state, [{ directionId: 0, stops: [{ stopId: 'A' }, { stopId: 'B' }, { stopId: 'A' }] }])).toEqual({ directionIndex: 0, stopIndex: 2 })
+    expect(parse('stop=A&occ=-1')).toEqual(view({ stopId: 'A' }))
+  })
   it('returns the default view for an empty query', () => {
     expect(parse('')).toEqual({ directionId: null, stopId: null, pane: 'route', day: 'weekday' })
   })

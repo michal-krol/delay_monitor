@@ -786,13 +786,13 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
     expect(mapBox.height).toBeLessThanOrEqual(180)
   })
 
-  test('320×640: cztery zakładki w układzie 2×2, bez przewijania w bok', async ({ page }) => {
+  test('320×640: trzy zakładki w jednym rzędzie, bez przewijania w bok', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 })
     await page.goto(STOP)
     const tabs = page.getByRole('tablist', { name: 'Widok przystanku' }).getByRole('tab')
-    await expect(tabs).toHaveCount(4, { timeout: READY })
+    await expect(tabs).toHaveCount(3, { timeout: READY })
     const boxes = await tabs.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y })))
-    expect(new Set(boxes.map((b) => Math.round(b.y))).size, 'dwa rzędy').toBe(2)
+    expect(new Set(boxes.map((b) => Math.round(b.y))).size, 'jeden rząd').toBe(1)
     expect(boxes[0].y).toBe(boxes[1].y)
     expect(boxes[0].x).toBeLessThan(boxes[1].x)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'bez przewijania w bok').toBe(true)
@@ -800,8 +800,8 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
 
   test('zakładka i filtr linii są w URL i przeżywają przeładowanie oraz Wstecz z linii', async ({ page }) => {
     await page.goto(STOP)
-    await page.getByRole('tab', { name: 'Linie' }).click({ timeout: READY })
-    await expect(page).toHaveURL(/tab=lines/)
+    await page.getByRole('tab', { name: 'Rozkład' }).click({ timeout: READY })
+    await expect(page).toHaveURL(/tab=schedule/)
     await page.getByRole('tab', { name: 'Odjazdy' }).click()
     await expect(page).not.toHaveURL(/tab=/)
     await page.getByRole('group', { name: 'Filtr linii' }).getByRole('button', { name: /^20/ }).click()
@@ -809,11 +809,11 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
     await page.reload()
     await expect(page.getByRole('group', { name: 'Filtr linii' }).getByRole('button', { name: /^20/ })).toHaveAttribute('aria-pressed', 'true', { timeout: READY })
 
-    await page.getByRole('tab', { name: 'Linie' }).click()
+    await page.getByRole('tab', { name: 'Rozkład' }).click()
     await page.getByRole('tabpanel').getByRole('link', { name: /^Linia 20/ }).first().click()
     await expect(page).toHaveURL(/\/city\/warszawa\/line\/20/)
     await page.goBack()
-    await expect(page.getByRole('tab', { name: 'Linie' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+    await expect(page.getByRole('tab', { name: 'Rozkład' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
     await expect(page).toHaveURL(/line=20/)
   })
 
