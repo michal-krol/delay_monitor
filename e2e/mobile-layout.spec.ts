@@ -51,14 +51,16 @@ for (const width of [320, 375]) {
   })
 }
 
-test('pulpit na 375 px: statystyk sieci nie ma pod kartami, „Info” na końcu otwiera arkusz „Informacje o sieci”', async ({ page }) => {
+test('pulpit na 375 px: statystyki pod treścią, zwinięte, bez arkusza Info', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pkp.installDismissed.v1', JSON.stringify({ dismissedAt: Date.now() })))
   await page.goto('/')
-  await expect(page.getByRole('button', { name: /Dziś w Polsce/ })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Info', exact: true }).click()
-  const sheet = page.getByRole('dialog', { name: 'Informacje o sieci' })
-  await expect(sheet.getByRole('button', { name: /Dziś w Polsce/ })).toHaveAttribute('aria-expanded', 'true')
-  await sheet.getByRole('button', { name: 'Zamknij informacje' }).click()
-  await expect(sheet).toHaveCount(0)
+  const stats = page.getByRole('button', { name: /Dziś w Polsce/ })
+  await expect(stats).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('button', { name: 'Info', exact: true })).toHaveCount(0)
+  await stats.click()
+  await expect(stats).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('region', { name: 'Statystyki sieci kolejowej' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Informacje o sieci' })).toHaveCount(0)
 })
 
 // Start (PR11): na 320 i 375 px wejście do szukania, okolica i początek „Moje miejsca” bez poziomego przewijania.

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useNetworkStats } from '@/hooks/useNetworkStats'
 import { AlertCircleIcon, DisclosureIcon, ICON_SIZE } from './icons'
-import { formatClockTime } from '@/lib/format'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
 import type { NetworkStats, NetworkStatsStatistics } from '@/lib/board/networkStats'
 
 /** Te same tokeny co plakietki statusu na tablicy (`DelayBadge`) — jedno źródło palety. */
@@ -69,22 +69,23 @@ function CarrierBars({ carriers }: { carriers: NetworkStats['topCarriers'] }) {
   return (
     <div className="flex flex-col gap-1.5">
       {carriers.map((carrier) => (
-        <div key={carrier.code} className="flex items-center gap-2">
-          <span className="w-24 shrink-0 truncate text-xs text-foreground">{carrier.name ?? carrier.code}</span>
+        <div key={carrier.code} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2">
+          <span className="min-w-0 break-words text-xs text-foreground">{carrier.name ?? carrier.code}</span>
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
             <div className="h-full rounded-full bg-indigo-500" style={{ width: `${(carrier.count / max) * 100}%` }} />
           </div>
-          <span className="w-9 shrink-0 text-right text-xs text-text-muted">{formatNumber(carrier.count)}</span>
+          <span className="text-right tabular-nums text-xs text-text-muted">{formatNumber(carrier.count)}</span>
         </div>
       ))}
     </div>
   )
 }
 
-/** `defaultExpanded`: w arkuszu „Informacje o sieci" (telefon) karta jest jedyną treścią, więc od razu rozwinięta. */
+/** Domyślnie zwinięta na Starcie; otwarcie zmienia tylko widoczność treści, bez dodatkowego pobierania. */
 export function NetworkStatsCard({ defaultExpanded = false }: { defaultExpanded?: boolean }) {
   const { data, error } = useNetworkStats()
   const [expanded, setExpanded] = useState(defaultExpanded)
+  const panelId = useId()
   const statistics = data?.statistics ?? null
 
   return (
@@ -92,31 +93,32 @@ export function NetworkStatsCard({ defaultExpanded = false }: { defaultExpanded?
       <button
         type="button"
         aria-expanded={expanded}
+        aria-controls={expanded && data !== null ? panelId : undefined}
         onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-center gap-3 text-left"
+        className="flex min-h-11 w-full items-center gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-text"
       >
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">Dziś w Polsce</p>
+          {statistics !== null && (
+            <p className="mt-1 text-xs text-text-muted">
+              {error !== null ? 'nieaktualne · ' : ''}{formatDataTimestamp(statistics.generatedAt)}
+            </p>
+          )}
           {data === null && (
-            <p className="truncate text-xs text-text-secondary">
+            <p className="text-xs text-text-secondary">
               {error !== null ? 'Nie udało się pobrać danych' : 'Wczytywanie…'}
             </p>
           )}
-          {data !== null && statistics === null && <p className="truncate text-xs text-text-secondary">Brak danych o ruchu</p>}
+          {data !== null && statistics === null && <p className="text-xs text-text-secondary">Brak danych o ruchu</p>}
         </div>
-        {statistics !== null && (
-          <span className="shrink-0 text-xs text-text-muted">
-            {error !== null ? `nieaktualne · ${formatClockTime(statistics.generatedAt)}` : formatClockTime(statistics.generatedAt)}
-          </span>
-        )}
         <DisclosureIcon size={ICON_SIZE.button} className="shrink-0 text-text-muted" />
       </button>
 
       {expanded && data !== null && (
-        <div className="mt-3.5 flex flex-col gap-4 border-t border-black/10 pt-3.5 dark:border-white/10">
+        <div id={panelId} role="region" aria-label="Statystyki sieci kolejowej" className="mt-3.5 flex flex-col gap-4 border-t border-black/10 pt-3.5 dark:border-white/10">
           <p className="text-xs text-text-muted">Pociągów łącznie · {statistics !== null ? formatNumber(statistics.totalTrains) : '—'}</p>
           {statistics !== null && (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <svg width={80} height={80} viewBox="0 0 36 36" aria-hidden="true" className="shrink-0">
                 {statusSegments(statistics).map((segment, index) => (
                   <circle
@@ -133,27 +135,27 @@ export function NetworkStatsCard({ defaultExpanded = false }: { defaultExpanded?
                   />
                 ))}
               </svg>
-              <dl className="grid grid-cols-1 gap-1 text-xs text-text-secondary">
-                <div className="flex items-center gap-1.5">
+              <ul aria-label="Stan pociągów" className="grid min-w-0 flex-1 basis-40 grid-cols-1 gap-1 text-xs text-text-secondary">
+                <li className="flex flex-wrap items-center gap-1.5">
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.completed }} aria-hidden="true" />
                   Zakończone · {formatNumber(statistics.completed)}
-                </div>
-                <div className="flex items-center gap-1.5">
+                </li>
+                <li className="flex flex-wrap items-center gap-1.5">
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.inProgress }} aria-hidden="true" />
                   W trasie · {formatNumber(statistics.inProgress)}
-                </div>
-                <div className="flex items-center gap-1.5">
+                </li>
+                <li className="flex flex-wrap items-center gap-1.5">
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.notStarted }} aria-hidden="true" />
                   Jeszcze nie wyruszyły · {formatNumber(statistics.notStarted)}
-                </div>
-                <div className="flex items-center gap-1.5">
+                </li>
+                <li className="flex flex-wrap items-center gap-1.5">
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS.cancelled }} aria-hidden="true" />
                   Odwołane · {formatNumber(statistics.cancelled)}
                   {statistics.partialCancelled > 0 && (
                     <span className="text-text-muted"> (+{formatNumber(statistics.partialCancelled)} częściowo)</span>
                   )}
-                </div>
-              </dl>
+                </li>
+              </ul>
             </div>
           )}
 

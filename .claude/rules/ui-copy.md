@@ -216,7 +216,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 ## Start (`/`, `StartEntry`, `StationCard`, `TransitStopCard`, PR11)
 
 - H1 „Start”. Order on phones and desktop: H1 → search entry → „W pobliżu mnie” + „Otwórz mapę” → „Moje miejsca” (h2 + „Dodaj” / „Edytuj ulubione”) →
-  „Ostatnio oglądane” → on phones the „Info” button. The history keeps „Ostatnio oglądane” (it records places you OPENED, not searched; the mockup
+  „Ostatnio oglądane” → collapsed „Dziś w Polsce”. The history keeps „Ostatnio oglądane” (it records places you OPENED, not searched; the mockup
   says the same) — not „Ostatnio wyszukiwane”.
 - Search entry = a button named „Stacja, przystanek, linia lub pociąg” (phone: goes to `/search`; from `sm`: opens the `UnifiedSearch` dialog). It is not an input.
 - Location: button „W pobliżu mnie” (`LocateIcon`); while asking „Ustalanie lokalizacji…” (`aria-busy`, clicks ignored; the map control keeps „Szukam lokalizacji…” — two surfaces, a second deliberate exception to „Wczytywanie…”); a fix opens `/map?nearby=1`.
@@ -224,10 +224,10 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   przeglądarce”; failed „Nie udało się ustalić lokalizacji. Spróbuj ponownie lub wyszukaj miejsce.” (the same button retries). Nothing is shown before the click.
 - Empty „Moje miejsca”: „Nie masz jeszcze zapisanych miejsc. Znajdź stację lub przystanek i przypnij je gwiazdką — odjazdy pojawią się tutaj.” + button
   „Znajdź miejsce”; never while the pins are still loading (skeleton, „Wczytywanie…”).
-- Place card: mode tile + full wrapping name (no `truncate`) + caption + two departures + link „Wszystkie odjazdy”. Caption PKP „Stacja kolejowa PKP”;
+- Place card: mode tile + full wrapping name (no `truncate`) + caption + three available departures + link „Wszystkie odjazdy”. Caption PKP „Stacja kolejowa PKP”;
   GTFS „{Tryb[, tryb]} · Rozkład — {miasto}” from the board's modes (`stopModes`: a pinned single stop shows the modes of ITS lines; unknown while loading =
   „Rozkład — {miasto}” with the neutral stop glyph, never a bus). GTFS rail is „Kolej miejska”, never PKP wording (#13).
-- Phone „Info” on Start opens the sheet „Informacje o sieci” with „Dziś w Polsce” already expanded; from `sm` the same card stays in the right column.
+- Start „Dziś w Polsce” is initially collapsed below places/history; from `xl` the same card occupies the right column. No Start Info sheet. Card fetch/stale timestamps and network statistics use full „DD.MM.YYYY, HH:mm”.
 
 ## Place words (`gtfs.md`)
 

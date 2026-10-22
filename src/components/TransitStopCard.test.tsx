@@ -12,6 +12,15 @@ beforeEach(() => resetCitiesCacheForTests())
 afterEach(() => vi.unstubAllGlobals())
 
 describe('TransitStopCard', () => {
+  it('requests three departures and keeps a full stale timestamp with the last board', () => {
+    useTransitBoard.mockReturnValue({ data: { stops: [{ stopId: '1001', name: 'Centrum', modes: ['tram'], departures: [departure] }], schedule: { state: 'ready' }, attribution: [] }, error: 'network', failed: false, loading: false, lastSuccessAt: Date.parse('2026-08-27T18:12:00Z') })
+    render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
+    expect(useTransitBoard).toHaveBeenCalledWith('warszawa', ['1001'], 3, null)
+    expect(screen.getByText('Nie udało się odświeżyć · dane z 27.08.2026, 20:12')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
+    expect(screen.getByText('Piaski')).toBeInTheDocument()
+  })
+
   it('shows the stop name, a schedule label (not "na czas"), and links to the stop page', () => {
     useTransitBoard.mockReturnValue({
       data: {
@@ -139,7 +148,7 @@ describe('TransitStopCard', () => {
   it('a pinned single stop fetches only that stop and is named with its number', () => {
     useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
     render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum 02" member />)
-    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 2, '100102')
+    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, '100102')
     expect(screen.getByRole('heading', { name: 'Centrum 02' })).toBeInTheDocument()
     expect(screen.queryByText('Odjazd z przystanku')).not.toBeInTheDocument()
     expect(within(screen.getByRole('heading')).getByRole('link')).toHaveAttribute('href', '/city/warszawa/stop/1001?przystanek=100102')
@@ -149,7 +158,7 @@ describe('TransitStopCard', () => {
     useTransitBoard.mockReturnValue({ data: { stops: [centrum], schedule: { state: 'ready' }, attribution: [] }, error: null, loading: false, failed: false })
     // Wpis sprzed flagi `member`: `id` to przystanek ze starego deep-linku, ale znaczy cały zespół.
     render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" />)
-    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 2, null)
+    expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, null)
     expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
     expect(screen.getByText('Odjazd z przystanku')).toBeInTheDocument()
     expect(within(screen.getByRole('heading')).getByRole('link')).toHaveAttribute('href', '/city/warszawa/stop/1001')

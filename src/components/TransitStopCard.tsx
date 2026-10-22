@@ -12,6 +12,7 @@ import { AllDeparturesLink } from './AllDeparturesLink'
 import { PlaceTitle } from './PlaceTitle'
 import { ModeTile, modesLabel } from './transitMode'
 import { CARD_ROWS } from './StationCard'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 
 type Props = {
@@ -35,7 +36,7 @@ type Props = {
  * zapytań; Pulpit trzyma kilka przypięć, nie kilkadziesiąt).
  */
 export function TransitStopCard({ city, stopId, stopName, member = false, onGroupResolved }: Props) {
-  const { data, loading, failed, lastSuccessAt } = useTransitBoard(city, [stopId], CARD_ROWS, member ? stopId : null)
+  const { data, error, loading, failed, lastSuccessAt } = useTransitBoard(city, [stopId], CARD_ROWS, member ? stopId : null)
   // Ten sam wspólny hook `/api/cities` co `WeatherChip`/`TransitStopDetail`/
   // strona miasta (Task 9).
   const { cities: cityEntries } = useCities()
@@ -74,7 +75,7 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onGrou
   )
 
   return (
-    <article className="glass card-press w-full rounded-2xl border border-surface-border p-5 max-sm:p-4">
+    <article className="glass card-press min-w-0 w-full rounded-2xl border border-surface-border p-5 max-sm:p-4">
       <div className="flex items-start gap-3">
         <ModeTile modes={modes} />
         <div className="min-w-0 flex-1">
@@ -82,6 +83,11 @@ export function TransitStopCard({ city, stopId, stopName, member = false, onGrou
               `view-transition-name`, który przerywa całe przejście. */}
           {member ? title : <PlaceTitle kind="gtfs" id={`${city}:${board?.groupId ?? stopId}`}>{title}</PlaceTitle>}
           <p className="text-xs text-text-muted">{`${modesText === '' ? '' : `${modesText} · `}Rozkład — ${cityName}`}</p>
+          {typeof lastSuccessAt === 'number' && (
+            <p className="mt-1 text-xs text-text-muted" aria-live={error != null ? 'polite' : undefined}>
+              {error != null ? 'Nie udało się odświeżyć · dane z ' : 'Pobrano '}{formatDataTimestamp(lastSuccessAt)}
+            </p>
+          )}
         </div>
       </div>
 

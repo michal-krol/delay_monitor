@@ -32,12 +32,28 @@ afterEach(() => {
 })
 
 describe('NetworkStatsCard', () => {
+  it('associates the disclosure with one panel and does not refetch on toggle', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse(STATS))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    render(<NetworkStatsCard />)
+    await screen.findByText('27.08.2026, 20:12')
+    const button = screen.getByRole('button', { name: /Dziś w Polsce/ })
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+    await user.click(button)
+    const panel = screen.getByRole('region', { name: 'Statystyki sieci kolejowej' })
+    expect(button).toHaveAttribute('aria-controls', panel.id)
+    await user.click(button)
+    expect(screen.queryByRole('region', { name: 'Statystyki sieci kolejowej' })).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps the collapsed subtitle short (no train count, no static "bez odwołań") so it never gets truncated', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STATS)))
 
     render(<NetworkStatsCard />)
 
-    expect(await screen.findByText(/^\d{2}:\d{2}$/)).toBeInTheDocument()
+    expect(await screen.findByText(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText(/7\s?250 pociągów/)).not.toBeInTheDocument()
     expect(screen.queryByText('bez odwołań')).not.toBeInTheDocument()
   })
@@ -46,7 +62,7 @@ describe('NetworkStatsCard', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(STATS)))
 
     render(<NetworkStatsCard />)
-    await screen.findByText(/^\d{2}:\d{2}$/)
+    await screen.findByText(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)
 
     const header = screen.getByRole('button', { name: /Dziś w Polsce/ })
     // Pierścień to dekoracyjny <svg>, bez roli dostępności -- jedyny sposób
@@ -60,7 +76,7 @@ describe('NetworkStatsCard', () => {
     const user = userEvent.setup()
 
     render(<NetworkStatsCard />)
-    await screen.findByText(/^\d{2}:\d{2}$/)
+    await screen.findByText(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)
     await user.click(screen.getByRole('button', { name: /Dziś w Polsce/ }))
 
     expect(screen.getByText(/7.?250/)).toBeInTheDocument()
@@ -84,7 +100,7 @@ describe('NetworkStatsCard', () => {
     const user = userEvent.setup()
 
     render(<NetworkStatsCard />)
-    await screen.findByText(/^\d{2}:\d{2}$/)
+    await screen.findByText(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)
     await user.click(screen.getByRole('button', { name: /Dziś w Polsce/ }))
 
     expect(screen.getByText(/Trend .bez odwołań. dziś/)).toBeInTheDocument()
@@ -96,7 +112,7 @@ describe('NetworkStatsCard', () => {
     const user = userEvent.setup()
 
     render(<NetworkStatsCard />)
-    await screen.findByText(/^\d{2}:\d{2}$/)
+    await screen.findByText(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)
     await user.click(screen.getByRole('button', { name: /Dziś w Polsce/ }))
 
     // getByText trafia w samo <p> (ikona to rodzeństwo bez własnego tekstu).
@@ -125,11 +141,11 @@ describe('NetworkStatsCard', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<NetworkStatsCard />)
-    await vi.waitFor(() => expect(screen.getByText(/^\d{2}:\d{2}$/)).toBeInTheDocument())
+    await vi.waitFor(() => expect(screen.getByText(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)).toBeInTheDocument())
 
     await vi.advanceTimersByTimeAsync(15 * 60 * 1000)
 
-    await vi.waitFor(() => expect(screen.getByText(/^nieaktualne · \d{2}:\d{2}$/)).toBeInTheDocument())
+    await vi.waitFor(() => expect(screen.getByText(/^nieaktualne · \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)).toBeInTheDocument())
   })
 
   it('statistics unknown: subtitle reads "Brak danych o ruchu" and the expanded panel shows a dash instead of a fabricated count', async () => {
@@ -150,7 +166,7 @@ describe('NetworkStatsCard', () => {
     const user = userEvent.setup()
 
     render(<NetworkStatsCard />)
-    await screen.findByText(/^\d{2}:\d{2}$/)
+    await screen.findByText(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)
     await user.click(screen.getByRole('button', { name: /Dziś w Polsce/ }))
 
     expect(screen.getByText('— zgłoszonych utrudnień na sieci')).toBeInTheDocument()

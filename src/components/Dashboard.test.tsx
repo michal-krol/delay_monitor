@@ -37,6 +37,12 @@ function findCardByHeading(name: string): HTMLElement {
 }
 
 describe('Dashboard', () => {
+  it('GTFS-only pins do not show a disabled PKP loading clock', () => {
+    render(<Dashboard pinnedItems={[{ kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }]} onRemove={vi.fn()} />)
+    expect(screen.queryByText('Wczytywanie…')).toBeNull()
+    expect(screen.queryByRole('button', { name: /odśwież teraz/ })).toBeNull()
+  })
+
   it('fetches both pinnedItems in a single request', async () => {
     const fetchMock = vi.fn().mockImplementation(() =>
       jsonResponse({

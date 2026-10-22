@@ -14,6 +14,11 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Start pokazuje do trzech dostępnych kursów w każdej karcie przypiętego miejsca.
+  Statystyki sieci są domyślnie zwinięte pod miejscami na telefonie i w bocznej kolumnie
+  na dużym ekranie. Rozwinięcie, zmiana szerokości i motywu zachowują panel bez ponownego pobierania.
+  Miejskie karty i stare dane pokazują pełną datę oraz godzinę pobrania.
+
 - Nagłówek telefonu łączy powrót, nazwę strony, pogodę i menu opcji. Motyw, udostępnianie
   oraz opisy źródeł danych są dostępne w menu strony także na komputerze.
 - Pogoda nagłówka korzysta z danych bieżącej strony. Zmiana szerokości i otwarcie szczegółów

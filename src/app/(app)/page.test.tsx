@@ -501,26 +501,18 @@ describe('Page (Pulpit)', () => {
       expect(screen.queryByRole('button', { name: 'Info' })).toBeNull()
     })
 
-    it('telefon: statystyk nie ma pod kartami; „Info” na końcu otwiera arkusz „Informacje o sieci” i zamyka się', async () => {
+    it('telefon: jedna zwinięta sekcja sieci po miejscach, bez arkusza Info', async () => {
       wide = false
       const user = userEvent.setup()
       render(<Page />)
-      expect(screen.queryByRole('button', { name: /Dziś w Polsce/ })).toBeNull()
-
-      await user.click(screen.getByRole('button', { name: 'Info' }))
-      const sheet = screen.getByRole('dialog', { name: 'Informacje o sieci' })
-      expect(within(sheet).getByRole('button', { name: /Dziś w Polsce/ })).toHaveAttribute('aria-expanded', 'true')
-
-      await user.click(within(sheet).getByRole('button', { name: 'Zamknij informacje' }))
+      const stats = screen.getByRole('button', { name: /Dziś w Polsce/ })
+      expect(stats).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByRole('button', { name: 'Info' })).toBeNull()
+      expect(screen.getByRole('heading', { name: 'Moje miejsca' }).compareDocumentPosition(stats) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      await user.click(stats)
+      expect(stats).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getAllByRole('button', { name: /Dziś w Polsce/ })).toHaveLength(1)
       expect(screen.queryByRole('dialog', { name: 'Informacje o sieci' })).toBeNull()
-    })
-
-    it('telefon: „Info” jest po „Moje miejsca” (główne zadania wyżej)', () => {
-      wide = false
-      render(<Page />)
-      const mine = screen.getByRole('heading', { name: 'Moje miejsca' })
-      const info = screen.getByRole('button', { name: 'Info' })
-      expect(mine.compareDocumentPosition(info) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('kolejność: H1 → wejście do szukania → okolica → „Moje miejsca”', () => {
