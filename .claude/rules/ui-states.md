@@ -42,6 +42,12 @@ data age, not a white screen. Error banner only for a configuration error (401).
   (`deriveLineAlerts`: loading / failed / ready+[] / failed with the last list), and the age line. A failure in vehicles or
   alerts never hides the route or the timetable. `ready` + `line === null` is „Nie znaleziono linii”; zero stops is „Brak
   przebiegu tej linii.”, no crash.
+- ADR0013 PR06 stop: tabs are departures/schedule/alerts; line roster stays in context. Statistics are after
+  departures in DOM (aside on desktop, Info on phones). Concrete course route/map remain visible when GPS
+  or alerts fail. New line API advertises `supportsCourses`; old payloads retain the previous timetable.
+  A failed timetable feed is an explicit retry state, never a successful empty category. Course URL carries
+  trip/date/seq; map selection updates markers in place and never resets camera. Course GPS is matched to
+  its dated planned window (including service days >24h), never just `serviceDate === today`.
 - Connection (`ConnectionDetails`, PR5): loading = header + axis skeleton (`aria-busy`, one h1); first-fetch error =
   server message only for 404/503, else the generic one (`ui-copy.md`) + „Spróbuj ponownie” (`usePolling().refresh()`, foreground, bounded by the server's 90 s cache and
   miss cap) + „Szukaj stacji”; empty `stops` = „PKP nie udostępnia teraz trasy…” (`role="status"`, h1 + the same two actions; not a finished journey); a failed

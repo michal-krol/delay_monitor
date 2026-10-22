@@ -62,6 +62,22 @@ async function call(url: string) {
 }
 
 describe('GET /api/gtfs/vehicles', () => {
+  it('projects selected-trip GPS on its actual variant even without a representative route', async () => {
+    const pattern = schedule!.routePatterns.get('0:0')!
+    positions = [{ id: 'V', tripId: 'T', lat: 52.21, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }]
+    schedule!.routePatterns.delete('0:0')
+    try {
+      expect((await call('http://localhost/api/gtfs/vehicles?city=warszawa&route=20&direction=0')).body.vehicles).toEqual([])
+      const { body } = await call('http://localhost/api/gtfs/vehicles?city=warszawa&route=20&direction=0&trip=T')
+      expect(body.vehicles).toHaveLength(1)
+      expect(body.vehicles[0]).toMatchObject({ tripId: 'T', afterStopOrder: 0 })
+    } finally { schedule!.routePatterns.set('0:0', pattern) }
+  })
+  it('rejects malformed optional trip IDs before accessing pollers', async () => {
+    getGtfsPoller.mockClear()
+    expect((await call('http://localhost/api/gtfs/vehicles?city=warszawa&route=20&direction=0&trip=%00')).response.status).toBe(400)
+    expect(getGtfsPoller).not.toHaveBeenCalled()
+  })
   beforeAll(() => {
     positions = []
     vehiclePollerReady = true

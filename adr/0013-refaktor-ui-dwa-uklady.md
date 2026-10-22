@@ -95,8 +95,8 @@ Nazwy scenariuszy w tabeli wskazują pliki `e2e/<nazwa>.spec.ts`.
 | 03 | Powłoka obu układów, pogoda, źródła danych | Sol | Jeden właściciel danych i brak duplikatów paneli |
 | 04 | Wspólna wyszukiwarka z pociągami | Sol | Nazwa/numer, brak żądań upstream od wpisywania |
 | 05 | Start, przypięte miejsca i statystyki sieci | Sol | Istniejący storage, kolejność, historia, cofnięcie |
-| 06 | Przystanek i odjazdy | Sol | Numer miejsca, filtry, rozkład z plakietki linii |
-| 07 | Linia/kurs GTFS, rozkład, NŻ, pojazdy i statystyki | Sol | Synchronizacja i warianty bez utraty kursu |
+| 06 | Przystanek, odjazdy i konkretny kurs GTFS | Sol | Numer miejsca, data odjazdu, osobne akcje rozkładu i kursu, rzeczywisty wariant mapy/osi/NŻ |
+| 07 | Ogólny widok linii GTFS, pojazdy i statystyki | Sol | Kompozycja linii, statystyki i lista pojazdów; wybór kursu realizuje już PR06 |
 | 08 | Stacja PKP | Sol | Komplet danych, poprawna realizacja i stany |
 | 09 | Połączenie PKP | Sol | Mapa, szacowana pozycja, kontekst i powrót |
 | 10 | Mapa transportu | Sol | Warstwy, filtry, kamera i brak kolizji |
@@ -111,6 +111,17 @@ z integracją 04 → 05. PR 04 jest jedynym właścicielem kontraktu, komponent�
 wyszukiwania (także `StartEntry` oraz adaptera mapy). PR 05 obejmuje kompozycję Startu,
 karty i statystyki; nie zmienia powłoki, storage ani plików wyszukiwania. Po integracji
 PR 04 gałąź PR 05 aktualizuje bazę i ponownie sprawdza szukanie oraz przypinanie.
+Za zgodą właściciela z 2026-10-22 PR06 i PR08 powstają równolegle na bazie PR05 (#201),
+z integracją 06 → 08 i ponowną weryfikacją PR08 po aktualizacji bazy. PR06 jest właścicielem
+przystanku i całego wyboru konkretnego kursu GTFS (przeniesionego z PR07), jego indeksów,
+kontraktów API/URL, mapy i osi. PR08 obejmuje wyłącznie tablicę i kontekst stacji PKP.
+PR06 koordynuje zmiany współdzielone; implementerzy nie edytują równolegle tych samych plików.
+Identyfikacja kursu to `trip` + dzień kursowania `date`; `seq` wskazuje wystąpienie przystanku.
+Rozkład linii zachowuje `dir`, `stop`, `pane`, `day` i addytywne `occ` dla powtórzeń na pętli.
+Minuta rozkładu wybiera rzeczywisty kurs w najbliższym dostępnym dniu jego kalendarza,
+z zachowaniem osobnego piątku i wyjątków. Kursy częstotliwościowe pozostają orientacyjne;
+nie dostają fikcyjnej tożsamości konkretnego kursu. Wzorce kursów są internowane przy ładowaniu
+rozkladu; mapa korzysta z geometrii danego wariantu albo jawnie opisanego schematu.
 Terra wymaga potwierdzonej dostępności dla danej sesji; w razie braku zadanie przejmuje Sol.
 Luna nie ustala samodzielnie semantyki danych ani architektury. Model i rozumowanie
 dobieramy do ryzyka; nie uruchamiamy wielu implementerów na tych samych plikach.

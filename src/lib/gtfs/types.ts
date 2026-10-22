@@ -10,6 +10,10 @@
 /** Rodzaj środka transportu — z `route_type`, sprowadzony do garści przypadków. */
 export type GtfsMode = 'metro' | 'tram' | 'bus' | 'rail' | 'other'
 
+/** Interned actual stop/time variant, shared by trips with the same pattern. */
+export type CoursePattern = { stops: number[]; offsets: number[]; sequences: number[]; onRequest: number[]; shapeId: string | null }
+export type CourseTemplate = { routeIdx: number; directionId: number; headsignIdx: number; category: number; serviceId: string; departureSec: number; pattern: CoursePattern }
+
 export type GtfsStop = {
   id: string
   name: string
@@ -49,6 +53,10 @@ export type GtfsRoute = {
 /** Jedno konkretne odjechanie linii z przystanku — wynik `nextDepartures()`. */
 export type GtfsDeparture = {
   tripId: string
+  /** Feed sequence, preserving repeated occurrences of the same stop. */
+  stopSequence?: number
+  stopOccurrence?: number
+  directionId?: number
   routeId: string
   /** `route_short_name` (fallback `route_long_name`, dalej `routeId`). */
   line: string
@@ -138,6 +146,11 @@ export type GtfsSchedule = {
   routeFrequency: Map<string, { startSec: number; endSec: number; minHeadway: number; maxHeadway: number }>
   /** Klucz = `trip_id` z `trips.txt` (ten sam co w `vehicles.json`) → linia + kierunek. Kursy techniczne pominięte. */
   tripPatternRef: Map<string, { routeIdx: number; direction: number }>
+  courseTemplates: Map<string, CourseTemplate>
+  courseTripsByRoute: Map<number, string[]>
+  courseShapes: Map<string, Float32Array>
+  courseCalendars: { serviceId: string; startDate: string; endDate: string; days: boolean[] }[]
+  courseCalendarDates: { serviceId: string; date: string; added: boolean }[]
 
   /**
    * Indeks rozkładu linii — JEDEN wpis na kurs, z KAŻDEJ doby (także spoza okna

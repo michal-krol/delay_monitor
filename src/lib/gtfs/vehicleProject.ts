@@ -42,6 +42,27 @@ function projectOnSegment(
 
 type VehicleGeometry = Omit<VehicleOnRoute, 'ageSec'>
 
+/** Reproject a feed position onto a concrete trip variant rather than the representative line. */
+export function projectCoursePosition(position: { lat: number; lon: number }, stops: { lat: number; lon: number }[]): { afterStopOrder: number; fraction: number } | null {
+  let best: { order: number; t: number; d: number } | null = null
+  for (let i = 0; i < stops.length - 1; i += 1) {
+    const a = stops[i]
+    const b = stops[i + 1]
+    const projected = projectOnSegment(position.lat, position.lon, a.lat, a.lon, b.lat, b.lon)
+    if (best === null || projected.distanceM < best.d) best = { order: i, t: projected.t, d: projected.distanceM }
+  }
+  return best === null || best.d > MAX_OFF_ROUTE_M ? null : { afterStopOrder: best.order, fraction: best.t }
+}
+
+export function projectTripVehicle(schedule: GtfsSchedule, position: VehiclePosition, nowMs: number): VehicleOnRoute | null {
+  const template = schedule.courseTemplates.get(position.tripId)
+  if (template === undefined) return null
+  const points = template.pattern.stops.map((idx) => ({ lat: schedule.stopLat[idx], lon: schedule.stopLon[idx] }))
+  const projection = projectCoursePosition(position, points)
+  if (projection === null) return null
+  return { ...projection, tripId: position.tripId, sideNumber: position.sideNumber, routeId: schedule.routes[template.routeIdx].id, directionId: template.directionId, lat: position.lat, lon: position.lon, headsign: template.headsignIdx < 0 ? null : schedule.headsigns[template.headsignIdx], bearing: position.bearing, ageSec: Math.max(0, Math.floor((nowMs - Date.parse(position.timestamp)) / 1000)) }
+}
+
 /**
  * Geometria rzutu (najbliższy odcinek wzorca) NIE zależy od `nowMs` — to jest
  * droga część (przeszukanie segmentów). Liczona raz na `(schedule, position)`

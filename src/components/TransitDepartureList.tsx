@@ -12,6 +12,7 @@ import { ICON_SIZE, VehiclePositionIcon } from './icons'
 import { HIDE_AFTER_SEC } from './map/mapData'
 import { useNow } from '@/hooks/useNow'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
+import { courseHref, departureDateLabel, timetableHref } from '@/lib/courseView'
 
 type DepartureWithVehicle = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
 
@@ -40,6 +41,7 @@ type Props = {
   skeletonRows?: number
   /** Pod komunikatem o braku odjazdów (np. przycisk „Wszystkie linie”, gdy filtr linii nic nie zostawił). */
   emptyAction?: ReactNode
+  returnTo?: string
 }
 
 /**
@@ -82,6 +84,7 @@ function DepartureRow({
   variant,
   clock: vehicleClock,
   fetchedAt,
+  returnTo,
 }: {
   departure: DepartureWithVehicle
   city?: string
@@ -90,10 +93,13 @@ function DepartureRow({
   variant: 'board' | 'card'
   clock: number
   fetchedAt?: number | null
+  returnTo?: string
 }) {
   // Odliczanie tylko w obrębie godziny; „wg rozkładu” zawsze, bo to plan, nie pomiar (#13).
   const countdown = now !== undefined ? countdownLabel(now, departure.plannedAt) : null
-  const lineHref = city !== undefined ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : undefined
+  const lineHref = city !== undefined ? (variant === 'card' ? `/city/${city}/line/${encodeURIComponent(departure.routeId)}` : timetableHref(city, departure.routeId, departure.stopId, departure.directionId, departure.stopOccurrence)) : undefined
+  const selectedCourseHref = city !== undefined && !departure.frequencyBased && variant === 'board' ? courseHref(city, departure.routeId, departure, returnTo) : undefined
+  const dateLabel = now === undefined ? null : departureDateLabel(departure.plannedAt, now)
   // Karta: link na cały wiersz, więc plakietka linii nie może być drugim (zagnieżdżonym) linkiem.
   const rowHref = variant === 'card' ? lineHref : undefined
   const scheduleNote = countdown !== null ? `${countdown} · wg rozkładu` : 'wg rozkładu'
@@ -126,9 +132,17 @@ function DepartureRow({
       <span data-testid="departure-headsign" className="min-w-0 text-sm text-foreground [overflow-wrap:anywhere]">
         {departure.headsign ?? '—'}
       </span>
-      <time dateTime={departure.plannedAt} className="time-dominant text-foreground shrink-0">
-        {clock(departure.plannedAt)}
-      </time>
+      {selectedCourseHref !== undefined ? (
+        <Link href={selectedCourseHref} aria-label={`Wybierz kurs ${departure.line}, ${clock(departure.plannedAt)}${dateLabel === null ? '' : `, ${dateLabel}`}, kierunek ${departure.headsign ?? 'nieznany'}`} className="press flex min-h-11 min-w-11 flex-col items-end justify-center rounded-lg text-primary-text outline-offset-2 focus-visible:outline-2 focus-visible:outline-primary-text">
+          <time dateTime={departure.plannedAt} className="time-dominant">{clock(departure.plannedAt)}</time>
+          {dateLabel !== null && <span className="text-[13px] font-medium tabular-nums">{dateLabel}</span>}
+        </Link>
+      ) : (
+        <span className="flex flex-col items-end">
+          <time dateTime={departure.plannedAt} className="time-dominant text-foreground shrink-0">{clock(departure.plannedAt)}</time>
+          {dateLabel !== null && <span className="text-[13px] font-medium tabular-nums text-text-secondary">{dateLabel}</span>}
+        </span>
+      )}
       <span className="col-start-2 col-span-2 text-xs font-semibold tabular-nums text-text-secondary">{scheduleNote}</span>
       {hasMeta && (
         <div data-testid="departure-meta" className="col-start-2 col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -179,6 +193,7 @@ export function TransitDepartureList({
   variant = 'board',
   skeletonRows = 3,
   emptyAction,
+  returnTo,
 }: Props) {
   const listRef = useRowAnimation<HTMLUListElement>()
   const clock = useNow(VEHICLE_AGE_TICK_MS)
@@ -207,7 +222,7 @@ export function TransitDepartureList({
   return (
     <ul ref={listRef} data-testid="departure-list" className="mt-3 divide-y divide-surface-border">
       {departures.map((departure, index) => (
-        <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} clock={clock} fetchedAt={fetchedAt} />
+        <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} clock={clock} fetchedAt={fetchedAt} returnTo={returnTo} />
       ))}
     </ul>
   )

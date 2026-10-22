@@ -16,9 +16,14 @@ function eventDeparture(schedule: GtfsSchedule, eventIndex: number): GtfsDepartu
   const stopIdx = schedule.evStop[eventIndex]
   const day = schedule.tripServiceDay[trip]
   const departureSec = schedule.evDepSec[eventIndex]
+  const pattern = schedule.courseTemplates.get(schedule.tripIds[trip])?.pattern
+  const sequenceIndex = pattern?.sequences.indexOf(schedule.evSeq[eventIndex]) ?? -1
 
   return {
     tripId: schedule.tripIds[trip],
+    stopSequence: schedule.evSeq[eventIndex],
+    stopOccurrence: sequenceIndex < 0 ? 0 : pattern!.stops.slice(0, sequenceIndex).filter((idx) => idx === stopIdx).length,
+    directionId: schedule.tripDirection[trip],
     routeId: route?.id ?? '',
     line: route?.shortName || route?.longName || route?.id || '',
     mode: route?.mode ?? 'other',

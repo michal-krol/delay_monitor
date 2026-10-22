@@ -114,6 +114,14 @@ paths:
   longest — the longest caught depot runs and detours (line 4: „Gocławek → Zjazd do zajezdni"
   instead of „Żerań Wschodni → Metro Wilanowska").
   **Don't go back to `points.length > existing.stops.length`.**
+- **Concrete course (ADR0013 PR06).** `courseTemplates` stores each non-frequency public trip's own
+  interned stop/offset/sequence/NŻ/shape variant, indexed by trip ID and by route at load. Retained
+  calendars validate `trip` + `date`, including dates outside the board's three-day window; `seq`
+  preserves loop occurrences. Never substitute the representative `routePatterns` shape for a course.
+  `/api/gtfs/line` additively accepts `trip`+`date` (course) or `stop`+`dir` (concrete timetable).
+  Unknown valid IDs return null/empty; malformed input fails before accessing pollers. Frequency
+  service remains approximate. Timetable minutes link to an actual trip/date; `occ` preserves the
+  chosen occurrence in the ordinary line view. No per-request scans of stop_times or feed downloads.
 - **Technical trip = `exceptional=1` OR headsign `/zajezdn/i`** (`tripSchema`) — the WTP feed is
   sometimes inconsistent (depot run with `exceptional=0`, 2026-09-04). Doesn't feed
   `routePatterns` nor the `run*` index.

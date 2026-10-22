@@ -10,6 +10,7 @@ import { hasCustomStroke, strokeFor } from './map/mapData'
 import { formatAgo, formatSecondsOfDay } from '@/lib/format'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { pluralPl } from '@/lib/plural'
+import { formatDataTimestamp } from '@/lib/dataTimestamp'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
 import type { LineRouteStop } from '@/lib/gtfs/query'
 import type { GtfsMode, LineKind } from '@/lib/gtfs/types'
@@ -18,6 +19,8 @@ import type { VehicleOnRoute } from '@/lib/gtfs/vehicleProject'
 type Props = {
   city: string
   stops: LineRouteStop[]
+  /** Concrete course instants, including their civil date after midnight. */
+  plannedTimes?: string[]
   /** Podświetla PIERWSZE wystąpienie tego przystanku (przebieg może go powtórzyć). */
   selectedStopId: string | null
   /** Wybrany start kursu (sekundy doby): z nim wiersze pokazują godziny, bez niego przesunięcie „+N min”. */
@@ -38,7 +41,7 @@ const NO_VEHICLES: VehicleOnRoute[] = []
  * trzyma rodzic. Dwa osobne elementy interaktywne w wierszu (nigdy zagnieżdżone). GTFS: tylko „rozkład”, zero
  * opóźnień (#13); pojazd na osi to rzut pozycji na przebieg, nie ETA.
  */
-export function LineRouteList({ city, stops, selectedStopId, selectedIndex: selectedRow, selectedBaseSec, onSelectStop, vehicles = NO_VEHICLES, mode, kind }: Props) {
+export function LineRouteList({ city, stops, plannedTimes, selectedStopId, selectedIndex: selectedRow, selectedBaseSec, onSelectStop, vehicles = NO_VEHICLES, mode, kind }: Props) {
   if (stops.length === 0) {
     return (
       <p role="status" className="text-sm text-text-secondary">
@@ -57,7 +60,7 @@ export function LineRouteList({ city, stops, selectedStopId, selectedIndex: sele
       <h2 className="text-sm font-bold text-foreground">
         Trasa linii · {stops.length} {pluralPl(stops.length, 'przystanek', 'przystanki', 'przystanków')}
       </h2>
-      <ol className="mt-3">
+      <ol className="@container/course-axis mt-3">
         {stops.map((stop, index) => {
           const active = index === selectedIndex
           const first = index === 0
@@ -106,19 +109,19 @@ export function LineRouteList({ city, stops, selectedStopId, selectedIndex: sele
                 )}
               </div>
 
-              <div className="mb-2 flex min-w-0 flex-1 items-stretch gap-1">
+              <div className={`mb-2 flex min-w-0 flex-1 items-stretch gap-1 ${plannedTimes === undefined ? '' : 'flex-wrap @min-[24rem]/course-axis:flex-nowrap'}`}>
                 <button
                   type="button"
                   onClick={() => onSelectStop(stop.stopId, index)}
                   aria-pressed={active}
                   // Wybór: obrys + pogrubienie + tło (nie sam kolor). Obrys jest zawsze, tylko przezroczysty — wtedy zanika płynnie (200 ms), bez pętli.
-                  className={`press flex min-w-0 flex-1 items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm outline-2 -outline-offset-2 transition-colors duration-[var(--duration-base)] focus-visible:outline-primary-text motion-reduce:transition-none max-sm:min-h-11 max-sm:items-center ${
+                  className={`press flex min-w-0 ${plannedTimes === undefined ? 'flex-1' : 'flex-[1_1_100%] flex-wrap @min-[24rem]/course-axis:flex-1 @min-[24rem]/course-axis:flex-nowrap'} items-baseline gap-2 rounded-lg px-2 py-1 text-left text-sm outline-2 -outline-offset-2 transition-colors duration-[var(--duration-base)] focus-visible:outline-primary-text motion-reduce:transition-none max-sm:min-h-11 max-sm:items-center ${
                     active
                       ? 'bg-primary-soft font-semibold text-foreground outline-primary'
                       : 'text-text-secondary outline-transparent hover:text-foreground'
                   }`}
                 >
-                  <span className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${first || last ? 'font-semibold text-foreground' : ''}`}>
+                  <span className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${plannedTimes === undefined ? '' : 'basis-full @min-[24rem]/course-axis:basis-auto'} ${first || last ? 'font-semibold text-foreground' : ''}`}>
                     {name}
                     {stop.onRequest && (
                       <span className="ml-1.5 inline-block align-middle">
@@ -134,7 +137,7 @@ export function LineRouteList({ city, stops, selectedStopId, selectedIndex: sele
                     <AccessibleIcon size={ICON_SIZE.chip} className="shrink-0 self-center text-warning-text" label="Przystanek niedostępny dla osób na wózku" />
                   )}
                   {passSec !== null ? (
-                    <span className="shrink-0 font-semibold tabular-nums text-primary-text">{formatSecondsOfDay(passSec)}</span>
+                    <span className={`shrink-0 font-semibold tabular-nums text-primary-text ${plannedTimes === undefined ? 'text-right' : 'basis-full text-left @min-[24rem]/course-axis:basis-auto @min-[24rem]/course-axis:text-right'}`}>{formatSecondsOfDay(passSec)}{plannedTimes?.[index] !== undefined && <span className="block text-[13px] font-medium text-text-secondary">{formatDataTimestamp(plannedTimes[index]).split(',')[0]}</span>}</span>
                   ) : (
                     index > 0 && <span className="shrink-0 text-xs tabular-nums text-text-muted">+{Math.round(stop.offsetSec / 60)} min</span>
                   )}

@@ -38,7 +38,7 @@ export type MapMover = { id: string; lat: number; lon: number; label: string; mo
  */
 export type MapRoute = { points: { lat: number; lon: number }[]; mode: GtfsMode; kind: LineKind }
 
-type MoverHandle = { sync: (movers: MapMover[]) => void }
+type MoverHandle = { sync: (movers: MapMover[]) => void; selectPin: (id: string | undefined) => void }
 
 /** Podkłady OpenFreeMap — wspólne dla `MapView` i mapy miasta (`map/TransitMap.tsx`). */
 export const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty'
@@ -178,13 +178,15 @@ function mountMap(
   route: MapRoute | undefined,
   moverHandle: { current: MoverHandle | null },
   initialMovers: MapMover[],
-  dark: boolean
+  dark: boolean,
+  selection: { current: string | undefined }
 ): () => void {
   let cancelled = false
   let map: MapLibreMap | null = null
   const markers: { marker: MapLibreMarker; root: Root }[] = []
   const moverMarkers = new Map<string, MapLibreMarker>()
   const moverArrows = new Map<string, HTMLElement>()
+  const pinElements = new Map<string, HTMLElement>()
 
   import('maplibre-gl').then((lib) => {
     if (cancelled) return
@@ -230,7 +232,15 @@ function mountMap(
         moverArrows.delete(id)
       }
     }
-    moverHandle.current = { sync: syncMovers }
+    function selectPin(id: string | undefined): void {
+      for (const [pinId, element] of pinElements) {
+        if (id === undefined) { element.removeAttribute('aria-pressed'); element.style.outline = ''; continue }
+        element.setAttribute('aria-pressed', String(pinId === id))
+        element.style.outline = pinId === id ? '3px solid var(--primary-text)' : ''
+        element.style.outlineOffset = pinId === id ? '3px' : ''
+      }
+    }
+    moverHandle.current = { sync: syncMovers, selectPin }
     syncMovers(initialMovers)
 
     if (route !== undefined && route.points.length >= 2) {
@@ -285,12 +295,20 @@ function mountMap(
       // DRUGI RAZ (zamyka). Tu tylko `onPinClick` — reszta dzieje się sama.
       const id = pin.id
       if (onPinClick !== undefined) {
+        element.setAttribute('role', 'button')
+        element.setAttribute('aria-label', pin.label)
+        element.tabIndex = 0
         element.addEventListener('click', () => onPinClick(id))
+        element.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); element.click() }
+        })
       }
+      pinElements.set(id, element)
       markers.push({ marker, root })
       bounds.extend([pin.lon, pin.lat])
     }
     if (pins.length > 1) map.fitBounds(bounds, { padding: 40, maxZoom: 16 })
+    selectPin(selection.current)
   })
 
   return () => {
@@ -315,6 +333,7 @@ export function MapView({
   movers,
   dark,
   compact = false,
+  selectedPinId,
 }: {
   /** Motyw z `resolvedTheme` wołającego — podkład jak na mapie miasta. Zmiana = mapa montowana od nowa (rzadkie: klik w przełącznik motywu). */
   dark: boolean
@@ -325,9 +344,12 @@ export function MapView({
   movers?: MapMover[]
   /** Podgląd w przepływie telefonu (ekran przystanku, ≤ 180 px): `h-44` zamiast `h-64`. */
   compact?: boolean
+  /** Updates selection in place; it never resets the camera or reconstructs the map. */
+  selectedPinId?: string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
+  const selectedRef = useRef(selectedPinId)
   const [expanded, setExpanded] = useState(false)
   // Gdzie portalować powiększenie: otwarty modalny `<dialog>` przodka albo `body` (komentarz przy portalu).
   const [portalTarget, setPortalTarget] = useState<Element | null>(null)
@@ -358,6 +380,12 @@ export function MapView({
   const routeKey = route === undefined ? '' : `${route.points.length}:${lineColor(route.mode, route.kind).bg}`
 
   useEffect(() => {
+    selectedRef.current = selectedPinId
+    miniHandle.current?.selectPin(selectedPinId)
+    fullHandle.current?.selectPin(selectedPinId)
+  }, [selectedPinId])
+
+  useEffect(() => {
     moversRef.current = movers ?? []
     miniHandle.current?.sync(moversRef.current)
     fullHandle.current?.sync(moversRef.current)
@@ -365,7 +393,7 @@ export function MapView({
 
   useEffect(() => {
     if (containerRef.current === null || pins.length === 0) return
-    return mountMap(containerRef.current, pins, onPinClick, false, route, miniHandle, moversRef.current, dark)
+    return mountMap(containerRef.current, pins, onPinClick, false, route, miniHandle, moversRef.current, dark, selectedRef)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `pinsKey`/`routeKey` to celowe sygnatury treści `pins`/`route`, patrz komentarz wyżej.
   }, [pinsKey, routeKey, onPinClick, dark])
 
@@ -374,7 +402,7 @@ export function MapView({
   // zależnościach: sama zmiana refa nie wywołuje ponownego uruchomienia.
   useEffect(() => {
     if (!expanded || fullscreenContainerRef.current === null || pins.length === 0) return
-    return mountMap(fullscreenContainerRef.current, pins, onPinClick, true, route, fullHandle, moversRef.current, dark)
+    return mountMap(fullscreenContainerRef.current, pins, onPinClick, true, route, fullHandle, moversRef.current, dark, selectedRef)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- jak wyżej + `expanded` steruje montowaniem.
   }, [expanded, pinsKey, routeKey, onPinClick, dark])
 
