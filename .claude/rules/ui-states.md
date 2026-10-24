@@ -46,6 +46,9 @@ data age, not a white screen. Error banner only for a configuration error (401).
 - ADR0013 PR07 line statistics: one panel below the main content on phones and beside it on desktop; full stop
   and request-stop counts for each direction, compact fleet-number lists, independent GPS source states.
   Both direction hooks reuse the server's existing vehicle feed; changing theme/width never creates new owners.
+- ADR0013 PR09 PKP connection: map precedes the stop timeline on desktop; phones keep the timeline first to
+  preserve the first-stop visibility budget. Show a schematic disclaimer, explicit missing
+  coordinate/position states, and estimated wording for unconfirmed timeline anchors. Reuse the shared resolver.
 - ADR0013 PR06 stop: tabs are departures/schedule/alerts; line roster stays in context. Statistics are after
   departures in DOM (aside on desktop, Info on phones). Concrete course route/map remain visible when GPS
   or alerts fail. New line API advertises `supportsCourses`; old payloads retain the previous timetable.
