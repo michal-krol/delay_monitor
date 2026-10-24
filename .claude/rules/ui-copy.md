@@ -212,8 +212,12 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   wcześniejszej wersji.” (never the server's „Błąd …”). Empty route = `role="status"` „PKP nie udostępnia teraz trasy
   tego połączenia.” under the h1, with the same two actions.
 - Long route: „Pokaż całą trasę ({N} przystanków)” ↔ „Zwiń trasę” (`aria-expanded`, no fetch).
-- Map: „Szacowana pozycja” (popup and caption) — never „na żywo”, „Live” or GPS wording for PKP; no marker and no
-  caption when the resolver gives nothing. First-fetch error offers „Spróbuj ponownie” and „Szukaj stacji” (→ `/search`).
+- Map before the stop timeline on desktop and after it on phones (preserve the first-stop visibility budget):
+  „Szacowana pozycja” (popup and caption), never presented as live GPS. The visible
+  disclaimer is „Schemat połączeń między stacjami — nie przedstawia przebiegu torów.” Without a position use
+  „Brak szacowanej pozycji pociągu.”; without enough coordinates use „Brak współrzędnych do pokazania mapy trasy.”
+  No marker when the resolver gives nothing. Estimated timeline anchors say „Szacowana pozycja”, while a current
+  confirmation retains „Pociąg jest tutaj”. First-fetch error offers „Spróbuj ponownie” and „Szukaj stacji” (→ `/search`).
 
 ## Start (`/`, `StartEntry`, `StationCard`, `TransitStopCard`, PR11)
 

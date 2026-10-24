@@ -79,6 +79,14 @@ function rowOf(name: string): HTMLElement {
 }
 
 describe('TrainRouteList', () => {
+  it.each([
+    ['schedule', 'Szacowana pozycja — wg rozkładu'],
+    ['stale', 'Szacowana pozycja — rozkład i ostatnie potwierdzenie'],
+  ] as const)('describes the %s anchor as an estimate', (mode, label) => {
+    renderList(route(4), { anchor: { index: 1, mode } })
+    expect(within(rowOf('Stacja 1')).getByText(label)).toBeInTheDocument()
+    expect(screen.queryByText(/Pociąg jest tutaj/)).not.toBeInTheDocument()
+  })
   it('stop name links to its station (validated id, encoded name)', () => {
     renderList([stop(0, { stationId: '33605', stationName: 'Łódź Fabryczna & Co/1' }), stop(1)])
     const link = screen.getByRole('link', { name: /Łódź Fabryczna & Co\/1/ })

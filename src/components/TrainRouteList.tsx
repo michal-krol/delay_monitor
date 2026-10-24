@@ -187,9 +187,9 @@ export function TrainRouteList({ stops, statuses, anchor, now, expanded, onToggl
                         >
                           <VehiclePositionIcon size={ICON_SIZE.inline} />
                           {scheduleMode
-                            ? 'Pociąg jest tutaj — wg rozkładu'
+                            ? 'Szacowana pozycja — wg rozkładu'
                             : staleProjection
-                              ? 'Pociąg jest tutaj — szacowane z rozkładu'
+                              ? 'Szacowana pozycja — rozkład i ostatnie potwierdzenie'
                               : 'Pociąg jest tutaj'}
                         </span>
                       )}
