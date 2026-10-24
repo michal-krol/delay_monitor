@@ -10,6 +10,7 @@ import { ContextAlerts } from '@/components/ContextAlerts'
 import { LineBadge } from '@/components/LineBadge'
 import { LineRouteList } from '@/components/LineRouteList'
 import { LineTimetable } from '@/components/LineTimetable'
+import { LineStatistics } from '@/components/LineStatistics'
 import { TransitCourseView } from '@/components/TransitCourseView'
 import { ConcreteTimetable } from '@/components/ConcreteTimetable'
 import { parseCourseView } from '@/lib/courseView'
@@ -19,10 +20,10 @@ import { TabCrossfade } from '@/components/TabCrossfade'
 import { TransitFetchStatus } from '@/components/TransitFetchStatus'
 import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
-import { AsideCard, PageShell } from '@/components/aside'
+import { PageShell } from '@/components/aside'
 import { AlertCircleIcon, ArrowLeftIcon, ChevronRightIcon, ICON_SIZE, MapIcon, SwapIcon } from '@/components/icons'
 import { LINE_KIND_LABEL, MODE_ICON, MODE_LABEL } from '@/components/transitMode'
-import { formatAgo, formatSecondsOfDay } from '@/lib/format'
+import { formatAgo } from '@/lib/format'
 import { dedupeAlerts } from '@/lib/gtfs/alertView'
 import { getCity } from '@/lib/gtfs/cities'
 import { NAV_BACK_TYPES, NAV_FORWARD_TYPES } from '@/lib/navTransition'
@@ -159,7 +160,9 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   // Endpoint pozycji przyjmuje wyłącznie kierunek 0/1; przebieg bywa oznaczony `2` (nieznany) — wtedy hook nie pyta
   // i nie renderujemy markerów ani listy pojazdów.
   const showVehicles = direction !== undefined && (direction.directionId === 0 || direction.directionId === 1)
-  const liveVehicles = useLineVehicles(city, routeId, showVehicles ? direction.directionId : 2)
+  const vehicles0 = useLineVehicles(city, routeId, directions.some((d) => d.directionId === 0) ? 0 : 2)
+  const vehicles1 = useLineVehicles(city, routeId, directions.some((d) => d.directionId === 1) ? 1 : 2)
+  const liveVehicles = direction?.directionId === 1 ? vehicles1 : vehicles0
 
   // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam przystanek może wystąpić
   // dwa razy), pojazdy z tego samego pollingu co lista „Pojazdy w trasie" -- zero nowych zapytań.
@@ -267,56 +270,9 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   })
   const onMapPinClick = useCallback((id: string) => onPinRef.current(id), [])
 
-  const asideContent = (
-    <>
-      {line !== null && direction !== undefined && (
-        <AsideCard title={`Linia ${line.line}`}>
-          <dl className="flex flex-col gap-1.5 text-xs">
-            <div className="flex justify-between gap-2">
-              <dt className="text-text-muted">Rodzaj</dt>
-              <dd className="text-foreground">{MODE_LABEL[line.mode]}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-text-muted">Kierunki</dt>
-              <dd className="text-foreground">{directions.length}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-text-muted">Przystanki</dt>
-              <dd className="text-foreground">{stops.length}</dd>
-            </div>
-            {direction.departures[0]?.times.length ? (
-              <div className="flex justify-between gap-2">
-                <dt className="text-text-muted">Pierwszy / ostatni</dt>
-                <dd className="tabular-nums text-foreground">
-                  {formatSecondsOfDay(direction.departures[0].times[0])}–{formatSecondsOfDay(direction.departures[0].times.at(-1)!)}
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        </AsideCard>
-      )}
-
-      {/* Stan pozycji (wczytywanie / błąd / brak feedu / brak pojazdów) mówi wiersz „Pojazdy w tym kierunku" w głównej kolumnie — tu tylko lista. */}
-      {showVehicles && direction !== undefined && liveVehicles.vehicles.length > 0 && (
-        <AsideCard title={`Pojazdy w trasie${direction.headsign ? ` — ${direction.headsign}` : ''}`}>
-          <ul className="flex flex-col gap-1.5 text-xs">
-            {liveVehicles.vehicles
-              .slice()
-              .sort((a, b) => a.afterStopOrder - b.afterStopOrder)
-              .map((v) => (
-                <li key={v.sideNumber + v.tripId} className="flex justify-between gap-2">
-                  <span className="text-foreground">#{v.sideNumber}</span>
-                  <span className="text-text-muted">
-                    za „{afterStopName(stops, v.afterStopOrder)}”
-                    {v.ageSec > 60 && ` · GPS: ${formatAgo(v.ageSec)}`}
-                  </span>
-                </li>
-              ))}
-          </ul>
-        </AsideCard>
-      )}
-    </>
-  )
+  const asideContent = line !== null && direction !== undefined
+    ? <LineStatistics line={line} vehicles={{ 0: vehicles0, 1: vehicles1 }} />
+    : null
 
   const catalogLink = (
     <Link href={`/city/${city}/lines`} transitionTypes={NAV_BACK_TYPES} className="chip-filter mt-3 gap-1.5">

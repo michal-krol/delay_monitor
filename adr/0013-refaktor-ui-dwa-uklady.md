@@ -117,6 +117,12 @@ przystanku i całego wyboru konkretnego kursu GTFS (przeniesionego z PR07), jego
 kontraktów API/URL, mapy i osi. PR08 obejmuje wyłącznie tablicę i kontekst stacji PKP.
 PR06 koordynuje zmiany współdzielone; implementerzy nie edytują równolegle tych samych plików.
 Identyfikacja kursu to `trip` + dzień kursowania `date`; `seq` wskazuje wystąpienie przystanku.
+Za zgodą właściciela z 2026-10-24 etapy 07 i 09 są realizowane równolegle na bazie
+zintegrowanych PR06 i PR08 (`21c170b`). Etap 07 jest właścicielem ogólnego widoku linii,
+statystyk obu kierunków i zwartej listy numerów bocznych; etap 09 szczegółów połączenia
+PKP oraz jego osi. Oba etapy zawierają identyczną poprawkę kontenera mapy (`relative`), aby zachować
+przycinanie znaczników po zmianie szerokości; pozostałe wspólne komponenty mapy są poza podziałem. Dokumentację
+wspólną i weryfikację integracyjną prowadzi koordynator; etap 10 zaczyna po odbiorze tych prac.
 Rozkład linii zachowuje `dir`, `stop`, `pane`, `day` i addytywne `occ` dla powtórzeń na pętli.
 Minuta rozkładu wybiera rzeczywisty kurs w najbliższym dostępnym dniu jego kalendarza,
 z zachowaniem osobnego piątku i wyjątków. Kursy częstotliwościowe pozostają orientacyjne;

@@ -99,6 +99,14 @@ describe('MapView', () => {
     expect(screen.getByRole('region', { name: 'Mapa' })).toHaveClass('h-64')
   })
 
+  it('keeps its clipping containing block before MapLibre attaches classes and after compact changes', () => {
+    const pins = [{ id: 'a', lat: 52, lon: 21, label: 'A' }]
+    const { rerender } = render(<MapView dark={false} pins={pins} ariaLabel="Mapa" />)
+    expect(screen.getByRole('region', { name: 'Mapa' })).toHaveClass('relative', 'overflow-hidden')
+    rerender(<MapView dark={false} pins={pins} ariaLabel="Mapa" compact />)
+    expect(screen.getByRole('region', { name: 'Mapa' })).toHaveClass('relative', 'overflow-hidden')
+  })
+
   it('tworzy jeden marker na pin i wyśrodkowuje na pierwszym', async () => {
     render(
       <MapView

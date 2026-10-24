@@ -17,6 +17,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Statystyki linii miejskiej pokazują oba kierunki, pełne liczby przystanków i przystanków
+  na żądanie oraz zwartą listę numerów bocznych. Na telefonie są pod trasą i rozkładem.
+
 - Tablica stacji PKP pokazuje pełne nazwy stacji, pociągów, przewoźników i kierunków.
   W wąskim panelu używa kart z rozwijanymi stacjami pośrednimi, a tabela na komputerze
   ma więcej miejsca obok panelu informacji. Rozwinięcie nie pobiera danych ponownie.
