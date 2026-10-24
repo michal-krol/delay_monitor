@@ -43,6 +43,9 @@ data age, not a white screen. Error banner only for a configuration error (401).
   (`deriveLineAlerts`: loading / failed / ready+[] / failed with the last list), and the age line. A failure in vehicles or
   alerts never hides the route or the timetable. `ready` + `line === null` is „Nie znaleziono linii”; zero stops is „Brak
   przebiegu tej linii.”, no crash.
+- ADR0013 PR09 PKP connection: map precedes the stop timeline on desktop; phones keep the timeline first to
+  preserve the first-stop visibility budget. Show a schematic disclaimer, explicit missing
+  coordinate/position states, and estimated wording for unconfirmed timeline anchors. Reuse the shared resolver.
 - ADR0013 PR06 stop: tabs are departures/schedule/alerts; line roster stays in context. Statistics are after
   departures in DOM (aside on desktop, Info on phones). Concrete course route/map remain visible when GPS
   or alerts fail. New line API advertises `supportsCourses`; old payloads retain the previous timetable.

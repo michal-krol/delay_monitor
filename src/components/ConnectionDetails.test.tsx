@@ -632,7 +632,7 @@ describe('ConnectionDetails', () => {
     // Zastrzeżenie widoczne
     expect(screen.getByText('Brak potwierdzeń przejazdu z PKP.')).toBeInTheDocument()
     // Znacznik pozycji z dopiskiem „wg rozkładu", na minionym przystanku (Gdańsk)
-    const here = screen.getAllByText('Pociąg jest tutaj — wg rozkładu')
+    const here = screen.getAllByText('Szacowana pozycja — wg rozkładu')
     expect(here).toHaveLength(1)
     // eslint-disable-next-line testing-library/no-node-access -- wiersz przystanku, przy którym stoi znacznik
     expect(here[0].closest('li')).toHaveTextContent('Gdańsk Główny')
@@ -747,7 +747,7 @@ describe('ConnectionDetails', () => {
 
     // Nie mylić z trybem „zero potwierdzeń" — ten ma potwierdzony Gdańsk.
     expect(screen.queryByText('Brak potwierdzeń przejazdu z PKP.')).not.toBeInTheDocument()
-    const here = screen.getAllByText('Pociąg jest tutaj — szacowane z rozkładu')
+    const here = screen.getAllByText('Szacowana pozycja — rozkład i ostatnie potwierdzenie')
     expect(here).toHaveLength(1)
     // Marker przeskoczył z Gdańska (ostatni potwierdzony) na Malbork (projekcja).
     // eslint-disable-next-line testing-library/no-node-access -- wiersz przystanku
@@ -1339,13 +1339,16 @@ describe('ConnectionDetails', () => {
 })
 
 describe('route map', () => {
-  it('does not render a map section when stops have no coordinates (existing fixtures, no lat/lon keys)', async () => {
+  it('explains unavailable map coordinates while keeping the route', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(RESPONSE)))
     freezeClock('2026-08-01T10:00:00.000Z')
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
 
     expect(await screen.findByText('EIC Grunwald')).toBeInTheDocument()
-    expect(screen.queryByText('Mapa trasy')).not.toBeInTheDocument()
+    expect(screen.getByText('Mapa trasy')).toBeInTheDocument()
+    expect(screen.getByText('Brak współrzędnych do pokazania mapy trasy.')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Przebieg trasy' })).toBeInTheDocument()
+    expect(maplibregl.Map).not.toHaveBeenCalled()
   })
 
   it('renders the map with a marker once at least two stops carry coordinates', async () => {
@@ -1361,6 +1364,9 @@ describe('route map', () => {
     render(<ConnectionDetails scheduleId="2026" orderId="12345" operatingDate="2026-08-01" trainLabel="EIC 2706" />)
 
     expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: 'Mapa trasy' })).toHaveLength(1)
+    expect(screen.getAllByRole('list', { name: 'Przebieg trasy' })).toHaveLength(1)
+    expect(screen.getByText('Schemat połączeń między stacjami — nie przedstawia przebiegu torów.')).toBeInTheDocument()
     // Etykieta „szacowane" musi być widoczna OD RAZU, nie dopiero po kliknięciu
     // w kropkę markera (AGENTS.md #7) -- pierwszy przystanek jest potwierdzony
     // (isConfirmed: true w RESPONSE), więc resolveInterpolatedPosition zwraca
@@ -1416,6 +1422,7 @@ describe('route map', () => {
     expect(await screen.findByText('Mapa trasy')).toBeInTheDocument()
     // Resolver bez pozycji: ani podpisu, ani markera (tylko 2 piny przystanków).
     expect(screen.queryByText(ESTIMATED_POSITION_CAPTION)).not.toBeInTheDocument()
+    expect(screen.getByText('Brak szacowanej pozycji pociągu.')).toBeInTheDocument()
     await waitFor(() => expect(maplibregl.Marker).toHaveBeenCalledTimes(2))
     expect(vi.mocked(maplibregl.Marker).mock.calls.some((call) => (call[0]?.element as HTMLElement | undefined)?.dataset.testid === 'map-mover')).toBe(false)
   })

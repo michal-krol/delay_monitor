@@ -535,7 +535,30 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   </div>
                 </div>
               )}
-              <section className="glass rounded-2xl p-5 sm:p-6">
+              <section className="glass order-2 rounded-2xl p-4 sm:order-1">
+                <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
+                {mapPins.length >= 2 ? (
+                  <>
+                    <MapView pins={mapPins} route={mapRoute} movers={mapMovers} ariaLabel={`Mapa trasy pociągu ${trainNumber}`} dark={resolvedTheme === 'dark'} />
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Schemat połączeń między stacjami — nie przedstawia przebiegu torów.
+                    </p>
+                    {/* Podpis widoczny od razu: popup markera nie wystarcza do odróżnienia szacunku od GPS. */}
+                    {mapMovers.length > 0 ? (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
+                        <TrainIcon size={ICON_SIZE.inline} className="shrink-0" />
+                        Szacowana pozycja — wg rozkładu i ostatniego potwierdzenia, nie GPS.
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-sm text-text-muted">Brak szacowanej pozycji pociągu.</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-text-muted">Brak współrzędnych do pokazania mapy trasy.</p>
+                )}
+              </section>
+
+              <section className="glass order-1 rounded-2xl p-5 sm:order-2 sm:p-6">
                 <SectionHeading>Przebieg trasy</SectionHeading>
                 <TrainRouteList
                   stops={data.stops}
@@ -547,27 +570,11 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                 />
               </section>
 
-              {mapPins.length >= 2 && (
-                <section className="glass rounded-2xl p-4">
-                  <h2 className="mb-3 text-sm font-bold text-foreground">Mapa trasy</h2>
-                  <MapView pins={mapPins} route={mapRoute} movers={mapMovers} ariaLabel={`Mapa trasy pociągu ${trainNumber}`} dark={resolvedTheme === 'dark'} />
-                  {/* Etykieta „szacowane" na samym popupie markera (klik) nie
-                      wystarcza (AGENTS.md #7) -- kropka rusza się po mapie i bez
-                      podpisu widocznego OD RAZU wygląda jak realny GPS. */}
-                  {mapMovers.length > 0 && (
-                    <p className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
-                      <TrainIcon size={ICON_SIZE.inline} className="shrink-0" />
-                      Szacowana pozycja — wg rozkładu i ostatniego potwierdzenia, nie GPS.
-                    </p>
-                  )}
-                </section>
-              )}
-
               {/* Baner utrudnień: „brak wyników" i „nie udało się sprawdzić" to dwa
                   różne komunikaty (AGENTS.md #7) — ten mówi wyłącznie to pierwsze.
                   Awaria pobrania ma własny komunikat wyżej. */}
               {routeDisruptions.length === 0 ? (
-                <div className="glass flex items-start gap-3 rounded-2xl p-4">
+                <div className="glass order-3 flex items-start gap-3 rounded-2xl p-4">
                   <span className="mt-0.5 shrink-0 text-text-muted">
                     <InfoIcon size={ICON_SIZE.button} />
                   </span>
@@ -579,7 +586,7 @@ export function ConnectionDetails({ scheduleId, orderId, operatingDate, trainLab
                   </div>
                 </div>
               ) : (
-                <div className="glass flex items-start gap-3 rounded-2xl p-4">
+                <div className="glass order-3 flex items-start gap-3 rounded-2xl p-4">
                   <span className="mt-0.5 shrink-0 text-warning-text">
                     <AlertCircleIcon size={ICON_SIZE.button} />
                   </span>

@@ -435,7 +435,7 @@ export function MapView({
   return (
     <>
       <div className="relative">
-        <div ref={containerRef} role="region" aria-label={ariaLabel} className={`${compact ? 'h-44' : 'h-64'} w-full overflow-hidden rounded-2xl`} />
+        <div ref={containerRef} role="region" aria-label={ariaLabel} className={`relative ${compact ? 'h-44' : 'h-64'} w-full overflow-hidden rounded-2xl`} />
         <button
           ref={expandButtonRef}
           type="button"
