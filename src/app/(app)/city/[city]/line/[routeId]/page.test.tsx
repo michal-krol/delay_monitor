@@ -183,7 +183,11 @@ const VEHICLES_READY = {
 function stubFetch(lineBody: unknown = LINE, vehiclesBody: unknown = VEHICLES_READY) {
   const fetchMock = vi.fn((url: string) => {
     if (url.startsWith('/api/gtfs/line')) return jsonResponse(lineBody)
-    if (url.startsWith('/api/gtfs/vehicles')) return jsonResponse(vehiclesBody)
+    if (url.startsWith('/api/gtfs/vehicles')) {
+      const body = vehiclesBody as typeof VEHICLES_READY
+      const directionId = Number(new URL(url, 'http://localhost').searchParams.get('direction'))
+      return jsonResponse({ ...body, vehicles: body.vehicles.filter((v) => v.directionId === directionId) })
+    }
     if (url.startsWith('/api/weather')) return jsonResponse({ available: false, reason: 'no-location' })
     return jsonResponse({ cities: [{ id: 'warszawa', name: 'Warszawa', railStations: [{ id: '33605', name: 'Warszawa Centralna' }] }] })
   })
@@ -349,7 +353,7 @@ describe('LineDetailPage', () => {
     stubFetch()
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
-    expect(await screen.findByRole('heading', { name: /Pojazdy w trasie/ })).toBeInTheDocument()
+    expect(await screen.findAllByRole('heading', { name: /Pojazdy w trasie/ })).toHaveLength(2)
     expect(await screen.findByText('#3801')).toBeInTheDocument()
   })
 
@@ -415,13 +419,25 @@ describe('LineDetailPage', () => {
 })
 
 describe('LineDetailPage — direction by id and URL state', () => {
+  it('shows complete stop and request-stop counts for each direction in one statistics panel', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    const panel = await screen.findByRole('region', { name: 'Statystyki linii' })
+    expect(within(panel).getByRole('heading', { name: 'Dworzec Centralny' })).toBeInTheDocument()
+    expect(within(panel).getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
+    expect(panel).toHaveTextContent('3 przystanki')
+    expect(panel).toHaveTextContent('2 przystanki')
+    expect(panel).toHaveTextContent('1 na żądanie')
+    expect(panel).toHaveTextContent('#3801')
+  })
   it('a direction with id 1 first in the array is shown first (no index = id assumption), and its vehicles are asked for', async () => {
-    const fetchMock = stubFetch(lineWith([DIR1, DIR0]))
+    const fetchMock = stubFetch(lineWith([DIR1, DIR0]), { ...VEHICLES_READY, vehicles: [{ ...VEHICLES_READY.vehicles[0], directionId: 1 }] })
     render(<LineDetailPage />)
     expect(await screen.findByText('Od: Dworzec Centralny')).toBeInTheDocument()
     expect(screen.getByText('Centrum', { selector: 'p' })).toBeInTheDocument()
     await screen.findByTestId('mover')
-    expect(callsTo(fetchMock, '/api/gtfs/vehicles').every(([url]) => String(url).includes('direction=1'))).toBe(true)
+    expect(callsTo(fetchMock, '/api/gtfs/vehicles')).toHaveLength(2)
+    expect(screen.getByTestId('mover')).toHaveTextContent('#3801')
   })
 
   it('switching direction writes dir=<id>, clears stop, selects the first stop of the new direction and keeps other params', async () => {
@@ -911,9 +927,9 @@ describe('LineDetailPage — vehicles', () => {
       vi.fn((url: string) => (url.startsWith('/api/gtfs/line') ? jsonResponse(LINE) : url.startsWith('/api/gtfs/vehicles') ? vehiclesResponse() : jsonResponse({ cities: [] })))
     )
     render(<LineDetailPage />)
-    expect(await screen.findByText(text)).toBeInTheDocument()
+    expect(await within(await screen.findByRole('region', { name: 'Pojazdy linii' })).findByText(text)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
-    for (const other of STATUS_TEXTS.filter((t) => t !== text)) expect(screen.queryByText(other)).not.toBeInTheDocument()
+    for (const other of STATUS_TEXTS.filter((t) => t !== text)) expect(screen.queryAllByText(other)).toHaveLength(0)
   })
 })
 
@@ -1063,7 +1079,7 @@ describe.each([
     expect(screen.getByRole('group', { name: 'Dni robocze' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '1 komunikat' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Pojazdy na mapie' })).toHaveAttribute('href', '/city/warszawa/map?line=20&dir=1')
-    if (mode === 'metro' || mode === 'rail') expect(await screen.findByText('Brak danych o pozycjach pojazdów')).toBeInTheDocument()
+    if (mode === 'metro' || mode === 'rail') expect(await within(screen.getByRole('region', { name: 'Pojazdy linii' })).findByText('Brak danych o pozycjach pojazdów')).toBeInTheDocument()
 
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/train'))).toBe(false)
   })

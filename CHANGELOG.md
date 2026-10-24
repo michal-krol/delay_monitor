@@ -17,6 +17,8 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Statystyki linii miejskiej pokazują oba kierunki, pełne liczby przystanków i przystanków
+  na żądanie oraz zwartą listę numerów bocznych. Na telefonie są pod trasą i rozkładem.
 - Szczegóły połączenia PKP pokazują na komputerze mapę przed osią przystanków, opisują schemat trasy
   i odróżniają szacowaną pozycję od potwierdzonego miejsca. Brak współrzędnych lub pozycji
   ma własny komunikat, bez ukrywania trasy połączenia.
