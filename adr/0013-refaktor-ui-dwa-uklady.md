@@ -123,6 +123,11 @@ statystyk obu kierunków i zwartej listy numerów bocznych; etap 09 szczegółó
 PKP oraz jego osi. Oba etapy zawierają identyczną poprawkę kontenera mapy (`relative`), aby zachować
 przycinanie znaczników po zmianie szerokości; pozostałe wspólne komponenty mapy są poza podziałem. Dokumentację
 wspólną i weryfikację integracyjną prowadzi koordynator; etap 10 zaczyna po odbiorze tych prac.
+Za zgodą właściciela z 2026-10-24 etapy 10 i 11 powstają równolegle na bazie
+`e0f41ac`, po integracji etapów 07 i 09. Etap 10 obejmuje mapę transportu i jej kontrolki,
+etap 11 karty Startu i dostępność historii. Osobne worktree i PR-y nie zmieniają równolegle
+tych samych plików aplikacji. Zalecana integracja: 10 → 11; drugi PR zachowuje oba wpisy
+CHANGELOG i ponawia weryfikację po aktualizacji bazy. Etap 12 zaczyna po odbiorze obu prac.
 Rozkład linii zachowuje `dir`, `stop`, `pane`, `day` i addytywne `occ` dla powtórzeń na pętli.
 Minuta rozkładu wybiera rzeczywisty kurs w najbliższym dostępnym dniu jego kalendarza,
 z zachowaniem osobnego piątku i wyjątków. Kursy częstotliwościowe pozostają orientacyjne;

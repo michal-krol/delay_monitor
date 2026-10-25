@@ -17,6 +17,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Mapa transportu rozwija wspólną wyszukiwarkę przyciskiem „Szukaj”, a listę obiektów
+  otwiera przyciskiem „Lista”. Pojazdy ze znanym kierunkiem jazdy mają czytelne znaczniki,
+  większe po wybraniu; brak kierunku zachowuje neutralny znacznik.
+  Panel linii pokazuje pełne nazwy i liczbę przystanków kierunku, a niedostępnych pozycji
+  pojazdów nie przedstawia jako zera.
+
 - Karty kolejowe Startu pokazują pełny kierunek oraz nazwę pociągu i peron również w wąskim
   panelu. Wyczyszczenie historii oddaje fokus do nagłówka miejsc zamiast gubić go po usunięciu przycisku.
 

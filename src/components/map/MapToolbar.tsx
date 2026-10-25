@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, type ReactNode } from 'react'
-import { CloseIcon, ListIcon, ShareIcon, ICON_SIZE } from '../icons'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { CloseIcon, ListIcon, SearchIcon, ShareIcon, ICON_SIZE } from '../icons'
 import { MapFilters } from './MapFilters'
 import { MapMoreMenu } from './MapMoreMenu'
 import { LAYER_LABEL, LAYER_MODE, activeFilterCount, toggleLayer, type LayerKey } from './mapData'
@@ -15,9 +15,9 @@ const TOOL_BUTTON =
 
 /**
  * Kontrolki mapy nad nią: pole wyszukiwania (`search`) i przyciski. Stan i callbacki ma strona — tu tylko układ.
- * Telefon: pole na całą szerokość, pod nim „Lista" i „Filtry" (zawsze widoczne, 44 px), „Przypięte" i „Więcej"
- * (tylko „Udostępnij"), niżej czipy rodzajów pojazdów (te same przełączniki `hidden` co „Filtry").
- * Od `sm`: pole (w-80) i rząd przycisków obok siebie, bez czipów (te same warstwy są w „Filtry").
+ * „Szukaj” rozwija istniejące pole pod kontrolkami; zwinięcie i zmiana szerokości zachowują jego stan.
+ * Telefon: kontrolki zawijają się, niżej czipy rodzajów pojazdów (ten sam `hidden` co „Filtry”).
+ * Od `sm`: pole ma w-80, bez czipów (te same warstwy są w „Filtry”).
  */
 export function MapToolbar({
   isWide,
@@ -50,6 +50,14 @@ export function MapToolbar({
   onOpenPinned: (point: PinnedPoint) => void
   onShare: () => void
 }) {
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchId = useId()
+  const searchRef = useRef<HTMLDivElement>(null)
+  const searchButtonRef = useRef<HTMLButtonElement>(null)
+  const toggleSearch = () => {
+    setSearchOpen((open) => !open)
+    if (!searchOpen) requestAnimationFrame(() => searchRef.current?.querySelector('input')?.focus())
+  }
   const listButton = (className = '') => (
     <button type="button" aria-pressed={listOpen} onClick={onToggleList} className={`${TOOL_BUTTON} ${className}`}>
       <ListIcon size={ICON_SIZE.button} />
@@ -68,38 +76,30 @@ export function MapToolbar({
     />
   )
 
-  if (isWide) {
-    return (
-      <div className="pointer-events-auto flex flex-wrap items-stretch gap-2">
-        <div className="w-80">{search}</div>
-        <div className="flex gap-2">
-          {listButton()}
-          <PinnedMenu pinnedItems={pinnedPoints} onOpen={onOpenPinned} />
-          {filters()}
-          <button
-            type="button"
-            onClick={onShare}
-            aria-label="Udostępnij ten widok mapy"
-            className="glass-chrome border border-surface-border shadow-md control-44 grid place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            <ShareIcon size={ICON_SIZE.button} />
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="pointer-events-auto flex w-full flex-col gap-1.5">
-      {search}
       {/* `relative`: panel „Filtry" rozciąga się na ten rząd (ich przycisk leży w środku, nie przy prawej krawędzi). */}
-      <div className="relative flex items-stretch gap-2">
-        {listButton('flex-1')}
-        {filters('flex-1')}
+      <div className="relative flex flex-wrap items-stretch gap-2">
+        <button ref={searchButtonRef} type="button" data-map-search-trigger="" aria-expanded={searchOpen} aria-controls={searchId} onClick={toggleSearch} className={TOOL_BUTTON}>
+          <SearchIcon size={ICON_SIZE.button} /> Szukaj
+        </button>
+        {listButton(isWide ? '' : 'flex-1')}
+        {filters(isWide ? '' : 'flex-1')}
         <PinnedMenu pinnedItems={pinnedPoints} onOpen={onOpenPinned} />
-        <MapMoreMenu onShare={onShare} />
+        {isWide ? (
+          <button type="button" onClick={onShare} aria-label="Udostępnij ten widok mapy" className={`${TOOL_BUTTON} control-44`}>
+            <ShareIcon size={ICON_SIZE.button} />
+          </button>
+        ) : <MapMoreMenu onShare={onShare} />}
       </div>
-      {vehicleLayers.length > 0 && (
+      <div id={searchId} ref={searchRef} hidden={!searchOpen} className={isWide ? 'w-80 max-w-full' : 'w-full'} onKeyDown={(event) => {
+        if (event.key !== 'Escape' || event.defaultPrevented) return
+        event.preventDefault()
+        event.stopPropagation()
+        setSearchOpen(false)
+        searchButtonRef.current?.focus()
+      }}>{search}</div>
+      {!isWide && vehicleLayers.length > 0 && (
         // Czipy = szybkie przełączniki TEGO SAMEGO zbioru `hidden` co panel „Filtry" (pressed = warstwa widoczna).
         // Przewijane w poziomie, gdy cztery rodzaje się nie mieszczą (375 px); `p-1` (offset 2 + obrys 2 px) żeby obrys fokusu nie był ucięty przez przewijany kontener.
         <div role="group" aria-label="Rodzaje pojazdów" className="flex gap-2 overflow-x-auto p-1 [scrollbar-width:none]">

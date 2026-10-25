@@ -193,6 +193,17 @@ describe('LinePanel', () => {
     alerts: [] as AlertRecord[], alertsState: 'ready' as const, alertsStale: false,
   }
 
+  it('does not turn unavailable vehicle counts into zero and shows complete direction counts and names', () => {
+    const stop = { stopId: '1', groupId: '1', name: 'Bardzo długa nazwa przystanku końcowego', code: '02', street: null, wheelchair: 0 as const, lat: 52, lon: 21, offsetSec: 0, onRequest: true }
+    const detail = { ...entry, directions: [{ directionId: 0, headsign: null, origin: null, departures: [], shape: null, stops: [stop, stop] }] }
+    const { rerender } = render(<LinePanel {...props} detail={detail} error={false} vehiclesOnLine={null} />)
+    expect(screen.getByText(/Pozycje pojazdów: brak danych/)).toBeInTheDocument()
+    expect(screen.getByText('2 przystanki · 2 na żądanie')).toBeInTheDocument()
+    expect(screen.getAllByText(/Bardzo długa/)[0]).not.toHaveClass('truncate')
+    rerender(<LinePanel {...props} detail={detail} error={false} vehiclesOnLine={0} />)
+    expect(screen.getByText(/Dostępne pozycje pojazdów: 0/)).toBeInTheDocument()
+  })
+
   it('LinePanel shows ContextAlerts loading/ready-empty/failed/stale', () => {
     const alert = { id: 'a1', routes: ['20'], effect: 'DETOUR', link: '', title: 'Objazd linii 20', body: 'Remont torowiska' }
     const { rerender } = render(<LinePanel {...props} detail={undefined} error={false} alerts={[]} alertsState="loading" />)

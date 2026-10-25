@@ -506,7 +506,7 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     expect(await center(page.getByRole('button', { name: /Filtry/ }))).toBeCloseTo(listCenter, 0)
     expect(await center(page.getByRole('button', { name: 'Więcej', exact: true }))).toBeCloseTo(listCenter, 0)
     const field = await box(mapSearch(page))
-    expect(field.y + field.height).toBeLessThanOrEqual((await box(list)).y + 1)
+    expect(field.y).toBeGreaterThanOrEqual((await box(list)).y + (await box(list)).height - 1)
     const chips = page.getByRole('group', { name: 'Rodzaje pojazdów' })
     await expect(chips).toBeVisible({ timeout: READY })
     const [listBox, chipsBox] = [await box(list), await box(chips)]
@@ -524,11 +524,11 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
     expect(card!.y).toBeGreaterThanOrEqual(chips!.y + chips!.height - 1)
   })
 
-  test('1280 px: pole i przyciski zostają w jednym rzędzie', async ({ page }) => {
+  test('1280 px: pole rozwija się pod przyciskami', async ({ page }) => {
     await openMap(page)
     const top = async (locator: Locator) => (await locator.boundingBox())!.y
     const row = await top(page.getByRole('button', { name: 'Lista', exact: true }))
-    expect(await top(mapSearch(page))).toBeCloseTo(row, 0)
+    expect(await top(mapSearch(page))).toBeGreaterThan(row)
   })
 })
 
@@ -932,7 +932,7 @@ for (const [label, viewport] of [
         await pickResult(page, query, lineRow(query))
         const panel = dock(page).getByRole('dialog', { name: `Linia ${query}` })
         await expect(panel).toBeVisible()
-        await expect(panel.getByText(`${mode} · w trasie: ${vehicles}`)).toBeVisible({ timeout: READY })
+        await expect(panel.getByText(`${mode} · Dostępne pozycje pojazdów: ${vehicles}`)).toBeVisible({ timeout: READY })
         const badge = panel.locator('[style*="background"]').first()
         expect(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), `kolor linii ${query}`).toBe(rgb)
         const icon = await badge.locator('svg').evaluate((el) => el.innerHTML)
@@ -953,7 +953,7 @@ for (const [label, viewport] of [
       await pickResult(page, 'M2', lineRow('M2'))
       const panel = dock(page).getByRole('dialog', { name: 'Linia M2' })
       await expect(panel).toBeVisible()
-      await expect(panel.getByText('metro · w trasie: 0')).toBeVisible({ timeout: READY })
+      await expect(panel.getByText('metro · Dostępne pozycje pojazdów: 0')).toBeVisible({ timeout: READY })
       await expect(panel.getByText(/Nie udało się pobrać przebiegu linii/)).toHaveCount(0)
       await panel.getByRole('button', { name: 'Zakończ tryb linii' }).click()
       await expect(panel).toBeHidden()

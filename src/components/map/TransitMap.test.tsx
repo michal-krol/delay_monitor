@@ -90,6 +90,20 @@ let reducedMotion = true
 window.matchMedia = ((query: string) => ({ matches: query.includes('reduce') && reducedMotion })) as unknown as typeof window.matchMedia
 
 describe('TransitMap', () => {
+  it('uses centered 22px heading markers and a 28px selected heading while unknown headings stay circles', async () => {
+    const { map, rerender } = await mounted({ selected: { lat: 52.2, lon: 21, bearing: 90 } })
+    const arrow = map.addLayer.mock.calls.find(([layer]: [{ id: string }]) => layer.id === 'vehicles-arrows')[0]
+    expect(arrow.minzoom).toBeUndefined()
+    expect(arrow.layout['icon-size']).toBe(22 / 16)
+    expect(arrow.layout['icon-offset']).toBeUndefined()
+    expect(map.addLayer.mock.calls.find(([layer]: [{ id: string }]) => layer.id === 'vehicles')[0].filter).toEqual(['!', ['has', 'bearing']])
+    const selected = map.addLayer.mock.calls.find(([layer]: [{ id: string }]) => layer.id === 'selected-heading')[0]
+    expect(selected.layout['icon-size']).toBe(28 / 16)
+    rerender(<TransitMap {...base} selected={{ lat: 52.2, lon: 21, bearing: 180 }} />)
+    expect(sources.get('selected')!.setData).toHaveBeenLastCalledWith(expect.objectContaining({ features: [expect.objectContaining({ properties: { bearing: 180 } })] }))
+    rerender(<TransitMap {...base} selected={{ lat: 52.2, lon: 21 }} />)
+    expect(sources.get('selected')!.setData).toHaveBeenLastCalledWith(expect.objectContaining({ features: [expect.objectContaining({ properties: {} })] }))
+  })
   afterEach(() => {
     vi.useRealTimers()
   })

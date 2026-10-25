@@ -14,11 +14,16 @@ const ITEMS: VisibleItem[] = [
 const READY = { state: 'ready' as const }
 
 function panel(over: Partial<Parameters<typeof OverviewPanel>[0]> = {}) {
-  const props = { items: ITEMS, overflow: false, feed: READY, onOpen: vi.fn(), ...over }
+  const props = { items: ITEMS, overflow: false, feed: READY, onOpen: vi.fn(), listOpen: true, ...over }
   return { ...render(<OverviewPanel {...props} />), props }
 }
 
 describe('OverviewPanel', () => {
+  it('keeps the default overview task-first and requires an explicit list action for object rows', () => {
+    panel({ listOpen: false })
+    expect(screen.getByText('1 pojazd · 2 przystanki · 1 stacja kolejowa')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Centrum 02' })).toBeNull()
+  })
   it('overview renders in a peek sheet with summary, age and legend', () => {
     render(
       <BottomSheet>
@@ -49,7 +54,7 @@ describe('OverviewPanel', () => {
     const onOpen = vi.fn()
     render(
       <BottomSheet>
-        <OverviewPanel items={ITEMS} overflow={false} feed={READY} onOpen={onOpen} />
+        <OverviewPanel items={ITEMS} overflow={false} feed={READY} onOpen={onOpen} listOpen />
       </BottomSheet>
     )
     fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ }))

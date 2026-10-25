@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ActiveFilterChips, MapToolbar, NoPositionNotice } from './MapToolbar'
 import { MapFilters } from './MapFilters'
@@ -29,6 +29,21 @@ function setup(overrides: Partial<Props> = {}) {
 }
 
 describe('MapToolbar on a phone', () => {
+  it('opens the mounted search explicitly, preserves its value and closes with Escape returning focus', async () => {
+    setup()
+    const toggle = screen.getByRole('button', { name: 'Szukaj' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('textbox', { name: 'Stacja, przystanek, linia lub pociąg' })).toBeNull()
+    fireEvent.click(toggle)
+    const field = screen.getByRole('textbox', { name: 'Stacja, przystanek, linia lub pociąg' })
+    await waitFor(() => expect(field).toHaveFocus())
+    fireEvent.change(field, { target: { value: 'Centrum' } })
+    fireEvent.keyDown(field, { key: 'Escape' })
+    expect(toggle).toHaveFocus()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(screen.getByRole('textbox')).toHaveValue('Centrum')
+  })
   it('Lista and Filtry are rendered on phone widths without opening a menu', () => {
     setup()
     const list = screen.getByRole('button', { name: 'Lista' })
