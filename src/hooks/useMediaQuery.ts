@@ -1,6 +1,6 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 /** Próg Tailwinda `sm` (40rem): poniżej telefon (arkusz od dołu), od niego prawa kolumna/panel obok. */
 export const SM_UP = '(min-width: 40rem)'
@@ -36,13 +36,17 @@ function mediaList(query: string): MediaQueryList {
  * miejscu (kolumna albo arkusz), a nie w dwóch kopiach ukrytych klasą.
  */
 export function useMediaQuery(query: string, serverValue: boolean): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
       if (!hasMatchMedia()) return () => {}
       const media = mediaList(query)
       media.addEventListener('change', onChange)
       return () => media.removeEventListener('change', onChange)
     },
+    [query]
+  )
+  return useSyncExternalStore(
+    subscribe,
     () => (hasMatchMedia() ? mediaList(query).matches : serverValue),
     () => serverValue
   )
