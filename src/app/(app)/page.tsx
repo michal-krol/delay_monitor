@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { pinnedItemFromOption, pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { Dashboard } from '@/components/Dashboard'
@@ -86,6 +86,7 @@ function PulpitPage() {
   const searchParams = useSearchParams()
   const wide = useMediaQuery(SM_UP, true)
   const mineHeadingId = useId()
+  const mineHeadingRef = useRef<HTMLHeadingElement>(null)
   const { pinnedItems, loaded, addPinned, removePinned, movePinned, replacePinned, isPinned } = usePinned()
   const [adding, setAdding] = useState(false)
   const [searching, setSearching] = useState(false)
@@ -178,7 +179,7 @@ function PulpitPage() {
       <StartLayout>
         <StartEntry onSearch={openSearch} />
         {mine}
-        {loaded && <RecentPlaces limit={4} />}
+        {loaded && <RecentPlaces limit={4} onCleared={() => mineHeadingRef.current?.focus()} />}
       </StartLayout>
       {/* Jedno okno: „Dodaj” przypina (onPick), pole „Stacja, przystanek, linia lub pociąg” otwiera zwykłe szukanie. */}
       <SearchDialog
@@ -195,7 +196,7 @@ function PulpitPage() {
   if (!loaded) {
     return shell(
       <section aria-labelledby={mineHeadingId} className="flex flex-col gap-3">
-        <MineHeading id={mineHeadingId} />
+        <MineHeading id={mineHeadingId} headingRef={mineHeadingRef} />
         <SkeletonCards />
       </section>
     )
@@ -221,7 +222,7 @@ function PulpitPage() {
 
   return shell(
     <section aria-labelledby={mineHeadingId} className="flex flex-col gap-3">
-      <MineHeading id={mineHeadingId}>{actions}</MineHeading>
+      <MineHeading id={mineHeadingId} headingRef={mineHeadingRef}>{actions}</MineHeading>
 
       {/* Zawsze w DOM: region `status` ogłasza zmianę treści, nie swoje pojawienie się. */}
       <div className={notice === null ? undefined : 'flex flex-wrap items-center gap-x-3 gap-y-1'}>
@@ -245,10 +246,10 @@ function PulpitPage() {
 }
 
 /** Nagłówek sekcji „Moje miejsca” z akcjami po prawej (zawijają się pod nagłówek na wąskim ekranie). */
-function MineHeading({ id, children }: { id: string; children?: ReactNode }) {
+function MineHeading({ id, headingRef, children }: { id: string; headingRef?: Ref<HTMLHeadingElement>; children?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 id={id} className="font-heading text-lg font-bold tracking-tight text-foreground">
+      <h2 ref={headingRef} id={id} tabIndex={-1} className="font-heading rounded-sm text-lg font-bold tracking-tight text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-text">
         Moje miejsca
       </h2>
       {children}
