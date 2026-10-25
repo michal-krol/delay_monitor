@@ -66,14 +66,14 @@ async function stationReady(page: Page): Promise<void> {
 
 const LINE_TIMETABLE = '/city/warszawa/line/20?pane=timetable'
 
-/** Telefon, rozkład linii 20 po hydracji: chip „Soboty” gotowy do kliknięcia. */
+/** Telefon, rozkład linii 20 po hydracji: chip „Sobota” gotowy do kliknięcia. */
 async function lineTimetableReady(page: Page): Promise<void> {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto(LINE_TIMETABLE)
   const chips = page.getByRole('group', { name: 'Kategoria dnia' })
-  await expect(chips.getByRole('button', { name: 'Dni robocze' })).toHaveAttribute('aria-pressed', 'true', { timeout: READY })
+  await expect(chips.getByRole('button', { name: 'Poniedziałek – Piątek', exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: READY })
   // A named transition is captured only when its timetable grid intersects the viewport.
-  await page.getByRole('heading', { name: 'Dni robocze', level: 3, exact: true }).locator('..').scrollIntoViewIfNeeded()
+  await page.getByRole('heading', { name: 'Poniedziałek – Piątek', level: 3, exact: true }).locator('..').scrollIntoViewIfNeeded()
   // Hydracja: klik przed nią przepada bez śladu.
   await page.waitForTimeout(500)
 }
@@ -114,8 +114,8 @@ test.describe('view transitions (motion allowed)', () => {
   test('phone: a day-category chip in the line timetable starts one transition under its own name', async ({ page }) => {
     await lineTimetableReady(page)
     await resetTransitions(page)
-    await page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Soboty' }).click()
-    await expect(page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Sobota', exact: true }).click()
+    await expect(page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Sobota', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect.poll(async () => (await transitions(page)).length).toBe(1)
     await expect.poll(async () => (await transitions(page))[0]?.pseudo?.some((name) => name.includes('line-day'))).toBe(true)
   })
@@ -187,8 +187,8 @@ test.describe('reduced motion', () => {
   test('phone: a day-category chip in the line timetable starts no view transition', async ({ page }) => {
     await lineTimetableReady(page)
     await resetTransitions(page)
-    await page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Soboty' }).click()
-    await expect(page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Sobota', exact: true }).click()
+    await expect(page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button', { name: 'Sobota', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await page.waitForTimeout(500)
     expect(await transitions(page)).toEqual([])
   })

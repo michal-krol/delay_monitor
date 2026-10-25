@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SM_UP, useMediaQuery, useReducedMotion } from './useMediaQuery'
 
 const original = window.matchMedia
@@ -27,6 +27,31 @@ function stubMedia(initial: boolean) {
 }
 
 describe('useMediaQuery', () => {
+  it('keeps its subscription across rerenders and replaces it when the query changes', () => {
+    const add = vi.fn()
+    const remove = vi.fn()
+    window.matchMedia = vi.fn(() => ({
+      matches: false,
+      addEventListener: add,
+      removeEventListener: remove,
+    })) as unknown as typeof window.matchMedia
+    const { rerender, unmount } = renderHook(
+      ({ query }) => useMediaQuery(query, false),
+      { initialProps: { query: SM_UP } }
+    )
+    rerender({ query: SM_UP })
+    rerender({ query: SM_UP })
+    expect(add).toHaveBeenCalledTimes(1)
+    expect(remove).not.toHaveBeenCalled()
+    rerender({ query: '(min-width: 64rem)' })
+    expect(add).toHaveBeenCalledTimes(2)
+    expect(remove).toHaveBeenCalledTimes(1)
+    unmount()
+    expect(remove).toHaveBeenCalledTimes(2)
+    expect(remove.mock.calls[0][1]).toBe(add.mock.calls[0][1])
+    expect(remove.mock.calls[1][1]).toBe(add.mock.calls[1][1])
+  })
+
   it('reads the query and follows its changes', () => {
     const set = stubMedia(false)
     const { result } = renderHook(() => useMediaQuery(SM_UP, true))
