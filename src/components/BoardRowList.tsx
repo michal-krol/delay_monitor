@@ -20,13 +20,13 @@ type Props = {
 /** Treść wiersza: ta sama kolumna godziny co tablica (`TimePair`), kierunek główny, status przy kursie. */
 function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
   return (
-    // Wąska karta układa status pod kierunkiem; próg zależy od miejsca i wielkości tekstu.
-    <span className="grid grid-cols-[auto_minmax(0,1fr)] @min-[20rem]:grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3">
-      <span className="@min-[20rem]:row-span-2">
+    // Powiększony tekst układa dane pionowo; status dostaje kolumnę dopiero w szerokiej karcie.
+    <span className="grid grid-cols-1 @min-[16rem]:grid-cols-[auto_minmax(0,1fr)] @min-[30rem]:grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3">
+      <span className="@min-[30rem]:row-span-2">
         <TimePair row={row} now={now} compact />
       </span>
-      <span className="min-w-0 truncate font-medium text-foreground">{row.headsign ?? '—'}</span>
-      <span className="col-span-2 min-w-0 @min-[20rem]:col-span-1 @min-[20rem]:text-right">
+      <span className="min-w-0 [overflow-wrap:anywhere] font-medium text-foreground">{row.headsign ?? '—'}</span>
+      <span className="min-w-0 @min-[16rem]:col-span-2 @min-[30rem]:col-span-1 @min-[30rem]:text-right">
         <DelayBadge
           status={row.status}
           delayMinutes={row.delayMinutes}
@@ -35,7 +35,7 @@ function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
         />
       </span>
       {/* Sam skrót przewoźnika (na prośbę usera): pełna nazwa prawna jest na karcie zawsze za długa. */}
-      <span className="col-span-2 min-w-0 truncate text-xs text-text-muted @min-[20rem]:col-start-2">
+      <span className="min-w-0 [overflow-wrap:anywhere] text-xs text-text-muted @min-[16rem]:col-span-2 @min-[30rem]:col-start-2">
         <span className="mr-1 inline-block align-[-2px]">
           <CarrierLogo carrierCode={row.carrier} size={ICON_SIZE.chip} />
         </span>
