@@ -256,6 +256,7 @@ describe('CityMapPage', () => {
   it('on a phone: one search field replaces the Przystanek/Linia tabs; the card is a bottom sheet', async () => {
     setWide(false)
     render(<CityMapPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Szukaj' }))
     expect(screen.getAllByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })).toHaveLength(1)
     expect(screen.queryByRole('group', { name: 'Czego szukasz' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Przystanek' })).toBeNull()
@@ -268,13 +269,29 @@ describe('CityMapPage', () => {
 })
 
 describe('CityMapPage — line mode', () => {
+  it.each(['loading', 'failed'])('keeps an initial %s source unknown even after an HTTP success', async (feedState) => {
+    window.history.replaceState(null, '', '/city/warszawa/map?line=20')
+    state.vehicles = { vehicles: [], feed: { state: feedState, ageMs: null }, alertLines: [], error: null, lastSuccessAt: Date.now() }
+    render(<CityMapPage />)
+    const panel = await screen.findByRole('dialog', { name: 'Linia 20' })
+    expect(within(panel).queryByText(/Dostępne pozycje pojazdów: 0/)).toBeNull()
+    expect(within(panel).getByText(feedState === 'loading' ? /Wczytywanie pozycji pojazdów/ : /Pozycje pojazdów: brak danych/)).toBeInTheDocument()
+  })
+  it('retains a known empty vehicle snapshot on a failed refresh instead of changing zero into unknown', async () => {
+    window.history.replaceState(null, '', '/city/warszawa/map?line=20')
+    state.vehicles = { vehicles: [], feed: { state: 'failed', ageMs: 13_000 }, alertLines: [], error: 'failed', lastSuccessAt: Date.now() }
+    render(<CityMapPage />)
+    const panel = await screen.findByRole('dialog', { name: 'Linia 20' })
+    expect(within(panel).getByText(/Dostępne pozycje pojazdów: 0/)).toBeInTheDocument()
+    expect(within(panel).getByText(/Pokazujemy ostatnie dane/)).toBeInTheDocument()
+  })
   it('shows the line panel with the route, switches direction into the URL, opens a stop, exits with ×', async () => {
     window.history.replaceState(null, '', '/city/warszawa/map?line=20')
     render(<CityMapPage />)
     const panel = await screen.findByRole('dialog', { name: 'Linia 20' })
     expect(await within(panel).findByText('Boernerowo Żerań')).toBeInTheDocument()
     expect(within(panel).getByRole('img', { name: 'do' })).toBeInTheDocument()
-    expect(within(panel).getByText(/w trasie: 1/)).toBeInTheDocument()
+    expect(within(panel).getByText(/Dostępne pozycje pojazdów: 1/)).toBeInTheDocument()
     await waitFor(() => expect(map().route?.key).toBe('20:0'))
 
     fireEvent.click(within(panel).getByRole('button', { name: 'Zmień kierunek' }))
@@ -315,7 +332,7 @@ describe('CityMapPage — line mode', () => {
     window.history.replaceState(null, '', '/city/warszawa/map?line=S1')
     render(<CityMapPage />)
     const panel = await screen.findByRole('dialog', { name: 'Linia S1' })
-    expect(within(panel).getByText(/kolej · w trasie: 0/)).toBeInTheDocument()
+    expect(within(panel).getByText(/kolej · Dostępne pozycje pojazdów: 0/)).toBeInTheDocument()
     // Przystanek z przebiegu kolei miejskiej: karta z własnym rodzajem (nie „Przystanek autobusowy").
     fireEvent.click(await within(panel).findByRole('button', { name: /Boernerowo/ }))
     expect(await screen.findByText('Stacja kolei miejskiej')).toBeInTheDocument()
@@ -326,6 +343,7 @@ describe('CityMapPage — line mode', () => {
     state.vehicles = { vehicles: [{ ...VEHICLE, directionId: 1 }], feed: { state: 'ready', ageMs: 1000 }, alertLines: [], error: null }
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Szukaj' }))
     await screen.findByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })
     map().onSelect({ kind: 'vehicle', id: 'v1' })
     fireEvent.click(await screen.findByRole('button', { name: 'Pokaż trasę na mapie' }))
@@ -359,6 +377,7 @@ describe('CityMapPage — overview sheet (phone)', () => {
 
   it('vehicle rows in the overview list say how old the position is and open the card', async () => {
     render(<CityMapPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false))
     const row = within(overview()).getByRole('button', { name: /Linia 20 → Centrum/ })
@@ -370,6 +389,7 @@ describe('CityMapPage — overview sheet (phone)', () => {
 
   it('a vehicle that keeps its id but changes line updates the list label (the signature guard compares labels too)', async () => {
     render(<CityMapPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false))
     expect(within(overview()).getByRole('button', { name: /Linia 20 → Centrum/ })).toBeInTheDocument()
@@ -549,7 +569,11 @@ describe('CityMapPage — camera insets', () => {
 })
 
 describe('CityMapPage — unified search', () => {
-  const field = () => screen.getByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })
+  const field = () => {
+    const toggle = screen.getByRole('button', { name: 'Szukaj' })
+    if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
+    return screen.getByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' })
+  }
   const MEMBER_2 = { id: '100102', groupId: '1001', name: 'Centrum', code: '02', lat: 52.25, lon: 21.03, mode: 'bus' }
   const linesCalls = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).startsWith('/api/gtfs/lines'))
 

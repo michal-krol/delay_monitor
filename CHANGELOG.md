@@ -17,6 +17,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Mapa transportu rozwija wspólną wyszukiwarkę przyciskiem „Szukaj”, a listę obiektów
+  otwiera przyciskiem „Lista”. Pojazdy ze znanym kierunkiem jazdy mają czytelne znaczniki,
+  większe po wybraniu; brak kierunku zachowuje neutralny znacznik.
+  Panel linii pokazuje pełne nazwy i liczbę przystanków kierunku, a niedostępnych pozycji
+  pojazdów nie przedstawia jako zera.
+
 - Statystyki linii miejskiej pokazują oba kierunki, pełne liczby przystanków i przystanków
   na żądanie oraz zwartą listę numerów bocznych. Na telefonie są pod trasą i rozkładem.
 - Szczegóły połączenia PKP pokazują na komputerze mapę przed osią przystanków, opisują schemat trasy

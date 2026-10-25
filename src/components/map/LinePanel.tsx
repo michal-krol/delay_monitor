@@ -11,6 +11,7 @@ import type { ContextAlertsState } from '@/lib/gtfs/alertView'
 import type { LineDetail, LineListEntry, LineRouteStop } from '@/lib/gtfs/query'
 import { PanelFrame } from './PanelFrame'
 import { stopDisplayName } from '../stopName'
+import { pluralPl } from '@/lib/plural'
 
 /**
  * Panel trybu linii (spec §6) — w tym samym dokowanym miejscu co karta obiektu.
@@ -26,6 +27,7 @@ export function LinePanel({
   error,
   directionId,
   vehiclesOnLine,
+  vehiclesState = 'ready',
   city,
   onDirection,
   onStop,
@@ -41,7 +43,8 @@ export function LinePanel({
   alertsStale: boolean
   error: boolean
   directionId: number
-  vehiclesOnLine: number
+  vehiclesOnLine: number | null
+  vehiclesState?: 'loading' | 'ready' | 'failed'
   city: string
   onDirection: (directionId: number) => void
   onStop: (stop: LineRouteStop) => void
@@ -54,7 +57,7 @@ export function LinePanel({
   return (
     <PanelFrame
       title={`Linia ${line.line}`}
-      subtitle={<p className="mt-0.5 text-sm text-text-secondary first-letter:uppercase">{MODE_LABEL[line.mode]} · w trasie: {vehiclesOnLine}</p>}
+      subtitle={<p className="mt-0.5 text-sm text-text-secondary first-letter:uppercase">{MODE_LABEL[line.mode]} · {vehiclesOnLine === null ? vehiclesState === 'loading' ? 'Wczytywanie pozycji pojazdów…' : 'Pozycje pojazdów: brak danych' : `Dostępne pozycje pojazdów: ${vehiclesOnLine}`}{vehiclesState === 'failed' && vehiclesOnLine !== null ? ' · Nie udało się odświeżyć. Pokazujemy ostatnie dane' : ''}</p>}
       leading={<LineBadge line={line.line} mode={line.mode} kind={line.kind} />}
       closeLabel="Zakończ tryb linii"
       onClose={onClose}
@@ -90,6 +93,7 @@ export function LinePanel({
               </button>
             )}
           </div>
+          <p className="mt-2 text-sm text-text-secondary">{direction.stops.length} {pluralPl(direction.stops.length, 'przystanek', 'przystanki', 'przystanków')} · {direction.stops.filter((stop) => stop.onRequest).length} na żądanie</p>
           <ol className="mt-3 space-y-0.5">
             {direction.stops.map((stop, index) => (
               <li key={`${stop.stopId}-${index}`}>
@@ -99,7 +103,7 @@ export function LinePanel({
                   className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <span className="w-6 shrink-0 text-right text-xs tabular-nums text-text-muted">{index + 1}</span>
-                  <span className="min-w-0 flex-1 truncate">{stopDisplayName(stop.name, stop.code)}</span>
+                  <span className="min-w-0 flex-1 break-words">{stopDisplayName(stop.name, stop.code)}</span>
                   {stop.onRequest && <OnRequestBadge />}
                 </button>
               </li>

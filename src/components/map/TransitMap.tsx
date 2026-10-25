@@ -36,6 +36,7 @@ export type MapView = { center: { lat: number; lon: number }; zoom: number }
 
 /** Warstwy klikalne, w kolejności pierwszeństwa, gdy pod palcem jest kilka obiektów. */
 const HIT_LAYERS: { layer: string; kind: MapHit['kind'] }[] = [
+  { layer: 'vehicles-arrows', kind: 'vehicle' },
   { layer: 'vehicles', kind: 'vehicle' },
   { layer: 'stops-metroStops', kind: 'stop' },
   { layer: 'rail-1', kind: 'rail' },
@@ -74,7 +75,7 @@ const DIMMABLE = ['rail-1', 'rail-2', 'rail-3', 'stops-busStops', 'stops-tramSto
 const DIM_OPACITY = 0.25
 /** Przytrzymanie palca na mapie = „co jest w pobliżu" (odpowiednik prawego kliku). */
 const LONG_PRESS_MS = 500
-const VISIBLE_KIND: Record<string, VisibleItem['kind']> = { vehicles: 'vehicle', 'rail-1': 'rail', 'rail-2': 'rail', 'rail-3': 'rail' }
+const VISIBLE_KIND: Record<string, VisibleItem['kind']> = { vehicles: 'vehicle', 'vehicles-arrows': 'vehicle', 'rail-1': 'rail', 'rail-2': 'rail', 'rail-3': 'rail' }
 
 /** Płynny przejazd między odczytami (co 15 s): ~1 s, ~15 klatek. */
 const GLIDE_MS = 1000
@@ -123,9 +124,9 @@ function backboneCollection(lines: BackboneLine[] | null): Data['backbone'] {
   }
 }
 
-function selectedCollection(selected: { lat: number; lon: number } | null): PointCollection {
+function selectedCollection(selected: { lat: number; lon: number; bearing?: number | null } | null): PointCollection {
   if (selected === null) return EMPTY
-  return { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [selected.lon, selected.lat] }, properties: {} }] }
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [selected.lon, selected.lat] }, properties: selected.bearing == null ? {} : { bearing: selected.bearing } }] }
 }
 
 /**
@@ -276,6 +277,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     id: 'vehicles',
     type: 'circle',
     source: 'vehicles',
+    filter: ['!', ['has', 'bearing']],
     paint: {
       'circle-color': ['get', 'color'],
       'circle-opacity': ['get', 'opacity'],
@@ -289,16 +291,13 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     id: 'vehicles-arrows',
     type: 'symbol',
     source: 'vehicles',
-    minzoom: 14,
     filter: ['has', 'bearing'],
     layout: {
       'icon-image': 'vehicle-arrow',
-      'icon-size': 0.55,
+      'icon-size': 22 / 16,
       'icon-rotate': ['get', 'bearing'],
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
-      // Przesunięcie „do przodu" obraca się razem z ikoną — strzałka stoi przed kropką.
-      'icon-offset': [0, -22],
     },
     paint: { 'icon-color': ['get', 'color'], 'icon-opacity': ['get', 'opacity'], 'icon-halo-color': strokeColor, 'icon-halo-width': 1 },
   })
@@ -324,12 +323,22 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
     id: 'selected',
     type: 'circle',
     source: 'selected',
+    filter: ['!', ['has', 'bearing']],
     paint: {
       'circle-radius': 14,
       'circle-color': 'rgba(0,0,0,0)',
       'circle-stroke-color': dark ? '#a5b4fc' : '#4338ca',
       'circle-stroke-width': 3,
     },
+  })
+
+  map.addLayer({
+    id: 'selected-heading',
+    type: 'symbol',
+    source: 'selected',
+    filter: ['has', 'bearing'],
+    layout: { 'icon-image': 'vehicle-arrow', 'icon-size': 28 / 16, 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true },
+    paint: { 'icon-color': dark ? '#a5b4fc' : '#4338ca', 'icon-halo-color': strokeColor, 'icon-halo-width': 1 },
   })
 
   applyHidden(map, hidden)
@@ -419,7 +428,7 @@ export function TransitMap({
   /** Wybrana linia — pokazujemy tylko jej pojazdy. */
   routeId: string | null
   /** Pozycja wybranego obiektu (obwódka). Pojazd: aktualizowana z każdym odczytem. */
-  selected: { lat: number; lon: number } | null
+  selected: { lat: number; lon: number; bearing?: number | null } | null
   /** Przelot kamery — nowy `nonce` = nowy przelot, także do tego samego miejsca. */
   focus: { lat: number; lon: number; nonce: number; zoom?: number } | null
   /** Tryb linii: przebieg wybranego kierunku; `key` zmienia się z linią/kierunkiem (nowy kadr). */
@@ -552,7 +561,7 @@ export function TransitMap({
       // Po każdym dorysowaniu (ruch kamery, nowe dane) — tylko gdy lista jest otwarta.
       mapInstance.on('idle', () => {
         if (!listOpenRef.current) return
-        const layers = ['vehicles', 'rail-1', 'rail-2', 'rail-3', 'stops-metroStops', 'stops-tramStops', 'stops-busStops'].filter(
+        const layers = ['vehicles', 'vehicles-arrows', 'rail-1', 'rail-2', 'rail-3', 'stops-metroStops', 'stops-tramStops', 'stops-busStops'].filter(
           (layer) => mapInstance.getLayer(layer) !== undefined
         )
         const seen = new Set<string>()
@@ -683,12 +692,13 @@ export function TransitMap({
 
   const selectedLat = selected?.lat
   const selectedLon = selected?.lon
+  const selectedBearing = selected?.bearing
   useEffect(() => {
-    const at = selectedLat === undefined || selectedLon === undefined ? null : { lat: selectedLat, lon: selectedLon }
+    const at = selectedLat === undefined || selectedLon === undefined ? null : { lat: selectedLat, lon: selectedLon, bearing: selectedBearing }
     selectedAtRef.current = at
     dataRef.current.selected = selectedCollection(at)
     ;(mapRef.current?.getSource('selected') as GeoJSONSource | undefined)?.setData(dataRef.current.selected)
-  }, [selectedLat, selectedLon])
+  }, [selectedLat, selectedLon, selectedBearing])
 
   // Zmiana insetów (arkusz zmienił wysokość, pasek urósł) przy wybranym obiekcie: łagodne przesunięcie, żeby obiekt został w
   // wolnym obszarze. Bez wyboru kamera stoi (padding dostanie przy następnym skupieniu); to samo, gdy przelot już go niósł.

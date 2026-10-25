@@ -23,6 +23,7 @@ export async function openMap(page: Page, path = CITY_MAP): Promise<Locator> {
   await page.goto(path)
   const map = page.getByRole('region', { name: MAP_NAME })
   await expect(map).toBeVisible({ timeout: READY })
+  await page.getByRole('button', { name: 'Szukaj', exact: true, expanded: false }).click()
   return map
 }
 

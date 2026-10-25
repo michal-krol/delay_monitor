@@ -38,6 +38,12 @@ enrichment).
 
 ## Colours on the map
 
+ADR0013 PR10: search starts collapsed behind „Szukaj”; keep its UnifiedSearch instance mounted
+while hidden and across width changes. Explicit opening focuses its input; Escape closes and returns
+focus after the search's own Escape handling. Overview summaries remain available, with object rows
+shown only after „Lista”. Known vehicle bearings use centered 22px chevrons (28px selected);
+unknown bearings use neutral circles. Hit-testing and viewport enumeration include both marker layers.
+
 Every map colour (pins, vehicles, route and backbone lines) comes from `lineColor()` /
 `MODE_COLOR` (`adr/0005`, `gtfs.md`), never from the feed. Yellow metro: every outline,
 casing, ring and arrow outline goes through `strokeFor()` / `casingFor()` in `mapData.ts`
@@ -122,7 +128,8 @@ the panel scrolls the container. Rules:
   drops its glass card and marks its body `data-sheet-scroll`, `AlertBanner` collapses into
   „Komunikaty (n)”.
 - Map controls rise above the sheet only while something in them is expanded
-  (`has-[[aria-expanded=true]]:z-30`); a new dropdown there needs `aria-expanded` on its trigger.
+  (`has-[[aria-expanded=true]:not([data-map-search-trigger])]:z-30`); a new dropdown there needs `aria-expanded` on its trigger.
+  The search disclosure trigger is excluded: an expanded empty field stays below the sheet, while actual results raise the toolbar through `data-search-results`.
 - Inner scrolling (`[data-sheet-scroll]` = `PanelFrame` body) is locked below `full`, otherwise
   a drag scrolls the content instead of lifting the sheet. New scrollable panel content must
   use the `PanelFrame` body or carry `data-sheet-scroll`.

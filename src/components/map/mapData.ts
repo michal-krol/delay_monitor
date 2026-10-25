@@ -359,8 +359,8 @@ export function positionsUnchanged(from: PointCollection, to: PointCollection): 
  * Strzałka kierunku jazdy jako obraz SDF (kolor nadaje warstwa `icon-color`) — wielokąt Lucide
  * `navigation-2`, ten sam glif co `VehicleHeadingIcon` i marker w `MapView`. Piksele liczone wprost
  * (test parzysto-nieparzysty dla środka piksela) — bez canvasu, działa także w testach.
- * Glif wypełnia wysokość obrazu (wyśrodkowany w poziomie), jak dawny trójkąt — pod niego
- * dobrano `icon-size` i `icon-offset` warstwy `vehicles-arrows`.
+ * Glif wypełnia wysokość obrazu i jest wyśrodkowany; `icon-size` ustala rozmiar markera
+ * w warstwach `vehicles-arrows` i `selected-heading`.
  */
 export function arrowImage(size = 16): { width: number; height: number; data: Uint8Array } {
   const xs = VEHICLE_HEADING_POLYGON.map(([x]) => x)

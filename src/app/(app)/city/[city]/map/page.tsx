@@ -417,7 +417,8 @@ export default function CityMapPage() {
         alertsStale={lineDetail.alertsStale}
         error={lineDetail.error}
         directionId={directionId}
-        vehiclesOnLine={vehiclesOnLine}
+        vehiclesOnLine={neverLoaded && vehiclesState.feed.state !== 'ready' && vehiclesState.feed.ageMs === null ? null : vehiclesOnLine}
+        vehiclesState={vehiclesFailed ? 'failed' : neverLoaded && vehiclesState.feed.state !== 'ready' ? 'loading' : 'ready'}
         city={city}
         onDirection={changeDirection}
         onStop={openLineStop}
@@ -429,6 +430,7 @@ export default function CityMapPage() {
   const overview = !isWide && card === null
   const overviewPanel = overview ? (
     <OverviewPanel
+      listOpen={listOpen}
       items={visibleItems}
       overflow={visible?.overflow ?? false}
       // „Gotowe, ale bez pojazdów" (noc) to nie „wczytywanie": odróżnia je stan feedu z serwera.
@@ -554,9 +556,9 @@ export default function CityMapPage() {
           )}
 
           <div className="pointer-events-none absolute inset-0 flex flex-col">
-            {/* Nad arkuszem (`.bottom-sheet`, z-20) tylko wtedy, gdy coś tu jest rozwinięte (wyniki wyszukiwania,
-                Filtry, Przypięte, Więcej) — inaczej lista otwierała się pod panelem; zwinięte zostają pod nim. */}
-            <div ref={toolbarRef} className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
+            {/* Nad arkuszem (`.bottom-sheet`, z-20) są wyniki i rozwinięte menu, nie samo puste pole wyszukiwania.
+                Zwykłe kontrolki zostają pod panelem, aby nie zasłaniać jego uchwytu i statusów przy `full`. */}
+            <div ref={toolbarRef} className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]:not([data-map-search-trigger])]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
               <MapToolbar
                 isWide={isWide}
                 search={search}
