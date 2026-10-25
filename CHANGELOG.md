@@ -17,6 +17,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Karty kolejowe Startu pokazują pełny kierunek oraz nazwę pociągu i peron również w wąskim
+  panelu. Wyczyszczenie historii oddaje fokus do nagłówka miejsc zamiast gubić go po usunięciu przycisku.
+
 - Statystyki linii miejskiej pokazują oba kierunki, pełne liczby przystanków i przystanków
   na żądanie oraz zwartą listę numerów bocznych. Na telefonie są pod trasą i rozkładem.
 - Szczegóły połączenia PKP pokazują na komputerze mapę przed osią przystanków, opisują schemat trasy

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
@@ -428,7 +428,7 @@ describe('LineDetailPage — direction by id and URL state', () => {
     expect(panel).toHaveTextContent('3 przystanki')
     expect(panel).toHaveTextContent('2 przystanki')
     expect(panel).toHaveTextContent('1 na żądanie')
-    expect(panel).toHaveTextContent('#3801')
+    await waitFor(() => expect(panel).toHaveTextContent('#3801'))
   })
   it('a direction with id 1 first in the array is shown first (no index = id assumption), and its vehicles are asked for', async () => {
     const fetchMock = stubFetch(lineWith([DIR1, DIR0]), { ...VEHICLES_READY, vehicles: [{ ...VEHICLES_READY.vehicles[0], directionId: 1 }] })

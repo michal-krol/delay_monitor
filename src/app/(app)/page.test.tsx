@@ -111,6 +111,16 @@ describe('Page (Pulpit)', () => {
     window.localStorage.clear()
   })
 
+  it.each([false, true])('clearing recent places returns focus to My Places (empty pins: %s)', async (empty) => {
+    if (empty) initialPinned = []
+    window.localStorage.setItem('monitor.recentPlaces.v1', JSON.stringify([{ kind: 'pkp', id: '80416', name: 'Kraków Główny' }]))
+    render(<Page />)
+    const clear = await screen.findByRole('button', { name: 'Wyczyść' })
+    await userEvent.click(clear)
+    expect(screen.queryByRole('button', { name: 'Wyczyść' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Moje miejsca' })).toHaveFocus()
+  })
+
   it('nagłówek karty stacji to link do pełnego widoku stacji, z nazwą w adresie', () => {
     render(<Page />)
     const heading = screen.getByRole('heading', { name: 'Warszawa Centralna' })
