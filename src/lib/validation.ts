@@ -70,6 +70,8 @@ export const GTFS_ROUTE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,39}$/
 
 /** Opaque feed key used only in memory; encoded in our query strings, never an upstream URL. */
 export const GTFS_TRIP_ID_PATTERN = /^[^\u0000-\u0020\u007f]{1,200}$/
+/** Opaque vehicle key (e.g. V/509/6), only used for selecting an existing feed entity. */
+export const GTFS_VEHICLE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9/_.:-]{0,199}$/
 export const GTFS_SEQUENCE_PATTERN = /^\d{1,5}$/
 export const GTFS_DIRECTION_PATTERN = /^[012]$/
 

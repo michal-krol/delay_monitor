@@ -1,9 +1,12 @@
 import type { GtfsMode, GtfsSchedule, LineKind } from './types'
 import { projectVehicle } from './vehicleProject'
 import type { VehiclePosition } from './vehicles'
+import { observedTripCourse } from './vehicleStatus'
 
 export type CityVehicle = {
   id: string
+  tripId?: string
+  serviceDate?: string | null
   lat: number
   lon: number
   bearing: number | null
@@ -55,6 +58,8 @@ export function mapCityVehicles(schedule: GtfsSchedule, positions: VehiclePositi
 
     return {
       id: position.id,
+      tripId: position.tripId,
+      serviceDate: observedTripCourse(schedule, position)?.serviceDate ?? null,
       lat: position.lat,
       lon: position.lon,
       bearing: position.bearing,

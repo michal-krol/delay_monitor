@@ -5,8 +5,9 @@ import { TransitDepartureList } from './TransitDepartureList'
 import { ON_REQUEST_TITLE } from './OnRequestBadge'
 import { HIDE_AFTER_SEC } from './map/mapData'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
+import type { CourseVehicle } from './CourseVehicleActions'
 
-type Dep = GtfsDeparture & { vehicle?: { stopsAway: number; ageSec: number } | null }
+type Dep = GtfsDeparture & { vehicle?: (CourseVehicle & { stopsAway: number }) | null }
 
 function dep(over: Partial<Dep> = {}): Dep {
   return {
@@ -31,6 +32,36 @@ function dep(over: Partial<Dep> = {}): Dep {
 }
 
 describe('TransitDepartureList', () => {
+  it('removes a retained overdue row once its observation is no longer fresh, without dropping ordinary rows', () => {
+    const observedAt = '2026-09-02T14:32:00+02:00'
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(observedAt))
+    const retained = dep({ retainedForVehicle: true, vehicle: { observedAt, ageSec: 0, stopsAway: 2, pastScheduledDeparture: true } })
+    const { rerender } = render(<TransitDepartureList departures={[retained]} city="warszawa" />)
+    expect(screen.getByText('14:30')).toBeInTheDocument()
+    act(() => { vi.advanceTimersByTime(60_000) })
+    expect(screen.getByText('14:30')).toBeInTheDocument()
+    act(() => { vi.advanceTimersByTime(10_000) })
+    rerender(<TransitDepartureList departures={[retained]} city="warszawa" />)
+    expect(screen.queryByText('14:30')).not.toBeInTheDocument()
+    expect(screen.getByText('Brak odjazdów w rozkładzie')).toBeInTheDocument()
+    rerender(<TransitDepartureList departures={[dep()]} city="warszawa" />)
+    expect(screen.getByText('14:30')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+  it('adds separate status and map actions only to the board, preserving the course time link', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-02T14:35:00+02:00'))
+    const vehicle = { stopsAway: 3, ageSec: 0, id: 'V/20/1', tripId: 't', sideNumber: '1234', serviceDate: '2026-09-02', observedAt: '2026-09-02T14:35:00+02:00', pastScheduledDeparture: true }
+    const { rerender } = render(<TransitDepartureList city="warszawa" departures={[dep({ vehicle })]} />)
+    expect(screen.getByRole('img', { name: 'Po planowanym odjeździe' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Wybierz kurs/ })).toHaveTextContent('14:30')
+    expect(screen.getByText('Nr boczny 1234')).toBeInTheDocument()
+    rerender(<TransitDepartureList city="warszawa" variant="card" departures={[dep({ vehicle })]} />)
+    expect(screen.queryByRole('img', { name: 'Po planowanym odjeździe' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })).not.toBeInTheDocument()
+    vi.restoreAllMocks()
+  })
   it('separates timetable and concrete-course links with midnight date and no nested links', () => {
     render(<TransitDepartureList city="warszawa" now={Date.parse('2026-09-02T23:30:00+02:00')} departures={[dep({ plannedAt: '2026-09-03T00:05:00+02:00', stopSequence: 3, directionId: 1 })]} />)
     expect(screen.getByRole('link', { name: 'Linia 20' })).toHaveAttribute('href', '/city/warszawa/line/20?stop=100101&pane=timetable&dir=1')

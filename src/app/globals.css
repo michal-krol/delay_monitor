@@ -1116,6 +1116,26 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Only detailed GTFS rows own these controls. An em threshold follows enlarged
+   text as well as narrow containers, without changing Start cards or PKP boards. */
+.course-board {
+  container-type: inline-size;
+}
+
+@container (max-width: 12em) {
+  .course-departure-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .course-departure-row > * {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    min-width: 0;
+  }
+  .course-departure-row > a {
+    align-items: flex-start;
+  }
+}
+
 @keyframes info-sheet-in {
   from {
     translate: 0 100%;

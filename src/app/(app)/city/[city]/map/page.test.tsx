@@ -137,6 +137,35 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('exact vehicle deep links', () => {
+  const target = { ...VEHICLE, tripId: 't1', serviceDate: '2026-10-25' }
+  it('opens the exact vehicle card and camera without following it', async () => {
+    state.vehicles.vehicles = [target]
+    window.history.replaceState(null, '', '/city/warszawa/map?vehicle=v1&trip=t1&date=2026-10-25&hide=trams&alerts=1')
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps?.selected).toMatchObject({ id: 'v1', tripId: 't1' }))
+    expect(state.mapProps?.focus).toMatchObject({ lat: target.lat, lon: target.lon })
+    expect(state.mapProps?.follow).toBeNull()
+    expect(state.mapProps?.hidden.has('trams')).toBe(false)
+  })
+  it('does not substitute the same vehicle running another trip', async () => {
+    state.vehicles.vehicles = [{ ...target, tripId: 'another' }]
+    window.history.replaceState(null, '', '/city/warszawa/map?vehicle=v1&trip=t1&date=2026-10-25')
+    render(<CityMapPage />)
+    expect(await screen.findByText('Wskazany pojazd nie jest dostępny dla tego kursu.')).toBeInTheDocument()
+    expect(state.mapProps?.focus).toBeNull()
+  })
+  it('stops binding the expected course after selecting a different object', async () => {
+    state.vehicles.vehicles = [target]
+    window.history.replaceState(null, '', '/city/warszawa/map?vehicle=v1&trip=t1&date=2026-10-25')
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps?.selected).toMatchObject({ id: 'v1', tripId: 't1' }))
+    act(() => state.mapProps?.onSelect({ kind: 'stop', id: STOP.id }))
+    expect(new URLSearchParams(window.location.search).has('vehicle')).toBe(false)
+    await waitFor(() => expect(state.mapProps?.selected).toMatchObject({ lat: STOP.lat, lon: STOP.lon }))
+  })
+})
+
 const map = () => state.mapProps!
 
 /** Zegar strony stoi (tylko `Date`): odczyt sprzed 13 s daje w nagłówku dokładnie „pobrano 13 s temu”. */

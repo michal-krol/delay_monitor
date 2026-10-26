@@ -14,6 +14,7 @@
  * - rozwiń/zwiń `DisclosureIcon` (otwarte = obrót 180°, klasa `disclosure-chevron`)
  * - kolej (tryb, stacja) `TrainIcon` · pozycja pojazdu `VehiclePositionIcon` · kierunek jazdy pojazdu `VehicleHeadingIcon`
  * - utrudnienie `AlertCircleIcon` · objaśnienie „?” `HelpCircleIcon` · informacja `InfoIcon`
+ * - kurs po planowanym odjeździe `PastScheduledDepartureIcon` · konkretny pojazd na mapie `VehicleMapIcon`
  * - przypięte `StarIcon filled` (sama nosi `PIN_COLOR`; przełączniki przez `PinStar`) · filtry `FilterIcon`
  * - lokalizacja użytkownika `LocateIcon` · celność (kafelek statystyk) `TargetIcon` — dwa różne pojęcia
  * - motyw jasny i pogoda „słonecznie” dzielą `SunIcon` (różne ekrany, świadomie)
@@ -38,6 +39,7 @@ import {
   CircleDot,
   CircleEllipsis,
   CircleQuestionMark,
+  ClockAlert,
   Cloud,
   CloudFog,
   CloudLightning,
@@ -56,6 +58,7 @@ import {
   ListFilter,
   Locate,
   Map as MapGlyph,
+  MapPin,
   Maximize,
   Moon,
   Navigation2,
@@ -213,6 +216,8 @@ export const FilterIcon = /* @__PURE__ */ lucideIcon(ListFilter)
 export const SearchIcon = /* @__PURE__ */ lucideIcon(Search)
 /** Pozycja pojazdu (np. „Pociąg jest tutaj”) — ta sama kropka co pojazd na mapie. */
 export const VehiclePositionIcon = /* @__PURE__ */ lucideIcon(CircleDot)
+export const PastScheduledDepartureIcon = /* @__PURE__ */ lucideIcon(ClockAlert)
+export const VehicleMapIcon = /* @__PURE__ */ lucideIcon(MapPin)
 /** Kierunek jazdy pojazdu (strzałka przy kropce) — wypełniona, w kolorze rodzaju. */
 export const VehicleHeadingIcon = /* @__PURE__ */ lucideIcon(Navigation2, true)
 

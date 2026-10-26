@@ -15,6 +15,16 @@ const stop = { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', s
 const course: CourseDetail = { tripId: 'loop', serviceDate: '2026-09-02', directionId: 0, headsign: 'Centrum', departureSec: 86700, shape: null, stops: [stop, { ...stop, sequence: 4, offsetSec: 300 }] }
 
 describe('TransitCourseView', () => {
+  it('shows contextual noninteractive status and map link under the course line badge', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-03T00:07:00+02:00'))
+    mocks.vehicles = [{ id: 'V/20/1', tripId: 'loop', sideNumber: '1234', serviceDate: '2026-09-02', observedAt: '2026-09-03T00:07:00+02:00', pastScheduledDeparture: true, lat: 52, lon: 21, ageSec: 0, bearing: null, afterStopOrder: 0, fraction: 0 }]
+    mocks.data = { line: { line: '20', mode: 'tram', kind: 'regular' }, course, alerts: [], attribution: [], schedule: { state: 'ready' } }
+    render(<TransitCourseView city="warszawa" routeId="20" selection={{ tripId: 'loop', serviceDate: '2026-09-02', sequence: 4, stopId: '100101' }} />)
+    expect(screen.getByRole('img', { name: 'Po planowanym odjeździe' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })).toHaveAttribute('href', expect.stringContaining('date=2026-09-02'))
+    vi.restoreAllMocks()
+    mocks.vehicles = []
+  })
   it('retains GPS after midnight for the previous service day, never for a different service instance', () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-03T00:07:00+02:00'))
     mocks.vehicles = [{ tripId: 'loop', sideNumber: '1', lat: 52, lon: 21, ageSec: 15, bearing: null, afterStopOrder: 0, fraction: 0 }]

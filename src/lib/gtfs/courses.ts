@@ -49,7 +49,7 @@ export function timetableStop(schedule: GtfsSchedule, routeId: string, direction
   return { stopId, groupId, name: schedule.groupName.get(groupId) ?? schedule.stopNames[stopIdx], code: schedule.stopCodes[stopIdx] ?? schedule.stopPlatforms[stopIdx] ?? null, headsigns }
 }
 
-export function courseDetail(schedule: GtfsSchedule, routeId: string, tripId: string, date: string): CourseDetail | null {
+export function courseDetail(schedule: GtfsSchedule, routeId: string, tripId: string, date: string, includeShape = true): CourseDetail | null {
   const template = schedule.courseTemplates.get(tripId)
   if (template === undefined || template.routeIdx !== schedule.routeIndexById.get(routeId)) return null
   if (!activeServices(date, schedule.courseCalendars, schedule.courseCalendarDates).has(template.serviceId)) return null
@@ -59,7 +59,7 @@ export function courseDetail(schedule: GtfsSchedule, routeId: string, tripId: st
     const departureSec = template.departureSec + template.pattern.offsets[order]
     return { stopId: schedule.stopIds[idx], groupId, name: schedule.groupName.get(groupId) ?? schedule.stopNames[idx], code: schedule.stopCodes[idx] ?? schedule.stopPlatforms[idx] ?? null, street: schedule.stopStreets[idx] ?? null, wheelchair: schedule.stopWheelchair[idx] as 0 | 1 | 2, lat: schedule.stopLat[idx], lon: schedule.stopLon[idx], offsetSec: template.pattern.offsets[order], onRequest: template.pattern.onRequest[order] === 1, sequence: template.pattern.sequences[order], departureSec, plannedAt: isoInZone(epoch + departureSec * 1000, schedule.timezone) }
   })
-  const shape = template.pattern.shapeId === null ? undefined : schedule.courseShapes.get(template.pattern.shapeId)
+  const shape = !includeShape || template.pattern.shapeId === null ? undefined : schedule.courseShapes.get(template.pattern.shapeId)
   return { tripId, serviceDate: date, directionId: template.directionId, headsign: template.headsignIdx < 0 ? null : schedule.headsigns[template.headsignIdx], departureSec: template.departureSec, stops, shape: shape === undefined ? null : shapeToPoints(shape) }
 }
 

@@ -18,16 +18,17 @@ const LOADING_STATE: Omit<LineVehiclesState, 'error'> = { vehicles: [], feed: { 
 /**
  * Poll pozycji pojazdów jednej linii i kierunku (`/api/gtfs/vehicles`) co 20 s
  * (pauza na ukrytej karcie w `usePolling`).
- * Zero pola opóźnienia (#13) — payload niesie tylko rzut na sekwencję przystanków.
+ * Payload niesie rzut GPS i opcjonalny stan względem rozkładu, bez minut opóźnienia.
  * Błąd ustawia `error`, ale zachowuje ostatnią listę `vehicles`. `directionId`
  * spoza {0,1} (nieznany kierunek przebiegu) = brak zapytania — endpoint i tak go
  * nie przyjmuje.
  */
-export function useLineVehicles(city: string, routeId: string, directionId: number, tripId?: string): LineVehiclesState {
-  const key = directionId === 0 || directionId === 1 ? JSON.stringify(tripId === undefined ? [city, routeId, directionId] : [city, routeId, directionId, tripId]) : null
+export function useLineVehicles(city: string, routeId: string, directionId: number, tripId?: string, context?: { date: string; stop?: string; seq?: number }): LineVehiclesState {
+  const key = directionId === 0 || directionId === 1 ? JSON.stringify(context === undefined ? tripId === undefined ? [city, routeId, directionId] : [city, routeId, directionId, tripId] : [city, routeId, directionId, tripId, context.date, context.stop, context.seq]) : null
+  const contextParams = context === undefined ? '' : `&date=${encodeURIComponent(context.date)}${context.stop === undefined ? '' : `&stop=${encodeURIComponent(context.stop)}`}${context.seq === undefined ? '' : `&seq=${context.seq}`}`
   const { data, error } = usePolling<LineVehiclesResponse>(
     key,
-    () => fetchJson(`/api/gtfs/vehicles?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}&direction=${directionId}${tripId === undefined ? '' : `&trip=${encodeURIComponent(tripId)}`}`),
+    () => fetchJson(`/api/gtfs/vehicles?city=${encodeURIComponent(city)}&route=${encodeURIComponent(routeId)}&direction=${directionId}${tripId === undefined ? '' : `&trip=${encodeURIComponent(tripId)}`}${contextParams}`),
     { refreshMs: REFRESH_MS }
   )
   if (data === null) return { ...LOADING_STATE, error }

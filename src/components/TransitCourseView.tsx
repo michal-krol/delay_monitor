@@ -26,6 +26,7 @@ import { encodeStopIdForPathSegment } from '@/lib/validation'
 import { patchUrlParams } from '@/lib/urlState'
 import { formatDataTimestamp } from '@/lib/dataTimestamp'
 import { projectCoursePosition, type VehicleOnRoute } from '@/lib/gtfs/vehicleProject'
+import { CourseVehicleActions } from './CourseVehicleActions'
 
 type Response = LineResponse & { course: CourseDetail | null; schedule: TransitBoardResponse['schedule']; attribution: string[] }
 
@@ -39,7 +40,8 @@ export function TransitCourseView({ city, routeId, selection, returnTo }: { city
   const selected = course?.stops[selectedIndex]
   const backStop = selection.stopId ?? course?.stops[0]?.stopId
   const backHref = safeStopReturnHref(returnTo ?? null, city) ?? (backStop == null ? `/city/${city}/line/${encodeURIComponent(routeId)}` : `/city/${city}/stop/${encodeStopIdForPathSegment(backStop)}?przystanek=${encodeURIComponent(backStop)}`)
-  const live = useLineVehicles(city, routeId, course !== null && (course.directionId === 0 || course.directionId === 1) ? course.directionId : 2, course?.tripId)
+  const live = useLineVehicles(city, routeId, course !== null && (course.directionId === 0 || course.directionId === 1) ? course.directionId : 2, course?.tripId, course === null ? undefined : { date: course.serviceDate, stop: selected?.stopId, seq: selected?.sequence })
+  const actionVehicle = live.vehicles.find((vehicle) => vehicle.tripId === course?.tripId && vehicle.serviceDate === course?.serviceDate)
   const positionNow = useSnapshotNow(live.vehicles)
   const clock = useNow(10_000)
   const { resolvedTheme } = useTheme()
@@ -81,7 +83,7 @@ export function TransitCourseView({ city, routeId, selection, returnTo }: { city
       <TopBar city={city} backHref={backHref} backLabel="Wróć do odjazdów" crumbs={[{ label: 'Kurs' }]} />
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          {line !== null && <LineBadge line={line.line} mode={line.mode} kind={line.kind} />}
+          {line !== null && <div className="flex w-[88px] shrink-0 flex-col items-start"><LineBadge line={line.line} mode={line.mode} kind={line.kind} /><CourseVehicleActions city={city} vehicle={actionVehicle} /></div>}
           <PageTitle>{line === null ? 'Kurs z rozkładu' : `Kurs linii ${line.line}`}</PageTitle>
         </div>
         <Link href={backHref} className="chip-filter self-start">Wróć do odjazdów</Link>

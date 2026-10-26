@@ -271,7 +271,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   const onMapPinClick = useCallback((id: string) => onPinRef.current(id), [])
 
   const asideContent = line !== null && direction !== undefined
-    ? <LineStatistics line={line} vehicles={{ 0: vehicles0, 1: vehicles1 }} />
+    ? <LineStatistics city={city} line={line} vehicles={{ 0: vehicles0, 1: vehicles1 }} />
     : null
 
   const catalogLink = (

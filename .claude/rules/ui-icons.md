@@ -39,7 +39,11 @@ Why: `adr/0006-ikony-lucide.md`.
     bus `BusIcon`, rail `TrainIcon`, `other` `OtherModeIcon` — an unknown mode never falls back to `BusIcon`; filters (map „Filtry”) `FilterIcon`
   - rail mode/station `TrainIcon`; a vehicle's position `VehiclePositionIcon`; its heading
     `VehicleHeadingIcon` (same glyph as the map arrows)
+  - inferred GTFS course status `PastScheduledDepartureIcon` (ClockAlert, ADR0014): red,
+    noninteractive, accessible name only; no tooltip, focus, visible label or positive status.
+    The separate `VehicleMapIcon` (MapPin) links to the exact vehicle on the city map.
   - disruption `AlertCircleIcon` only (help „?" is `HelpCircleIcon`)
+  - GPS-inferred past scheduled departure `PastScheduledDepartureIcon` (`ClockAlert`), noninteractive with an accessible name only; exact vehicle map link `VehicleMapIcon` (`MapPin`)
   - user location („W pobliżu mnie”, centre on me) `LocateIcon`; `TargetIcon` means accuracy (station stats), never location
   - pinned = `StarIcon filled`, everywhere (also menus); a filled star carries `PIN_COLOR`
     itself — don't add it at the call site

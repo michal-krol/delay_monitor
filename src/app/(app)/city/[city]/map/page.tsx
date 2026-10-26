@@ -49,6 +49,7 @@ import { getCity } from '@/lib/gtfs/cities'
 import type { BackboneLine, LineRouteStop } from '@/lib/gtfs/query'
 import { patchUrlParams, readUrlParam } from '@/lib/urlState'
 import { CITY_ID_PATTERN } from '@/lib/validation'
+import { parseVehicleMapSelection, type VehicleMapSelection } from '@/lib/vehicleMapLink'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 
 export default function CityMapPage() {
@@ -61,6 +62,12 @@ export default function CityMapPage() {
   const { cities } = useCities()
   const [hidden, setHidden] = useState<Set<LayerKey>>(() => new Set())
   const [selection, setSelection] = useState<MapSelection | null>(null)
+  const [vehicleLink, setVehicleLink] = useState<VehicleMapSelection | null>(null)
+  const appliedVehicleLink = useRef<string | null>(null)
+  const clearVehicleLink = useCallback(() => {
+    setVehicleLink(null)
+    patchUrlParams({ vehicle: null, trip: null, date: null })
+  }, [])
   // Wynik wyszukiwarki bez pozycji na mapie: komunikat z linkiem do szczegółów (kamera się nie rusza).
   const [noPosition, setNoPosition] = useState<{ name: string; href: string | null; linkLabel: string } | null>(null)
   const { resolvedTheme } = useTheme()
@@ -113,6 +120,14 @@ export default function CityMapPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHidden(parseHidden(readUrlParam))
     setAlertsOnly(readUrlParam('alerts') === '1')
+    const readVehicle = () => {
+      appliedVehicleLink.current = null
+      setVehicleLink(parseVehicleMapSelection(new URLSearchParams(window.location.search)))
+      setSelection(null)
+    }
+    readVehicle()
+    window.addEventListener('popstate', readVehicle)
+    return () => window.removeEventListener('popstate', readVehicle)
   }, [])
 
   useEffect(() => {
@@ -144,8 +159,31 @@ export default function CityMapPage() {
   }, [])
 
   const vehiclesById = useMemo(() => new Map(vehiclesState.vehicles.map((v) => [v.id, v])), [vehiclesState.vehicles])
-  const selectedVehicle = selection?.kind === 'vehicle' ? (vehiclesById.get(selection.id) ?? null) : null
+  const selectedCandidate = selection?.kind === 'vehicle' ? (vehiclesById.get(selection.id) ?? null) : null
+  const selectedVehicle = selectedCandidate !== null && vehicleLink !== null && selection?.id === vehicleLink.id && (selectedCandidate.tripId !== vehicleLink.tripId || selectedCandidate.serviceDate !== vehicleLink.serviceDate) ? null : selectedCandidate
   const liveVehicle = selectedVehicle !== null && selectedVehicle.ageSec <= HIDE_AFTER_SEC ? selectedVehicle : null
+  useEffect(() => {
+    if (vehicleLink === null || (vehiclesState.feed.state === 'loading' && vehiclesState.vehicles.length === 0)) return
+    // An effect queued for the old URL must not overwrite a newer manual selection.
+    const requested = parseVehicleMapSelection(new URLSearchParams(window.location.search))
+    if (requested?.id !== vehicleLink.id || requested.tripId !== vehicleLink.tripId || requested.serviceDate !== vehicleLink.serviceDate) return
+    const target = vehiclesById.get(vehicleLink.id)
+    // Only the exact dated trip may determine the camera, never a recycled entity id.
+    const available = target !== undefined && target.tripId === vehicleLink.tripId && target.serviceDate === vehicleLink.serviceDate && target.ageSec <= HIDE_AFTER_SEC
+    const key = `${JSON.stringify(vehicleLink)}:${available}`
+    if (appliedVehicleLink.current === key) return
+    appliedVehicleLink.current = key
+    setSelection({ kind: 'vehicle', id: vehicleLink.id })
+    setFollowId(null)
+    setNearby(null)
+    setAlertsOnly(false)
+    chooseLine(null)
+    const nextHidden = new Set(hidden)
+    if (available) nextHidden.delete(vehicleLayerKey(target.mode))
+    setHidden(nextHidden)
+    patchUrlParams({ hide: serializeHidden(nextHidden), alerts: null, nearby: null })
+    if (available) focusOn(target.lat, target.lon)
+  }, [vehicleLink, vehiclesById, vehiclesState.feed.state, vehiclesState.vehicles.length, hidden, chooseLine, focusOn, setNearby])
   const selectedAt =
     selection === null
       ? nearby
@@ -211,11 +249,13 @@ export default function CityMapPage() {
   function showRoute(routeId: string, vehicleDirection: number | null): void {
     const target = lines?.find((l) => l.routeId === routeId) ?? null
     if (target === null) return
+    clearVehicleLink()
     setSelection(null)
     chooseLine(target, vehicleDirection === 1 ? 1 : 0)
   }
 
   function openLineStop(stop: LineRouteStop): void {
+    clearVehicleLink()
     const known = stopsState.stops?.find((s) => s.id === stop.stopId)
     // Rodzaj przystanku z listy miasta, a gdy jej brak — rodzaj linii (kolej miejska i „inne" nie udają autobusu).
     const mode = known?.mode ?? line?.mode ?? 'other'
@@ -242,6 +282,7 @@ export default function CityMapPage() {
   }
 
   function openNearby(point: NearbyPoint): void {
+    clearVehicleLink()
     if (point.kind === 'rail') {
       setSelection({ kind: 'rail', id: point.id, name: point.name, lat: point.lat, lon: point.lon })
       focusOn(point.lat, point.lon, nearbyFromGps)
@@ -292,6 +333,7 @@ export default function CityMapPage() {
   }
 
   function onMapSelect(hit: MapHit | null): void {
+    clearVehicleLink()
     if (hit === null) return setSelection(null)
     if (hit.kind === 'vehicle') return setSelection({ kind: 'vehicle', id: hit.id })
     if (hit.kind === 'stop') {
@@ -305,6 +347,7 @@ export default function CityMapPage() {
 
   /** Kurs otwiera szczegóły; miejsca i linie wybierają kontekst mapy bez wymyślania pozycji. */
   function onSearchPick(result: DiscoveryResult): void {
+    clearVehicleLink()
     if (result.kind === 'train') {
       const href = discoveryHref(result)
       if (href !== null) router.push(href)
@@ -368,8 +411,10 @@ export default function CityMapPage() {
         key={`${selection.kind}:${selection.id}`}
         selection={selection}
         vehicle={selectedVehicle}
+        vehicleUnavailableMessage={vehicleLink !== null && liveVehicle === null ? 'Wskazany pojazd nie jest dostępny dla tego kursu.' : undefined}
         city={city}
         onClose={() => {
+          clearVehicleLink()
           setSelection(null)
           setFollowId(null)
         }}

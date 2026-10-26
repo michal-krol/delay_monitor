@@ -166,8 +166,12 @@ paths:
   `GtfsPollerDeps`). `vehicleProject.ts` (pure) projects the feed's `trip_id` — the same as in
   `stop_times.txt` — onto `routePatterns` by stop sequence. `VehicleOnRoute` carries raw
   `lat`/`lon` from the feed NEXT TO `afterStopOrder`+`fraction` (the route map draws the vehicle
-  at its real position, the line timeline still computes from the projection) — still ZERO delay
-  field: never "how late". Position > 2 km from the route / unknown `trip_id` → `null`.
+  at its real position, the line timeline still computes from the projection). No numeric delay
+  or ETA. ADR0014 permits only a conservative `pastScheduledDeparture` indicator from the
+  concrete trip/date/stop occurrence: nonfuture GPS <=60 s old, observation >60 s after the
+  scheduled departure, unambiguously still before the stop. Unknown/ambiguous/frequency
+  trips have no assessment, never a positive punctuality state. This is an app inference,
+  not realization supplied by the feed. Position > 2 km from the route / unknown `trip_id` → `null`.
   `mockVehicleFeed` degrades to an empty result for a missing AND a corrupt fixture
   (JSON.parse in try).
 - **Route shapes (`shapes.txt`).** The feed HAS `shapes.txt` (`shape_id` in `trips.txt` is

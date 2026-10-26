@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from './schedule'
-import { projectVehicle } from './vehicleProject'
+import { projectCoursePosition, projectVehicle } from './vehicleProject'
 
 afterEach(() => vi.restoreAllMocks())
 
 const near = (a: number, b: number, eps = 0.05) => Math.abs(a - b) <= eps
 
 describe('projectVehicle', () => {
+  it('rejects adjacent hairpin legs with distinct possible progress but permits a shared vertex', () => {
+    const hairpin = [{ lat: 52.2, lon: 21 }, { lat: 52.22, lon: 21 }, { lat: 52.2, lon: 21.0001 }]
+    expect(projectCoursePosition({ lat: 52.21, lon: 21.000025 }, hairpin, true)).toBeNull()
+    const corner = [{ lat: 52.2, lon: 21 }, { lat: 52.22, lon: 21 }, { lat: 52.22, lon: 21.02 }]
+    expect(projectCoursePosition(corner[1], corner, true)).not.toBeNull()
+  })
   async function schedule() {
     return buildSchedule({
       feedVersion: null,

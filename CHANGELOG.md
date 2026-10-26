@@ -8,6 +8,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Dodane
 
+- Przy odjazdach przystanku, szczegółach kursu i pojazdach w statystykach linii pojawia się
+  dyskretna ikona zegara, gdy świeża pozycja GPS wskazuje pojazd przed przystankiem po planowanym
+  odjeździe. Osobna pinezka otwiera konkretny pojazd na mapie. Kurs po czasie pozostaje
+  na tablicy tylko do minięcia przystanku lub utraty aktualnego potwierdzenia GPS.
+  Jest to informacja wywnioskowana z rozkładu i pozycji, bez minut opóźnienia i prognozy przyjazdu.
+
 - Odjazdy miejskie i minuty rozkładu pozwalają wybrać konkretny kurs wraz z dniem kursowania.
   Szczegóły pokazują jego wariant trasy, mapę, przystanki na żądanie i powtarzające się przystanki.
 
@@ -16,6 +22,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   Wyszukiwanie korzysta z wczytanego rozkładu, a niedostępność tego źródła nie ukrywa miejsc i linii.
 
 ### Zmienione
+
+- Strzałki kierunku pojazdów Navigation2 korzystają z poprawnego pola odległości,
+  aby zachować ostrość i obrys przy skalowaniu na mapie.
 
 - Animacja pojazdów na mapie zachowuje narysowaną pozycję przy kolejnym odczycie
   i kończy się po włączeniu ograniczonego ruchu. Odświeżenia widoków nie przepinają

@@ -55,8 +55,11 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Tabs, in this order: „Odjazdy”, „Rozkład”, „Komunikaty” (URL `?tab=departures|schedule|alerts`; legacy `lines` falls back to departures; the
   default is not written). Line filter chip „Wszystkie”; empty result: „Brak odjazdów linii {X} wśród najbliższych 50
   odjazdów.” + action „Wszystkie linie”; real empty: „Brak kolejnych odjazdów w rozkładzie na dziś i jutro.”.
-- Departure row: big time + „wg rozkładu” (+ „za N min · wg rozkładu” inside the hour); never „na czas”, never a
-  delay. Vehicle (GPS, not ETA): „Pojazd w pobliżu przystanku” at 0, „Pojazd: N {przystanek|przystanki|przystanków} dalej”,
+- Departure row: big time + „wg rozkładu” (+ „za N min · wg rozkładu” inside the hour); never „na czas” or numeric delay.
+  ADR0014 permits a red ClockAlert for inferred `pastScheduledDeparture`: noninteractive, no visible
+  status text, tooltip, legend or extra time; accessible name „Po planowanym odjeździe”. Absence means no assessment.
+  A separate MapPin link names the exact vehicle („Pokaż pojazd {number} na mapie”).
+  Vehicle (GPS, not ETA): „Pojazd w pobliżu przystanku” at 0, „Pojazd: N {przystanek|przystanki|przystanków} dalej”,
   always with „GPS: {formatAgo}”; older than `HIDE_AFTER_SEC` (`mapData`, one threshold) = no vehicle chip. Never „zaraz będzie”.
 - Header (phone): „Na mapie” = link with the post/group coordinates from the board (no GPS), or the text
   „Brak lokalizacji przystanku”; the map preview sits under the list in „Lokalizacja przystanku”.

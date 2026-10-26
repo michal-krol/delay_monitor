@@ -151,7 +151,7 @@ export function TransitStopDetail({
   const onPinClick = useCallback((id: string) => selectMemberRef.current(id), [])
   // Jedno zapytanie na obie zakładki odjazdowe — „Rozkład" pokazuje całą
   // listę do `SCHEDULE_FETCH_LIMIT`, „Odjazdy" tnie ją do podglądu niżej.
-  const { data, error, loading, failed, lastSuccessAt, refresh } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effMember)
+  const { data, error, loading, failed, lastSuccessAt, refresh } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effMember, true)
   // Nazwa miasta z `/api/cities` — jeden wspólny hook z `WeatherChip`,
   // `TransitStopCard` i stroną miasta (Task 9). Fallback do slugu, dopóki
   // lista się nie wczyta / gdy fetch zawiedzie.
@@ -565,7 +565,7 @@ export function TransitStopDetail({
               role="tablist"
               aria-label="Widok przystanku"
               onKeyDown={(event) => onTablistKeyDown(event, STOP_TABS.findIndex((tab) => tab.key === activeTab), (index) => selectTab(STOP_TABS[index].key))}
-              className="segment grid w-full grid-cols-3 sm:inline-grid sm:w-auto sm:self-start"
+              className="segment flex w-full flex-wrap sm:w-auto sm:self-start"
             >
               {STOP_TABS.map((tab) => (
                 <button
@@ -577,7 +577,7 @@ export function TransitStopDetail({
                   aria-selected={activeTab === tab.key}
                   tabIndex={activeTab === tab.key ? 0 : -1}
                   onClick={() => selectTab(tab.key)}
-                  className="segment-item relative gap-1.5 px-1 sm:px-4"
+                  className="segment-item relative flex-auto gap-1.5 px-1 sm:px-4"
                 >
                   {tab.label}
                   {/* Kropka zamiast ikony: 4 zakładki w jednym rzędzie nie mają miejsca na więcej szerokości; nazwę niesie sr-only. */}
