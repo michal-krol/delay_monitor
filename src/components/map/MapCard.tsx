@@ -38,6 +38,7 @@ export type MapSelection =
 export function MapCard({
   selection,
   vehicle,
+  vehicleUnavailableMessage,
   city,
   onClose,
   onShowRoute,
@@ -52,6 +53,7 @@ export function MapCard({
   selection: MapSelection
   /** Ostatni odczyt wybranego pojazdu; starszy niż `HIDE_AFTER_SEC` = „utracono pozycję"; `null` = zniknął z feedu. */
   vehicle: CityVehicle | null
+  vehicleUnavailableMessage?: string
   city: string
   onClose: () => void
   /** „Pokaż trasę" z karty pojazdu — tryb linii w kierunku jazdy tego pojazdu. */
@@ -111,6 +113,7 @@ export function MapCard({
       {selection.kind === 'vehicle' && (
         <VehicleBody
           vehicle={vehicle}
+          unavailableMessage={vehicleUnavailableMessage}
           city={city}
           onShowRoute={onShowRoute}
           following={following}
@@ -260,6 +263,7 @@ function StopBody({ selection, city }: { selection: Extract<MapSelection, { kind
 
 function VehicleBody({
   vehicle,
+  unavailableMessage,
   city,
   onShowRoute,
   following,
@@ -267,14 +271,15 @@ function VehicleBody({
   disrupted = false,
 }: {
   vehicle: CityVehicle | null
+  unavailableMessage?: string
   city: string
   onShowRoute?: (routeId: string, directionId: number | null) => void
   following?: boolean
   onToggleFollow?: () => void
   disrupted?: boolean
 }) {
-  if (vehicle === null) {
-    return <p className="text-sm text-text-secondary">Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.</p>
+  if (unavailableMessage !== undefined || vehicle === null) {
+    return <p className="text-sm text-text-secondary">{unavailableMessage ?? 'Pojazd zniknął z mapy — od ponad 3 minut nie wysłał pozycji.'}</p>
   }
   // Powyżej `HIDE_AFTER_SEC` mapa nie rysuje już punktu (jeden próg, `mapData`) — karta nie udaje, że pojazd tu jest.
   const lost = vehicle.ageSec > HIDE_AFTER_SEC

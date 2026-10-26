@@ -44,6 +44,12 @@ focus after the search's own Escape handling. Overview summaries remain availabl
 shown only after „Lista”. Known vehicle bearings use centered 22px chevrons (28px selected);
 unknown bearings use neutral circles. Hit-testing and viewport enumeration include both marker layers.
 
+ADR0014: a vehicle deep link contains the raw feed entity id plus expected trip and service date.
+Select only an exact current match (GPS <=180 s); missing/changed entities must never pick a
+replacement. Opening the link centres/selects and shows its card, without enabling follow.
+Navigation2 rasters must encode a real signed distance field with padding and pixelRatio;
+never pass a binary alpha mask as `sdf: true`. Preserve the logical 22/28 px glyph size.
+
 Every map colour (pins, vehicles, route and backbone lines) comes from `lineColor()` /
 `MODE_COLOR` (`adr/0005`, `gtfs.md`), never from the feed. Yellow metro: every outline,
 casing, ring and arrow outline goes through `strokeFor()` / `casingFor()` in `mapData.ts`

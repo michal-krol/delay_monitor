@@ -109,7 +109,9 @@ skill (`npm run clean:worktrees` — report first, deletes only SAFE with `-- --
 A SessionEnd hook already copies the worktree's `docs/*.md` handoffs to the main checkout.
 
 ### 13. GTFS is a separate domain, not an extension of PKP → `gtfs.md`
-No delay field anywhere — always „rozkład", never „na czas". GTFS IDs never go into outgoing
+No numeric delay or ETA — always „rozkład", never „na czas". A conservative GPS-derived
+`pastScheduledDeparture` indicator is allowed under ADR0014; it is not feed realization.
+GTFS IDs never go into outgoing
 URLs; `city` validated against the registry. Load once, index at load. Many feed quirks
 (`wheelchair_boarding`, depot runs, day categories): read `gtfs.md` before changing GTFS code.
 

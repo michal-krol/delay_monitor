@@ -4,9 +4,10 @@ import type { LineVehiclesState } from '@/hooks/useLineVehicles'
 import { pluralPl } from '@/lib/plural'
 import { stopDisplayName } from './stopName'
 import { MODE_LABEL } from './transitMode'
+import { CourseVehicleActions } from './CourseVehicleActions'
 
 /** Both directions share the page's existing GPS data; this panel never fetches. */
-export function LineStatistics({ line, vehicles }: { line: LineDetail; vehicles: Record<number, LineVehiclesState> }) {
+export function LineStatistics({ line, vehicles, city }: { line: LineDetail; vehicles: Record<number, LineVehiclesState>; city?: string }) {
   return (
     <section aria-label="Statystyki linii" className="glass rounded-2xl p-4">
       <h2 className="text-sm font-bold text-foreground">Linia {line.line}</h2>
@@ -31,7 +32,7 @@ export function LineStatistics({ line, vehicles }: { line: LineDetail; vehicles:
                     {live.vehicles.slice().sort((a, b) => a.afterStopOrder - b.afterStopOrder).map((vehicle) => {
                       const stop = direction.stops[vehicle.afterStopOrder]
                       return <li key={`${vehicle.sideNumber}:${vehicle.tripId}`} className="flex flex-wrap justify-between gap-x-3 gap-y-0.5 py-1.5">
-                        <span className="font-medium tabular-nums text-foreground">#{vehicle.sideNumber}</span>
+                        <span className="flex flex-wrap items-center gap-x-2 font-medium tabular-nums text-foreground">#{vehicle.sideNumber}{city !== undefined && <CourseVehicleActions city={city} vehicle={vehicle} />}</span>
                         <span className="min-w-0 text-text-secondary [overflow-wrap:anywhere]">za „{stop ? stopDisplayName(stop.name, stop.code) : '—'}”{vehicle.ageSec > 60 && ` · GPS: ${formatAgo(vehicle.ageSec)}`}</span>
                       </li>
                     })}

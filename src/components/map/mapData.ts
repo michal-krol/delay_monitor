@@ -357,28 +357,34 @@ export function positionsUnchanged(from: PointCollection, to: PointCollection): 
 
 /**
  * Strzałka kierunku jazdy jako obraz SDF (kolor nadaje warstwa `icon-color`) — wielokąt Lucide
- * `navigation-2`, ten sam glif co `VehicleHeadingIcon` i marker w `MapView`. Piksele liczone wprost
- * (test parzysto-nieparzysty dla środka piksela) — bez canvasu, działa także w testach.
- * Glif wypełnia wysokość obrazu i jest wyśrodkowany; `icon-size` ustala rozmiar markera
- * w warstwach `vehicles-arrows` i `selected-heading`.
+ * `navigation-2`, ten sam glif co `VehicleHeadingIcon` i marker w `MapView`.
+ * Rzeczywiste odległości od krawędzi, nie binarna maska oznaczona jako SDF.
+ * 64 px: 48 px glifu + marginesy po 8 px. Przy pixelRatio=3 glif ma logiczne 16 px,
+ * więc istniejące icon-size 22/16 i 28/16 zachowują rozmiar. Próg MapLibre SDF = 0.75.
  */
-export function arrowImage(size = 16): { width: number; height: number; data: Uint8Array } {
+export function arrowImage(size = 64): { width: number; height: number; data: Uint8Array } {
   const xs = VEHICLE_HEADING_POLYGON.map(([x]) => x)
   const ys = VEHICLE_HEADING_POLYGON.map(([, y]) => y)
   const [minX, minY] = [Math.min(...xs), Math.min(...ys)]
-  const scale = size / (Math.max(...ys) - minY)
+  const padding = size / 8
+  const scale = (size - padding * 2) / (Math.max(...ys) - minY)
   const offsetX = (size - (Math.max(...xs) - minX) * scale) / 2
-  const polygon = VEHICLE_HEADING_POLYGON.map(([x, y]) => [(x - minX) * scale + offsetX, (y - minY) * scale] as const)
+  const polygon = VEHICLE_HEADING_POLYGON.map(([x, y]) => [(x - minX) * scale + offsetX, (y - minY) * scale + padding] as const)
   const data = new Uint8Array(size * size * 4)
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const [px, py] = [x + 0.5, y + 0.5]
       let inside = false
+      let distance = Infinity
       for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
         const [[xi, yi], [xj, yj]] = [polygon[i], polygon[j]]
         if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside
+        const dx = xj - xi, dy = yj - yi
+        const length2 = dx * dx + dy * dy
+        const t = length2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - xi) * dx + (py - yi) * dy) / length2))
+        distance = Math.min(distance, Math.hypot(px - xi - t * dx, py - yi - t * dy))
       }
-      if (inside) data[(y * size + x) * 4 + 3] = 255
+      data[(y * size + x) * 4 + 3] = Math.round(Math.max(0, Math.min(1, 0.75 + (inside ? distance : -distance) / padding)) * 255)
     }
   }
   return { width: size, height: size, data }

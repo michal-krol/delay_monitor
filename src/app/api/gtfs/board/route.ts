@@ -4,7 +4,8 @@ import { getGtfsPoller, peekAlertPoller, peekVehiclePoller } from '@/lib/gtfs/in
 import { knownAlerts } from '@/lib/gtfs/alertPoller'
 import { toAlertFeedStatus } from '@/lib/gtfs/alertView'
 import { scheduleResponseBlock } from '@/lib/gtfs/poller'
-import { alertsForRoutes, nextDepartures, stopGroup, stopSummary, vehicleForStop } from '@/lib/gtfs/query'
+import { alertsForRoutes, stopGroup, stopSummary } from '@/lib/gtfs/query'
+import { departuresWithVehicles } from '@/lib/gtfs/vehicleStatus'
 import { todayServiceIndex } from '@/lib/gtfs/serviceDay'
 import { CITY_ID_PATTERN, GTFS_STOP_ID_PATTERN } from '@/lib/validation'
 
@@ -23,6 +24,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const city = searchParams.get('city') ?? ''
   const stopsParam = searchParams.get('stops') ?? ''
+  // Explicit full-board opt-in: Start cards keep their future-only timetable semantics.
+  const retainOverdue = searchParams.get('retainOverdue') === '1'
 
   if (!CITY_ID_PATTERN.test(city)) {
     return NextResponse.json({ error: 'Nieprawidłowy identyfikator miasta' }, { status: 400 })
@@ -106,16 +109,7 @@ export async function GET(request: Request) {
     // po zespole, niezależnie od zawężenia `?member=`.
     const groupRouteIdxs = schedule.groupRoutes.get(group.id) ?? new Set<number>()
     const alerts = allAlerts === null ? null : alertsForRoutes(schedule, allAlerts, groupRouteIdxs)
-    // Indeks obserwowanego przystanku w przebiegu — do policzenia „ile przystanków
-    // stąd" jest pojazd. `undefined` (pytano o cały zespół, nie o przystanek) → brak tagu.
-    const scopeStopIdx = schedule.stopIndexById.get(scopeId ?? group.id)
-    const departures = nextDepartures(schedule, [scopeId ?? group.id], now, limit).map((d) => ({
-      ...d,
-      vehicle:
-        positions.length > 0 && scopeStopIdx !== undefined
-          ? vehicleForStop(schedule, positions, d.tripId, scopeStopIdx, now)
-          : null,
-    }))
+    const departures = departuresWithVehicles(schedule, positions, [scopeId ?? group.id], now, limit, retainOverdue)
     return {
       stopId: id,
       /** Id zespołu (gdy pytano o przystanek, `stopId` bywa przystankiem). */

@@ -286,7 +286,7 @@ function addLayers(map: MapLibreMap, data: Data, hidden: ReadonlySet<LayerKey>, 
       ...stroke,
     },
   })
-  if (!map.hasImage('vehicle-arrow')) map.addImage('vehicle-arrow', arrowImage(), { sdf: true })
+  if (!map.hasImage('vehicle-arrow')) map.addImage('vehicle-arrow', arrowImage(), { sdf: true, pixelRatio: 3 })
   map.addLayer({
     id: 'vehicles-arrows',
     type: 'symbol',
@@ -462,6 +462,7 @@ export function TransitMap({
   const dimmedRef = useRef(false)
   /** Kadr trasy wybranej, zanim styl mapy się wczytał — dopasujemy go po `style.load`. */
   const pendingFitRef = useRef<RouteOverlay['bounds']>(null)
+  const pendingFocusRef = useRef<typeof focus>(null)
   const hiddenRef = useRef(hidden)
   const darkRef = useRef(dark)
   const onSelectRef = useRef(onSelect)
@@ -528,7 +529,12 @@ export function TransitMap({
 
       mapInstance.on('style.load', () => {
         addLayers(mapInstance, dataRef.current, hiddenRef.current, darkRef.current, dimmedRef.current)
-        if (pendingFitRef.current !== null) {
+        const pendingFocus = pendingFocusRef.current
+        if (pendingFocus !== null) {
+          moveCamera(mapInstance, { center: [pendingFocus.lon, pendingFocus.lat], zoom: pendingFocus.zoom ?? Math.max(mapInstance.getZoom(), MAP_ZOOM.focus), padding: cameraPadding(insetsRef.current) }, true)
+          appliedInsetsRef.current = insetsRef.current
+          pendingFocusRef.current = null
+        } else if (pendingFitRef.current !== null) {
           fitRoute(mapInstance, pendingFitRef.current, insetsRef.current)
           appliedInsetsRef.current = null
         }
@@ -765,12 +771,14 @@ export function TransitMap({
 
   const focusNonce = focus?.nonce
   useEffect(() => {
+    pendingFocusRef.current = focus
     if (focus === null || mapRef.current === null) return
     const map = mapRef.current
     // Bez `zoom` = przybliż do obiektu (nigdy nie oddalaj); z `zoom` = dokładnie ten kadr („całe miasto").
     // Padding z insetów: obiekt ląduje w wolnym obszarze, nie pod arkuszem ani paskiem.
     moveCamera(map, { center: [focus.lon, focus.lat], zoom: focus.zoom ?? Math.max(map.getZoom(), MAP_ZOOM.focus), padding: cameraPadding(insetsRef.current) }, true)
     appliedInsetsRef.current = insetsRef.current
+    pendingFocusRef.current = null
     // eslint-disable-next-line react-hooks/exhaustive-deps -- przelot tylko na nowy `nonce`, nie przy każdym renderze
   }, [focusNonce])
 

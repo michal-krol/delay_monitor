@@ -594,7 +594,7 @@ describe('TransitStopDetail', () => {
 
     it('requests the API maximum (50) departures', () => {
       render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-      expect(useTransitBoard).toHaveBeenCalledWith('warszawa', ['7014M'], 50, null)
+      expect(useTransitBoard).toHaveBeenCalledWith('warszawa', ['7014M'], 50, null, true)
     })
 
     it('tabs are Odjazdy, Rozkład, Komunikaty, in that order', () => {

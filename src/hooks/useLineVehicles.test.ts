@@ -23,6 +23,13 @@ afterEach(() => {
 })
 
 describe('useLineVehicles', () => {
+  it('includes the dated selected stop occurrence in the vehicle request', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ vehicles: [VEHICLE], feed: { state: 'ready', ageMs: 0 } }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderHook(() => useLineVehicles('warszawa', '20', 0, 't1', { date: '2026-09-02', stop: '100101', seq: 4 }))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/vehicles?city=warszawa&route=20&direction=0&trip=t1&date=2026-09-02&stop=100101&seq=4')
+  })
   it('starts with an empty list, then populates after the fetch resolves', async () => {
     const fetchMock = vi
       .fn()

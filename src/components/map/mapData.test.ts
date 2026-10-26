@@ -223,24 +223,27 @@ describe('paintUnchanged / positionsUnchanged (the 10 s age clock hands the map 
 })
 
 describe('arrowImage', () => {
-  it('rasterises the Lucide navigation-2 arrow (tip up, notched base), the same glyph as VehicleHeadingIcon', () => {
+  it('encodes the Lucide arrow as a signed distance field, with a notched base', () => {
     const { width, data } = arrowImage(24)
     const alpha = (x: number, y: number) => data[(y * width + x) * 4 + 3]
     expect(alpha(0, 0)).toBe(0)
-    expect(alpha(12, 4)).toBe(255) // ostrze
-    expect(alpha(6, 19)).toBe(255) // lewe skrzydło
-    expect(alpha(12, 19)).toBe(0) // wcięcie podstawy — trójkąt by go nie miał
+    expect(alpha(12, 7)).toBeGreaterThan(191) // ostrze
+    expect(alpha(7, 18)).toBeGreaterThan(191) // lewe skrzydło
+    expect(alpha(12, 18)).toBeLessThan(191) // wcięcie podstawy
+    expect([...data].some((value, index) => index % 4 === 3 && value > 0 && value < 255)).toBe(true)
   })
 
-  it('fills the image height like the old triangle (tip at the top edge, wing tips in the last row), so icon-size/offset still fit', () => {
-    const { width, data } = arrowImage(24)
+  it('pads the distance field so edges and outlines are not clipped', () => {
+    const { width, data } = arrowImage()
     const alpha = (x: number, y: number) => data[(y * width + x) * 4 + 3]
-    expect(alpha(12, 1)).toBe(255)
-    expect(alpha(3, 23)).toBe(255)
+    for (let x = 0; x < width; x += 1) {
+      expect(alpha(x, 0)).toBeLessThan(191)
+      expect(alpha(x, width - 1)).toBeLessThan(191)
+    }
   })
 
-  it('keeps the 16×16 default the vehicles-arrows layer is tuned for', () => {
-    expect(arrowImage()).toMatchObject({ width: 16, height: 16 })
+  it('supplies a high resolution image for DPR 1, 2 and 3 displays', () => {
+    expect(arrowImage()).toMatchObject({ width: 64, height: 64 })
   })
 })
 

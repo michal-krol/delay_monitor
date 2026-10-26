@@ -2,6 +2,10 @@ import type { GtfsSchedule } from './types'
 import type { VehiclePosition } from './vehicles'
 
 export type VehicleOnRoute = {
+  id?: string
+  observedAt?: string
+  serviceDate?: string
+  pastScheduledDeparture?: boolean
   sideNumber: string
   tripId: string
   routeId: string
@@ -43,15 +47,22 @@ function projectOnSegment(
 type VehicleGeometry = Omit<VehicleOnRoute, 'ageSec'>
 
 /** Reproject a feed position onto a concrete trip variant rather than the representative line. */
-export function projectCoursePosition(position: { lat: number; lon: number }, stops: { lat: number; lon: number }[]): { afterStopOrder: number; fraction: number } | null {
+export function projectCoursePosition(position: { lat: number; lon: number }, stops: { lat: number; lon: number }[], rejectAmbiguous = false): { afterStopOrder: number; fraction: number } | null {
   let best: { order: number; t: number; d: number } | null = null
+  const candidates: { order: number; t: number; d: number }[] = []
   for (let i = 0; i < stops.length - 1; i += 1) {
     const a = stops[i]
     const b = stops[i + 1]
     const projected = projectOnSegment(position.lat, position.lon, a.lat, a.lon, b.lat, b.lon)
+    if (rejectAmbiguous) candidates.push({ order: i, t: projected.t, d: projected.distanceM })
     if (best === null || projected.distanceM < best.d) best = { order: i, t: projected.t, d: projected.distanceM }
   }
-  return best === null || best.d > MAX_OFF_ROUTE_M ? null : { afterStopOrder: best.order, fraction: best.t }
+  if (best === null || best.d > MAX_OFF_ROUTE_M) return null
+  const chosen = best
+  // Adjacent hairpin legs can imply different progress too. Only a tie at the same
+  // route vertex is harmless; nearby but distinct progress has no reliable status.
+  if (rejectAmbiguous && candidates.some((c) => Math.abs(c.order + c.t - chosen.order - chosen.t) > 1e-6 && c.d <= chosen.d + 25)) return null
+  return { afterStopOrder: best.order, fraction: best.t }
 }
 
 export function projectTripVehicle(schedule: GtfsSchedule, position: VehiclePosition, nowMs: number): VehicleOnRoute | null {

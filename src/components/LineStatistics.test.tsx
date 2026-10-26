@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { LineStatistics } from './LineStatistics'
 import type { LineDetail, LineRouteStop } from '@/lib/gtfs/query'
 import type { LineVehiclesState } from '@/hooks/useLineVehicles'
@@ -10,6 +10,15 @@ const line: LineDetail = { routeId: '20', line: '20', longName: 'Centrum', mode:
 const state = (feed: string, error: string | null = null): LineVehiclesState => ({ vehicles: [], feed: { state: feed, ageMs: null }, error })
 
 describe('LineStatistics', () => {
+  it('renders per-vehicle status and an exact vehicle map link beside the side number', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-02T14:35:00+02:00'))
+    const live = state('ready')
+    live.vehicles = [{ id: 'V/20/1', sideNumber: '3801', tripId: 'trip', serviceDate: '2026-09-02', observedAt: '2026-09-02T14:35:00+02:00', pastScheduledDeparture: true, routeId: '20', directionId: 0, afterStopOrder: 0, fraction: 0, lat: 52, lon: 21, ageSec: 0, headsign: 'Centrum', bearing: null }]
+    render(<LineStatistics city="warszawa" line={line} vehicles={{ 0: live }} />)
+    expect(screen.getByRole('img', { name: 'Po planowanym odjeździe' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Pokaż pojazd 3801 na mapie' })).toHaveAttribute('href', expect.stringContaining('vehicle=V%2F20%2F1'))
+    vi.restoreAllMocks()
+  })
   it('counts repeated stop occurrences and request stops without deduplicating', () => {
     render(<LineStatistics line={line} vehicles={{ 0: state('ready') }} />)
     expect(screen.getByText('2 przystanki · 2 na żądanie')).toBeInTheDocument()

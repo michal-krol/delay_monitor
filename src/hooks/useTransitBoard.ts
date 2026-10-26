@@ -5,6 +5,7 @@ import type { AlertRecord } from '@/lib/gtfs/alerts'
 import type { AlertFeedStatus } from '@/lib/gtfs/alertView'
 import type { GtfsDeparture, GtfsMode, ScheduleState } from '@/lib/gtfs/types'
 import type { GtfsLine, StopGroupMember, StopSummary } from '@/lib/gtfs/query'
+import type { VehicleStopStatus } from '@/lib/gtfs/vehicleStatus'
 
 export type TransitStopBoard = {
   stopId: string
@@ -33,12 +34,12 @@ export type TransitStopBoard = {
   alerts: AlertRecord[] | null
   /**
    * `vehicle` = pozycja pojazdu realizującego ten kurs, wyrażona jako dystans
-   * w przystankach od obserwowanego przystanku (`stopsAway`, 0 = „zaraz będzie" —
-   * pojazd jest na odcinku tuż przed tym przystankiem, zbliża się) plus wiek
-   * danych. `null` gdy brak feedu pozycji, pytano o cały zespół albo pojazd
-   * ten przystanek już minął. Zero pola opóźnienia (#13).
+   * w przystankach od przystanku danego wiersza (`stopsAway`, 0 = odcinek
+   * bezpośrednio przed nim), plus wiek, tożsamość i opcjonalny wniosek ADR0014.
+   * `null` gdy brak wiarygodnego dopasowania lub pojazd ten przystanek już minął.
+   * Nigdy prognoza przyjazdu ani minuty opóźnienia.
    */
-  departures: (GtfsDeparture & { vehicle: { stopsAway: number; ageSec: number } | null })[]
+  departures: (GtfsDeparture & { vehicle: ({ stopsAway: number; ageSec: number } & Partial<VehicleStopStatus>) | null })[]
 }
 
 export type TransitBoardResponse = {
@@ -68,17 +69,18 @@ const REFRESH_INTERVAL_MS = 30000
 const isBoardLoading = (json: TransitBoardResponse) =>
   json.schedule.state === 'loading' || json.stops.some((stop) => stop !== null && stop.alerts === null)
 
-export function useTransitBoard(city: string | null, stopIds: string[], limit = 20, member: string | null = null) {
+export function useTransitBoard(city: string | null, stopIds: string[], limit = 20, member: string | null = null, retainOverdue = false) {
   const stopsKey = stopIds.join(',')
   // Klucz obejmuje wszystko, co wchodzi do URL-a; `keepPreviousData` -- przełączenie przystanku nie
   // zdejmuje pinów mapy ani podglądu w popupie (budowane z `data.stops[].members`) przed nową odpowiedzią.
-  const key = city === null || stopIds.length === 0 ? null : JSON.stringify([city, stopsKey, limit, member])
+  const key = city === null || stopIds.length === 0 ? null : JSON.stringify([city, stopsKey, limit, member, retainOverdue])
   const { data: polled, error, lastSuccessAt, refresh } = usePolling<TransitBoardResponse>(
     key,
     () =>
       fetchJson(
         `/api/gtfs/board?city=${encodeURIComponent(city as string)}&stops=${stopsKey}&limit=${limit}` +
-          (member !== null ? `&member=${encodeURIComponent(member)}` : '')
+          (member !== null ? `&member=${encodeURIComponent(member)}` : '') +
+          (retainOverdue ? '&retainOverdue=1' : '')
       ),
     { refreshMs: REFRESH_INTERVAL_MS, isLoading: isBoardLoading, keepPreviousData: true }
   )

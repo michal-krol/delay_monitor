@@ -62,6 +62,15 @@ async function call(url: string) {
 }
 
 describe('GET /api/gtfs/vehicles', () => {
+  it('does not attach a currently observed vehicle to another service date of the selected course', async () => {
+    const observed = Date.parse('2026-09-04T06:12:00+02:00')
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(observed)
+    positions = [{ id: 'V', tripId: 'T', lat: 52.21, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date(observed).toISOString() }]
+    try {
+      const { body } = await call('http://localhost/api/gtfs/vehicles?city=warszawa&route=20&direction=0&trip=T&date=2026-09-05')
+      expect(body.vehicles).toEqual([])
+    } finally { clock.mockRestore() }
+  })
   it('projects selected-trip GPS on its actual variant even without a representative route', async () => {
     const pattern = schedule!.routePatterns.get('0:0')!
     positions = [{ id: 'V', tripId: 'T', lat: 52.21, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }]

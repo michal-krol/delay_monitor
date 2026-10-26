@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildSchedule } from '@/lib/gtfs/schedule'
 import { modeFromRouteType } from '@/lib/gtfs/schema'
 import type { GtfsSchedule } from '@/lib/gtfs/types'
-import { serviceDateWindow } from '@/lib/pkp/time'
+import { serviceDateWindow, serviceDayNoonEpoch } from '@/lib/pkp/time'
 
 const [YESTERDAY, TODAY, TOMORROW] = serviceDateWindow(new Date(), 'Europe/Warsaw')
 
@@ -134,10 +134,12 @@ describe('GET /api/gtfs/board', () => {
   })
 
   it('tags a departure with its vehicle distance in stops (ready poller + matching position)', async () => {
+    const observedAt = serviceDayNoonEpoch(TODAY, 'Europe/Warsaw') + 3 * 60_000
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(observedAt)
     vehiclePoller = {
       getView: () => ({ state: 'ready' }),
       getPositions: () => [
-        { id: 'v', tripId: 't', lat: 52, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() },
+        { id: 'v', tripId: 't', lat: 52, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date(observedAt).toISOString() },
       ],
     }
     try {
@@ -147,6 +149,7 @@ describe('GET /api/gtfs/board', () => {
       expect(JSON.stringify(body)).not.toMatch(/delayMinutes|actualAt|predictedAt/)
     } finally {
       vehiclePoller = null
+      clock.mockRestore()
     }
   })
 

@@ -20,6 +20,14 @@ afterEach(() => {
 })
 
 describe('useTransitBoard', () => {
+  it('retains overdue courses only when the detailed board explicitly opts in', async () => {
+    const fetchMock = vi.fn().mockImplementation(ready)
+    vi.stubGlobal('fetch', fetchMock)
+    const { rerender } = renderHook(({ retainOverdue }) => useTransitBoard('warszawa', ['1001'], 20, null, retainOverdue), { initialProps: { retainOverdue: false } })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/board?city=warszawa&stops=1001&limit=20'))
+    rerender({ retainOverdue: true })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/gtfs/board?city=warszawa&stops=1001&limit=20&retainOverdue=1'))
+  })
   it('does not fetch when the city is null or there are no stops', async () => {
     const fetchMock = vi.fn().mockImplementation(ready)
     vi.stubGlobal('fetch', fetchMock)

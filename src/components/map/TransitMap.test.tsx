@@ -127,6 +127,14 @@ describe('TransitMap', () => {
     expect(maplibregl.Map).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps an initial vehicle focus until the asynchronously imported map has loaded its style', async () => {
+    render(<TransitMap {...base} focus={{ lat: 52.23116, lon: 21.06149, nonce: 1 }} />)
+    await waitFor(() => expect(maplibregl.Map).toHaveBeenCalledTimes(1))
+    const map = vi.mocked(maplibregl.Map).mock.results[0].value
+    handlers.get('style.load')!({})
+    expect(map.jumpTo).toHaveBeenCalledWith(expect.objectContaining({ center: [21.06149, 52.23116] }))
+  })
+
   it('adds rail, stop, vehicle and selection layers with zoom thresholds from one place', async () => {
     const { map } = await mounted()
     const added = map.addLayer.mock.calls.map(([layer]: [{ id: string; minzoom?: number }]) => [layer.id, layer.minzoom])
@@ -363,7 +371,7 @@ describe('TransitMap', () => {
   it('adds the direction arrow and the metro/rail backbone; follows a vehicle; reports a user drag', async () => {
     const onUserMove = vi.fn()
     const { map, rerender } = await mounted({ onUserMove })
-    expect(map.addImage).toHaveBeenCalledWith('vehicle-arrow', expect.objectContaining({ width: 16 }), { sdf: true })
+    expect(map.addImage).toHaveBeenCalledWith('vehicle-arrow', expect.objectContaining({ width: 64 }), { sdf: true, pixelRatio: 3 })
     const backbone = map.addSource.mock.calls.find(([id]: [string]) => id === 'backbone')[1]
     expect(backbone.data.features[0].geometry.coordinates).toEqual([[21.0, 52.1], [21.0, 52.2]])
     // Kolor rodzaju z jednej palety — `route_color` z feedu (M1 `#0000BB`) jest ignorowany.

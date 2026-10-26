@@ -52,6 +52,8 @@ export type GtfsRoute = {
 
 /** Jedno konkretne odjechanie linii z przystanku — wynik `nextDepartures()`. */
 export type GtfsDeparture = {
+  /** Past timetable row retained only while a fresh vehicle observation confirms approach. */
+  retainedForVehicle?: true
   tripId: string
   /** Feed sequence, preserving repeated occurrences of the same stop. */
   stopSequence?: number
