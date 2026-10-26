@@ -49,10 +49,10 @@ test('„Powiększ mapę" zostaje w rogu mapy i ma obszar trafienia >= 44×44', 
 })
 
 test('minuty w rozkładzie linii mają >= 24×24 px (WCAG 2.5.8)', async ({ page }) => {
-  // Telefon pokazuje jedną kategorię dnia; „wd” mocka jadą w dzisiejszej (bywa pusta), sobotnie zawsze w „Soboty”.
+  // Telefon pokazuje jedną kategorię dnia; sobotnie kursy mają stabilną kategorię niezależnie od dzisiejszej daty.
   await page.goto('/city/warszawa/line/20?day=saturday')
   await showLineTimetable(page)
-  const minute = page.getByRole('button', { pressed: false }).filter({ hasText: /^\d\d~?$/ }).first()
+  const minute = page.getByRole('link', { name: /^\d{2}:\d{2}, Sobota, dzień kursowania/ }).first()
   await expect(minute).toBeVisible({ timeout: READY })
   const box = await minute.boundingBox()
   expect(box?.width).toBeGreaterThanOrEqual(24)
