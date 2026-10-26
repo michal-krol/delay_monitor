@@ -476,7 +476,7 @@ export function TransitMap({
   const selectedAtRef = useRef<{ lat: number; lon: number } | null>(null)
   /** Insety, z którymi kamera była ostatnio ustawiona (`null` = padding kamery pochodzi z kadru trasy, nie z insetów). */
   const appliedInsetsRef = useRef<MapInsets | null>(insets)
-  /** Pozycje z ostatniego celu przejazdu (nie z ostatniej klatki) — punkt startu następnego płynnego przejazdu. */
+  /** Ostatnio narysowane pozycje (przed gotowością stylu: dane do pierwszego rysowania). */
   const drawnRef = useRef(new Map<string, [number, number]>())
   const lastVehiclesRef = useRef<CityVehicle[] | null>(null)
   /** Trwający płynny przejazd: kolejne klatki biorą `target` stąd, więc takt zegara może mu podmienić skład bez przerywania. */
@@ -612,7 +612,10 @@ export function TransitMap({
     const source = mapRef.current?.getSource('vehicles') as GeoJSONSource | undefined
     const running = glideRef.current
     const from = drawnRef.current
-    drawnRef.current = new Map(target.features.map((f) => [String(f.properties.id), f.geometry.coordinates]))
+    const paint = (frame: PointCollection): void => {
+      source?.setData(frame)
+      drawnRef.current = new Map(frame.features.map((f) => [String(f.properties.id), f.geometry.coordinates]))
+    }
     if (running !== null && positionsUnchanged(previous, target)) {
       // Takt (postarzenie, ukrycie wygasłego, filtr) w trakcie przejazdu: nowy skład dostają kolejne klatki — bez przerwania i skoku do celu.
       running.target = target
@@ -628,9 +631,8 @@ export function TransitMap({
       return was !== undefined && (was[0] !== f.geometry.coordinates[0] || was[1] !== f.geometry.coordinates[1])
     })
     const glide = moved && reading && source !== undefined && !prefersReducedMotion()
-    if (source === undefined) return
     if (!glide) {
-      source.setData(target)
+      paint(target)
       return
     }
     const start = performance.now()
@@ -638,10 +640,10 @@ export function TransitMap({
     const run: GlideRun = { raf: 0, target }
     glideRef.current = run
     const step = (now: number): void => {
-      const t = Math.min(1, (now - start) / GLIDE_MS)
+      const t = prefersReducedMotion() ? 1 : Math.min(1, (now - start) / GLIDE_MS)
       if (t === 1 || now - lastFrame >= GLIDE_FRAME_MS) {
         lastFrame = now
-        source.setData(interpolatePoints(from, run.target, t))
+        paint(interpolatePoints(from, run.target, t))
       }
       if (t < 1) run.raf = requestAnimationFrame(step)
       else glideRef.current = null

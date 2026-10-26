@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>()
+  return {
+    ...actual,
+    ViewTransition: (props: { children?: React.ReactNode }) =>
+      actual.createElement('div', { 'data-testid': 'vt', 'data-props': JSON.stringify({ ...props, children: undefined }) }, props.children),
+  }
+})
 import { ConcreteTimetable } from './ConcreteTimetable'
 
 const state = vi.hoisted(() => ({ data: null as unknown, error: null as string | null }))
@@ -8,6 +16,49 @@ vi.mock('@/hooks/usePolling', () => ({ usePolling: () => ({ ...state, refresh: v
 const props = { city: 'warszawa', routeId: '20', directionId: 0, stopId: '100101', occurrence: 1, day: 'weekday' as const, onDayChange: vi.fn() }
 
 describe('ConcreteTimetable', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  function stubWidth(wide: boolean) {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: wide && query === '(min-width: 64rem)', addEventListener: () => {}, removeEventListener: () => {} }))
+  }
+
+  function readyTimetable() {
+    state.error = null
+    state.data = { schedule: { state: 'ready' }, timetable: [
+      { tripId: 'sat', serviceDate: '2026-09-05', sequence: 1, occurrence: 1, departureSec: 43200, category: 'saturday' },
+    ] }
+  }
+
+  it('crossfades the grid on a narrow day change while preserving its chip and reporting the chosen day', () => {
+    stubWidth(false)
+    readyTimetable()
+    const onDayChange = vi.fn()
+    render(<ConcreteTimetable {...props} onDayChange={onDayChange} />)
+    const column = screen.getByRole('group', { name: 'Sobota' })
+    const chip = screen.getByRole('button', { name: 'Sobota' })
+    fireEvent.click(chip)
+    expect(onDayChange).toHaveBeenCalledExactlyOnceWith('saturday')
+    expect(screen.getByRole('group', { name: 'Sobota' })).not.toBe(column)
+    expect(screen.getByRole('button', { name: 'Sobota' })).toBe(chip)
+    expect(JSON.parse(screen.getByTestId('vt').getAttribute('data-props') ?? '{}')).toMatchObject({ name: 'line-day', share: 'auto', enter: 'auto', default: 'none' })
+  })
+
+  it('keeps the minute DOM and focus across desktop day changes, polling and crossing the breakpoint', () => {
+    stubWidth(true)
+    readyTimetable()
+    const view = render(<ConcreteTimetable {...props} />)
+    const minute = screen.getByRole('link', { name: /12:00, Sobota/ })
+    minute.focus()
+    fireEvent.click(screen.getByRole('button', { name: 'Sobota' }))
+    view.rerender(<ConcreteTimetable {...props} day="saturday" />)
+    readyTimetable()
+    view.rerender(<ConcreteTimetable {...props} day="saturday" />)
+    stubWidth(false)
+    view.rerender(<ConcreteTimetable {...props} day="saturday" />)
+    expect(screen.getByRole('link', { name: /12:00, Sobota/ })).toBe(minute)
+    expect(minute).toHaveFocus()
+  })
+
   it('links only the selected loop occurrence and keeps real trip/date/sequence identity', () => {
     state.data = { schedule: { state: 'ready' }, timetable: [
       { tripId: 'loop', serviceDate: '2026-09-02', sequence: 1, occurrence: 0, departureSec: 86700, category: 'weekday' },

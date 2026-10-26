@@ -1,7 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import { startTransition, useState } from 'react'
 import { fetchJson, usePolling } from '@/hooks/usePolling'
+import { LG_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import type { StopTimetableEntry, TimetableStop } from '@/lib/gtfs/courses'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
 import { courseHref } from '@/lib/courseView'
@@ -9,11 +11,21 @@ import type { LineDay } from '@/lib/lineViewState'
 import { formatSecondsOfDay } from '@/lib/format'
 import { stopDisplayName } from './stopName'
 import { encodeStopIdForPathSegment } from '@/lib/validation'
+import { TabCrossfade } from './TabCrossfade'
 
 const DAYS: { day: LineDay; label: string }[] = [{ day: 'weekday', label: 'Poniedziałek – Piątek' }, { day: 'saturday', label: 'Sobota' }, { day: 'sunday', label: 'Niedziela i święta' }, { day: 'other', label: 'Inne dni' }]
 type Response = { timetable: StopTimetableEntry[]; timetableStop?: TimetableStop | null; schedule: TransitBoardResponse['schedule'] }
 
 export function ConcreteTimetable({ city, routeId, directionId, stopId, occurrence, day, onDayChange }: { city: string; routeId: string; directionId: number; stopId: string | null; occurrence: number; day: LineDay; onDayChange: (day: LineDay) => void }) {
+  const lgUp = useMediaQuery(LG_UP, true)
+  // Only a narrow day choice replaces the grid; polling and resizing keep its DOM and focus.
+  const [fadeKey, setFadeKey] = useState(0)
+  function changeDay(next: LineDay): void {
+    startTransition(() => {
+      if (!lgUp) setFadeKey((key) => key + 1)
+      onDayChange(next)
+    })
+  }
   const params = new URLSearchParams({ city, route: routeId, dir: String(directionId), stop: stopId ?? '' })
   const { data, error, refresh } = usePolling<Response>(stopId === null ? null : `timetable:${params}`, () => fetchJson(`/api/gtfs/line?${params}`), { refreshMs: null, isLoading: (response) => response.schedule.state === 'loading', cacheNamespace: 'gtfs-timetable' })
   if (stopId === null) return <p className="mt-3 text-sm text-text-secondary">Wybierz przystanek, aby zobaczyć rozkład.</p>
@@ -28,7 +40,8 @@ export function ConcreteTimetable({ city, routeId, directionId, stopId, occurren
       <Link href={`/city/${city}/stop/${encodeStopIdForPathSegment(stopId)}?przystanek=${encodeURIComponent(stopId)}`} className="chip-filter mb-3">Odjazdy z przystanku</Link>
     </>}
     {error !== null && <p role="status" className="mb-2 text-[13px] text-warning-text">Nie udało się odświeżyć — pokazano ostatni rozkład.</p>}
-    <div role="group" aria-label="Kategoria dnia" className="mb-3 flex flex-wrap gap-2 lg:hidden">{days.map((d) => <button key={d.day} type="button" aria-pressed={activeDay === d.day} onClick={() => onDayChange(d.day)} className="chip-filter">{d.label}</button>)}</div>
+    <div role="group" aria-label="Kategoria dnia" className="mb-3 flex flex-wrap gap-2 lg:hidden">{days.map((d) => <button key={d.day} type="button" aria-pressed={activeDay === d.day} onClick={() => changeDay(d.day)} className="chip-filter">{d.label}</button>)}</div>
+    <TabCrossfade id={String(fadeKey)} name="line-day">
     <div className="grid gap-4 lg:grid-cols-3">{days.map((d) => {
       const rows = entries.filter((e) => e.category === d.day || d.day === 'weekday' && e.category === 'friday')
       const hours = [...new Set(rows.map((r) => Math.floor(r.departureSec / 3600)))]
@@ -41,6 +54,7 @@ export function ConcreteTimetable({ city, routeId, directionId, stopId, occurren
         </li>)}</ul>}
       </div>
     })}</div>
+    </TabCrossfade>
     <p className="mt-3 text-[13px] text-text-secondary">Wybierz minutę, aby otworzyć konkretny kurs w najbliższym dostępnym dniu kursowania.</p>
   </div>
 }

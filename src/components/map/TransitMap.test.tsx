@@ -343,6 +343,30 @@ describe('TransitMap', () => {
       expect(cancel).toHaveBeenCalledTimes(1) // the old loop is cancelled (the stub keeps its queued frame), a new one is queued
       expect(frames).toHaveLength(2)
     })
+
+    it.each([15, FADE_START_SEC + 45])('a reading interrupts from the painted position after an age tick (%s s), not the previous target', async (ageSec) => {
+      const { rerender, setData } = await glidingTowards(21.2)
+      rerender(<TransitMap {...base} vehicles={[vehicle({ lon: 21.2, ageSec }), vehicle({ id: 'b', lon: 21.05 })]} />)
+      frames.length = 0 // cancelAnimationFrame is a spy; discard the cancelled callback before taking the replacement.
+      rerender(<TransitMap {...base} vehicles={[vehicle({ lon: 21.3 }), vehicle({ id: 'b', lon: 21.05 })]} />)
+      const start = performance.now()
+      frames.shift()!(start)
+      expect(setData.mock.calls.at(-1)![0].features[0].geometry.coordinates[0]).toBeCloseTo(21.1, 2)
+      frames.shift()!(start + 1000)
+      expect(setData.mock.calls.at(-1)![0].features[0].geometry.coordinates[0]).toBe(21.3)
+      setData.mockClear()
+      rerender(<TransitMap {...base} vehicles={[vehicle({ lon: 21.3 }), vehicle({ id: 'b', lon: 21.05 })]} />)
+      expect(setData).not.toHaveBeenCalled()
+      expect(frames).toHaveLength(0)
+    })
+
+    it('enabling reduced motion during a glide paints the target on the next frame and ends the loop', async () => {
+      const { setData, start } = await glidingTowards(21.2)
+      reducedMotion = true
+      frames.shift()!(start + 600)
+      expect(setData.mock.calls.at(-1)![0].features[0].geometry.coordinates[0]).toBe(21.2)
+      expect(frames).toHaveLength(0)
+    })
   })
 
   it('casing under the backbone is dark red for yellow metro and white otherwise; the route casing follows the route colour', async () => {

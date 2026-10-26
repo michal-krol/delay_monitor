@@ -26,6 +26,12 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Strzałki kierunku pojazdów Navigation2 korzystają z poprawnego pola odległości,
   aby zachować ostrość i obrys przy skalowaniu na mapie.
 
+- Animacja pojazdów na mapie zachowuje narysowaną pozycję przy kolejnym odczycie
+  i kończy się po włączeniu ograniczonego ruchu. Odświeżenia widoków nie przepinają
+  już bez potrzeby subskrypcji szerokości ekranu i preferencji ruchu.
+  Zmiana dnia w rozkładzie konkretnych kursów ponownie korzysta ze wspólnego
+  przejścia, zachowując fokus i respektując ograniczony ruch.
+
 - Mapa transportu rozwija wspólną wyszukiwarkę przyciskiem „Szukaj”, a listę obiektów
   otwiera przyciskiem „Lista”. Pojazdy ze znanym kierunkiem jazdy mają czytelne znaczniki,
   większe po wybraniu; brak kierunku zachowuje neutralny znacznik.
