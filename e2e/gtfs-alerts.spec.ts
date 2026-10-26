@@ -23,7 +23,7 @@ test('przystanek: zakładka Komunikaty pokazuje utrudnienie linii 20 też zawę�
   // `/api/gtfs/board` kiedyś dopasowywał alerty po `scopeId ?? group.id`,
   // a `groupRoutes` zna tylko klucze zespołów — przystanek zawężał wynik do [].
   await page.goto('/city/warszawa/stop/100101')
-  await expect(page.getByRole('heading', { name: 'Centrum', exact: true })).toBeVisible({ timeout: READY })
+  await expect(page.getByRole('heading', { level: 1, name: 'Centrum 01', exact: true })).toBeVisible({ timeout: READY })
   const alertsTab = page.getByRole('tab', { name: /Komunikaty/ })
   await expect(alertsTab).toBeVisible({ timeout: READY })
   await alertsTab.click()

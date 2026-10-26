@@ -109,7 +109,8 @@ jobs:
     name: e2e-${{ matrix.project }}
     needs: changes
     if: ${{ needs.changes.outputs.e2e == 'true' }}
-    runs-on: ubuntu-latest
+    # Keep the browser ABI stable across ubuntu-latest image migrations.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       # Lista projektów liczy `changes` (scripts/lib/ciScope.mjs `e2eMatrix`): WebKit tylko przy
@@ -129,7 +130,7 @@ jobs:
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ steps.pw.outputs.v }}-${{ matrix.browser }}
+          key: pw-${{ runner.os }}-ubuntu-24.04-${{ steps.pw.outputs.v }}-${{ matrix.browser }}
       - run: npx playwright install --with-deps ${{ matrix.browser }}
         if: steps.pw-cache.outputs.cache-hit != 'true'
       - run: npx playwright install-deps ${{ matrix.browser }}

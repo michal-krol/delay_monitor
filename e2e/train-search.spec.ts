@@ -70,7 +70,7 @@ test('wybrany pociąg na mapie otwiera szczegóły kursu', async ({ page }) => {
   await page.waitForLoadState('networkidle')
   // The named region is the MapLibre canvas itself, created by the hydrated map effect.
   await expect(page.getByRole('region', { name: 'Mapa transportu — Warszawa' })).toBeVisible()
-  // Wyszukiwanie jest obecnie widoczne w pasku mapy; jego kompozycję zmienia dopiero PR 10.
+  await page.getByRole('button', { name: 'Szukaj', exact: true, expanded: false }).click()
   const input = page.getByRole('searchbox', { name: /^Stacja, przystanek/ })
   await input.fill('4501')
   await expect(input).toHaveValue('4501')
