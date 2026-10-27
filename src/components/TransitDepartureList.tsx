@@ -3,21 +3,19 @@ import Link from 'next/link'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 import { NAV_FORWARD_TYPES } from '@/lib/navTransition'
 import { countdownLabel } from '@/lib/countdown'
-import { effectiveAgeMs, formatAgo } from '@/lib/format'
-import { pluralPl } from '@/lib/plural'
+import { effectiveAgeMs } from '@/lib/format'
 import { LineBadge } from './LineBadge'
 import { OnRequestBadge } from './OnRequestBadge'
 import { LINE_KIND_LABEL } from './transitMode'
-import { ICON_SIZE, VehiclePositionIcon } from './icons'
 import { HIDE_AFTER_SEC } from './map/mapData'
 import { useNow } from '@/hooks/useNow'
 import { useRowAnimation } from '@/hooks/useRowAnimation'
 import { courseHref, departureDateLabel, timetableHref } from '@/lib/courseView'
 import { CourseVehicleActions, type CourseVehicle } from './CourseVehicleActions'
 
-type DepartureWithVehicle = GtfsDeparture & { vehicle?: (CourseVehicle & { stopsAway: number }) | null }
+type DepartureWithVehicle = GtfsDeparture & { vehicle?: (CourseVehicle & { stopsAway: number | null }) | null }
 
-/** Jak często odświeżamy wiek pozycji pojazdu między odpytaniami (30 s) — etykieta „GPS: N s temu” ma rosnąć. */
+/** Jak często odświeżamy wiek pozycji pojazdu między odpytaniami (30 s) — wygaszanie nieaktualnych pozycji. */
 const VEHICLE_AGE_TICK_MS = 10_000
 
 type Props = {
@@ -115,7 +113,6 @@ function DepartureRow({
   const vehicle = departure.vehicle != null && vehicleAgeSec <= HIDE_AFTER_SEC ? departure.vehicle : null
   const hasMeta =
     tag !== null ||
-    vehicle !== null ||
     LINE_KIND_LABEL[departure.lineKind] !== '' ||
     departure.frequencyBased ||
     departure.onRequest ||
@@ -152,16 +149,6 @@ function DepartureRow({
       {hasMeta && (
         <div data-testid="departure-meta" className="col-start-2 col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           {tag !== null && <StopTag code={tag.code} platform={tag.platform} />}
-          {vehicle !== null && (
-            <span className="inline-flex items-center gap-1.5 rounded bg-primary-soft px-1.5 py-0.5 text-xs font-semibold text-primary-text">
-              <VehiclePositionIcon size={ICON_SIZE.chip} />
-              {`${
-                vehicle.stopsAway === 0
-                  ? 'Pojazd w pobliżu przystanku'
-                  : `Pojazd: ${vehicle.stopsAway} ${pluralPl(vehicle.stopsAway, 'przystanek', 'przystanki', 'przystanków')} dalej`
-              } · GPS: ${formatAgo(vehicleAgeSec)}`}
-            </span>
-          )}
           {LINE_KIND_LABEL[departure.lineKind] !== '' && <span className="shrink-0 text-xs text-text-muted">{LINE_KIND_LABEL[departure.lineKind]}</span>}
           {departure.frequencyBased && (
             <span className="shrink-0 text-xs text-text-muted">co kilka min</span>
@@ -173,14 +160,15 @@ function DepartureRow({
     </>
   )
   return rowHref !== undefined ? (
-    <li>
+    <li className="flex items-start gap-2">
       <Link
         href={rowHref}
         transitionTypes={NAV_FORWARD_TYPES}
-        className={`${rowClass} -mx-2 rounded-lg px-2 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-primary-text focus-visible:outline-none dark:hover:bg-white/[0.06]`}
+        className={`${rowClass} min-w-0 flex-1 -mx-2 rounded-lg px-2 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-primary-text focus-visible:outline-none dark:hover:bg-white/[0.06]`}
       >
         {cells}
       </Link>
+      {city !== undefined && vehicle !== null && <span className="pt-3"><CourseVehicleActions city={city} vehicle={vehicle} showStatus={false} /></span>}
     </li>
   ) : (
     <li className={rowClass}>{cells}</li>

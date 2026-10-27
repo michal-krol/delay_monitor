@@ -23,6 +23,13 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Szczegóły przystanku mają dwie zakładki: „Odjazdy” i „Komunikaty”. Pełna pobrana
+  lista odjazdów pozostaje w „Odjazdach”; usunięto powielającą ją zakładkę „Rozkład”.
+
+- Ikona namierzenia pojazdu pozostaje dostępna przy niejednoznacznym dopasowaniu GPS
+  do trasy. Odjazdy i lista pojazdów linii nie pokazują wieku GPS ani liczby przystanków
+  do pojazdu; pinezka prowadzi do jego pozycji na mapie.
+
 - Strzałki kierunku pojazdów Navigation2 korzystają z poprawnego pola odległości,
   aby zachować ostrość i obrys przy skalowaniu na mapie.
 

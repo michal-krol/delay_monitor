@@ -254,24 +254,24 @@ describe('TransitStopDetail', () => {
   it('view tabs follow the WAI-ARIA tabs pattern: one tab stop, arrows/Home/End move selection and focus, a labelled tabpanel', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
     const tabs = within(screen.getByRole('tablist', { name: 'Widok przystanku' })).getAllByRole('tab')
-    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1'])
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1'])
     expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Odjazdy')
 
     tabs[0].focus()
     await userEvent.keyboard('{ArrowRight}')
     expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
     expect(tabs[1]).toHaveFocus()
-    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Rozkład')
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Komunikaty')
 
     await userEvent.keyboard('{End}')
-    expect(tabs[2]).toHaveFocus()
+    expect(tabs[1]).toHaveFocus()
     await userEvent.keyboard('{ArrowRight}')
     expect(tabs[0]).toHaveFocus()
     await userEvent.keyboard('{ArrowLeft}')
-    expect(tabs[2]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
     await userEvent.keyboard('{Home}')
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
-    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1'])
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1'])
   })
 
   it('przystanek tabs: one tab stop and arrow keys select the next przystanek', async () => {
@@ -382,9 +382,8 @@ describe('TransitStopDetail', () => {
     expect(screen.getAllByRole('link', { name: 'Linia M1' }).length).toBeGreaterThan(0)
   })
 
-  it('shows the full fetched departure list on Rozkład, not just the nearest preview', async () => {
+  it('shows fetched departures in the single Odjazdy view', async () => {
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    await userEvent.click(screen.getByRole('tab', { name: 'Rozkład' }))
     expect(screen.getByText('Kabaty')).toBeInTheDocument()
     expect(screen.getByText('Piaski')).toBeInTheDocument()
   })
@@ -597,16 +596,23 @@ describe('TransitStopDetail', () => {
       expect(useTransitBoard).toHaveBeenCalledWith('warszawa', ['7014M'], 50, null, true)
     })
 
-    it('tabs are Odjazdy, Rozkład, Komunikaty, in that order', () => {
+    it('tabs are only Odjazdy and Komunikaty, in that order', () => {
       render(<TransitStopDetail city="warszawa" stopId="7014M" />)
       const tabs = within(screen.getByRole('tablist', { name: 'Widok przystanku' })).getAllByRole('tab')
-      expect(tabs.map((tab) => tab.textContent)).toEqual(['Odjazdy', 'Rozkład', 'Komunikaty'])
+      expect(tabs.map((tab) => tab.textContent)).toEqual(['Odjazdy', 'Komunikaty'])
+    })
+
+    it('keeps the complete fetched list in Odjazdy after removing the duplicate tab', () => {
+      mockStop({ ...board, departures: Array.from({ length: 12 }, (_, i) => ({ ...board.departures[0], tripId: `trip-${i}` })) })
+      render(<TransitStopDetail city="warszawa" stopId="7014M" />)
+      expect(screen.getAllByTestId('departure-headsign')).toHaveLength(12)
+      expect(screen.queryByRole('tab', { name: 'Rozkład' })).not.toBeInTheDocument()
     })
 
     it('reads the tab from ?tab= and ignores an unknown one', () => {
       search = 'tab=schedule'
       const { unmount } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-      expect(screen.getByRole('tab', { name: 'Rozkład' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('tab', { name: 'Odjazdy' })).toHaveAttribute('aria-selected', 'true')
       unmount()
       search = 'tab=nonsense'
       render(<TransitStopDetail city="warszawa" stopId="7014M" />)

@@ -33,13 +33,10 @@ export type TransitStopBoard = {
   /** `null` = feed alertów jeszcze nie odpowiedział (nieznane, nie „brak") -- patrz `/api/gtfs/board`. */
   alerts: AlertRecord[] | null
   /**
-   * `vehicle` = pozycja pojazdu realizującego ten kurs, wyrażona jako dystans
-   * w przystankach od przystanku danego wiersza (`stopsAway`, 0 = odcinek
-   * bezpośrednio przed nim), plus wiek, tożsamość i opcjonalny wniosek ADR0014.
-   * `null` gdy brak wiarygodnego dopasowania lub pojazd ten przystanek już minął.
-   * Nigdy prognoza przyjazdu ani minuty opóźnienia.
+   * Feed identity for the exact trip, independently of geometric progress.
+   * Optional ADR0014 status remains conservative; null means no matching position.
    */
-  departures: (GtfsDeparture & { vehicle: ({ stopsAway: number; ageSec: number } & Partial<VehicleStopStatus>) | null })[]
+  departures: (GtfsDeparture & { vehicle: ({ stopsAway: number | null; ageSec: number } & Partial<VehicleStopStatus>) | null })[]
 }
 
 export type TransitBoardResponse = {

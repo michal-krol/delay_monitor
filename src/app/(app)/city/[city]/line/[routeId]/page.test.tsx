@@ -223,7 +223,7 @@ describe('LineDetailPage', () => {
     expect(map).toHaveAccessibleName('Mapa trasy linii 20')
     expect(map).toHaveTextContent('3 pins, 3 route points')
     const mover = await screen.findByTestId('mover')
-    expect(mover).toHaveTextContent('#3801 · za „Centrum 01”')
+    expect(mover).toHaveTextContent('#3801')
     // Pozycja pojazdu na mapie to surowe lat/lon z feedu (nie interpolacja po przystankach).
     expect(Number(mover.getAttribute('data-lat'))).toBeCloseTo(52.015)
     expect(Number(mover.getAttribute('data-lon'))).toBeCloseTo(21.012)
@@ -354,13 +354,14 @@ describe('LineDetailPage', () => {
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(await screen.findAllByRole('heading', { name: /Pojazdy w trasie/ })).toHaveLength(2)
-    expect(await screen.findByText('#3801')).toBeInTheDocument()
+    expect((await screen.findAllByText('#3801')).length).toBeGreaterThan(0)
   })
 
-  it('an old vehicle shows its age through formatAgo (aside and axis), not a hand-rolled „N min temu”', async () => {
+  it('keeps age accessible on the axis without GPS prose in the aside', async () => {
     stubFetch(LINE, { ...VEHICLES_READY, vehicles: [{ ...VEHICLES_READY.vehicles[0], ageSec: 7200 }] })
     render(<LineDetailPage />)
-    expect(await screen.findByText(/za „Centrum 01” · GPS: 2 h temu/)).toBeInTheDocument()
+    await screen.findAllByText('#3801')
+    expect(screen.queryByText(/GPS:|za „/)).not.toBeInTheDocument()
     expect(screen.getByTestId('timeline-vehicle')).toHaveTextContent('Pojazd 3801, 2 h temu')
     expect(screen.getByTestId('timeline-vehicle')).not.toHaveAttribute('title')
   })
@@ -904,11 +905,11 @@ describe('LineDetailPage — vehicles', () => {
     expect(screen.queryByTestId('mover')).not.toBeInTheDocument()
   })
 
-  it('known direction 0: the map link carries dir=0 and the count + GPS age show', async () => {
+  it('known direction 0: the map link carries dir=0 and the count shows without GPS age', async () => {
     stubFetch()
     render(<LineDetailPage />)
     expect(await screen.findByText('Pojazdy w tym kierunku: 1')).toBeInTheDocument()
-    expect(screen.getByText('GPS: 10 s temu')).toBeInTheDocument()
+    expect(screen.queryByText(/GPS:/)).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Pojazdy na mapie' })).toHaveAttribute('href', '/city/warszawa/map?line=20&dir=0')
   })
 

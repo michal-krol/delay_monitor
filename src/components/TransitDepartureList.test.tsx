@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 import { act, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { TransitDepartureList } from './TransitDepartureList'
 import { ON_REQUEST_TITLE } from './OnRequestBadge'
-import { HIDE_AFTER_SEC } from './map/mapData'
 import type { GtfsDeparture } from '@/lib/gtfs/types'
 import type { CourseVehicle } from './CourseVehicleActions'
 
@@ -59,7 +58,10 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('Nr boczny 1234')).toBeInTheDocument()
     rerender(<TransitDepartureList city="warszawa" variant="card" departures={[dep({ vehicle })]} />)
     expect(screen.queryByRole('img', { name: 'Po planowanym odjeździe' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })).toBeInTheDocument()
+    const mapAction = screen.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(mapAction.parentElement?.closest('a')).toBeNull()
     vi.restoreAllMocks()
   })
   it('separates timetable and concrete-course links with midnight date and no nested links', () => {
@@ -114,92 +116,14 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('Odjazd z przystanku')).toHaveClass('sr-only')
   })
 
-  it('never says „zaraz będzie"; stopsAway 0 reads „Pojazd w pobliżu przystanku"', () => {
-    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 0, ageSec: 15 } })]} />)
-    expect(screen.getByText(/Pojazd w pobliżu przystanku/)).toBeInTheDocument()
-    expect(screen.queryByText(/zaraz będzie/i)).not.toBeInTheDocument()
-  })
-
-  it.each([
-    [1, 'Pojazd: 1 przystanek dalej'],
-    [2, 'Pojazd: 2 przystanki dalej'],
-    [5, 'Pojazd: 5 przystanków dalej'],
-  ])('stopsAway %i reads „%s"', (stopsAway, text) => {
-    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway, ageSec: 15 } })]} />)
-    expect(screen.getByText(new RegExp(text))).toBeInTheDocument()
-  })
-
-  it('shows the GPS age next to the vehicle chip', () => {
-    const { rerender } = render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 18 } })]} />)
-    expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 18 s temu')).toBeInTheDocument()
-    rerender(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 2 } })]} />)
-    expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: przed chwilą')).toBeInTheDocument()
-  })
-
-  it('keeps the vehicle chip visible text only: no sr-only duplicate, no live dot, no title', () => {
-    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 15 } })]} />)
-    const chip = screen.getByText(/Pojazd: 2 przystanki dalej/)
-    expect(chip).not.toHaveAttribute('title')
-    expect(chip).toHaveTextContent(/^Pojazd: 2 przystanki dalej · GPS: 15 s temu$/)
-    expect(screen.queryByText(/pozycja/i)).not.toBeInTheDocument()
-  })
-
-  it('omits the vehicle chip when ageSec > HIDE_AFTER_SEC but still shows the timetable row', () => {
-    const { container } = render(
-      <TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: HIDE_AFTER_SEC + 1 } })]} />
-    )
-    expect(screen.queryByText(/Pojazd/)).not.toBeInTheDocument()
-    expect(screen.getByText('14:30')).toBeInTheDocument()
-    // Jedyne oznaczenie to nieświeży pojazd — pusty kontener oznaczeń nie może zostać w DOM.
-    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
-    expect(container.querySelector('[data-testid="departure-meta"]')).toBeNull()
-  })
-
-  it('keeps the vehicle chip at exactly HIDE_AFTER_SEC', () => {
-    render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: HIDE_AFTER_SEC } })]} />)
-    expect(screen.getByText(/Pojazd: 2 przystanki dalej/)).toBeInTheDocument()
-  })
-
-  describe('vehicle age since the response (fetchedAt)', () => {
-    afterEach(() => vi.useRealTimers())
-
-    const T0 = Date.parse('2026-09-02T12:00:00Z')
-
-    it('adds the time since the response to the "GPS: …" label as the clock ticks', () => {
-      vi.useFakeTimers({ now: T0 })
-      render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 18 } })]} fetchedAt={T0} />)
-      expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 18 s temu')).toBeInTheDocument()
-      act(() => {
-        vi.advanceTimersByTime(30_000)
-      })
-      expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 48 s temu')).toBeInTheDocument()
-    })
-
-    it('hides the chip once ageSec + time since the response exceeds HIDE_AFTER_SEC, keeping the row', () => {
-      vi.useFakeTimers({ now: T0 })
-      render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: HIDE_AFTER_SEC - 20 } })]} fetchedAt={T0} />)
-      expect(screen.getByText(/Pojazd: 2 przystanki dalej/)).toBeInTheDocument()
-      act(() => {
-        vi.advanceTimersByTime(30_000)
-      })
-      expect(screen.queryByText(/Pojazd/)).not.toBeInTheDocument()
-      expect(screen.getByText('14:30')).toBeInTheDocument()
-    })
-
-    it('shows ageSec unchanged without fetchedAt', () => {
-      vi.useFakeTimers({ now: T0 })
-      render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 18 } })]} />)
-      act(() => {
-        vi.advanceTimersByTime(60_000)
-      })
-      expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 18 s temu')).toBeInTheDocument()
-    })
-
-    it('does not lower the age when the clock goes back before the response', () => {
-      vi.useFakeTimers({ now: T0 })
-      render(<TransitDepartureList departures={[dep({ vehicle: { stopsAway: 2, ageSec: 18 } })]} fetchedAt={T0 + 60_000} />)
-      expect(screen.getByText('Pojazd: 2 przystanki dalej · GPS: 18 s temu')).toBeInTheDocument()
-    })
+  it('shows only the map action, without GPS age or stop-distance copy', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-02T14:35:00+02:00'))
+    const vehicle = { stopsAway: 2, ageSec: 0, id: 'V/20/1', tripId: 't', sideNumber: '1234', serviceDate: '2026-09-02', observedAt: '2026-09-02T14:35:00+02:00' }
+    render(<TransitDepartureList city="warszawa" departures={[dep({ vehicle })]} />)
+    expect(screen.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })).toBeInTheDocument()
+    expect(screen.queryByText(/GPS:|przystank.*dalej|Pojazd w pobliżu/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('departure-meta')).not.toBeInTheDocument()
+    vi.restoreAllMocks()
   })
 
   it('shows the full headsign without truncation', () => {

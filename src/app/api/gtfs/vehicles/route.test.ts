@@ -76,11 +76,16 @@ describe('GET /api/gtfs/vehicles', () => {
     positions = [{ id: 'V', tripId: 'T', lat: 52.21, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }]
     schedule!.routePatterns.delete('0:0')
     try {
-      expect((await call('http://localhost/api/gtfs/vehicles?city=warszawa&route=20&direction=0')).body.vehicles).toEqual([])
+      expect((await call('http://localhost/api/gtfs/vehicles?city=warszawa&route=20&direction=0')).body.vehicles).toMatchObject([{ id: 'V', tripId: 'T', afterStopOrder: null }])
       const { body } = await call('http://localhost/api/gtfs/vehicles?city=warszawa&route=20&direction=0&trip=T')
       expect(body.vehicles).toHaveLength(1)
       expect(body.vehicles[0]).toMatchObject({ tripId: 'T', afterStopOrder: 0 })
     } finally { schedule!.routePatterns.set('0:0', pattern) }
+  })
+  it('retains raw GPS and a map identity when projection onto the route fails', async () => {
+    positions = [{ id: 'V', tripId: 'T', lat: 54, lon: 21, sideNumber: '1', bearing: null, timestamp: new Date().toISOString() }]
+    const { body } = await call('http://localhost/api/gtfs/vehicles?city=warszawa&route=20&direction=0')
+    expect(body.vehicles).toMatchObject([{ id: 'V', tripId: 'T', lat: 54, lon: 21, afterStopOrder: null, pastScheduledDeparture: false }])
   })
   it('rejects malformed optional trip IDs before accessing pollers', async () => {
     getGtfsPoller.mockClear()

@@ -25,6 +25,21 @@ async function schedule(loop = false, options: { dates?: [string, string, string
 const position = (timestamp = '2026-09-02T09:09:00+02:00') => ({ id: 'V/509/6', tripId: 'T', sideNumber: '1234', timestamp, lat: 52.21, lon: 21, bearing: 0 })
 
 describe('inferred course status', () => {
+  it('keeps frequency-service GPS locatable without inferring a dated status', async () => {
+    const s = await schedule(false, { frequency: true })
+    const rows = departuresWithVehicles(s, [position()], ['C'], waw0902(9, 9), 20)
+    expect(rows[0].vehicle).toMatchObject({ id: 'V/509/6', tripId: 'T', pastScheduledDeparture: false })
+  })
+  it.each([
+    { lat: 52.2199, lon: 21 }, // Near an ordinary shared stop vertex: ambiguous progress.
+    { lat: 54, lon: 21 }, // GPS exists even when it cannot be projected onto the route.
+    { lat: 52.23, lon: 21 }, // Already beyond B: location is independent of stop status.
+  ])('keeps the map identity on future departures without reliable progress: $lat', async (point) => {
+    const s = await schedule()
+    const p = { ...position('2026-09-02T09:05:00+02:00'), ...point }
+    const rows = departuresWithVehicles(s, [p], ['B'], waw0902(9, 5), 20)
+    expect(rows[0].vehicle).toMatchObject({ id: p.id, tripId: 'T', sideNumber: '1234', serviceDate: '2026-09-02', pastScheduledDeparture: false })
+  })
   it('joins the raw vehicle identity to its dated concrete course and selected stop', async () => {
     const s = await schedule()
     expect(courseVehicleAtStop(s, position(), waw0902(9, 9), { serviceDate: '2026-09-02', stopId: 'B', sequence: 2 })).toMatchObject({ id: 'V/509/6', tripId: 'T', sideNumber: '1234', serviceDate: '2026-09-02', stopsAway: 0, pastScheduledDeparture: true })

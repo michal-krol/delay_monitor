@@ -50,7 +50,7 @@ export function mapCityVehicles(schedule: GtfsSchedule, positions: VehiclePositi
     const headsign = pattern !== undefined && pattern.headsignIdx >= 0 ? schedule.headsigns[pattern.headsignIdx] : null
 
     const projected = projectVehicle(schedule, position, nowMs)
-    const nextStopIdx = projected !== null ? pattern?.stops[projected.afterStopOrder + 1] : undefined
+    const nextStopIdx = projected?.afterStopOrder != null ? pattern?.stops[projected.afterStopOrder + 1] : undefined
 
     // `position.timestamp` jest zawsze parsowalny — `parseVehicleFeed` odrzuca
     // pozycje bez wiarygodnego czasu u źródła (patrz `vehicles.ts`, #7).

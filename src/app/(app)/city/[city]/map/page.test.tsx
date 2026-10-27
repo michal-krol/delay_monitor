@@ -148,6 +148,21 @@ describe('exact vehicle deep links', () => {
     expect(state.mapProps?.follow).toBeNull()
     expect(state.mapProps?.hidden.has('trams')).toBe(false)
   })
+  it('opens raw GPS by exact id and trip without a resolved date', async () => {
+    state.vehicles.vehicles = [{ ...target, serviceDate: null }]
+    window.history.replaceState(null, '', '/city/warszawa/map?vehicle=v1&trip=t1')
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps?.selected).toMatchObject({ id: 'v1', tripId: 't1' }))
+    expect(state.mapProps?.focus).toMatchObject({ lat: target.lat, lon: target.lon })
+    expect(state.mapProps?.follow).toBeNull()
+  })
+  it('keeps a known service date guarded even when raw links can omit it', async () => {
+    state.vehicles.vehicles = [{ ...target, serviceDate: '2026-10-26' }]
+    window.history.replaceState(null, '', '/city/warszawa/map?vehicle=v1&trip=t1&date=2026-10-25')
+    render(<CityMapPage />)
+    expect(await screen.findByText('Wskazany pojazd nie jest dostępny dla tego kursu.')).toBeInTheDocument()
+    expect(state.mapProps?.focus).toBeNull()
+  })
   it('does not substitute the same vehicle running another trip', async () => {
     state.vehicles.vehicles = [{ ...target, tripId: 'another' }]
     window.history.replaceState(null, '', '/city/warszawa/map?vehicle=v1&trip=t1&date=2026-10-25')

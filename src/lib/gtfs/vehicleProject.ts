@@ -10,8 +10,8 @@ export type VehicleOnRoute = {
   tripId: string
   routeId: string
   directionId: number
-  /** Indeks przystanka w przebiegu, ZA którym jest pojazd (0 .. stops.length-2). */
-  afterStopOrder: number
+  /** Indeks przystanka ZA pojazdem; null, gdy GPS nie daje wiarygodnego rzutu. */
+  afterStopOrder: number | null
   /** Postęp na odcinku [afterStopOrder, +1], 0..1. */
   fraction: number
   /** Surowe współrzędne pojazdu z feedu (`vehicles.json`), do rysowania na mapie. */

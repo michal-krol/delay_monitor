@@ -1,9 +1,9 @@
 import { GTFS_TRIP_ID_PATTERN, GTFS_VEHICLE_ID_PATTERN, isGtfsServiceDate } from './validation'
 
-export type VehicleMapSelection = { id: string; tripId: string; serviceDate: string }
+export type VehicleMapSelection = { id: string; tripId: string; serviceDate?: string }
 
 export function vehicleMapHref(city: string, selection: VehicleMapSelection): string {
-  const params = new URLSearchParams({ vehicle: selection.id, trip: selection.tripId, date: selection.serviceDate })
+  const params = new URLSearchParams({ vehicle: selection.id, trip: selection.tripId, ...(selection.serviceDate === undefined ? {} : { date: selection.serviceDate }) })
   return `/city/${city}/map?${params}`
 }
 
@@ -11,7 +11,7 @@ export function vehicleMapHref(city: string, selection: VehicleMapSelection): st
 export function parseVehicleMapSelection(params: { get(name: string): string | null }): VehicleMapSelection | null {
   const id = params.get('vehicle') ?? ''
   const tripId = params.get('trip') ?? ''
-  const serviceDate = params.get('date') ?? ''
-  if (!GTFS_VEHICLE_ID_PATTERN.test(id) || !GTFS_TRIP_ID_PATTERN.test(tripId) || !isGtfsServiceDate(serviceDate)) return null
+  const serviceDate = params.get('date') ?? undefined
+  if (!GTFS_VEHICLE_ID_PATTERN.test(id) || !GTFS_TRIP_ID_PATTERN.test(tripId) || (serviceDate !== undefined && !isGtfsServiceDate(serviceDate))) return null
   return { id, tripId, serviceDate }
 }

@@ -18,8 +18,8 @@ export type VehicleStopStatus = {
   tripId: string
   sideNumber: string
   observedAt: string
-  serviceDate: string
-  stopsAway: number
+  serviceDate?: string
+  stopsAway: number | null
   ageSec: number
   pastScheduledDeparture: boolean
 }
@@ -114,7 +114,16 @@ export function departuresWithVehicles(schedule: GtfsSchedule, positions: Vehicl
   for (const position of positions) if (!firstByTrip.has(position.tripId)) firstByTrip.set(position.tripId, position)
   const future = nextDepartures(schedule, ids, nowMs, limit).map((d) => {
     const position = firstByTrip.get(d.tripId)
-    return { ...d, vehicle: position === undefined ? null : courseVehicleAtStop(schedule, position, nowMs, { serviceDate: d.serviceDate, stopId: d.stopId, sequence: d.stopSequence }) }
+    const course = position === undefined ? null : observedTripCourse(schedule, position)
+    const ageMs = position === undefined ? NaN : nowMs - Date.parse(position.timestamp)
+    // A map link needs feed identity, not a successful geometric progress estimate.
+    const identity = position !== undefined && (course === null || course.serviceDate === d.serviceDate) && ageMs >= 0 ? {
+      id: position.id, tripId: position.tripId, sideNumber: position.sideNumber,
+      observedAt: position.timestamp, serviceDate: course?.serviceDate,
+      ageSec: Math.floor(ageMs / 1000), stopsAway: null, pastScheduledDeparture: false,
+    } : null
+    const status = position === undefined ? null : courseVehicleAtStop(schedule, position, nowMs, { serviceDate: d.serviceDate, stopId: d.stopId, sequence: d.stopSequence })
+    return { ...d, vehicle: status ?? identity }
   })
   const rows = new Map<string, GtfsDeparture & { vehicle: VehicleStopStatus | null }>()
   const retained = retainOverdue ? retainedDepartures(schedule, [...firstByTrip.values()], ids, nowMs) : []
