@@ -52,15 +52,15 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 
 ## Transit stop (`TransitStopDetail`, `TransitDepartureList`, GTFS only — #13)
 
-- Tabs, in this order: „Odjazdy”, „Rozkład”, „Komunikaty” (URL `?tab=departures|schedule|alerts`; legacy `lines` falls back to departures; the
+- Tabs, in this order: „Odjazdy”, „Komunikaty” (URL `?tab=departures|alerts`; legacy `schedule` and `lines` fall back to departures; the
   default is not written). Line filter chip „Wszystkie”; empty result: „Brak odjazdów linii {X} wśród najbliższych 50
   odjazdów.” + action „Wszystkie linie”; real empty: „Brak kolejnych odjazdów w rozkładzie na dziś i jutro.”.
 - Departure row: big time + „wg rozkładu” (+ „za N min · wg rozkładu” inside the hour); never „na czas” or numeric delay.
   ADR0014 permits a red ClockAlert for inferred `pastScheduledDeparture`: noninteractive, no visible
   status text, tooltip, legend or extra time; accessible name „Po planowanym odjeździe”. Absence means no assessment.
   A separate MapPin link names the exact vehicle („Pokaż pojazd {number} na mapie”).
-  Vehicle (GPS, not ETA): „Pojazd w pobliżu przystanku” at 0, „Pojazd: N {przystanek|przystanki|przystanków} dalej”,
-  always with „GPS: {formatAgo}”; older than `HIDE_AFTER_SEC` (`mapData`, one threshold) = no vehicle chip. Never „zaraz będzie”.
+  Vehicle: only the separate accessible map action „Pokaż pojazd {sideNumber} na mapie”.
+  No vehicle GPS-age or stops-away prose in departures or line vehicle statistics. The map link depends on feed identity, never geometric progress.
 - Header (phone): „Na mapie” = link with the post/group coordinates from the board (no GPS), or the text
   „Brak lokalizacji przystanku”; the map preview sits under the list in „Lokalizacja przystanku”.
 - Alerts tab scope label: „Komunikaty linii obsługujących ten przystanek|zespół” („Komunikaty” before the board is
@@ -173,11 +173,10 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   piątku.”; no course of the union is ever called „Najbliższy”. Frequency-based column: „„~” — godziny orientacyjne, kursy jeżdżą
   według częstotliwości.”. Still „rozkład”, never a delay (#13).
 - Aside (xl, `AsideCard` „Linia {line}”): labels „Rodzaj”, „Kierunki”, „Przystanki”, „Pierwszy / ostatni” (first–last departure of the
-  selected direction); card „Pojazdy w trasie — {headsign}” lists „#{side} za „{stop}” · {formatAgo}” (age only past 60 s).
+  selected direction); card „Pojazdy w trasie — {headsign}” lists „#{side}” with the separate vehicle map action.
   Vehicle ages anywhere on this screen go through `formatAgo`, never a hand-built „N min temu”; the axis marker has an
   sr-only name „Pojazd {side}, {formatAgo}” and no `title`. Breadcrumb tail is „Linia” until the long name is known (never the raw id).
-- Vehicles row (one copy; the list stays in the aside card „Pojazdy w trasie — {headsign}”): „Pojazdy w tym kierunku: N” +
-  „GPS: {formatAgo}”; loading „Wczytywanie pozycji…”; failed „Nie udało się pobrać pozycji.”; no position feed for the mode
+- Vehicles row (one copy; the list stays in the aside card „Pojazdy w trasie — {headsign}”): „Pojazdy w tym kierunku: N”; loading „Wczytywanie pozycji…”; failed „Nie udało się pobrać pozycji.”; no position feed for the mode
   „Brak danych o pozycjach pojazdów” (the route and timetable stay); healthy zero „Brak pojazdów w tym kierunku.”; link
   „Pojazdy na mapie” (`/city/{city}/map?line={routeId}&dir={0|1}`); unknown direction (id 2): no `dir`, no fetch, text
   „Kierunek nieznany — pokazujemy pojazdy bez rozróżnienia kierunku.” „Failed” = a fetch error OR a `failed` feed state

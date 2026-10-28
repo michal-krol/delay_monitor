@@ -30,6 +30,7 @@ test('board and concrete course have a static clock and a separate exact-vehicle
   expect(await status.evaluate((element) => element.closest('a,button'))).toBeNull()
   const mapLink = page.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie', exact: true })
   await expect(mapLink).toHaveAttribute('href', '/city/warszawa/map?vehicle=V%2F509%2F6&trip=course-509&date=2026-10-25')
+  await expect(page.getByText(/GPS:|Pojazd:.*przystank|Pojazd w pobliżu/)).toHaveCount(0)
   const bounds = await mapLink.boundingBox()
   expect(bounds?.width).toBeGreaterThanOrEqual(44)
   expect(bounds?.height).toBeGreaterThanOrEqual(44)

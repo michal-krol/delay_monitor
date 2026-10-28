@@ -131,7 +131,8 @@ test('zmiana motywu zachowuje przystanek i zakładkę i nie pobiera rozkładu po
     return body.schedule.state === 'ready' && body.stops.every((stop) => stop === null || stop.alerts !== null)
   })
   await page.goto(`${CENTRUM}?przystanek=100102&tab=schedule`)
-  await expect(page.getByRole('tab', { name: 'Rozkład' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+  await expect(page.getByRole('tab', { name: 'Rozkład', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Odjazdy' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
   await settled
   let boardRequests = 0
   page.on('request', (request) => {
@@ -143,5 +144,5 @@ test('zmiana motywu zachowuje przystanek i zakładkę i nie pobiera rozkładu po
   // WebKit: wolniejsze pierwsze odpowiedzi — zwykłe ponowienie drabinką bywa w tym oknie, więc zliczamy tylko w Chromium.
   if (browserName !== 'webkit') expect(boardRequests).toBe(0)
   await expect(page.getByRole('tab', { name: /^Centrum 02/ })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('tab', { name: 'Rozkład' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Odjazdy' })).toHaveAttribute('aria-selected', 'true')
 })

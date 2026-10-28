@@ -24,6 +24,13 @@ describe('CourseVehicleActions', () => {
     expect(link).toHaveClass('min-h-[44px]', 'min-w-[44px]')
   })
 
+  it('locates raw feed identity without an inferred service date or status', () => {
+    vi.setSystemTime(new Date(observedAt))
+    render(<CourseVehicleActions city="warszawa" vehicle={{ ...vehicle, serviceDate: undefined, pastScheduledDeparture: false }} />)
+    expect(screen.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })).toHaveAttribute('href', '/city/warszawa/map?vehicle=V%2F509%2F6&trip=2026-10-25%3A509%3ANdS%3A6%3A0900')
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
   it('expires status at 60 seconds and link at 180 seconds without a new payload', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(observedAt))

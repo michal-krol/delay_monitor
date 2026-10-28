@@ -76,12 +76,12 @@ test('pasek zakładek przystanku zostaje pod nagłówkiem po przewinięciu o 600
     await route.fulfill({ response, json: body })
   })
   await page.goto(STOP)
-  await page.getByRole('tab', { name: 'Rozkład' }).click()
+  await page.getByRole('tab', { name: 'Odjazdy' }).click()
   await expect(page.getByTestId('departure-list').locator('li').nth(20)).toBeAttached({ timeout: READY })
   await page.evaluate(() => window.scrollBy(0, 600))
   const bar = page.getByTestId('stop-tabs-bar')
   await expect(bar).toBeInViewport()
-  await expect(page.getByRole('tab', { name: 'Rozkład' })).toBeInViewport()
+  await expect(page.getByRole('tab', { name: 'Odjazdy' })).toBeInViewport()
   const header = (await page.locator('header').first().boundingBox())!
   expect(Math.abs((await bar.boundingBox())!.y - (header.y + header.height))).toBeLessThanOrEqual(2)
 })
@@ -785,11 +785,11 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
     expect(mapBox.height).toBeLessThanOrEqual(180)
   })
 
-  test('320×640: trzy zakładki w jednym rzędzie, bez przewijania w bok', async ({ page }) => {
+  test('320×640: dwie zakładki w jednym rzędzie, bez przewijania w bok', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 })
     await page.goto(STOP)
     const tabs = page.getByRole('tablist', { name: 'Widok przystanku' }).getByRole('tab')
-    await expect(tabs).toHaveCount(3, { timeout: READY })
+    await expect(tabs).toHaveCount(2, { timeout: READY })
     const boxes = await tabs.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y })))
     expect(new Set(boxes.map((b) => Math.round(b.y))).size, 'jeden rząd').toBe(1)
     expect(boxes[0].y).toBe(boxes[1].y)
@@ -799,8 +799,8 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
 
   test('zakładka i filtr linii są w URL i przeżywają przeładowanie oraz Wstecz z linii', async ({ page }) => {
     await page.goto(STOP)
-    await page.getByRole('tab', { name: 'Rozkład' }).click({ timeout: READY })
-    await expect(page).toHaveURL(/tab=schedule/)
+    await page.getByRole('tab', { name: 'Komunikaty' }).click({ timeout: READY })
+    await expect(page).toHaveURL(/tab=alerts/)
     await page.getByRole('tab', { name: 'Odjazdy' }).click()
     await expect(page).not.toHaveURL(/tab=/)
     await page.getByRole('group', { name: 'Filtr linii' }).getByRole('button', { name: /^20/ }).click()
@@ -808,11 +808,11 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
     await page.reload()
     await expect(page.getByRole('group', { name: 'Filtr linii' }).getByRole('button', { name: /^20/ })).toHaveAttribute('aria-pressed', 'true', { timeout: READY })
 
-    await page.getByRole('tab', { name: 'Rozkład' }).click()
+    await page.getByRole('tab', { name: 'Odjazdy' }).click()
     await page.getByRole('tabpanel').getByRole('link', { name: /^Linia 20/ }).first().click()
     await expect(page).toHaveURL(/\/city\/warszawa\/line\/20/)
     await page.goBack()
-    await expect(page.getByRole('tab', { name: 'Rozkład' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
+    await expect(page.getByRole('tab', { name: 'Odjazdy' })).toHaveAttribute('aria-selected', 'true', { timeout: READY })
     await expect(page).toHaveURL(/line=20/)
   })
 

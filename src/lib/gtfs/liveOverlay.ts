@@ -63,7 +63,7 @@ export function vehicleForStop(
   const position = indexPositionsByTrip(positions).get(tripId)
   if (position === undefined) return null
   const on = projectVehicle(schedule, position, nowMs)
-  if (on === null) return null
+  if (on?.afterStopOrder == null) return null
   const ref = schedule.tripPatternRef.get(tripId)
   if (ref === undefined) return null
   const pattern = schedule.routePatterns.get(`${ref.routeIdx}:${ref.direction}`)

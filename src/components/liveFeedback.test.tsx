@@ -101,7 +101,7 @@ describe('live dot on the vehicle chip', () => {
   it.each([15, 150])('carries no live dot (ageSec %i): the GPS age is written out', (ageSec) => {
     render(<TransitDepartureList departures={[dep(ageSec)]} />)
     expect(screen.queryByTestId('live-dot')).not.toBeInTheDocument()
-    expect(screen.getByText(/GPS:/)).toBeInTheDocument()
+    expect(screen.queryByText(/GPS:/)).not.toBeInTheDocument()
   })
 })
 

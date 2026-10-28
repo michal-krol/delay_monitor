@@ -44,7 +44,8 @@ focus after the search's own Escape handling. Overview summaries remain availabl
 shown only after „Lista”. Known vehicle bearings use centered 22px chevrons (28px selected);
 unknown bearings use neutral circles. Hit-testing and viewport enumeration include both marker layers.
 
-ADR0014: a vehicle deep link contains the raw feed entity id plus expected trip and service date.
+ADR0014: a vehicle deep link contains the raw feed entity id plus expected trip, and service date when resolved.
+Unresolved dates do not block raw GPS selection; an explicitly supplied date is always checked.
 Select only an exact current match (GPS <=180 s); missing/changed entities must never pick a
 replacement. Opening the link centres/selects and shows its card, without enabling follow.
 Navigation2 rasters must encode a real signed distance field with padding and pixelRatio;

@@ -56,8 +56,12 @@ export async function GET(request: Request) {
         .getPositions()
         .filter((p) => schedule.tripPatternRef.get(p.tripId)?.routeIdx === routeIdx && (trip === null || p.tripId === trip))
         .map((p) => {
-          const projected = trip === null ? projectVehicle(schedule, p, now) : projectTripVehicle(schedule, p, now)
-          if (projected === null) return null
+          const ref = schedule.tripPatternRef.get(p.tripId)!
+          const projected = (trip === null ? projectVehicle(schedule, p, now) : projectTripVehicle(schedule, p, now)) ?? {
+            tripId: p.tripId, sideNumber: p.sideNumber, routeId: route, directionId: ref.direction,
+            lat: p.lat, lon: p.lon, bearing: p.bearing, headsign: null,
+            afterStopOrder: null, fraction: 0, ageSec: Math.max(0, Math.floor((now - Date.parse(p.timestamp)) / 1000)),
+          }
           const course = observedTripCourse(schedule, p, date ?? undefined)
           if (trip !== null && date !== null && course === null) return null
           const status = courseVehicleAtStop(schedule, p, now, { serviceDate: date ?? undefined, stopId: stop ?? undefined, sequence: sequence === null ? undefined : Number(sequence) })

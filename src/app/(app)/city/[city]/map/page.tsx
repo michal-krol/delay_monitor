@@ -160,7 +160,7 @@ export default function CityMapPage() {
 
   const vehiclesById = useMemo(() => new Map(vehiclesState.vehicles.map((v) => [v.id, v])), [vehiclesState.vehicles])
   const selectedCandidate = selection?.kind === 'vehicle' ? (vehiclesById.get(selection.id) ?? null) : null
-  const selectedVehicle = selectedCandidate !== null && vehicleLink !== null && selection?.id === vehicleLink.id && (selectedCandidate.tripId !== vehicleLink.tripId || selectedCandidate.serviceDate !== vehicleLink.serviceDate) ? null : selectedCandidate
+  const selectedVehicle = selectedCandidate !== null && vehicleLink !== null && selection?.id === vehicleLink.id && (selectedCandidate.tripId !== vehicleLink.tripId || (vehicleLink.serviceDate !== undefined && selectedCandidate.serviceDate !== vehicleLink.serviceDate)) ? null : selectedCandidate
   const liveVehicle = selectedVehicle !== null && selectedVehicle.ageSec <= HIDE_AFTER_SEC ? selectedVehicle : null
   useEffect(() => {
     if (vehicleLink === null || (vehiclesState.feed.state === 'loading' && vehiclesState.vehicles.length === 0)) return
@@ -169,7 +169,7 @@ export default function CityMapPage() {
     if (requested?.id !== vehicleLink.id || requested.tripId !== vehicleLink.tripId || requested.serviceDate !== vehicleLink.serviceDate) return
     const target = vehiclesById.get(vehicleLink.id)
     // Only the exact dated trip may determine the camera, never a recycled entity id.
-    const available = target !== undefined && target.tripId === vehicleLink.tripId && target.serviceDate === vehicleLink.serviceDate && target.ageSec <= HIDE_AFTER_SEC
+    const available = target !== undefined && target.tripId === vehicleLink.tripId && (vehicleLink.serviceDate === undefined || target.serviceDate === vehicleLink.serviceDate) && target.ageSec <= HIDE_AFTER_SEC
     const key = `${JSON.stringify(vehicleLink)}:${available}`
     if (appliedVehicleLink.current === key) return
     appliedVehicleLink.current = key

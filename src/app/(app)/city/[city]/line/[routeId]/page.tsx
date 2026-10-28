@@ -23,7 +23,6 @@ import { AttributionFooter } from '@/components/AttributionFooter'
 import { PageShell } from '@/components/aside'
 import { AlertCircleIcon, ArrowLeftIcon, ChevronRightIcon, ICON_SIZE, MapIcon, SwapIcon } from '@/components/icons'
 import { LINE_KIND_LABEL, MODE_ICON, MODE_LABEL } from '@/components/transitMode'
-import { formatAgo } from '@/lib/format'
 import { dedupeAlerts } from '@/lib/gtfs/alertView'
 import { getCity } from '@/lib/gtfs/cities'
 import { NAV_BACK_TYPES, NAV_FORWARD_TYPES } from '@/lib/navTransition'
@@ -57,12 +56,6 @@ const PANES: { key: LinePane; label: string }[] = [
   { key: 'route', label: 'Trasa' },
   { key: 'timetable', label: 'Rozkład' },
 ]
-
-/** Przystanek, za którym jest pojazd — jeden konkretny, więc z numerem („za „Centrum 02”"). */
-function afterStopName(stops: typeof NO_STOPS, index: number): string {
-  const stop = stops[index]
-  return stop !== undefined ? stopDisplayName(stop.name, stop.code) : '—'
-}
 
 export default function LineDetailPage() {
   const params = useParams<{ city: string; routeId: string }>()
@@ -191,12 +184,12 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
       id: v.sideNumber + v.tripId,
       lat: v.lat,
       lon: v.lon,
-      label: `#${v.sideNumber} · za „${afterStopName(stops, v.afterStopOrder)}”`,
+      label: `#${v.sideNumber}`,
       mode: line?.mode ?? 'bus',
       kind: mapKind,
       bearing: v.bearing,
     }))
-  }, [showVehicles, liveVehicles.vehicles, stops, line?.mode, mapKind])
+  }, [showVehicles, liveVehicles.vehicles, line?.mode, mapKind])
   const { resolvedTheme } = useTheme()
   // MapLibre (WebGL, worker, kafelki) startuje dopiero, gdy sekcja zbliży się do ekranu — raz, bez odmontowania.
   const [mapSectionRef, mapNear] = useNearViewport()
@@ -543,11 +536,9 @@ function VehiclesRow({ city, routeId, directionId, showVehicles, live }: { city:
         <p className="text-sm text-text-secondary">Brak danych o pozycjach pojazdów</p>
       )
   } else {
-    const newest = Math.min(...live.vehicles.map((v) => v.ageSec))
     status = (
       <>
         <p className="text-sm font-semibold text-foreground">{`Pojazdy w tym kierunku: ${live.vehicles.length}`}</p>
-        <p className="text-xs text-text-secondary">{`GPS: ${formatAgo(newest)}`}</p>
         {live.error !== null && <p className="text-xs text-warning-text">Nie udało się odświeżyć pozycji. Pokazujemy ostatnie dane.</p>}
       </>
     )

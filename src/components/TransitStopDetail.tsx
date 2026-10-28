@@ -41,10 +41,9 @@ import { StatTile } from './StatTile'
 import { onTablistKeyDown } from './tablistKeys'
 import { pluralPl } from '@/lib/plural'
 
-type StopTab = 'departures' | 'schedule' | 'alerts'
+type StopTab = 'departures' | 'alerts'
 const STOP_TABS: { key: StopTab; label: string }[] = [
   { key: 'departures', label: 'Odjazdy' },
-  { key: 'schedule', label: 'Rozkład' },
   { key: 'alerts', label: 'Komunikaty' },
 ]
 const DEFAULT_TAB: StopTab = 'departures'
@@ -52,7 +51,6 @@ const DEFAULT_TAB: StopTab = 'departures'
 const parseTab = (raw: string | null): StopTab => STOP_TABS.find((tab) => tab.key === raw)?.key ?? DEFAULT_TAB
 /** Tyle odjazdów ZWRACA `/api/gtfs/board` maksymalnie (`MAX_LIMIT`) — prosimy o całość, bez cichego przycinania po stronie API. */
 const SCHEDULE_FETCH_LIMIT = 50
-const NEAREST_PREVIEW_COUNT = 10
 
 /** Ikona pinu na mapie: pierwszy tryb wg priorytetu prezentacji (`MODE_ORDER`) obecny na przystanku. */
 function primaryMode(lines: GtfsLine[]): GtfsMode {
@@ -149,8 +147,7 @@ export function TransitStopDetail({
     selectMemberRef.current = selectMember
   })
   const onPinClick = useCallback((id: string) => selectMemberRef.current(id), [])
-  // Jedno zapytanie na obie zakładki odjazdowe — „Rozkład" pokazuje całą
-  // listę do `SCHEDULE_FETCH_LIMIT`, „Odjazdy" tnie ją do podglądu niżej.
+  // Jeden widok odjazdów pokazuje pełną pobraną listę, do limitu API.
   const { data, error, loading, failed, lastSuccessAt, refresh } = useTransitBoard(city, [stopId], SCHEDULE_FETCH_LIMIT, effMember, true)
   // Nazwa miasta z `/api/cities` — jeden wspólny hook z `WeatherChip`,
   // `TransitStopCard` i stroną miasta (Task 9). Fallback do slugu, dopóki
@@ -591,7 +588,7 @@ export function TransitStopDetail({
               ))}
             </div>
 
-            {(activeTab === 'departures' || activeTab === 'schedule') && board !== null && board.lines.length > 1 && (
+            {activeTab === 'departures' && board !== null && board.lines.length > 1 && (
               <div role="group" aria-label="Filtr linii" className="flex flex-wrap items-center gap-1.5 max-sm:-my-1 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:py-1">
                 <button type="button" onClick={() => selectLine(null)} aria-pressed={lineFilter === null} className="chip-filter shrink-0">
                   Wszystkie
@@ -613,7 +610,7 @@ export function TransitStopDetail({
 
           <div role="tabpanel" id={viewPanelId} aria-labelledby={viewTabId(activeTab)}>
             <TabCrossfade id={activeTab} name="stop-panel">
-            {(activeTab === 'departures' || activeTab === 'schedule') && (
+            {activeTab === 'departures' && (
               <>
                 {/* Znane komunikaty: zwarty skrót nad odjazdami, szczegóły w zakładce „Komunikaty”. */}
                 {activeTab === 'departures' && alertCount > 0 && (
@@ -629,7 +626,7 @@ export function TransitStopDetail({
                 )}
                 {refreshFailed && fetchStatus}
                 <TransitDepartureList
-                  departures={activeTab === 'departures' ? departures.slice(0, NEAREST_PREVIEW_COUNT) : departures}
+                  departures={departures}
                   loading={departuresLoading}
                   emptyMessage={departuresEmpty}
                   emptyAction={

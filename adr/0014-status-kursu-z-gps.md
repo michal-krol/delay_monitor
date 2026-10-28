@@ -43,3 +43,11 @@ nie ocenę punktualności; kształtem kierunku pozostaje Lucide Navigation2.
 - Zielony status przy braku alarmu: brak dowodu spóźnienia nie potwierdza punktualności.
 - Minuty opóźnienia i ETA: wymagają odrębnej logiki i weryfikacji.
 - Sam kolor: znaczenie musi wynikać również z kształtu i nazwy dostępnej.
+
+## Doprecyzowanie 2026-10-26
+
+Dostępność pinezki zależy od pozycji w feedzie, niezależnie od rzutu na trasę i liczby
+przystanków. Niepewna geometria wyłącza wyłącznie wnioskowany status. Odjazdy i lista
+pojazdów linii nie pokazują tekstu o wieku GPS ani odległości w przystankach.
+Gdy nie można ustalić daty kursowania, link zachowuje dokładne id pojazdu i kursu;
+przy znanej dacie nadal sprawdzamy zgodność daty. Próg świeżości mapy pozostaje bez zmian.

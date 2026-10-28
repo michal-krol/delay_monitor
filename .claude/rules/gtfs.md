@@ -165,7 +165,7 @@ paths:
   `VehiclePoller` per city, lifecycle TIED to the timetable poller (`onWake`/`onIdle` in
   `GtfsPollerDeps`). `vehicleProject.ts` (pure) projects the feed's `trip_id` — the same as in
   `stop_times.txt` — onto `routePatterns` by stop sequence. `VehicleOnRoute` carries raw
-  `lat`/`lon` from the feed NEXT TO `afterStopOrder`+`fraction` (the route map draws the vehicle
+  `lat`/`lon` from the feed NEXT TO nullable `afterStopOrder`+`fraction` (the route map draws the vehicle
   at its real position, the line timeline still computes from the projection). No numeric delay
   or ETA. ADR0014 permits only a conservative `pastScheduledDeparture` indicator from the
   concrete trip/date/stop occurrence: nonfuture GPS <=60 s old, observation >60 s after the
@@ -224,3 +224,7 @@ Contract: `GTFS_CONTRACT=1 npm run test -- gtfs/contract` (network, no cost).
 Link-preview routes (`opengraph-image.tsx`, `generateMetadata`) read the schedule with
 `peekGtfsPoller(city)?.getSchedule()` — never `getGtfsPoller`/`ensureLoaded` (a crawler is not a
 viewer and must not wake the pollers); not loaded yet → generic card with a short cache.
+
+- Vehicle map actions use raw feed identity independently of route projection or stop progress.
+  A failed/ambiguous projection suppresses inferred status, never an available map link.
+  If service date cannot be resolved, links carry exact vehicle id and trip only; known dates remain guarded.

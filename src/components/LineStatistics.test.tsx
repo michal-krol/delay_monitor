@@ -39,7 +39,7 @@ describe('LineStatistics', () => {
     live.vehicles = [{ sideNumber: '3801', tripId: 'trip', routeId: '20', directionId: 0, afterStopOrder: 0, fraction: 0, lat: 52, lon: 21, ageSec: 7200, headsign: 'Centrum', bearing: null }]
     render(<LineStatistics line={line} vehicles={{ 0: live }} />)
     expect(screen.getByText('#3801')).toBeInTheDocument()
-    expect(screen.getByText(/GPS: 2 h temu/)).toBeInTheDocument()
+    expect(screen.queryByText(/GPS:|za „/)).not.toBeInTheDocument()
     expect(screen.getByText('Nie udało się odświeżyć pozycji. Pokazujemy ostatnie dane.')).toBeInTheDocument()
   })
 })

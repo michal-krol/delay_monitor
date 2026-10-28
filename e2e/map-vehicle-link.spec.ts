@@ -50,6 +50,15 @@ test('a changed trip, vanished vehicle or stale GPS never substitutes another bu
   }
 })
 
+test('raw GPS remains locatable without a resolved service date', async ({ page }) => {
+  await mockVehicle(page, () => [{ ...target, serviceDate: null }])
+  await page.goto(`/city/warszawa/map?${new URLSearchParams({ vehicle: target.id, trip: target.tripId })}`)
+  await expect(page.getByText('1234', { exact: true })).toBeVisible()
+  await expect.poll(() => new URL(page.url()).searchParams.get('at')).toMatch(/^52\.23116,21\.06149,/)
+  await expect(page.getByRole('button', { name: 'Śledź pojazd', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  expect((await scanA11y(page)).violations).toEqual([])
+})
+
 test('malformed vehicle parameters are ignored without opening a card', async ({ page }) => {
   await mockVehicle(page, () => [target])
   await page.goto('/city/warszawa/map?vehicle=%3Cscript%3E&trip=t&date=2026-02-30')

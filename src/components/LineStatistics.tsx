@@ -1,8 +1,7 @@
-import { formatAgo, formatSecondsOfDay } from '@/lib/format'
+import { formatSecondsOfDay } from '@/lib/format'
 import type { LineDetail } from '@/lib/gtfs/query'
 import type { LineVehiclesState } from '@/hooks/useLineVehicles'
 import { pluralPl } from '@/lib/plural'
-import { stopDisplayName } from './stopName'
 import { MODE_LABEL } from './transitMode'
 import { CourseVehicleActions } from './CourseVehicleActions'
 
@@ -29,11 +28,10 @@ export function LineStatistics({ line, vehicles, city }: { line: LineDetail; veh
                 <>
                   {(live.error !== null || live.feed.state === 'failed') && <p className="text-warning-text">Nie udało się odświeżyć pozycji. Pokazujemy ostatnie dane.</p>}
                   <ul className="mt-1 divide-y divide-surface-border">
-                    {live.vehicles.slice().sort((a, b) => a.afterStopOrder - b.afterStopOrder).map((vehicle) => {
-                      const stop = direction.stops[vehicle.afterStopOrder]
+                    {live.vehicles.slice().sort((a, b) => (a.afterStopOrder ?? Infinity) - (b.afterStopOrder ?? Infinity)).map((vehicle) => {
                       return <li key={`${vehicle.sideNumber}:${vehicle.tripId}`} className="flex flex-wrap justify-between gap-x-3 gap-y-0.5 py-1.5">
                         <span className="flex flex-wrap items-center gap-x-2 font-medium tabular-nums text-foreground">#{vehicle.sideNumber}{city !== undefined && <CourseVehicleActions city={city} vehicle={vehicle} />}</span>
-                        <span className="min-w-0 text-text-secondary [overflow-wrap:anywhere]">za „{stop ? stopDisplayName(stop.name, stop.code) : '—'}”{vehicle.ageSec > 60 && ` · GPS: ${formatAgo(vehicle.ageSec)}`}</span>
+
                       </li>
                     })}
                   </ul>
