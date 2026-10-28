@@ -179,7 +179,7 @@ export function PinnedMenu({ pinnedItems, onOpen }: { pinnedItems: PinnedPoint[]
         aria-controls={panelId}
         aria-label="Przypięte"
         onClick={toggle}
-        className={`glass-chrome border border-surface-border shadow-md grid h-full min-h-11 w-11 place-items-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10`}
+        className={`glass-chrome border border-surface-border shadow-md grid h-full min-h-[44px] w-[44px] place-items-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10`}
       >
         <StarIcon size={ICON_SIZE.button} filled />
       </button>

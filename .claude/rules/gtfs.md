@@ -79,16 +79,14 @@ paths:
   current state, otherwise the first render would freeze the defaults.
   - **Data**: `useCityLines(city)` (the one fetcher of `/api/gtfs/lines`; `schedule` and `attribution`
     for `ScheduleStatus`/`AttributionFooter` come from the same payload; zero requests per row).
-  - **URL state** `q` (≤100 chars) and `mode` (a `GtfsMode`): `src/lib/linesView.ts` (`parseLinesView`,
+  - **URL state** `q` (≤100 chars); retired `mode` is ignored and removed: `src/lib/linesView.ts` (`parseLinesView`,
     `linesViewPatch`), written with `patchUrlParams` = `replaceState`, so typing adds no history entries and
     other params are preserved; bad values are ignored silently (#4). The URL is read once, in a `<Suspense>`
-    boundary (`useSearchParams`), into the inner `LinesCatalog key={city}` — a city change resets `q`, `mode`
-    and results. A `mode` the city doesn't have is treated as „Wszystkie” after load.
-  - **Filtering**: mode filter first, then `rankLines` (`src/lib/discovery.ts`: exact number → number
+    boundary (`useSearchParams`), into the inner `LinesCatalog key={city}` — a city change resets the query and results.
+  - **Filtering**: `rankLines` (`src/lib/discovery.ts`: exact number → number
     prefix → phrase in the route name; no infix match on the number, same as the global search), via
     `filterCatalogLines`. A non-empty `q` shows the flat `LineResults`; otherwise `LineGrid` with the
-    mode-filtered groups (`groupByMode`, chips from `availableModes`). An active mode filter passes
-    `openByDefault` so its only section opens without a click; a stored user toggle still wins.
+    all mode groups (`groupByMode`). Stored section open/closed choices remain independent of the search.
   - **Tiles**: no `truncate` — full termini wrap; the grid is a container query (`@container`), one
     column in a narrow container, auto-fill from `@md`, never a window breakpoint (the aside changes the width).
   - Copy: `ui-copy.md` „Lines catalog”.

@@ -29,7 +29,7 @@ const ROUTES: { name: string; go: (page: Page) => Promise<void>; ready: (page: P
   { name: 'linie', go: (p) => p.goto('/city/warszawa/lines').then(() => undefined), ready: (p) => p.getByRole('heading', { level: 1, name: 'Linie', exact: true }) },
   { name: 'linia', go: (p) => p.goto('/city/warszawa/line/20').then(() => undefined), ready: (p) => p.getByRole('heading', { name: /^Trasa linii/ }) },
   { name: 'szukaj', go: (p) => p.goto('/search').then(() => undefined), ready: (p) => p.getByRole('searchbox', { name: 'Stacja, przystanek, linia lub pociąg' }) },
-  { name: 'mapa', go: (p) => p.goto('/city/warszawa/map').then(() => undefined), ready: (p) => p.getByRole('button', { name: /Filtry/ }) },
+  { name: 'mapa', go: (p) => p.goto('/city/warszawa/map').then(() => undefined), ready: (p) => p.getByRole('button', { name: 'Z utrudnieniami' }) },
 ]
 
 for (const theme of ['light', 'dark'] as const) {

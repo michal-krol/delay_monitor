@@ -71,8 +71,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Line badge opens the full timetable at the departure's direction/stop/occurrence; the separate time link is „Wybierz kurs …”. Civil dates outside today are visible (`DD.MM.YYYY`), independent of the GTFS service date.
 - Concrete course: „Kurs linii {X}”, „Dzień kursowania: … · wg rozkładu”, „Wróć do odjazdów”, „Rozkład: {stop}”. Missing geometry: „Schemat połączeń między przystankami — brak geometrii trasy.” Missing course: „Ten kurs nie jest dostępny w aktualnym rozkładzie.”
 - Map preview section heading: „Lokalizacja przystanku”; map region name „Mapa zespołu przystanków {name}” / „Mapa przystanku {name}”.
-- Browser fetch age: „Pobrano {N s temu|przed chwilą}” (not the age of the source feed); stale after a failed refresh:
-  „Nie udało się odświeżyć · dane z {HH:mm}” (city time zone).
+- Browser response timestamps live in the header under their own source label, separate from static feed loading. A failed refresh keeps a visible „Nie udało się odświeżyć — pokazujemy ostatnie dane.” warning.
 
 ## Map location (`LocateControl`, `/city/<city>/map`, adr/0012)
 
@@ -90,7 +89,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Phone overview (nothing selected, no nearby, no line) = bottom sheet at `peek`, a region (not a dialog) named „Pojazdy i przystanki w
   widoku”: counts „{n} pojazd|pojazdy|pojazdów · {n} przystanek|przystanki|przystanków · {n} stacja|stacje|stacji kolejowa” (zero parts left
   out), loading „Liczę obiekty w kadrze…”, nothing „Brak obiektów w kadrze”, overflow „Pierwsze 100 obiektów” + „Przybliż mapę, aby zobaczyć
-  więcej” (never a total). „Lista” opens the same sheet at `half`; list subtitle in the window panel is „{n} obiekt|obiekty|obiektów”.
+  więcej” (never a total). Rows are always available; the sheet handle changes its height without a separate „Lista” button.
 - Overview age = the **median GPS age (`ageSec`) of the vehicles currently visible** in the frame (even count: mean of the middle two): „Pozycje
   sprzed {N s|N min}” („Pozycje sprzed chwili” under 5 s). Never the poller's fetch age presented as GPS age (it is a different, smaller number —
   the thresholds 90/180 s exist because individual fixes lag). No visible vehicle with an age = no claim: loading „Wczytywanie pozycji
@@ -137,15 +136,10 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - The results panel also closes (the phrase stays) on a press outside the field+panel (a tap on the map) and when focus moves out
   to another element; focusing/tapping the field or typing reopens it.
 
-## Map filters (`MapToolbar`, `MapFilters`, `VisibleListPanel`, `/city/<city>/map`)
+## Map restrictions (`MapToolbar`, `VisibleListPanel`, `/city/<city>/map`)
 
-- Always visible under the search field on phones (no menu): „Lista” (`aria-pressed`) and „Filtry” (badge = `activeFilterCount`:
-  hidden layers + the chosen line + „Tylko linie z utrudnieniami”; sr-only suffix „ aktywnych ograniczeń”). „Więcej” keeps only „Udostępnij widok”.
-- Mode chips (phones, group „Rodzaje pojazdów”): one `.chip-filter` per vehicle layer present, label = `LAYER_LABEL` („Autobusy”,
-  „Tramwaje”, „Metro”, „Pociągi”), `aria-pressed` = the layer is visible. They toggle the same `hidden` set as the „Filtry” panel.
-- Active restrictions: list „Aktywne filtry” of removable chips („Linia {X}”, „Tylko linie z utrudnieniami”, „Ukryte: {warstwa}”) +
-  button „Wyczyść filtry” while the count is above zero. Reset = default layers, no `line`/`dir`/`alerts`/`hide`; city and `at` stay.
-  „Pokaż wszystko” inside the „Filtry” panel resets only layers and the alerts switch (the line is not toggled there).
+- No transport layer toggles, „Lista” or city-reset control. The compact „Z utrudnieniami” toggle keeps the independent alerts restriction; „Więcej” keeps sharing.
+- Active restrictions: removable selected-line and alerts chips + „Wyczyść filtry”. Reset clears line/direction/alerts; city and camera remain. Retired hide/vehicles/rail/mode parameters are removed without hiding any transport type.
 - Visible list („W widoku”): subtitle „{n} obiektów”, with overflow „Pierwsze 100 obiektów” (never „100+” as if it were a total) and the
   hint „Przybliż mapę, aby zobaczyć więcej”. Empty frame: „W tym kadrze nic nie widać — oddal albo przesuń mapę.”, plus „Wyczyść filtry”
   when any restriction is active.
@@ -267,11 +261,9 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 
 - H1 „Linie”; the subtitle under it is the city name (no „Linie — {miasto}”).
 - Field (`type=search`): label and placeholder „Numer linii lub przystanek końcowy”; clear button „Wyczyść wyszukiwanie” (only with text).
-- Mode chips, group name „Rodzaj komunikacji” (wrapped, never a horizontal scroller, `aria-pressed`): „Wszystkie”, then only the modes the city
-  has — „Metro”, „Tramwaje”, „Autobusy”, „Kolej miejska” (`SECTION_LABEL`, one source for chips and section titles). GTFS rail is „Kolej miejska”, never
-  „Kolej” alone or PKP wording (#13).
+- No mode-filter chips or orphan „Wszystkie” button. Every mode stays in the catalog; section titles use `SECTION_LABEL`. Legacy `mode` parameters cannot narrow results. GTFS rail remains „Kolej miejska”, never PKP wording (#13).
 - Search result list: heading „Wyniki · N” (N = lines in the current filter, not running vehicles); row link name „Linia N: A – B” (+ „, nocna” etc. for a bus kind).
-- States: nothing matches „Brak pasujących linii” + button „Wyczyść filtry” (clears both `q` and `mode`); the city has no lines „Brak linii w rozkładzie.”;
+- States: nothing matches „Brak pasujących linii” + clear-search action; the city has no lines „Brak linii w rozkładzie.”;
   loading is the section skeleton (`aria-busy`, sr-only „Wczytywanie…”); failed with nothing to show „Nie udało się pobrać listy linii.” + „Spróbuj ponownie”;
   failed with a list keeps it and shows the `ScheduleStatus` warning (#7).
 - Full termini always visible (wrap, no `truncate`); „Ostatnio oglądane” keeps its short badge-only links (name „Linia N: A – B”).

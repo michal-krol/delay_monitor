@@ -40,8 +40,7 @@ enrichment).
 
 ADR0013 PR10: search starts collapsed behind „Szukaj”; keep its UnifiedSearch instance mounted
 while hidden and across width changes. Explicit opening focuses its input; Escape closes and returns
-focus after the search's own Escape handling. Overview summaries remain available, with object rows
-shown only after „Lista”. Known vehicle bearings use centered 22px chevrons (28px selected);
+focus after the search's own Escape handling. Overview summaries and rows remain available without a „Lista” toggle. Transport layer filters are retired; legacy hide/vehicles/rail/mode parameters cannot hide objects. Known vehicle bearings use centered 22px chevrons (28px selected);
 unknown bearings use neutral circles. Hit-testing and viewport enumeration include both marker layers.
 
 ADR0014: a vehicle deep link contains the raw feed entity id plus expected trip, and service date when resolved.
@@ -178,14 +177,11 @@ selected object sits in the free area, not under the toolbar or the sheet.
   includes its top margin). Transient notices on wide screens (share toast, fetch problems, no-position, `?nearby=1`) are a SIBLING below it, outside the measurement,
   so they never re-ease the camera; on phones they ride in the sheet's `above` slot, which counts as covered by design. `bottom` =
   `BottomSheet`'s `onVisibleHeight`: share of the panel at the snap (`SHEET_SNAPS[snap] × clientHeight`) + height of the `above` slot (status stack
-  and locate control ride on the panel edge, so they count as covered). Reported when the snap changes (a drag only after the scroll settles) and when
+  counts as covered; location stays at the top). Reported when the snap changes (a drag only after the scroll settles) and when
   the sheet or its `above` slot resizes. No sheet (wide screens, where the `aside` is a flex sibling and the map container already excludes it) = bottom 0,
   no extra right padding.
 - **`full` is not reported** (user decision 2026-10-15): the camera keeps the last `peek`/`half` value — at 90 % there is no free area worth framing.
-- **Attribution rides above the sheet.** `TransitMap` publishes the bottom inset as `--map-inset-bottom` on its wrapper (`.transit-map`) and `globals.css` lifts
-  `.maplibregl-ctrl-bottom-right/-left` by it (unlayered like MapLibre's own CSS, two classes beat `bottom:0`). Without it the sheet (z-20) covers the
-  OpenFreeMap/OSM sources (licence requirement) at `peek`/`half`. No sheet = 0. At `full` the inset is the last `peek`/`half` one, so the attribution stays under the
-  sheet together with the whole map (90 % covered, accepted); the e2e check (`elementFromPoint` on the toggle and the OpenFreeMap link) runs at `peek` and `half`.
+- **Attribution stays at the map bottom.** `TransitMap` measures the native attribution corner with `ResizeObserver` and reports `onAttributionHeight`; the page reserves that height below sheets through `--map-attribution-h`. Credits stay at bottom zero above the sheet stacking layer, including at `full`. Expansion and enlarged text must increase the reserved height, never cover source links or content. The camera bottom inset includes the reserved footer plus the visible sheet. Verify hit testing of both the toggle and OpenFreeMap link at every sheet snap.
 - **The map is born with its padding.** `MapOptions` has no `padding`, so right after `new Map()` (before the `moveend` listener exists) `TransitMap` calls
   `setPadding(cameraPadding(insets))` and records them as applied: the `?nearby=1` entry and a reloaded `?at=` start centred in the free area, not the geometric
   centre, and the settle effect has nothing to correct.
@@ -217,12 +213,9 @@ selected object sits in the free area, not under the toolbar or the sheet.
 Wording of every string: `ui-copy.md` („Map location”, „Map overview…”, „Map search”, „Map filters”); GPS decision: `adr/0012`.
 
 - **Overview = a `BottomSheet`, not a dialog.** Phone with no selection/nearby/line shows `OverviewPanel` (region „Pojazdy i przystanki w widoku”) at
-  `peek`; „Lista” opens the same sheet at `half` (`cardKey` `overview:list`), it is not a second window. The map computes the frame (`listOpen || overview`
-  in `TransitMap`). Wide screens have no sheet: the list is a window panel, the full `MapLegend` sits by the map, the object card is an `aside`
+  `peek`; rows are always available by expanding the sheet handle. The map enumerates the visible frame without a list toggle. Wide screens have no sheet: overview rows and the full `MapLegend` remain available, the object card is an `aside`
   (a flex sibling, so no extra camera padding).
-- **`above` slot row** (`map/page.tsx`): statuses (`filterChips` + `notices`, „poza obszarem” notice) in a `min-w-0 flex-1` column + `LocateControl` with
-  `messagesAbove` (its messages stack in the flow above the button; beside it they floated over the statuses). Wide screens keep the control
-  absolutely positioned (`top-[144px]`) and the legend below it (`top-[200px]`) — move them together.
+- **Location control** stays at the top below zoom on every screen, independently of sheet position. The `above` slot carries statuses and notices only. The removed city-reset control must not leave an empty control gap.
 - **One search.** `UnifiedSearch variant="overlay"` replaces the place and line inputs; results are an opaque `role=group` panel
   (`data-search-results` lifts the toolbar above the sheet). The page calls `useCityLines` ONCE and passes it as `lineSource` — the field must not
   fetch the catalog a second time; a result never navigates away from the map, and a result without coordinates is a notice, never the camera at 0,0.

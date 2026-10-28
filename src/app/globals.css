@@ -593,14 +593,34 @@ details[open] > summary .disclosure-chevron,
 .dark .maplibregl-ctrl-attrib-button {
   filter: invert(1);
 }
-/* Atrybucja nad arkuszem (PR10): arkusz (`.bottom-sheet`, z-20) leży nad dolnymi rogami mapy i zakrywałby źródła OpenFreeMap/OSM
-   (wymóg licencji). `TransitMap` publikuje na swoim wrapperze zmierzony dolny inset (`--map-inset-bottom`, px zakryte przez arkusz
-   + slot `above`; 0 bez arkusza), a dolne kontenery kontrolek MapLibre unosimy o tyle. Niewarstwowane (jak CSS MapLibre'a), a dwie
-   klasy w selektorze biją `.maplibregl-ctrl-bottom-*{bottom:0}` niezależnie od kolejności. Przy `full` inset nie jest zgłaszany
-   (maps.md „Camera insets") — wtedy atrybucja zostaje pod arkuszem razem z całą mapą. */
+/* Atrybucja zostaje przy dolnej krawędzi mapy. Zmierzona wysokość rogu rezerwuje miejsce pod arkuszem,
+   również po rozwinięciu źródeł na wąskim ekranie. */
+[data-map-canvas] .bottom-sheet {
+  bottom: var(--map-attribution-h, 28px);
+}
 .transit-map .maplibregl-ctrl-bottom-right,
 .transit-map .maplibregl-ctrl-bottom-left {
-  bottom: var(--map-inset-bottom, 0px);
+  bottom: 0;
+  z-index: 25;
+  max-width: 100%;
+  background: var(--map-surface);
+}
+.transit-map .maplibregl-ctrl-group button,
+.transit-map .maplibregl-ctrl-attrib-button {
+  width: 44px;
+  height: 44px;
+}
+.transit-map .maplibregl-ctrl-attrib-inner {
+  overflow-wrap: anywhere;
+}
+.transit-map .maplibregl-ctrl-attrib-button {
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.transit-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding-right: 48px;
 }
 
 /* Poświata na elementach hero (decyzja #11) — parametr koloru przez CSS var,

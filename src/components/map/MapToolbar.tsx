@@ -2,11 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { CloseIcon, ListIcon, SearchIcon, ShareIcon, ICON_SIZE } from '../icons'
-import { MapFilters } from './MapFilters'
+import { CloseIcon, AlertCircleIcon, SearchIcon, ShareIcon, ICON_SIZE } from '../icons'
 import { MapMoreMenu } from './MapMoreMenu'
-import { LAYER_LABEL, LAYER_MODE, activeFilterCount, toggleLayer, type LayerKey } from './mapData'
-import { ModeChip } from './ModeChip'
 import { PinnedMenu, type PinnedPoint } from './MapPanels'
 
 /** Aktywny przycisk = wypełnienie `--primary` (ADR 0011); w trybie wysokiego kontrastu tło znika, więc aktywny dostaje własny obrys. */
@@ -16,40 +13,27 @@ const TOOL_BUTTON =
 /**
  * Kontrolki mapy nad nią: pole wyszukiwania (`search`) i przyciski. Stan i callbacki ma strona — tu tylko układ.
  * „Szukaj” rozwija istniejące pole pod kontrolkami; zwinięcie i zmiana szerokości zachowują jego stan.
- * Telefon: kontrolki zawijają się, niżej czipy rodzajów pojazdów (ten sam `hidden` co „Filtry”).
- * Od `sm`: pole ma w-80, bez czipów (te same warstwy są w „Filtry”).
+ * Rodzaje transportu pozostają widoczne; ograniczenia dotyczą tylko wybranej linii i utrudnień.
+ * Od `sm` pole ma w-80.
  */
 export function MapToolbar({
   isWide,
   search,
-  hidden,
-  vehicleLayers,
-  onHiddenChange,
   alertsOnly,
   onAlertsOnly,
-  lineActive,
-  listOpen,
-  onToggleList,
   pinnedPoints,
   onOpenPinned,
   onShare,
 }: {
   isWide: boolean
   search: ReactNode
-  hidden: ReadonlySet<LayerKey>
-  /** Rodzaje pojazdów obecne w danych miasta — czipy i panel „Filtry" nie pokazują pustych warstw. */
-  vehicleLayers: LayerKey[]
-  onHiddenChange: (next: Set<LayerKey>) => void
   alertsOnly: boolean
   onAlertsOnly: (next: boolean) => void
-  /** Wybrana linia — liczy się do licznika „Filtry". */
-  lineActive: boolean
-  listOpen: boolean
-  onToggleList: () => void
   pinnedPoints: PinnedPoint[]
   onOpenPinned: (point: PinnedPoint) => void
   onShare: () => void
 }) {
+  const toolClass = isWide ? TOOL_BUTTON : `${TOOL_BUTTON} h-[44px] w-[44px] min-h-[44px]! min-w-[44px]! px-0!`
   const [searchOpen, setSearchOpen] = useState(false)
   const searchId = useId()
   const searchRef = useRef<HTMLDivElement>(null)
@@ -58,33 +42,15 @@ export function MapToolbar({
     setSearchOpen((open) => !open)
     if (!searchOpen) requestAnimationFrame(() => searchRef.current?.querySelector('input')?.focus())
   }
-  const listButton = (className = '') => (
-    <button type="button" aria-pressed={listOpen} onClick={onToggleList} className={`${TOOL_BUTTON} ${className}`}>
-      <ListIcon size={ICON_SIZE.button} />
-      Lista
-    </button>
-  )
-  const filters = (className = '') => (
-    <MapFilters
-      hidden={hidden}
-      vehicleLayers={vehicleLayers}
-      onChange={onHiddenChange}
-      alertsOnly={alertsOnly}
-      onAlertsOnly={onAlertsOnly}
-      lineActive={lineActive}
-      className={className}
-    />
-  )
-
   return (
     <div className="pointer-events-auto flex w-full flex-col gap-1.5">
-      {/* `relative`: panel „Filtry" rozciąga się na ten rząd (ich przycisk leży w środku, nie przy prawej krawędzi). */}
       <div className="relative flex flex-wrap items-stretch gap-2">
-        <button ref={searchButtonRef} type="button" data-map-search-trigger="" aria-expanded={searchOpen} aria-controls={searchId} onClick={toggleSearch} className={TOOL_BUTTON}>
-          <SearchIcon size={ICON_SIZE.button} /> Szukaj
+        <button ref={searchButtonRef} type="button" data-map-search-trigger="" aria-expanded={searchOpen} aria-controls={searchId} onClick={toggleSearch} className={toolClass}>
+          <SearchIcon size={ICON_SIZE.button} /><span className={isWide ? undefined : 'sr-only'}>Szukaj</span>
         </button>
-        {listButton(isWide ? '' : 'flex-1')}
-        {filters(isWide ? '' : 'flex-1')}
+        <button type="button" aria-pressed={alertsOnly} onClick={() => onAlertsOnly(!alertsOnly)} className={toolClass}>
+          <AlertCircleIcon size={ICON_SIZE.button} /><span className={isWide ? undefined : 'sr-only'}>Z utrudnieniami</span>
+        </button>
         <PinnedMenu pinnedItems={pinnedPoints} onOpen={onOpenPinned} />
         {isWide ? (
           <button type="button" onClick={onShare} aria-label="Udostępnij ten widok mapy" className={`${TOOL_BUTTON} control-44`}>
@@ -99,18 +65,7 @@ export function MapToolbar({
         setSearchOpen(false)
         searchButtonRef.current?.focus()
       }}>{search}</div>
-      {!isWide && vehicleLayers.length > 0 && (
-        // Czipy = szybkie przełączniki TEGO SAMEGO zbioru `hidden` co panel „Filtry" (pressed = warstwa widoczna).
-        // Przewijane w poziomie, gdy cztery rodzaje się nie mieszczą (375 px); `p-1` (offset 2 + obrys 2 px) żeby obrys fokusu nie był ucięty przez przewijany kontener.
-        <div role="group" aria-label="Rodzaje pojazdów" className="flex gap-2 overflow-x-auto p-1 [scrollbar-width:none]">
-          {vehicleLayers.map((key) => (
-            <button key={key} type="button" aria-pressed={!hidden.has(key)} onClick={() => onHiddenChange(toggleLayer(hidden, key))} className="chip-filter chip-filter-map shrink-0 gap-2 px-3">
-              <ModeChip mode={LAYER_MODE[key]} />
-              {LAYER_LABEL[key]}
-            </button>
-          ))}
-        </div>
-      )}
+
     </div>
   )
 }
@@ -132,36 +87,24 @@ function Chip({ label, removeLabel, onRemove }: { label: string; removeLabel: st
  * Osobny element, bo na telefonie z arkuszem leży w slocie `above` (przy krawędzi arkusza), a nie pod paskiem.
  */
 export function ActiveFilterChips({
-  hidden,
   line,
   alertsOnly,
   onClearLine,
   onAlertsOnly,
-  onHiddenChange,
   onClear,
 }: {
-  hidden: ReadonlySet<LayerKey>
   line: { line: string } | null
   alertsOnly: boolean
   onClearLine: () => void
   onAlertsOnly: (next: boolean) => void
-  onHiddenChange: (next: Set<LayerKey>) => void
   onClear: () => void
 }) {
-  if (activeFilterCount({ hidden, line: line !== null, alertsOnly }) === 0) return null
+  if (line === null && !alertsOnly) return null
   return (
     <div className="pointer-events-auto flex flex-wrap items-center gap-1.5">
       <ul className="flex flex-wrap gap-1.5" aria-label="Aktywne filtry">
         {line !== null && <Chip label={`Linia ${line.line}`} removeLabel={`Pokaż wszystkie linie zamiast linii ${line.line}`} onRemove={onClearLine} />}
         {alertsOnly && <Chip label="Tylko linie z utrudnieniami" removeLabel="Pokaż wszystkie linie, nie tylko z utrudnieniami" onRemove={() => onAlertsOnly(false)} />}
-        {[...hidden].map((key) => (
-          <Chip
-            key={key}
-            label={`Ukryte: ${LAYER_LABEL[key].toLowerCase()}`}
-            removeLabel={`Pokaż: ${LAYER_LABEL[key].toLowerCase()}`}
-            onRemove={() => onHiddenChange(toggleLayer(hidden, key))}
-          />
-        ))}
       </ul>
       <button type="button" onClick={onClear} className="chip-filter chip-filter-map px-3 text-xs font-semibold">
         Wyczyść filtry

@@ -13,6 +13,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
   przycisk z ikoną. Na podglądzie kolejowym główna godzina pochodzi z planu, prognoza jest dodatkowa.
 - Wspólny nagłówek zachowuje pogodę i skrót mapy. Informacje o aktualizacji rozróżniają źródła
   i pokazują bezwzględne daty z możliwością odświeżenia, bez licznika upływającego czasu.
+- Mapa i katalog pokazują wszystkie rodzaje transportu bez osobnych filtrów. Usunięto przyciski
+  „Lista” i „Pokaż całe miasto”; wyszukiwanie, przegląd obiektów i wybór linii pozostają dostępne.
+  Lokalizacja jest u góry mapy, a źródła mapy pozostają przy jej dolnej krawędzi nad panelami.
 
 ### Dodane
 
