@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CityWeatherChip as WeatherChip } from './WeatherChip'
 import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
+import { PageHeaderProvider, useHeaderWeatherContext } from './pageHeader'
 
 beforeEach(() => resetCitiesCacheForTests())
 afterEach(() => vi.unstubAllGlobals())
@@ -20,6 +21,18 @@ const WEATHER = {
 }
 
 describe('WeatherChip', () => {
+  it.each([false, true])('settles under the shared header when the city has no weather location (metadata failed: %s)', async (failed) => {
+    const fetchMock = vi.fn(() => failed ? Promise.reject(new Error('metadata unavailable')) : jsonResponse({ cities: [{ ...WARSAW, railStations: [] }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    function Consumer() {
+      const weather = useHeaderWeatherContext()
+      return <><WeatherChip city="warszawa" /><p>{weather?.weather.status}</p></>
+    }
+    render(<PageHeaderProvider><Consumer /></PageHeaderProvider>)
+    expect(await screen.findByText('unavailable')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pogoda: brak danych lokalizacyjnych' })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
   it('wczytywanie → sama ikona, bez temperatury (nie „0°”, #7)', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     render(<WeatherChip city="warszawa" />)

@@ -1,16 +1,18 @@
+'use client'
+
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
-import { formatAge } from '@/lib/format'
+import { useHeaderData } from './pageHeader'
 
 type Props = {
   schedule: TransitBoardResponse['schedule']
   cityName: string
-  /** Nagłówek linijki — domyślnie „Rozkład jazdy — {miasto}". Strona linii podaje „Rozkład jazdy linii 20". */
+  /** Source label in the shared header's data details. */
   title?: string
-  /** Bieżący błąd sieci z hooka — dokłada się jako chip, nie zastępuje wieku. */
+  /** Failed refresh keeps the last successful snapshot. */
   error?: boolean
-  /** Bez ostrzeżeń (wiek danych, nieudane odświeżanie) — sama linijka „tytuł · Aktualizacja”, np. w stopce strony. */
+  /** Register metadata only, without a repeated body warning. */
   quiet?: boolean
-  /** Telefon: bez „· Aktualizacja: …” (data wczytania feedu) — nagłówek tablicy przystanku ma zostawić miejsce na odjazdy. Ostrzeżenia zostają. */
+  /** Retained for existing callers; timestamps now belong to the shared header. */
   compact?: boolean
 }
 
@@ -23,22 +25,6 @@ const STALE_MS = 24 * 60 * 60 * 1000
 /** Czy stan rozkładu wymaga uwagi: wczytywanie, nieudane odświeżanie, dane starsze niż doba albo błąd sieci. */
 export function scheduleNeedsAttention(schedule: Props['schedule'], error: boolean): boolean {
   return schedule.state === 'loading' || schedule.state === 'failed' || error || (schedule.ageMs !== null && schedule.ageMs >= STALE_MS)
-}
-
-/**
- * ISO → „3 września 2026, 14:23" — kiedy poller ostatnio wczytał rozkład.
- * Jawna strefa: stała `Europe/Warsaw`, nie nowy prop per miasto — każde
- * miasto w rejestrze GTFS jest polskie (ruling PR 5, task 2).
- */
-function formatUpdated(iso: string): string {
-  return new Date(iso).toLocaleString('pl-PL', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Europe/Warsaw',
-  })
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -56,8 +42,14 @@ const PHASE_LABEL: Record<string, string> = {
  * FAZĄ (nazwa fazy niepokoi mniej niż licznik sekund). `droppedRows` nie ma
  * w tej odpowiedzi — trójstan jest w `/api/health`.
  */
-export function ScheduleStatus({ schedule, cityName, title, error = false, quiet = false, compact = false }: Props) {
-  const heading = title ?? `Rozkład jazdy — ${cityName}`
+export function ScheduleStatus({ schedule, cityName, title, error = false, quiet = false }: Props) {
+  useHeaderData({
+    id: `gtfs-schedule:${cityName}`,
+    label: title ?? `Rozkład — ${cityName}`,
+    updatedAt: schedule.loadedAt,
+    error: schedule.state === 'failed' || error,
+    warning: schedule.ageMs !== null && schedule.ageMs >= STALE_MS ? 'Rozkład wymaga aktualizacji' : undefined,
+  })
 
   if (schedule.state === 'loading') {
     return (
@@ -72,17 +64,14 @@ export function ScheduleStatus({ schedule, cityName, title, error = false, quiet
   }
 
   const stale = schedule.ageMs !== null && schedule.ageMs >= STALE_MS
+  if (quiet || (schedule.state === 'ready' && !stale && !error)) return null
 
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-      <span>{heading}</span>
-      {schedule.loadedAt !== null && (
-        <span className={`text-text-muted ${compact ? 'max-sm:hidden' : ''}`}>· Aktualizacja: {formatUpdated(schedule.loadedAt)}</span>
-      )}
       {!quiet && (
         <span className="contents" aria-live="polite">
           {(schedule.state === 'failed' || stale) && schedule.ageMs !== null && (
-            <span className="text-warning-text">dane sprzed {formatAge(schedule.ageMs)}</span>
+            <span className="text-warning-text">Rozkład wymaga aktualizacji</span>
           )}
           {schedule.state === 'failed' && <span className="text-warning-text">odświeżanie nie powiodło się</span>}
           {error && schedule.state !== 'failed' && (

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { scanA11y } from './helpers/axe'
-import { searchField } from './helpers/search'
+import { openSearch, searchField } from './helpers/search'
 
 // Pulpit-dane (PR1 planu UI/UX): „Dodaj" przypina, „Edytuj ulubione" zmienia kolejność i odpina z „Cofnij".
 // Mock: prawdziwe ID stacji (AGENTS.md #8), przystanek miejski Warszawy `1001` („Centrum").
@@ -22,15 +22,16 @@ function cardHeadings(page: Page) {
   return page.getByRole('article').getByRole('heading', { level: 2 })
 }
 
-test('„Dodaj" przypina wybraną stację i potwierdza, zostając na Pulpicie', async ({ page }) => {
+test('wyszukanie i przypięcie stacji na jej ekranie dodaje tablicę do Startu', async ({ page }, testInfo) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Dodaj' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Przypnij do Startu' })
-  await searchField(dialog).fill('Centralna')
+  await expect(page.getByRole('button', { name: 'Dodaj', exact: true })).toHaveCount(0)
+  const surface = await openSearch(page, testInfo.project.name)
+  await searchField(surface).fill('Centralna')
   // Rozkład miejski mocka parsuje się raz przy starcie — wyszukiwarka ponawia, dopóki nie jest gotowy.
-  await dialog.getByRole('button', { name: /^Warszawa Centralna/ }).first().click({ timeout: 45_000 })
-
-  await expect(page.getByRole('status').filter({ hasText: 'Przypięto do Startu' })).toHaveText('Przypięto do Startu: Warszawa Centralna')
+  await surface.getByRole('button', { name: /^Warszawa Centralna/ }).first().click({ timeout: 45_000 })
+  await expect(page).toHaveURL(/\/station\/33605/)
+  await page.getByRole('button', { name: 'Przypnij do Startu', exact: true }).click()
+  await page.goto('/')
   await expect(page).toHaveURL(/\/$/)
   await expect(cardHeadings(page)).toHaveText(['Warszawa Centralna'])
   expect(await page.evaluate(() => window.localStorage.getItem('monitor.favourites.v2'))).toContain('33605')
@@ -41,7 +42,7 @@ test('„Edytuj ulubione": W dół trzyma fokus, kolejność kart wspólna dla k
   await page.goto('/')
   await expect(cardHeadings(page)).toHaveText(['Warszawa Centralna', 'Centrum'], { timeout: 45_000 })
 
-  await page.getByRole('button', { name: 'Edytuj ulubione' }).click()
+  await page.getByRole('button', { name: 'Edytuj kolejność miejsc' }).click()
   const down = page.getByRole('button', { name: 'W dół: Warszawa Centralna' })
   await down.click()
   // Przeniesiony wiersz gubiłby fokus — przycisk dostaje go z powrotem (na krańcu: aria-disabled, nadal fokusowalny).
@@ -58,7 +59,7 @@ test('„Edytuj ulubione": W dół trzyma fokus, kolejność kart wspólna dla k
 test('odpięcie w edycji: fokus na „Cofnij", które przywraca wpis na dawne miejsce; axe bez naruszeń', async ({ page }) => {
   await seed(page, PINNED)
   await page.goto('/')
-  await page.getByRole('button', { name: 'Edytuj ulubione' }).click()
+  await page.getByRole('button', { name: 'Edytuj kolejność miejsc' }).click()
   await page.getByRole('button', { name: 'Odepnij ze Startu: Warszawa Centralna' }).click()
 
   const undo = page.getByRole('button', { name: 'Cofnij' })

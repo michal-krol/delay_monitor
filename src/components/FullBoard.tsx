@@ -20,7 +20,7 @@ import { TabCrossfade } from './TabCrossfade'
 import { useHeaderTitle } from './headerTitle'
 import { AlertCircleIcon, ChevronRightIcon, CloseIcon, MapIcon, ICON_SIZE } from './icons'
 import { PinStar } from './PinStar'
-import { IconButton } from './IconButton'
+import { IconButton, ICON_BUTTON_CLASS } from './IconButton'
 import { MAP_ZOOM } from './map/mapData'
 import { formatAt } from './map/mapCamera'
 import { useRailStations } from '@/hooks/useRailStations'
@@ -111,11 +111,10 @@ function StationMapRow({ link }: { link: StationMapLink }) {
   // Ładowanie: puste miejsce o wysokości rzędu, żeby po wczytaniu listy tablica nie zjechała w dół.
   if (link.state === 'loading') return <div className="mt-2 min-h-11" aria-hidden="true" />
   return (
-    <div className="mt-2">
+    <div>
       {link.state === 'ready' ? (
-        <Link href={link.href} className="chip-filter gap-1.5">
+        <Link href={link.href} aria-label="Pokaż stację na mapie" className={`${ICON_BUTTON_CLASS} min-h-11 min-w-11`}>
           <MapIcon size={ICON_SIZE.button} />
-          Na mapie
         </Link>
       ) : (
         <p className="text-sm text-text-secondary">{link.state === 'failed' ? 'Nie udało się wczytać lokalizacji stacji' : 'Brak lokalizacji stacji'}</p>
@@ -285,7 +284,7 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
   // „Ostatnia aktualizacja: …" obok banera „sprawdź klucz API" to dokładnie to mieszanie sygnałów,
   // przed którym ostrzega AGENTS.md #7. Ta sama zasada co ukrycie tabeli niżej.
   const status = configError ? null : (
-    <BoardStatus fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
+    <BoardStatus headerData fetchedAt={snapshot?.fetchedAt} ageMs={snapshot?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
   )
 
   return (
@@ -312,13 +311,14 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
+              {mapLink.state === 'ready' && <StationMapRow link={mapLink} />}
               <IconButton onClick={onTogglePin} label={isPinned ? 'Odepnij ze Startu' : 'Przypnij do Startu'} className="max-sm:h-11 max-sm:w-11">
                 <PinStar pinned={isPinned} settled={pinsLoaded} size={ICON_SIZE.button} />
               </IconButton>
             </div>
           </div>
 
-          {!wide && <StationMapRow link={mapLink} />}
+          {mapLink.state !== 'ready' && mapLink.state !== 'loading' && <StationMapRow link={mapLink} />}
         </section>
 
         {/* Telefon: zwarty komunikat o utrudnieniach nad zakładkami (D2); od `sm` te same komunikaty stoją w aside. */}

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { PageHeaderProvider } from '@/components/pageHeader'
+const render = (ui: React.ReactNode) => baseRender(ui, { wrapper: ({ children }) => <PageHeaderProvider>{children}</PageHeaderProvider> })
+import { act, render as baseRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CityLinesPage from './page'
@@ -13,6 +15,7 @@ const notFound = vi.fn(() => {
 let cityParam = 'warszawa'
 let searchSeed = ''
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
   useParams: () => ({ city: cityParam }),
   useRouter: () => ({ push }),
   useSearchParams: () => new URLSearchParams(searchSeed),
@@ -462,10 +465,10 @@ describe('CityLinesPage', () => {
       stubFetch()
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
-      expect(screen.getAllByText(/Rozkład jazdy — Warszawa/)).toHaveLength(1)
+      expect(screen.getAllByText(/Rozkład — Warszawa/)).toHaveLength(1)
       const footer = screen.getByTestId('lines-footer')
-      expect(within(footer).getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()
-      expect(within(footer).getByText(/Aktualizacja: /)).toBeInTheDocument()
+      expect(within(footer).queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
+      expect(screen.getByText(/^Dane \d/)).toBeInTheDocument()
       expect(within(footer).getByText(/Dane rozkładowe: ZTM/)).toBeInTheDocument()
     })
 
@@ -474,17 +477,17 @@ describe('CityLinesPage', () => {
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
       expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
-      expect(screen.getAllByText(/Rozkład jazdy — Warszawa/)).toHaveLength(1)
-      expect(within(screen.getByTestId('lines-footer')).getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()
+      expect(screen.getAllByText(/Rozkład — Warszawa/)).toHaveLength(1)
+      expect(within(screen.getByTestId('lines-footer')).queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
     })
 
     it('a day-old schedule warns on top and the status block is NOT repeated in the footer', async () => {
       stubFetch({ ...LINES, schedule: { ...READY, ageMs: 26 * 60 * 60 * 1000 } })
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
-      expect(screen.getAllByText(/dane sprzed 26 h/)).toHaveLength(1)
-      expect(screen.getAllByText(/Rozkład jazdy — Warszawa/)).toHaveLength(1)
-      expect(screen.getAllByText(/Aktualizacja: /)).toHaveLength(1)
+      expect(screen.getAllByText(/Rozkład wymaga aktualizacji/)).toHaveLength(2)
+      expect(screen.getAllByText(/Rozkład — Warszawa/)).toHaveLength(1)
+      expect(screen.getByText(/^Dane \d/)).toBeInTheDocument()
       const footer = screen.getByTestId('lines-footer')
       expect(within(footer).queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
       expect(within(footer).getByText(/Dane rozkładowe: ZTM/)).toBeInTheDocument()
@@ -495,7 +498,7 @@ describe('CityLinesPage', () => {
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
       expect(screen.getAllByText(/odświeżanie nie powiodło się/)).toHaveLength(1)
-      expect(screen.getAllByText(/Rozkład jazdy — Warszawa/)).toHaveLength(1)
+      expect(screen.getAllByText(/Rozkład — Warszawa/)).toHaveLength(1)
       expect(within(screen.getByTestId('lines-footer')).queryByText(/Rozkład jazdy/)).not.toBeInTheDocument()
     })
   })

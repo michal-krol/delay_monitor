@@ -26,7 +26,7 @@ export function Dashboard({ pinnedItems, onRemove, onNormalize, editing = false,
   const stationIds = pinnedItems.flatMap((pinnedItem) => (pinnedItem.kind === 'pkp' ? [pinnedItem.id] : []))
   const { data, error, lastSuccessAt, refresh } = useBoard(stationIds)
 
-  const received = (data?.snapshots ?? []).filter((snapshot) => snapshot !== null)
+  const received = (data?.snapshots ?? []).filter((snapshot) => snapshot !== null).filter((snapshot) => stationIds.includes(snapshot.stationId))
 
   // Łączenie po stationId, nie po pozycji w tablicy. Po zmianie przypiętych
   // `pinnedItems` aktualizuje się natychmiast, a `data` jeszcze przez jeden cykl
@@ -34,27 +34,21 @@ export function Dashboard({ pinnedItems, onRemove, onNormalize, editing = false,
   // wtedy nazwę jednej stacji z odjazdami innej.
   const snapshotsById = new Map(received.map((snapshot) => [snapshot.stationId, snapshot]))
 
-  // Najświeższy snapshot reprezentuje cały dashboard: wszystkie stacje jadą
-  // na jednym przebiegu pollera, więc rozjazd między nimi bywa najwyżej
-  // jednorundowy — dla stacji dodanej przed chwilą.
-  const freshest = received.reduce<(typeof received)[number] | undefined>(
-    (best, snapshot) => (best === undefined || snapshot.fetchedAt > best.fetchedAt ? snapshot : best),
+  // Najstarszy otrzymany snapshot wyznacza ostrzeżenie wspólnej tablicy PKP.
+  const oldest = received.reduce<(typeof received)[number] | undefined>(
+    (best, snapshot) => (best === undefined || snapshot.fetchedAt < best.fetchedAt ? snapshot : best),
     undefined
   )
 
   return (
     <div>
       {stationIds.length > 0 && (
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="glass inline-flex rounded-full px-3.5 py-1.5">
-          <BoardStatus fetchedAt={freshest?.fetchedAt} ageMs={freshest?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} />
-        </div>
-      </div>
+        <BoardStatus headerData="warnings" fetchedAt={oldest?.fetchedAt} ageMs={oldest?.ageMs} lastSuccessAt={lastSuccessAt} data={data} error={error !== null} onRefresh={refresh} sources={pinnedItems.flatMap((item) => item.kind === 'pkp' ? [{ id: `pkp:${item.id}`, label: `PKP — ${item.name}`, updatedAt: snapshotsById.get(item.id)?.fetchedAt ?? null, ageMs: snapshotsById.get(item.id)?.ageMs, error: error !== null, refresh }] : [])} />
       )}
       {editing ? (
         <PinnedEditor pinnedItems={pinnedItems} onMove={(key, delta) => onMove?.(key, delta)} onRemove={onRemove} />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-3 sm:gap-4">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4">
           {pinnedItems.map((pinnedItem) =>
             pinnedItem.kind === 'pkp' ? (
               <StationCard

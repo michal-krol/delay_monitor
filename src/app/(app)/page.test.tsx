@@ -15,6 +15,7 @@ const replace = vi.fn()
 let searchParamsSeed = ''
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace }),
+  usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(searchParamsSeed),
 }))
 
@@ -164,8 +165,8 @@ describe('Page (Pulpit)', () => {
     initialPinned = []
     render(<Page />)
 
-    expect(screen.getByRole('button', { name: 'Dodaj' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Edytuj ulubione' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dodaj' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Edytuj kolejność miejsc' })).not.toBeInTheDocument()
     expect(screen.getByText(/przypnij je gwiazdką/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
@@ -177,55 +178,6 @@ describe('Page (Pulpit)', () => {
     expect(screen.queryByText(/przypnij je gwiazdką/)).not.toBeInTheDocument()
   })
 
-  it('„Dodaj" otwiera okno w trybie przypinania; wybór przypina stację i potwierdza, bez nawigacji', async () => {
-    const user = userEvent.setup()
-    render(<Page />)
-
-    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
-    const dialog = screen.getByRole('dialog', { name: 'Przypnij do Startu' })
-    await user.click(within(dialog).getByRole('button', { name: 'wybierz wynik' }))
-
-    expect(screen.getByRole('heading', { name: 'Kraków Główny' })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Przypięto do Startu: Kraków Główny')
-    expect(push).not.toHaveBeenCalled()
-  })
-
-  it('„Dodaj" przypina przystanek miejski z miastem wyszukiwania', async () => {
-    pickOption = { id: '7014', name: 'Świętokrzyska', kind: 'transit' }
-    const user = userEvent.setup()
-    render(<Page />)
-
-    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
-    await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
-
-    expect(screen.getByRole('status')).toHaveTextContent('Przypięto do Startu: Świętokrzyska')
-    expect(screen.getAllByRole('article')).toHaveLength(2)
-  })
-
-  it('„Dodaj" już przypiętej stacji mówi, że jest na Starcie, i nie dubluje karty', async () => {
-    pickOption = { id: '33605', name: 'Warszawa Centralna', kind: 'rail' }
-    const user = userEvent.setup()
-    render(<Page />)
-
-    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
-    await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
-
-    expect(screen.getByRole('status')).toHaveTextContent('Warszawa Centralna jest już na Starcie')
-    expect(screen.getAllByRole('article')).toHaveLength(1)
-  })
-
-  it('wynik, którego nie da się zapisać (zły format id), nie przypina i mówi „Nie udało się przypiąć"', async () => {
-    pickOption = { id: '5136&x=1', name: 'Kraków Główny', kind: 'rail' }
-    const user = userEvent.setup()
-    render(<Page />)
-
-    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
-    await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
-
-    expect(screen.getByRole('status')).toHaveTextContent('Nie udało się przypiąć: Kraków Główny')
-    expect(screen.getAllByRole('article')).toHaveLength(1)
-  })
-
   it('„Edytuj ulubione": odpięcie pokazuje „Cofnij", które przywraca wpis na dawne miejsce', async () => {
     initialPinned = [
       { kind: 'pkp', id: '33605', name: 'Warszawa Centralna' },
@@ -235,7 +187,7 @@ describe('Page (Pulpit)', () => {
     const user = userEvent.setup()
     render(<Page />)
 
-    await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
+    await user.click(screen.getByRole('button', { name: 'Edytuj kolejność miejsc' }))
     await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu: Kraków Główny' }))
     expect(screen.getByRole('status')).toHaveTextContent('Odpięto ze Startu: Kraków Główny')
 
@@ -253,7 +205,7 @@ describe('Page (Pulpit)', () => {
     const user = userEvent.setup()
     render(<Page />)
 
-    await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
+    await user.click(screen.getByRole('button', { name: 'Edytuj kolejność miejsc' }))
     await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu: Kraków Główny' }))
     await user.click(screen.getByRole('button', { name: 'Gotowe' }))
 
@@ -266,7 +218,7 @@ describe('Page (Pulpit)', () => {
     const user = userEvent.setup()
     render(<Page />)
 
-    await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
+    await user.click(screen.getByRole('button', { name: 'Edytuj kolejność miejsc' }))
     await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu: Warszawa Centralna' }))
 
     expect(screen.getByText(/przypnij je gwiazdką/)).toBeInTheDocument()
@@ -279,38 +231,11 @@ describe('Page (Pulpit)', () => {
     const user = userEvent.setup()
     render(<Page />)
 
-    await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
+    await user.click(screen.getByRole('button', { name: 'Edytuj kolejność miejsc' }))
     await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu: Warszawa Centralna' }))
     await user.click(screen.getByRole('button', { name: 'Cofnij' }))
 
     expect(screen.getByRole('button', { name: 'Gotowe' })).toHaveFocus()
-  })
-
-  it('pierwsze przypięcie z pustego Pulpitu zostawia fokus na „Dodaj", nie na <body>', async () => {
-    initialPinned = []
-    const user = userEvent.setup()
-    render(<Page />)
-
-    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
-    await user.click(screen.getByRole('button', { name: 'wybierz wynik' }))
-
-    expect(screen.getByRole('heading', { name: 'Kraków Główny' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Dodaj' })).toHaveFocus()
-  })
-
-  it('otwarcie „Dodaj" w edycji nie kasuje „Cofnij"', async () => {
-    const user = userEvent.setup()
-    initialPinned = [
-      { kind: 'pkp', id: '33605', name: 'Warszawa Centralna' },
-      { kind: 'pkp', id: '80416', name: 'Kraków Główny' },
-    ]
-    render(<Page />)
-
-    await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
-    await user.click(screen.getByRole('button', { name: 'Odepnij ze Startu: Kraków Główny' }))
-    await user.click(screen.getByRole('button', { name: 'Dodaj' }))
-
-    expect(screen.getByRole('button', { name: 'Cofnij' })).toBeInTheDocument()
   })
 
   it('„W górę" w edycji zmienia kolejność kart po wyjściu z edycji', async () => {
@@ -321,7 +246,7 @@ describe('Page (Pulpit)', () => {
     const user = userEvent.setup()
     render(<Page />)
 
-    await user.click(screen.getByRole('button', { name: 'Edytuj ulubione' }))
+    await user.click(screen.getByRole('button', { name: 'Edytuj kolejność miejsc' }))
     await user.click(screen.getByRole('button', { name: 'W górę: Świętokrzyska' }))
     await user.click(screen.getByRole('button', { name: 'Gotowe' }))
 
@@ -480,7 +405,8 @@ describe('Page (Pulpit)', () => {
 
     it('„Otwórz mapę” to zwykły link na /map (bez GPS)', () => {
       render(<Page />)
-      expect(screen.getByRole('link', { name: 'Otwórz mapę' })).toHaveAttribute('href', '/map')
+      expect(screen.queryByRole('link', { name: 'Otwórz mapę' })).toBeNull()
+      expect(screen.getByRole('link', { name: 'Mapa' })).toHaveAttribute('href', '/map')
       expect(requestLocation).not.toHaveBeenCalled()
     })
 
@@ -491,7 +417,7 @@ describe('Page (Pulpit)', () => {
       render(<Page />)
 
       expect(screen.getByRole('heading', { name: 'Moje miejsca' })).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Edytuj ulubione' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Edytuj kolejność miejsc' })).toBeNull()
       await user.click(screen.getByRole('button', { name: 'Znajdź miejsce' }))
       expect(push).toHaveBeenCalledWith('/search', { transitionTypes: NAV_TAB_TYPES })
     })

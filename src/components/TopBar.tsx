@@ -10,6 +10,8 @@ import { PageTitle } from './PageTitle'
 import { CityWeatherChip, WeatherChip } from './WeatherChip'
 import { useHeaderWeatherContext, usePageHeader } from './pageHeader'
 import { PageMoreMenu } from './PageMoreMenu'
+import { HeaderData } from './HeaderData'
+import { HeaderMapShortcut } from './HeaderMapShortcut'
 
 type HeaderVariant = {
   title: string
@@ -100,6 +102,8 @@ export function TopBar(props: Props) {
         {back === null && props.actions}
         {/* Poniżej `sm` przełącznik motywu jest w `MobileHeader` — jeden na ekran. */}
         <span className="hidden sm:contents">
+          <HeaderData />
+          <HeaderMapShortcut />
           <PageMoreMenu share={props.share} />
         </span>
       </div>

@@ -41,6 +41,7 @@ type Props = {
   /** Pod komunikatem o braku odjazdów (np. przycisk „Wszystkie linie”, gdy filtr linii nic nie zostawił). */
   emptyAction?: ReactNode
   returnTo?: string
+  stopNames?: Record<string, string>
 }
 
 /**
@@ -84,6 +85,7 @@ function DepartureRow({
   clock: vehicleClock,
   fetchedAt,
   returnTo,
+  stopNames,
 }: {
   departure: DepartureWithVehicle
   city?: string
@@ -93,6 +95,7 @@ function DepartureRow({
   clock: number
   fetchedAt?: number | null
   returnTo?: string
+  stopNames?: Record<string, string>
 }) {
   // Odliczanie tylko w obrębie godziny; „wg rozkładu” zawsze, bo to plan, nie pomiar (#13).
   const countdown = now !== undefined ? countdownLabel(now, departure.plannedAt) : null
@@ -102,8 +105,10 @@ function DepartureRow({
   // Karta: link na cały wiersz, więc plakietka linii nie może być drugim (zagnieżdżonym) linkiem.
   const rowHref = variant === 'card' ? lineHref : undefined
   const scheduleNote = countdown !== null ? `${countdown} · wg rozkładu` : 'wg rozkładu'
-  const tag = stopTagOf(departure, showStopCode)
-  const stopCode = tag?.code ?? null
+  const rawTag = stopTagOf(departure, true)
+  const fullStopName = variant === 'card' && stopNames?.[departure.stopId]
+  const tag = showStopCode && !fullStopName ? rawTag : null
+  const stopCode = rawTag !== null && (tag !== null || (fullStopName && !rawTag.platform)) ? rawTag.code : null
   // Numer przystanku z `platform_code` już jest w tagu — „peron 01" obok byłby duplikatem.
   const platform = departure.platformCode !== stopCode ? departure.platformCode : null
   // Pozycja starsza niż na mapie (`HIDE_AFTER_SEC`) nie jest już pozycją — chip znika, wiersz zostaje.
@@ -117,7 +122,8 @@ function DepartureRow({
     departure.frequencyBased ||
     departure.onRequest ||
     platform !== null
-  const rowClass = `grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 py-3${variant === 'board' && city !== undefined ? ' course-departure-row' : ''}`
+  const rowClass = `grid ${variant === 'card' ? 'grid-cols-1 @min-[14rem]:grid-cols-[auto_minmax(0,1fr)_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto]'} items-start gap-x-3 gap-y-1 py-3${variant === 'board' && city !== undefined ? ' course-departure-row' : ''}`
+  const metaColumns = variant === 'card' ? 'col-start-1 col-span-1 @min-[14rem]:col-start-2 @min-[14rem]:col-span-2' : 'col-start-2 col-span-2'
   const cells = (
     <>
       <span className={variant === 'board' && city !== undefined ? 'row-span-3 flex w-[88px] flex-col items-start' : undefined}>
@@ -145,9 +151,10 @@ function DepartureRow({
           {dateLabel !== null && <span className="text-[13px] font-medium tabular-nums text-text-secondary">{dateLabel}</span>}
         </span>
       )}
-      <span className="col-start-2 col-span-2 text-xs font-semibold tabular-nums text-text-secondary">{scheduleNote}</span>
+      <span className={`${metaColumns} text-xs font-semibold tabular-nums text-text-secondary`}>{scheduleNote}</span>
+      {variant === 'card' && stopNames?.[departure.stopId] && <span className={`${metaColumns} text-xs text-text-muted [overflow-wrap:anywhere]`}>{stopNames[departure.stopId]}</span>}
       {hasMeta && (
-        <div data-testid="departure-meta" className="col-start-2 col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div data-testid="departure-meta" className={`${metaColumns} flex flex-wrap items-center gap-x-2 gap-y-1`}>
           {tag !== null && <StopTag code={tag.code} platform={tag.platform} />}
           {LINE_KIND_LABEL[departure.lineKind] !== '' && <span className="shrink-0 text-xs text-text-muted">{LINE_KIND_LABEL[departure.lineKind]}</span>}
           {departure.frequencyBased && (
@@ -160,7 +167,7 @@ function DepartureRow({
     </>
   )
   return rowHref !== undefined ? (
-    <li className="flex items-start gap-2">
+    <li className="@container flex min-w-0 items-start gap-2">
       <Link
         href={rowHref}
         transitionTypes={NAV_FORWARD_TYPES}
@@ -168,7 +175,7 @@ function DepartureRow({
       >
         {cells}
       </Link>
-      {city !== undefined && vehicle !== null && <span className="pt-3"><CourseVehicleActions city={city} vehicle={vehicle} showStatus={false} /></span>}
+      {city !== undefined && vehicle !== null && <span className="pt-3"><CourseVehicleActions city={city} vehicle={vehicle} /></span>}
     </li>
   ) : (
     <li className={rowClass}>{cells}</li>
@@ -187,6 +194,7 @@ export function TransitDepartureList({
   skeletonRows = 3,
   emptyAction,
   returnTo,
+  stopNames,
 }: Props) {
   const listRef = useRowAnimation<HTMLUListElement>()
   const clock = useNow(VEHICLE_AGE_TICK_MS)
@@ -219,9 +227,9 @@ export function TransitDepartureList({
   }
 
   return (
-    <ul ref={listRef} data-testid="departure-list" className={`mt-3 divide-y divide-surface-border${variant === 'board' && city !== undefined ? ' course-board' : ''}`}>
+    <ul ref={listRef} data-testid="departure-list" className={`mt-3 divide-y divide-surface-border${variant === 'board' && city !== undefined ? ' course-board' : ' grid @min-[48rem]:grid-cols-3 @min-[48rem]:divide-x @min-[48rem]:divide-y-0 @min-[48rem]:gap-4'}`}>
       {visibleDepartures.map((departure, index) => (
-        <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} clock={clock} fetchedAt={fetchedAt} returnTo={returnTo} />
+        <DepartureRow key={`${departure.tripId}-${departure.stopId}-${index}`} departure={departure} city={city} showStopCode={showStopCode} now={now} variant={variant} clock={clock} fetchedAt={fetchedAt} returnTo={returnTo} stopNames={stopNames} />
       ))}
     </ul>
   )

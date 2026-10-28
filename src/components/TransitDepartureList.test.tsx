@@ -31,6 +31,20 @@ function dep(over: Partial<Dep> = {}): Dep {
 }
 
 describe('TransitDepartureList', () => {
+  it.each([true, false])('does not repeat the stop number as a platform beside a full stop name (code tag: %s)', (showStopCode) => {
+    render(<TransitDepartureList city="warszawa" variant="card" showStopCode={showStopCode} departures={[dep({ stopCode: '01', platformCode: '01' })]} stopNames={{ '100101': 'Centrum 01' }} />)
+    expect(screen.getByText('Centrum 01')).toBeInTheDocument()
+    expect(screen.queryByText('peron 01')).not.toBeInTheDocument()
+  })
+  it('preserves a real metro platform with a full stop name', () => {
+    render(<TransitDepartureList city="warszawa" variant="card" showStopCode departures={[dep({ mode: 'metro', stopCode: null, platformCode: 'P1' })]} stopNames={{ '100101': 'Centrum' }} />)
+    expect(screen.getByText('peron P1')).toBeInTheDocument()
+  })
+  it('shows the full stop name and code on Start without losing the planned time', () => {
+    render(<TransitDepartureList city="warszawa" variant="card" departures={[dep({ stopId: '100101' })]} stopNames={{ '100101': 'Bardzo długa nazwa przystanku przy alei 01' }} />)
+    expect(screen.getByText('Bardzo długa nazwa przystanku przy alei 01')).toBeInTheDocument()
+    expect(screen.getByText('14:30')).toBeInTheDocument()
+  })
   it('removes a retained overdue row once its observation is no longer fresh, without dropping ordinary rows', () => {
     const observedAt = '2026-09-02T14:32:00+02:00'
     vi.useFakeTimers()
@@ -48,7 +62,7 @@ describe('TransitDepartureList', () => {
     expect(screen.getByText('14:30')).toBeInTheDocument()
     vi.useRealTimers()
   })
-  it('adds separate status and map actions only to the board, preserving the course time link', () => {
+  it('keeps separate status and map actions on board and Start, preserving the course time link', () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-02T14:35:00+02:00'))
     const vehicle = { stopsAway: 3, ageSec: 0, id: 'V/20/1', tripId: 't', sideNumber: '1234', serviceDate: '2026-09-02', observedAt: '2026-09-02T14:35:00+02:00', pastScheduledDeparture: true }
     const { rerender } = render(<TransitDepartureList city="warszawa" departures={[dep({ vehicle })]} />)
@@ -57,7 +71,7 @@ describe('TransitDepartureList', () => {
     expect(screen.getByRole('link', { name: /Wybierz kurs/ })).toHaveTextContent('14:30')
     expect(screen.getByText('Nr boczny 1234')).toBeInTheDocument()
     rerender(<TransitDepartureList city="warszawa" variant="card" departures={[dep({ vehicle })]} />)
-    expect(screen.queryByRole('img', { name: 'Po planowanym odjeździe' })).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Po planowanym odjeździe' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })).toBeInTheDocument()
     const mapAction = screen.getByRole('link', { name: 'Pokaż pojazd 1234 na mapie' })
     // eslint-disable-next-line testing-library/no-node-access

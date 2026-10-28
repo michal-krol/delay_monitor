@@ -5,10 +5,12 @@ import { useEffect, useRef } from 'react'
 import { AppLogo, ArrowLeftIcon, ICON_SIZE } from './icons'
 import { IconButton, ICON_BUTTON_CLASS } from './IconButton'
 import { useContextTitle } from './headerTitle'
-import { useHeaderWeatherContext, usePageHeaderContext } from './pageHeader'
+import { useHeaderWeatherContext, usePageHeaderContext, useHeaderDataContext } from './pageHeader'
 import { PageMoreMenu } from './PageMoreMenu'
 import { WeatherChip } from './WeatherChip'
 import { NAV_BACK_TYPES } from '@/lib/navTransition'
+import { HeaderData } from './HeaderData'
+import { HeaderMapShortcut } from './HeaderMapShortcut'
 
 /**
  * Nagłówek telefonu (poniżej `sm`): powrót, tytuł, pogoda i opcje strony. Nawigacja i jedyna akcja „Szukaj" są w dolnym
@@ -18,6 +20,7 @@ export function MobileHeader() {
   const contextTitle = useContextTitle()
   const page = usePageHeaderContext()
   const weather = useHeaderWeatherContext()
+  const sources = useHeaderDataContext()
   const headerRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const header = headerRef.current
@@ -63,9 +66,11 @@ export function MobileHeader() {
         </span>
       </Link>}
       <div className="ml-auto flex shrink-0 items-center gap-1">
+        <HeaderMapShortcut />
         <WeatherChip weather={weather?.weather ?? { status: 'unavailable' }} locationName={weather?.name ?? ''} />
         <PageMoreMenu share={page?.share} />
       </div>
+      {sources.length > 0 && <div className="flex w-full justify-end"><HeaderData /></div>}
     </header>
   )
 }

@@ -13,6 +13,7 @@ const push = vi.fn()
 const replace = vi.fn()
 let searchParamsSeed = ''
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
   useRouter: () => ({ push, replace }),
   useSearchParams: () => new URLSearchParams(searchParamsSeed),
 }))

@@ -33,11 +33,12 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   „Statystyki dnia: brak danych”.
 - Missing platform/track on a PKP row = „—” per value, never 0 and never „nie podano”: phone card
   „Peron 2 · Tor 4”, „Peron — · Tor 4”, „Peron — · Tor —”; desktop cells show „—” lines.
-- **PKP time column** (D1, `timePresentation()` in `boardTime.ts`, one source for the board and Start cards):
+- **PKP time column** (`timePresentation()` in `boardTime.ts`):
   the dominant time is the useful one with its source named next to it — „Faktycznie” (confirmed),
   „Przew.” (forecast), „Plan” (neither, or a cancelled row) — and a small „Plan HH:mm” line under it for
   fact/forecast, even when equal; the countdown rides on that line („Plan 14:48 · za 18 min”, or alone
   when the dominant time already is the plan). Never „Punktualnie” for an unconfirmed train (#2).
+  Start cards explicitly use `plannedPrimary`: planned time is dominant; a named forecast/fact is secondary. Full boards keep the useful-time presentation above.
 - PKP status pill on the board (`DelayBadge detailed`; the legend keeps the short `LABELS` „opóźniony”, „brak danych”): „Opóźnienie +12 min”, „odwołany”, „punktualnie”,
   and for an unknown status „Brak danych o realizacji” (not the legend word „brak danych”).
 - Station board phone chrome: „Na mapie” (link from `useRailStations` coordinates; without them the plain
@@ -223,7 +224,7 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 
 ## Start (`/`, `StartEntry`, `StationCard`, `TransitStopCard`, PR11)
 
-- H1 „Start”. Order on phones and desktop: H1 → search entry → „W pobliżu mnie” + „Otwórz mapę” → „Moje miejsca” (h2 + „Dodaj” / „Edytuj ulubione”) →
+- H1 „Start”. Order on phones and desktop: H1 → search entry with icon-only „W pobliżu mnie” → „Moje miejsca” (h2 + icon-only „Edytuj kolejność miejsc”) →
   „Ostatnio oglądane” → collapsed „Dziś w Polsce”. The history keeps „Ostatnio oglądane” (it records places you OPENED, not searched; the mockup
   says the same) — not „Ostatnio wyszukiwane”.
 - Search entry = a button named „Stacja, przystanek, linia lub pociąg” (phone: goes to `/search`; from `sm`: opens the `UnifiedSearch` dialog). It is not an input.
@@ -232,10 +233,10 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   przeglądarce”; failed „Nie udało się ustalić lokalizacji. Spróbuj ponownie lub wyszukaj miejsce.” (the same button retries). Nothing is shown before the click.
 - Empty „Moje miejsca”: „Nie masz jeszcze zapisanych miejsc. Znajdź stację lub przystanek i przypnij je gwiazdką — odjazdy pojawią się tutaj.” + button
   „Znajdź miejsce”; never while the pins are still loading (skeleton, „Wczytywanie…”).
-- Place card: mode tile + full wrapping name (no `truncate`) + caption + three available departures + link „Wszystkie odjazdy”. Caption PKP „Stacja kolejowa PKP”;
+- Place table: mode tile + full wrapping name (no `truncate`) + caption + three available departures + link „Wszystkie odjazdy”. Three rows on phones; three columns when container width allows. Caption PKP „Stacja kolejowa PKP”;
   GTFS „{Tryb[, tryb]} · Rozkład — {miasto}” from the board's modes (`stopModes`: a pinned single stop shows the modes of ITS lines; unknown while loading =
   „Rozkład — {miasto}” with the neutral stop glyph, never a bus). GTFS rail is „Kolej miejska”, never PKP wording (#13).
-- Start „Dziś w Polsce” is initially collapsed below places/history; from `xl` the same card occupies the right column. No Start Info sheet. Card fetch/stale timestamps and network statistics use full „DD.MM.YYYY, HH:mm”.
+- Start „Dziś w Polsce” is initially collapsed below places/history; from `2xl` the same card occupies the right column, leaving ordinary desktop widths for horizontal place tables. Header data details own source-specific absolute „DD.MM.YYYY, HH:mm” timestamps and refresh actions; their summary shows the oldest timestamp, never implies all sources are fresh. No relative age counter in migrated header metadata.
 
 ## Place words (`gtfs.md`)
 
@@ -289,12 +290,12 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
   keys keep the old name. Decision 2026-10-10, `adr/0010`.
 - Pin: accessible name „Przypnij do Startu” / „Odepnij ze Startu” (star icon, `ui-icons.md`); when a button shows a
   text label it is just „Przypnij” / „Odepnij”.
-- Start: „Dodaj” = pin through the search dialog; „Edytuj ulubione” ↔
+- Start: pin through the place screen reached from search; icon-only „Edytuj kolejność miejsc” ↔
   „Gotowe”; „W górę: {name}” / „W dół: {name}”. Confirmations: „Przypięto do Startu: {name}”, „{name} jest już na
   Starcie”, „Odpięto ze Startu: {name}” + „Cofnij” (until „Gotowe”, no timer); a result that cannot be
   pinned: „Nie udało się przypiąć: {name}” (the failed-action pattern above).
 - Navigation: „Wróć do {where}”, „Pokaż {what}”, „Zamknij {what}” (× buttons carry the object).
-- Refresh is the data-age button, not a „Odśwież” button. In installed (standalone) mode it adds the visible hint „· dotknij, by odświeżyć”.
+- Migrated header metadata: refresh lives in source details as „Odśwież”, with accessible name „Odśwież: {source}”. Legacy data-age buttons remain only on surfaces not migrated to the shared header.
 - Install (once, `InstallPrompt`): button „Zainstaluj aplikację” (Chromium); iOS hint „Zainstaluj aplikację: Udostępnij → Do ekranu początkowego”; lead-in for the button „Aplikacja zawsze pod ręką.”; close = „Zamknij podpowiedź instalacji”.
 
 When a new string needs a word not listed here, add it here in the same PR.

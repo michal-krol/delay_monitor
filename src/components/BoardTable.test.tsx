@@ -8,6 +8,7 @@ import type { BoardApiRow } from '@/hooks/useBoard'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
   useRouter: () => ({ push }),
 }))
 

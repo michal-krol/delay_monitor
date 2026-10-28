@@ -1,19 +1,26 @@
 // @vitest-environment jsdom
-import { StrictMode } from 'react'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { StrictMode, type ReactNode } from 'react'
+import { fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FullBoard, stationMapLink } from './FullBoard'
 import { jsonResponse } from '@/test-utils/http'
 import { stubMatchMedia } from '@/test-utils/media'
 import { stubDialogMethods } from '@/test-utils/dialog'
+import { PageHeaderProvider } from './pageHeader'
+import { HeaderData } from './HeaderData'
 import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
+
+function render(ui: ReactNode) {
+  return rtlRender(ui, { wrapper: ({ children }) => <PageHeaderProvider><HeaderData />{children}</PageHeaderProvider> })
+}
 
 // Szczegóły połączenia mają teraz własną trasę (`/connection/...`) — klik w
 // wiersz nawiguje przez `router.push`, zamiast otwierać panel w miejscu.
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
+  usePathname: () => '/',
 }))
 
 // Wybrane miasto (`localStorage` + stan modułu) — w testach ustawiane wprost; „Na mapie” linkuje do mapy tego miasta.
@@ -382,14 +389,17 @@ describe('FullBoard', () => {
   })
 
   // PR4: wiek danych jest przyciskiem „odśwież teraz”; pełna data i godzina zostają w `title`.
-  it('shows the data age as a refresh button with the absolute last-updated time in its title', async () => {
+  it('publishes the absolute timestamp and refresh action to the shared header', async () => {
     const snapshot = { ...SNAPSHOT, fetchedAt: '2026-08-01T20:24:11.827Z' }
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse({ snapshots: [snapshot], budget: undefined, status: 'ok' })))
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
 
-    const button = await screen.findByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })
-    expect(button).toHaveAttribute('title', 'Ostatnia aktualizacja: 01.08.2026, 22:24:11')
+    await screen.findByText(/Dane 01.08.2026/)
+    fireEvent.click(screen.getByText(/Dane 01.08.2026/))
+    const button = screen.getByRole('button', { name: 'Odśwież: Dane PKP' })
+    expect(button).toHaveAccessibleName('Odśwież: Dane PKP')
+    expect(screen.getByText('01.08.2026, 22:24')).toBeInTheDocument()
   })
 
   it('navigates to the connection-details route for the clicked train, carrying its scheduleId/orderId/operatingDate and label', async () => {
@@ -477,11 +487,13 @@ describe('FullBoard', () => {
 
     render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
     await screen.findByText('EIC 1')
-    await user.click(await screen.findByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ }))
+    await screen.findByText(/^Dane \d/)
+    await user.click(screen.getByText(/^Dane \d/))
+    await user.click(screen.getByRole('button', { name: 'Odśwież: Dane PKP' }))
 
-    expect(await screen.findByText('Nie udało się odświeżyć')).toBeInTheDocument()
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Aktualność źródeł danych' })).getByText('Nie udało się odświeżyć')).toBeInTheDocument())
     expect(screen.getByText('EIC 1')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Odśwież: Dane PKP' })).toBeInTheDocument()
   })
 
   describe('stationMapLink', () => {
@@ -770,27 +782,27 @@ describe('FullBoard', () => {
         cityMock.city = 'warszawa'
         stubApi()
         render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
-        expect(await screen.findByRole('link', { name: 'Na mapie' })).toHaveAttribute('href', '/city/warszawa/map?at=52.22977,21.01178,14.0')
+        expect(await screen.findByRole('link', { name: 'Pokaż stację na mapie' })).toHaveAttribute('href', '/city/warszawa/map?at=52.22977,21.01178,14.0')
       })
 
       it('without a known city it links to /map?at=…', async () => {
         stubApi()
         render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
-        expect(await screen.findByRole('link', { name: 'Na mapie' })).toHaveAttribute('href', '/map?at=52.22977,21.01178,14.0')
+        expect(await screen.findByRole('link', { name: 'Pokaż stację na mapie' })).toHaveAttribute('href', '/map?at=52.22977,21.01178,14.0')
       })
 
       it('Na mapie: station without coordinates says "Brak lokalizacji stacji" and is not a link', async () => {
         stubApi({ stations: () => jsonResponse({ stations: [{ ...RAIL_STATIONS[0], id: '9999' }] }) })
         render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
         expect(await screen.findByText('Brak lokalizacji stacji')).toBeInTheDocument()
-        expect(screen.queryByRole('link', { name: 'Na mapie' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Pokaż stację na mapie' })).not.toBeInTheDocument()
       })
 
       it('a failed station list says so (not „Brak lokalizacji”), and while loading nothing clickable or textual appears', async () => {
         stubApi({ stations: () => new Promise<Response>(() => {}) })
         const { unmount } = render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
         await screen.findByText('EIC 1')
-        expect(screen.queryByRole('link', { name: 'Na mapie' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Pokaż stację na mapie' })).not.toBeInTheDocument()
         expect(screen.queryByText('Brak lokalizacji stacji')).not.toBeInTheDocument()
         unmount()
 
@@ -803,31 +815,30 @@ describe('FullBoard', () => {
       it('Na mapie works when weather fails', async () => {
         stubApi({ weather: failing })
         render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
-        expect(await screen.findByRole('link', { name: 'Na mapie' })).toBeInTheDocument()
+        expect(await screen.findByRole('link', { name: 'Pokaż stację na mapie' })).toBeInTheDocument()
       })
 
       it('the link is the row under the header card name row, before the notice and the tabs', async () => {
         stubApi({ board: boardOf({ ...SNAPSHOT, disruptionMessages: ['x'] }) })
         render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
-        const link = await screen.findByRole('link', { name: 'Na mapie' })
+        const link = await screen.findByRole('link', { name: 'Pokaż stację na mapie' })
         const notice = await screen.findByRole('button', { name: '1 utrudnienie na stacji' })
         expect(screen.getByRole('heading', { name: 'Warszawa Centralna' }).compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         expect(link.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       })
     })
 
-    it('order inside the glass section: tabs → direction select → data age → rows; the data age renders once', async () => {
+    it('keeps tabs and direction before rows, with one absolute timestamp in the shared header', async () => {
       stubApi()
       render(<FullBoard stationId="5100" stationName="Warszawa Centralna" isPinned={false} onTogglePin={vi.fn()} />)
       await screen.findByText('EIC 1')
       const tabs = screen.getByRole('tablist', { name: 'Kierunek' })
       const select = screen.getByRole('combobox', { name: 'Kierunek' })
-      const age = screen.getAllByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })
-      expect(age).toHaveLength(1)
+        expect(await screen.findByText(/^Dane \d/)).toBeInTheDocument()
+      expect(screen.queryByText(/^Aktualizacja /)).not.toBeInTheDocument()
       const precedes = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
       expect(precedes(tabs, select)).toBe(true)
-      expect(precedes(select, age[0])).toBe(true)
-      expect(precedes(age[0], screen.getByRole('table'))).toBe(true)
+      expect(precedes(select, screen.getByRole('table'))).toBe(true)
     })
   })
 

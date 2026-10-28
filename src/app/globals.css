@@ -651,7 +651,7 @@ details[open] > summary .disclosure-chevron,
 .nav-pill {
   display: grid;
   place-items: center;
-  width: 4rem;
+  width: min(4rem, 100%);
   height: 2rem;
   border-radius: 9999px;
 }

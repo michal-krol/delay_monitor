@@ -3,6 +3,8 @@ import { act, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BoardStatus } from './BoardStatus'
 import type { BoardApiResponse } from '@/hooks/useBoard'
+import { PageHeaderProvider } from './pageHeader'
+import { HeaderData } from './HeaderData'
 
 function makeData(overrides: Partial<BoardApiResponse> = {}): BoardApiResponse {
   return {
@@ -19,6 +21,17 @@ const FETCHED_AT = '2026-08-01T20:24:11.827Z'
 const NOW = Date.parse('2026-08-01T20:30:00.000Z')
 
 describe('BoardStatus', () => {
+  it('marks healthy-but-old PKP source metadata as stale in the header', () => {
+    render(<PageHeaderProvider><HeaderData /><BoardStatus headerData fetchedAt={FETCHED_AT} ageMs={180_000} data={makeData()} error={false} /></PageHeaderProvider>)
+    expect(screen.getByText(/Dane 01.08.2026/)).toHaveTextContent('część danych nieaktualna')
+  })
+  it('header mode publishes an absolute source timestamp and preserves every warning without ticking prose', () => {
+    render(<PageHeaderProvider><HeaderData /><BoardStatus headerData fetchedAt={FETCHED_AT} ageMs={600_000} data={makeData({ status: 'degraded', realizationStale: true, throttled: true })} error={true} onRefresh={vi.fn()} /></PageHeaderProvider>)
+    expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Dane 01.08.2026/)).toBeInTheDocument()
+    expect(screen.getAllByText(/PKP nie podaje dziś danych o ruchu/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/odświeżanie ograniczone/).length).toBeGreaterThan(0)
+  })
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
