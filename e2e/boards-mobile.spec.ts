@@ -833,7 +833,7 @@ test.describe('przystanek miejski na telefonie (PR6)', () => {
 
   test('„Na mapie” prowadzi do mapy miasta z at=, bez GPS', async ({ page }) => {
     await page.goto(STOP)
-    const link = page.getByRole('link', { name: 'Na mapie' })
+    const link = page.getByRole('link', { name: 'Na mapie', exact: true })
     await expect(link).toBeVisible({ timeout: READY })
     expect(await link.getAttribute('href')).toMatch(/^\/city\/warszawa\/map\?at=52\.\d+,21\.\d+,14\.0$/)
   })

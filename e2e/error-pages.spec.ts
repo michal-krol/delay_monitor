@@ -42,20 +42,29 @@ for (const theme of ['light', 'dark'] as const) {
 for (const theme of ['light', 'dark'] as const) {
   test(`granica błędu (${theme}): wyjątek przy renderze pokazuje polski komunikat bez surowego tekstu, bez naruszeń axe`, async ({ page }) => {
     await page.addInitScript((value) => window.localStorage.setItem('theme', value), theme)
-    // Wymuszony wyjątek w renderze: ekran Linie formatuje datę rozkładu przez `Date#toLocaleString` dopiero
-    // po przyjściu danych, czyli już po hydracji (sama powłoka i nawigacja go nie wołają).
+    // BoardTable formatuje godziny przez formatClockTime → Date#toLocaleTimeString po otrzymaniu danych.
+    // Ten render leży wewnątrz granicy (app); metadane HeaderData w chrome używają osobnego toLocaleString.
     await page.addInitScript(() => {
-      Date.prototype.toLocaleString = () => {
+      const original = Date.prototype.toLocaleTimeString
+      ;(window as unknown as { __restoreRenderTimeFormatting: () => void }).__restoreRenderTimeFormatting = () => {
+        Date.prototype.toLocaleTimeString = original
+      }
+      Date.prototype.toLocaleTimeString = () => {
         throw new Error('SEKRETNY-KOMUNIKAT-BLEDU')
       }
     })
-    await page.goto('/city/warszawa/lines')
+    await page.goto('/station/33605?name=Warszawa%20Centralna')
 
     await expect(page.getByRole('heading', { level: 1, name: 'Nie udało się wczytać tej strony' })).toBeVisible({ timeout: 45_000 })
     await expect(page.getByText('SEKRETNY-KOMUNIKAT-BLEDU')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Spróbuj ponownie' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
     await expectNoBlockingViolations(page)
+    await page.evaluate(() => (window as unknown as { __restoreRenderTimeFormatting: () => void }).__restoreRenderTimeFormatting())
+    await page.getByRole('button', { name: 'Spróbuj ponownie' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Warszawa Centralna' })).toBeVisible()
+    await expect(page.locator('td button[aria-label]').first()).toBeVisible()
+    await expect(page.getByText('SEKRETNY-KOMUNIKAT-BLEDU')).toHaveCount(0)
   })
 }
 
