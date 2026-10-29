@@ -13,6 +13,8 @@ On API failure show the last good snapshot + its age, don't clear the view. Fail
 data age, not a white screen. Error banner only for a configuration error (401).
 
 Emulator UI refinement: migrated Start/board/schedule metadata lives in the shared header registry with source-specific absolute timestamps and explicit failure/stale warnings instead of relative-age counters. The oldest known source timestamp is a summary, not a shared refresh time; missing timestamps remain unknown/loading. Header metadata never fetches.
+The source-details popover reserves the measured header and bottom-navigation heights inside its viewport limit; every refresh action must remain reachable at 200% text, including after a failed refresh.
+The mobile metadata row keeps its minimum height while route owners release/register sources; remove old source values rather than carrying them onto another page.
 
 - „brak wyników" ≠ „nie udało się sprawdzić". Numeric indicators have **three** states:
   loading / couldn't fetch / a concrete number. `null` in `StationStats`/`StationInsights` =

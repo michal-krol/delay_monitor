@@ -91,7 +91,7 @@ test.describe('PR5: cele dotyku na telefonie', () => {
   test('mapa: wyszukiwanie, utrudnienia i lokalizacja mają >=44px', async ({ page }) => {
     await page.goto('/city/warszawa/map')
     for (const name of ['Szukaj', 'Z utrudnieniami', 'Moja lokalizacja']) {
-      const button = page.getByRole('button', { name, exact: true })
+      const button = name === 'Szukaj' ? page.locator('[data-map-search-trigger]') : page.getByRole('button', { name, exact: true })
       await expect(button).toBeVisible({ timeout: READY })
       expect(Math.round(await hitHeight(button))).toBeGreaterThanOrEqual(44)
     }
@@ -132,8 +132,8 @@ test('pola input i select mają font >= 16 px na telefonie', async ({ page }, te
   const FIELDS = 'input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea'
   for (const path of ['/', '/city/warszawa', '/city/warszawa/lines', '/city/warszawa/map', '/search']) {
     await page.goto(path)
-    // Pulpit nie ma już pola w treści — pole „Dodaj" żyje w oknie wyszukiwania.
-    if (path === '/') await page.getByRole('button', { name: 'Dodaj' }).click()
+    // Start opens the shared search flow; pinning happens on the selected place.
+    if (path === '/') await page.getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg', exact: true }).click()
     await expect(page.locator(FIELDS).first()).toBeAttached({ timeout: READY })
     const small = await page.locator(FIELDS).evaluateAll((nodes) =>
       nodes.map((n) => ({ n: (n as HTMLElement).getAttribute('aria-label') ?? n.tagName, px: parseFloat(getComputedStyle(n).fontSize) })).filter((f) => f.px < 16),

@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react'
 import { AppLogo, ArrowLeftIcon, ICON_SIZE } from './icons'
 import { IconButton, ICON_BUTTON_CLASS } from './IconButton'
 import { useContextTitle } from './headerTitle'
-import { useHeaderWeatherContext, usePageHeaderContext, useHeaderDataContext } from './pageHeader'
+import { useHeaderWeatherContext, usePageHeaderContext } from './pageHeader'
 import { PageMoreMenu } from './PageMoreMenu'
 import { WeatherChip } from './WeatherChip'
 import { NAV_BACK_TYPES } from '@/lib/navTransition'
@@ -20,7 +20,6 @@ export function MobileHeader() {
   const contextTitle = useContextTitle()
   const page = usePageHeaderContext()
   const weather = useHeaderWeatherContext()
-  const sources = useHeaderDataContext()
   const headerRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const header = headerRef.current
@@ -70,7 +69,8 @@ export function MobileHeader() {
         <WeatherChip weather={weather?.weather ?? { status: 'unavailable' }} locationName={weather?.name ?? ''} />
         <PageMoreMenu share={page?.share} />
       </div>
-      {sources.length > 0 && <div className="flex w-full justify-end"><HeaderData /></div>}
+      {/* Stały rząd zapobiega skokowi nagłówka, gdy poprzednia strona zwalnia źródła, a następna je dopiero wczytuje. */}
+      <div data-testid="header-data-row" className="flex min-h-11 w-full justify-end"><HeaderData /></div>
     </header>
   )
 }

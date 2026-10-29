@@ -182,6 +182,7 @@ selected object sits in the free area, not under the toolbar or the sheet.
   no extra right padding.
 - **`full` is not reported** (user decision 2026-10-15): the camera keeps the last `peek`/`half` value — at 90 % there is no free area worth framing.
 - **Attribution stays at the map bottom.** `TransitMap` measures the native attribution corner with `ResizeObserver` and reports `onAttributionHeight`; the page reserves that height below sheets through `--map-attribution-h`. Credits stay at bottom zero above the sheet stacking layer, including at `full`. Expansion and enlarged text must increase the reserved height, never cover source links or content. The camera bottom inset includes the reserved footer plus the visible sheet. Verify hit testing of both the toggle and OpenFreeMap link at every sheet snap.
+  The desktop legend reserves the same measured attribution height plus a small gap; a fixed bottom offset can leave its summary covered on short screens. Toolbar transitions follow reduced-motion preferences.
 - **The map is born with its padding.** `MapOptions` has no `padding`, so right after `new Map()` (before the `moveend` listener exists) `TransitMap` calls
   `setPadding(cameraPadding(insets))` and records them as applied: the `?nearby=1` entry and a reloaded `?at=` start centred in the free area, not the geometric
   centre, and the settle effect has nothing to correct.

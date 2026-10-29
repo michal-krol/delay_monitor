@@ -15,7 +15,7 @@ const states: { name: string; run: (page: Page) => Promise<void> }[] = [
     },
   },
   {
-    name: 'przegląd rozwinięty („Lista")',
+    name: 'przegląd rozwinięty',
     run: async (page) => {
       await openMap(page)
       const list = await openVisibleList(page)
@@ -61,8 +61,8 @@ const states: { name: string; run: (page: Page) => Promise<void> }[] = [
     name: 'utrudnienia',
     run: async (page) => {
       await openMap(page)
-      await page.getByRole('button', { name: 'Z utrudnieniami' }).click()
-      await expect(page.getByRole('button', { name: 'Z utrudnieniami' })).toHaveAttribute('aria-pressed', 'true')
+      await page.getByRole('button', { name: 'Z utrudnieniami', exact: true }).click()
+      await expect(page.getByRole('button', { name: 'Z utrudnieniami', exact: true })).toHaveAttribute('aria-pressed', 'true')
     },
   },
   {
@@ -122,11 +122,15 @@ for (const theme of ['light', 'dark'] as const) {
 test.describe('ruch ograniczony (prefers-reduced-motion)', () => {
   test.use({ reducedMotion: 'reduce' })
 
-  test('mapa transportu: panel „Filtry" wchodzi bez przejścia, arkusz na telefonie przewija się bez animacji; po zmianie preferencji wraca ruch', async ({ page }) => {
+  test('mapa transportu: utrudnienia przełączają się bez przejścia, arkusz na telefonie przewija się bez animacji; po zmianie preferencji wraca ruch', async ({ page }) => {
     await openMap(page)
-    await page.getByRole('button', { name: 'Z utrudnieniami' }).click()
-    const panel = page.getByRole('button', { name: 'Z utrudnieniami' })
-    const transitionMs = () => panel.evaluate((el) => parseFloat(getComputedStyle(el).transitionDuration) * 1000)
+    await page.getByRole('button', { name: 'Z utrudnieniami', exact: true }).click()
+    const panel = page.getByRole('button', { name: 'Z utrudnieniami', exact: true })
+    const transitionMs = () => panel.evaluate((el) => {
+      const style = getComputedStyle(el)
+      // transition-none disables the property; computed duration can retain its default.
+      return style.transitionProperty === 'none' ? 0 : parseFloat(style.transitionDuration) * 1000
+    })
     const sheetScroll = () => page.locator('.bottom-sheet').evaluate((el) => getComputedStyle(el).scrollBehavior)
     await expect(panel).toBeVisible()
     expect(await transitionMs()).toBe(0)
@@ -166,12 +170,12 @@ test.describe('tryb wysokiego kontrastu (forced-colors)', () => {
       return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) }
     })
 
-  test('mapa transportu: aktywny czip rodzaju i „Lista" mają obrys, a komunikat „Brak pozycji" widoczny pierścień fokusu', async ({ page }) => {
+  test('mapa transportu: aktywne utrudnienia mają obrys, a komunikat „Brak pozycji" widoczny pierścień fokusu', async ({ page }) => {
     await page.emulateMedia({ forcedColors: 'active' })
     await stripRailCoordinates(page)
     await openMap(page)
 
-    const alerts = page.getByRole('button', { name: 'Z utrudnieniami' })
+    const alerts = page.getByRole('button', { name: 'Z utrudnieniami', exact: true })
     await alerts.click()
     await expect(alerts).toHaveAttribute('aria-pressed', 'true')
     expect(await outline(alerts)).toMatchObject({ style: 'solid' })

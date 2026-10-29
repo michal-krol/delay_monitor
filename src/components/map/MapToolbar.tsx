@@ -8,7 +8,7 @@ import { PinnedMenu, type PinnedPoint } from './MapPanels'
 
 /** Aktywny przycisk = wypełnienie `--primary` (ADR 0011); w trybie wysokiego kontrastu tło znika, więc aktywny dostaje własny obrys. */
 const TOOL_BUTTON =
-  'glass-chrome border border-surface-border shadow-md control-44 inline-flex items-center justify-center gap-2 rounded-xl px-3.5 text-sm font-semibold text-foreground transition hover:bg-black/5 dark:hover:bg-white/10 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-fg aria-pressed:hover:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-text forced-colors:aria-pressed:outline-2 forced-colors:aria-pressed:outline-[color:Highlight]'
+  'glass-chrome border border-surface-border shadow-md control-44 inline-flex items-center justify-center gap-2 rounded-xl px-3.5 text-sm font-semibold text-foreground transition motion-reduce:transition-none hover:bg-black/5 dark:hover:bg-white/10 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-fg aria-pressed:hover:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-text forced-colors:aria-pressed:outline-2 forced-colors:aria-pressed:outline-[color:Highlight]'
 
 /**
  * Kontrolki mapy nad nią: pole wyszukiwania (`search`) i przyciski. Stan i callbacki ma strona — tu tylko układ.

@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test'
-import { openMap } from './helpers/map'
+import { openMap, tapVisibleSheetHandle } from './helpers/map'
 import { scanA11y } from './helpers/axe'
 import { changeTheme } from './helpers/page-options'
 
@@ -59,14 +59,8 @@ for (const width of [320, 375, 480, 1280]) {
         expect(box!.x + box!.width <= locateBox!.x || box!.x >= locateBox!.x + locateBox!.width || box!.y + box!.height <= locateBox!.y || box!.y >= locateBox!.y + locateBox!.height).toBe(true)
       }
       if (width < 640) {
-        const handle = page.getByRole('button', { name: /^Zmień wysokość panelu/ })
         for (const snap of ['half', 'full']) {
-          // WebKit's locator auto-scroll can snap this scroll container back before clicking.
-          // Tap the visible handle as a user would, without a preparatory scrollIntoView.
-          const box = await handle.boundingBox()
-          expect(box).not.toBeNull()
-          if (info.project.use.hasTouch) await page.touchscreen.tap(box!.x + box!.width / 2, box!.y + box!.height / 2)
-          else await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2)
+          await tapVisibleSheetHandle(page)
           await expect(page.locator('.bottom-sheet')).toHaveAttribute('data-snap', snap)
           await expect.poll(() => page.locator('.bottom-sheet').evaluate((el, fraction) => Math.abs(el.scrollTop - fraction * el.clientHeight), snap === 'half' ? 0.55 : 0.9)).toBeLessThanOrEqual(2)
           await expect.poll(hitSource).toBe(true)

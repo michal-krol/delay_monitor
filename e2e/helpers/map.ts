@@ -45,11 +45,26 @@ export async function pickResult(page: Page, query: string, row: RegExp): Promis
 /** Lista obiektów w kadrze: na telefonie rozwinięty przegląd (region), od `sm` okno „W widoku". */
 export const visibleList = (page: Page): Locator => page.getByRole('region', { name: 'Pojazdy i przystanki w widoku' })
 
+/** Native input at the visible handle avoids WebKit's preparatory scrollIntoView resnapping the sheet. */
+export async function tapVisibleSheetHandle(page: Page): Promise<void> {
+  const handle = page.getByRole('button', { name: /^Zmień wysokość panelu/ })
+  await expect(handle).toBeVisible()
+  let point = { x: 0, y: 0 }
+  await expect.poll(async () => {
+    const box = await handle.boundingBox()
+    if (box === null) return false
+    point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    return handle.evaluate((el, p) => el.contains(document.elementFromPoint(p.x, p.y)), point)
+  }).toBe(true)
+  if (test.info().project.use.hasTouch) await page.touchscreen.tap(point.x, point.y)
+  else await page.mouse.click(point.x, point.y)
+}
+
 /** Obiekty są zawsze w przeglądzie; na telefonie rozwiń niski arkusz. */
 export async function openVisibleList(page: Page): Promise<Locator> {
   if (isPhone(page)) {
     const handle = page.getByRole('button', { name: 'Zmień wysokość panelu (teraz: niski)' })
-    if (await handle.count()) await handle.click()
+    if (await handle.count()) await tapVisibleSheetHandle(page)
   }
   const list = visibleList(page)
   await expect(list).toBeVisible()
