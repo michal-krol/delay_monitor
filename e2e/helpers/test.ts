@@ -15,7 +15,27 @@ interface Cached {
 const cache = new Map<string, Promise<Cached | null>>()
 
 export const test = base.extend({
-  page: async ({ page }, provide) => {
+  page: async ({ page }, provide, info) => {
+    // Preserve evidence of intermittent map startup failures without querying an unresponsive page during teardown.
+    const started = Date.now()
+    const events: { ms: number; kind: string; detail: string }[] = []
+    const record = (kind: string, detail: string) => {
+      events.push({ ms: Date.now() - started, kind, detail: detail.slice(0, 2_000) })
+      if (events.length > 100) events.shift()
+    }
+    page.on('pageerror', (error) => record('pageerror', error.stack ?? error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error' || message.type() === 'warning') record(message.type(), message.text())
+    })
+    page.on('requestfailed', (request) => record('requestfailed', `${new URL(request.url()).pathname}: ${request.failure()?.errorText}`))
+    page.on('request', (request) => {
+      if (request.resourceType() === 'script') record('script-request', new URL(request.url()).pathname)
+    })
+    page.on('response', (response) => {
+      if (response.request().resourceType() === 'script' || response.status() >= 400) {
+        record('response', `${response.status()} ${new URL(response.url()).pathname}`)
+      }
+    })
     await page.route('https://tiles.openfreemap.org/**', async (route) => {
       const url = route.request().url()
       let hit = cache.get(url)
@@ -31,6 +51,9 @@ export const test = base.extend({
       else await route.fallback()
     })
     await provide(page)
+    if (info.status !== info.expectedStatus) {
+      await info.attach('browser-startup-diagnostics', { body: JSON.stringify(events, null, 2), contentType: 'application/json' })
+    }
   },
 })
 
