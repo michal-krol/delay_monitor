@@ -34,6 +34,11 @@ test('sekcja zwinięta/rozwinięta przez użytkownika przeżywa odświeżenie st
   const before = await metro.evaluate((node) => (node as HTMLDetailsElement).open)
   await metro.locator('summary').click()
   await expect(metro).toHaveJSProperty('open', !before)
+  // The native toggle event persists after the DOM attribute changes; reload only after that write.
+  await expect.poll(() => page.evaluate(() => {
+    const stored = localStorage.getItem('monitor.linesSections.v1')
+    return stored === null ? null : JSON.parse(stored).metro
+  })).toBe(!before)
 
   await page.reload()
   await expect(page.getByTestId('line-section').first()).toBeVisible({ timeout: READY })
