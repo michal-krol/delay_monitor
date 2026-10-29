@@ -101,8 +101,6 @@ jobs:
       - id: scope
         env:
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
-          CI_EVENT: ${{ github.event_name }}
-          CI_BASE_REF: ${{ github.base_ref }}
         run: node scripts/ci-scope.mjs "$BASE"
 
   e2e-tests:
@@ -113,8 +111,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
-      # Lista projektów liczy `changes` (scripts/lib/ciScope.mjs `e2eMatrix`): WebKit tylko przy
-      # pushu do main/dev i w PR-ach do main, PR do dev dostaje oba projekty chromium.
+      # The same three-browser gate runs before and after merge; docs-only changes still skip e2e.
       matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7

@@ -51,10 +51,15 @@ export async function tapVisibleSheetHandle(page: Page): Promise<void> {
   await expect(handle).toBeVisible()
   let point = { x: 0, y: 0 }
   await expect.poll(async () => {
-    const box = await handle.boundingBox()
-    if (box === null) return false
-    point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-    return handle.evaluate((el, p) => el.contains(document.elementFromPoint(p.x, p.y)), point)
+    // One DOM round trip keeps measurement and hit testing atomic, including on busy CI workers.
+    const hit = await handle.evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+      return element.contains(document.elementFromPoint(at.x, at.y)) ? at : null
+    })
+    if (hit === null) return false
+    point = hit
+    return true
   }).toBe(true)
   if (test.info().project.use.hasTouch) await page.touchscreen.tap(point.x, point.y)
   else await page.mouse.click(point.x, point.y)

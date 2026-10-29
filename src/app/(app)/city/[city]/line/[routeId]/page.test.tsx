@@ -141,21 +141,21 @@ describe('concrete timetable variant stop', () => {
     window.history.replaceState(null, '', '/city/warszawa/line/20?stop=999901&occ=1&pane=timetable')
     stubFetch(lineWith([DIR0], { supportsCourses: true, timetableStop: { stopId: '999901', groupId: '9999', name: 'Wariant', code: '01' }, timetable: [{ tripId: 'variant', serviceDate: '2026-09-05', sequence: 7, occurrence: 1, departureSec: 30000, category: 'saturday' }] }))
     const { unmount } = render(<LineDetailPage />)
-    expect(await screen.findByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Wariant 01')
+    expect(await screen.findByRole('heading', { name: 'Rozkład: Wariant 01' })).toBeInTheDocument()
     await userEvent.click(within(screen.getByRole('group', { name: 'Widok linii' })).getByRole('button', { name: 'Trasa' }))
     expect(window.location.search).toContain('stop=999901')
     expect(window.location.search).toContain('occ=1')
     await userEvent.click(within(screen.getByRole('group', { name: 'Widok linii' })).getByRole('button', { name: 'Rozkład' }))
-    expect(await screen.findByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Wariant 01')
+    expect(await screen.findByRole('heading', { name: 'Rozkład: Wariant 01' })).toBeInTheDocument()
     unmount()
     render(<LineDetailPage />)
-    expect(await screen.findByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Wariant 01')
+    expect(await screen.findByRole('heading', { name: 'Rozkład: Wariant 01' })).toBeInTheDocument()
   })
   it('preserves a variant-only stop and occurrence absent from the representative direction', async () => {
     window.history.replaceState(null, '', '/city/warszawa/line/20?stop=999901&occ=1&pane=timetable')
     stubFetch(lineWith([DIR0], { supportsCourses: true, timetableStop: { stopId: '999901', groupId: '9999', name: 'Wariant', code: '01' }, timetable: [{ tripId: 'variant', serviceDate: '2026-09-05', sequence: 7, occurrence: 1, departureSec: 30000, category: 'saturday' }] }))
     render(<LineDetailPage />)
-    expect(await screen.findByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Wariant 01')
+    expect(await screen.findByRole('heading', { name: 'Rozkład: Wariant 01' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /08:20.*2026-09-05/ })).toHaveAttribute('href', '/city/warszawa/line/20?trip=variant&date=2026-09-05&stop=999901&seq=7')
     expect(screen.getByRole('button', { name: /Centrum 01/ })).toHaveAttribute('aria-pressed', 'false')
   })
@@ -337,7 +337,7 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('group', { name: 'Dni robocze' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Soboty' })).toBeInTheDocument()
     // pełna trasa widoczna od razu (bez rozwijania), z linkiem do tablicy wybranego przystanku
-    expect(screen.getByRole('link', { name: 'Odjazdy z przystanku' })).toHaveAttribute('href', '/city/warszawa/stop/100101?name=Centrum')
+    expect(screen.getByRole('button', { name: /Centrum 01/ })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByText(/na czas|opóźni/i)).not.toBeInTheDocument()
   })
 
@@ -410,10 +410,7 @@ describe('LineDetailPage', () => {
     const owned = [
       screen.getByRole('button', { name: 'Zmień kierunek' }),
       screen.getByRole('group', { name: 'Widok linii' }),
-      screen.getByRole('group', { name: 'Wybrany rozkład' }),
-      screen.getByRole('link', { name: 'Odjazdy z przystanku' }),
-      screen.getByRole('region', { name: 'Pojazdy linii' }),
-      screen.getByRole('link', { name: 'Pojazdy na mapie' }),
+      screen.getByRole('heading', { name: /^Rozkład/ }),
     ]
     for (const element of owned) {
       expect(element.outerHTML).not.toMatch(/indigo-|accent-gradient|accent-solid/)
@@ -449,7 +446,7 @@ describe('LineDetailPage — direction by id and URL state', () => {
     const user = userEvent.setup()
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
-    const capsule = screen.getByRole('group', { name: 'Wybrany rozkład' })
+    const capsule = screen.getByRole('heading', { name: /^Rozkład/ })
     expect(capsule).toHaveTextContent('Metro Politechnika 14')
 
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
@@ -458,8 +455,8 @@ describe('LineDetailPage — direction by id and URL state', () => {
     expect(search().get('foo')).toBe('bar')
     expect(screen.getByText('Od: Dworzec Centralny')).toBeInTheDocument()
     // Krótsza trasa: wybór nie przenosi starego indeksu — pierwszy przystanek nowego kierunku.
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Dworzec Centralny')
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).not.toHaveTextContent('Metro Politechnika')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Dworzec Centralny')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).not.toHaveTextContent('Metro Politechnika')
 
     // Powrót do pierwszego kierunku = stan domyślny: parametr znika.
     await user.click(screen.getByRole('button', { name: 'Zmień kierunek' }))
@@ -514,7 +511,7 @@ describe('LineDetailPage — direction by id and URL state', () => {
     expect(search().has('dir')).toBe(false)
     // Od `lg` obie sekcje są obok siebie — wybór przystanku nie przełącza widoku.
     expect(search().has('pane')).toBe(false)
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Rondo ONZ 02')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Rondo ONZ 02')
   })
 
   it('picking a stop keeps the dir the URL already carried', async () => {
@@ -579,7 +576,7 @@ describe('LineDetailPage — direction by id and URL state', () => {
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(screen.getByText('Od: Centrum')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Centrum 01')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Centrum 01')
   })
 
   it('?stop= alone picks the first direction that contains the stop', async () => {
@@ -587,15 +584,15 @@ describe('LineDetailPage — direction by id and URL state', () => {
     stubFetch()
     render(<LineDetailPage />)
     expect(await screen.findByText('Od: Dworzec Centralny')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Dworzec Centralny')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Dworzec Centralny')
   })
 
-  it('?dir=1 selects that direction and the map link carries line + dir', async () => {
+  it('?dir=1 selects that direction and its map route', async () => {
     window.history.replaceState(null, '', '/city/warszawa/line/20?dir=1')
     stubFetch()
     render(<LineDetailPage />)
     expect(await screen.findByText('Od: Dworzec Centralny')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Pojazdy na mapie' })).toHaveAttribute('href', '/city/warszawa/map?line=20&dir=1')
+    expect(screen.getByTestId('map')).toHaveTextContent('2 pins')
   })
 
   it('a pin click on the map selects that stop by id, through one stable callback (the map is never remounted by it)', async () => {
@@ -605,7 +602,7 @@ describe('LineDetailPage — direction by id and URL state', () => {
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     await user.click(await screen.findByTestId('map-pin-1'))
     expect(search().get('stop')).toBe('700201')
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Rondo ONZ 02')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Rondo ONZ 02')
     // Trap 2 (`maps.md`): nowa tożsamość `onPinClick` odmontowuje mapę razem z popupem.
     expect(new Set(pinClickHandlers).size).toBe(1)
   })
@@ -626,6 +623,20 @@ describe('LineDetailPage — direction by id and URL state', () => {
 })
 
 describe('LineDetailPage — pane switch', () => {
+  it('keeps route, timetable, map and statistics without redundant line blocks', async () => {
+    stubFetch()
+    render(<LineDetailPage />)
+    await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
+    expect(screen.queryByRole('group', { name: 'Wybrany rozkład' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Odjazdy z przystanku' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Pojazdy linii' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Zmień kierunek' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Centrum 01/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('region', { name: 'Statystyki linii' })).toBeInTheDocument()
+    expect(await screen.findByTestId('map')).toBeInTheDocument()
+  })
   it('below lg a „Trasa | Rozkład” switch shows one section; tapping a stop switches to its timetable and writes pane=timetable', async () => {
     stubMatchMedia(false)
     stubFetch()
@@ -642,7 +653,7 @@ describe('LineDetailPage — pane switch', () => {
     await user.click(screen.getByRole('button', { name: /Rondo ONZ/ }))
     expect(timetable).toHaveAttribute('aria-pressed', 'true')
     expect(search().get('pane')).toBe('timetable')
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Rondo ONZ 02')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Rondo ONZ 02')
     expect(screen.queryByRole('heading', { name: /Trasa linii/ })).not.toBeInTheDocument()
     expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled()
 
@@ -675,7 +686,7 @@ describe('LineDetailPage — pane switch', () => {
     await user.click(screen.getByRole('button', { name: /Rondo ONZ/ }))
     expect(search().has('pane')).toBe(false)
     expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toBeInTheDocument()
   })
 
   // Regresja z QA w przeglądarce: od `lg` obie sekcje są zamontowane, a ich `ViewTransition` miały jedną nazwę
@@ -698,16 +709,14 @@ describe('LineDetailPage — pane switch', () => {
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
     expect(screen.getByRole('button', { name: 'Rozkład' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toBeInTheDocument()
   })
 
-  it('the timetable pane has the context capsule (line · direction · stop) and the link to the stop board', async () => {
+  it('the timetable heading keeps selected stop context without a capsule', async () => {
     stubFetch()
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
-    const capsule = screen.getByRole('group', { name: 'Wybrany rozkład' })
-    expect(capsule).toHaveTextContent('20')
-    expect(capsule).toHaveTextContent('Dworzec Centralny')
+    const capsule = screen.getByRole('heading', { name: /^Rozkład/ })
     expect(capsule).toHaveTextContent('Centrum 01')
   })
 })
@@ -721,7 +730,7 @@ describe('LineDetailPage — long names, empty and unknown data', () => {
     const head = await screen.findByText(headsign, { selector: 'p' })
     expect(head).not.toHaveClass('truncate')
     expect(screen.getAllByText(stopName, { exact: false }).length).toBeGreaterThan(0)
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent(stopName)
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent(stopName)
   })
 
   it('without a headsign the direction is named after ITS last stop; without stops „Kierunek nieznany” — origin is never the destination', async () => {
@@ -897,22 +906,20 @@ describe('LineDetailPage — long names, empty and unknown data', () => {
 })
 
 describe('LineDetailPage — vehicles', () => {
-  it('unknown direction (id 2): no vehicle request, the map link has no dir and the explanation shows', async () => {
+  it('unknown direction (id 2): no vehicle request or map movers', async () => {
     const fetchMock = stubFetch(lineWith([{ ...DIR0, directionId: 2 }]))
     render(<LineDetailPage />)
     await screen.findByRole('heading', { name: 'Piaski – Międzylesie' })
-    expect(await screen.findByText('Kierunek nieznany — pokazujemy pojazdy bez rozróżnienia kierunku.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Pojazdy na mapie' })).toHaveAttribute('href', '/city/warszawa/map?line=20')
     expect(callsTo(fetchMock, '/api/gtfs/vehicles')).toHaveLength(0)
     expect(screen.queryByTestId('mover')).not.toBeInTheDocument()
   })
 
-  it('known direction 0: the map link carries dir=0 and the count shows without GPS age', async () => {
+  it('known direction 0: map and statistics keep vehicle data without GPS age', async () => {
     stubFetch()
     render(<LineDetailPage />)
-    expect(await screen.findByText('Pojazdy w tym kierunku: 1')).toBeInTheDocument()
+    expect(await screen.findByTestId('mover')).toHaveTextContent('#3801')
     expect(screen.queryByText(/GPS:/)).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Pojazdy na mapie' })).toHaveAttribute('href', '/city/warszawa/map?line=20&dir=0')
+    expect(screen.getByRole('region', { name: 'Statystyki linii' })).toHaveTextContent('Pojazdy w trasie: 1')
   })
 
   const STATUS_TEXTS = ['Wczytywanie pozycji…', 'Nie udało się pobrać pozycji.', 'Brak danych o pozycjach pojazdów', 'Brak pojazdów w tym kierunku.']
@@ -930,7 +937,7 @@ describe('LineDetailPage — vehicles', () => {
       vi.fn((url: string) => (url.startsWith('/api/gtfs/line') ? jsonResponse(LINE) : url.startsWith('/api/gtfs/vehicles') ? vehiclesResponse() : jsonResponse({ cities: [] })))
     )
     render(<LineDetailPage />)
-    expect(await within(await screen.findByRole('region', { name: 'Pojazdy linii' })).findByText(text)).toBeInTheDocument()
+    expect((await within(await screen.findByRole('region', { name: 'Statystyki linii' })).findAllByText(text)).length).toBeGreaterThan(0)
     expect(screen.getByRole('heading', { name: /Trasa linii/ })).toBeInTheDocument()
     for (const other of STATUS_TEXTS.filter((t) => t !== text)) expect(screen.queryAllByText(other)).toHaveLength(0)
   })
@@ -1041,7 +1048,7 @@ describe('LineDetailPage — theme switch', () => {
     rerender(<LineDetailPage />)
 
     expect(screen.getByRole('button', { name: 'Rozkład' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Rondo ONZ 02')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Rondo ONZ 02')
     expect(screen.getByRole('button', { name: '06:05, Dni robocze' })).toHaveAttribute('aria-pressed', 'true')
     expect(search().has('dir')).toBe(false)
     expect(search().get('stop')).toBe('700201')
@@ -1078,11 +1085,11 @@ describe.each([
     expect(search().get('dir')).toBe('1')
     await user.click(screen.getByRole('button', { name: /Centrum 03/ }))
     expect(search().get('stop')).toBe('100103')
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Centrum 03')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Centrum 03')
     expect(screen.getByRole('group', { name: 'Dni robocze' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '1 komunikat' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Pojazdy na mapie' })).toHaveAttribute('href', '/city/warszawa/map?line=20&dir=1')
-    if (mode === 'metro' || mode === 'rail') expect(await within(screen.getByRole('region', { name: 'Pojazdy linii' })).findByText('Brak danych o pozycjach pojazdów')).toBeInTheDocument()
+    expect(screen.getByTestId('map')).toHaveTextContent('2 pins')
+    if (mode === 'metro' || mode === 'rail') expect((await within(screen.getByRole('region', { name: 'Statystyki linii' })).findAllByText('Brak danych o pozycjach pojazdów')).length).toBeGreaterThan(0)
 
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/train'))).toBe(false)
   })
@@ -1195,7 +1202,7 @@ describe.each([
     expect(chips().getByRole('button', { name: 'Niedziele i święta' })).toHaveAttribute('aria-pressed', 'true')
     expect(search().get('day')).toBe('sunday')
     expect(search().get('stop')).toBe('100103')
-    expect(screen.getByRole('group', { name: 'Wybrany rozkład' })).toHaveTextContent('Centrum 03')
+    expect(screen.getByRole('heading', { name: /^Rozkład/ })).toHaveTextContent('Centrum 03')
   })
 
   it('a time after midnight stays on its operating day: 24:10 is „+1 dzień” and the pick reports the base time', async () => {

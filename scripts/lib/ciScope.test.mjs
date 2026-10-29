@@ -77,8 +77,8 @@ describe('e2eMatrix', () => {
     expect(projects(e2eMatrix({ event: 'pull_request', baseRef: 'main' }))).toContain('mobile-safari')
   })
 
-  it('skips WebKit on a feature PR to dev', () => {
-    expect(projects(e2eMatrix({ event: 'pull_request', baseRef: 'dev' }))).toEqual(['desktop-chromium', 'mobile-chromium'])
+  it('includes WebKit before merging a feature PR to dev', () => {
+    expect(projects(e2eMatrix({ event: 'pull_request', baseRef: 'dev' }))).toEqual(['desktop-chromium', 'mobile-chromium', 'mobile-safari'])
   })
 
   it('unknown event or base runs everything (fail safe)', () => {

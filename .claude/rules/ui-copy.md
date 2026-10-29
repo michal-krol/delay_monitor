@@ -151,15 +151,14 @@ Why: the same idea was worded three ways („Błąd pobierania danych”, „Nie
 - Direction card: label „Kierunek”, the full headsign (wraps, never cut), „Od: {origin}” only when the origin is known;
   headsign fallback = the last stop of THAT direction, else „Kierunek nieznany” — never present the origin as the
   destination. Swap button „Zmień kierunek” (visible text; only with ≥ 2 directions).
-- Segment „Widok linii”: „Trasa” / „Rozkład” (phones; from `lg` both panes show). Timetable pane: h2 „Rozkład”, capsule
-  (`role=group`, „Wybrany rozkład”) = line badge · headsign · selected stop name, link „Odjazdy z przystanku”. Route rows:
+- Segment „Widok linii”: „Trasa” / „Rozkład” (phones; from `lg` both panes show). Timetable pane: one plain h2 „Rozkład: {full stop name and code}”, without a repeated direction capsule or extra stop-board link. Route rows:
   select button + separate chevron link named „Odjazdy z przystanku {name}”; „początek”/„koniec”, „Na żądanie”.
 - Route pane heading (`LineRouteList`): „Trasa linii · N przystanków” (`pluralPl`: przystanek|przystanki|przystanków); legend under the
   list „przystanek” / „na żądanie” / „przystanek krańcowy”. Map section heading „Mapa trasy” (region name „Mapa trasy linii {line}”).
   Timetable status title (`ScheduleStatus`) „Rozkład jazdy linii {line}”. A repeated stop (loop) presses the row that was picked,
   not the first occurrence.
 - Timetable (`LineTimetable`, `src/lib/lineTimetable.ts`, PR8): below `lg` ONE day category at a time — wrapping chips, group „Kategoria dnia”
-  (`.chip-filter`, `aria-pressed`): „Dni robocze”, „Soboty”, „Niedziele i święta”, „Inne dni” (only when such departures exist); from `lg`
+  (`.chip-filter`, `aria-pressed`): compact „Pon–Pt”, „Sb”, „Nd”, „Inne”; full accessible names remain on buttons and headings, with Friday distinctions retained. From `lg`
   every column side by side (the chips are hidden, same DOM). Minute button text is the two-digit minute (+ „~” when frequency-based), its
   name the full time (the „~” stays in the name, WCAG 2.5.3): „{HH:mm}, {kategoria}[, następny dzień|, +N dni][, orientacyjnie]”. An hour past midnight shows its clock hour
   (24 → „00”) with „+1 dzień” (further days „+N dni”) and keeps its place after the evening hours — never sorted by modulo 24.

@@ -15,6 +15,8 @@ export const DAY_LABEL: Record<LineDay, string> = {
   other: 'Inne dni',
 }
 
+export const DAY_SHORT_LABEL: Record<LineDay, string> = { weekday: 'Pon–Pt', saturday: 'Sb', sunday: 'Nd', other: 'Inne' }
+
 /** Kategorie tygodniowe — zawsze widoczne, nawet puste; „Inne dni” dochodzi tylko z odjazdami. */
 const WEEKLY: readonly LineDay[] = ['weekday', 'saturday', 'sunday']
 

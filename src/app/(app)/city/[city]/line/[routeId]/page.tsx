@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { startTransition, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { notFound, useParams, useSearchParams } from 'next/navigation'
@@ -21,17 +21,17 @@ import { TransitFetchStatus } from '@/components/TransitFetchStatus'
 import { stopDisplayName } from '@/components/stopName'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { PageShell } from '@/components/aside'
-import { AlertCircleIcon, ArrowLeftIcon, ChevronRightIcon, ICON_SIZE, MapIcon, SwapIcon } from '@/components/icons'
+import { AlertCircleIcon, ArrowLeftIcon, ChevronRightIcon, ICON_SIZE, SwapIcon } from '@/components/icons'
 import { LINE_KIND_LABEL, MODE_ICON, MODE_LABEL } from '@/components/transitMode'
 import { dedupeAlerts } from '@/lib/gtfs/alertView'
 import { getCity } from '@/lib/gtfs/cities'
-import { NAV_BACK_TYPES, NAV_FORWARD_TYPES } from '@/lib/navTransition'
+import { NAV_BACK_TYPES } from '@/lib/navTransition'
 import { lineViewPatch, parseLineViewState, resolveLineView, type LineDay, type LinePane, type LineViewState } from '@/lib/lineViewState'
 import { pluralPl } from '@/lib/plural'
 import { patchUrlParams } from '@/lib/urlState'
 import { useCities } from '@/hooks/useCities'
 import { deriveLineAlerts, isLineLoading, lineRefreshMs, type LineResponse } from '@/hooks/useLineDetail'
-import { useLineVehicles, type LineVehiclesState } from '@/hooks/useLineVehicles'
+import { useLineVehicles } from '@/hooks/useLineVehicles'
 import { LG_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { useNearViewport } from '@/hooks/useNearViewport'
 import { useRecentLines } from '@/hooks/useRecentLines'
@@ -158,7 +158,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
   const liveVehicles = direction?.directionId === 1 ? vehicles1 : vehicles0
 
   // Mapa linii: piny = przystanki przebiegu (id = indeks, bo ten sam przystanek może wystąpić
-  // dwa razy), pojazdy z tego samego pollingu co lista „Pojazdy w trasie" -- zero nowych zapytań.
+  // dwa razy), pojazdy z tego samego pollingu co statystyki -- zero nowych zapytań.
   const mapPins = useMemo<MapPin[]>(
     () =>
       stops.map((stop, index) => ({
@@ -421,39 +421,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                 {(concreteTimetable || lgUp || pane === 'timetable') && (
                   <TabCrossfade id="timetable" name={lgUp ? 'line-pane-timetable' : 'line-pane'}>
                     <section className={`glass rounded-2xl p-4 ${pane === 'timetable' ? '' : 'max-lg:hidden'}`}>
-                      <h2 className="text-sm font-bold text-foreground">Rozkład</h2>
-                      {/* Kapsuła kontekstu: stała pozycja, zmienia się tylko tekst. */}
-                      {!concreteTimetable && <>
-                      <div
-                        role="group"
-                        aria-label="Wybrany rozkład"
-                        className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-surface-border bg-surface-strong px-3 py-2 text-sm"
-                      >
-                        <LineBadge line={line.line} mode={line.mode} kind={line.kind} size="sm" />
-                        <span aria-hidden="true" className="text-text-muted">
-                          ·
-                        </span>
-                        <span className="min-w-0 font-semibold text-foreground [overflow-wrap:anywhere]">{headsign}</span>
-                        {selectedStop !== undefined && (
-                          <>
-                            <span aria-hidden="true" className="text-text-muted">
-                              ·
-                            </span>
-                            <span className="min-w-0 text-foreground [overflow-wrap:anywhere]">{stopDisplayName(selectedStop.name, selectedStop.code)}</span>
-                          </>
-                        )}
-                      </div>
-                      {selectedStop !== undefined && (
-                        <Link
-                          href={`/city/${city}/stop/${encodeStopIdForPathSegment(selectedStop.stopId)}?name=${encodeURIComponent(selectedStop.name)}`}
-                          transitionTypes={NAV_FORWARD_TYPES}
-                          className="mt-2 inline-flex items-center gap-0.5 text-sm font-medium text-primary-text hover:underline focus-visible:outline-2 focus-visible:outline-primary-text max-sm:min-h-11"
-                        >
-                          Odjazdy z przystanku
-                          <ChevronRightIcon size={ICON_SIZE.inline} />
-                        </Link>
-                      )}
-                      </>}
+                      {!concreteTimetable && <h2 className="text-sm font-bold text-foreground [overflow-wrap:anywhere]">Rozkład{selectedStop !== undefined ? `: ${stopDisplayName(selectedStop.name, selectedStop.code)}` : ''}</h2>}
                       {data?.supportsCourses !== true || direction.departures.some((block) => block.frequencyBased) ? <LineTimetable
                         blocks={direction.departures}
                         offsetSec={selectedStop?.offsetSec ?? null}
@@ -489,7 +457,6 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
                       )}
                     </section>
                   )}
-                  <VehiclesRow city={city} routeId={routeId} directionId={direction.directionId} showVehicles={showVehicles} live={liveVehicles} />
                 </div>
               </div>
             </>
@@ -513,43 +480,4 @@ function directionName(direction: LineDetail['directions'][number]): string {
   const headsign = direction.headsign?.trim()
   if (headsign) return headsign
   return direction.stops.at(-1)?.name ?? 'Kierunek nieznany'
-}
-
-/**
- * Pojazdy kierunku: stan pozycji (osobny od przebiegu i rozkładu, #7) + wejście do mapy. Pozycje to GPS, nie ETA (#13).
- * Kierunek nieznany (2) nie odpytuje pozycji i nie podaje `dir` — nie podszywamy się pod kierunek 0.
- */
-function VehiclesRow({ city, routeId, directionId, showVehicles, live }: { city: string; routeId: string; directionId: number; showVehicles: boolean; live: LineVehiclesState }) {
-  const mapHref = `/city/${city}/map?line=${encodeURIComponent(routeId)}${showVehicles ? `&dir=${directionId}` : ''}`
-  let status: ReactNode = null
-  if (!showVehicles) {
-    status = <p className="text-sm text-text-secondary">Kierunek nieznany — pokazujemy pojazdy bez rozróżnienia kierunku.</p>
-  } else if ((live.error !== null || live.feed.state === 'failed') && live.vehicles.length === 0) {
-    status = <p className="text-sm text-error-text">Nie udało się pobrać pozycji.</p>
-  } else if (live.feed.state === 'loading') {
-    status = <p className="text-sm text-text-secondary">Wczytywanie pozycji…</p>
-  } else if (live.vehicles.length === 0) {
-    status =
-      live.feed.state === 'ready' ? (
-        <p className="text-sm text-text-secondary">Brak pojazdów w tym kierunku.</p>
-      ) : (
-        <p className="text-sm text-text-secondary">Brak danych o pozycjach pojazdów</p>
-      )
-  } else {
-    status = (
-      <>
-        <p className="text-sm font-semibold text-foreground">{`Pojazdy w tym kierunku: ${live.vehicles.length}`}</p>
-        {live.error !== null && <p className="text-xs text-warning-text">Nie udało się odświeżyć pozycji. Pokazujemy ostatnie dane.</p>}
-      </>
-    )
-  }
-  return (
-    <section aria-label="Pojazdy linii" className="glass flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
-      <div className="min-w-0 flex-1">{status}</div>
-      <Link href={mapHref} className="chip-filter shrink-0 gap-1.5">
-        <MapIcon size={ICON_SIZE.button} />
-        Pojazdy na mapie
-      </Link>
-    </section>
-  )
 }

@@ -8,6 +8,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Kontrola e2e przed scaleniem uruchamia także mobilny WebKit; artefakty CI zawierają pełny raport JSON obok HTML.
 - Start pokazuje zwarte tablice zapisanych miejsc z trzema odjazdami. Wyszukiwanie i ikona
   lokalizacji zajmują jeden rząd; przypinanie pozostaje na ekranie miejsca, a kolejność zmienia
   przycisk z ikoną. Na podglądzie kolejowym główna godzina pochodzi z planu, prognoza jest dodatkowa.
@@ -16,6 +17,20 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 - Mapa i katalog pokazują wszystkie rodzaje transportu bez osobnych filtrów. Usunięto przyciski
   „Lista” i „Pokaż całe miasto”; wyszukiwanie, przegląd obiektów i wybór linii pozostają dostępne.
   Lokalizacja jest u góry mapy, a źródła mapy pozostają przy jej dolnej krawędzi nad panelami.
+- Szczegóły linii pokazują jeden nagłówek rozkładu z nazwą przystanku i krótkie etykiety dni.
+  Usunięto powtórzoną sekcję pojazdów oraz dodatkowy link do tablicy przystanku; trasa, statystyki
+  i namierzanie pojazdów pozostają dostępne.
+
+### Poprawione
+
+- Zwarty nagłówek telefonu pozostawia dwa pierwsze odjazdy nad dolną nawigacją przy 375 × 812 px, zachowując przyciski o wysokości co najmniej 44 px.
+- Przy powiększeniu tekstu przyciski karty stacji zawijają się pod nazwę zamiast ściskać ją do kolumny pojedynczych liter.
+
+- Panel źródeł danych mieści się między nagłówkiem a dolną nawigacją także przy tekście 200%,
+  dzięki czemu można odświeżyć każde źródło po nieudanej próbie, zachowując ostatnie odjazdy.
+- Tygodniowy rozkład wybiera daty we wspólnym siedmiodniowym horyzoncie, zamiast łączyć kolejne
+  przyszłe wersje kalendarzy. Równoważne pełne profile dni roboczych i piątku nie powielają minut;
+  różnice tras, dni, wyjątków i rzeczywiste osobne kursy pozostają rozróżnione.
 
 ### Dodane
 

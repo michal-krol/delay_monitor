@@ -129,9 +129,9 @@ CI (outside the fast `quality` job: one `e2e-<project>` matrix job per Playwrigh
   `public/`, `fixtures/`, `data/` and `ci.yml` itself run it; pushes to `main`/`dev` always run it. The required
   check `e2e` still reports: it passes on a skipped matrix only when `changes` succeeded and said "not needed".
   `quality` is never conditional. A new file type that must not trigger e2e = add it to `SKIPPABLE` with a test.
-- Which projects run (`e2eMatrix()`, same module): `desktop-chromium` + `mobile-chromium` always; `mobile-safari` (WebKit, ~12 min, the
-  slowest job) only on pushes to `main`/`dev` and PRs to `main`. Measured 2026-10-17 on 40 runs: WebKit never failed alone, and Railway
-  waits for CI, so a WebKit-only regression stops on the push to `dev` before staging deploys. Wall time of a feature PR ~12 → ~7 min.
+- Every requested e2e matrix includes `desktop-chromium`, `mobile-chromium`, and `mobile-safari`, including PRs to `dev`.
+  Browser failures must be visible before merge; docs-only changes still skip the entire suite. CI uploads complete JSON
+  (`playwright-report/results.json`) alongside the HTML report; record failures, flakes, and conditional skips separately.
 - `ci.yml` has a `concurrency` group per ref: a new push to a PR cancels its running CI (never pushes to `main`/`dev`). `quality`
   is an aggregator over three parallel legs (`static`, `unit-warsaw`, `unit-utc-coverage`); the ruleset names `quality` and `e2e`.
 - Known flake (2026-10-17): `e2e/map.spec.ts:922` (and sometimes `:1089`) on `desktop-chromium`, red in 22 of 40 runs — fix or quarantine

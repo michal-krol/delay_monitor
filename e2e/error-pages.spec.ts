@@ -58,7 +58,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByRole('heading', { level: 1, name: 'Nie udało się wczytać tej strony' })).toBeVisible({ timeout: 45_000 })
     await expect(page.getByText('SEKRETNY-KOMUNIKAT-BLEDU')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Spróbuj ponownie' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
+    await expect(page.getByRole('main').getByRole('link', { name: 'Wróć do Startu' })).toHaveAttribute('href', '/')
     await expectNoBlockingViolations(page)
     await page.evaluate(() => (window as unknown as { __restoreRenderTimeFormatting: () => void }).__restoreRenderTimeFormatting())
     await page.getByRole('button', { name: 'Spróbuj ponownie' }).click()

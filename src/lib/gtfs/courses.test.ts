@@ -15,6 +15,71 @@ const input: BuildScheduleInput = {
 }
 
 describe('concrete GTFS course', () => {
+  it('links the earliest actual date when the shared weekday profile is represented by Friday today', async () => {
+    const trips: BuildScheduleInput['trips'] = ['PcS', 'PtS'].map((serviceId) => ({ tripId: serviceId, routeId: '20', serviceId, headsign: 'B', directionId: 0 }))
+    const schedule = await buildSchedule({ ...input, serviceDates: ['2026-09-03', '2026-09-04', '2026-09-05'], trips,
+      calendarDates: [{ serviceId: 'PcS', date: '20260907', added: true }, { serviceId: 'PtS', date: '20260904', added: true }],
+      stopTimeLines: ['trip_id,arrival_time,departure_time,stop_id,stop_sequence', ...trips.flatMap((trip) => [`${trip.tripId},12:00:00,12:00:00,100101,1`, `${trip.tripId},12:10:00,12:10:00,200101,2`])],
+    })
+    const rows = stopTimetable(schedule, '20', 0, '100101')
+    expect(rows).toEqual([{ tripId: 'PtS', serviceDate: '2026-09-04', sequence: 1, occurrence: 0, departureSec: 43200, category: 'weekday' }])
+    expect(courseDetail(schedule, '20', rows[0].tripId, rows[0].serviceDate)).not.toBeNull()
+  })
+  it('keeps an added Sunday/holiday service on a weekday with its actual operating date', async () => {
+    const schedule = await buildSchedule({ ...input,
+      trips: [{ ...input.trips[0], serviceId: 'PcS' }, { ...input.trips[1], serviceId: 'NdS' }],
+      calendars: [{ serviceId: 'PcS', startDate: '20260901', endDate: '20260930', days: [true, true, true, true, true, false, false] }],
+      calendarDates: [{ serviceId: 'PcS', date: '20260903', added: false }, { serviceId: 'NdS', date: '20260903', added: true }],
+    })
+    const holiday = stopTimetable(schedule, '20', 0, '100101').find((row) => row.tripId === 'short')!
+    expect(holiday).toMatchObject({ category: 'sunday', serviceDate: '2026-09-03', sequence: 1, occurrence: 0 })
+    expect(courseDetail(schedule, '20', holiday.tripId, holiday.serviceDate)?.stops).toHaveLength(2)
+    expect(courseDetail(schedule, '20', 'loop', '2026-09-03')).toBeNull()
+  })
+  it('keeps line 112 Friday services on one date instead of accumulating future timetable versions', async () => {
+    const trips: BuildScheduleInput['trips'] = ['current:PtS', 'supplement:PtS', 'future:PtS'].map((serviceId, i) => ({ tripId: `friday${i}`, routeId: '112', serviceId, headsign: 'B', directionId: 0 }))
+    const schedule = await buildSchedule({ ...input, routes: [{ ...input.routes[0], id: '112', shortName: '112' }], trips,
+      calendarDates: trips.map((trip, i) => ({ serviceId: trip.serviceId, date: i === 2 ? '20260911' : '20260904', added: true })),
+      stopTimeLines: ['trip_id,arrival_time,departure_time,stop_id,stop_sequence', ...trips.map((trip, i) => `${trip.tripId},12:0${i}:00,12:0${i}:00,100101,1`)],
+    })
+    const rows = stopTimetable(schedule, '112', 0, '100101')
+    expect(rows.map((row) => row.tripId)).toEqual(['friday0', 'friday1'])
+    expect(rows.map((row) => row.serviceDate)).toEqual(['2026-09-04', '2026-09-04'])
+    for (const row of rows) expect(courseDetail(schedule, '112', row.tripId, row.serviceDate)).not.toBeNull()
+  })
+  it('does not borrow a next-month Saturday for the current shared planning horizon', async () => {
+    const schedule = await buildSchedule({ ...input, calendarDates: [{ serviceId: 'S', date: '20260902', added: true }, { serviceId: 'SAT', date: '20261003', added: true }] })
+    expect(stopTimetable(schedule, '20', 0, '100101').map((row) => row.tripId)).toEqual(['loop', 'loop'])
+  })
+  it('moves the whole horizon to the nearest future service when seasonal service has not started', async () => {
+    const schedule = await buildSchedule({ ...input, calendarDates: [{ serviceId: 'S', date: '20261001', added: true }, { serviceId: 'SAT', date: '20261003', added: true }] })
+    expect(stopTimetable(schedule, '20', 0, '100101').map((row) => [row.tripId, row.serviceDate])).toEqual([['short', '2026-10-03'], ['loop', '2026-10-01'], ['loop', '2026-10-01']])
+  })
+  it('collapses only identical complete weekday and Friday profiles across different service dates', async () => {
+    const trips: BuildScheduleInput['trips'] = ['PcS', 'PtS'].map((serviceId) => ({ tripId: serviceId, routeId: '20', serviceId, headsign: 'B', directionId: 0 }))
+    const fixture = { ...input, trips, calendarDates: [{ serviceId: 'PcS', date: '20260902', added: true }, { serviceId: 'PtS', date: '20260904', added: true }], stopTimeLines: ['trip_id,arrival_time,departure_time,stop_id,stop_sequence', ...trips.flatMap((trip) => [`${trip.tripId},12:00:00,12:00:00,100101,1`, `${trip.tripId},12:10:00,12:10:00,200101,2`])] }
+    const schedule = await buildSchedule(fixture)
+    expect(stopTimetable(schedule, '20', 0, '100101').map((row) => row.tripId)).toEqual(['PcS'])
+    const variant = await buildSchedule({ ...fixture, trips: trips.map((trip) => ({ ...trip, headsign: trip.tripId })) })
+    expect(stopTimetable(variant, '20', 0, '100101')).toHaveLength(2)
+    const detour = await buildSchedule({ ...fixture, stopTimeLines: fixture.stopTimeLines.map((line) => line.startsWith('PtS,12:10') ? line.replaceAll('12:10:00', '12:15:00') : line) })
+    expect(stopTimetable(detour, '20', 0, '100101')).toHaveLength(2)
+    const concurrent = await buildSchedule({ ...fixture, trips: [...trips, { ...trips[0], tripId: 'second-bus' }], stopTimeLines: [...fixture.stopTimeLines, 'second-bus,12:00:00,12:00:00,100101,1', 'second-bus,12:10:00,12:10:00,200101,2'] })
+    expect(stopTimetable(concurrent, '20', 0, '100101')).toHaveLength(3)
+    const simultaneous = await buildSchedule({ ...fixture, calendarDates: fixture.calendarDates.map((date) => ({ ...date, date: '20260902' })) })
+    expect(stopTimetable(simultaneous, '20', 0, '100101')).toHaveLength(2)
+  })
+  it('keeps one category on its first actual date after weekly removals and added exceptions', async () => {
+    const trips: BuildScheduleInput['trips'] = ['PcS', 'weekday-added:PcS', 'weekday-later:PcS'].map((serviceId, i) => ({ tripId: `weekday${i}`, routeId: '20', serviceId, headsign: 'B', directionId: 0 }))
+    const schedule = await buildSchedule({ ...input, trips,
+      calendars: [{ serviceId: 'PcS', startDate: '20260901', endDate: '20260930', days: [true, true, true, true, false, false, false] }],
+      calendarDates: [{ serviceId: 'PcS', date: '20260902', added: false }, { serviceId: 'weekday-added:PcS', date: '20260903', added: true }, { serviceId: 'weekday-later:PcS', date: '20260907', added: true }],
+      stopTimeLines: ['trip_id,arrival_time,departure_time,stop_id,stop_sequence', ...trips.map((trip, i) => `${trip.tripId},12:0${i}:00,12:0${i}:00,100101,1`)],
+    })
+    const rows = stopTimetable(schedule, '20', 0, '100101')
+    expect(rows.map((row) => [row.tripId, row.serviceDate])).toEqual([['weekday0', '2026-09-03'], ['weekday1', '2026-09-03']])
+    for (const row of rows) expect(courseDetail(schedule, '20', row.tripId, row.serviceDate)).not.toBeNull()
+  })
   it('shares retained patterns in the complete mock feed and reports their numeric storage floor', async () => {
     const city = getCity('warszawa')!
     const schedule = await loadSchedule(createMockClient(city), city)

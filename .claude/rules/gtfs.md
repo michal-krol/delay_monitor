@@ -120,13 +120,14 @@ paths:
   Unknown valid IDs return null/empty; malformed input fails before accessing pollers. Frequency
   service remains approximate. Timetable minutes link to an actual trip/date; `occ` preserves the
   chosen occurrence in the ordinary line view. No per-request scans of stop_times or feed downloads.
+  `stopTimetable()` selects one shared seven-service-day horizon from `serviceDates[1]`; when no relevant route/direction/stop trip operates in it, anchor the whole horizon at the earliest future relevant service. Each exact category uses its first active date within that horizon, with every concurrent service on that date. Missing categories stay empty; never borrow a later calendar version. This is a planning horizon, not an inferred GTFS publication version. Merge weekday/Friday presentation only for equal complete daily profiles on distinct dates (full interned pattern, headsign, departure seconds, sequence and occurrence, including multiplicity); never deduplicate minutes alone. Links retain the chosen active trip/date and unmodified times above 24h.
 - **Technical trip = `exceptional=1` OR headsign `/zajezdn/i`** (`tripSchema`) — the WTP feed is
   sometimes inconsistent (depot run with `exceptional=0`, 2026-09-04). Doesn't feed
   `routePatterns` nor the `run*` index.
 - **Day category** (`serviceCategory` → `schedule.tripCategory`): first a token in `service_id`
   (`PcS` weekday Mon–Thu, `SbS` Saturday, `NdS` Sunday/holiday, `PtS` Friday — WTP has a
   SEPARATE Friday timetable), then weekdays of the operating dates.
-- **Day columns in the line timetable are NOT from the `[yesterday, today, tomorrow]` window.**
+- **Legacy/frequency day columns are NOT from the `[yesterday, today, tomorrow]` window.** Concrete courses use the shared horizon above.
   The `run*` index in `schedule.ts` (one entry per trip, EVERY operating day, from the first
   stop) → `lineDeparturesFromRuns()` gives all categories regardless of the day — otherwise
   „Soboty"/„Niedziele" disappeared midweek. **Exception: metro** (`frequencies.txt`) has no

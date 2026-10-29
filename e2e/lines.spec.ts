@@ -146,7 +146,7 @@ const headsignOf = async (page: Page) =>
   ((await directionCard(page).innerText()).split('\n').map((line) => line.trim()).filter(Boolean)[1] ?? '')
 /** Lista trasy = jedyna lista z linkami „Odjazdy z przystanku {nazwa}”. */
 const routeList = (page: Page) => page.getByRole('list').filter({ has: page.getByRole('link', { name: /^Odjazdy z przystanku / }) })
-const capsule = (page: Page) => page.getByRole('group', { name: 'Wybrany rozkład' })
+const timetablePanel = (page: Page) => page.getByRole('heading', { level: 2, name: /^Rozkład/ }).locator('..')
 const paneButton = (page: Page, name: 'Trasa' | 'Rozkład') => page.getByRole('group', { name: 'Widok linii' }).getByRole('button', { name })
 
 async function gotoLine(page: Page, line: { routeId: string; longName: string }, query = '') {
@@ -160,7 +160,7 @@ async function openTimetable(page: Page) {
   if (lgUp(page)) return
   await paneButton(page, 'Rozkład').click()
   await expect(paneButton(page, 'Rozkład')).toHaveAttribute('aria-pressed', 'true')
-  await expect(capsule(page)).toBeVisible()
+  await expect(timetablePanel(page)).toBeVisible()
 }
 
 async function expectNoBlockingViolations(page: Page) {
@@ -168,8 +168,6 @@ async function expectNoBlockingViolations(page: Page) {
   const blocking = violations.filter((v) => BLOCKING.includes(v.impact ?? ''))
   expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join('\n')).toEqual([])
 }
-
-const VEHICLE_STATES = [/Pojazdy w tym kierunku: \d+/, /Brak pojazdów w tym kierunku\./, /Brak danych o pozycjach pojazdów/, /Wczytywanie pozycji…/]
 
 test.describe('linia (PR7)', () => {
   test('katalog → linia → kierunek → przystanek → rozkład → tablica przystanku → Wstecz zachowuje kierunek, przystanek i widok', async ({ page }, testInfo) => {
@@ -194,19 +192,19 @@ test.describe('linia (PR7)', () => {
     await expect(page).toHaveURL(/[?&]stop=\d+/)
     if (!isDesktop(testInfo)) await expect(page).toHaveURL(/[?&]pane=timetable/)
 
-    await expect(capsule(page)).toContainText(stopName)
-    await expect(capsule(page)).toContainText(switched)
+    await expect(timetablePanel(page)).toContainText(stopName)
+    expect(await headsignOf(page)).toBe(switched)
+    if (!lgUp(page)) await paneButton(page, 'Trasa').click()
     const withSelection = page.url()
 
-    await page.getByRole('link', { name: 'Odjazdy z przystanku', exact: true }).click()
+    await routeList(page).getByRole('link').nth(1).click()
     await expect(page).toHaveURL(/\/city\/warszawa\/stop\//)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: READY })
 
     await page.goBack()
     await expect(page).toHaveURL(withSelection)
     await expect(page.getByRole('heading', { level: 1, name: LINE_20.longName })).toBeVisible({ timeout: READY })
-    await expect(capsule(page)).toContainText(stopName)
-    await expect(capsule(page)).toContainText(switched)
+    await expect(routeList(page).getByRole('button').nth(1)).toContainText(stopName)
     expect(await headsignOf(page)).toBe(switched)
     if (isDesktop(testInfo)) await expect(routeList(page).getByRole('button').nth(1)).toHaveAttribute('aria-pressed', 'true')
   })
@@ -237,32 +235,25 @@ test.describe('linia (PR7)', () => {
       expect(await routeList(page).getByRole('button').count()).toBeGreaterThanOrEqual(2)
       await expect(page.getByRole('heading', { level: 3, name: `Komunikaty linii ${line.routeId}` })).toBeVisible()
 
-      // Pozycje pojazdów: dokładnie jeden z czterech stanów, nigdy błąd (feed mocka działa).
-      const vehicles = page.getByRole('region', { name: 'Pojazdy linii' })
-      await expect(vehicles).not.toContainText('Wczytywanie pozycji…', { timeout: READY })
-      await expect(vehicles).not.toContainText('Nie udało się')
-      const text = await vehicles.innerText()
-      expect(VEHICLE_STATES.filter((state) => state.test(text))).toHaveLength(1)
-      await expect(vehicles.getByRole('link', { name: 'Pojazdy na mapie' })).toBeVisible()
+      await expect(page.getByRole('region', { name: 'Pojazdy linii' })).toHaveCount(0)
+      await expect(page.getByRole('heading', { name: 'Mapa trasy', exact: true })).toBeVisible()
 
       // GTFS (także kolej miejska S2) nie dotyka PKP: zero /api/train (#13).
       expect(trainRequests).toBe(0)
     })
   }
 
-  test('„Pojazdy na mapie” prowadzi do mapy z linią i kierunkiem, a zmiana kierunku zmienia dir', async ({ page }) => {
+  test('usunięte bloki nie wracają po zmianie kierunku; mapa trasy pozostaje', async ({ page }) => {
     await gotoLine(page, LINE_20)
-    const link = page.getByRole('link', { name: 'Pojazdy na mapie' })
-    const dirOf = async () => new URL((await link.getAttribute('href')) ?? '', 'http://x').searchParams.get('dir')
-    const first = await link.getAttribute('href')
-    expect(first).toMatch(/^\/city\/warszawa\/map\?/)
-    expect(first).toContain('line=20')
-    expect(first).toMatch(/[?&]dir=[01](&|$)/)
-
-    const before = await dirOf()
+    const before = await headsignOf(page)
     await page.getByRole('button', { name: 'Zmień kierunek' }).click()
-    await expect.poll(dirOf).not.toBe(before)
-    expect(await dirOf()).toMatch(/^[01]$/)
+    await expect.poll(() => headsignOf(page)).not.toBe(before)
+    await openTimetable(page)
+    await expect(page.getByRole('group', { name: 'Wybrany rozkład' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Pojazdy na mapie' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Odjazdy z przystanku', exact: true })).toHaveCount(0)
+    if (!lgUp(page)) await paneButton(page, 'Trasa').click()
+    await expect(page.getByRole('heading', { name: 'Mapa trasy', exact: true })).toBeVisible()
   })
 
   test('reduced motion: przełączanie Trasa ↔ Rozkład działa i pokazuje treść', async ({ page }, testInfo) => {
@@ -273,8 +264,8 @@ test.describe('linia (PR7)', () => {
 
     await paneButton(page, 'Rozkład').click()
     await expect(paneButton(page, 'Rozkład')).toHaveAttribute('aria-pressed', 'true')
-    await expect(capsule(page)).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Odjazdy z przystanku', exact: true })).toBeVisible()
+    await expect(timetablePanel(page)).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Odjazdy z przystanku', exact: true })).toHaveCount(0)
     await expect(page).toHaveURL(/[?&]pane=timetable/)
 
     await paneButton(page, 'Trasa').click()
@@ -297,7 +288,7 @@ test.describe('linia (PR7)', () => {
       await page.emulateMedia({ colorScheme })
       await gotoLine(page, LINE_20, '?dir=1&stop=700201')
       await openTimetable(page)
-      await expect(capsule(page)).toContainText('Rondo ONZ')
+      await expect(timetablePanel(page)).toContainText('Rondo ONZ')
       await expectNoBlockingViolations(page)
     })
 
@@ -345,11 +336,9 @@ test.describe('linia (PR7)', () => {
     for (let i = 0; i < (await rows.count()); i++) expect(await height(rows.nth(i))).toBeGreaterThanOrEqual(44)
     const rowLinks = routeList(page).getByRole('link')
     for (let i = 0; i < (await rowLinks.count()); i++) expect(await height(rowLinks.nth(i))).toBeGreaterThanOrEqual(44)
-    await page.getByRole('link', { name: 'Pojazdy na mapie' }).scrollIntoViewIfNeeded()
-    expect(await height(page.getByRole('link', { name: 'Pojazdy na mapie' }))).toBeGreaterThanOrEqual(44)
-
     await openTimetable(page)
-    expect(await height(page.getByRole('link', { name: 'Odjazdy z przystanku', exact: true }))).toBeGreaterThanOrEqual(44)
+    const days = page.getByRole('group', { name: 'Kategoria dnia' }).getByRole('button')
+    for (const day of await days.all()) expect(await height(day)).toBeGreaterThanOrEqual(44)
   })
 
   test('zmiana motywu zachowuje dir/stop/pane i wybrany przystanek oraz nie pobiera linii ponownie', async ({ page, browserName }) => {
@@ -515,7 +504,7 @@ test.describe('konkretny rozkład linii (ADR0013 PR06)', () => {
     await page.getByRole('link', { name: /^Linia 20: / }).click()
     await expect(page.getByRole('heading', { level: 1, name: LINE_20.longName })).toBeVisible({ timeout: READY })
     await routeList(page).getByRole('button', { name: /Rondo ONZ/ }).click()
-    await expect(capsule(page)).toContainText('Rondo ONZ')
+    await expect(timetablePanel(page)).toContainText('Rondo ONZ')
     if (!lgUp(page)) await dayChips(page).getByRole('button', { name: 'Sobota', exact: true }).click()
     await dayColumn(page, 'Sobota').getByRole('link', { name: /^08:06,/ }).click()
     await expect(page).toHaveURL(/trip=20-sa-0-1/)
@@ -603,7 +592,7 @@ test.describe('konkretny rozkład linii (ADR0013 PR06)', () => {
     }
     await expect(page).toHaveURL(/[?&]dir=1/)
     await expect(page).toHaveURL(/[?&]stop=700201/)
-    await expect(capsule(page)).toContainText('Rondo ONZ')
+    await expect(timetablePanel(page)).toContainText('Rondo ONZ')
   })
 
   for (const colorScheme of ['light', 'dark'] as const) {
