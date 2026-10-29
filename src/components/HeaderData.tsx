@@ -14,7 +14,7 @@ export function HeaderData() {
       <summary className="press flex min-h-11 cursor-pointer items-center rounded-lg px-2 focus-visible:outline-2 focus-visible:outline-primary-text">
         Dane {oldest === null ? '— brak aktualizacji' : formatDataTimestamp(oldest)}{incomplete ? ' · część danych nieaktualna' : ''}
       </summary>
-      <section aria-label="Aktualność źródeł danych" className="absolute right-0 z-40 mt-1 max-h-[min(70dvh,32rem)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-surface-border bg-surface-strong p-3 shadow-xl">
+      <section aria-label="Aktualność źródeł danych" style={{ maxHeight: 'min(70dvh, 32rem, calc(100dvh - var(--header-h, 0px) - var(--bottom-nav-h, 0px) - 1rem))' }} className="absolute right-0 z-40 mt-1 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-surface-border bg-surface-strong p-3 shadow-xl">
         <p className="mb-2 text-xs text-text-muted">Podsumowanie wskazuje najstarszą aktualizację. Każde źródło odświeża się osobno.</p>
         <ul className="space-y-3">
           {sources.map((source, index) => (
