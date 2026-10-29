@@ -57,7 +57,6 @@ export function OverviewPanel({
   feed,
   onOpen,
   onClearFilters,
-  listOpen = false,
 }: {
   /** `null` = mapa jeszcze nie policzyła kadru. */
   items: VisibleItem[] | null
@@ -66,7 +65,6 @@ export function OverviewPanel({
   onOpen: (item: VisibleItem) => void
   /** Podane tylko przy aktywnych filtrach: pusty kadr po filtrze oferuje ich wyczyszczenie. */
   onClearFilters?: () => void
-  listOpen?: boolean
 }) {
   const headingId = useId()
   const [bodyRef, bodyTabIndex] = useScrollableFocus<HTMLDivElement>()
@@ -93,7 +91,7 @@ export function OverviewPanel({
       </header>
       <div ref={bodyRef} data-sheet-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4" tabIndex={bodyTabIndex} aria-label="Obiekty w widoku">
         <CompactLegend />
-        <div className="mt-3" hidden={!listOpen && items?.length !== 0}>
+        <div className="mt-3">
           <VisibleListBody items={items} overflow={overflow} onOpen={onOpen} onClearFilters={onClearFilters} overflowHint={false} />
         </div>
       </div>

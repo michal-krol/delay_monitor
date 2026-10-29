@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { availableModes, filterCatalogLines, groupByMode, linesViewPatch, parseLinesView } from './linesView'
+import { filterCatalogLines, groupByMode, linesViewPatch, parseLinesView } from './linesView'
 import type { LineListEntry } from '@/lib/gtfs/query'
 import type { GtfsMode } from '@/lib/gtfs/types'
 
@@ -15,14 +15,18 @@ const LINES = [
 ]
 
 describe('parseLinesView', () => {
-  it('parses q and mode', () => {
-    expect(parseLinesView(new URLSearchParams('q=20&mode=tram'))).toEqual({ q: '20', mode: 'tram' })
-    expect(parseLinesView(new URLSearchParams(''))).toEqual({ q: '', mode: null })
+  it.each(['bus', 'tram', 'metro', 'rail'])('ignores the retired mode filter %s', (mode) => {
+    const view = parseLinesView(new URLSearchParams(`mode=${mode}`))
+    expect(filterCatalogLines(LINES, view)).toEqual(LINES)
+  })
+  it('parses q and ignores retired mode', () => {
+    expect(parseLinesView(new URLSearchParams('q=20&mode=tram'))).toEqual({ q: '20' })
+    expect(parseLinesView(new URLSearchParams(''))).toEqual({ q: '' })
   })
 
   it('ignores an invalid mode', () => {
-    expect(parseLinesView(new URLSearchParams('mode=submarine')).mode).toBeNull()
-    expect(parseLinesView(new URLSearchParams('mode=')).mode).toBeNull()
+    expect(parseLinesView(new URLSearchParams('mode=submarine'))).toEqual({ q: '' })
+    expect(parseLinesView(new URLSearchParams('mode='))).toEqual({ q: '' })
   })
 
   it('truncates q to 100', () => {
@@ -32,35 +36,26 @@ describe('parseLinesView', () => {
 
 describe('linesViewPatch', () => {
   it('patch clears empty q and null mode', () => {
-    expect(linesViewPatch({ q: '', mode: null })).toEqual({ q: null, mode: null })
-    expect(linesViewPatch({ q: '20', mode: 'bus' })).toEqual({ q: '20', mode: 'bus' })
+    expect(linesViewPatch({ q: '' })).toEqual({ q: null, mode: null })
+    expect(linesViewPatch({ q: '20' })).toEqual({ q: '20', mode: null })
   })
 })
 
 describe('filterCatalogLines', () => {
   it('exact number ranks before prefix and name match', () => {
-    const numbers = filterCatalogLines(LINES, { q: '20', mode: null }).map((l) => l.routeId)
+    const numbers = filterCatalogLines(LINES, { q: '20' }).map((l) => l.routeId)
     // 20 (exact) → 200 (prefix) → 128 (nazwa „20 Lipca"); M1 i reszta odpadają
     expect(numbers).toEqual(['20', '200', '128'])
   })
 
   it('returns every match, not only the first eight', () => {
     const many = Array.from({ length: 12 }, (_, i) => entry(`1${i}`, 'bus'))
-    expect(filterCatalogLines(many, { q: '1', mode: null })).toHaveLength(12)
+    expect(filterCatalogLines(many, { q: '1' })).toHaveLength(12)
   })
 
-  it.each(['bus', 'tram', 'metro', 'rail'] as const)('mode filter keeps only that mode (%s)', (mode) => {
-    const kept = filterCatalogLines(LINES, { q: '', mode })
-    expect(kept.length).toBeGreaterThan(0)
-    expect(kept.every((l) => l.mode === mode)).toBe(true)
-  })
-
-  it('mode filter composes with q', () => {
-    expect(filterCatalogLines(LINES, { q: '20', mode: 'tram' }).map((l) => l.routeId)).toEqual(['20'])
-  })
 
   it('whitespace-only q is no query', () => {
-    expect(filterCatalogLines(LINES, { q: '   ', mode: null })).toEqual(LINES)
+    expect(filterCatalogLines(LINES, { q: '   ' })).toEqual(LINES)
   })
 })
 
@@ -70,12 +65,5 @@ describe('groupByMode', () => {
     expect(Object.keys(grouped).sort()).toEqual(['bus', 'metro', 'other', 'rail', 'tram'])
     expect(grouped.tram.map((l) => l.routeId)).toEqual(['2', '20'])
     expect(grouped.bus).toEqual([])
-  })
-})
-
-describe('availableModes', () => {
-  it('availableModes skips empty modes', () => {
-    expect(availableModes(LINES)).toEqual(['metro', 'tram', 'bus', 'rail'])
-    expect(availableModes([])).toEqual([])
   })
 })

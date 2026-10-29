@@ -88,15 +88,13 @@ test.describe('PR5: cele dotyku na telefonie', () => {
     test.skip(testInfo.project.name === 'desktop-chromium', 'cele dotyku dotyczą telefonu (poniżej sm)')
   })
 
-  test('MapFilters: wiersze warstw i „Pokaż wszystko” mają >= 44 px', async ({ page }) => {
+  test('mapa: wyszukiwanie, utrudnienia i lokalizacja mają >=44px', async ({ page }) => {
     await page.goto('/city/warszawa/map')
-    await expect(page.getByRole('region', { name: 'Mapa transportu — Warszawa' })).toBeVisible({ timeout: READY })
-    await page.getByRole('button', { name: /Filtry/ }).click()
-    const rows = page.getByRole('checkbox').locator('xpath=ancestor::label[1]')
-    await expect(rows.first()).toBeVisible({ timeout: READY })
-    // Math.round: 44 px rows measured mid-layout come out as 43.99998 (subpixel noise, seen 2026-10-07/08).
-    for (let i = 0; i < (await rows.count()); i++) expect(Math.round(await hitHeight(rows.nth(i)))).toBeGreaterThanOrEqual(44)
-    expect(Math.round(await hitHeight(page.getByRole('button', { name: 'Pokaż wszystko' })))).toBeGreaterThanOrEqual(44)
+    for (const name of ['Szukaj', 'Z utrudnieniami', 'Moja lokalizacja']) {
+      const button = name === 'Szukaj' ? page.locator('[data-map-search-trigger]') : page.getByRole('button', { name, exact: true })
+      await expect(button).toBeVisible({ timeout: READY })
+      expect(Math.round(await hitHeight(button))).toBeGreaterThanOrEqual(44)
+    }
   })
 
   test('strona linii: pigułka kierunku i przystanek na osi mają >= 44 px', async ({ page }) => {

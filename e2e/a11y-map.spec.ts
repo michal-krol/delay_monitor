@@ -15,7 +15,7 @@ const states: { name: string; run: (page: Page) => Promise<void> }[] = [
     },
   },
   {
-    name: 'przegląd rozwinięty („Lista")',
+    name: 'przegląd rozwinięty',
     run: async (page) => {
       await openMap(page)
       const list = await openVisibleList(page)
@@ -51,18 +51,18 @@ const states: { name: string; run: (page: Page) => Promise<void> }[] = [
   {
     name: 'wyniki wyszukiwania i aktywne filtry',
     run: async (page) => {
-      await openMap(page, `${CITY_MAP}?hide=trams`)
-      await expect(page.getByRole('list', { name: 'Aktywne filtry' }).getByText('Ukryte: tramwaje')).toBeVisible({ timeout: READY })
+      await openMap(page, `${CITY_MAP}?alerts=1`)
+      await expect(page.getByRole('list', { name: 'Aktywne filtry' }).getByText('Tylko linie z utrudnieniami')).toBeVisible({ timeout: READY })
       await mapSearch(page).fill('Cen')
       await expect(searchResults(page).getByRole('button', { name: RAIL_ROW })).toBeVisible({ timeout: READY })
     },
   },
   {
-    name: 'panel „Filtry"',
+    name: 'utrudnienia',
     run: async (page) => {
       await openMap(page)
-      await page.getByRole('button', { name: /^Filtry/ }).click()
-      await expect(page.getByRole('button', { name: 'Pokaż wszystko' })).toBeVisible()
+      await page.getByRole('button', { name: 'Z utrudnieniami', exact: true }).click()
+      await expect(page.getByRole('button', { name: 'Z utrudnieniami', exact: true })).toHaveAttribute('aria-pressed', 'true')
     },
   },
   {
@@ -122,11 +122,15 @@ for (const theme of ['light', 'dark'] as const) {
 test.describe('ruch ograniczony (prefers-reduced-motion)', () => {
   test.use({ reducedMotion: 'reduce' })
 
-  test('mapa transportu: panel „Filtry" wchodzi bez przejścia, arkusz na telefonie przewija się bez animacji; po zmianie preferencji wraca ruch', async ({ page }) => {
+  test('mapa transportu: utrudnienia przełączają się bez przejścia, arkusz na telefonie przewija się bez animacji; po zmianie preferencji wraca ruch', async ({ page }) => {
     await openMap(page)
-    await page.getByRole('button', { name: /^Filtry/ }).click()
-    const panel = page.locator('[id]', { has: page.getByRole('button', { name: 'Pokaż wszystko' }) }).last()
-    const transitionMs = () => panel.evaluate((el) => parseFloat(getComputedStyle(el).transitionDuration) * 1000)
+    await page.getByRole('button', { name: 'Z utrudnieniami', exact: true }).click()
+    const panel = page.getByRole('button', { name: 'Z utrudnieniami', exact: true })
+    const transitionMs = () => panel.evaluate((el) => {
+      const style = getComputedStyle(el)
+      // transition-none disables the property; computed duration can retain its default.
+      return style.transitionProperty === 'none' ? 0 : parseFloat(style.transitionDuration) * 1000
+    })
     const sheetScroll = () => page.locator('.bottom-sheet').evaluate((el) => getComputedStyle(el).scrollBehavior)
     await expect(panel).toBeVisible()
     expect(await transitionMs()).toBe(0)
@@ -166,24 +170,17 @@ test.describe('tryb wysokiego kontrastu (forced-colors)', () => {
       return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) }
     })
 
-  test('mapa transportu: aktywny czip rodzaju i „Lista" mają obrys, a komunikat „Brak pozycji" widoczny pierścień fokusu', async ({ page }) => {
+  test('mapa transportu: aktywne utrudnienia mają obrys, a komunikat „Brak pozycji" widoczny pierścień fokusu', async ({ page }) => {
     await page.emulateMedia({ forcedColors: 'active' })
     await stripRailCoordinates(page)
     await openMap(page)
 
-    const list = page.getByRole('button', { name: 'Lista', exact: true })
-    await list.click()
-    await expect(list).toHaveAttribute('aria-pressed', 'true')
-    expect(await outline(list), 'aktywna „Lista" bez obrysu').toMatchObject({ style: 'solid' })
-    expect((await outline(list)).width).toBeGreaterThanOrEqual(2)
-    await list.click() // zamyka listę — dalej oglądamy przegląd
-
-    if (isPhone(page)) {
-      const chip = page.getByRole('group', { name: 'Rodzaje pojazdów' }).getByRole('button', { name: 'Tramwaje' })
-      await expect(chip).toHaveAttribute('aria-pressed', 'true', { timeout: READY })
-      expect(await outline(chip), 'aktywny czip bez obrysu').toMatchObject({ style: 'solid' })
-      expect((await outline(chip)).width).toBeGreaterThanOrEqual(2)
-    }
+    const alerts = page.getByRole('button', { name: 'Z utrudnieniami', exact: true })
+    await alerts.click()
+    await expect(alerts).toHaveAttribute('aria-pressed', 'true')
+    expect(await outline(alerts)).toMatchObject({ style: 'solid' })
+    expect((await outline(alerts)).width).toBeGreaterThanOrEqual(2)
+    await alerts.click()
 
     // Wybór z klawiatury: fokus na komunikacie jest wtedy „focus-visible" (po kliknięciu myszą przeglądarka go nie rysuje).
     await mapSearch(page).fill('Centralna')

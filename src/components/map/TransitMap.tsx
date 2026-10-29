@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, type CSSProperties } from 'react'
+import { useEffect, useRef } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap, MapGeoJSONFeature } from 'maplibre-gl'
 import { STYLE_DARK, STYLE_LIGHT, WORKER_URL } from '../MapView'
 import type { CityVehicle } from '@/lib/gtfs/cityVehicles'
@@ -415,7 +415,9 @@ export function TransitMap({
   onUserMove,
   onContextPoint,
   onVisibleChange,
+  onAttributionHeight,
 }: {
+  onAttributionHeight?: (height: number) => void
   ariaLabel: string
   /** Kadr startowy (centrum miasta albo `?at=` / ostatni widok). */
   initialCamera: MapCamera
@@ -456,6 +458,8 @@ export function TransitMap({
   /** Obiekty w kadrze (gdy `listOpen`); `overflow` = było ich więcej niż limit. */
   onVisibleChange?: (items: VisibleItem[], overflow: boolean) => void
 }) {
+  const attributionHeightRef = useRef(onAttributionHeight)
+  useEffect(() => { attributionHeightRef.current = onAttributionHeight }, [onAttributionHeight])
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const dataRef = useRef<Data>({ backbone: backboneCollection(null), vehicles: EMPTY, stops: EMPTY, rail: EMPTY, selected: EMPTY, pinnedItems: EMPTY, route: EMPTY_ROUTE, routeColor: MODE_COLOR.bus })
@@ -495,6 +499,7 @@ export function TransitMap({
     if (containerRef.current === null) return
     let cancelled = false
     let map: MapLibreMap | null = null
+    let attributionObserver: ResizeObserver | null = null
 
     import('maplibre-gl').then((lib) => {
       if (cancelled || containerRef.current === null) return
@@ -524,6 +529,15 @@ export function TransitMap({
       appliedInsetsRef.current = insetsRef.current
       map.touchZoomRotate.disableRotation()
       map.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right')
+      const attribution = containerRef.current.querySelector<HTMLElement>('.maplibregl-ctrl-bottom-right')
+      if (attribution !== null) {
+        const measure = () => attributionHeightRef.current?.(Math.max(28, Math.ceil(attribution.getBoundingClientRect().height)))
+        measure()
+        if (typeof ResizeObserver !== 'undefined') {
+          attributionObserver = new ResizeObserver(measure)
+          attributionObserver.observe(attribution)
+        }
+      }
       mapRef.current = map
       const mapInstance = map
 
@@ -593,6 +607,7 @@ export function TransitMap({
 
     return () => {
       cancelled = true
+      attributionObserver?.disconnect()
       mapRef.current = null
       map?.remove()
     }
@@ -785,8 +800,7 @@ export function TransitMap({
   }, [focusNonce])
 
   return (
-    // `--map-inset-bottom` unosi atrybucję MapLibre nad arkusz (`globals.css`, „Atrybucja nad arkuszem"); 0 bez arkusza.
-    <div className="transit-map absolute inset-0" style={{ '--map-inset-bottom': `${insets.bottom}px` } as CSSProperties}>
+    <div className="transit-map absolute inset-0">
       {/* Region z nazwą to canvas MapLibre (`Map.Title` wyżej) — drugi, zagnieżdżony byłby szumem dla czytnika. */}
       <div ref={containerRef} className="h-full w-full" />
     </div>

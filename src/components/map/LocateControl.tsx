@@ -46,7 +46,7 @@ export function LocateControl({
         aria-label="Moja lokalizacja"
         aria-busy={status === 'requesting'}
         title="Moja lokalizacja"
-        className="glass-chrome border border-surface-border shadow-md pointer-events-auto grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+        className="glass-chrome border border-surface-border shadow-md pointer-events-auto grid h-[44px] w-[44px] place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
       >
         <LocateIcon size={ICON_SIZE.tile} />
       </button>

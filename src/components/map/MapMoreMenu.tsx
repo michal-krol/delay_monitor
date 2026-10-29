@@ -17,7 +17,7 @@ export function MapMoreMenu({ onShare }: { onShare: () => void }) {
         aria-controls={panelId}
         aria-label="Więcej"
         onClick={toggle}
-        className="glass-chrome border border-surface-border shadow-md control-44 grid h-full place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
+        className="glass-chrome border border-surface-border shadow-md min-h-[44px] min-w-[44px] w-[44px] grid h-full place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
       >
         <MoreIcon size={ICON_SIZE.button} />
       </button>

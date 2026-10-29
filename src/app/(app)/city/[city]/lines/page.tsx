@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, startTransition, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { notFound, useParams, useSearchParams } from 'next/navigation'
 import { useCities } from '@/hooks/useCities'
 import { useCityLines } from '@/hooks/useCityLines'
@@ -10,18 +10,16 @@ import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { CloseIcon, ICON_SIZE, SearchIcon } from '@/components/icons'
 import { HOVER } from '@/components/interaction'
-import { LineGrid, LineResults, RecentLines, SECTION_LABEL } from '@/components/LineGrid'
+import { LineGrid, LineResults, RecentLines } from '@/components/LineGrid'
 import { SEARCH_INPUT_CLASS } from '@/components/StationSearch'
 import { ScheduleStatus, scheduleNeedsAttention } from '@/components/ScheduleStatus'
 import { AttributionFooter } from '@/components/AttributionFooter'
 import { CityTransitWidget } from '@/components/CityTransitWidget'
 import { TabCrossfade } from '@/components/TabCrossfade'
-import { MODE_ICON } from '@/components/transitMode'
 import { PageShell } from '@/components/aside'
-import { availableModes, filterCatalogLines, groupByMode, linesViewPatch, MAX_LINES_QUERY, parseLinesView, type LinesView } from '@/lib/linesView'
+import { filterCatalogLines, groupByMode, linesViewPatch, MAX_LINES_QUERY, parseLinesView, type LinesView } from '@/lib/linesView'
 import { pluralPl } from '@/lib/plural'
 import { patchUrlParams } from '@/lib/urlState'
-import type { GtfsMode } from '@/lib/gtfs/types'
 import { CITY_ID_PATTERN } from '@/lib/validation'
 
 const FALLBACK_SUBTITLE = 'Metro, tramwaje, autobusy i kolej miejska'
@@ -70,42 +68,20 @@ function LinesSkeleton() {
   )
 }
 
-function ModeChips({ modes, active, onSelect }: { modes: GtfsMode[]; active: GtfsMode | null; onSelect: (mode: GtfsMode | null) => void }) {
-  return (
-    <div role="group" aria-label="Rodzaj komunikacji" className="flex flex-wrap gap-2">
-      <button type="button" className="chip-filter" aria-pressed={active === null} onClick={() => onSelect(null)}>
-        Wszystkie
-      </button>
-      {modes.map((mode) => {
-        const Icon = MODE_ICON[mode]
-        return (
-          <button key={mode} type="button" className="chip-filter gap-1.5" aria-pressed={active === mode} onClick={() => onSelect(mode)}>
-            <Icon size={ICON_SIZE.chip} />
-            {SECTION_LABEL[mode]}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
   const { cities } = useCities()
   const { recent } = useRecentLines(city)
   const { isOpen, setOpen } = useSectionOpen()
   const { lines, state, error, refresh, schedule, attribution } = useCityLines(city)
   const [q, setQ] = useState(initial.q)
-  const [mode, setMode] = useState(initial.mode)
+  useEffect(() => { patchUrlParams({ mode: null }) }, [])
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Ostrzeżenie (wczytywanie, wiek danych, błąd) idzie na górę; wtedy stopka NIE powtarza bloku stanu rozkładu.
   const attention = schedule !== null && scheduleNeedsAttention(schedule, error)
   const cityName = useMemo(() => cities.find((option) => option.id === city)?.name ?? city, [cities, city])
 
-  const modes = useMemo(() => (lines === null ? [] : availableModes(lines)), [lines])
-  // Tryb z adresu, którego miasto nie ma, jest ignorowany (efektywnie „Wszystkie").
-  const activeMode = mode !== null && modes.includes(mode) ? mode : null
-  const shown = useMemo(() => (lines === null ? [] : filterCatalogLines(lines, { q, mode: activeMode })), [lines, q, activeMode])
+  const shown = useMemo(() => (lines === null ? [] : filterCatalogLines(lines, { q })), [lines, q])
   const grouped = useMemo(() => groupByMode(shown), [shown])
 
   function changeQuery(next: string): void {
@@ -113,16 +89,9 @@ function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
     patchUrlParams({ q: next === '' ? null : next })
   }
 
-  function changeMode(next: GtfsMode | null): void {
-    // Tylko przejście stanu animuje zmianę treści (crossfade); adres od razu.
-    startTransition(() => setMode(next))
-    patchUrlParams({ mode: next })
-  }
-
   function clearFilters(): void {
     setQ('')
-    startTransition(() => setMode(null))
-    patchUrlParams(linesViewPatch({ q: '', mode: null }))
+    patchUrlParams(linesViewPatch({ q: '' }))
     // Przycisk „Wyczyść filtry” znika po kliknięciu — fokus wraca do pola, nie do `<body>`.
     inputRef.current?.focus()
   }
@@ -187,13 +156,12 @@ function LinesCatalog({ city, initial }: { city: string; initial: LinesView }) {
           <p role="status" className="sr-only">
             {q.trim() === '' ? '' : `Znaleziono: ${shown.length} ${pluralPl(shown.length, 'linia', 'linie', 'linii')}`}
           </p>
-          <ModeChips modes={modes} active={activeMode} onSelect={changeMode} />
           <RecentLines recent={recent} lines={lines} city={city} />
-          <TabCrossfade id={activeMode ?? 'all'} name="lines-catalog">
+          <TabCrossfade id="all" name="lines-catalog">
             {q.trim() !== '' ? (
               <LineResults lines={shown} city={city} onClear={clearFilters} />
             ) : (
-              <LineGrid linesByMode={grouped} city={city} isOpen={isOpen} onToggle={setOpen} openByDefault={activeMode !== null} />
+              <LineGrid linesByMode={grouped} city={city} isOpen={isOpen} onToggle={setOpen} />
             )}
           </TabCrossfade>
         </div>

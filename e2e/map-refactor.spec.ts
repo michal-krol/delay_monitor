@@ -30,14 +30,13 @@ test('mapa: Szukaj jest zwinięte, zachowuje frazę po zmianie szerokości i odd
   expect(violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))).toEqual([])
 })
 
-test('mapa: domyślny panel telefonu zachowuje podsumowanie, lista obiektów wymaga Lista', async ({ page, isMobile }) => {
+test('mapa: domyślny panel telefonu zachowuje podsumowanie, obiekty dostępne po rozwinięciu arkusza', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'Panel przeglądu jest kompozycją telefonu')
   await page.goto(CITY_MAP)
   await expect(page.getByRole('region', { name: MAP_NAME })).toBeVisible({ timeout: READY })
   const overview = page.getByRole('region', { name: 'Pojazdy i przystanki w widoku' })
   await expect(overview).toBeVisible()
-  await expect(overview.getByRole('heading', { name: 'Pojazdy', exact: true })).toBeHidden()
-  await page.getByRole('button', { name: 'Lista', exact: true }).click()
+  await openVisibleList(page)
   await expect(overview.getByRole('heading', { name: 'Pojazdy', exact: true })).toBeVisible({ timeout: READY })
 })
 
@@ -56,7 +55,6 @@ test('mapa: kontrolki w obu motywach zachowują czytelność i mieszczą się w 
     // Compositor screenshot, never raw WebGL pixels: populated tiles and labels compress above a blank canvas.
     // TransitMap names the canvas itself as its region; it has no nested canvas.
     await expect(async () => expect((await map.screenshot()).byteLength).toBeGreaterThan(8_000)).toPass({ timeout: 15_000 })
-    await page.getByRole('button', { name: 'Lista', exact: true }).click()
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: `docs/pr10/${testInfo.project.name}-${theme}.png`, fullPage: true })
     const { violations } = await scanA11y(page)

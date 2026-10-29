@@ -7,13 +7,12 @@ import { BottomSheet } from '@/components/BottomSheet'
 import { TopBar } from '@/components/TopBar'
 import { CityPicker } from '@/components/CityPicker'
 import { UnifiedSearch } from '@/components/UnifiedSearch'
-import { CityIcon, ICON_SIZE } from '@/components/icons'
 import { LinePanel } from '@/components/map/LinePanel'
 import { MapCard, type MapSelection } from '@/components/map/MapCard'
 import { stopDisplayName } from '@/components/stopName'
 import { LocateControl } from '@/components/map/LocateControl'
 import { MapLegend } from '@/components/map/MapLegend'
-import { NearbyPanel, VisibleListPanel, type PinnedPoint } from '@/components/map/MapPanels'
+import { NearbyPanel, type PinnedPoint } from '@/components/map/MapPanels'
 import { OverviewPanel } from '@/components/map/OverviewPanel'
 import { ActiveFilterChips, MapToolbar } from '@/components/map/MapToolbar'
 import { MapNotices } from '@/components/MapNotices'
@@ -21,12 +20,8 @@ import { pinnedMapPoints, stopSelection, vehicleFreshness } from '@/components/m
 import { TransitMap, type MapHit } from '@/components/map/TransitMap'
 import {
   HIDE_AFTER_SEC,
-  MAP_ZOOM,
-  VEHICLE_LAYERS,
   activeFilterCount,
   boundsContain,
-  parseHidden,
-  serializeHidden,
   stopsBounds,
   vehicleLayerKey,
   type LayerKey,
@@ -60,7 +55,7 @@ export default function CityMapPage() {
   if (feed === null) notFound()
 
   const { cities } = useCities()
-  const [hidden, setHidden] = useState<Set<LayerKey>>(() => new Set())
+  const hidden = useMemo(() => new Set<LayerKey>(), [])
   const [selection, setSelection] = useState<MapSelection | null>(null)
   const [vehicleLink, setVehicleLink] = useState<VehicleMapSelection | null>(null)
   const appliedVehicleLink = useRef<string | null>(null)
@@ -96,7 +91,6 @@ export default function CityMapPage() {
     nearbyFromGps,
     nearbyPending,
     focusOn,
-    flyTo,
     liftViewBlock,
     recordView,
     openNearbyAround,
@@ -108,19 +102,20 @@ export default function CityMapPage() {
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [topInset, setTopInset] = useState(0)
   const [sheetInset, setSheetInset] = useState(0)
-  // Arkusz z „Moją lokalizacją" jest przemontowywany przy każdej zmianie obiektu (`key`), więc fokus trzeba oddać ręcznie.
+  const [attributionHeight, setAttributionHeight] = useState(28)
+  // Zamknięcie panelu okolicy przywraca fokus przycisku, który go otworzył.
   const locateButtonRef = useRef<HTMLButtonElement>(null)
   const locateHadFocusRef = useRef(false)
   const refocusLocateRef = useRef(false)
-  const [listOpen, setListOpen] = useState(false)
   const [visible, setVisible] = useState<{ items: VisibleItem[]; overflow: boolean } | null>(null)
 
   useEffect(() => {
     // Odtworzenie stanu z URL-a, dostępnego tylko po zamontowaniu; zły parametr po cichu ignorowany (AGENTS #4).
+    patchUrlParams({ hide: null, vehicles: null, rail: null, mode: null })
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHidden(parseHidden(readUrlParam))
     setAlertsOnly(readUrlParam('alerts') === '1')
     const readVehicle = () => {
+      patchUrlParams({ hide: null, vehicles: null, rail: null, mode: null })
       appliedVehicleLink.current = null
       setVehicleLink(parseVehicleMapSelection(new URLSearchParams(window.location.search)))
       setSelection(null)
@@ -178,10 +173,7 @@ export default function CityMapPage() {
     setNearby(null)
     setAlertsOnly(false)
     chooseLine(null)
-    const nextHidden = new Set(hidden)
-    if (available) nextHidden.delete(vehicleLayerKey(target.mode))
-    setHidden(nextHidden)
-    patchUrlParams({ hide: serializeHidden(nextHidden), alerts: null, nearby: null })
+    patchUrlParams({ alerts: null, nearby: null })
     if (available) focusOn(target.lat, target.lon)
   }, [vehicleLink, vehiclesById, vehiclesState.feed.state, vehiclesState.vehicles.length, hidden, chooseLine, focusOn, setNearby])
   const selectedAt =
@@ -193,10 +185,6 @@ export default function CityMapPage() {
           ? { lat: selection.lat, lon: selection.lon }
           : null
 
-  const vehicleLayers = useMemo(() => {
-    const present = new Set(vehiclesState.vehicles.map((v) => vehicleLayerKey(v.mode)))
-    return VEHICLE_LAYERS.filter((key) => present.has(key))
-  }, [vehiclesState.vehicles])
 
   // Komunikat dla czytnika ekranu: ile pojazdów pokazuje mapa po zmianie filtrów/linii.
   // Celowo NIE przy każdym odczycie co 15 s — to byłby szum co kwadrans minuty.
@@ -241,10 +229,6 @@ export default function CityMapPage() {
     [nearby, stopsState.stops, railState.stations]
   )
 
-  const changeHidden = useCallback((next: Set<LayerKey>) => {
-    setHidden(next)
-    patchUrlParams({ hide: serializeHidden(next), vehicles: null, rail: null, mode: null })
-  }, [])
 
   function showRoute(routeId: string, vehicleDirection: number | null): void {
     const target = lines?.find((l) => l.routeId === routeId) ?? null
@@ -270,7 +254,6 @@ export default function CityMapPage() {
 
   /** „Wyczyść filtry": domyślne warstwy, bez linii/kierunku/utrudnień; miasto (ścieżka) i `?at=` zostają. */
   function clearFilters(): void {
-    changeHidden(new Set())
     changeAlertsOnly(false)
     chooseLine(null)
   }
@@ -358,7 +341,6 @@ export default function CityMapPage() {
       // Panel linii jest ostatni w kolejności kart — zwalniamy to, co go przesłania.
       setSelection(null)
       setNearby(null)
-      setListOpen(false)
       chooseLine(result.line)
       return
     }
@@ -444,15 +426,6 @@ export default function CityMapPage() {
       />
     ) : nearby !== null ? (
       <NearbyPanel points={nearbyList} city={city} onOpen={openNearby} onClose={closeNearby} departures={!nearbyFromGps} />
-    ) : listOpen && (isWide || line !== null) ? (
-      // Telefon bez linii: „Lista" to przegląd rozwinięty do `half` (niżej), nie drugie okno z tą samą listą.
-      <VisibleListPanel
-        items={visibleItems}
-        overflow={visible?.overflow ?? false}
-        onOpen={openVisible}
-        onClose={() => setListOpen(false)}
-        onClearFilters={filterCount > 0 ? clearFilters : undefined}
-      />
     ) : line !== null ? (
       <LinePanel
         line={line}
@@ -470,12 +443,11 @@ export default function CityMapPage() {
         onClose={() => chooseLine(null)}
       />
     ) : null
-  // Telefon bez karty, okolicy i linii: przegląd w arkuszu (`peek`; „Lista" rozwija go do `half`). Mapa liczy wtedy kadr
-  // (`listOpen` w `TransitMap`) — z tego żyje podsumowanie. Szeroki ekran nie ma arkusza: lista i legenda zostają z boku.
-  const overview = !isWide && card === null
+  // Bez wybranego obiektu: podsumowanie i obiekty w kadrze w arkuszu telefonu lub panelu obok mapy.
+  // Mapa stale liczy widoczne obiekty; uchwyt arkusza pozwala odsłonić jego dalszą treść.
+  const overview = card === null
   const overviewPanel = overview ? (
     <OverviewPanel
-      listOpen={listOpen}
       items={visibleItems}
       overflow={visible?.overflow ?? false}
       // „Gotowe, ale bez pojazdów" (noc) to nie „wczytywanie": odróżnia je stan feedu z serwera.
@@ -484,40 +456,28 @@ export default function CityMapPage() {
       onClearFilters={filterCount > 0 ? clearFilters : undefined}
     />
   ) : null
-  // Nowy obiekt w arkuszu = nowy `key` → arkusz startuje znów w `peek` (przegląd z otwartą listą: w `half`).
+  // Nowy obiekt w arkuszu = nowy `key` → arkusz startuje znów w `peek`.
   const cardKey =
     selection !== null
       ? `${selection.kind}:${selection.id}`
       : nearby !== null
         ? 'nearby'
-        : overview
-          ? listOpen
-            ? 'overview:list'
-            : 'overview'
-          : listOpen
-            ? 'list'
-            : `line:${line?.routeId}`
+        : overview ? 'overview' : `line:${line?.routeId}`
 
   const search = <UnifiedSearch city={city} variant="overlay" lineSource={lineState} onSelect={onSearchPick} />
 
-  function toggleList(): void {
-    setListOpen((open) => !open)
-    setSelection(null)
-    setNearby(null)
-  }
 
   // Chipy filtrów i statusy: pod kontrolkami, a gdy jest arkusz (telefon: zawsze, przegląd też) — na jego krawędzi
   // (`above`), bo przy half/full by je zakrył (role=status, decyzja z PR3).
   const sheetOpen = !isWide && (card !== null || overviewPanel !== null)
   // Insety kamery: dół tylko przy otwartym arkuszu (telefon; szeroki ekran ma panel obok mapy — kontener mapy już go wyłącza,
   // więc bez dodatkowego paddingu z prawej). Zamknięty arkusz = 0; `sheetInset` zostaje do następnego zgłoszenia.
-  const bottomInset = sheetOpen ? sheetInset : 0
+  const bottomInset = sheetOpen ? sheetInset + attributionHeight : 0
   const insets = useMemo(() => ({ top: topInset, bottom: bottomInset }), [topInset, bottomInset])
-  // „Moja lokalizacja": z arkuszem jedzie w jego slocie `above` (peek go nie zakrywa), bez — przy prawej krawędzi mapy.
+  // „Moja lokalizacja” ma stałe miejsce pod przyciskami przybliżania, niezależne od arkusza.
   const locateControl = (
     <LocateControl
-      className={sheetOpen ? 'relative shrink-0' : 'absolute right-3 top-[144px] z-10'}
-      messagesAbove={sheetOpen}
+      className="absolute right-[12px] top-[116px] z-10"
       buttonRef={locateButtonRef}
       onLocated={(point) => {
         if (!stillHere(city)) return
@@ -530,12 +490,10 @@ export default function CityMapPage() {
 
   const filterChips = (
     <ActiveFilterChips
-      hidden={hidden}
       line={line}
       alertsOnly={alertsOnly}
       onClearLine={() => chooseLine(null)}
       onAlertsOnly={changeAlertsOnly}
-      onHiddenChange={changeHidden}
       onClear={clearFilters}
     />
   )
@@ -565,7 +523,7 @@ export default function CityMapPage() {
       </div>
 
       <div className="relative flex min-h-0 flex-1">
-        <div className="relative min-w-0 flex-1">
+        <div data-map-canvas="" style={{ '--map-attribution-h': `${attributionHeight}px` } as React.CSSProperties} className="relative min-w-0 flex-1">
           {initialCamera !== null && (
             <TransitMap
               key={city}
@@ -583,13 +541,14 @@ export default function CityMapPage() {
               follow={following ? liveVehicle : null}
               pinnedItems={pinnedPoints}
               onlyLines={onlyLines}
-              listOpen={listOpen || overview}
+              listOpen={true}
               insets={insets}
               onContextPoint={(point) => {
                 setSelection(null)
                 openNearbyAround(point)
               }}
               onVisibleChange={onVisibleChange}
+              onAttributionHeight={setAttributionHeight}
               dark={resolvedTheme === 'dark'}
               onSelect={onMapSelect}
               onViewChange={recordView}
@@ -603,18 +562,12 @@ export default function CityMapPage() {
           <div className="pointer-events-none absolute inset-0 flex flex-col">
             {/* Nad arkuszem (`.bottom-sheet`, z-20) są wyniki i rozwinięte menu, nie samo puste pole wyszukiwania.
                 Zwykłe kontrolki zostają pod panelem, aby nie zasłaniać jego uchwytu i statusów przy `full`. */}
-            <div ref={toolbarRef} className="relative z-10 ml-3 mr-14 mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]:not([data-map-search-trigger])]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
+            <div ref={toolbarRef} className="relative z-10 ml-3 mr-[68px] mt-3 flex shrink-0 flex-col gap-2 has-[[aria-expanded=true]:not([data-map-search-trigger])]:z-30 has-[[data-search-results]]:z-30 sm:ml-4 sm:mt-4">
               <MapToolbar
                 isWide={isWide}
                 search={search}
-                hidden={hidden}
-                vehicleLayers={vehicleLayers}
-                onHiddenChange={changeHidden}
                 alertsOnly={alertsOnly}
                 onAlertsOnly={changeAlertsOnly}
-                lineActive={line !== null}
-                listOpen={listOpen}
-                onToggleList={toggleList}
                 pinnedPoints={pinnedPoints}
                 onOpenPinned={openPinned}
                 onShare={() => void share()}
@@ -624,18 +577,16 @@ export default function CityMapPage() {
             </div>
             {/* Komunikaty chwilowe (toast udostępniania, błędy pobierania, brak pozycji) poza mierzonym paskiem: ich pojawienie się
                 nie zmienia `insets.top`, więc nie przesuwa kamery. Szeroki ekran; na telefonie jadą w slocie `above` arkusza. */}
-            {!sheetOpen && <div className="pointer-events-none relative z-10 ml-3 mr-14 mt-2 flex shrink-0 flex-col items-start gap-2 sm:ml-4">{notices}</div>}
+            {!sheetOpen && <div className="pointer-events-none relative z-10 ml-3 mr-[68px] mt-2 flex shrink-0 flex-col items-start gap-2 sm:ml-4">{notices}</div>}
           </div>
 
           {sheetOpen && (
             <BottomSheet
               key={cardKey}
-              initialSnap={cardKey === 'overview:list' ? 'half' : 'peek'}
+              initialSnap="peek"
               onVisibleHeight={setSheetInset}
               above={
-                // JEDEN rząd przy krawędzi arkusza: statusy po lewej (zajmują resztę szerokości i zawijają tekst), „Moja lokalizacja" po prawej,
-                // oba przy dolnej krawędzi. Dwa rzędy jeden nad drugim (PR10 T5) wypychały trwały komunikat pod nagłówek strony przy `full`
-                // (nad arkuszem ~55 px), a przycisk w rzędzie z nim zostaje widoczny także przy peek/half. `!`: sam rząd nie łapie gestów mapy.
+                // Statusy i aktywne ograniczenia jadą nad krawędzią arkusza, przepuszczając gesty poza własną treścią.
                 <div className="pointer-events-none! flex w-full items-end justify-between gap-2">
                   <div className="pointer-events-none flex min-w-0 flex-1 flex-col items-start gap-1.5">
                     {filterChips}
@@ -646,7 +597,6 @@ export default function CityMapPage() {
                       </p>
                     )}
                   </div>
-                  {locateControl}
                 </div>
               }
             >
@@ -658,20 +608,7 @@ export default function CityMapPage() {
             {vehicleCountAnnouncement}
           </p>
 
-          {/* Szeroki ekran: pozycja związana z `top-[200px]` wrappera legendy niżej — przesuwasz przycisk (albo „Moja lokalizacja"), przesuń legendę. */}
-          <button
-            type="button"
-            onClick={() => flyTo(feed.mapCenter.lat, feed.mapCenter.lon, MAP_ZOOM.initial)}
-            aria-label={`Pokaż całe miasto — ${feed.name}`}
-            title="Pokaż całe miasto"
-            className="glass-chrome border border-surface-border shadow-md absolute right-3 top-[88px] z-10 grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            <CityIcon size={ICON_SIZE.tile} />
-          </button>
-
-          {/* Szeroki ekran: 144 px = pod „Pokaż całe miasto" (132 px) + 12 px; komunikaty wysuwają się w lewo od przycisku.
-              Telefon: przycisk leży w slocie `above` arkusza (wyżej), nie tu. */}
-          {!sheetOpen && locateControl}
+          {locateControl}
 
           {outsideFeed && !sheetOpen && (
             <p role="status" className="glass-strong absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-xs text-text-secondary">
@@ -680,18 +617,15 @@ export default function CityMapPage() {
           )}
 
           {isWide && (
-            // Pełna legenda tylko na szerokim ekranie (telefon: `CompactLegend` w arkuszu przeglądu). `top-[200px]` =
-            // pod kontrolkami prawego rogu: zoom MapLibre (10–68 px), „Pokaż całe miasto” (`top-[88px]` + `h-11` =
-            // 132 px) i „Moja lokalizacja” (`top-[144px]` + `h-11` = 188 px) + 12 px odstępu. Od `top-3` rozwinięta
-            // legenda przykrywała je na niskich ekranach (800×600).
-            <div className="pointer-events-none absolute bottom-8 right-3 top-[200px] z-10 flex flex-col justify-end sm:right-4">
+            // Legenda szerokiego ekranu mieści się pod stałymi kontrolkami prawego rogu (lokalizacja: 116 + 44 px).
+            <div style={{ bottom: 'calc(var(--map-attribution-h, 28px) + 8px)' }} className="pointer-events-none absolute right-3 top-[172px] z-10 flex flex-col justify-end sm:right-4">
               <MapLegend />
             </div>
           )}
 
         </div>
 
-        {isWide && card !== null && <aside className="flex w-aside shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card}</aside>}
+        {isWide && (card ?? overviewPanel) !== null && <aside className="flex w-aside shrink-0 flex-col py-3 pr-3 pl-3" aria-label="Wybrany obiekt">{card ?? overviewPanel}</aside>}
       </div>
     </div>
   )

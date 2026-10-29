@@ -9,7 +9,7 @@ export const READY = 45_000
 export const CITY_MAP = '/city/warszawa/map'
 export const MAP_NAME = 'Mapa transportu — Warszawa'
 
-/** Telefon = poniżej `sm` (640 px): arkusz od dołu, czipy rodzajów; od `sm` panel obok mapy. */
+/** Telefon = poniżej `sm` (640 px): arkusz od dołu; od `sm` panel obok mapy. */
 export const isPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1280) < 640
 
 export async function openMap(page: Page, path = CITY_MAP): Promise<Locator> {
@@ -43,12 +43,29 @@ export async function pickResult(page: Page, query: string, row: RegExp): Promis
 }
 
 /** Lista obiektów w kadrze: na telefonie rozwinięty przegląd (region), od `sm` okno „W widoku". */
-export const visibleList = (page: Page): Locator =>
-  isPhone(page) ? page.getByRole('region', { name: 'Pojazdy i przystanki w widoku' }) : page.getByRole('dialog', { name: 'W widoku' })
+export const visibleList = (page: Page): Locator => page.getByRole('region', { name: 'Pojazdy i przystanki w widoku' })
 
-/** „Lista" przełącza (nie otwiera): po zamknięciu karty lista zostaje otwarta — wtedy wystarczy `visibleList`. */
+/** Native input at the visible handle avoids WebKit's preparatory scrollIntoView resnapping the sheet. */
+export async function tapVisibleSheetHandle(page: Page): Promise<void> {
+  const handle = page.getByRole('button', { name: /^Zmień wysokość panelu/ })
+  await expect(handle).toBeVisible()
+  let point = { x: 0, y: 0 }
+  await expect.poll(async () => {
+    const box = await handle.boundingBox()
+    if (box === null) return false
+    point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    return handle.evaluate((el, p) => el.contains(document.elementFromPoint(p.x, p.y)), point)
+  }).toBe(true)
+  if (test.info().project.use.hasTouch) await page.touchscreen.tap(point.x, point.y)
+  else await page.mouse.click(point.x, point.y)
+}
+
+/** Obiekty są zawsze w przeglądzie; na telefonie rozwiń niski arkusz. */
 export async function openVisibleList(page: Page): Promise<Locator> {
-  await page.getByRole('button', { name: 'Lista', exact: true }).click()
+  if (isPhone(page)) {
+    const handle = page.getByRole('button', { name: 'Zmień wysokość panelu (teraz: niski)' })
+    if (await handle.count()) await tapVisibleSheetHandle(page)
+  }
   const list = visibleList(page)
   await expect(list).toBeVisible()
   return list

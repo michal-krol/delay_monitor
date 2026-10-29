@@ -216,13 +216,11 @@ describe('CityLinesPage', () => {
       const user = userEvent.setup()
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
-      await user.click(screen.getByRole('button', { name: 'Tramwaje' }))
       await user.type(screen.getByRole('searchbox', { name: SEARCH_LABEL }), 'zzzz')
       expect(screen.getByText('Brak pasujących linii')).toBeInTheDocument()
       expect(screen.queryByText('Nie udało się pobrać listy linii.')).not.toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'Wyczyść filtry' }))
       expect(screen.getByRole('searchbox', { name: SEARCH_LABEL })).toHaveValue('')
-      expect(screen.getByRole('button', { name: 'Wszystkie' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getAllByTestId('line-section')).toHaveLength(4)
       expect(window.location.search).toBe('')
     })
@@ -265,63 +263,6 @@ describe('CityLinesPage', () => {
     })
   })
 
-  describe('mode filter', () => {
-    it('mode chip filters sections (all four modes)', async () => {
-      stubFetch(FULL)
-      const user = userEvent.setup()
-      render(<CityLinesPage />)
-      await screen.findByRole('link', { name: /Linia M1/ })
-      const group = screen.getByRole('group', { name: 'Rodzaj komunikacji' })
-      expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Wszystkie', 'Metro', 'Tramwaje', 'Autobusy', 'Kolej miejska'])
-      for (const [label, route] of [
-        ['Metro', 'M1'],
-        ['Tramwaje', '20'],
-        ['Autobusy', '128'],
-        ['Kolej miejska', 'S1'],
-      ]) {
-        await user.click(within(group).getByRole('button', { name: label }))
-        expect(screen.getAllByTestId('line-section')).toHaveLength(1)
-        expect(screen.getByRole('link', { name: new RegExp(`^Linia ${route}:`) })).toBeInTheDocument()
-        // aktywny tryb = sekcja rozwinięta bez klikania (na telefonie domyślnie byłaby zwinięta)
-        expect(screen.getByTestId('line-section')).toHaveAttribute('open')
-      }
-    })
-
-    it('chip has aria-pressed and „Wszystkie" resets', async () => {
-      stubFetch(FULL)
-      const user = userEvent.setup()
-      render(<CityLinesPage />)
-      await screen.findByRole('link', { name: /Linia M1/ })
-      expect(screen.getByRole('button', { name: 'Wszystkie' })).toHaveAttribute('aria-pressed', 'true')
-      await user.click(screen.getByRole('button', { name: 'Metro' }))
-      expect(screen.getByRole('button', { name: 'Metro' })).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getByRole('button', { name: 'Wszystkie' })).toHaveAttribute('aria-pressed', 'false')
-      await user.click(screen.getByRole('button', { name: 'Wszystkie' }))
-      expect(screen.getByRole('button', { name: 'Wszystkie' })).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getAllByTestId('line-section')).toHaveLength(4)
-    })
-
-    it('a mode composes with q (results stay inside the mode)', async () => {
-      stubFetch(FULL)
-      const user = userEvent.setup()
-      render(<CityLinesPage />)
-      await screen.findByRole('link', { name: /Linia M1/ })
-      await user.click(screen.getByRole('button', { name: 'Tramwaje' }))
-      await user.type(screen.getByRole('searchbox', { name: SEARCH_LABEL }), '2')
-      expect(screen.getAllByRole('link', { name: /^Linia / }).map((l) => l.getAttribute('href'))).toEqual(['/city/warszawa/line/20'])
-    })
-
-    it('a stored collapse of the only section still wins over the active mode', async () => {
-      window.localStorage.setItem('monitor.linesSections.v1', JSON.stringify({ metro: false }))
-      stubFetch(FULL)
-      const user = userEvent.setup()
-      render(<CityLinesPage />)
-      await screen.findByRole('link', { name: /Linia M1/ })
-      await user.click(screen.getByRole('button', { name: 'Metro' }))
-      await waitFor(() => expect(screen.getByTestId('line-section')).not.toHaveAttribute('open'))
-    })
-  })
-
   describe('URL state', () => {
     it('q and mode are written to the URL and preserved params', async () => {
       window.history.replaceState(null, '', '/city/warszawa/lines?foo=1')
@@ -329,15 +270,12 @@ describe('CityLinesPage', () => {
       const user = userEvent.setup()
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
-      await user.click(screen.getByRole('button', { name: 'Tramwaje' }))
-      expect(new URLSearchParams(window.location.search).get('mode')).toBe('tram')
       await user.type(screen.getByRole('searchbox', { name: SEARCH_LABEL }), '20')
       const params = new URLSearchParams(window.location.search)
       expect(params.get('q')).toBe('20')
-      expect(params.get('mode')).toBe('tram')
+      expect(params.get('mode')).toBeNull()
       expect(params.get('foo')).toBe('1')
       await user.click(screen.getByRole('button', { name: 'Wyczyść wyszukiwanie' }))
-      await user.click(screen.getByRole('button', { name: 'Wszystkie' }))
       expect(window.location.search).toBe('?foo=1')
     })
 
@@ -345,9 +283,8 @@ describe('CityLinesPage', () => {
       searchSeed = 'q=20&mode=tram'
       stubFetch(FULL)
       render(<CityLinesPage />)
-      await screen.findByRole('heading', { level: 2, name: 'Wyniki · 1' })
+      await screen.findByRole('heading', { level: 2, name: 'Wyniki · 3' })
       expect(screen.getByRole('searchbox', { name: SEARCH_LABEL })).toHaveValue('20')
-      expect(screen.getByRole('button', { name: 'Tramwaje' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByRole('link', { name: /^Linia 20:/ })).toBeInTheDocument()
     })
 
@@ -356,7 +293,6 @@ describe('CityLinesPage', () => {
       stubFetch(FULL)
       render(<CityLinesPage />)
       await screen.findByRole('searchbox', { name: SEARCH_LABEL })
-      expect(screen.getByRole('button', { name: 'Wszystkie' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByRole('searchbox', { name: SEARCH_LABEL })).toHaveValue('x'.repeat(100))
     })
 
@@ -366,7 +302,6 @@ describe('CityLinesPage', () => {
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
       expect(screen.queryByRole('button', { name: 'Kolej miejska' })).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Wszystkie' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getAllByTestId('line-section')).toHaveLength(3)
     })
 
@@ -383,7 +318,6 @@ describe('CityLinesPage', () => {
       const user = userEvent.setup()
       const { rerender } = render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
-      await user.click(screen.getByRole('button', { name: 'Tramwaje' }))
       await user.type(screen.getByRole('searchbox', { name: SEARCH_LABEL }), '20')
       expect(screen.getByRole('link', { name: /^Linia 20:/ })).toBeInTheDocument()
       cityParam = 'krakow'
@@ -391,7 +325,6 @@ describe('CityLinesPage', () => {
       rerender(<CityLinesPage />)
       expect(await screen.findByRole('link', { name: /^Linia 50:/ })).toBeInTheDocument()
       expect(screen.getByRole('searchbox', { name: SEARCH_LABEL })).toHaveValue('')
-      expect(screen.getByRole('button', { name: 'Wszystkie' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.queryByRole('link', { name: /^Linia 20:/ })).not.toBeInTheDocument()
       expect(screen.queryByRole('link', { name: /Linia M1/ })).not.toBeInTheDocument()
     })
@@ -402,7 +335,6 @@ describe('CityLinesPage', () => {
     const user = userEvent.setup()
     render(<CityLinesPage />)
     await screen.findByRole('link', { name: /Linia M1/ })
-    await user.click(screen.getByRole('button', { name: 'Autobusy' }))
     await user.type(screen.getByRole('searchbox', { name: SEARCH_LABEL }), '1')
     expect(linesCalls(fetchMock)).toBe(1)
     expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/gtfs/line')).length).toBe(1) // ani /api/gtfs/line?route=…
@@ -461,14 +393,14 @@ describe('CityLinesPage', () => {
   })
 
   describe('schedule status', () => {
-    it('a healthy schedule: the normal "Rozkład jazdy — Miasto · Aktualizacja" line is the footer, none on top', async () => {
+    it('publishes healthy schedule metadata in the header and keeps attribution in the footer', async () => {
       stubFetch()
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
-      expect(screen.getAllByText(/Rozkład — Warszawa/)).toHaveLength(1)
+      expect(await screen.findAllByText(/Rozkład — Warszawa/)).toHaveLength(1)
       const footer = screen.getByTestId('lines-footer')
       expect(within(footer).queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
-      expect(screen.getByText(/^Dane \d/)).toBeInTheDocument()
+      expect(await screen.findByText(/^Dane \d/)).toBeInTheDocument()
       expect(within(footer).getByText(/Dane rozkładowe: ZTM/)).toBeInTheDocument()
     })
 

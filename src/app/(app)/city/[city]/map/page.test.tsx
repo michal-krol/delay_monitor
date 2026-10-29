@@ -49,6 +49,7 @@ const state = vi.hoisted(() => ({
     initialCamera: { lat: number; lon: number; zoom: number }
     follow: { lat: number; lon: number } | null
     onUserMove: () => void
+    onAttributionHeight: (height: number) => void
     /** Pasy zasłonięte przez pasek (góra) i arkusz (dół, tylko telefon) — padding kamery. */
     insets: { top: number; bottom: number }
     onContextPoint: (point: { lat: number; lon: number }) => void
@@ -192,6 +193,16 @@ function fetchedSecondsAgo(seconds: number): number {
 }
 
 describe('CityMapPage', () => {
+  it.each(['bus', 'tram', 'metro', 'rail'])('normalizes retired mode %s and visibility flags without hiding any layer', async (mode) => {
+    window.history.replaceState(null, '', '/city/warszawa/map?mode=' + mode + '&hide=trams,busStops&vehicles=0&rail=0&foo=1')
+    render(<CityMapPage />)
+    await waitFor(() => expect(state.mapProps).not.toBeNull())
+    expect([...map().hidden]).toEqual([])
+    expect(window.location.search).toBe('?foo=1')
+    expect(screen.queryByRole('button', { name: 'Lista' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Pokaż całe miasto/ })).toBeNull()
+  })
+
   it('404s for a city outside the registry', () => {
     cityParam = 'atlantyda'
     expect(() => render(<CityMapPage />)).toThrow('NEXT_NOT_FOUND')
@@ -232,11 +243,10 @@ describe('CityMapPage', () => {
     render(<CityMapPage />)
     const chips = await screen.findByRole('list', { name: 'Aktywne filtry' })
     expect(await within(chips).findByText('Linia 20')).toBeInTheDocument()
-    expect(within(chips).getByText('Ukryte: przystanki autobusowe')).toBeInTheDocument()
+    expect(within(chips).queryByText('Ukryte: przystanki autobusowe')).toBeNull()
     expect(map().routeId).toBe('20')
-    expect([...map().hidden]).toEqual(['busStops'])
+    expect([...map().hidden]).toEqual([])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pokaż: przystanki autobusowe' }))
     expect(window.location.search).toBe('?line=20')
     fireEvent.click(screen.getByRole('button', { name: /Pokaż wszystkie linie/ }))
     expect(window.location.search).toBe('')
@@ -422,7 +432,6 @@ describe('CityMapPage — overview sheet (phone)', () => {
 
   it('vehicle rows in the overview list say how old the position is and open the card', async () => {
     render(<CityMapPage />)
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false))
     const row = within(overview()).getByRole('button', { name: /Linia 20 → Centrum/ })
@@ -434,7 +443,6 @@ describe('CityMapPage — overview sheet (phone)', () => {
 
   it('a vehicle that keeps its id but changes line updates the list label (the signature guard compares labels too)', async () => {
     render(<CityMapPage />)
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     act(() => map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false))
     expect(within(overview()).getByRole('button', { name: /Linia 20 → Centrum/ })).toBeInTheDocument()
@@ -447,38 +455,15 @@ describe('CityMapPage — overview sheet (phone)', () => {
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     const locate = screen.getByRole('button', { name: 'Moja lokalizacja' })
-    expect(inside(locate, '.bottom-sheet__above')).toBe(true)
-    expect(sheet()).toContainElement(locate)
+    expect(inside(locate, '.bottom-sheet__above')).toBe(false)
+    expect(sheet()).not.toContainElement(locate)
     // Z kartą tak samo — arkusz niesie kontrolkę ze sobą.
     map().onSelect({ kind: 'rail', id: '33605' })
     await screen.findByRole('dialog', { name: 'Warszawa Centralna' })
-    expect(inside(screen.getByRole('button', { name: 'Moja lokalizacja' }), '.bottom-sheet__above')).toBe(true)
+    expect(inside(screen.getByRole('button', { name: 'Moja lokalizacja' }), '.bottom-sheet__above')).toBe(false)
   })
 
-  it('statuses and the locate control share ONE bottom-aligned row of the above slot (a status never hides above the sheet edge)', async () => {
-    state.rail = { stations: null, error: true }
-    render(<CityMapPage />)
-    await waitFor(() => expect(state.mapProps).not.toBeNull())
-    const locate = screen.getByRole('button', { name: 'Moja lokalizacja' })
-    const problem = await screen.findByText('Nie udało się wczytać stacji kolejowych — ponawiam.')
-    const row = locate.closest('.bottom-sheet__above > div') as HTMLElement // eslint-disable-line testing-library/no-node-access -- układ slotu nie ma ról
-    expect(row).not.toBeNull()
-    expect(row).toHaveClass('flex', 'items-end', 'justify-between')
-    expect(row).toContainElement(problem)
-    // Status po lewej zajmuje resztę szerokości i zawija tekst (`min-w-0 flex-1`), przycisk zostaje po prawej.
-    expect(problem.closest('.min-w-0.flex-1')).not.toBeNull() // eslint-disable-line testing-library/no-node-access -- układ slotu nie ma ról
-  })
 
-  it('"Lista" opens the overview sheet at half and a second press brings it back to peek', async () => {
-    render(<CityMapPage />)
-    await waitFor(() => expect(state.mapProps).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
-    expect(sheet()).toHaveAttribute('data-snap', 'half')
-    expect(screen.getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.queryByRole('dialog')).toBeNull() // jedna lista, nie druga obok przeglądu
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
-    expect(sheet()).toHaveAttribute('data-snap', 'peek')
-  })
 
   it('a feed that has never answered makes no age claim', async () => {
     state.vehicles = { vehicles: [], feed: { state: 'loading', ageMs: null }, alertLines: [], error: null }
@@ -549,7 +534,7 @@ describe('CityMapPage — overview sheet (phone)', () => {
     setWide(true)
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
-    expect(screen.queryByRole('region', { name: 'Pojazdy i przystanki w widoku' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Pojazdy i przystanki w widoku' })).toBeInTheDocument()
     expect(inside(screen.getByRole('button', { name: 'Moja lokalizacja' }), '.bottom-sheet')).toBe(false)
     expect(screen.getByText('Legenda')).toBeInTheDocument()
   })
@@ -568,26 +553,28 @@ describe('CityMapPage — camera insets', () => {
     setWide(false)
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
-    expect(map().insets).toEqual({ top: 40, bottom: 190 }) // 25 % × 600 + slot `above`
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
-    expect(map().insets).toEqual({ top: 40, bottom: 370 }) // half: 55 % × 600 + 40
+    expect(map().insets).toEqual({ top: 40, bottom: 218 }) // 25 % × 600 + slot `above`
+    fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ }))
+    expect(map().insets).toEqual({ top: 40, bottom: 398 }) // half plus controls and attribution
+    act(() => map().onAttributionHeight(84))
+    expect(map().insets.bottom).toBe(454)
   })
 
   it('at full the bottom inset keeps its last peek/half value', async () => {
     setWide(false)
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ }))
     sheet().scrollTop = 330
     fireEvent.click(screen.getByRole('button', { name: /^Zmień wysokość panelu/ }))
     expect(sheet()).toHaveAttribute('data-snap', 'full')
-    expect(map().insets.bottom).toBe(370)
+    expect(map().insets.bottom).toBe(398)
   })
 
   it('switching from phone to wide drops the bottom inset to 0 (the sheet is gone)', async () => {
     setWide(false)
     const { rerender } = render(<CityMapPage />)
-    await waitFor(() => expect(map().insets.bottom).toBe(190))
+    await waitFor(() => expect(map().insets.bottom).toBe(218))
     setWide(true)
     rerender(<CityMapPage />)
     await waitFor(() => expect(map().insets.bottom).toBe(0))
@@ -845,7 +832,6 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
   it('"Lista" shows what is in view and opens a card from a row', async () => {
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
     expect(map().listOpen).toBe(true)
     expect(await screen.findByText('Liczę obiekty w kadrze…')).toBeInTheDocument()
     map().onVisibleChange([{ kind: 'vehicle', id: 'v1', label: '20' }], false)
@@ -856,8 +842,7 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
   it('"only lines with disruptions" filters vehicles, persists in the URL and shows a chip', async () => {
     state.vehicles = { ...state.vehicles, alertLines: ['20'] }
     render(<CityMapPage />)
-    fireEvent.click(screen.getByRole('button', { name: /Filtry/ }))
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Tylko linie z utrudnieniami' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Z utrudnieniami' }))
     await waitFor(() => expect([...(map().onlyLines ?? [])]).toEqual(['20']))
     expect(window.location.search).toBe('?alerts=1')
     fireEvent.click(screen.getByRole('button', { name: /nie tylko z utrudnieniami/ }))
@@ -868,37 +853,12 @@ describe('CityMapPage — pinned items, nearby, list, disruptions', () => {
 describe('CityMapPage — toolbar and filters', () => {
   const FULL_URL = '/city/warszawa/map?at=52.25000%2C21.05000%2C15.0&hide=busStops%2Ctrams&line=20&dir=1&alerts=1'
 
-  it('Lista and Filtry sit under the search field on a phone, with the mode chips of the vehicles present', async () => {
-    setWide(false)
-    render(<CityMapPage />)
-    expect(screen.getByRole('button', { name: 'Lista' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Filtry/ })).toHaveAttribute('aria-expanded', 'false')
-    const chips = within(screen.getByRole('group', { name: 'Rodzaje pojazdów' })).getAllByRole('button')
-    expect(chips.map((chip) => chip.textContent)).toEqual(['Tramwaje']) // VEHICLE to jedyny pojazd w danych
-  })
 
-  it('a mode chip hides and shows the layer through the same URL state as Filtry', async () => {
-    setWide(false)
-    render(<CityMapPage />)
-    await waitFor(() => expect(state.mapProps).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Tramwaje' }))
-    expect([...map().hidden]).toEqual(['trams'])
-    expect(window.location.search).toBe('?hide=trams')
-    expect(screen.getByRole('button', { name: 'Tramwaje' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: /^Filtry/ })).toHaveTextContent('1 aktywnych ograniczeń')
-
-    fireEvent.click(screen.getByRole('button', { name: /^Filtry/ }))
-    expect(screen.getByRole('checkbox', { name: /Tramwaje/ })).not.toBeChecked()
-    fireEvent.click(screen.getByRole('button', { name: 'Tramwaje' }))
-    expect([...map().hidden]).toEqual([])
-    expect(window.location.search).toBe('')
-  })
 
   it('Wyczyść filtry resets layers, line, dir, alerts, hide and keeps city', async () => {
     window.history.replaceState(null, '', FULL_URL)
     render(<CityMapPage />)
     await waitFor(() => expect(map().routeId).toBe('20'))
-    expect(screen.getByRole('button', { name: /^Filtry/ })).toHaveTextContent('4 aktywnych ograniczeń') // 2 warstwy + linia + utrudnienia
 
     fireEvent.click(screen.getByRole('button', { name: 'Wyczyść filtry' }))
     await waitFor(() => expect(map().routeId).toBeNull())
@@ -911,12 +871,11 @@ describe('CityMapPage — toolbar and filters', () => {
   })
 
   it('empty list after filter offers Wyczyść filtry, and clearing brings the view back', async () => {
-    window.history.replaceState(null, '', '/city/warszawa/map?hide=trams')
+    window.history.replaceState(null, '', '/city/warszawa/map?alerts=1')
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
     act(() => map().onVisibleChange([], false))
-    const panel = await screen.findByRole('dialog', { name: 'W widoku' })
+    const panel = await screen.findByRole('region', { name: 'Pojazdy i przystanki w widoku' })
     fireEvent.click(within(panel).getByRole('button', { name: 'Wyczyść filtry' }))
     await waitFor(() => expect([...map().hidden]).toEqual([]))
     expect(window.location.search).toBe('')
@@ -925,9 +884,8 @@ describe('CityMapPage — toolbar and filters', () => {
   it('an empty list without any filter does not offer Wyczyść filtry', async () => {
     render(<CityMapPage />)
     await waitFor(() => expect(state.mapProps).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Lista' }))
     act(() => map().onVisibleChange([], false))
-    const panel = await screen.findByRole('dialog', { name: 'W widoku' })
+    const panel = await screen.findByRole('region', { name: 'Pojazdy i przystanki w widoku' })
     expect(within(panel).queryByRole('button', { name: 'Wyczyść filtry' })).toBeNull()
   })
 })
@@ -1019,7 +977,7 @@ describe('CityMapPage — my location', () => {
     expect(await screen.findByRole('dialog', { name: 'W pobliżu' })).toBeInTheDocument()
     expect(map().selected).toEqual({ lat: 52.2301, lon: 21.0101 })
     expect(map().initialCamera).toEqual({ lat: 52.2301, lon: 21.0101, zoom: MAP_ZOOM.focus })
-    expect(window.location.search).toBe('?hide=busStops')
+    expect(window.location.search).toBe('')
     expect(geo.getCurrentPosition).toHaveBeenCalledTimes(1)
   })
 
@@ -1058,7 +1016,7 @@ describe('CityMapPage — my location', () => {
 
     act(() => map().onViewChange(AT_USER))
     expect(persistedText()).not.toMatch(/52\.230|21\.010/)
-    expect(window.location.search).toBe('?hide=busStops')
+    expect(window.location.search).toBe('')
 
     act(() => map().onUserMove())
     act(() => map().onViewChange({ center: { lat: 52.3, lon: 21.1 }, zoom: 13 }))
@@ -1154,7 +1112,7 @@ describe('CityMapPage — my location', () => {
     await waitFor(() => expect(state.mapProps).not.toBeNull())
     fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
     await act(async () => geo.calls[0].ok(FIX))
-    fireEvent.click(screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' }))
+    act(() => map().onUserMove())
     act(() => map().onViewChange({ center: { lat: 52.2297, lon: 21.0122 }, zoom: 12 }))
     expect(window.location.search).toBe('')
   })
@@ -1177,17 +1135,6 @@ describe('CityMapPage — my location', () => {
     expect(window.location.search).toContain('at=52.30000')
   })
 
-  it('"Pokaż całe miasto" after locating resumes saving the view', async () => {
-    const geo = stubGeolocation()
-    render(<CityMapPage />)
-    await waitFor(() => expect(state.mapProps).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Moja lokalizacja' }))
-    // Użytkownik na obrzeżach: centrum miasta leży daleko od jego pozycji (blisko niej zapis jest blokowany, test niżej).
-    await act(async () => geo.calls[0].ok({ coords: { latitude: 52.4, longitude: 20.8, accuracy: 30 } } as GeolocationPosition))
-    fireEvent.click(screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' }))
-    act(() => map().onViewChange({ center: { lat: 52.2297, lon: 21.0122 }, zoom: 12 }))
-    expect(window.location.search).toContain('at=52.22970')
-  })
 
   it('the nearby=1 notice does not come back once nearby was opened and closed another way', async () => {
     const geo = stubGeolocation()
@@ -1336,33 +1283,20 @@ describe('CityMapPage — my location', () => {
     await screen.findByRole('dialog', { name: 'W pobliżu' })
     fireEvent.click(screen.getByRole('button', { name: 'Zamknij „W pobliżu”' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'W pobliżu' })).toBeNull())
-    expect(window.location.search).toBe('?hide=busStops&line=20')
-    expect([...map().hidden]).toEqual(['busStops'])
+    expect(window.location.search).toBe('?line=20')
+    expect([...map().hidden]).toEqual([])
     expect(map().routeId).toBe('20')
   })
 })
 
 describe('CityMapPage — city reset and announcements', () => {
-  it('"Pokaż całe miasto" looks like the other map controls (glass-chrome with border and shadow, as „Moja lokalizacja")', async () => {
-    render(<CityMapPage />)
-    const button = screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' })
-    expect(button).toHaveClass('glass-chrome', 'border', 'border-surface-border', 'shadow-md')
-    expect(button).not.toHaveClass('glass')
-  })
 
-  it('"Pokaż całe miasto" flies back to the city centre at the start zoom', async () => {
-    render(<CityMapPage />)
-    await waitFor(() => expect(state.mapProps).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Pokaż całe miasto — Warszawa' }))
-    await waitFor(() => expect((state.mapProps as unknown as { focus: unknown }).focus).toMatchObject({ lat: 52.2297, lon: 21.0122, zoom: 12 }))
-  })
 
   it('announces the vehicle count for screen readers when filters change, not on every reading', async () => {
     state.vehicles.lastSuccessAt = Date.now()
     render(<CityMapPage />)
     expect(screen.getByText('Na mapie 1 pojazd')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /Filtry/ }))
-    fireEvent.click(screen.getByRole('checkbox', { name: /Tramwaje/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Z utrudnieniami' }))
     expect(await screen.findByText('Na mapie 0 pojazdów')).toBeInTheDocument()
   })
 
