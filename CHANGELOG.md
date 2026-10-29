@@ -23,6 +23,9 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Poprawione
 
+- Zwarty nagłówek telefonu pozostawia dwa pierwsze odjazdy nad dolną nawigacją przy 375 × 812 px, zachowując przyciski o wysokości co najmniej 44 px.
+- Przy powiększeniu tekstu przyciski karty stacji zawijają się pod nazwę zamiast ściskać ją do kolumny pojedynczych liter.
+
 - Panel źródeł danych mieści się między nagłówkiem a dolną nawigacją także przy tekście 200%,
   dzięki czemu można odświeżyć każde źródło po nieudanej próbie, zachowując ostatnie odjazdy.
 - Tygodniowy rozkład wybiera daty we wspólnym siedmiodniowym horyzoncie, zamiast łączyć kolejne

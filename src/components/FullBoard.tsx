@@ -295,8 +295,8 @@ export function FullBoard({ stationId, stationName, isPinned, pinsLoaded = true,
         <section className="glass relative rounded-2xl p-5 max-sm:p-3">
           {configError && <ConfigErrorBanner />}
 
-          <div className="flex flex-wrap items-start justify-between gap-4 max-sm:flex-nowrap max-sm:items-center max-sm:gap-2">
-            <div className="flex min-w-0 items-center gap-4 max-sm:gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-4 max-sm:items-center max-sm:gap-2">
+            <div className="flex min-w-[min(12ch,100%)] flex-1 items-center gap-4 max-sm:gap-2">
               <div className="shrink-0 max-sm:hidden">
                 <StationThumb stationName={stationName} />
               </div>

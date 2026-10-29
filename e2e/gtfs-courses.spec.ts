@@ -54,8 +54,10 @@ test('variant-only stop: board badge opens actual stop timetable and minute sele
   if ((page.viewportSize()?.width ?? 1280) < 1024) {
     const panes = page.getByRole('group', { name: 'Widok linii' })
     await panes.getByRole('button', { name: 'Trasa', exact: true }).click()
+    await expect(page).toHaveURL((url) => !url.searchParams.has('pane'))
     await expect(page).toHaveURL(/stop=700201/)
     await panes.getByRole('button', { name: 'Rozkład', exact: true }).click()
+    await expect(page).toHaveURL((url) => url.searchParams.get('pane') === 'timetable')
     await expect(page).toHaveURL(/stop=700201/)
   }
   await page.reload()

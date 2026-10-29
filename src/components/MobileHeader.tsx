@@ -37,7 +37,7 @@ export function MobileHeader() {
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between gap-2 border-b bg-surface px-(--page-gutter) pb-2 sm:hidden"
+      className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between gap-x-2 gap-y-0 border-b bg-surface px-(--page-gutter) pb-2 sm:hidden"
       style={{
         // Kotwica: pasek stoi w miejscu podczas przesunięcia treści (`globals.css`, „View transitions”).
         viewTransitionName: 'site-header',
