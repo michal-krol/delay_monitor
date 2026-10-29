@@ -8,6 +8,7 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ### Zmienione
 
+- Kontrola e2e przed scaleniem uruchamia także mobilny WebKit; artefakty CI zawierają pełny raport JSON obok HTML.
 - Start pokazuje zwarte tablice zapisanych miejsc z trzema odjazdami. Wyszukiwanie i ikona
   lokalizacji zajmują jeden rząd; przypinanie pozostaje na ekranie miejsca, a kolejność zmienia
   przycisk z ikoną. Na podglądzie kolejowym główna godzina pochodzi z planu, prognoza jest dodatkowa.

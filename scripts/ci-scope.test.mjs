@@ -45,13 +45,13 @@ afterAll(() => {
 })
 
 describe('scripts/ci-scope.mjs', () => {
-  it('docs-only diff skips e2e and drops WebKit for a PR to dev', () => {
+  it('docs-only diff skips e2e without weakening the browser matrix', () => {
     const base = git('rev-parse', 'HEAD')
     writeFileSync(path.join(repo, 'README.md'), 'changed\n')
     git('commit', '-qam', 'docs')
     const out = run(base)
     expect(out.e2e).toBe('false')
-    expect(JSON.parse(out.matrix).include.map((p) => p.project)).toEqual(['desktop-chromium', 'mobile-chromium'])
+    expect(JSON.parse(out.matrix).include.map((p) => p.project)).toEqual(['desktop-chromium', 'mobile-chromium', 'mobile-safari'])
   })
 
   it('a rename out of src/ still runs e2e (the old path is listed)', () => {

@@ -34,14 +34,10 @@ const ALL_PROJECTS = [
 ]
 
 /**
- * The Playwright projects CI runs. WebKit (≈12 min, the slowest job; in 40 runs it never failed alone)
- * runs where it gates something: every push to main/dev (Railway waits for CI) and PRs to main.
- * A feature PR to dev gets the two chromium projects. Anything unknown runs everything.
- *
- * @param {{ event?: string, baseRef?: string }} ctx GitHub `event_name` and the PR's base branch
+ * Every requested browser suite gates all three projects, including feature PRs before merge.
+ * needsE2e() still skips the suite entirely for changes that cannot affect it.
  * @returns {{ include: { project: string, browser: string }[] }}
  */
-export function e2eMatrix({ event, baseRef } = {}) {
-  const featurePrToDev = event === 'pull_request' && baseRef === 'dev'
-  return { include: featurePrToDev ? ALL_PROJECTS.filter((p) => p.browser !== 'webkit') : ALL_PROJECTS }
+export function e2eMatrix() {
+  return { include: ALL_PROJECTS }
 }

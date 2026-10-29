@@ -30,7 +30,7 @@ export default defineConfig({
   retries: 1,
   // CI: domyślnie połowa rdzeni (2 na runnerze 4-vCPU); `E2E_WORKERS` pozwala to zmierzyć bez commita.
   workers: process.env.E2E_WORKERS ? Number(process.env.E2E_WORKERS) : undefined,
-  reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
+  reporter: process.env.CI ? [['html', { open: 'never' }], ['list'], ['json', { outputFile: 'playwright-report/results.json' }]] : 'list',
   use: {
     baseURL,
     trace: 'on-first-retry',
