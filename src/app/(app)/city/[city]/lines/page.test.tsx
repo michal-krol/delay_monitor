@@ -393,14 +393,14 @@ describe('CityLinesPage', () => {
   })
 
   describe('schedule status', () => {
-    it('a healthy schedule: the normal "Rozkład jazdy — Miasto · Aktualizacja" line is the footer, none on top', async () => {
+    it('publishes healthy schedule metadata in the header and keeps attribution in the footer', async () => {
       stubFetch()
       render(<CityLinesPage />)
       await screen.findByRole('link', { name: /Linia M1/ })
-      expect(screen.getAllByText(/Rozkład — Warszawa/)).toHaveLength(1)
+      expect(await screen.findAllByText(/Rozkład — Warszawa/)).toHaveLength(1)
       const footer = screen.getByTestId('lines-footer')
       expect(within(footer).queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
-      expect(screen.getByText(/^Dane \d/)).toBeInTheDocument()
+      expect(await screen.findByText(/^Dane \d/)).toBeInTheDocument()
       expect(within(footer).getByText(/Dane rozkładowe: ZTM/)).toBeInTheDocument()
     })
 

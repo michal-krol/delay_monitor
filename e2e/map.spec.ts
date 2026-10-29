@@ -2,7 +2,7 @@ import { changeTheme } from './helpers/page-options'
 import { test, expect, type Locator, type Page } from './helpers/test'
 import { scanA11y } from './helpers/axe'
 import { showBoardMap } from './helpers/info'
-import { CITY_MAP, MAP_NAME, RAIL_ROW, READY, STOP_ROW, expectNoBlockingA11y, geolocationCalls, isPhone, lineRow, mapSearch, openMap, openVisibleList, pickResult, searchResults, stubGeolocation, visibleList } from './helpers/map'
+import { CITY_MAP, MAP_NAME, RAIL_ROW, READY, STOP_ROW, expectNoBlockingA11y, geolocationCalls, isPhone, lineRow, mapSearch, openMap, openVisibleList, pickResult, searchResults, stubGeolocation, tapVisibleSheetHandle, visibleList } from './helpers/map'
 
 // Mock „Centrum" (zespół 1001) = 4 przystanki (AGENTS.md #13, patrz gtfs-stop-member.spec.ts).
 const CENTRUM = '/city/warszawa/stop/1001'
@@ -543,7 +543,7 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
    * z animacją pod obciążeniem (flaky z PR3).
    */
   async function clickHandleTo(page: Page, snap: keyof typeof SNAP_FRACTION): Promise<void> {
-    await page.getByRole('button', { name: /^Zmień wysokość panelu/ }).click()
+    await tapVisibleSheetHandle(page)
     await expect(sheet(page)).toHaveAttribute('data-snap', snap)
     await expect
       .poll(() => sheet(page).evaluate((el, fraction) => Math.abs(el.scrollTop - fraction * el.clientHeight), SNAP_FRACTION[snap]), { message: `arkusz nie dojechał do „${snap}”` })
