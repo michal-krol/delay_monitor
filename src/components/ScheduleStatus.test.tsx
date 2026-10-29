@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ScheduleStatus, scheduleNeedsAttention } from './ScheduleStatus'
 import type { TransitBoardResponse } from '@/hooks/useTransitBoard'
+
+const headerData = vi.hoisted(() => vi.fn())
+vi.mock('./pageHeader', () => ({ useHeaderData: headerData }))
 
 type Block = TransitBoardResponse['schedule']
 const block = (over: Partial<Block>): Block => ({
@@ -28,28 +31,29 @@ describe('ScheduleStatus', () => {
     expect(screen.getByText(/kształty tras/)).toBeInTheDocument()
   })
 
-  it('shows the ready line with the "Aktualizacja" timestamp from loadedAt', () => {
+  it('publishes the static schedule timestamp to the header without repeating a body title', () => {
     render(<ScheduleStatus schedule={block({})} cityName="Warszawa" />)
-    expect(screen.getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()
-    expect(screen.getByText(/Aktualizacja: .*2 września 2026/)).toBeInTheDocument()
+    expect(headerData).toHaveBeenCalledWith(expect.objectContaining({ label: 'Rozkład — Warszawa', updatedAt: '2026-09-02T09:00:00.000Z' }))
+    expect(screen.queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Aktualizacja:/)).not.toBeInTheDocument()
   })
 
   it('uses a custom title when given (line detail page)', () => {
     render(<ScheduleStatus schedule={block({})} cityName="Warszawa" title="Rozkład jazdy linii 20" />)
-    expect(screen.getByText(/Rozkład jazdy linii 20/)).toBeInTheDocument()
+    expect(headerData).toHaveBeenCalledWith(expect.objectContaining({ label: 'Rozkład jazdy linii 20' }))
     expect(screen.queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
   })
 
   it('surfaces a failed refresh with the age of the still-served data', () => {
     render(<ScheduleStatus schedule={block({ state: 'failed', ageMs: 2 * 60 * 60 * 1000 })} cityName="Warszawa" />)
-    expect(screen.getByText(/dane sprzed 2 h/)).toBeInTheDocument()
+    expect(screen.getByText(/odświeżanie nie powiodło się/)).toBeInTheDocument()
     expect(screen.getByText(/odświeżanie nie powiodło się/)).toBeInTheDocument()
   })
 
   it('quiet: only the title and the update time, no warnings (they live on top of the page)', () => {
     render(<ScheduleStatus quiet schedule={block({ state: 'failed', ageMs: 2 * 60 * 60 * 1000 })} cityName="Warszawa" error />)
-    expect(screen.getByText(/Rozkład jazdy — Warszawa/)).toBeInTheDocument()
-    expect(screen.getByText(/Aktualizacja: /)).toBeInTheDocument()
+    expect(screen.queryByText(/Rozkład jazdy — Warszawa/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Aktualizacja: /)).not.toBeInTheDocument()
     expect(screen.queryByText(/dane sprzed/)).not.toBeInTheDocument()
     expect(screen.queryByText(/odświeżanie nie powiodło się/)).not.toBeInTheDocument()
   })
@@ -63,7 +67,7 @@ describe('ScheduleStatus staleness', () => {
 
   it('shows the chip once a ready schedule is a day old', () => {
     render(<ScheduleStatus schedule={block({ ageMs: 25 * 60 * 60 * 1000 })} cityName="Warszawa" />)
-    expect(screen.getByText(/dane sprzed 25 h/)).toBeInTheDocument()
+    expect(screen.getByText(/Rozkład wymaga aktualizacji/)).toBeInTheDocument()
   })
 })
 

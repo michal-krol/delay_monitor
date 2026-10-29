@@ -9,7 +9,7 @@ const pins = [
   { kind: 'gtfs', city: 'warszawa', id: '1001', name: 'Centrum' },
 ]
 
-async function prepare(page: Page, count = 4) {
+async function prepare(page: Page, count = 4, ageMs = 0) {
   await page.emulateMedia({ colorScheme: 'light' })
   await page.addInitScript((value) => localStorage.setItem('monitor.favourites.v2', JSON.stringify(value)), pins)
   // Deliberately controlled UI data, not an assertion about real traffic (AGENTS.md #8).
@@ -22,7 +22,7 @@ async function prepare(page: Page, count = 4) {
       plannedAt: new Date(now + (i + 1) * 600_000).toISOString(), actualAt: null,
       delayMinutes: null, status: 'notStarted', platform: '2', estimatedDelayMinutes: null,
     }))
-    await route.fulfill({ json: { snapshots: [{ stationId: '33605', stationName: 'Warszawa Centralna', departures, arrivals: [], fetchedAt: new Date(now).toISOString(), ageMs: 0 }], status: 'ok', throttled: false } })
+    await route.fulfill({ json: { snapshots: [{ stationId: '33605', stationName: 'Warszawa Centralna', departures, arrivals: [], fetchedAt: new Date(now - ageMs).toISOString(), ageMs }], status: 'ok', throttled: false } })
   })
   await page.route('**/api/gtfs/board**', async (route) => {
     const departures = Array.from({ length: count }, (_, i) => ({
@@ -36,13 +36,17 @@ async function prepare(page: Page, count = 4) {
   })
 }
 
-for (const count of [4, 1]) {
+for (const count of [4, 1, 0]) {
   test(`Start: available courses ${count}, no filling missing rows`, async ({ page }) => {
     await prepare(page, count)
     await page.goto('/')
     const cards = page.getByRole('article')
     await expect(cards).toHaveCount(2)
-    await expect(cards.first().getByRole('listitem')).toHaveCount(Math.min(count, 3))
+    if (count === 0) {
+      await expect(cards.first().getByText('Brak odjazdów w najbliższych godzinach', { exact: true })).toBeVisible()
+      await expect(cards.first().locator('a[href^="/connection/"]')).toHaveCount(0)
+      await expect(cards.last().getByText('Brak odjazdów w rozkładzie', { exact: true })).toBeVisible()
+    } else await expect(cards.first().getByRole('listitem')).toHaveCount(Math.min(count, 3))
     await expect(cards.last().getByTestId('departure-list').getByRole('listitem')).toHaveCount(Math.min(count, 3))
     if (count === 4) {
       await expect(cards.first()).not.toContainText('Testowy 4')
@@ -50,6 +54,48 @@ for (const count of [4, 1]) {
     }
   })
 }
+
+test('Start: failed refresh keeps last departures and source timestamp; recovery clears the warning', async ({ page }, info) => {
+  await prepare(page)
+  let failed = false
+  await page.route('**/api/board**', (route) => failed ? route.fulfill({ status: 503, json: { error: 'controlled failure' } }) : route.fallback())
+  await page.goto('/')
+  const card = page.getByRole('article').first()
+  await expect(card.getByRole('link', { name: /Testowy 1/ })).toBeVisible()
+  await page.locator('summary:visible').filter({ hasText: /^Dane/ }).click()
+  const refresh = page.getByRole('button', { name: /^Odśwież: PKP/ })
+  const source = refresh.locator('..')
+  const before = await source.locator('p').nth(1).innerText()
+  failed = true
+  await refresh.click()
+  await expect(source.getByText('Nie udało się odświeżyć', { exact: true })).toBeVisible()
+  await expect(source.locator('p').nth(1)).toHaveText(before)
+  await expect(card.getByRole('listitem')).toHaveCount(3)
+  await expect(card.getByRole('link', { name: /Testowy 1/ })).toBeVisible()
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  await page.screenshot({ path: `docs/emulator-ui/start-refresh-failed-${info.project.name}.png`, animations: 'disabled' })
+  failed = false
+  await refresh.scrollIntoViewIfNeeded()
+  await expect.poll(() => refresh.evaluate((el) => {
+    const box = el.getBoundingClientRect()
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+    return hit === el || el.contains(hit)
+  })).toBe(true)
+  await refresh.click()
+  await expect(source.getByText('Nie udało się odświeżyć', { exact: true })).toHaveCount(0)
+  await expect(card.getByRole('listitem')).toHaveCount(3)
+})
+
+test('Start: stale PKP source stays explicit in header details', async ({ page }, info) => {
+  await prepare(page, 4, 240_000)
+  await page.goto('/')
+  await expect(page.getByRole('article').first().getByRole('link', { name: /Testowy 1/ })).toBeVisible()
+  await page.locator('summary:visible').filter({ hasText: /^Dane/ }).click()
+  const source = page.getByRole('button', { name: /^Odśwież: PKP/ }).locator('..')
+  await expect(source.getByText('Dane mogą być nieaktualne', { exact: true })).toBeVisible()
+  await page.screenshot({ path: `docs/emulator-ui/start-stale-${info.project.name}.png`, fullPage: true, animations: 'disabled' })
+})
 
 test('Start: one stats instance survives expand, resize and theme without data refetch', async ({ page }) => {
   await prepare(page)

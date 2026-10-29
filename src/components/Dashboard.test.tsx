@@ -5,10 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
 import type { PinnedItem } from '@/hooks/usePinned'
 import { jsonResponse } from '@/test-utils/http'
+import { PageHeaderProvider } from './pageHeader'
+import { HeaderData } from './HeaderData'
 
 // BoardTable (rendered via FocusedStation in the focused branch) navigates via useRouter().
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/',
 }))
 
 // Karty przystanków miejskich odpytują własny endpoint — mockujemy hook.
@@ -37,6 +40,12 @@ function findCardByHeading(name: string): HTMLElement {
 }
 
 describe('Dashboard', () => {
+  it('marks an aged PKP station source as stale even when its fetch succeeded', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ snapshots: [{ stationId: '5100', stationName: 'Warszawa Centralna', departures: [], arrivals: [], fetchedAt: '2026-08-01T20:24:11.827Z', ageMs: 180_000 }], status: 'ok' })))
+    render(<PageHeaderProvider><HeaderData /><Dashboard pinnedItems={[PINNED_ITEMS[0]]} onRemove={vi.fn()} /></PageHeaderProvider>)
+    await waitFor(() => expect(screen.getByText(/Dane 01.08.2026/)).toHaveTextContent('część danych nieaktualna'))
+    expect(screen.getByText('Dane mogą być nieaktualne')).toBeInTheDocument()
+  })
   it('GTFS-only pins do not show a disabled PKP loading clock', () => {
     render(<Dashboard pinnedItems={[{ kind: 'gtfs', city: 'warszawa', id: '7014M', name: 'Świętokrzyska' }]} onRemove={vi.fn()} />)
     expect(screen.queryByText('Wczytywanie…')).toBeNull()
@@ -67,7 +76,7 @@ describe('Dashboard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('shows a single global last-updated line, not one per card', async () => {
+  it('publishes station timestamps to one shared header, not a ticking clock per card', async () => {
     const fetchMock = vi.fn().mockImplementation(() =>
       jsonResponse({
         snapshots: [
@@ -81,13 +90,15 @@ describe('Dashboard', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(
-      <Dashboard
+      <PageHeaderProvider><HeaderData /><Dashboard
         pinnedItems={PINNED_ITEMS}
         onRemove={vi.fn()}
-      />
+      /></PageHeaderProvider>
     )
 
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Aktualizacja .* — odśwież teraz$/ })).toHaveLength(1))
+    expect(await screen.findByText(/Dane 01.08.2026/)).toBeInTheDocument()
+    expect(screen.getByText('PKP — Warszawa Centralna')).toBeInTheDocument()
+    expect(screen.getByText('PKP — Kraków Główny')).toBeInTheDocument()
   })
 
   it('passes each snapshot to the matching station card by id order', async () => {

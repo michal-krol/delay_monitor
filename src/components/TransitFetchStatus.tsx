@@ -1,45 +1,31 @@
 'use client'
 
-import { useNow } from '@/hooks/useNow'
-import { formatAgo } from '@/lib/format'
-import { formatDataTimestamp } from '@/lib/dataTimestamp'
-
-/** Wiek podajemy co najwyżej do sekundy, ale tykanie co 30 s wystarcza (jak `BoardStatus`). */
-const AGE_TICK_MS = 30_000
+import { useHeaderData } from './pageHeader'
 
 /**
- * Linijka „Pobrano …” nad listą odjazdów miejskich. To moment, w którym PRZEGLĄDARKA dostała ostatnią dobrą
- * odpowiedź (`lastSuccessAt`), nie wiek feedu źródła — stąd etykieta „Pobrano”. Cała linijka jest przyciskiem
- * „odśwież teraz” (`usePolling().refresh`, to samo `/api/gtfs/board`, zero nowych zapytań).
- * Nieudane odświeżenie z zachowanym wynikiem (#7): ostatnie dane zostają, a linijka mówi, z której godziny są.
+ * Registers when the browser received its last successful response, separately from static feed loading.
+ * The header owns its absolute timestamp and refresh action; a failed refresh keeps a visible warning.
  */
 export function TransitFetchStatus({
   lastSuccessAt,
   refreshFailed,
-  timeZone,
   onRefresh,
+  sourceId = 'gtfs-board',
+  sourceLabel = 'Odjazdy miejskie',
 }: {
   lastSuccessAt: number | null
   /** Ostatnie odświeżenie padło, ale lista na ekranie to ostatni dobry wynik. */
   refreshFailed: boolean
   timeZone: string
   onRefresh: () => void
+  sourceId?: string
+  sourceLabel?: string
 }) {
-  const now = useNow(AGE_TICK_MS)
-  if (lastSuccessAt === null) return null
-  const label = refreshFailed
-    ? `Nie udało się odświeżyć · dane z ${formatDataTimestamp(lastSuccessAt, timeZone)}`
-    : `Pobrano ${formatAgo(Math.max(0, now - lastSuccessAt) / 1000)} · ${formatDataTimestamp(lastSuccessAt, timeZone)}`
+  useHeaderData({ id: sourceId, label: sourceLabel, updatedAt: lastSuccessAt, error: refreshFailed, refresh: onRefresh })
+  if (!refreshFailed || lastSuccessAt === null) return null
   return (
-    <p className="mt-2 text-sm text-text-secondary">
-      <button
-        type="button"
-        onClick={onRefresh}
-        className={`control-44 -mx-1 inline-flex items-center rounded-lg px-1 underline decoration-dotted underline-offset-2 transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary-text ${refreshFailed ? 'font-medium text-warning-text' : ''}`}
-      >
-        {label}
-        <span className="sr-only"> — odśwież teraz</span>
-      </button>
+    <p role="status" className="mt-2 text-sm text-warning-text">
+      Nie udało się odświeżyć — pokazujemy ostatnie dane.
     </p>
   )
 }

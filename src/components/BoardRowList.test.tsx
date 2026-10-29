@@ -46,17 +46,17 @@ describe('BoardRowList', () => {
     expect(screen.getByText('za 8 min')).toBeInTheDocument()
   })
 
-  it('shows the forecast as the dominant time ("Przew.") with the plan and countdown below', () => {
+  it('keeps planned time dominant and labels the forecast with its countdown below', () => {
     renderRows([{ ...ROW, predictedAt: '2026-10-01T12:05:00+02:00' }])
-    expect(screen.getByText('Przew.')).toBeInTheDocument()
-    expect(screen.getByText(formatClockTime('2026-10-01T12:05:00+02:00'))).toBeInTheDocument()
-    expect(screen.getByText(`Plan ${formatClockTime(ROW.plannedAt)} · za 13 min`)).toBeInTheDocument()
+    expect(screen.getByText(formatClockTime(ROW.plannedAt))).toHaveClass('text-base')
+    expect(screen.getByText(`Przew. ${formatClockTime('2026-10-01T12:05:00+02:00')} · za 13 min`)).toBeInTheDocument()
   })
 
-  it('shows a confirmed time as "Faktycznie" with the plan line', () => {
+  it('shows confirmed time as secondary while the plan remains dominant', () => {
     renderRows([{ ...ROW, actualAt: '2026-10-01T12:03:00+02:00', delayMinutes: 3, status: 'delayed' }])
-    expect(screen.getByText('Faktycznie')).toBeInTheDocument()
-    expect(screen.getByText(/^Plan \d\d:\d\d/)).toBeInTheDocument()
+    expect(screen.getByText(/^Faktycznie \d\d:\d\d/)).toBeInTheDocument()
+    expect(screen.getByText(formatClockTime(ROW.plannedAt))).toHaveClass('text-base')
+    expect(screen.getByText('Plan')).toBeInTheDocument()
   })
 
   it('without realization: label "Plan" and the bare countdown', () => {

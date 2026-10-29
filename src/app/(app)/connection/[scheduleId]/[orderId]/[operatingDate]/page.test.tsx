@@ -22,6 +22,7 @@ const routerBack = vi.fn()
 const routerPush = vi.fn()
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
   notFound: () => notFound(),
   useRouter: () => ({ back: routerBack, push: routerPush }),
   useParams: () => useParamsMock(),

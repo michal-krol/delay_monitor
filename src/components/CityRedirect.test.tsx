@@ -7,7 +7,8 @@ import { resetCitiesCacheForTests } from '@/hooks/useCities'
 import { jsonResponse } from '@/test-utils/http'
 
 const replace = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }))
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/', useRouter: () => ({ replace }) }))
 
 const to = (city: string) => `/city/${city}`
 

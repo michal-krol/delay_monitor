@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
-import { act, render, screen, within } from '@testing-library/react'
+import { PageHeaderProvider } from '@/components/pageHeader'
+import { HeaderData } from '@/components/HeaderData'
+const render = (ui: React.ReactNode) => baseRender(ui, { wrapper: ({ children }) => <PageHeaderProvider>{children}<HeaderData /></PageHeaderProvider> })
+import { act, render as baseRender, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransitStopDetail } from './TransitStopDetail'
@@ -538,7 +541,7 @@ describe('TransitStopDetail', () => {
       )
     )
     render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-    expect(await screen.findByText('Rozkład jazdy — Warszawa')).toBeInTheDocument()
+    expect(await screen.findByText('Rozkład — Warszawa')).toBeInTheDocument()
   })
 
   // PR6 „04 Przystanek”: URL tab/line, zakres słupka, mapa pod odjazdami, komunikaty, status pobrania.
@@ -657,7 +660,7 @@ describe('TransitStopDetail', () => {
       mockStop({ ...groupBoard, activeMember: null })
       render(<TransitStopDetail city="warszawa" stopId="1001" />)
       expect(screen.queryByText('Kabaty')).not.toBeInTheDocument()
-      expect(screen.getByText('Wczytywanie…')).toBeInTheDocument()
+      expect(screen.getAllByRole('list', { hidden: true }).some((list) => list.getAttribute('aria-hidden') === 'true')).toBe(true)
     })
 
     it('shows the rows once the response is for the chosen przystanek', () => {
@@ -804,12 +807,13 @@ describe('TransitStopDetail', () => {
       const refresh = vi.fn()
       mockStop(board, {}, { lastSuccessAt: Date.now(), refresh })
       const { unmount } = render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-      await userEvent.click(screen.getByRole('button', { name: /^Pobrano/ }))
+      await userEvent.click(screen.getByText(/^Dane /))
+      await userEvent.click(screen.getByRole('button', { name: /^Odśwież: Odjazdy — / }))
       expect(refresh).toHaveBeenCalledTimes(1)
       unmount()
       mockStop(board, {}, { lastSuccessAt: Date.now(), error: 'network' })
       render(<TransitStopDetail city="warszawa" stopId="7014M" />)
-      expect(screen.getByRole('button', { name: /^Nie udało się odświeżyć · dane z \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/ })).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('Nie udało się odświeżyć')
       expect(screen.getByText('Kabaty')).toBeInTheDocument()
     })
 

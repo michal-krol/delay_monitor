@@ -5,7 +5,8 @@ import { Sidebar } from './Sidebar'
 import { __resetCityContext } from '@/hooks/useCityContext'
 
 // CitySwitcher (nad menu) używa useRouter.
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/', useRouter: () => ({ push: vi.fn() }) }))
 
 beforeEach(() => {
   // useSidebarCollapsed persists to real localStorage — a test that toggles

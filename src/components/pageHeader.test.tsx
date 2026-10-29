@@ -2,7 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { HeaderTitleProvider } from './headerTitle'
-import { usePageHeader, useHeaderWeather, useHeaderWeatherContext, usePageHeaderContext } from './pageHeader'
+import { usePageHeader, useHeaderWeather, useHeaderWeatherContext, usePageHeaderContext, useHeaderData, useHeaderDataContext, type HeaderDataSource } from './pageHeader'
 import { MobileHeader } from './MobileHeader'
 
 vi.mock('next/link', async () => {
@@ -23,6 +23,26 @@ function ContextProbe() {
 }
 
 describe('shared page header', () => {
+  it('registers independent data owners and removes only the departing owner', () => {
+    function Source({ source }: { source: HeaderDataSource }) { useHeaderData(source); return null }
+    function Probe() { return <p data-testid="sources">{useHeaderDataContext().map((source) => source.label).join(',')}</p> }
+    const old = { id: 'old', label: 'PKP', updatedAt: 1 }
+    const next = { id: 'next', label: 'Rozkład', updatedAt: 2 }
+    const view = render(<HeaderTitleProvider><Probe /><Source key="old" source={old} /><Source key="next" source={next} /></HeaderTitleProvider>)
+    expect(screen.getByTestId('sources')).toHaveTextContent('PKP,Rozkład')
+    view.rerender(<HeaderTitleProvider><Probe /><Source key="next" source={next} /></HeaderTitleProvider>)
+    expect(screen.getByTestId('sources')).toHaveTextContent('Rozkład')
+    expect(screen.getByTestId('sources')).not.toHaveTextContent('PKP')
+  })
+  it('deduplicates one source shown twice and preserves the surviving owner', () => {
+    function Source({ label }: { label: string }) { useHeaderData({ id: 'shared', label, updatedAt: 1 }); return null }
+    function Probe() { return <p data-testid="sources">{useHeaderDataContext().map((source) => source.label).join(',')}</p> }
+    const view = render(<HeaderTitleProvider><Probe /><Source key="old" label="Stary" /><Source key="new" label="Nowy" /></HeaderTitleProvider>)
+    expect(screen.getByTestId('sources')).toHaveTextContent('Nowy')
+    expect(screen.getByTestId('sources')).not.toHaveTextContent('Stary')
+    view.rerender(<HeaderTitleProvider><Probe /><Source key="new" label="Nowy" /></HeaderTitleProvider>)
+    expect(screen.getByTestId('sources')).toHaveTextContent('Nowy')
+  })
   it('cleanup of an older route cannot erase a newer owner', () => {
     const view = render(<HeaderTitleProvider><ContextProbe /><Page key="old" name="Stara strona" /><Page key="new" name="Nowa strona" /></HeaderTitleProvider>)
     expect(screen.getByTestId('context')).toHaveTextContent('Nowa strona / Nowa strona')

@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useUserLocation, type UserLocationStatus } from '@/hooks/useUserLocation'
 import { NAV_FORWARD_OPTIONS } from '@/lib/navTransition'
-import { ActionGrid } from './ActionGrid'
-import { ICON_SIZE, LocateIcon, MapIcon, SearchIcon } from './icons'
+import { ICON_SIZE, LocateIcon, SearchIcon } from './icons'
+import { ICON_BUTTON_CLASS } from './IconButton'
 import { SEARCH_INPUT_BASE } from './StationSearch'
 
 /** Pole szukania na Starcie to wejście, nie pole: telefon przechodzi na `/search`, desktop otwiera okno (decyduje strona). */
@@ -20,7 +19,7 @@ const LOCATION_MESSAGE: Partial<Record<UserLocationStatus, string>> = {
 }
 
 /**
- * Wejście na Start (adr/0012): wyszukiwanie, „W pobliżu mnie” i „Otwórz mapę”. GPS rusza wyłącznie po kliknięciu
+ * Wejście na Start (adr/0012): jeden rząd wyszukiwania i „W pobliżu mnie”. GPS rusza wyłącznie po kliknięciu
  * „W pobliżu mnie” (`request()`); dopiero udana odpowiedź otwiera `/map?nearby=1`, gdzie są dane okolicy. Odmowa albo
  * brak GPS zostawia wyszukiwanie. Pozycja żyje tylko w providerze — tu nie ma jej w stanie, URL-u ani storage (#4).
  */
@@ -44,28 +43,24 @@ export function StartEntry({ onSearch }: { onSearch: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-1">
       <button type="button" onClick={onSearch} className={SEARCH_ENTRY_CLASS}>
         <SearchIcon size={ICON_SIZE.button} className="shrink-0" />
         Stacja, przystanek, linia lub pociąg
       </button>
-      <ActionGrid cols={2}>
+      </div>
         <button
           type="button"
           onClick={() => void findNearby()}
           aria-busy={requesting}
-          className="chip-filter gap-2 px-2 py-2 text-center leading-tight text-primary-text"
+          aria-label={requesting ? 'Ustalanie lokalizacji…' : 'W pobliżu mnie'}
+          className={`${ICON_BUTTON_CLASS} min-h-11 min-w-11 shrink-0`}
         >
           <LocateIcon size={ICON_SIZE.button} className="shrink-0" />
-          {requesting ? 'Ustalanie lokalizacji…' : 'W pobliżu mnie'}
         </button>
-        <Link href="/map" className="chip-filter gap-2 px-2 py-2 text-center leading-tight text-primary-text">
-          <MapIcon size={ICON_SIZE.button} className="shrink-0" />
-          Otwórz mapę
-        </Link>
-      </ActionGrid>
       {/* Zawsze w DOM: region ogłasza zmianę treści, nie swoje pojawienie się; pusty jest `sr-only` (nie zajmuje odstępu). */}
-      <p aria-live="polite" className={LOCATION_MESSAGE[status] === undefined ? 'sr-only' : 'text-sm text-text-secondary'}>
+      <p aria-live="polite" className={LOCATION_MESSAGE[status] === undefined ? 'sr-only' : 'w-full text-sm text-text-secondary'}>
         {LOCATION_MESSAGE[status]}
       </p>
     </div>

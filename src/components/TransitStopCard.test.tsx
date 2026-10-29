@@ -67,14 +67,14 @@ describe('TransitStopCard', () => {
       loading: false,
       failed: false,
     })
-    useTransitBoard.mockReturnValue(board([{ id: '100101', lines: [line] }]))
+    useTransitBoard.mockReturnValue(board([{ id: '100101', name: 'Centrum', code: '01', lines: [line] }]))
     const { unmount } = render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
     expect(screen.queryByTitle('Odjazd z przystanku 01')).not.toBeInTheDocument()
     unmount()
 
-    useTransitBoard.mockReturnValue(board([{ id: '100101', lines: [line] }, { id: '100102', lines: [line] }]))
+    useTransitBoard.mockReturnValue(board([{ id: '100101', name: 'Centrum', code: '01', lines: [line] }, { id: '100102', name: 'Centrum', code: '02', lines: [line] }]))
     render(<TransitStopCard city="warszawa" stopId="1001" stopName="Centrum" />)
-    expect(screen.getByTitle('Odjazd z przystanku 01')).toBeInTheDocument()
+    expect(screen.getByText('Centrum 01')).toBeInTheDocument()
   })
 
 
@@ -142,7 +142,7 @@ describe('TransitStopCard', () => {
   const tram20 = { routeId: '20', line: '20', mode: 'tram', kind: 'regular' }
   const centrum = {
     stopId: '100102', groupId: '1001', name: 'Centrum', modes: ['tram'], departures: [departure],
-    members: [{ id: '100101', lines: [tram20] }, { id: '100102', lines: [tram20] }],
+    members: [{ id: '100101', name: 'Centrum', code: '01', lines: [tram20] }, { id: '100102', name: 'Centrum', code: '02', lines: [tram20] }],
   }
 
   it('a pinned single stop fetches only that stop and is named with its number', () => {
@@ -160,7 +160,7 @@ describe('TransitStopCard', () => {
     render(<TransitStopCard city="warszawa" stopId="100102" stopName="Centrum" />)
     expect(useTransitBoard).toHaveBeenLastCalledWith('warszawa', ['100102'], 3, null)
     expect(screen.getByRole('heading', { name: 'Centrum' })).toBeInTheDocument()
-    expect(screen.getByText('Odjazd z przystanku')).toBeInTheDocument()
+    expect(screen.getByText('Centrum 02')).toBeInTheDocument()
     expect(within(screen.getByRole('heading')).getByRole('link')).toHaveAttribute('href', '/city/warszawa/stop/1001')
   })
 

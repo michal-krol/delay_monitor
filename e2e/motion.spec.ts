@@ -63,6 +63,11 @@ async function stationReady(page: Page): Promise<void> {
   await page.waitForTimeout(500)
 }
 
+/** Jedna widoczna kopia metadanych: MobileHeader na telefonie, TopBar na desktopie. */
+function headerDataSummary(page: Page) {
+  return page.locator('summary:visible').filter({ hasText: /^Dane \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/ })
+}
+
 
 const LINE_TIMETABLE = '/city/warszawa/line/20?pane=timetable'
 
@@ -193,11 +198,16 @@ test.describe('reduced motion', () => {
     expect(await transitions(page)).toEqual([])
   })
 
-  test('the live dot does not pulse', async ({ page }) => {
+  test('header data stays visible and static without a live dot', async ({ page }) => {
     await stationReady(page)
-    const dot = page.getByTestId('live-dot').first()
-    await expect(dot).toBeAttached({ timeout: READY })
-    expect(await dot.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+    const summary = headerDataSummary(page)
+    await expect(summary).toBeVisible({ timeout: READY })
+    expect(await summary.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+    await expect(page.getByTestId('live-dot')).toHaveCount(0)
+    await summary.click()
+    const sources = page.getByRole('region', { name: 'Aktualność źródeł danych' })
+    await expect(sources.getByText('Dane PKP', { exact: true })).toBeVisible()
+    await expect(sources.getByRole('button', { name: 'Odśwież: Dane PKP' })).toBeVisible()
   })
 
   test('phone: reduced motion keeps the page title visible after scrolling', async ({ page }) => {
@@ -214,29 +224,31 @@ test.describe('reduced motion', () => {
 })
 
 test.describe('motion allowed: live feedback', () => {
-  test('the live dot pulses once while the data is fresh', async ({ page }) => {
+  test('fresh data uses an absolute static header timestamp without a pulse', async ({ page }) => {
     await stationReady(page)
-    const dot = page.getByTestId('live-dot').first()
-    await expect(dot).toBeAttached({ timeout: READY })
-    // Nazwa i liczba iteracji to właściwości obliczone, niezależne od tego, czy puls już się skończył.
-    const style = await dot.evaluate((element) => {
-      const computed = getComputedStyle(element)
-      return { name: computed.animationName, iterations: computed.animationIterationCount }
-    })
-    expect(style).toEqual({ name: 'livePulse', iterations: '1' })
+    const summary = headerDataSummary(page)
+    await expect(summary).toBeVisible({ timeout: READY })
+    await expect(summary).not.toContainText(/\d+\s+(?:s|min) temu/)
+    expect(await summary.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+    await expect(page.getByTestId('live-dot')).toHaveCount(0)
   })
 
-  test('reduced motion toggled mid-session removes the live-dot animation', async ({ page }) => {
+  test('motion preference toggled mid-session preserves header data and its open source details', async ({ page }) => {
     await stationReady(page)
-    const dot = page.getByTestId('live-dot').first()
-    await expect(dot).toBeAttached({ timeout: READY })
-    const animationName = () => dot.evaluate((element) => getComputedStyle(element).animationName)
-    expect(await animationName()).toBe('livePulse')
+    const summary = headerDataSummary(page)
+    await expect(summary).toBeVisible({ timeout: READY })
+    await summary.click()
+    const refresh = page.getByRole('region', { name: 'Aktualność źródeł danych' }).getByRole('button', { name: 'Odśwież: Dane PKP' })
+    await expect(refresh).toBeVisible()
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await expect.poll(animationName).toBe('none')
-    // Media query działa na żywo, bez przeładowania: powrót preferencji przywraca puls.
+    await expect(summary).toBeVisible()
+    await expect(refresh).toBeVisible()
+    expect(await summary.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
     await page.emulateMedia({ reducedMotion: 'no-preference' })
-    await expect.poll(animationName).toBe('livePulse')
+    await expect(summary).toBeVisible()
+    await expect(refresh).toBeVisible()
+    expect(await summary.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+    await expect(page.getByTestId('live-dot')).toHaveCount(0)
   })
 
   test('phone: the page title stays visible before and after scrolling', async ({ page }) => {

@@ -84,13 +84,27 @@ test('wybrany pociąg na mapie otwiera szczegóły kursu', async ({ page }) => {
   await expect(page).toHaveURL(/\/connection\/2026\/101\//)
 })
 
-test('przypinanie oferuje tylko miejsca, nawet gdy API zwraca pociągi', async ({ page }) => {
+test('Start wyszukuje pociągi, ale przypinać można miejsca na ich stronach', async ({ page }, info) => {
+  async function fromStart() {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('main').getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' }).click()
+    return isDesktop(info.project.name) ? page.getByRole('dialog', { name: 'Szukaj stacji, przystanku, linii lub pociągu' }) : page.getByRole('main')
+  }
+  const trains = await fromStart()
+  await searchField(trains).fill('4501')
+  await trains.getByRole('region', { name: 'Pociągi' }).getByRole('button', { name: /4501.*BAŁTYK/ }).click()
+  await expect(page).toHaveURL(/\/connection\/2026\/101\//)
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Przypnij do Startu|Odepnij ze Startu/ })).toHaveCount(0)
+
+  const places = await fromStart()
+  await searchField(places).fill('Centralna')
+  await places.getByRole('button', { name: /^Warszawa Centralna/ }).first().click()
+  await expect(page).toHaveURL(/\/station\/33605/)
+  await page.getByRole('button', { name: 'Przypnij do Startu' }).click()
+  await expect(page.getByRole('button', { name: 'Odepnij ze Startu' })).toBeVisible()
   await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  await page.getByRole('button', { name: 'Dodaj', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Przypnij do Startu' })
-  await dialog.getByRole('searchbox').fill('4501')
-  await expect(dialog.getByRole('status')).toContainText('Brak wyników')
-  await expect(dialog.getByRole('region', { name: 'Pociągi' })).toHaveCount(0)
-  await expect(dialog.getByRole('button', { name: /BAŁTYK/ })).toHaveCount(0)
+  const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Warszawa Centralna' }) })
+  await expect(card.getByRole('link', { name: /Wszystkie odjazdy/ })).toHaveAttribute('href', /\/station\/33605/)
 })

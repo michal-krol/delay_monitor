@@ -379,7 +379,7 @@ export function TransitStopDetail({
       : 'Brak kolejnych odjazdów w rozkładzie na dziś i jutro.'
   const timeZone = getCity(city)?.timezone ?? 'Europe/Warsaw'
   const refreshFailed = error !== null && board !== null
-  const fetchStatus = <TransitFetchStatus lastSuccessAt={lastSuccessAt ?? null} refreshFailed={refreshFailed} timeZone={timeZone} onRefresh={refresh} />
+  const fetchStatus = <TransitFetchStatus sourceId={`gtfs-board:${city}:${stopId}`} sourceLabel={`Odjazdy — ${stopName}`} lastSuccessAt={lastSuccessAt ?? null} refreshFailed={refreshFailed} timeZone={timeZone} onRefresh={refresh} />
   const memberChipClass = (on: boolean): string =>
     `card-hover relative rounded-xl border px-3 py-2.5 text-left transition max-sm:min-h-11 max-sm:py-2 ${on ? 'border-primary bg-primary-soft text-primary-text ring-1 ring-primary' : 'border-surface-border'}`
 

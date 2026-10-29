@@ -6,10 +6,16 @@ import { isDesktop, searchField } from './helpers/search'
 const STATION = { id: '33605', name: 'Warszawa Centralna' }
 const boardUrl = `/station/${STATION.id}?name=${encodeURIComponent(STATION.name)}`
 
-test('pulpit: pusty stan z przyciskiem „Dodaj"', async ({ page }) => {
+test('pulpit: pusty stan prowadzi do wyszukiwania bez dodatkowego „Dodaj”', async ({ page }, testInfo) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Start' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Dodaj' })).toBeVisible()
+  await expect(page.getByText(/Nie masz jeszcze zapisanych miejsc/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Dodaj', exact: true })).toHaveCount(0)
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('main').getByRole('button', { name: 'Stacja, przystanek, linia lub pociąg' }).click()
+  const surface = isDesktop(testInfo.project.name) ? page.getByRole('dialog', { name: 'Szukaj stacji, przystanku, linii lub pociągu' }) : page.getByRole('main')
+  if (!isDesktop(testInfo.project.name)) await expect(page).toHaveURL(/\/search(\?|$)/)
+  await expect(searchField(surface)).toBeVisible()
 })
 
 test('tablica stacji: powłoka renderuje się natychmiast, bez czekania na dane', async ({ page }) => {

@@ -28,6 +28,11 @@ const ROW: BoardApiRow = {
 }
 
 describe('TimePair', () => {
+  it('Start explicitly keeps the plan dominant and labels the forecast below', () => {
+    render(<TimePair row={{ ...ROW, predictedAt: '2026-10-02T14:12:00+02:00' }} now={NOW} plannedPrimary />)
+    expect(screen.getByText(formatClockTime(PLANNED))).toHaveClass('time-dominant')
+    expect(screen.getByText(`Przew. ${formatClockTime('2026-10-02T14:12:00+02:00')} · za 30 min`)).toBeInTheDocument()
+  })
   it('plan line carries countdown "Plan 14:48 · za 18 min"', () => {
     const planned = '2026-10-02T14:00:00+02:00'
     render(<TimePair row={{ ...ROW, plannedAt: planned, predictedAt: '2026-10-02T14:00:00+02:00' }} now={NOW} />)

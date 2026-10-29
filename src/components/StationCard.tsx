@@ -40,7 +40,7 @@ export function StationCard({ stationId, stationName, snapshot, error, configErr
 
   // Nagłówek, wiersze i „Wszystkie odjazdy” to osobne, prawdziwe linki — żadnej nakładki na całą kartę (zagnieżdżone cele dotyku).
   return (
-    <article className="glass card-press min-w-0 w-full rounded-2xl border border-surface-border p-5 max-sm:p-4">
+    <article className="glass card-press @container min-w-0 w-full rounded-2xl border border-surface-border p-5 max-sm:p-3">
       <div className="flex items-start gap-3">
         <ModeTile modes={['rail']} />
         <div className="min-w-0 flex-1">

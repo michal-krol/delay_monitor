@@ -17,7 +17,8 @@ import { DelayBadge } from './DelayBadge'
 import { BoardTable } from './BoardTable'
 import { StatTile } from './StatTile'
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/', useRouter: () => ({ push: vi.fn() }) }))
 
 describe('DelayBadge animates only real numbers', () => {
   it('rolls the delay minutes of a delayed train', () => {

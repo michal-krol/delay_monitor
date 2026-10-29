@@ -25,6 +25,7 @@ const useParamsMock = vi.fn<() => { stationId: string }>()
 let searchParamsValue = new URLSearchParams()
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
   notFound: () => notFound(),
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
   useParams: () => useParamsMock(),

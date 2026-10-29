@@ -7,7 +7,8 @@ import { __resetCityContext } from '@/hooks/useCityContext'
 
 const push = vi.fn()
 const replace = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/', useRouter: () => ({ push, replace }) }))
 
 beforeEach(() => {
   push.mockClear()

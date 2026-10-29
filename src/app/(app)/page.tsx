@@ -2,14 +2,14 @@
 
 import { Suspense, useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { pinnedItemFromOption, pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
+import { pinnedKey, usePinned, type PinnedItem } from '@/hooks/usePinned'
 import { Dashboard } from '@/components/Dashboard'
 import { EmptyState } from '@/components/EmptyState'
 import { RecentPlaces } from '@/components/RecentPlaces'
 import { SM_UP, useMediaQuery } from '@/hooks/useMediaQuery'
 import { SearchDialog } from '@/components/SearchDialog'
 import { StartEntry } from '@/components/StartEntry'
-import type { StationOption } from '@/components/StationSearch'
+import { ICON_SIZE, ListIcon } from '@/components/icons'
 import { TopBar } from '@/components/TopBar'
 import { NetworkStatsCard } from '@/components/NetworkStatsCard'
 import { PageShell } from '@/components/aside'
@@ -46,9 +46,9 @@ function SkeletonCards() {
 /** Jedna kopia statystyk: po głównych zadaniach telefonu, od xl w kolumnie kontekstowej. */
 function StartLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:items-start">
+    <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] 2xl:items-start">
       <div className="flex min-w-0 flex-col gap-5">{children}</div>
-      <aside aria-label="Statystyki sieci kolejowej" className="min-w-0 xl:sticky xl:top-7 xl:self-start">
+      <aside aria-label="Statystyki sieci kolejowej" className="min-w-0 2xl:sticky 2xl:top-7 2xl:self-start">
         <NetworkStatsCard />
       </aside>
     </div>
@@ -59,7 +59,7 @@ function StartLayout({ children }: { children: ReactNode }) {
 function PulpitSkeleton() {
   return (
     <PageShell>
-      <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
+      <TopBar title="Start" subtitle={PULPIT_SUBTITLE} compact />
       <StartLayout>
         <div aria-hidden="true" className="flex flex-col gap-3">
           <div className="h-11 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
@@ -77,7 +77,7 @@ function PulpitSkeleton() {
 /** Potwierdzenie akcji na Pulpicie; `undo` = odpięty wpis i jego dawne miejsce („Cofnij"). */
 type Notice = { text: string; undo?: { pinnedItem: PinnedItem; index: number } }
 
-/** Wygląd przycisków Pulpitu („Dodaj", „Edytuj ulubione", „Cofnij") — jak „Udostępnij". */
+/** Kontrolki edycji kolejności i cofania odpięcia. */
 const PULPIT_BUTTON_CLASS =
   'touch-44 relative inline-flex min-h-11 items-center rounded-full border border-surface-border px-3.5 text-sm font-medium text-text-secondary transition hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none dark:hover:bg-white/10'
 
@@ -87,21 +87,19 @@ function PulpitPage() {
   const wide = useMediaQuery(SM_UP, true)
   const mineHeadingId = useId()
   const mineHeadingRef = useRef<HTMLHeadingElement>(null)
-  const { pinnedItems, loaded, addPinned, removePinned, movePinned, replacePinned, isPinned } = usePinned()
-  const [adding, setAdding] = useState(false)
+  const { pinnedItems, loaded, addPinned, removePinned, movePinned, replacePinned } = usePinned()
   const [searching, setSearching] = useState(false)
   const [editing, setEditing] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
   const undoRef = useRef<HTMLButtonElement>(null)
   const editRef = useRef<HTMLButtonElement>(null)
-  const addRef = useRef<HTMLButtonElement>(null)
   // Przyciski Pulpitu stoją w stanie pustym i w wierszu `Dashboard` — przejście między nimi montuje je na nowo,
   // więc fokus ustawiamy dopiero po renderze, na przycisku, który już jest w DOM.
-  const focusAfterRender = useRef<'add' | 'edit' | null>(null)
+  const focusAfterRender = useRef<'edit' | null>(null)
 
   useEffect(() => {
     if (focusAfterRender.current === null) return
-    ;(focusAfterRender.current === 'add' ? addRef : editRef).current?.focus()
+    editRef.current?.focus()
     focusAfterRender.current = null
   })
 
@@ -109,19 +107,6 @@ function PulpitPage() {
   useEffect(() => {
     if (notice?.undo !== undefined) undoRef.current?.focus()
   }, [notice])
-
-  function pin(option: StationOption, city: string | null): void {
-    const pinnedItem = pinnedItemFromOption(option, city)
-    focusAfterRender.current = 'add'
-    if (pinnedItem === null) {
-      setNotice({ text: `Nie udało się przypiąć: ${option.name}` })
-    } else if (isPinned(pinnedKey(pinnedItem))) {
-      setNotice({ text: `${pinnedItem.name} jest już na Starcie` })
-    } else {
-      addPinned(pinnedItem)
-      setNotice({ text: `Przypięto do Startu: ${pinnedItem.name}` })
-    }
-  }
 
   function unpin(key: string): void {
     const index = pinnedItems.findIndex((pinnedItem) => pinnedKey(pinnedItem) === key)
@@ -143,7 +128,7 @@ function PulpitPage() {
   }
 
   // Wejście do szukania (pole na Starcie i „Znajdź miejsce”): telefon przechodzi na `/search` jak zakładka dolnego paska,
-  // od `sm` otwiera okno z UnifiedSearch. Okno jest jedno: „Dodaj” otwiera je w trybie przypinania.
+  // od `sm` otwiera jedno okno UnifiedSearch.
   function openSearch(): void {
     if (wide) setSearching(true)
     else router.push('/search', { transitionTypes: NAV_TAB_TYPES })
@@ -175,20 +160,18 @@ function PulpitPage() {
   // podmienia się tylko treść sekcji, a przejście i statystyki nie montują się od nowa.
   const shell = (mine: ReactNode) => (
     <PageShell>
-      <TopBar title="Start" subtitle={PULPIT_SUBTITLE} />
+      <TopBar title="Start" subtitle={PULPIT_SUBTITLE} compact />
       <StartLayout>
         <StartEntry onSearch={openSearch} />
         {mine}
         {loaded && <RecentPlaces limit={4} onCleared={() => mineHeadingRef.current?.focus()} />}
       </StartLayout>
-      {/* Jedno okno: „Dodaj” przypina (onPick), pole „Stacja, przystanek, linia lub pociąg” otwiera zwykłe szukanie. */}
+      {/* Przypinanie pozostaje na stronie wybranego miejsca; Start ma jedno wejście do szukania. */}
       <SearchDialog
-        open={adding || searching}
+        open={searching}
         onClose={() => {
-          setAdding(false)
           setSearching(false)
         }}
-        onPick={adding ? pin : undefined}
       />
     </PageShell>
   )
@@ -205,16 +188,13 @@ function PulpitPage() {
   // pokazywać startu, który zaraz zniknie.
   if (focusedStationId !== null) return null
 
-  // „Dodaj” przypina (okno w trybie przypinania). Jedna grupa: na telefonie oba przyciski schodzą razem pod nagłówek sekcji, nie pojedynczo.
+  // Jedna kontrolka edycji, także po odpięciu ostatniego miejsca.
   const actions = (
     <div className="flex flex-wrap gap-2">
       {/* Bez czyszczenia komunikatu: „Cofnij” z edycji przetrwa otwarcie i zamknięcie okna bez wyboru. */}
-      <button ref={addRef} type="button" onClick={() => setAdding(true)} className={PULPIT_BUTTON_CLASS}>
-        Dodaj
-      </button>
       {(editing || pinnedItems.length > 0) && (
-        <button ref={editRef} type="button" onClick={toggleEditing} className={PULPIT_BUTTON_CLASS}>
-          {editing ? 'Gotowe' : 'Edytuj ulubione'}
+        <button ref={editRef} type="button" onClick={toggleEditing} aria-label={editing ? undefined : 'Edytuj kolejność miejsc'} className={PULPIT_BUTTON_CLASS}>
+          {editing ? 'Gotowe' : <ListIcon size={ICON_SIZE.button} />}
         </button>
       )}
     </div>

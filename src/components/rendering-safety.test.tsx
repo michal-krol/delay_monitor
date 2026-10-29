@@ -12,6 +12,7 @@ import { jsonResponse } from '@/test-utils/http'
 // FullBoard nawiguje do szczegółów połączenia przez `useRouter()` (Task 3.1) —
 // bez mocka renderowanie poza App Routerem rzuca "expected app router to be mounted".
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
   useRouter: () => ({ push: vi.fn() }),
 }))
 

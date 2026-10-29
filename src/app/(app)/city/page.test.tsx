@@ -5,7 +5,8 @@ import MiastoIndex from './page'
 import { __resetCityContext } from '@/hooks/useCityContext'
 
 const replace = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }))
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/', useRouter: () => ({ replace }) }))
 
 beforeEach(() => {
   replace.mockClear()

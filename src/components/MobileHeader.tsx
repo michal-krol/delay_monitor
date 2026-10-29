@@ -9,6 +9,8 @@ import { useHeaderWeatherContext, usePageHeaderContext } from './pageHeader'
 import { PageMoreMenu } from './PageMoreMenu'
 import { WeatherChip } from './WeatherChip'
 import { NAV_BACK_TYPES } from '@/lib/navTransition'
+import { HeaderData } from './HeaderData'
+import { HeaderMapShortcut } from './HeaderMapShortcut'
 
 /**
  * Nagłówek telefonu (poniżej `sm`): powrót, tytuł, pogoda i opcje strony. Nawigacja i jedyna akcja „Szukaj" są w dolnym
@@ -63,9 +65,12 @@ export function MobileHeader() {
         </span>
       </Link>}
       <div className="ml-auto flex shrink-0 items-center gap-1">
+        <HeaderMapShortcut />
         <WeatherChip weather={weather?.weather ?? { status: 'unavailable' }} locationName={weather?.name ?? ''} />
         <PageMoreMenu share={page?.share} />
       </div>
+      {/* Stały rząd zapobiega skokowi nagłówka, gdy poprzednia strona zwalnia źródła, a następna je dopiero wczytuje. */}
+      <div data-testid="header-data-row" className="flex min-h-11 w-full justify-end"><HeaderData /></div>
     </header>
   )
 }

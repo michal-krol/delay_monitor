@@ -11,6 +11,8 @@ import { InfoSheet } from './InfoSheet'
 import { WEATHER_ICONS, WeatherCard } from './StationAside'
 import { useHeaderWeather } from './pageHeader'
 
+const UNAVAILABLE_WEATHER: UseStationWeatherResult = { status: 'unavailable' }
+
 /**
  * Pogoda miasta jako chip (ikona + temperatura) w pasku ekranu miasta; dotknięcie otwiera
  * szczegóły (`WeatherCard`): na telefonie arkusz, od `sm` dymek (`useDropdown`). Zastępuje kartę
@@ -34,7 +36,7 @@ function useCityWeather(city: string): { weather: UseStationWeatherResult; cityN
   // w `loading` na zawsze, bo hook nie odpytuje przy pustym `stationId`),
   // pokazujemy istniejący stan „brak lokalizacji" karty pogody.
   const noLocation = citiesState === 'failed' || (citiesState === 'ready' && stationId === '')
-  return { weather: noLocation ? { status: 'unavailable' } : fetchedWeather, cityName: entry?.name ?? city }
+  return { weather: noLocation ? UNAVAILABLE_WEATHER : fetchedWeather, cityName: entry?.name ?? city }
 }
 
 const STATE_NAME: Record<Exclude<UseStationWeatherResult['status'], 'ready'>, string> = {

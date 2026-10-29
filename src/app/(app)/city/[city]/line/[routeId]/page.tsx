@@ -338,7 +338,7 @@ function LineDetailView({ city, routeId }: { city: string; routeId: string }) {
 
           <div>
             {data !== null && <ScheduleStatus schedule={data.schedule} cityName={cityName} title={`Rozkład jazdy linii ${line.line}`} error={failed} />}
-            <TransitFetchStatus lastSuccessAt={lastSuccessAt} refreshFailed={failed && data !== null} timeZone={timeZone} onRefresh={refresh} />
+            <TransitFetchStatus sourceId={`gtfs-line:${city}:${routeId}`} sourceLabel={`Linia ${line.line} — pobrano`} lastSuccessAt={lastSuccessAt} refreshFailed={failed && data !== null} timeZone={timeZone} onRefresh={refresh} />
           </div>
         </div>
       )}

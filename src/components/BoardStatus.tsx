@@ -3,6 +3,7 @@ import { effectiveAgeMs, formatAge, formatAgo } from '@/lib/format'
 import { useNow } from '@/hooks/useNow'
 import { LiveDot } from './LiveDot'
 import { formatDataTimestamp } from '@/lib/dataTimestamp'
+import { HeaderDataRegistration, useHeaderData, type HeaderDataSource } from './pageHeader'
 
 type Props = {
   fetchedAt: string | undefined
@@ -16,6 +17,8 @@ type Props = {
    * snapshot pollera — zero zapytań do PKP, AGENTS.md #3).
    */
   onRefresh?: () => void
+  headerData?: boolean | 'warnings'
+  sources?: (HeaderDataSource & { ageMs?: number })[]
 }
 
 /**
@@ -44,6 +47,15 @@ function budgetHint(data: BoardApiResponse | null): string | undefined {
   return `Pozostało ${daily} zapytań do API na dobę`
 }
 
+export function boardWarning(data: BoardApiResponse | null, ageMs?: number): string | undefined {
+  const degradation = data?.status !== 'degraded' ? undefined : data.realizationStale
+    ? 'PKP nie podaje dziś danych o ruchu — godziny wg rozkładu, możliwe niewidoczne odwołania'
+    : data.realizationIncomplete
+      ? 'Duży ruch — część pociągów może być pokazana jako „jeszcze nie wyjechał”, mimo że jadą'
+      : 'API nie odpowiada — pokazujemy ostatnie znane dane'
+  return [ageMs !== undefined && ageMs >= STALE_AFTER_MS ? 'Dane mogą być nieaktualne' : undefined, degradation, data?.throttled ? 'odświeżanie ograniczone' : undefined].filter(Boolean).join(' · ') || undefined
+}
+
 /**
  * Linijka statusu nad tablicą i nad dashboardem.
  *
@@ -60,9 +72,20 @@ const REFRESH_HINT = <span className="max-sm:hidden">Dane odświeżają się aut
 /** Wiek podajemy z dokładnością do minuty, więc tykanie co 30 s wystarcza. */
 const AGE_TICK_MS = 30_000
 
-export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, data, error, onRefresh }: Props) {
+export function BoardStatus(props: Props) {
+  const { fetchedAt, ageMs: responseAgeMs, lastSuccessAt, data, error, onRefresh, headerData = false, sources } = props
   const now = useNow(AGE_TICK_MS)
   const ageMs = effectiveAgeMs(responseAgeMs, lastSuccessAt, now)
+  const warning = boardWarning(data, ageMs)
+  useHeaderData(headerData === true ? { id: `pkp:${data?.snapshots.map((snapshot) => snapshot?.stationId ?? '').join(',') ?? 'board'}`, label: 'Dane PKP', updatedAt: fetchedAt ?? null, error, warning, refresh: onRefresh } : null)
+  return <>
+    {sources?.map((source) => <HeaderDataRegistration key={source.id} source={{ ...source, warning: boardWarning(data, effectiveAgeMs(source.ageMs, lastSuccessAt, now)) }} />)}
+    <BoardStatusContent {...props} effectiveAge={ageMs} />
+  </>
+}
+
+function BoardStatusContent({ fetchedAt, data, error, onRefresh, headerData = false, effectiveAge: ageMs }: Props & { effectiveAge?: number }) {
+  const warning = boardWarning(data, ageMs)
   // Baner błędu zastępuje CAŁĄ linijkę statusu tylko, gdy nie ma jeszcze
   // żadnego znanego snapshotu do pokazania -- inaczej ukrywałby wiek danych,
   // które w tle nadal są widoczne w tabeli (patrz AGENTS.md #7: awaria ma być
@@ -74,26 +97,27 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
       return (
         <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
           <span className="text-error-text">Nie udało się pobrać danych</span>
-          {REFRESH_HINT}
+          {!headerData && REFRESH_HINT}
         </p>
       )
     }
     return (
       <p aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
         <span>Wczytywanie…</span>
-        {REFRESH_HINT}
+        {!headerData && REFRESH_HINT}
       </p>
     )
   }
 
   const isStale = ageMs !== undefined && ageMs >= STALE_AFTER_MS
   const hint = budgetHint(data)
+  if (headerData && !error && !isStale && warning === undefined) return null
 
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
       {/* Puls tylko, gdy dane są świeże i ostatnie odświeżenie się udało — inaczej udawałby żywość (#7). */}
-      {!error && !isStale && <LiveDot />}
-      {onRefresh !== undefined && ageMs !== undefined ? (
+      {!headerData && !error && !isStale && <LiveDot />}
+      {!headerData && (onRefresh !== undefined && ageMs !== undefined ? (
         <button
           type="button"
           onClick={onRefresh}
@@ -111,8 +135,8 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
         </button>
       ) : (
         <span>Ostatnia aktualizacja: {formatLastUpdated(fetchedAt)}</span>
-      )}
-      {REFRESH_HINT}
+      ))}
+      {!headerData && REFRESH_HINT}
 
       {/* `display: contents` -- węzeł istnieje dla `aria-live`, ale nie wchodzi
           we flex-wrap rodzica (chipy układają się tak samo jak wcześniej). */}
@@ -120,7 +144,7 @@ export function BoardStatus({ fetchedAt, ageMs: responseAgeMs, lastSuccessAt, da
         {/* Ostrzeżenie, nie błąd: ostatni dobry snapshot wciąż jest na ekranie (#7), jak w `ScheduleStatus`. */}
         {error && <span className="text-warning-text">Nie udało się odświeżyć</span>}
 
-        {isStale && <span className="text-warning-text">dane sprzed {formatAge(ageMs)}</span>}
+        {isStale && <span className="text-warning-text">{headerData ? `Dane mogą być nieaktualne · aktualizacja ${formatDataTimestamp(fetchedAt)}` : `dane sprzed ${formatAge(ageMs)}`}</span>}
 
         {data?.status === 'degraded' &&
           (data.realizationStale === true ? (

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { PageHeaderProvider } from '@/components/pageHeader'
+const render = (ui: React.ReactNode) => baseRender(ui, { wrapper: ({ children }) => <PageHeaderProvider>{children}</PageHeaderProvider> })
+import { act, render as baseRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LineDetailPage from './page'
@@ -346,7 +348,7 @@ describe('LineDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'Linia 20' })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /^Pogoda:/ })).toBeInTheDocument()
     expect(screen.getByText(/Rozkład jazdy linii 20/)).toBeInTheDocument()
-    expect(screen.getByText(/Aktualizacja:/)).toBeInTheDocument()
+    expect(screen.getByText(/^Dane \d/)).toBeInTheDocument()
   })
 
   it('lists live vehicles in service in the aside, without a delay', async () => {
@@ -883,10 +885,10 @@ describe('LineDetailPage — long names, empty and unknown data', () => {
       render(<LineDetailPage />)
       await act(() => vi.advanceTimersByTimeAsync(0))
       expect(screen.getByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /^Pobrano/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Odśwież: Linia 20 — pobrano' })).toBeInTheDocument()
       await act(() => vi.advanceTimersByTimeAsync(5 * 60_000 + 100))
       expect(screen.getByRole('heading', { name: 'Piaski – Międzylesie' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /^Nie udało się odświeżyć · dane z/ })).toBeInTheDocument()
+      expect(screen.getAllByRole('status').some((node) => node.textContent?.includes('Nie udało się odświeżyć'))).toBe(true)
       expect(screen.queryByText('Nie udało się pobrać przebiegu linii.')).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()

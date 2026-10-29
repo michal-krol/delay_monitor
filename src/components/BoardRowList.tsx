@@ -23,7 +23,7 @@ function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
     // Powiększony tekst układa dane pionowo; status dostaje kolumnę dopiero w szerokiej karcie.
     <span className="grid grid-cols-1 @min-[16rem]:grid-cols-[auto_minmax(0,1fr)] @min-[30rem]:grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3">
       <span className="@min-[30rem]:row-span-2">
-        <TimePair row={row} now={now} compact />
+        <TimePair row={row} now={now} compact plannedPrimary />
       </span>
       <span className="min-w-0 [overflow-wrap:anywhere] font-medium text-foreground">{row.headsign ?? '—'}</span>
       <span className="min-w-0 @min-[16rem]:col-span-2 @min-[30rem]:col-span-1 @min-[30rem]:text-right">
@@ -54,7 +54,7 @@ function RowBody({ row, now }: { row: BoardApiRow; now: number }) {
 export function BoardRowList({ rows, now, loading, showEmpty, emptyMessage }: Props) {
   const listRef = useRowAnimation<HTMLUListElement>()
   return (
-    <ul ref={listRef} className="@container mt-3 divide-y divide-surface-border">
+    <ul ref={listRef} className="mt-3 grid divide-y divide-surface-border @min-[48rem]:grid-cols-3 @min-[48rem]:divide-x @min-[48rem]:divide-y-0 @min-[48rem]:gap-4">
       {loading && (
         <>
           <li className="sr-only">Wczytywanie…</li>
@@ -65,7 +65,7 @@ export function BoardRowList({ rows, now, loading, showEmpty, emptyMessage }: Pr
       )}
       {showEmpty && <li className="py-2 text-sm text-text-muted">{emptyMessage}</li>}
       {rows.map((row) => (
-        <li key={`${row.trainNumber}-${row.plannedAt}`} className="text-sm">
+        <li key={`${row.trainNumber}-${row.plannedAt}`} className="@container min-w-0 text-sm">
           {/* Bez daty kursowania `/api/train` odrzuci zapytanie — wiersz zostaje tekstem (jak na tablicy). */}
           {row.operatingDate !== '' ? (
             <Link

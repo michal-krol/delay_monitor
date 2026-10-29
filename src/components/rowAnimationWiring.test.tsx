@@ -11,7 +11,8 @@ vi.mock('@/hooks/useRowAnimation', () => ({
     if (element !== null) attached.push(element.tagName)
   },
 }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/', useRouter: () => ({ push: vi.fn() }) }))
 
 import { BoardRowList } from './BoardRowList'
 import { BoardTable } from './BoardTable'

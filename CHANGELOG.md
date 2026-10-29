@@ -6,6 +6,14 @@ wersje 0.9.x powstały przed przyjęciem tej zasady.
 
 ## [Niewydane]
 
+### Zmienione
+
+- Start pokazuje zwarte tablice zapisanych miejsc z trzema odjazdami. Wyszukiwanie i ikona
+  lokalizacji zajmują jeden rząd; przypinanie pozostaje na ekranie miejsca, a kolejność zmienia
+  przycisk z ikoną. Na podglądzie kolejowym główna godzina pochodzi z planu, prognoza jest dodatkowa.
+- Wspólny nagłówek zachowuje pogodę i skrót mapy. Informacje o aktualizacji rozróżniają źródła
+  i pokazują bezwzględne daty z możliwością odświeżenia, bez licznika upływającego czasu.
+
 ### Dodane
 
 - Przy odjazdach przystanku, szczegółach kursu i pojazdach w statystykach linii pojawia się
