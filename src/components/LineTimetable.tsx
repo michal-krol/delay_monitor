@@ -4,6 +4,7 @@ import { startTransition, useId, useState } from 'react'
 import {
   activeTimetableDay,
   buildTimetableColumns,
+  DAY_SHORT_LABEL,
   dayOffsetLabel,
   dayOffsetOf,
   groupByHour,
@@ -63,8 +64,8 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect, da
       {offsetSec !== null && (
         <div role="group" aria-label="Kategoria dnia" className="mb-3 flex flex-wrap gap-2 lg:hidden">
           {columns.map((c) => (
-            <button key={c.day} type="button" aria-pressed={c.day === activeDay} onClick={() => changeDay(c.day)} className="chip-filter">
-              {c.label}
+            <button key={c.day} type="button" aria-label={c.label} aria-pressed={c.day === activeDay} onClick={() => changeDay(c.day)} className="chip-filter">
+              {DAY_SHORT_LABEL[c.day]}
             </button>
           ))}
         </div>
@@ -83,8 +84,8 @@ export function LineTimetable({ blocks, offsetSec, selectedBaseSec, onSelect, da
               const rows = groupByHour(c.times, offsetSec)
               return (
                 <div key={c.day} role="group" aria-labelledby={headingId} className={`min-w-0 ${active ? '' : 'max-lg:hidden'}`}>
-                  <h3 id={headingId} className="mb-1 border-b border-surface-border pb-1.5 text-xs font-semibold text-text-secondary max-lg:sr-only">
-                    {c.label}
+                  <h3 id={headingId} aria-label={c.label} className="mb-1 border-b border-surface-border pb-1.5 text-xs font-semibold text-text-secondary max-lg:sr-only">
+                    {DAY_SHORT_LABEL[c.day]}
                   </h3>
                   {c.fridayDiffers && (
                     <p className="mb-1 text-[13px] text-text-secondary">Piątek ma osobny rozkład — pokazano godziny pn–czw i piątku.</p>

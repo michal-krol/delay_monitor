@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test'
-import { showLineTimetable } from './helpers/info'
 import { scanA11y } from './helpers/axe'
 
 // Mock „Centrum" (zespół 1001) = 4 przystanki z RÓŻNYMI liniami: 100101→20,
@@ -78,9 +77,7 @@ test('przystanek metra z dwukropkiem w ID: link z linii prowadzi do tablicy, nie
   // co łapie prawdziwy routing). Musi zadziałać przez klik ORAZ po twardym
   // przeładowaniu tego samego URL-a (`decodeStopIdFromPathSegment`).
   await page.goto('/city/warszawa/line/M1')
-  await showLineTimetable(page)
-  // `exact`: każdy wiersz trasy ma własny link „Odjazdy z przystanku {nazwa}”; tu chodzi o link z sekcji rozkładu.
-  const link = page.getByRole('link', { name: 'Odjazdy z przystanku', exact: true })
+  const link = page.getByRole('link', { name: 'Odjazdy z przystanku Świętokrzyska P1', exact: true })
   await expect(link).toBeVisible({ timeout: READY })
 
   await link.click()

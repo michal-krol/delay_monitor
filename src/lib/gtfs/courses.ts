@@ -63,7 +63,9 @@ export function courseDetail(schedule: GtfsSchedule, routeId: string, tripId: st
   return { tripId, serviceDate: date, directionId: template.directionId, headsign: template.headsignIdx < 0 ? null : schedule.headsigns[template.headsignIdx], departureSec: template.departureSec, stops, shape: shape === undefined ? null : shapeToPoints(shape) }
 }
 
-/** Earliest available date at/after today's board date; include category-only dates outside the board window. */
+const addServiceDays = (date: string, days: number): string => new Date(Date.parse(`${date}T12:00:00Z`) + days * 86400_000).toISOString().slice(0, 10)
+
+/** Earliest available date at/after today's board date, applying service exceptions. */
 function firstServiceDate(schedule: GtfsSchedule, serviceId: string): string | null {
   const from = schedule.serviceDates[1].replaceAll('-', '')
   const candidates = schedule.courseCalendarDates.filter((d) => d.serviceId === serviceId && d.added && d.date >= from).map((d) => d.date)
@@ -74,7 +76,7 @@ function firstServiceDate(schedule: GtfsSchedule, serviceId: string): string | n
     let date = `${start.slice(0, 4)}-${start.slice(4, 6)}-${start.slice(6, 8)}`
     for (let i = 0; i < 370 && date.replaceAll('-', '') <= calendar.endDate; i += 1) {
       if (activeServices(date, [calendar], schedule.courseCalendarDates).has(serviceId)) { candidates.push(date.replaceAll('-', '')); break }
-      date = new Date(Date.parse(`${date}T12:00:00Z`) + 86400_000).toISOString().slice(0, 10)
+      date = addServiceDays(date, 1)
     }
   }
   const candidate = candidates.sort()[0]
@@ -87,17 +89,52 @@ export function stopTimetable(schedule: GtfsSchedule, routeId: string, direction
   const stopIdx = schedule.stopIndexById.get(stopId)
   if (stopIdx === undefined) return []
   const dates = new Map<string, string | null>()
-  const rows: StopTimetableEntry[] = []
-  for (const tripId of schedule.courseTripsByRoute.get(routeIdx) ?? []) {
+  const trips = (schedule.courseTripsByRoute.get(routeIdx) ?? []).filter((tripId) => {
     const template = schedule.courseTemplates.get(tripId)!
-    if (template.directionId !== directionId) continue
-    if (!dates.has(template.serviceId)) dates.set(template.serviceId, firstServiceDate(schedule, template.serviceId))
-    const serviceDate = dates.get(template.serviceId)
-    if (serviceDate == null) continue
+    return template.directionId === directionId && template.pattern.stops.includes(stopIdx)
+  })
+  for (const tripId of trips) {
+    const { serviceId } = schedule.courseTemplates.get(tripId)!
+    if (!dates.has(serviceId)) dates.set(serviceId, firstServiceDate(schedule, serviceId))
+  }
+  const earliest = [...dates.values()].filter((date): date is string => date !== null).sort()[0]
+  if (earliest === undefined) return []
+  // One shared seven-day planning horizon, not an inferred feed publication version.
+  const today = schedule.serviceDates[1]
+  const anchor = earliest <= addServiceDays(today, 6) ? today : earliest
+  const end = addServiceDays(anchor, 6)
+  const categoryDates = new Map<number, string>()
+  for (const tripId of trips) {
+    const template = schedule.courseTemplates.get(tripId)!
+    const date = dates.get(template.serviceId)
+    const previous = categoryDates.get(template.category)
+    if (date != null && date <= end && (previous === undefined || date < previous)) categoryDates.set(template.category, date)
+  }
+  const activeByDate = new Map([...new Set(categoryDates.values())].map((date) => [date, activeServices(date, schedule.courseCalendars, schedule.courseCalendarDates)]))
+  const rows: StopTimetableEntry[] = []
+  for (const tripId of trips) {
+    const template = schedule.courseTemplates.get(tripId)!
+    const serviceDate = categoryDates.get(template.category)
+    if (serviceDate === undefined || !activeByDate.get(serviceDate)!.has(template.serviceId)) continue
     let occurrence = 0
     template.pattern.stops.forEach((idx, order) => {
       if (idx === stopIdx) rows.push({ tripId, serviceDate, sequence: template.pattern.sequences[order], occurrence: occurrence++, departureSec: template.departureSec + template.pattern.offsets[order], category: SERVICE_CATEGORIES[template.category] ?? 'other' })
     })
   }
-  return rows.sort((a, b) => a.departureSec - b.departureSec || a.tripId.localeCompare(b.tripId))
+  // A shared minute is insufficient: only equal complete daily profiles can share
+  // the weekday presentation. Keep multiplicity and all actual concurrent trips.
+  const weekdays = rows.filter((row) => row.category === 'weekday')
+  const fridays = rows.filter((row) => row.category === 'friday')
+  const patterns = new Map<CoursePattern, number>()
+  const profile = (entries: StopTimetableEntry[]) => entries.map((row) => {
+    const template = schedule.courseTemplates.get(row.tripId)!
+    if (!patterns.has(template.pattern)) patterns.set(template.pattern, patterns.size)
+    return `${patterns.get(template.pattern)}:${template.headsignIdx}:${row.departureSec}:${row.sequence}:${row.occurrence}`
+  }).sort().join('|')
+  const sameWeekdayProfile = weekdays.length > 0 && fridays.length > 0 && weekdays[0].serviceDate !== fridays[0].serviceDate && profile(weekdays) === profile(fridays)
+  const redundantCategory = sameWeekdayProfile && fridays[0].serviceDate < weekdays[0].serviceDate ? 'weekday' : 'friday'
+  return rows
+    .filter((row) => !sameWeekdayProfile || row.category !== redundantCategory)
+    .map((row) => sameWeekdayProfile && row.category === 'friday' ? { ...row, category: 'weekday' as const } : row)
+    .sort((a, b) => a.departureSec - b.departureSec || a.tripId.localeCompare(b.tripId))
 }

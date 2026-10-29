@@ -16,6 +16,17 @@ vi.mock('@/hooks/usePolling', () => ({ usePolling: () => ({ ...state, refresh: v
 const props = { city: 'warszawa', routeId: '20', directionId: 0, stopId: '100101', occurrence: 1, day: 'weekday' as const, onDayChange: vi.fn() }
 
 describe('ConcreteTimetable', () => {
+  it('uses compact day labels with full accessible names and one plain stop heading', () => {
+    readyTimetable()
+    state.data = { ...(state.data as object), timetableStop: { stopId: '100101', groupId: '1001', name: 'Centrum', code: '01', headsigns: ['B'] } }
+    render(<ConcreteTimetable {...props} />)
+    expect(screen.getByRole('button', { name: 'Poniedziałek – Piątek' })).toHaveTextContent('Pon–Pt')
+    expect(screen.getByRole('button', { name: 'Sobota' })).toHaveTextContent('Sb')
+    expect(screen.getByRole('button', { name: 'Niedziela i święta' })).toHaveTextContent('Nd')
+    expect(screen.getByRole('heading', { name: 'Rozkład: Centrum 01' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Wybrany rozkład' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Odjazdy z przystanku' })).not.toBeInTheDocument()
+  })
   afterEach(() => vi.unstubAllGlobals())
 
   function stubWidth(wide: boolean) {

@@ -10,7 +10,7 @@ import { courseHref } from '@/lib/courseView'
 import type { LineDay } from '@/lib/lineViewState'
 import { formatSecondsOfDay } from '@/lib/format'
 import { stopDisplayName } from './stopName'
-import { encodeStopIdForPathSegment } from '@/lib/validation'
+import { DAY_SHORT_LABEL } from '@/lib/lineTimetable'
 import { TabCrossfade } from './TabCrossfade'
 
 const DAYS: { day: LineDay; label: string }[] = [{ day: 'weekday', label: 'Poniedziałek – Piątek' }, { day: 'saturday', label: 'Sobota' }, { day: 'sunday', label: 'Niedziela i święta' }, { day: 'other', label: 'Inne dni' }]
@@ -35,18 +35,15 @@ export function ConcreteTimetable({ city, routeId, directionId, stopId, occurren
   const days = DAYS.filter((d) => d.day !== 'other' || entries.some((e) => e.category === 'other'))
   const activeDay = days.some((d) => d.day === day) ? day : 'weekday'
   return <div className="mt-3">
-    {data.timetableStop != null && <>
-      <div role="group" aria-label="Wybrany rozkład" className="mb-2 rounded-xl border border-surface-border bg-surface-strong px-3 py-2 text-sm font-semibold text-foreground [overflow-wrap:anywhere]">{stopDisplayName(data.timetableStop.name, data.timetableStop.code)}{data.timetableStop.headsigns?.length ? <span className="mt-1 block text-[13px] font-medium text-text-secondary">kierunek {data.timetableStop.headsigns.join(' · ')}</span> : null}</div>
-      <Link href={`/city/${city}/stop/${encodeStopIdForPathSegment(stopId)}?przystanek=${encodeURIComponent(stopId)}`} className="chip-filter mb-3">Odjazdy z przystanku</Link>
-    </>}
+    {data.timetableStop != null && <h2 className="mb-3 text-sm font-semibold text-foreground [overflow-wrap:anywhere]">Rozkład: {stopDisplayName(data.timetableStop.name, data.timetableStop.code)}</h2>}
     {error !== null && <p role="status" className="mb-2 text-[13px] text-warning-text">Nie udało się odświeżyć — pokazano ostatni rozkład.</p>}
-    <div role="group" aria-label="Kategoria dnia" className="mb-3 flex flex-wrap gap-2 lg:hidden">{days.map((d) => <button key={d.day} type="button" aria-pressed={activeDay === d.day} onClick={() => changeDay(d.day)} className="chip-filter">{d.label}</button>)}</div>
+    <div role="group" aria-label="Kategoria dnia" className="mb-3 flex flex-wrap gap-2 lg:hidden">{days.map((d) => <button key={d.day} type="button" aria-label={d.label} aria-pressed={activeDay === d.day} onClick={() => changeDay(d.day)} className="chip-filter">{DAY_SHORT_LABEL[d.day]}</button>)}</div>
     <TabCrossfade id={String(fadeKey)} name="line-day">
     <div className="grid gap-4 lg:grid-cols-3">{days.map((d) => {
       const rows = entries.filter((e) => e.category === d.day || d.day === 'weekday' && e.category === 'friday')
       const hours = [...new Set(rows.map((r) => Math.floor(r.departureSec / 3600)))]
       return <div key={d.day} role="group" aria-label={d.label} className={`min-w-0 ${d.day === activeDay ? '' : 'max-lg:hidden'}`}>
-        <h3 className="mb-2 text-[13px] font-semibold text-text-secondary">{d.label}</h3>
+        <h3 aria-label={d.label} className="mb-2 text-[13px] font-semibold text-text-secondary">{DAY_SHORT_LABEL[d.day]}</h3>
         {d.day === 'weekday' && rows.some((r) => r.category === 'friday') && <p className="mb-2 text-[13px] text-text-secondary">„pt.” — osobny rozkład piątkowy; pozostałe minuty pokazują rozkład poniedziałek – czwartek.</p>}
         {rows.length === 0 ? <p className="text-sm text-text-secondary">Brak kursów w tej kategorii dnia.</p> : <ul>{hours.map((hour) => <li key={hour} className="flex items-start gap-2 border-b border-surface-border py-1">
           <span className="w-12 shrink-0 pt-3 text-right font-bold tabular-nums text-foreground">{String(hour % 24).padStart(2, '0')}{hour >= 24 && <span className="block text-[13px] font-medium">+{Math.floor(hour / 24)} dzień</span>}</span>

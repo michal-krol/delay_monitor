@@ -262,7 +262,7 @@ test('mapa transportu: renderuje kafelki, pasek wyszukiwania, filtry i legendę'
   const map = await openMap(page)
   await expectTilesRendered(map)
   await expect(mapSearch(page)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Z utrudnieniami' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Z utrudnieniami', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Przybliż' })).toBeVisible()
   // Telefon: kompaktowa legenda rodzajów w arkuszu przeglądu; od `sm` pełna, zwijana legenda przy mapie.
   if (isPhone(page)) await expect(page.getByRole('list', { name: 'Legenda rodzajów' })).toBeVisible()
@@ -320,7 +320,7 @@ test.describe('niski telefon (375×667)', () => {
 test.describe('niski desktop (800×600)', () => {
   test.use({ viewport: { width: 800, height: 600 } })
 
-  test('mapa transportu: rozwinięta legenda nie zasłania przybliżania, „Pokaż całe miasto” ani „Moja lokalizacja”', async ({ page }) => {
+  test('mapa transportu: rozwinięta legenda nie zasłania przybliżania ani „Moja lokalizacja”', async ({ page }) => {
     await expectExpandedLegendFits(page)
   })
 })
@@ -332,10 +332,10 @@ test.describe('mapa transportu: nic nie zakrywa przycisków i czipów pod polem 
     test.skip(testInfo.project.name !== 'desktop-chromium', 'pomiar przy setViewportSize na desktop-chromium; mobile ma własny viewport')
   })
 
-  test('375×812: dolny środek „Lista", „Filtry" i czipów trafia w nie same, nie w arkusz', async ({ page }) => {
+  test('375×812: dolny środek wyszukiwania i utrudnień trafia w kontrolki, nie w arkusz', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await openMap(page)
-    for (const button of [page.getByRole('button', { name: 'Szukaj', exact: true }), page.getByRole('button', { name: 'Z utrudnieniami' })]) {
+    for (const button of [page.locator('[data-map-search-trigger]'), page.getByRole('button', { name: 'Z utrudnieniami', exact: true })]) {
       const box = (await button.boundingBox())!
       // 1 px nad krawędzią: sam brzeg (`y + height`) należy już do elementu pod spodem.
       const hit = await button.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [box.x + box.width / 2, box.y + box.height - 1])
@@ -423,7 +423,7 @@ test('mapa transportu: awaria pozycji pojazdów to komunikat, a mapa kolei i prz
   await expectTilesRendered(map)
 })
 
-test('mapa transportu: „Lista" pokazuje obiekty w kadrze, „Co jest w pobliżu?" działa z klawiatury', async ({ page }) => {
+test('mapa transportu: przegląd pokazuje obiekty w kadrze, „Co jest w pobliżu?" działa z klawiatury', async ({ page }) => {
   await openMap(page, `${CITY_MAP}?at=52.23000,21.00800,15.0`)
   await openVisibleList(page)
   // Telefon: „Lista" rozwija arkusz przeglądu do `half`; od `sm` otwiera okno „W widoku" obok mapy.
@@ -498,7 +498,7 @@ test.describe('mapa transportu: szerokość pola wyszukiwania', () => {
   test('1280 px: pole rozwija się pod przyciskami', async ({ page }) => {
     await openMap(page)
     const top = async (locator: Locator) => (await locator.boundingBox())!.y
-    const row = await top(page.getByRole('button', { name: 'Szukaj', exact: true }))
+    const row = await top(page.locator('[data-map-search-trigger]'))
     expect(await top(mapSearch(page))).toBeGreaterThan(row)
   })
 })
@@ -724,13 +724,16 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
   // się też długim przyciśnięciem mapy — na obciążonej maszynie robi to nawet wolny gest z testu poniżej.
   test('dotyk: arkusz „W pobliżu” (krótka treść) da się przeciągnąć', async ({ page, browserName }) => {
     test.skip(browserName !== 'chromium', 'dotyk przez CDP tylko w Chromium')
-    const map = await openMap(page)
+    await openMap(page)
     const card = await openStopCard(page, 'Centrum')
     await card.getByRole('button', { name: 'Co jest w pobliżu?' }).click()
     await expect(page.getByRole('dialog', { name: 'W pobliżu' })).toBeVisible()
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
-    const box = (await map.boundingBox())!
-    await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
+    const body = sheet(page).locator('[data-sheet-scroll]')
+    const box = (await body.boundingBox())!
+    const start = { x: box.x + box.width / 2, y: box.y + 16 }
+    expect(await body.evaluate((element, point) => element.contains(document.elementFromPoint(point.x, point.y)), start), 'gest zaczyna się w treści okolicy').toBe(true)
+    await touchDrag(page, start, 0, -250)
     await expect(sheet(page)).not.toHaveAttribute('data-snap', 'peek', { timeout: READY })
   })
 
@@ -747,7 +750,11 @@ test.describe('mapa transportu: arkusz na telefonie', () => {
     await expect.poll(() => new URL(page.url()).searchParams.get('at')).not.toBe(at)
     await expect(sheet(page)).toHaveAttribute('data-snap', 'peek')
 
-    await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.9 }, 0, -250)
+    const body = sheet(page).locator('[data-sheet-scroll]')
+    const bodyBox = (await body.boundingBox())!
+    const start = { x: bodyBox.x + bodyBox.width / 2, y: bodyBox.y + 16 }
+    expect(await body.evaluate((element, point) => element.contains(document.elementFromPoint(point.x, point.y)), start), 'gest zaczyna się w treści arkusza').toBe(true)
+    await touchDrag(page, start, 0, -250)
     // `touchDrag` wraca, zanim strona obsłuży gest: na obciążonej maszynie (programowy WebGL) ramki przewijania dzielą
     // sekundy. Czekamy na stan pochodny arkusza (`data-snap`, ustala się po ciszy w `scroll`), nie na `scrollend` —
     // Chromium po dotykowym przewijaniu z `scroll-snap` bywa go nie wysłać (zmierzone: `scroll` dojechał do „half”,
@@ -813,7 +820,7 @@ for (const [label, viewport] of [
     test('overview keeps summaries and objects without layer filters or list toggle', async ({ page }) => {
       await openMap(page)
       await expect(page.getByRole('button', { name: 'Lista', exact: true })).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Z utrudnieniami' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Z utrudnieniami', exact: true })).toBeVisible()
       const overview = page.getByRole('region', { name: OVERVIEW })
       await expect(overview).toBeVisible()
       await expect(overview.getByText(/Pozycje sprzed /)).toBeVisible({ timeout: READY })
@@ -1095,7 +1102,7 @@ test('motyw jasny → ciemny → jasny: zaznaczenie i ukryte warstwy zostają, p
     // Odczyt pozycji pojazdów jest okresowy (15 s) i nie ma związku z motywem — pomijamy go, reszta (rozkład, przystanki, kolej, tablice) nie może ruszyć.
     if (/^\/api\/(train|board|gtfs|rail-stations)/.test(pathname) && !pathname.endsWith('/city-vehicles')) dataCalls.push(pathname)
   })
-  const map = await openMap(page, `${CITY_MAP}?hide=buses`)
+  const map = await openMap(page, `${CITY_MAP}?hide=buses&mode=tram&vehicles=0&rail=0`)
   const list = await openVisibleList(page)
   await list.getByRole('button', { name: /^Linia 20/ }).first().click({ timeout: READY })
   // The selected object moves between the desktop aside and phone sheet on resize.
@@ -1112,8 +1119,9 @@ test('motyw jasny → ciemny → jasny: zaznaczenie i ukryte warstwy zostają, p
     await changeTheme(page, button)
     await expect(html).toHaveClass(new RegExp(theme))
     await expect(card).toBeVisible() // zaznaczony pojazd zostaje
-    await expect(page).not.toHaveURL(/[?&]hide=/) // retired layer parameters are normalized
-    await expect(page.getByRole('list', { name: 'Aktywne filtry' }).getByText('Ukryte: autobusy')).toBeVisible()
+    // Every transport layer stays available; retired visibility restrictions never return after a theme change.
+    for (const key of ['hide', 'mode', 'vehicles', 'rail']) expect(new URL(page.url()).searchParams.has(key)).toBe(false)
+    await expect(page.getByText('Ukryte: autobusy', { exact: true })).toHaveCount(0)
     await expectTilesRendered(map) // nowy podkład narysowany, kamera i warstwy nie zniknęły
     await page.setViewportSize({ width: theme === 'dark' ? 1440 : 375, height: 900 })
     await expect(card).toBeVisible()

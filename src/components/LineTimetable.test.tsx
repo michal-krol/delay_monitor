@@ -40,7 +40,7 @@ const dayChips = () => within(screen.getByRole('group', { name: 'Kategoria dnia'
 describe('LineTimetable — categories', () => {
   it('offers the three weekly categories as chips, „Dni robocze” pressed by default', () => {
     renderTimetable()
-    expect(dayChips().getAllByRole('button').map((b) => b.textContent)).toEqual(['Dni robocze', 'Soboty', 'Niedziele i święta'])
+    expect(dayChips().getAllByRole('button').map((b) => b.textContent)).toEqual(['Pon–Pt', 'Sb', 'Nd'])
     expect(dayChips().getByRole('button', { name: 'Dni robocze' })).toHaveAttribute('aria-pressed', 'true')
     expect(dayChips().getByRole('button', { name: 'Soboty' })).toHaveAttribute('aria-pressed', 'false')
   })

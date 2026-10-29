@@ -50,7 +50,7 @@ test('variant-only stop: board badge opens actual stop timetable and minute sele
   const badge = page.getByTestId('departure-list').getByRole('link', { name: 'Linia 20', exact: true })
   await expect(badge).toHaveAttribute('href', /stop=700201/)
   await badge.click()
-  await expect(page.getByRole('group', { name: 'Wybrany rozkład' })).toContainText('Rondo ONZ 02')
+  await expect(page.getByRole('heading', { level: 2, name: 'Rozkład: Rondo ONZ 02' })).toBeVisible()
   if ((page.viewportSize()?.width ?? 1280) < 1024) {
     const panes = page.getByRole('group', { name: 'Widok linii' })
     await panes.getByRole('button', { name: 'Trasa', exact: true }).click()
@@ -59,7 +59,7 @@ test('variant-only stop: board badge opens actual stop timetable and minute sele
     await expect(page).toHaveURL(/stop=700201/)
   }
   await page.reload()
-  await expect(page.getByRole('group', { name: 'Wybrany rozkład' })).toContainText('Rondo ONZ 02')
+  await expect(page.getByRole('heading', { level: 2, name: 'Rozkład: Rondo ONZ 02' })).toBeVisible()
   await page.getByRole('link', { name: /00:10, Poniedziałek/ }).click()
   await expect(page).toHaveURL(/trip=loop.*stop=700201.*seq=2/)
   await expect(page.getByRole('heading', { name: /Trasa linii · 3 przystanki/ })).toBeVisible()
